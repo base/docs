@@ -14,45 +14,14 @@ is found within `chain/security`. So the URL for this link will be:
 
 Follow these steps to run Base-Docs locally:
 
-1. Make sure you have installed all dependencies by running `yarn install` at
-the top-level of the monorepo
+1. Clone repo
 
-2. Start the base-docs workspace with the following command: `yarn workspace @app/base-docs dev`
+2. Enable yarn by running `corepack enable`
 
+3. Make sure you have installed all dependencies by running `yarn install` at
+the top-level
 
-# Building Docs Locally
+4. `yarn build`
 
-Follow these steps to build Base-Docs locally:
+4. Start development server by running `yarn dev`
 
-1. Make sure you have installed all dependencies by running `yarn install` at
-the top-level of the monorepo
-
-2. Navigate into the base-docs service and then build the Vocs site:
-```
-cd apps/base-docs
-yarn build
-```
-
-3. Start the local build: `yarn preview`
-
-
-# Troubleshooting
-
-You may encounter an error of the form:
-```
-TypeError: Cannot destructure property 'CookieBanner' of 'pkg' as it is undefined.
-```
-
-To resolve this:
-1. navigate to `apps/base-docs/docs/contexts/CookieBannerWrapper.tsx`
-
-2. comment out the lines:
-```
-import pkg from '@coinbase/cookie-banner';
-const { CookieBanner } = pkg;
-```
-
-3. add the following line:
-```
-import { CookieBanner } from '@coinbase/cookie-banner';
-```
