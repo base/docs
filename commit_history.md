@@ -10,3 +10,9 @@
 - Added guides for popular developer toolings like Hardhat, Foundry, and Thirdweb.
 - Drafted deployment templates for ERC-20 and ERC-721 smart contracts.
 - Integrated automated verification tool instructions.
+
+## 2025
+### Q2 2025 - Cross-chain Bridging & L2 Interoperability
+- Detailed bridging concepts between Ethereum L1 and Base L2.
+- Wrote step-by-step guides for custom bridge contract implementations.
+- Documented cross-chain message passing mechanisms and security practices.
