@@ -1,0 +1,394 @@
+---
+title: 'Accept Crypto Payments with Coinbase Commerce & OnchainKit'
+sidebarTitle: 'Accept Crypto Payments'
+description: 'Learn how to integrate Coinbase Commerce payments into your application using OnchainKit to eliminate traditional fees and expand your global reach.'
+---
+
+Accepting crypto payments can help you **eliminate traditional credit card fees** and **avoid costly chargebacks**, giving you a faster, more global payment experience. In this guide, you'll learn how to quickly integrate Coinbase Commerce and OnchainKit to accept crypto payments for products or services in your application.
+
+## What You'll Build
+
+By the end of this guide, you'll have a fully functional checkout flow that:
+
+- Displays your product with an attractive interface
+- Connects users' wallets securely
+- Processes crypto payments through Coinbase Commerce
+- Provides real-time payment status updates
+
+<CardGroup cols={2}>
+  <Card title="Eliminate Fees" icon="credit-card">
+    Remove traditional credit card processing fees and chargebacks
+  </Card>
+  <Card title="Global Reach" icon="globe">
+    Accept payments from crypto users worldwide, 24/7
+  </Card>
+  <Card title="Fast Settlement" icon="bolt">
+    Receive payments instantly with blockchain confirmation
+  </Card>
+  <Card title="Easy Integration" icon="code">
+    Get started in minutes with OnchainKit components
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before you begin, ensure you have the following accounts and tools set up:
+
+<Steps>
+  <Step title="Coinbase Commerce Account">
+    [Sign up for Coinbase Commerce](https://beta.commerce.coinbase.com/sign-up) to accept cryptocurrency payments globally.
+    
+    <Check>
+    You'll need this to create products and manage payments.
+    </Check>
+  </Step>
+  
+  <Step title="Coinbase Developer Platform Account">
+    [Create a CDP account](https://www.coinbase.com/cloud) to access OnchainKit APIs and services.
+    
+    <Tip>
+    CDP provides the infrastructure for seamless crypto integrations.
+    </Tip>
+  </Step>
+  
+  <Step title="Reown (WalletConnect) Account">
+    [Set up Reown](https://cloud.reown.com/) (formerly WalletConnect) for secure wallet connections across devices and platforms.
+  </Step>
+</Steps>
+
+## Implementation Guide
+
+<Steps>
+  <Step title="Create Your Product in Coinbase Commerce">
+    
+    First, you'll create a product in Coinbase Commerce that represents what you're selling.
+
+    1. **Log in** to your [Coinbase Commerce dashboard](https://beta.commerce.coinbase.com/)
+    2. Navigate to the [product creation page](https://beta.commerce.coinbase.com/products)
+    3. **Fill in your product details**:
+       - Product name (clear and descriptive)
+       - Description (what customers are buying)
+       - Price (in your preferred currency)
+    4. Click **Create product**
+    5. Once created, select **View product** and copy the **UUID** from the URL
+
+    <Frame>
+      ![Create product screenshot](/images/onchainkit-tutorials/pay-create-product-details.png)
+    </Frame>
+
+    <Tip>
+    Save the product UUID immediately - you'll need it as an environment variable. The UUID appears in the product URL after creation.
+    </Tip>
+  </Step>
+
+  <Step title="Set Up Your Development Environment">
+    
+    Clone the official OnchainKit app template to get started quickly with best practices already configured.
+
+    <CodeGroup>
+    ```bash Bun
+    git clone https://github.com/coinbase/onchainkit-app-template.git
+    cd onchainkit-app-template
+    bun install
+    ```
+
+    ```bash npm
+    git clone https://github.com/coinbase/onchainkit-app-template.git
+    cd onchainkit-app-template
+    npm install
+    ```
+
+    ```bash Yarn
+    git clone https://github.com/coinbase/onchainkit-app-template.git
+    cd onchainkit-app-template
+    yarn install
+    ```
+    </CodeGroup>
+
+    <Check>
+    Verify the installation completed successfully by running `ls` to see the project files.
+    </Check>
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    
+    Create your environment configuration with the required API keys and identifiers.
+
+    In your project root, create or update your `.env.local` file:
+
+    ```bash .env.local
+    # Coinbase Commerce Product ID (from Step 1)
+    NEXT_PUBLIC_PRODUCT_ID=your_product_uuid_here
+
+    # Coinbase Developer Platform API Key
+    NEXT_PUBLIC_ONCHAINKIT_API_KEY=your_cdp_api_key_here
+
+    # Reown (WalletConnect) Project ID
+    NEXT_PUBLIC_WC_PROJECT_ID=your_walletconnect_project_id_here
+
+    # Disable Next.js telemetry (optional)
+    NEXT_TELEMETRY_DISABLED=1
+    ```
+
+    <Warning>
+    Never commit API keys to version control. Add `.env.local` to your `.gitignore` file.
+    </Warning>
+
+    <Tip>
+    Use descriptive variable names and keep them organized with comments for team members.
+    </Tip>
+  </Step>
+
+  <Step title="Configure Smart Wallet Integration">
+    
+    Set up Wagmi to prioritize smart wallets for better user experience.
+
+    Update your Wagmi configuration file (typically `src/app/wagmi.ts`):
+
+    ```typescript src/app/wagmi.ts
+    // ... existing Wagmi configuration
+
+    // After your useMemo() hook, add:
+    coinbaseWallet.preference = 'smartWalletOnly';
+    ```
+
+    <Note>
+    This configuration ensures users connect with smart wallets, which provide enhanced security and better UX.
+    </Note>
+  </Step>
+
+  <Step title="Set Up OnchainKit Provider">
+    
+    Configure the OnchainKit provider to connect with Base network and your CDP API key.
+
+    Update `src/app/components/OnchainProviders.tsx`:
+
+    ```typescript src/app/components/OnchainProviders.tsx
+    'use client';
+    import { OnchainKitProvider } from '@coinbase/onchainkit';
+    import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+    import type { ReactNode } from 'react';
+    import { base } from 'viem/chains';
+    import { WagmiProvider } from 'wagmi';
+    import { useWagmiConfig } from '../wagmi';
+
+    type Props = { children: ReactNode };
+    const queryClient = new QueryClient();
+
+    function OnchainProviders({ children }: Props) {
+      const wagmiConfig = useWagmiConfig();
+      
+      return (
+        <WagmiProvider config={wagmiConfig}>
+          <QueryClientProvider client={queryClient}>
+            <OnchainKitProvider
+              apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+              chain={base}
+            >
+              <RainbowKitProvider modalSize='compact'>
+                {children}
+              </RainbowKitProvider>
+            </OnchainKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      );
+    }
+
+    export default OnchainProviders;
+    ```
+
+    Update your configuration file to handle environment variables properly:
+
+    ```typescript Config.ts
+    export const NEXT_PUBLIC_URL =
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000'
+        : 'https://your-app-domain.vercel.app'; // Replace with your actual domain
+
+    export const NEXT_PUBLIC_CDP_API_KEY =
+      process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY;
+
+    export const NEXT_PUBLIC_WC_PROJECT_ID =
+      process.env.NEXT_PUBLIC_WC_PROJECT_ID;
+    ```
+
+    <Tip>
+    Using environment variables makes your app more secure and easier to deploy across different environments.
+    </Tip>
+  </Step>
+
+  <Step title="Implement the Payment Interface">
+    
+    Create an attractive payment interface that showcases your product and handles the checkout flow.
+
+    Update your main page (`src/app/page.tsx`):
+
+    ```typescript src/app/page.tsx
+    import { Checkout, CheckoutButton, CheckoutStatus } from '@coinbase/onchainkit/checkout';
+    import Image from 'next/image';
+
+    const productId = process.env.NEXT_PUBLIC_PRODUCT_ID;
+
+    export default function PaymentPage() {
+      return (
+        <main className="flex min-h-screen flex-col items-center justify-center p-4">
+          <div className="max-w-2xl w-full">
+            {/* Product showcase section */}
+            <section className="flex w-full flex-col items-center justify-center gap-6 rounded-xl bg-gradient-to-b from-blue-50 to-white p-8 shadow-lg">
+              
+              {/* Product image container */}
+              <div className="flex h-[400px] w-[400px] max-w-full items-center justify-center rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 shadow-xl">
+                <div className="rounded-lg bg-white p-4 shadow-inner">
+                  <Image 
+                    src="/your-product-image.jpg" 
+                    width={320} 
+                    height={320} 
+                    alt="Product image" 
+                    className="rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Product information */}
+              <div className="text-center space-y-2">
+                <h1 className="text-2xl font-bold text-gray-900">Your Amazing Product</h1>
+                <p className="text-gray-600">High-quality product with crypto payment support</p>
+              </div>
+
+              {/* Payment section */}
+              <div className="w-full max-w-md">
+                {address ? (
+                  <Checkout productId={productId}>
+                    <CheckoutButton 
+                      coinbaseBranded={true}
+                      className="w-full"
+                    />
+                    <CheckoutStatus />
+                  </Checkout>
+                ) : (
+                  <WalletWrapper 
+                    className="w-full" 
+                    text="Connect wallet to purchase" 
+                  />
+                )}
+              </div>
+            </section>
+          </div>
+        </main>
+      );
+    }
+    ```
+
+    <Warning>
+    Make sure to add your product image to the `public` folder and update the image path accordingly.
+    </Warning>
+
+    <Check>
+    The conditional rendering prevents errors when no wallet is connected, providing a smooth user experience.
+    </Check>
+  </Step>
+
+  <Step title="Test and Deploy Your Application">
+    
+    Test your payment flow locally before deploying to production.
+
+    **Local Testing:**
+
+    <CodeGroup>
+    ```bash Bun
+    bun run dev
+    ```
+
+    ```bash npm
+    npm run dev
+    ```
+
+    ```bash Yarn
+    yarn dev
+    ```
+    </CodeGroup>
+
+    1. **Visit** `http://localhost:3000`
+    2. **Connect your wallet** using the wallet connection button
+    3. **Test the checkout flow** with a small amount
+    4. **Verify payment status** updates correctly
+
+    <Frame>
+      ![Final product screenshot](/images/onchainkit-tutorials/pay-final-product.png)
+    </Frame>
+
+    **Production Deployment:**
+
+    1. **Update your configuration** with production URLs
+    2. **Deploy to your preferred platform** (Vercel, Netlify, etc.)
+    3. **Test the live application** with real transactions
+    4. **Monitor payment confirmations** in your Coinbase Commerce dashboard
+
+    <Tip>
+    Start with testnet transactions to ensure everything works before going live with mainnet.
+    </Tip>
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Wallet connection issues">
+    **Common solutions:**
+    - Ensure your WalletConnect project ID is correctly configured
+    - Check that your wallet extension is updated to the latest version
+    - Try connecting with a different wallet provider
+    - Clear your browser cache and cookies
+  </Accordion>
+
+  <Accordion title="Payment not processing">
+    **Check these items:**
+    - Verify your product ID matches exactly with Coinbase Commerce
+    - Ensure your CDP API key has the necessary permissions
+    - Confirm the user has sufficient funds for the transaction
+    - Check network connectivity and blockchain status
+  </Accordion>
+
+  <Accordion title="Environment variable errors">
+    **Configuration checklist:**
+    - All required environment variables are set in `.env.local`
+    - No extra spaces or quotes around variable values
+    - File is in the project root directory
+    - Restart your development server after making changes
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you have crypto payments working, consider these enhancements:
+
+<CardGroup cols={2}>
+  <Card title="Add Multiple Products" icon="grid">
+    Scale your setup to handle multiple products and services
+  </Card>
+  <Card title="Implement Webhooks" icon="webhook">
+    Set up payment confirmation webhooks for automated processing
+  </Card>
+  <Card title="Analytics Dashboard" icon="chart-line">
+    Track payment metrics and customer behavior
+  </Card>
+  <Card title="Multi-chain Support" icon="link">
+    Accept payments on multiple blockchain networks
+  </Card>
+</CardGroup>
+
+## Conclusion
+
+Congratulations! You've successfully integrated Coinbase Commerce and OnchainKit into your application. Your users can now make crypto payments, giving you access to:
+
+✅ **Zero traditional payment fees and chargebacks**  
+✅ **Global customer reach with 24/7 payment processing**  
+✅ **Instant settlement with blockchain confirmation**  
+✅ **Enhanced security through smart wallet integration**
+
+**Ready to scale?** Consider expanding to multiple products, implementing automated fulfillment, or adding analytics to track your crypto payment performance.
+
+<Check>
+Your application now supports the future of global payments. Happy building on Base!
+</Check>

@@ -1,0 +1,99 @@
+---
+title: "wallet_connect"
+description: "Connect wallet and request account access"
+---
+
+Custom Coinbase Wallet method for establishing connection
+
+<Info>
+Requests that the wallet connects to the dApp and provides account access. This is similar to `eth_requestAccounts` but provides additional connection features.
+</Info>
+
+## Parameters
+
+<ParamField body="options" type="object">
+Optional configuration object for the connection.
+
+<Expandable title="Options properties">
+<ParamField body="version" type="string">
+The wallet connect version to use.
+</ParamField>
+
+<ParamField body="jsonrpc" type="string">
+The JSON-RPC version (typically "2.0").
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+Connection result object containing account information.
+
+<Expandable title="Result properties">
+<ResponseField name="accounts" type="array">
+Array of connected account addresses.
+</ResponseField>
+
+<ResponseField name="chainId" type="string">
+The current chain ID as a hexadecimal string.
+</ResponseField>
+
+<ResponseField name="isConnected" type="boolean">
+Whether the wallet is connected.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Basic Connection
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_connect",
+  "params": [{}]
+}
+```
+
+```json With Options
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_connect",
+  "params": [{
+    "version": "1.0",
+    "jsonrpc": "2.0"
+  }]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "accounts": ["0x407d73d8a49eeb85d32cf465507dd71d507100c1"],
+    "chainId": "0x1",
+    "isConnected": true
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message                        | Description |
+| ---- | ------------------------------ | ----------- |
+| 4001 | User rejected the request      | User denied the connection request |
+| 4100 | Requested method not supported | The method is not supported by the wallet |
+| 4200 | Wallet not available           | The wallet is not installed or available |
+
+<Warning>
+This is a Coinbase Wallet-specific method and may not be available in other wallets.
+</Warning>
+
+<Info>
+After successful connection, the wallet will emit connection events and provide access to account information.
+</Info>

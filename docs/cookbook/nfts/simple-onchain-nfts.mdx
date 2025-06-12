@@ -1,0 +1,619 @@
+---
+title: Simple Onchain NFTs
+sidebarTitle: Simple NFTs
+description: 'Create basic NFT collections with metadata stored fully onchain for permanence and decentralization'
+---
+
+Build NFT collections where all metadata lives onchain for true decentralization and permanence. This approach ensures your NFTs remain accessible forever, regardless of external hosting or IPFS availability.
+
+<CardGroup cols={2}>
+  <Card title="Onchain Benefits" icon="chain" href="#why-onchain-metadata">
+    Understand the advantages of storing metadata onchain
+  </Card>
+  <Card title="Smart Contract" icon="code" href="#smart-contract-implementation">
+    Deploy your onchain NFT contract
+  </Card>
+  <Card title="Metadata Standards" icon="database" href="#metadata-structure">
+    Structure your onchain metadata properly
+  </Card>
+  <Card title="Minting Interface" icon="window" href="#building-mint-interface">
+    Create a user-friendly minting experience
+  </Card>
+</CardGroup>
+
+## Why Onchain Metadata?
+
+Traditional NFTs store metadata on centralized servers or IPFS, creating potential points of failure. Onchain metadata ensures true permanence and decentralization.
+
+<Info>
+**Onchain vs Offchain Comparison**
+
+- **Onchain**: Metadata stored in smart contract, permanent, higher gas costs
+- **Offchain**: Metadata on IPFS/servers, lower gas costs, potential availability issues
+- **Hybrid**: Critical data onchain, detailed media offchain
+</Info>
+
+### Benefits of Onchain NFTs
+
+<Check>
+**Permanent Access**: Metadata exists as long as the blockchain exists
+</Check>
+<Check>
+**True Decentralization**: No reliance on external hosting services
+</Check>
+<Check>
+**Composability**: Other contracts can easily read and use metadata
+</Check>
+<Check>
+**Transparency**: All data is publicly verifiable onchain
+</Check>
+
+## Prerequisites
+
+Before building your onchain NFT collection:
+
+<Check>
+Understanding of Solidity and smart contract development
+</Check>
+<Check>
+Foundry or Hardhat development environment
+</Check>
+<Check>
+Base testnet ETH for deployment testing
+</Check>
+<Check>
+Basic knowledge of JSON and Base64 encoding
+</Check>
+
+## Smart Contract Implementation
+
+### Basic Onchain NFT Contract
+
+Here's a foundational contract that stores all metadata onchain:
+
+```solidity contracts/SimpleOnchainNFT.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
+
+contract SimpleOnchainNFT is ERC721, Ownable {
+    using Strings for uint256;
+    
+    uint256 private _tokenIdCounter;
+    mapping(uint256 => NFTMetadata) private _tokenMetadata;
+    
+    struct NFTMetadata {
+        string name;
+        string description;
+        string image; // Can be SVG data or onchain-generated art
+        string[] attributes;
+    }
+    
+    event NFTMinted(address indexed to, uint256 indexed tokenId, string name);
+    
+    constructor(address initialOwner) 
+        ERC721("Simple Onchain NFT", "SONFT") 
+        Ownable(initialOwner) 
+    {}
+    
+    function mint(
+        address to,
+        string memory name,
+        string memory description,
+        string memory image,
+        string[] memory attributes
+    ) public onlyOwner {
+        uint256 tokenId = _tokenIdCounter++;
+        
+        _tokenMetadata[tokenId] = NFTMetadata({
+            name: name,
+            description: description,
+            image: image,
+            attributes: attributes
+        });
+        
+        _safeMint(to, tokenId);
+        emit NFTMinted(to, tokenId, name);
+    }
+    
+    function tokenURI(uint256 tokenId) 
+        public 
+        view 
+        override 
+        returns (string memory) 
+    {
+        require(_exists(tokenId), "Token does not exist");
+        
+        NFTMetadata memory metadata = _tokenMetadata[tokenId];
+        
+        // Build JSON metadata
+        bytes memory json = abi.encodePacked(
+            '{"name":"', metadata.name,
+            '","description":"', metadata.description,
+            '","image":"', metadata.image,
+            '","attributes":[', _buildAttributes(metadata.attributes),
+            ']}'
+        );
+        
+        // Encode as base64 data URI
+        return string(
+            abi.encodePacked(
+                "data:application/json;base64,",
+                Base64.encode(json)
+            )
+        );
+    }
+    
+    function _buildAttributes(string[] memory attributes) 
+        private 
+        pure 
+        returns (string memory) 
+    {
+        if (attributes.length == 0) return "";
+        
+        bytes memory result;
+        for (uint256 i = 0; i < attributes.length; i += 2) {
+            if (i > 0) result = abi.encodePacked(result, ",");
+            
+            if (i + 1 < attributes.length) {
+                result = abi.encodePacked(
+                    result,
+                    '{"trait_type":"', attributes[i],
+                    '","value":"', attributes[i + 1], '"}'
+                );
+            }
+        }
+        return string(result);
+    }
+    
+    function getMetadata(uint256 tokenId) 
+        public 
+        view 
+        returns (NFTMetadata memory) 
+    {
+        require(_exists(tokenId), "Token does not exist");
+        return _tokenMetadata[tokenId];
+    }
+    
+    function totalSupply() public view returns (uint256) {
+        return _tokenIdCounter;
+    }
+}
+```
+
+### Generative Art Contract
+
+For purely generative onchain art:
+
+```solidity contracts/GenerativeOnchainNFT.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
+
+contract GenerativeOnchainNFT is ERC721, Ownable {
+    using Strings for uint256;
+    
+    uint256 private _tokenIdCounter;
+    uint256 public constant MAX_SUPPLY = 1000;
+    uint256 public constant MINT_PRICE = 0.01 ether;
+    
+    // Colors for generative art
+    string[] private colors = ["red", "blue", "green", "purple", "orange", "yellow"];
+    string[] private shapes = ["circle", "square", "triangle", "diamond"];
+    
+    constructor(address initialOwner) 
+        ERC721("Generative Onchain Art", "GOA") 
+        Ownable(initialOwner) 
+    {}
+    
+    function mint() public payable {
+        require(_tokenIdCounter < MAX_SUPPLY, "Max supply reached");
+        require(msg.value >= MINT_PRICE, "Insufficient payment");
+        
+        uint256 tokenId = _tokenIdCounter++;
+        _safeMint(msg.sender, tokenId);
+    }
+    
+    function tokenURI(uint256 tokenId) 
+        public 
+        view 
+        override 
+        returns (string memory) 
+    {
+        require(_exists(tokenId), "Token does not exist");
+        
+        // Generate deterministic traits based on tokenId
+        uint256 seed = uint256(keccak256(abi.encodePacked(tokenId, block.timestamp)));
+        
+        string memory color = colors[seed % colors.length];
+        string memory shape = shapes[(seed >> 8) % shapes.length];
+        uint256 size = (seed % 100) + 50; // Size between 50-149
+        
+        // Generate SVG
+        string memory svg = generateSVG(tokenId, color, shape, size);
+        
+        // Build metadata JSON
+        bytes memory json = abi.encodePacked(
+            '{"name":"Generative Art #', tokenId.toString(),
+            '","description":"Fully onchain generative art",',
+            '"image":"data:image/svg+xml;base64,', Base64.encode(bytes(svg)),
+            '","attributes":[',
+            '{"trait_type":"Color","value":"', color, '"},',
+            '{"trait_type":"Shape","value":"', shape, '"},',
+            '{"trait_type":"Size","value":', size.toString(), '}',
+            ']}'
+        );
+        
+        return string(
+            abi.encodePacked(
+                "data:application/json;base64,",
+                Base64.encode(json)
+            )
+        );
+    }
+    
+    function generateSVG(
+        uint256 tokenId,
+        string memory color,
+        string memory shape,
+        uint256 size
+    ) private pure returns (string memory) {
+        string memory shapeElement;
+        
+        if (keccak256(bytes(shape)) == keccak256(bytes("circle"))) {
+            shapeElement = string(
+                abi.encodePacked(
+                    '<circle cx="150" cy="150" r="', size.toString(),
+                    '" fill="', color, '"/>'
+                )
+            );
+        } else if (keccak256(bytes(shape)) == keccak256(bytes("square"))) {
+            uint256 x = 150 - (size / 2);
+            uint256 y = 150 - (size / 2);
+            shapeElement = string(
+                abi.encodePacked(
+                    '<rect x="', x.toString(), '" y="', y.toString(),
+                    '" width="', size.toString(), '" height="', size.toString(),
+                    '" fill="', color, '"/>'
+                )
+            );
+        }
+        // Add more shapes as needed
+        
+        return string(
+            abi.encodePacked(
+                '<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">',
+                '<rect width="100%" height="100%" fill="white"/>',
+                '<text x="150" y="30" text-anchor="middle" font-family="Arial" font-size="16">',
+                'Generative Art #', tokenId.toString(),
+                '</text>',
+                shapeElement,
+                '</svg>'
+            )
+        );
+    }
+    
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
+```
+
+## Metadata Structure
+
+### Standard JSON Metadata
+
+Follow the OpenSea metadata standard for compatibility:
+
+```json metadata-example.json
+{
+  "name": "Simple Onchain NFT #1",
+  "description": "A beautiful NFT with metadata stored entirely onchain",
+  "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIi...",
+  "attributes": [
+    {
+      "trait_type": "Color",
+      "value": "Blue"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Common"
+    },
+    {
+      "trait_type": "Size",
+      "value": "Large"
+    }
+  ]
+}
+```
+
+### SVG Image Generation
+
+Create dynamic SVG images in your smart contract:
+
+```solidity utils/SVGGenerator.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+library SVGGenerator {
+    function generateBackground(string memory color) 
+        internal 
+        pure 
+        returns (string memory) 
+    {
+        return string(
+            abi.encodePacked(
+                '<rect width="100%" height="100%" fill="', color, '"/>'
+            )
+        );
+    }
+    
+    function generateText(
+        string memory text,
+        uint256 x,
+        uint256 y,
+        string memory color
+    ) internal pure returns (string memory) {
+        return string(
+            abi.encodePacked(
+                '<text x="', x.toString(), '" y="', y.toString(),
+                '" fill="', color, '" font-family="Arial" font-size="16">',
+                text,
+                '</text>'
+            )
+        );
+    }
+    
+    function wrapSVG(string memory content) 
+        internal 
+        pure 
+        returns (string memory) 
+    {
+        return string(
+            abi.encodePacked(
+                '<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">',
+                content,
+                '</svg>'
+            )
+        );
+    }
+}
+```
+
+## Building Mint Interface
+
+### Next.js Minting App
+
+Create a user-friendly interface for minting:
+
+```typescript app/mint/page.tsx
+'use client'
+
+import { useState } from 'react'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { parseEther } from 'viem'
+
+const CONTRACT_ADDRESS = '0x...' // Your deployed contract address
+const ABI = [...] // Your contract ABI
+
+export default function MintPage() {
+  const { address, isConnected } = useAccount()
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const { writeContract, data: hash } = useWriteContract()
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
+  
+  const handleMint = async () => {
+    if (!isConnected) return
+    
+    setIsLoading(true)
+    
+    try {
+      writeContract({
+        abi: ABI,
+        address: CONTRACT_ADDRESS,
+        functionName: 'mint',
+        value: parseEther('0.01'),
+      })
+    } catch (error) {
+      console.error('Mint failed:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  return (
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
+      <h1 className="text-2xl font-bold mb-6">Mint Onchain NFT</h1>
+      
+      <div className="mb-6">
+        <div className="bg-gray-100 p-4 rounded-lg">
+          <h3 className="font-semibold mb-2">Collection Details</h3>
+          <p className="text-sm text-gray-600 mb-2">
+            Generative Onchain Art - Each NFT is unique and generated entirely onchain
+          </p>
+          <p className="text-sm">
+            <strong>Price:</strong> 0.01 ETH
+          </p>
+        </div>
+      </div>
+      
+      {!isConnected ? (
+        <p className="text-center text-gray-600">
+          Connect your wallet to mint
+        </p>
+      ) : (
+        <button
+          onClick={handleMint}
+          disabled={isLoading || isConfirming}
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg 
+                   disabled:opacity-50 disabled:cursor-not-allowed
+                   hover:bg-blue-700 transition-colors"
+        >
+          {isLoading || isConfirming ? 'Minting...' : 'Mint NFT'}
+        </button>
+      )}
+      
+      {isSuccess && (
+        <div className="mt-4 p-4 bg-green-100 rounded-lg">
+          <p className="text-green-700 text-center">
+            NFT minted successfully! 🎉
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+### Display NFT Collection
+
+```typescript components/NFTGallery.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useReadContract } from 'wagmi'
+
+interface NFT {
+  tokenId: number
+  name: string
+  image: string
+  attributes: Array<{ trait_type: string; value: string }>
+}
+
+export function NFTGallery({ contractAddress }: { contractAddress: string }) {
+  const [nfts, setNfts] = useState<NFT[]>([])
+  
+  const { data: totalSupply } = useReadContract({
+    abi: ABI,
+    address: contractAddress,
+    functionName: 'totalSupply',
+  })
+  
+  useEffect(() => {
+    if (totalSupply) {
+      loadNFTs(Number(totalSupply))
+    }
+  }, [totalSupply])
+  
+  const loadNFTs = async (supply: number) => {
+    const nftPromises = []
+    
+    for (let i = 0; i < supply; i++) {
+      // Load token URI and parse metadata
+      // Implementation depends on your setup
+    }
+    
+    const loadedNFTs = await Promise.all(nftPromises)
+    setNfts(loadedNFTs)
+  }
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {nfts.map((nft) => (
+        <div key={nft.tokenId} className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <img 
+            src={nft.image} 
+            alt={nft.name}
+            className="w-full h-64 object-cover"
+          />
+          <div className="p-4">
+            <h3 className="font-semibold text-lg mb-2">{nft.name}</h3>
+            <div className="space-y-1">
+              {nft.attributes.map((attr, index) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="text-gray-600">{attr.trait_type}:</span>
+                  <span className="font-medium">{attr.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+## Best Practices
+
+### Gas Optimization
+
+<Tip>
+**Optimize Storage**
+
+Store only essential data onchain. Use efficient data structures and consider gas costs when designing your metadata schema.
+</Tip>
+
+1. **Pack Data Efficiently**: Use structs and pack data to minimize storage slots
+2. **Lazy Generation**: Generate images and metadata on-demand in `tokenURI()`
+3. **Batch Operations**: Allow batch minting to reduce per-NFT costs
+4. **Optimize SVG**: Keep SVG code minimal and efficient
+
+### Security Considerations
+
+<Warning>
+**Immutable Data**
+
+Remember that onchain data is permanent and immutable. Thoroughly test your generation logic before deployment.
+</Warning>
+
+1. **Access Controls**: Implement proper access controls for minting functions
+2. **Input Validation**: Validate all inputs to prevent malformed metadata
+3. **Reentrancy Protection**: Use OpenZeppelin's ReentrancyGuard for payable functions
+4. **Audit Code**: Have your contracts audited before mainnet deployment
+
+## Deployment
+
+### Deploy to Base
+
+```bash Terminal
+# Using Foundry
+forge create --rpc-url https://mainnet.base.org \
+  --private-key $PRIVATE_KEY \
+  --verify \
+  contracts/SimpleOnchainNFT.sol:SimpleOnchainNFT \
+  --constructor-args $OWNER_ADDRESS
+```
+
+### Verify Contract
+
+```bash Terminal
+forge verify-contract \
+  --chain base \
+  --compiler-version v0.8.19 \
+  $CONTRACT_ADDRESS \
+  contracts/SimpleOnchainNFT.sol:SimpleOnchainNFT
+```
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="OpenZeppelin Contracts" icon="shield" href="https://docs.openzeppelin.com/contracts/">
+    Secure smart contract building blocks
+  </Card>
+  <Card title="Base64 Encoding" icon="code" href="https://github.com/Brechtpd/base64">
+    Onchain Base64 encoding utilities
+  </Card>
+  <Card title="SVG Specification" icon="image" href="https://developer.mozilla.org/en-US/docs/Web/SVG">
+    Learn SVG for onchain graphics
+  </Card>
+  <Card title="JSON Schema" icon="database" href="https://docs.opensea.io/docs/metadata-standards">
+    NFT metadata standards
+  </Card>
+</CardGroup>
+
+---
+
+Onchain NFTs provide true digital ownership and permanence that can't be achieved with traditional hosted metadata. While they require more careful planning and higher gas costs, they offer unmatched durability and composability for your digital assets. 

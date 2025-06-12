@@ -1,0 +1,106 @@
+---
+title: "eth_feeHistory"
+description: "Get historical gas fee information for a range of blocks"
+---
+
+Defined in [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559)
+
+<Info>
+Returns a collection of historical gas information from which you can recompute gas costs and estimate future gas prices.
+</Info>
+
+## Parameters
+
+<ParamField body="blockCount" type="string" required>
+Number of blocks in the requested range, as a hexadecimal string.
+</ParamField>
+
+<ParamField body="newestBlock" type="string" required>
+Highest block number in the requested range (hexadecimal) or "latest".
+</ParamField>
+
+<ParamField body="rewardPercentiles" type="array" required>
+Array of percentile values to sample from each block's effective priority fees.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+Fee history data object containing gas information.
+
+<Expandable title="Fee history object properties">
+<ResponseField name="oldestBlock" type="string">
+Lowest block number in the range (hexadecimal).
+</ResponseField>
+
+<ResponseField name="baseFeePerGas" type="array">
+Array of block base fees per gas (hexadecimal strings).
+</ResponseField>
+
+<ResponseField name="gasUsedRatio" type="array">
+Array of block gas utilization ratios (numbers between 0 and 1).
+</ResponseField>
+
+<ResponseField name="reward" type="array">
+Array of effective priority fee per gas data points for each block (optional).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_feeHistory",
+  "params": ["0x5", "latest", [20, 70]]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "oldestBlock": "0x1",
+    "baseFeePerGas": [
+      "0x3b9aca00",
+      "0x3ba1f3e2",
+      "0x3a6db1e6"
+    ],
+    "gasUsedRatio": [
+      0.5265,
+      0.4858,
+      0.6124
+    ],
+    "reward": [
+      [
+        "0x3b9aca00",
+        "0x3b9aca00"
+      ],
+      [
+        "0x3ba1f3e2",
+        "0x3b9aca00"
+      ],
+      [
+        "0x3a6db1e6",
+        "0x3b9aca00"
+      ]
+    ]
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code   | Message                        | Description |
+| ------ | ------------------------------ | ----------- |
+| -32602 | Invalid params                 | Invalid block count, block number, or percentiles |
+| 4100   | Requested method not supported | The method is not supported by the wallet |
+
+<Info>
+This method is useful for implementing dynamic fee estimation algorithms and understanding network congestion patterns.
+</Info>

@@ -1,0 +1,180 @@
+---
+title: "eth_getBlockByNumber"
+description: "Get information about a block by block number"
+---
+
+Defined in the [Ethereum JSON-RPC Specification](https://ethereum.org/en/developers/docs/apis/json-rpc/)
+
+<Info>
+Returns information about a block by block number.
+</Info>
+
+## Parameters
+
+<ParamField body="blockParameter" type="string" required>
+Integer block number, or the string "latest", "earliest", "pending", "safe" or "finalized".
+</ParamField>
+
+<ParamField body="fullTransactionObjects" type="boolean" required>
+If true, returns the full transaction objects; if false, returns only the hashes of the transactions.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+A block object, or null when no block was found.
+
+<Expandable title="Block object properties">
+<ResponseField name="number" type="string">
+The block number. null when its pending block.
+</ResponseField>
+
+<ResponseField name="hash" type="string">
+Hash of the block. null when its pending block.
+</ResponseField>
+
+<ResponseField name="parentHash" type="string">
+Hash of the parent block.
+</ResponseField>
+
+<ResponseField name="nonce" type="string">
+Hash of the generated proof-of-work. null when its pending block.
+</ResponseField>
+
+<ResponseField name="sha3Uncles" type="string">
+SHA3 of the uncles data in the block.
+</ResponseField>
+
+<ResponseField name="logsBloom" type="string">
+The bloom filter for the logs of the block. null when its pending block.
+</ResponseField>
+
+<ResponseField name="transactionsRoot" type="string">
+The root of the transaction trie of the block.
+</ResponseField>
+
+<ResponseField name="stateRoot" type="string">
+The root of the final state trie of the block.
+</ResponseField>
+
+<ResponseField name="receiptsRoot" type="string">
+The root of the receipts trie of the block.
+</ResponseField>
+
+<ResponseField name="miner" type="string">
+The address of the beneficiary to whom the mining rewards were given.
+</ResponseField>
+
+<ResponseField name="difficulty" type="string">
+Integer of the difficulty for this block.
+</ResponseField>
+
+<ResponseField name="totalDifficulty" type="string">
+Integer of the total difficulty of the chain until this block.
+</ResponseField>
+
+<ResponseField name="extraData" type="string">
+The "extra data" field of this block.
+</ResponseField>
+
+<ResponseField name="size" type="string">
+Integer the size of this block in bytes.
+</ResponseField>
+
+<ResponseField name="gasLimit" type="string">
+The maximum gas allowed in this block.
+</ResponseField>
+
+<ResponseField name="gasUsed" type="string">
+The total used gas by all transactions in this block.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+The unix timestamp for when the block was collated.
+</ResponseField>
+
+<ResponseField name="transactions" type="array">
+Array of transaction objects, or 32 Bytes transaction hashes depending on the fullTransactionObjects parameter.
+</ResponseField>
+
+<ResponseField name="uncles" type="array">
+Array of uncle hashes.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Latest Block
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockByNumber",
+  "params": [
+    "latest",
+    true
+  ]
+}
+```
+
+```json Specific Block
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockByNumber",
+  "params": [
+    "0x1b4",
+    false
+  ]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "number": "0x1b4",
+    "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+    "parentHash": "0x6c0f2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+    "nonce": "0xe04d296d2460cfb8472af2c5fd05b5a214109c25688d3704aed5484f9a7792f2",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "logsBloom": "0x0e670ec64341...",
+    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "stateRoot": "0xd5855eb08b3387c0af375e9cdb6acfc05eb8f519e419b874b6ff2ffda7ed1dff",
+    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "miner": "0x4e65fda2159562a496f9f3522f89122a3088497a",
+    "difficulty": "0x027f07",
+    "totalDifficulty": "0x027f07",
+    "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "size": "0x027f07",
+    "gasLimit": "0x9f759",
+    "gasUsed": "0x9f759",
+    "timestamp": "0x54e34e8e",
+    "transactions": ["0x..."],
+    "uncles": []
+  }
+}
+```
+
+```json Not Found
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": null
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code   | Message                        | Description |
+| ------ | ------------------------------ | ----------- |
+| -32602 | Invalid block parameter        | The provided block parameter is invalid |
+| 4100   | Requested method not supported | The method is not supported by the wallet |
+
+<Info>
+Block parameter tags: "latest" (most recent block), "earliest" (genesis block), "pending" (next block to be mined), "safe" and "finalized" (post-merge Ethereum blocks).
+</Info>
+

@@ -1,0 +1,460 @@
+---
+title: 'Launch AI Agents on Base'
+description: 'Learn how to build and deploy autonomous AI agents on Base with access to stablecoins, tokens, NFTs, and onchain actions using CDP AgentKit.'
+---
+
+import LangChainReplitInstructions from '/snippets/ai-instructions/langchain-replit.mdx';
+import LangChainLocalInstructions from '/snippets/ai-instructions/langchain-local.mdx';
+import ElizaInstructions from '/snippets/ai-instructions/eliza.mdx';
+
+AI Agents become exponentially more powerful when they're onchain! By deploying AI agents on Base, you unlock access to **stablecoins**, **tokens**, **NFTs**, and a vast ecosystem of **DeFi protocols**. This significantly increases their autonomy and the universe of tasks they can perform, from automated trading to complex multi-step financial operations.
+
+## What You'll Build
+
+By the end of this guide, you'll have deployed a fully functional AI agent that can:
+
+- **Execute onchain transactions** autonomously
+- **Interact with DeFi protocols** for trading and liquidity
+- **Manage digital assets** including tokens and NFTs
+- **Respond to market conditions** with intelligent automation
+
+<CardGroup cols={2}>
+  <Card title="Onchain Autonomy" icon="robot">
+    Agents can execute transactions, trade tokens, and interact with smart contracts
+  </Card>
+  <Card title="DeFi Integration" icon="coins">
+    Access to DEXs, lending protocols, and yield farming opportunities
+  </Card>
+  <Card title="Asset Management" icon="wallet">
+    Manage portfolios, NFT collections, and cross-chain assets
+  </Card>
+  <Card title="Market Intelligence" icon="chart-line">
+    Real-time market analysis and automated trading strategies
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before launching your AI agent, ensure you have the following setup:
+
+<Steps>
+  <Step title="Development Environment">
+    Choose your preferred development environment and ensure you have the necessary tools installed.
+    
+    **For Local Development:**
+    - Node.js 18+ or Python 3.10+
+    - Git for repository management
+    - Code editor (VS Code recommended)
+    
+    **For Replit (Browser-based):**
+    - Replit account for cloud development
+    - No local installation required
+    
+    <Tip>
+    Replit is perfect for quick prototyping, while local development gives you more control and flexibility.
+    </Tip>
+  </Step>
+  
+  <Step title="API Keys and Credentials">
+    Gather the required API keys for your AI agent:
+    
+    - **Coinbase Developer Platform (CDP) API Key**: [Get your CDP credentials](https://www.coinbase.com/cloud)
+    - **OpenAI API Key**: [Create an OpenAI account](https://platform.openai.com/api-keys) for AI capabilities
+    - **Base Network Access**: Your agent will operate on Base Sepolia testnet initially
+    
+    <Warning>
+    Store all API keys securely and never commit them to version control. Use environment variables for all sensitive credentials.
+    </Warning>
+  </Step>
+  
+  <Step title="Understanding Agent Frameworks">
+    Choose the framework that best fits your needs:
+    
+    - **LangChain**: Full-featured framework with extensive integrations
+    - **Eliza**: Lightweight, fast setup for simple agents
+    
+    <Note>
+    Each framework has different strengths. LangChain offers more customization, while Eliza provides rapid deployment.
+    </Note>
+  </Step>
+</Steps>
+
+## Choose Your Agent Framework
+
+Select the framework and environment that best matches your development preferences and project requirements:
+
+<Tabs>
+  <Tab title="LangChain Framework">
+    **LangChain** provides a comprehensive framework for building sophisticated AI agents with extensive tooling and integrations.
+    
+    <Info>
+    **Best for:** Complex agents requiring custom tools, advanced reasoning, and extensive integrations with external services.
+    </Info>
+
+    ### Development Environment
+
+    <Tabs>
+      <Tab title="Replit (Cloud Development)">
+        Perfect for getting started quickly without local setup requirements.
+        
+        <LangChainReplitInstructions/>
+        
+        <Tip>
+        **Replit Advantages:**
+        - No local environment setup required
+        - Built-in collaboration features
+        - Automatic deployment and hosting
+        - Great for learning and prototyping
+        </Tip>
+      </Tab>
+      
+      <Tab title="Local Development">
+        Recommended for production applications and advanced customization.
+        
+        <LangChainLocalInstructions/>
+        
+        <Tip>
+        **Local Development Advantages:**
+        - Full control over your environment
+        - Better performance for intensive operations
+        - Easier integration with existing toolchains
+        - Enhanced security for production applications
+        </Tip>
+      </Tab>
+    </Tabs>
+    
+    ### Advanced LangChain Features
+    
+    Once your basic agent is running, you can enhance it with:
+    
+    <AccordionGroup>
+      <Accordion title="Custom Tools and Actions">
+        ```python
+        # Example: Custom DeFi interaction tool
+        from cdp_langchain.tools import CdpTool
+        
+        class CustomDeFiTool(CdpTool):
+            def __init__(self):
+                super().__init__(
+                    name="defi_analyzer",
+                    description="Analyze DeFi opportunities on Base"
+                )
+        ```
+      </Accordion>
+      
+      <Accordion title="Memory and Persistence">
+        ```python
+        # Add memory to your agent
+        from langchain.memory import ConversationBufferWindowMemory
+        
+        memory = ConversationBufferWindowMemory(
+            k=10,  # Remember last 10 interactions
+            return_messages=True
+        )
+        ```
+      </Accordion>
+      
+      <Accordion title="Multi-Agent Coordination">
+        ```python
+        # Coordinate multiple specialized agents
+        trading_agent = create_trading_agent()
+        portfolio_agent = create_portfolio_agent()
+        
+        # Orchestrate agents for complex strategies
+        coordinator = AgentCoordinator([trading_agent, portfolio_agent])
+        ```
+      </Accordion>
+    </AccordionGroup>
+  </Tab>
+  
+  <Tab title="Eliza Framework">
+    **Eliza** offers the fastest path to deploying AI agents with minimal configuration and maximum speed.
+    
+    <Info>
+    **Best for:** Quick deployments, simple autonomous agents, and rapid prototyping with immediate results.
+    </Info>
+    
+    <ElizaInstructions/>
+    
+    ### Eliza Framework Benefits
+    
+    <CardGroup cols={2}>
+      <Card title="Rapid Deployment" icon="rocket">
+        Get your agent running in under 5 minutes with the CLI tool
+      </Card>
+      <Card title="Minimal Configuration" icon="settings">
+        Pre-configured templates for common agent patterns
+      </Card>
+      <Card title="Built-in Integrations" icon="plug">
+        Native support for popular onchain actions and APIs
+      </Card>
+      <Card title="Community Templates" icon="users">
+        Access to pre-built agent templates from the community
+      </Card>
+    </CardGroup>
+    
+    ### Extending Your Eliza Agent
+    
+    <Steps>
+      <Step title="Add Custom Actions">
+        Extend your agent's capabilities by adding custom onchain actions:
+        
+        ```typescript
+        // Add to your agent's action registry
+        export const customActions = [
+          {
+            name: "YIELD_FARM",
+            description: "Automatically farm yield on Base protocols",
+            handler: async (params) => {
+              // Your yield farming logic
+            }
+          }
+        ];
+        ```
+      </Step>
+      
+      <Step title="Configure Trading Strategies">
+        Implement automated trading strategies:
+        
+        ```typescript
+        export const tradingConfig = {
+          strategies: ["DCA", "MOMENTUM", "ARBITRAGE"],
+          riskLevel: "MODERATE",
+          maxSlippage: 0.01
+        };
+        ```
+      </Step>
+      
+      <Step title="Set Up Monitoring">
+        Add monitoring and alerts for your agent:
+        
+        ```typescript
+        export const monitoringConfig = {
+          alerts: {
+            lowBalance: true,
+            failedTx: true,
+            profitTarget: 0.05
+          }
+        };
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Testing Your AI Agent
+
+Before deploying to mainnet, thoroughly test your agent's capabilities:
+
+<Steps>
+  <Step title="Testnet Validation">
+    **Test all functions on Base Sepolia testnet:**
+    
+    1. **Wallet Operations**: Create wallets, check balances, transfer tokens
+    2. **DeFi Interactions**: Test swaps, liquidity provision, lending
+    3. **NFT Operations**: Mint, transfer, and trade NFTs
+    4. **Error Handling**: Ensure graceful handling of failed transactions
+    
+    <Check>
+    Your agent should handle all basic operations without errors before proceeding.
+    </Check>
+  </Step>
+  
+  <Step title="Performance Testing">
+    **Evaluate agent performance under various conditions:**
+    
+    - Response time to market changes
+    - Transaction success rates
+    - Gas optimization effectiveness
+    - Resource utilization
+    
+    <Tip>
+    Monitor your agent's performance metrics to identify optimization opportunities.
+    </Tip>
+  </Step>
+  
+  <Step title="Security Audit">
+    **Verify security measures are in place:**
+    
+    - API keys are properly secured
+    - Wallet private keys are encrypted
+    - Rate limiting is implemented
+    - Transaction limits are configured
+    
+    <Warning>
+    Never deploy to mainnet without proper security auditing. Consider professional security reviews for high-value operations.
+    </Warning>
+  </Step>
+</Steps>
+
+## Deployment and Monitoring
+
+<Steps>
+  <Step title="Production Deployment">
+    **Deploy your agent to a production environment:**
+    
+    <Tabs>
+      <Tab title="Cloud Deployment">
+        ```bash
+        # Deploy to cloud provider
+        npm run build
+        npm run deploy:production
+        
+        # Set production environment variables
+        export CDP_API_KEY_NAME="your_production_key"
+        export NETWORK_ID="base-mainnet"
+        ```
+      </Tab>
+      
+      <Tab title="Self-Hosted">
+        ```bash
+        # Set up production server
+        pm2 start ecosystem.config.js
+        pm2 startup
+        pm2 save
+        
+        # Configure monitoring
+        pm2 install pm2-logrotate
+        ```
+      </Tab>
+    </Tabs>
+    
+    <Check>
+    Ensure your deployment includes proper logging, monitoring, and backup systems.
+    </Check>
+  </Step>
+  
+  <Step title="Monitoring and Alerts">
+    **Set up comprehensive monitoring:**
+    
+    - **Transaction Monitoring**: Track success rates and gas usage
+    - **Performance Metrics**: Monitor response times and throughput  
+    - **Financial Tracking**: Watch portfolio performance and P&L
+    - **System Health**: Monitor server resources and uptime
+    
+    <Tip>
+    Use tools like Grafana, DataDog, or custom dashboards to visualize your agent's performance.
+    </Tip>
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Agent Not Responding">
+    **Common solutions:**
+    - Check API key validity and permissions
+    - Verify network connectivity to Base RPC endpoints
+    - Ensure sufficient gas funds in agent wallet
+    - Review agent logs for error messages
+    - Confirm OpenAI API quota and rate limits
+  </Accordion>
+  
+  <Accordion title="Transaction Failures">
+    **Debug transaction issues:**
+    - Verify sufficient token balance for operations
+    - Check gas price settings and network congestion
+    - Confirm smart contract addresses are correct
+    - Review transaction simulation results
+    - Validate slippage tolerance settings
+  </Accordion>
+  
+  <Accordion title="Performance Issues">
+    **Optimize agent performance:**
+    - Implement request batching for multiple operations
+    - Use connection pooling for database operations
+    - Cache frequently accessed data
+    - Optimize trading frequency to reduce gas costs
+    - Review and tune AI model parameters
+  </Accordion>
+  
+  <Accordion title="Security Concerns">
+    **Enhance security measures:**
+    - Rotate API keys regularly
+    - Implement transaction signing verification
+    - Set up multi-signature requirements for large transactions
+    - Enable wallet spending limits
+    - Monitor for unusual activity patterns
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Use Cases
+
+Explore advanced patterns for sophisticated AI agents:
+
+<CardGroup cols={2}>
+  <Card title="Arbitrage Bot" icon="exchange">
+    Build agents that identify and execute arbitrage opportunities across DEXs
+  </Card>
+  <Card title="Portfolio Manager" icon="briefcase">
+    Create agents that rebalance portfolios based on market conditions
+  </Card>
+  <Card title="Yield Optimizer" icon="trending-up">
+    Deploy agents that automatically find and compound the best yields
+  </Card>
+  <Card title="NFT Trader" icon="image">
+    Develop agents that analyze and trade NFTs based on market trends
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+Expand your AI agent's capabilities:
+
+<Steps>
+  <Step title="Integrate Additional Protocols">
+    Connect your agent to more DeFi protocols:
+    - **Uniswap** for advanced trading strategies
+    - **Aave** for lending and borrowing
+    - **Compound** for yield generation
+    - **1inch** for optimal trade routing
+  </Step>
+  
+  <Step title="Implement Advanced Strategies">
+    Build sophisticated trading and management strategies:
+    - Dollar-cost averaging (DCA) algorithms
+    - Mean reversion trading
+    - Momentum-based strategies  
+    - Risk-adjusted portfolio rebalancing
+  </Step>
+  
+  <Step title="Add Cross-Chain Capabilities">
+    Extend your agent across multiple chains:
+    - **Ethereum** for additional DeFi access
+    - **Polygon** for low-cost operations
+    - **Arbitrum** for advanced trading
+    - Cross-chain bridging automation
+  </Step>
+</Steps>
+
+## Resources and Community
+
+<CardGroup cols={2}>
+  <Card title="CDP AgentKit Documentation" icon="book" href="https://docs.cdp.coinbase.com/agentkit/docs/welcome">
+    Complete documentation for building agents with CDP
+  </Card>
+  <Card title="Base Developer Discord" icon="discord" href="https://discord.com/invite/buildonbase">
+    Connect with other developers building AI agents on Base
+  </Card>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/coinbase/agentkit">
+    Access source code, examples, and contribute to the project
+  </Card>
+  <Card title="Video Tutorials" icon="video" href="https://www.youtube.com/live/DlRR1focAiw">
+    Watch step-by-step tutorials for agent development
+  </Card>
+</CardGroup>
+
+## Conclusion
+
+Congratulations! You've successfully launched an AI agent on Base with full onchain capabilities. Your agent can now:
+
+✅ **Execute autonomous transactions** with real-world financial impact  
+✅ **Interact with DeFi protocols** for advanced financial operations  
+✅ **Manage digital assets** including tokens and NFTs  
+✅ **Respond intelligently** to market conditions and opportunities
+
+**Ready for production?** Consider implementing advanced monitoring, security audits, and gradual scaling as your agent proves its effectiveness in live markets.
+
+<Check>
+Your AI agent is now part of the onchain economy, ready to operate 24/7 in the world of decentralized finance. Happy building on Base!
+</Check>
