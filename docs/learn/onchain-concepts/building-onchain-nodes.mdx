@@ -1,0 +1,74 @@
+---
+title: "Interacting with the Chain (Node Access)"
+description: "Learn how blockchain node access works via RPC endpoints, comparing self-hosted vs hosted options, and how to integrate Base Node for stable onchain interactions."
+---
+
+Every time you read or write data on Base, you're making calls to a blockchain node via RPC (Remote Procedure Call) endpoints. You can host your own node or rely on a service like Base Node (via CDP). This sub-section explains why node access is crucial, compares self-hosted vs. hosted node options, and shows you how to integrate an RPC endpoint in your application for stable, scalable onchain interactions.
+
+## Why You Need a Node
+
+<Info>
+Under the hood, apps read/write onchain data by making RPC calls to a blockchain node. You can self-host or use a managed service.
+</Info>
+
+Every blockchain interaction requires communication with a node that maintains the complete blockchain ledger. Whether you're checking wallet balances, sending transactions, or reading smart contract state, your application communicates through standardized JSON-RPC methods like `eth_getBalance`, `eth_sendTransaction`, and `eth_call`.
+
+## RPC Endpoints Overview
+
+Base provides public RPC endpoints for development and testing:
+
+| Network | RPC Endpoint | Chain ID | Use Case |
+| :------ | :----------- | :------- | :------- |
+| Base Mainnet | `https://mainnet.base.org` | 8453 | Development only |
+| Base Sepolia | `https://sepolia.base.org` | 84532 | Testing only |
+
+<Warning>
+These public endpoints are **rate-limited** and **not suitable for production systems**. For production applications, use a dedicated node provider or run your own node.
+</Warning>
+
+## Hosted Node Providers
+
+For production applications, choose from Base's ecosystem of trusted node providers:
+
+### Coinbase Developer Platform (CDP)
+**Base Node** (via CDP) provides high-throughput access with a free tier available, plus enterprise-grade options. Built on the same infrastructure powering Coinbase's retail exchange for maximum reliability.
+
+### Popular Provider Options
+- **Alchemy**: Enhanced features, SDKs, free tier with robust JSON-RPC APIs
+- **QuickNode**: Discover Plan with optional "Trace Mode" and "Archive Mode" add-ons
+- **Chainstack**: Elastic RPC nodes with geographically diverse, protected API endpoints
+- **Ankr**: Globally distributed decentralized network with free and paid tiers
+- **OnFinality**: High-performance archive access with generous free tier and high rate limits
+
+<Tip>
+Most providers offer both mainnet and testnet (Sepolia) access. Compare pricing, rate limits, and features like archive data access when selecting a provider.
+</Tip>
+
+## Self-Hosted Base Node
+
+### When to Run Your Own Node
+Consider self-hosting when you need:
+- Complete control over node configuration
+- No external dependencies or rate limits
+- Archive data access for historical queries
+- Custom monitoring and analytics
+
+### Hardware Requirements
+Running a Base node requires significant resources:
+
+- **CPU**: 8-Core processor with good single-core performance
+- **RAM**: Minimum 16 GB (32 GB recommended)
+- **Storage**: NVMe SSD with adequate capacity for chain data plus snapshots
+  - Calculate: `(2 × current_chain_size) + snapshot_size + 20% buffer`
+- **Network**: Stable internet connection with good bandwidth
+
+<Warning>
+Running a node is **time-consuming**, **resource-expensive**, and **potentially costly**. Syncing can take days and consume significant bandwidth.
+</Warning>
+
+### Performance Considerations
+- **Reth vs Geth**: Reth provides significantly better performance in Base's high-throughput environment
+- **Archive Nodes**: Geth archive nodes are no longer supported; use Reth for archive functionality
+- **Snapshots**: Weekly snapshots available to accelerate initial sync process
+- **Storage**: Local NVMe SSDs strongly recommended over networked storage
+

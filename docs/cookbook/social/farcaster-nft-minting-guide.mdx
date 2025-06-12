@@ -1,0 +1,419 @@
+---
+title: Farcaster NFT Minting Guide
+sidebarTitle: Farcaster NFT Minting
+description: 'Comprehensive guide to NFT minting with Farcaster integration'
+---
+
+Build engaging NFT minting experiences by integrating Farcaster Frames with Base smart contracts. This guide shows you how to create seamless social-first minting flows that leverage Farcaster's social graph.
+
+<CardGroup cols={2}>
+  <Card title="Frame Setup" icon="frame" href="#setting-up-farcaster-frames">
+    Configure Farcaster Frames for your NFT collection
+  </Card>
+  <Card title="Smart Contract" icon="code" href="#smart-contract-integration">
+    Deploy and integrate your NFT contract with Frame actions
+  </Card>
+  <Card title="Social Features" icon="users" href="#social-integration">
+    Add social proof and community features to your mint
+  </Card>
+  <Card title="Best Practices" icon="shield-check" href="#best-practices">
+    Security and user experience considerations
+  </Card>
+</CardGroup>
+
+## Overview
+
+Farcaster Frames provide a powerful way to embed interactive NFT minting experiences directly in social feeds. Users can mint NFTs without leaving their Farcaster client, creating frictionless onboarding and viral distribution.
+
+<Info>
+**What are Farcaster Frames?**
+
+Frames are interactive components that can be embedded in Farcaster casts (posts). They support buttons, images, and actions that can trigger onchain transactions directly from the social feed.
+</Info>
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+<Check>
+A deployed NFT contract on Base (or Base Sepolia for testing)
+</Check>
+<Check>
+Basic understanding of Farcaster and Frame development
+</Check>
+<Check>
+Next.js development environment set up
+</Check>
+<Check>
+Farcaster account for testing
+</Check>
+
+## Setting Up Farcaster Frames
+
+### Project Structure
+
+Create a new Frame project or add Frame functionality to your existing Next.js app:
+
+```bash Terminal
+npx create-next-app@latest farcaster-nft-mint
+cd farcaster-nft-mint
+npm install frog hono @coinbase/onchainkit
+```
+
+### Frame Metadata
+
+Create your Frame with proper metadata for NFT minting:
+
+```typescript app/frame/route.tsx
+import { Button, Frog } from 'frog'
+import { handle } from 'frog/next'
+import { neynar } from 'frog/hubs'
+
+const app = new Frog({
+  title: 'Base NFT Mint',
+  hub: neynar({ apiKey: process.env.NEYNAR_API_KEY! }),
+  assetsPath: '/',
+  basePath: '/frame',
+})
+
+app.frame('/', (c) => {
+  return c.res({
+    image: (
+      <div
+        style={{
+          alignItems: 'center',
+          background: 'linear-gradient(to bottom, #1e3a8a, #3b82f6)',
+          backgroundSize: '100% 100%',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          justifyContent: 'center',
+          textAlign: 'center',
+          width: '100%',
+        }}
+      >
+        <div
+          style={{
+            color: 'white',
+            fontSize: 60,
+            fontWeight: 'bold',
+            marginBottom: 20,
+          }}
+        >
+          Mint Your Base NFT
+        </div>
+        <div
+          style={{
+            color: 'white',
+            fontSize: 24,
+            opacity: 0.8,
+          }}
+        >
+          Limited Edition • 1000 Supply
+        </div>
+      </div>
+    ),
+    intents: [
+      <Button action="/mint">Mint NFT (0.001 ETH)</Button>,
+      <Button.Link href="https://base.org">Learn More</Button.Link>,
+    ],
+  })
+})
+
+export const GET = handle(app)
+export const POST = handle(app)
+```
+
+## Smart Contract Integration
+
+### NFT Contract Setup
+
+Use OpenZeppelin's ERC-721 contracts for a secure foundation:
+
+```solidity contracts/BaseNFT.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+contract BaseNFT is ERC721, Ownable, ReentrancyGuard {
+    uint256 public constant MAX_SUPPLY = 1000;
+    uint256 public constant MINT_PRICE = 0.001 ether;
+    uint256 public totalSupply;
+    
+    mapping(address => bool) public hasMinted;
+    
+    event NFTMinted(address indexed to, uint256 tokenId);
+    
+    constructor(address initialOwner) 
+        ERC721("Base Social NFT", "BSN") 
+        Ownable(initialOwner) 
+    {}
+    
+    function mint() external payable nonReentrant {
+        require(totalSupply < MAX_SUPPLY, "Max supply reached");
+        require(msg.value >= MINT_PRICE, "Insufficient payment");
+        require(!hasMinted[msg.sender], "Already minted");
+        
+        uint256 tokenId = totalSupply + 1;
+        totalSupply++;
+        hasMinted[msg.sender] = true;
+        
+        _safeMint(msg.sender, tokenId);
+        
+        emit NFTMinted(msg.sender, tokenId);
+    }
+    
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
+```
+
+### Frame Action Handler
+
+Create the mint action handler that integrates with your smart contract:
+
+```typescript app/frame/mint/route.tsx
+import { Button, Frog, parseEther } from 'frog'
+import { handle } from 'frog/next'
+
+app.frame('/mint', async (c) => {
+  const { buttonValue, frameData } = c
+  
+  // Get user's Farcaster ID and ETH address
+  const fid = frameData?.fid
+  const address = frameData?.address
+  
+  if (!address) {
+    return c.res({
+      image: (
+        <div style={{ /* error styling */ }}>
+          Connect your wallet to mint
+        </div>
+      ),
+      intents: [
+        <Button action="/">← Back</Button>,
+      ],
+    })
+  }
+  
+  try {
+    // Check if user already minted
+    const hasMinted = await checkIfMinted(address)
+    
+    if (hasMinted) {
+      return c.res({
+        image: (
+          <div style={{ /* success styling */ }}>
+            Already minted! Check your wallet.
+          </div>
+        ),
+        intents: [
+          <Button.Link href={`https://basescan.org/address/${address}`}>
+            View on BaseScan
+          </Button.Link>,
+        ],
+      })
+    }
+    
+    return c.res({
+      image: (
+        <div style={{ /* mint styling */ }}>
+          Ready to mint your NFT?
+        </div>
+      ),
+      intents: [
+        <Button.Transaction target="/mint-tx">
+          Mint NFT (0.001 ETH)
+        </Button.Transaction>,
+        <Button action="/">← Cancel</Button>,
+      ],
+    })
+    
+  } catch (error) {
+    console.error('Mint error:', error)
+    return c.error({ message: 'Failed to process mint' })
+  }
+})
+```
+
+### Transaction Handler
+
+Handle the actual NFT minting transaction:
+
+```typescript app/frame/mint-tx/route.tsx
+import { Frog, parseEther } from 'frog'
+import { erc721Abi } from 'viem'
+
+app.transaction('/mint-tx', (c) => {
+  return c.contract({
+    abi: [
+      {
+        "inputs": [],
+        "name": "mint",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      }
+    ],
+    chainId: 'eip155:8453', // Base mainnet
+    functionName: 'mint',
+    to: process.env.NFT_CONTRACT_ADDRESS as `0x${string}`,
+    value: parseEther('0.001'),
+  })
+})
+```
+
+## Social Integration
+
+### Add Social Proof
+
+Display minting activity and social proof in your Frame:
+
+```typescript utils/social.ts
+export async function getMintingActivity() {
+  // Fetch recent mints from your contract
+  const recentMints = await publicClient.getLogs({
+    address: NFT_CONTRACT_ADDRESS,
+    event: parseAbiItem('event NFTMinted(address indexed to, uint256 tokenId)'),
+    fromBlock: 'earliest',
+  })
+  
+  return recentMints.slice(-5) // Last 5 mints
+}
+
+export async function getFarcasterProfile(fid: number) {
+  // Use Neynar API to get user profile
+  const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
+    headers: {
+      'api_key': process.env.NEYNAR_API_KEY!,
+    },
+  })
+  
+  return response.json()
+}
+```
+
+### Display Community Activity
+
+```typescript app/frame/activity/route.tsx
+app.frame('/activity', async (c) => {
+  const recentMints = await getMintingActivity()
+  
+  return c.res({
+    image: (
+      <div style={{ /* activity styling */ }}>
+        <div>Recent Mints</div>
+        {recentMints.map((mint, index) => (
+          <div key={index}>
+            #{mint.tokenId} minted by {mint.to.slice(0, 6)}...
+          </div>
+        ))}
+      </div>
+    ),
+    intents: [
+      <Button action="/">← Back to Mint</Button>,
+    ],
+  })
+})
+```
+
+## Best Practices
+
+### Security Considerations
+
+<Warning>
+**Smart Contract Security**
+
+Always audit your NFT contracts before mainnet deployment. Use OpenZeppelin's battle-tested contracts and follow security best practices.
+</Warning>
+
+1. **Rate Limiting**: Implement proper rate limiting to prevent spam
+2. **Input Validation**: Validate all Frame inputs and user data
+3. **Error Handling**: Provide clear error messages for failed transactions
+4. **Access Controls**: Use proper access controls for admin functions
+
+### User Experience
+
+<Tip>
+**Seamless Experience**
+
+Keep the minting flow simple - ideally just 1-2 clicks from seeing the Frame to completing the mint.
+</Tip>
+
+1. **Clear Imagery**: Use high-quality images that represent your NFT collection
+2. **Progress Indicators**: Show users their progress through the minting flow
+3. **Error Recovery**: Provide clear paths for users to retry failed transactions
+4. **Social Sharing**: Encourage users to share their successful mints
+
+### Gas Optimization
+
+Consider using Base's low fees and fast confirmation times:
+
+```typescript utils/gasOptimization.ts
+// Use efficient batch minting for multiple NFTs
+export async function batchMint(recipients: string[], amounts: number[]) {
+  return await contract.write.batchMint(recipients, amounts)
+}
+
+// Consider using ERC-721A for efficient batch minting
+// if your collection supports it
+```
+
+## Testing Your Frame
+
+### Local Development
+
+1. **Frame Validator**: Use the [Frame Validator](https://warpcast.com/~/developers/frames) to test your Frame
+2. **Local Testing**: Test with ngrok or similar tools to expose your localhost
+3. **Testnet First**: Deploy to Base Sepolia before mainnet
+
+### Production Deployment
+
+<Steps>
+<Step title="Deploy Smart Contract">
+Deploy your NFT contract to Base mainnet using Foundry or Hardhat.
+</Step>
+
+<Step title="Configure Environment Variables">
+Set up your production environment variables:
+
+```bash .env.production
+NFT_CONTRACT_ADDRESS=0x...
+NEYNAR_API_KEY=your_api_key
+BASE_RPC_URL=https://mainnet.base.org
+```
+</Step>
+
+<Step title="Deploy Frame Application">
+Deploy your Frame app to Vercel or your preferred hosting platform.
+</Step>
+
+<Step title="Test End-to-End">
+Test the complete flow from Frame display to successful NFT mint.
+</Step>
+</Steps>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Frog Framework" icon="frog" href="https://frog.fm">
+    Official documentation for building Farcaster Frames
+  </Card>
+  <Card title="Neynar API" icon="api" href="https://neynar.com">
+    Farcaster data and infrastructure
+  </Card>
+  <Card title="OpenZeppelin Contracts" icon="shield" href="https://docs.openzeppelin.com/contracts/">
+    Secure smart contract templates
+  </Card>
+  <Card title="Base Smart Contracts" icon="code" href="/smart-contracts">
+    Deploy contracts on Base
+  </Card>
+</CardGroup>
+
+---
+
+Building NFT minting experiences with Farcaster Frames creates viral, social-first onboarding that can dramatically increase your collection's reach and engagement. Start with a simple implementation and iterate based on user feedback and community response. 

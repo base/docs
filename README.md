@@ -1,27 +1,30 @@
-This is a [Vocs](https://vocs.dev) project bootstrapped with the Vocs CLI.
+### Development
 
-# Creating New Docs
+Install the [Mintlify CLI](https://www.npmjs.com/package/mintlify) to preview the documentation changes locally. To install, use the following command
 
-You can create a new doc by adding a `.md` or `.mdx` file in
-`apps/base-docs/docs/pages`.
+```
+npm i -g mintlify
+```
 
-The URL path for your doc will map to the file location. For instance, `bounty.mdx`
-is found within `chain/security`. So the URL for this link will be:
-`docs.base.org/chain/security/bounty`.
+Run the following command at the root of your documentation (where docs.json is)
 
+```
+mintlify dev
+```
 
-# Running Docs Locally
+### Publishing Changes
 
-Follow these steps to run Base-Docs locally:
+Install our Github App to auto propagate changes from your repo to your deployment. Changes will be deployed to production automatically after pushing to the default branch. Find the link to install on your dashboard.
 
-1. Clone repo
+#### Troubleshooting
 
-2. Enable yarn by running `corepack enable`
+- Mintlify dev isn't running - Run `mintlify install` it'll re-install dependencies.
+- Page loads as a 404 - Make sure you are running in a folder with `docs.json`
 
-3. Make sure you have installed all dependencies by running `yarn install` at
-the top-level
+### Storybook for hosting UI components
 
-4. `yarn build`
+Checkout the [storybook README](storybook/README.md) for more information.
 
-4. Start development server by running `yarn dev`
+### TODO
 
+- [ ] Add github action to deploy storybook to chromatic whenever there is a push to the `main` branch and only changes in `storybook` folder

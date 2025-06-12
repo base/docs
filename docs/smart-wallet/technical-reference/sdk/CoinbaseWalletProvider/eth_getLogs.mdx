@@ -1,0 +1,152 @@
+---
+title: "eth_getLogs"
+description: "Get an array of all logs matching a given filter object"
+---
+
+Defined in the [Ethereum JSON-RPC Specification](https://ethereum.org/en/developers/docs/apis/json-rpc/)
+
+<Info>
+Returns an array of all logs matching a given filter object.
+</Info>
+
+## Parameters
+
+<ParamField body="filterObject" type="object" required>
+The filter options object.
+
+<Expandable title="Filter object properties">
+<ParamField body="fromBlock" type="string">
+Integer block number, or "latest" for the last mined block or "pending", "earliest" for not yet mined transactions.
+</ParamField>
+
+<ParamField body="toBlock" type="string">
+Integer block number, or "latest" for the last mined block or "pending", "earliest" for not yet mined transactions.
+</ParamField>
+
+<ParamField body="address" type="string | array">
+Contract address or a list of addresses from which logs should originate.
+</ParamField>
+
+<ParamField body="topics" type="array">
+Array of 32 Bytes DATA topics. Topics are order-dependent.
+</ParamField>
+
+<ParamField body="blockhash" type="string">
+Using blockHash is equivalent to fromBlock = toBlock = the block number with hash blockHash.
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="array">
+Array of log objects matching the filter.
+
+<Expandable title="Log object properties">
+<ResponseField name="removed" type="boolean">
+True when the log was removed, due to a chain reorganization. False if it's a valid log.
+</ResponseField>
+
+<ResponseField name="logIndex" type="string">
+Integer of the log index position in the block. null when its pending log.
+</ResponseField>
+
+<ResponseField name="transactionIndex" type="string">
+Integer of the transaction index position log was created from. null when its pending log.
+</ResponseField>
+
+<ResponseField name="transactionHash" type="string">
+Hash of the transaction this log was created from. null when its pending log.
+</ResponseField>
+
+<ResponseField name="blockHash" type="string">
+Hash of the block where this log was in. null when its pending.
+</ResponseField>
+
+<ResponseField name="blockNumber" type="string">
+The block number where this log was in. null when its pending.
+</ResponseField>
+
+<ResponseField name="address" type="string">
+Address from which this log originated.
+</ResponseField>
+
+<ResponseField name="data" type="string">
+Contains the non-indexed parameters of the log.
+</ResponseField>
+
+<ResponseField name="topics" type="array">
+Array of 0 to 4 32 Bytes DATA of indexed log arguments.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Basic Filter
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_getLogs",
+  "params": [{
+    "fromBlock": "0x1",
+    "toBlock": "latest",
+    "address": "0xa0b86a33e6776e1e627e5c82df4c0cf77b8bb0c9"
+  }]
+}
+```
+
+```json With Topics
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_getLogs",
+  "params": [{
+    "fromBlock": "0x1",
+    "toBlock": "latest",
+    "topics": [
+      "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+    ]
+  }]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": [
+    {
+      "removed": false,
+      "logIndex": "0x1",
+      "transactionIndex": "0x0",
+      "transactionHash": "0xdf829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf",
+      "blockHash": "0x8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcfdf829c5a142f1fccd7d",
+      "blockNumber": "0x1b4",
+      "address": "0x16c5785ac562ff41e2dcfdf829c5a142f1fccd7d",
+      "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "topics": [
+        "0x59ebeb90bc63057b6515673c3ecf9438e5058bca0f92585014eced636878c9a5"
+      ]
+    }
+  ]
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code   | Message                        | Description |
+| ------ | ------------------------------ | ----------- |
+| -32602 | Invalid filter parameters     | The filter object contains invalid parameters |
+| -32005 | Limit exceeded                 | The filter matches too many logs |
+| 4100   | Requested method not supported | The method is not supported by the wallet |
+
+<Warning>
+Large filter ranges may exceed provider limits. Consider using smaller block ranges for better performance.
+</Warning>
+
+<Info>
+Topics are order-dependent. Use null as a wildcard for any topic position.
+</Info>
