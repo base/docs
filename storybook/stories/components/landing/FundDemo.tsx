@@ -1,8 +1,8 @@
-import { FundButton } from '@coinbase/onchainkit/fund';
-import { Avatar, Name } from '@coinbase/onchainkit/identity';
-import { ConnectWallet, Wallet } from '@coinbase/onchainkit/wallet';
-import App from '../App.tsx';
-import FundWrapper from '../FundWrapper.tsx';
+import { FundButton } from "@coinbase/onchainkit/fund";
+import { Avatar, Name } from "@coinbase/onchainkit/identity";
+import { ConnectWallet, Wallet } from "@coinbase/onchainkit/wallet";
+import App from "../../App";
+import FundWrapper from "../FundWrapper";
 
 export const fundDemoCode = `
   import { useAccount } from 'wagmi';
@@ -44,7 +44,7 @@ function FundDemo() {
           if (address) {
             return (
               <FundButton
-                text={'Fund'}
+                text={"Fund"}
                 hideIcon={false}
                 className="w-[180px]"
               />

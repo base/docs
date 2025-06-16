@@ -128,6 +128,9 @@ export default function SubAccount() {
       className="border-none bg-sky-600"
       onClick={createSubAccount}
       disabled={!(signer && provider)}
+      style={{
+        backgroundColor: "rgb(2,132,199)",
+      }}
     >
       Create Sub Account
     </Button>

@@ -1,8 +1,8 @@
-import React from 'react';
-import type { Meta, StoryObj } from '@storybook/react';
-import App from './App';
-import BuyWrapper from './components/BuyWrapper';
-import { Buy } from '@coinbase/onchainkit/buy';
+import React from "react";
+import type { Meta, StoryObj } from "@storybook/react";
+import App from "./App";
+import BuyWrapper from "./components/BuyWrapper";
+import { Buy } from "@coinbase/onchainkit/buy";
 
 // Props for our story
 interface BuyStoryProps {
@@ -19,14 +19,14 @@ const BuyExample: React.FC<BuyStoryProps> = ({ disabled }) => (
 );
 
 const meta = {
-  title: 'OnchainKit/Buy',
+  title: "OnchainKit/Buy",
   component: BuyExample,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   argTypes: {
-    disabled: { control: 'boolean' },
+    disabled: { control: "boolean" },
   },
 } satisfies Meta<typeof BuyExample>;
 
@@ -35,14 +35,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Disabled: Story = {
-  name: 'Disabled',
+  name: "Disabled",
   args: {
     disabled: true,
   },
 };
 
 export const Enabled: Story = {
-  name: 'Enabled',
+  name: "Enabled",
   args: {
     disabled: false,
   },
