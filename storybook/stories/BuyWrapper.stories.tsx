@@ -13,7 +13,7 @@ interface BuyStoryProps {
 const BuyExample: React.FC<BuyStoryProps> = ({ disabled }) => (
   <App>
     <BuyWrapper>
-      {({ address, toToken }) => <Buy toToken={toToken} disabled={disabled} />}
+      {({ toToken }) => <Buy toToken={toToken} disabled={disabled} />}
     </BuyWrapper>
   </App>
 );
@@ -21,6 +21,9 @@ const BuyExample: React.FC<BuyStoryProps> = ({ disabled }) => (
 const meta = {
   title: "OnchainKit/Buy",
   component: BuyExample,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
   argTypes: {
     disabled: { control: "boolean" },

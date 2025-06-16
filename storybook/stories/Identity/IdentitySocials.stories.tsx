@@ -13,6 +13,9 @@ import { base, mainnet } from "viem/chains";
 const meta = {
   title: "OnchainKit/Identity/Socials",
   component: Socials,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
   decorators: [
     (Story) => (

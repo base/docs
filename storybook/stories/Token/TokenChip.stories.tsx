@@ -5,6 +5,9 @@ import type { Meta, StoryObj } from "@storybook/react";
 const meta = {
   title: "OnchainKit/Token/Chip",
   component: TokenChip,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
   decorators: [
     (Story) => (

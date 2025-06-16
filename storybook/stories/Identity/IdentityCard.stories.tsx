@@ -7,6 +7,9 @@ import { mainnet } from "wagmi/chains";
 const meta = {
   title: "OnchainKit/Identity/Card",
   component: IdentityCard,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
   decorators: [
     (Story) => (

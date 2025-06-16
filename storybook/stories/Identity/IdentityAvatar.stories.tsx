@@ -6,6 +6,9 @@ import { base } from "viem/chains";
 const meta = {
   title: "OnchainKit/Identity/Avatar",
   component: Avatar,
+  parameters: {
+    layout: "centered",
+  },
   tags: ["autodocs"],
   decorators: [
     (Story) => (
