@@ -12,9 +12,6 @@ import { base } from "viem/chains";
 const meta = {
   title: "OnchainKit/Identity/Identity",
   component: Identity,
-  parameters: {
-    layout: "centered",
-  },
   tags: ["autodocs"],
   decorators: [
     (Story) => (

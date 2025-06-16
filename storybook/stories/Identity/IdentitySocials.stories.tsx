@@ -5,17 +5,14 @@ import {
   Identity,
   Name,
   Socials,
-} from '@coinbase/onchainkit/identity';
+} from "@coinbase/onchainkit/identity";
 import App from "../App";
 import type { Meta, StoryObj } from "@storybook/react";
-import { base, mainnet } from 'viem/chains';
+import { base, mainnet } from "viem/chains";
 
 const meta = {
   title: "OnchainKit/Identity/Socials",
   component: Socials,
-  parameters: {
-    layout: "centered",
-  },
   tags: ["autodocs"],
   decorators: [
     (Story) => (
@@ -46,15 +43,15 @@ export const DefaultIdentity: Story = {
         <Socials />
       </Identity>
     </App>
-  )
+  ),
 };
 
 export const Standalone: Story = {
   name: "Standalone",
   args: {
     address: "0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF",
-    chain: base
-  }
+    chain: base,
+  },
 };
 
 export const CustomChain: Story = {
@@ -74,5 +71,5 @@ export const CustomChain: Story = {
         <Socials />
       </Identity>
     </App>
-  )
+  ),
 };

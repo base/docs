@@ -81,7 +81,7 @@ const preview: Preview = {
                 }
               }
             } catch (e) {
-              console.log('Cannot access parent document (expected for cross-origin)');
+              console.error('Cannot access parent document (expected for cross-origin)');
             }
           })();
         `;

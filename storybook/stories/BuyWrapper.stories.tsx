@@ -21,9 +21,6 @@ const BuyExample: React.FC<BuyStoryProps> = ({ disabled }) => (
 const meta = {
   title: "OnchainKit/Buy",
   component: BuyExample,
-  parameters: {
-    layout: "centered",
-  },
   tags: ["autodocs"],
   argTypes: {
     disabled: { control: "boolean" },
