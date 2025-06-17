@@ -37,10 +37,10 @@ export const CardOverrideStyles: Story = {
 
 export const CardScaled: Story = {
   name: 'MintCardScaled',
-  render: () => <MintCardScaled squared={true} />,
+  render: () => <MintCardScaled square={true} />,
 };
 
 export const CardNotScaled: Story = {
   name: 'MintCardNotScaled',
-  render: () => <MintCardScaled squared={false} />,
+  render: () => <MintCardScaled square={false} />,
 };

@@ -91,11 +91,9 @@ This will create a Foundry project with the following basic layout:
 └── test
 ```
 
-:::info
-
+<Info>
 You can delete the `src/Counter.sol`, `test/Counter.t.sol`, and `script/Counter.s.sol` boilerplate files that were generated with the project, as you will not be needing them.
-
-:::
+</Info>
 
 ## Installing the LayerZero smart contracts
 
@@ -144,11 +142,9 @@ abstract contract OApp is OAppSender, OAppReceiver {
 }
 ```
 
-:::info
-
+<Info>
 You can view the source code for this contract on [GitHub](https://github.com/LayerZero-Labs/LayerZero-v2/blob/main/packages/layerzero-v2/evm/oapp/contracts/oapp/OApp.sol).
-
-:::
+</Info>
 
 To get started using LayerZero, developers simply need to inherit from the [OApp](https://github.com/LayerZero-Labs/LayerZero-v2/blob/main/packages/layerzero-v2/evm/oapp/contracts/oapp/OApp.sol) contract, and implement the following two inherited functions:
 
@@ -157,17 +153,13 @@ To get started using LayerZero, developers simply need to inherit from the [OApp
 
 In this tutorial, you will be implementing the [OApp](https://docs.layerzero.network/v2/developers/evm/oapp/overview) standard into your own project to add the capability to send messages from a smart contract on Base to a smart contract on Optimism.
 
-:::info
-
+<Info>
 An extension of the [OApp](https://docs.layerzero.network/v2/developers/evm/oapp/overview) contract standard known as [OFT](https://docs.layerzero.network/contracts/oft) is also available for supporting omnichain fungible token transfers.
+</Info>
 
-:::
-
-:::info
-
+<Info>
 For more information on transferring tokens across chains using LayerZero, visit the [LayerZero documentation](https://docs.layerzero.network/contracts/oft).
-
-:::
+</Info>
 
 ## Writing the smart contract
 
@@ -191,11 +183,9 @@ The contract's constructor expects two arguments:
 - `_endpoint`: The [LayerZero Endpoint](https://docs.layerzero.network/explore/layerzero-endpoint) `address` for the chain the smart contract is deployed to.
 - `_owner`: The `address` of the owner of the smart contract.
 
-:::info
-
+<Info>
 [LayerZero Endpoints](https://docs.layerzero.network/explore/layerzero-endpoint) are smart contracts that expose an interface for OApp contracts to manage security configurations and send and receive messages via the LayerZero protocol.
-
-:::
+</Info>
 
 ### Implementing message sending (`_lzSend`)
 
@@ -267,11 +257,9 @@ The `estimateFee` function above calls the inherited `_quote` function, while pa
 | `_options`      | `bytes`  | [Additional options](https://docs.layerzero.network/contracts/options) when sending the message, such as how much gas should be used when receiving the message. |
 | `_payInLzToken` | `bool`   | Boolean flag for which token to use when returning the fee (native or ZRO token).                                                                                |
 
-:::info
-
+<Info>
 Your contract's `estimateFee` function should always be called immediately before calling `sendMessage` to accurately estimate associated gas fees.
-
-:::
+</Info>
 
 ### Implementing message receiving (`_lzReceive`)
 
@@ -325,11 +313,9 @@ contract ExampleContract is OApp {
 }
 ```
 
-:::info
-
+<Info>
 Overriding the `_lzReceive` function allows you to provide any custom logic you wish when receiving messages, including making a call back to the source chain by invoking `_lzSend`. Visit the LayerZero [Message Design Patterns](https://docs.layerzero.network/contracts/message-design-patterns) for common messaging flows.
-
-:::
+</Info>
 
 ### Final code
 
@@ -423,11 +409,9 @@ cast wallet import deployer --interactive
 
 After running the command above, you will be prompted to enter your private key, as well as a password for signing transactions.
 
-:::caution
-
+<Info>
 For instructions on how to get your private key from Coinbase Wallet, visit the [Coinbase Wallet documentation](https://docs.cloud.coinbase.com/wallet-sdk/docs/developer-settings#show-private-key). **It is critical that you do NOT commit this to a public repo**.
-
-:::
+</Info>
 
 To confirm that the wallet was imported as the `deployer` account in your Foundry project, run:
 
@@ -461,13 +445,11 @@ With your contract compiled and environment setup, you are now ready to deploy t
 
 To deploy a smart contract using Foundry, you can use the `forge create` command. The command requires you to specify the smart contract you want to deploy, an RPC URL of the network you want to deploy to, and the account you want to deploy with.
 
-:::info
-
+<Info>
 Your wallet must be funded with ETH on the Base Goerli and Optimism Goerli to cover the gas fees associated with the smart contract deployment. Otherwise, the deployment will fail.
 
 To get testnet ETH, see the [prerequisites](#prerequisites).
-
-:::
+</Info>
 
 To deploy the `ExampleContract` smart contract to the Base Goerli testnet, run the following command:
 
@@ -514,11 +496,9 @@ To set the peer of the Base Goerli contract to the Optimism Goerli contract, run
 cast send <BASE_GOERLI_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC "setPeer(uint32, bytes32)" $OPTIMISM_GOERLI_LZ_ENDPOINT_ID <OPTIMISM_GOERLI_CONTRACT_ADDRESS> --account deployer
 ```
 
-:::info
-
+<Info>
 Replace `<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Goerli, and`<OPTIMISM_GOERLI_CONTRACT_ADDRESS>` with the contract address (as bytes) of your deployed `ExampleContract` contract on Optimism Goerli before running the provided `cast` command.
-
-:::
+</Info>
 
 To set the peer of the Optimism Goerli contract to the Base Goerli contract, run the following command:
 
@@ -526,11 +506,9 @@ To set the peer of the Optimism Goerli contract to the Base Goerli contract, run
 cast send <OPTIMISM_GOERLI_CONTRACT_ADDRESS> --rpc-url $OPTIMISM_GOERLI_RPC "setPeer(uint32, bytes32)" $BASE_GOERLI_LZ_ENDPOINT_ID <BASE_GOERLI_CONTRACT_ADDRESS> --account deployer
 ```
 
-:::info
-
+<Info>
 Replace `<OPTIMISM_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Optimism Goerli, and`<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address (as bytes) of your deployed `ExampleContract` contract on Base Goerli before running the provided `cast` command.
-
-:::
+</Info>
 
 ## Sending messages
 
@@ -578,11 +556,9 @@ The output of this script results in:
 
 For this tutorial, rather than building and generating your own message options, you can use the bytes output provided above.
 
-:::info
-
+<Info>
 Covering all of the different message options in detail is out of scope for this tutorial. If you are interested in learning more about the different message options and how to build them, visit the [LayerZero developer documentation](https://docs.layerzero.network/contracts/options).
-
-:::
+</Info>
 
 ### Estimating the gas fee
 
@@ -594,11 +570,9 @@ To estimate the gas fee for sending a message from Base Goerli to Optimism Goerl
 cast send <BASE_GOERLI_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC "estimateFee(uint32, string, bytes)" $OPTIMISM_GOERLI_LZ_ENDPOINT_ID "Hello World" 0x00030100110100000000000000000000000000030d40 --account deployer
 ```
 
-:::info
-
+<Info>
 Replace `<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Goerli before running the provided `cast` command.
-
-:::
+</Info>
 
 The command above calls `estimateFee(uint32, string, bytes, bool)`, while providing the required arguments, including: the endpoint ID of the destination chain, the text to send, and the message options (generated in the last section).
 
@@ -612,35 +586,12 @@ For example, to send a message from Base Goerli to Optimism Goerli with an estim
 cast send <BASE_GOERLI_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC --value <GAS_ESTIMATE_IN_WEI> "sendMessage(uint32, string, bytes)" $OPTIMISM_GOERLI_LZ_ENDPOINT_ID "Hello World" 0x00030100110100000000000000000000000000030d40 --account deployer
 ```
 
-:::info
-
+<Info>
 Replace `<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Goerli, and `<GAS_ESTIMATE_IN_WEI>` with the gas estimate (in wei) returned by the call to estimateFee, before running the provided `cast` command.
-
-:::
+</Info>
 
 You can view the status of your cross-chain transaction on [LayerZero Scan](https://layerzeroscan.com/).
 
 ### Receiving the message
 
-Once the message has been sent and received on the destination chain, the \_Receive function will be called on the `ExampleContract` and the message payload will be stored in the contract's public `data` variable.
-
-You can use the `cast` command to read the latest message received by the `ExampleContract` stored in the `data` variable.
-
-To read the latest received message data that was sent to Optimism Goerli from Base Goerli, run the following command:
-
-```bash
-cast send <OPTIMISM_GOERLI_CONTRACT_ADDRESS> --rpc-url $OPTIMISM_GOERLI_RPC "data" --account deployer
-```
-
-The returned data should match the message text payload you sent in your message.
-
-You can view the status of your cross-chain transaction on [LayerZero Scan](https://layerzeroscan.com/).
-
-## Conclusion
-
-Congratulations! You have successfully learned how to perform cross-chain messaging between Base and other chains (i.e. Optimism) using LayerZero V2.
-
-To learn more about cross-chain messaging and LayerZero V2, check out the following resources:
-
-- [LayerZero V2](https://docs.layerzero.network)
-
+Once the message has been sent and received on the destination chain, the \_Receive function will be called on the `

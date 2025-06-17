@@ -64,17 +64,15 @@ A user operation is a pseudo-transaction object sent by a smart account that des
 
 #### Paymaster
 
-A paymaster is a special smart contract that allows applications to “sponsor user operations”, meaning it will pay for the gas fees associated with the resulting transaction.
+A paymaster is a special smart contract that allows applications to "sponsor user operations", meaning it will pay for the gas fees associated with the resulting transaction.
 
 #### Bundler
 
 A special node that monitors a mempool of user operations and bundles multiple user operations into a single transaction.
 
-:::info
-
-To learn more about Account Abstraction and the concepts outlined above, see [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337).
-
-:::
+<Info>
+Biconomy's Paymaster is a service that allows you to sponsor gas fees for your users, enabling gasless transactions. Learn more in the [Biconomy documentation](https://docs.biconomy.io/).
+</Info>
 
 ## Creating and deploying a smart contract
 
@@ -112,11 +110,9 @@ This will create a Foundry project with the following basic layout:
 └── test
 ```
 
-:::info
-
+<Info>
 The command creates a boilerplate Solidity smart contract file named `src/Counter.sol`. This is the primary contract you will use for this tutorial.
-
-:::
+</Info>
 
 ### Compiling the smart contract
 
@@ -140,11 +136,9 @@ cast wallet import deployer --interactive
 
 After running the command above, you will be prompted to enter your private key, as well as a password for signing transactions.
 
-:::caution
-
+<Warning>
 For instructions on how to get your private key from Coinbase Wallet, visit the [Coinbase Wallet documentation](https://docs.cloud.coinbase.com/wallet-sdk/docs/developer-settings#show-private-key). **It is critical that you do NOT commit this to a public repo.**
-
-:::
+</Warning>
 
 To confirm that the wallet was imported as the `deployer` account in your Foundry project, run:
 
@@ -156,13 +150,11 @@ cast wallet list
 
 To deploy the smart contract, you can use the `forge create` command. The command requires you to specify the smart contract you want to deploy, an RPC URL of the network you want to deploy to, and the account you want to deploy with.
 
-:::info
-
+<Info>
 Your wallet must be funded with ETH on the Base Goerli testnet to cover the gas fees associated with the smart contract deployment. Otherwise, the deployment will fail.
 
 To get testnet ETH, see the [prerequisites](#prerequisites).
-
-:::
+</Info>
 
 To deploy the smart contract to the Base Goerli testnet, run the following command:
 
@@ -170,7 +162,7 @@ To deploy the smart contract to the Base Goerli testnet, run the following comma
 forge create ./src/Counter.sol:Counter --rpc-url https://goerli.base.org --account deployer
 ```
 
-When prompted, enter the password that you set earlier, when you imported your wallet’s private key.
+When prompted, enter the password that you set earlier, when you imported your wallet's private key.
 
 After running the command above, the contract will be deployed on the Base Goerli test network. You can view the deployment status and contract by using a [block explorer]: /docs/chain/block-explorers.
 
@@ -190,11 +182,9 @@ Add and register a Paymaster by completing the following steps:
 
 You should now have a registered Biconomy paymaster.
 
-:::info
-
+<Info>
 The **API Key** and **Paymaster URL** for the paymaster are provided under the **Overview** tab in the [Biconomy Dashboard](https://dashboard.biconomy.io/).
-
-:::
+</Info>
 
 ### Setting up the paymaster gas tank
 
@@ -226,11 +216,9 @@ Set up and fund the paymaster's gas tank by completing the following steps:
 1. Visit the sign in to the [Biconomy Dashboard](https://dashboard.biconomy.io/)
 1. From the dashboard, select the **Bundlers** tab
 
-:::info
-
+<Info>
 At the time of writing this tutorial, the Bundler service is still under development, however a **Bundler URL** is provided for testing out UserOperations on test networks. You can specify the chain ID **84531** to use the Bundler URL on **Base Goerli** testnet.
-
-:::
+</Info>
 
 ## Setting up the frontend
 
@@ -293,10 +281,8 @@ To get started adding social login into the app using Particle Network, import a
 'use client';
 
 import styles from './page.module.css';
-// highlight-next-line
 import { ParticleAuthModule, ParticleProvider } from '@biconomy/particle-auth';
 
-// highlight-start
 const PARTICLE_PROJECT_ID = 'YOUR_PARTICLE_PROJECT_ID';
 const PARTICLE_CLIENT_ID = 'YOUR_PARTICLE_CLIENT_ID';
 const PARTICLE_APP_ID = 'YOUR_PARTICLE_APP_ID';
@@ -309,7 +295,6 @@ const particle = new ParticleAuthModule.ParticleNetwork({
     displayWalletEntry: true,
   },
 });
-// highlight-end
 
 export default function Home() {
   return (
@@ -320,6 +305,10 @@ export default function Home() {
 }
 ```
 
-:::info
+<Info>
+You will need to sign up for a Particle Network account and replace the values of `PARTICLE_PROJECT_ID`, `PARTICLE_CLIENT_ID`, and `PARTICLE_APP_ID`.
+</Info>
 
-You will need to sign up for a Particle Network account and replace the values of `PARTICLE_PROJECT_ID`, `
+<Warning>
+If you encounter issues with Paymaster integration, ensure your API keys are correct and your contract is whitelisted in the Biconomy dashboard.
+</Warning>
