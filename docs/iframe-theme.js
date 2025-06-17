@@ -52,6 +52,16 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", updateIframesForDarkMode);
   } else {
-    setTimeout(updateIframesForDarkMode, 2000);
+    setTimeout(updateIframesForDarkMode, 100);
+    // TODO: add Storybook with Darkmode enabled
+    let themeChangeCount = 0;
+    const themeChangeInterval = setInterval(() => {
+      if (themeChangeCount < 2) {
+        updateIframesForDarkMode();
+        themeChangeCount++;
+      } else {
+        clearInterval(themeChangeInterval);
+      }
+    }, 1000);
   }
 })();
