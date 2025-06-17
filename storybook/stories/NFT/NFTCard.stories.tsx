@@ -1,19 +1,19 @@
-import React from 'react';
-import type { Meta, StoryObj } from '@storybook/react';
+import React from "react";
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   ViewCardMain,
   ViewCardTitleAbove,
   ViewCardScaled,
-  ViewCardOverrideStyles
-} from '../components/NFTComponents';
+  ViewCardOverrideStyles,
+} from "../components/NFTComponents";
 
 const meta = {
-  title: 'OnchainKit/NFT/Card',
+  title: "OnchainKit/NFT/Card",
   component: ViewCardMain,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
 } satisfies Meta<typeof ViewCardMain>;
 
 export default meta;
@@ -21,26 +21,26 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const CardMain: Story = {
-  name: 'ViewCardMain',
+  name: "ViewCardMain",
   render: () => <ViewCardMain />,
 };
 
 export const CardTitleAbove: Story = {
-  name: 'ViewCardTitleAbove',
+  name: "ViewCardTitleAbove",
   render: () => <ViewCardTitleAbove />,
 };
 
 export const CardOverrideStyles: Story = {
-  name: 'ViewCardOverrideStyles',
+  name: "ViewCardOverrideStyles",
   render: () => <ViewCardOverrideStyles />,
 };
 
 export const CardScaled: Story = {
-  name: 'ViewCardScaled',
-  render: () => <ViewCardScaled squared={true} />,
+  name: "ViewCardScaled",
+  render: () => <ViewCardScaled square={true} />,
 };
 
 export const CardNotScaled: Story = {
-  name: 'CardNotScaled',
-  render: () => <ViewCardScaled squared={false} />,
+  name: "CardNotScaled",
+  render: () => <ViewCardScaled square={false} />,
 };

@@ -1,4 +1,4 @@
-import { TokenImage } from '@coinbase/onchainkit/token';
+import { TokenImage } from "@coinbase/onchainkit/token";
 import App from "../App";
 import type { Meta, StoryObj } from "@storybook/react";
 
@@ -25,29 +25,30 @@ export const Default: Story = {
   name: "Main",
   args: {
     token: {
-      name: 'Ethereum',
-      address: '',
-      symbol: 'ETH',
+      name: "Ethereum",
+      address: "",
+      symbol: "ETH",
       decimals: 18,
-      image: 'https://wallet-api-production.s3.amazonaws.com/uploads/tokens/eth_288.png',
+      image:
+        "https://wallet-api-production.s3.amazonaws.com/uploads/tokens/eth_288.png",
       chainId: 8453,
     },
-    size: 24
-  }
+    size: 24,
+  },
 };
 
 export const Null: Story = {
   name: "Null",
   args: {
     token: {
-      name: 'USDC',
-      address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-      symbol: 'USDC',
+      name: "USDC",
+      address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      symbol: "USDC",
       decimals: 6,
       image: null,
-      blockchain: 'eth',
+      blockchain: "eth",
       chainId: 8453,
     },
-    size: 24
-  }
+    size: 24,
+  },
 };

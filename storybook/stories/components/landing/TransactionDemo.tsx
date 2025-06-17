@@ -1,4 +1,4 @@
-import { Avatar, Name } from '@coinbase/onchainkit/identity';
+import { Avatar, Name } from "@coinbase/onchainkit/identity";
 import {
   Transaction,
   TransactionButton,
@@ -6,10 +6,10 @@ import {
   TransactionStatus,
   TransactionStatusAction,
   TransactionStatusLabel,
-} from '@coinbase/onchainkit/transaction';
-import { ConnectWallet, Wallet } from '@coinbase/onchainkit/wallet';
-import App from '../App.tsx';
-import TransactionWrapper from '../TransactionWrapper.tsx';
+} from "@coinbase/onchainkit/transaction";
+import { ConnectWallet, Wallet } from "@coinbase/onchainkit/wallet";
+import App from "../../App";
+import TransactionWrapper from "../TransactionWrapper";
 
 export const transactionDemoCode = `
   import { useAccount } from 'wagmi';

@@ -1,5 +1,6 @@
 import type { Preview } from "@storybook/react";
 import { themes } from "@storybook/theming";
+import "../src/app/globals.css";
 
 // Extend Window interface to include our custom property
 declare global {
@@ -41,17 +42,12 @@ const preview: Preview = {
 
         const script = document.createElement("script");
         script.textContent = `
-          (function() {
-            console.log('Storybook theme listener initialized');
-            
+          (function() {            
             // Listen for theme messages from parent window
-            window.addEventListener('message', function(event) {
-              console.log('Received message in Storybook iframe:', event.data);
-              
+            window.addEventListener('message', function(event) {              
               if (event.data && event.data.type === 'THEME_CHANGE') {
                 const { isDark, styles } = event.data;
-                console.log('Applying theme change:', { isDark, styles });
-                
+
                 // Apply dark/light class to html element
                 if (isDark) {
                   document.documentElement.classList.add('dark');
@@ -67,8 +63,6 @@ const preview: Preview = {
                   document.body.style.background = styles.background;
                   document.documentElement.style.background = styles.background;
                 }
-                
-                console.log('Theme applied successfully');
               }
             });
             
@@ -76,7 +70,6 @@ const preview: Preview = {
             try {
               if (window.parent && window.parent !== window) {
                 const parentHasDark = window.parent.document.documentElement.classList.contains('dark');
-                console.log('Parent has dark mode:', parentHasDark);
                 if (parentHasDark) {
                   document.documentElement.classList.add('dark');
                   document.body.style.background = '#0b0d0f';
@@ -88,7 +81,7 @@ const preview: Preview = {
                 }
               }
             } catch (e) {
-              console.log('Cannot access parent document (expected for cross-origin)');
+              console.error('Cannot access parent document (expected for cross-origin)');
             }
           })();
         `;

@@ -1,8 +1,8 @@
-import { Checkout } from '@coinbase/onchainkit/checkout';
-import { useCallback, useState } from 'react';
-import App from '../App.tsx';
-import { closeSvg } from '../svg/closeSvg.tsx';
-import { coinbasePaySvg } from '../svg/coinbasePaySvg.tsx';
+import { Checkout } from "@coinbase/onchainkit/checkout";
+import { useCallback, useState } from "react";
+import App from "../../App";
+import { closeSvg } from "../svg/closeSvg";
+import { coinbasePaySvg } from "../svg/coinbasePaySvg";
 
 export const checkoutDemoCode = `
   import {
@@ -19,7 +19,7 @@ export const checkoutDemoCode = `
   }
   `;
 
-const GITHUB_LINK = 'https://github.com/coinbase/onchain-commerce-template';
+const GITHUB_LINK = "https://github.com/coinbase/onchain-commerce-template";
 
 function CheckoutDemo() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,7 +63,7 @@ function CheckoutModal({ closeModal }: { closeModal: () => void }) {
               rel="noreferrer"
             >
               Fork the Onchain Commerce Template to experience the end-to-end
-              checkout flow.{' '}
+              checkout flow.{" "}
             </a>
             Your users will see the below flow when checkout is enabled.
           </span>

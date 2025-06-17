@@ -1,14 +1,10 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import SubAccount from './components/smart-wallet/SubAccount';
-
+import type { Meta, StoryObj } from "@storybook/react";
+import SubAccount from "./components/smart-wallet/SubAccount";
 
 const meta = {
-  title: 'OnchainKit/SubAccount',
+  title: "OnchainKit/SubAccount",
   component: SubAccount,
-  parameters: {
-    layout: 'centered',
-  },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
 } satisfies Meta<typeof SubAccount>;
 
 export default meta;
@@ -16,6 +12,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const DefaultSubAccount: Story = {
-  name: 'SubAccount',
+  name: "SubAccount",
   render: () => <SubAccount />,
 };

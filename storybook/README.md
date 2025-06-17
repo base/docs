@@ -24,7 +24,7 @@ examples:
 
 ```jsx
 <iframe
-  src="https://682cef8eb764086a250fb541-zdfthryttt.chromatic.com/iframe.html?args=&id=onchainkit-identity-identity--default-identity&viewMode=story&dark=true&hero=true"
+  src="https://684b5e62b1ff46bc5bf83966-aijszlfakk.chromatic.com/iframe.html?args=&id=onchainkit-identity-identity--default-identity&viewMode=story&dark=true&hero=true"
   width="100%"
   height="auto"
 />
