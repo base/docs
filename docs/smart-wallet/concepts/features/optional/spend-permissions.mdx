@@ -1,19 +1,19 @@
 ---
-title: "Spend Limits"
+title: "Spend Permissions"
 ---
 
-Spend Limits enable third-party signers to spend assets (native and ERC-20 tokens) from users' wallets. Once granted, spend limits allow you to move your users' assets without any further signatures, unlocking use cases like subscriptions & trading bots. The reduced signing friction can also be leveraged to enhance UX for high-frequency use cases such as onchain games.
+Spend Permissions enable third-party signers to spend assets (native and ERC-20 tokens) from users' wallets. Once granted, Spend Permissions allow you to move your users' assets without any further signatures, unlocking use cases like subscriptions & trading bots. The reduced signing friction can also be leveraged to enhance UX for high-frequency use cases such as onchain games.
 
-Differences between Spend Limits and ERC-20 permits:
+Differences between Spend Permissions and ERC-20 permits:
 
-- Spend Limits **supports all ERC-20 assets**, whereas permits only support ERC-20s that implement the permit standard
-- Spend Limits **enable spending native tokens**
-- Spend Limits offers granular **controls for recurrence**
+- Spend Permissions **supports all ERC-20 assets**, whereas permits only support ERC-20s that implement the permit standard
+- Spend Permissions **enable spending native tokens**
+- Spend Permissions offers granular **controls for recurrence**
 - The logic that controls asset movements is **implemented in the user's wallet**, not the asset contract
 
 ## The `SpendPermission` details
 
-A spend limit is defined by the following parameters
+A Spend Permission is defined by the following parameters
 
 ```solidity
 struct SpendPermission {
@@ -29,7 +29,7 @@ struct SpendPermission {
 }
 ```
 
-Spend limits are managed by a single manager contract, the `SpendLimitManager`, which tracks the approval/revocation
+Spend Permissions are managed by a single manager contract, the `SpendLimitManager`, which tracks the approval/revocation
 statuses of all limits and enforces accurate spending limits and accounting.
 
 ## Approving
@@ -51,14 +51,14 @@ If the parameters of the new spend permission are identical to the revoked permi
 
 ## Cycle accounting
 
-Spend Limits offers granular controls for recurrence (e.g. 10 USDC / month).
+Spend Permissions offers granular controls for recurrence (e.g. 10 USDC / month).
 As the third-party signer spends user assets, the `SpendPermissionManager` contract tracks cumulative spend and enforces the per-period
 allowance. If there are multiple periods defined during the valid lifespan of the spend permission, the cumulative usage resets to 0
 at the beginning of the next period, allowing the spender to once again spend up to the allowance.
 
 This behavior is parameterized by the `start`, `end`, `period` and `allowance` properties of the permission.
 
-Note that spend limits can be used for non-recurring allowances, either indefinite or with expiry, by setting
+Note that Spend Permissions can be used for non-recurring allowances, either indefinite or with expiry, by setting
 a period duration that spans the entire range between start and end.
 
 A comprehensive example of spend permission accounting can be found [here](https://github.com/coinbase/spend-permissions/blob/main/docs/SpendPermissionAccounting.md).
