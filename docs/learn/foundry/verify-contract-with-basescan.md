@@ -68,11 +68,11 @@ You should have a folder structure similar to this:
 
 The `src` folder will contain a `Counter.sol` file which will serve as the contract you want to deploy.
 
-<Callout type="note" title="You will need ETH on Base to deploy">
+<Note title="You will need ETH on Base to deploy">
 You (the deployer wallet) will need some ETH in order to broadcast the transaction to the Base network. Fortunately, transactions are usually < 1 cent on Base mainnet.
 
 If using a [Coinbase Wallet] use the "Buy" button to onramp crypto from your Coinbase account.
-</Callout>
+</Note>
 
 You will need a private key of the wallet that you want to deploy the smart contract from. Obtain it and store it as an env variable in your terminal.
 
@@ -146,11 +146,11 @@ Create an `async` function to call the basescan api. Basescan offers a few endpo
 
 To verify a contract you will use the `verifysourcecode` route, with the `contract` module, and your `apiKey` as query parameters.
 
-<Callout type="tip" title="Unsure what data to input?">
+<Tip title="Unsure what data to input?">
 In every foundry project you will have a `.json` file that contains the contracts metadata and ABI. For this particular project, this information is located in the `/verify_contracts/out/Counter.sol/Counter.json`
 
 Under the `Metadata` object you will find the compiler version under `evmversion`
-</Callout>
+</Tip>
 
 Putting everything together, our function will look like this:
 

@@ -101,11 +101,11 @@ Passkeys leverage platform authenticator APIs for cross-device synchronization t
 
 This enables seamless multi-device support without exposing the underlying cryptographic material.
 
-<Callout type="warning">
+<Warning>
   Account Recovery Considerations
 
   Without access to their passkey or a configured recovery key, users will permanently lose wallet access.
-</Callout>
+</Warning>
 
 import { Callout } from "vocs/components";
 
@@ -2881,9 +2881,9 @@ To run this example:
 3. Install packages: `bun i`
 4. Run next app: `bun run dev`
 
-<Callout type="info">
+<Info>
 The example above is a typical Sign-In with Ethereum (SIWE) implementation as detailed in [EIP-4361](https://eips.ethereum.org/EIPS/eip-4361).
-</Callout>
+</Info>
 
 ### Signing Typed Data (EIP-712)
 
@@ -3108,13 +3108,13 @@ import { Callout } from 'vocs/components';
 
 This guide covers creating a new Sign-In with Ethereum template project that uses Smart Wallet.
 
-<Callout type="info">
+<Info>
   This simple implementation is for demo purposes only and is not meant to be an example of a
   production app. A production app should: 1. Generate a random nonce for each message on the
   backend. 2. Check the nonce and verify the message signature on the backend as specified in
   [EIP-4361](https://eips.ethereum.org/EIPS/eip-4361). 3. Invalidate nonces on logout to prevent
   replay attacks through session duplication.
-</Callout>
+</Info>
 
 ::::steps
 ## Create a project
@@ -3248,12 +3248,12 @@ export function SignInWithEthereum() {
 
 For Smart Wallet, [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) should be used to verify the SIWE message signature.
 
-<Callout type="warning">
+<Warning>
   This simple example does not check the nonce during verification, all production implementations
   should. Furthermore, nonces should be invalidated on logout to prevent replay attacks through
   session duplication (e.g. store expired nonce and make sure they can't be used again). In
   production apps, SIWE message verification is generally handled on the backend.
-</Callout>
+</Warning>
 
 ```tsx twoslash [src/SignInWithEthereum.tsx]
 // @noErrors: 2339
@@ -3560,12 +3560,12 @@ As a prerequisite, you'll need to obtain a Paymaster service URL from a Paymaste
 We'll use [Coinbase Developer Platform](https://www.coinbase.com/developer-platform) as a Paymaster service provider,
 currently offering up to $15k in gas credits as part of the [Base Gasless Campaign](/identity/smart-wallet/introduction/base-gasless-campaign).
 
-<Callout type="warning">
+<Warning>
 **ERC-7677-Compliant Paymaster Providers**
 
 If you choose to use a different Paymaster service provider, ensure they are [ERC-7677-compliant](https://www.erc7677.xyz/ecosystem/Paymasters).
 
-</Callout>
+</Warning>
 
 Once you have signed up for [Coinbase Developer Platform](https://www.coinbase.com/developer-platform), you get your Paymaster service URL by navigating to **Onchain Tools > Paymaster** as shown below:
 
@@ -3579,7 +3579,7 @@ Once you have signed up for [Coinbase Developer Platform](https://www.coinbase.c
   <em>How to get your Paymaster service URL</em>
 </div>
 
-<Callout type="warning">
+<Warning>
 **Should you create a proxy for your Paymaster service?**
 
 As you can see in the Paymaster transaction [component](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/components/TransactWithPaymaster.tsx), we use a proxy to protect
@@ -3589,7 +3589,7 @@ For local development, you can use the same URL for the Paymaster service and th
 
 We also created a [minimalist proxy API](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/app/api/Paymaster/route.ts)
 which you can use as the `PaymasterServiceUrl` in the [`TransactWithPaymaster` component](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/components/TransactWithPaymaster.tsx).
-</Callout>
+</Warning>
 
 Once you have your Paymaster service URL, you can proceed to setting up your contracts allowlist.
 This is a list of contracts and function calls that you want to be sponsored by the Paymaster.
@@ -3607,7 +3607,7 @@ This is a list of contracts and function calls that you want to be sponsored by 
 Congrats! You've set up your Paymaster service and contracts allowlist.
 It's time to create Wagmi and Viem clients.
 
-<Callout type="success">
+<Success>
 **You can also choose to create custom advanced policies !**
 
 For example, in the [template](https://github.com/wilsoncusack/wagmi-scw), we create a `willSponsor` function in [`utils.ts`](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/app/api/utils.ts) to add some extra validation if you need
@@ -3615,7 +3615,7 @@ more control over the policy enforcement.
 
 `willSponsor` is most likely not needed if you are using [Coinbase Developer Platform](https://www.coinbase.com/developer-platform) as it has built-in policy enforcement features,
 but know that this is still possible if you need it.
-</Callout>
+</Success>
 
 ### Create Wagmi and Viem clients
 
@@ -3676,11 +3676,11 @@ export const bundlerClient = createBundlerClient({
 
 Once you have your Paymaster service set up, you can now pass its URL along to Wagmi's `useWriteContracts` hook.
 
-<Callout type="info">
+<Info>
 **Pass in the proxy URL**
 
 If you set up a proxy in your app's backend as recommended in step (2) above, you'll want to pass in the proxy URL you created.
-</Callout>
+</Info>
 
 :::code-group
 
@@ -3765,14 +3765,14 @@ export const myNFTAddress = "0x119Ea671030FBf79AB93b436D2E20af6ea469a19";
 
 :::
 
-<Callout type="warning">
+<Warning>
 **About The Hooks Used Above**
 
 The `useWriteContracts` and `useCapabilities` hooks used below rely on new wallet RPC and are not yet supported in most wallets.
 It is recommended to have a fallback function if your app supports wallets other than Smart Wallet.
-</Callout>
+</Warning>
 
-<Callout type="success">
+<Success>
 **How to find this code in the repository?**
 
 The code above is a simplified version of the code in the
@@ -3781,7 +3781,7 @@ The code above is a simplified version of the code in the
 In the template, we create a [`TransactWithPaymaster`](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/components/TransactWithPaymaster.tsx) component that uses the `useWriteContracts` hook to send a transaction with a Paymaster.
 
 The [`TransactWithPaymaster`](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/components/TransactWithPaymaster.tsx) component is used in the [`page.tsx`](https://github.com/wilsoncusack/wagmi-scw/blob/main/src/app/page.tsx) file.
-</Callout>
+</Success>
 
 That's it! Smart Wallet will handle the rest. If your Paymaster service is able to sponsor the transaction,
 in the UI Smart Wallet will indicate to your user that the transaction is sponsored.

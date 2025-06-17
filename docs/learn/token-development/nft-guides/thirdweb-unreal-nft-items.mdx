@@ -89,11 +89,11 @@ It will take awhile to spin up, and you can ignore the warning about the `Chain 
 
 Once the engine is running, navigate to `https://localhost:3005/json`. Click through the warning that the connection is not secure. Doing so allows your browser to connect to your engine instance.
 
-<Callout type="caution">
+<Caution>
 
 We do not have an official browser recommendation, but during our testing, Chrome worked and Brave did not with the engine setup and configuration.
 
-</Callout>
+</Caution>
 
 Navigate to the [thirdweb engine dashboard], and click the `Import` button. Enter a name and the local address for your engine instance:
 
@@ -101,19 +101,19 @@ Navigate to the [thirdweb engine dashboard], and click the `Import` button. Ente
 
 Next, you must add your wallet to the engine instance. Open up the instance in the dashboard, then click the `Import` button next to `Backend Wallets`. Enter your secret key for the wallet.
 
-<Callout type="danger">
+<Danger>
 
 Remember, the wallet key gives full access to all assets within any wallet. Use separate wallets for development and individual production tasks. Don't hold or fund a production wallet with any assets other than the minimum amount necessary for the task it is accomplishing.
 
-</Callout>
+</Danger>
 
 **Be sure to fund** this wallet with Base Sepolia ETH. It will be paying the gas for transactions.
 
-<Callout type="caution">
+<Caution>
 
 The key to your wallet is stored in ephemeral memory in the engine itself. You'll need to re-add it whenever you restart the engine.
 
-</Callout>
+</Caution>
 
 ## Setting up the Client and Server
 
@@ -167,11 +167,11 @@ Click `Deploy Now`, and approve the transactions to deploy the contract and add 
 
 Next, click the `Claim Conditions` tab on the left side nav. Then click the `+ Add Phase` button and select `Public`. Review the options, but don't change any of them for this demo. Click `Save Phases`.
 
-<Callout type="caution">
+<Caution>
 
 If later in the tutorial, you get an error when you attempt to claim a token, but not an error every four seconds failing to read the balance, it's because you missed this step.
 
-</Callout>
+</Caution>
 
 Copy the address from the dashboard:
 
@@ -208,11 +208,11 @@ Then, click the green play button at the top of the viewport.
 
 Log in using the credentials you created on the website, and play the game for a minute or two. If you get a 404, check that your engine, client, and server are all still running.
 
-<Callout type="caution">
+<Caution>
 
 The demo does not actually have a database connected for users. You'll need to recreate your user each time you restart the server. For production, you'll need to swap this out with an actual database.
 
-</Callout>
+</Caution>
 
 If you get an error 500 `"No configured wallet found with address 0xABCD...."`, it's because you didn't add your wallet in the [thirdweb engine dashboard].
 
@@ -279,11 +279,11 @@ const body = {
 res.status(400).json({ message: 'Error claiming RandomColorNFT' });
 ```
 
-<Callout type="info">
+<Info>
 
 A better practice for production would be to make a more generalized function that can handle multiple requests to your contracts. We're skipping that for now to avoid needing to refactor the existing collectibles in the game.
 
-</Callout>
+</Info>
 
 Next, you need to add a route for this function. Open `server/src/routes/engineRoutes.ts`. Import `claimRandomColorNFT` and add a route for it:
 
@@ -303,11 +303,11 @@ Similarly to what you did in the server, use the existing `PerformClaim()` as a 
 HttpRequest->SetURL(this->ServerUrl + "/engine/claim-random-color-nft");
 ```
 
-<Callout type="info">
+<Info>
 
 Again, it would be better practice to generalize this function, but you can skip that for now to avoid needing to update all the collectibles.
 
-</Callout>
+</Info>
 
 Next, you need to let the editor know about this new function. Open `Source/unreal_demo/Public/ThirdwebManager.h`. Add your new function under the one for `PerformClaim();`
 
@@ -441,11 +441,11 @@ res.json(colors);
 // Delete res.json(response.data);
 ```
 
-<Callout type="info">
+<Info>
 
 To test with Postman or similar, comment out the check for a valid `authToken` and hardcode in an address that you know has NFTs.
 
-</Callout>
+</Info>
 
 ### Getting the Colors into the Game
 
@@ -567,31 +567,31 @@ You should end up with something like this:
 
 Compile the blueprint then run the game. You should see that last color in the array in the HUD, and you should see the full list printed in the console every two seconds.
 
-<Callout type="caution">
+<Caution>
 
 If you have an error in your `GetNFTColors` function that prevents `.Broadcast` from being called, nothing in the NFT Colors branch of this blueprint will run, including printing to the console.
 
-</Callout>
+</Caution>
 
 ### Changing the Color of the Car
 
 Now that you have the colors, you can use them to change the color of your car! For now, you can just set the car to the last color, but on your own you'll want to add a UI widget to allow the player to pick their color.
 
-<Callout type="info">
+<Info>
 
 If you really wanted to get fancy, you could modify the contract to emit an `event` containing the color of the newly-minted NFT, extract that from the receipt, and optimistically make it available to the player a few seconds earlier.
 
-</Callout>
+</Info>
 
 Unreal doesn't use hex colors, so you'll need to convert your hex string to a linear color and save it in the `Material Parameter Collection` you created earlier.
 
 Converting the hex code with a blueprint is very complicated. Luckily, Unreal has a helpful community that has created many utilities, including a [conversion function].
 
-<Callout type="danger">
+<Danger>
 
 Copying and pasting code for a game engine isn't quite as dangerous as copying and pasting unknown smart contract code, but you're working at the intersection of these worlds. Be sure to review and make sure you understand anything you find online.
 
-</Callout>
+</Danger>
 
 In the content browser, add a `Blueprints>Blueprint Function Library` called `ColorUtils`. In it, add a function called `HexStringToColor`.
 

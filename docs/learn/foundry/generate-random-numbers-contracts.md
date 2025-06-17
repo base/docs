@@ -72,13 +72,13 @@ For this tutorial, you will be deploying a contract to the Base Sepolia test net
 
 ### Supra wallet registration
 
-<Callout type="caution">
+<Caution>
 Supra dVRF V2 requires subscription to the service with a customer controlled wallet address to act as the main reference.
 
 Therefore you must register your wallet with the Supra team if you plan to consume Supra dVRF V2 within your smart contracts.
 
 Please refer to the [Supra documentation](https://docs.supra.com/oracles/dvrf/vrf-subscription-model) for the latest steps on how to register your wallet for their service.
-</Callout>
+</Caution>
 
 
 
@@ -162,9 +162,9 @@ interface ISupraRouter {
 
 The `ISupraRouter` interface defines a `generateRequest` function. This function is used to create a request for random numbers. The `generateRequest` function is defined twice, because one of the definitions allows for an optional `_clientSeed` (defaults to `0`) for additional unpredictability.
 
-<Callout type="info">
+<Info>
 Alternatively, you can add the `ISupraRouter` interface in a separate interface file and inherit the interface in your contract.
-</Callout>
+</Info>
 
 ### Adding a request function
 
@@ -363,11 +363,11 @@ forge create ./src/RNGContract.sol:RNGContract --rpc-url $BASE_SEPOLIA_RPC --con
 
 When prompted, enter the password that you set earlier, when you imported your wallet's private key.
 
-<Callout type="info">
+<Info>
 Your wallet must be funded with ETH on the Base Sepolia Testnet to cover the gas fees associated with the smart contract deployment. Otherwise, the deployment will fail.
 
 To get testnet ETH for Base Sepolia, see the [prerequisites](#prerequisites).
-</Callout>
+</Info>
 
 After running the command above, the contract will be deployed on the Base Sepolia test network. You can view the deployment status and contract by using a [block explorer](/chain/block-explorers).
 
