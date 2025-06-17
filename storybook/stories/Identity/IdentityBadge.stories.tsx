@@ -1,4 +1,4 @@
-import { Avatar, Badge, Identity, Name } from '@coinbase/onchainkit/identity';
+import { Avatar, Badge, Identity, Name } from "@coinbase/onchainkit/identity";
 import App from "../App";
 import type { Meta, StoryObj } from "@storybook/react";
 
@@ -24,14 +24,14 @@ type Story = StoryObj<typeof meta>;
 export const DefaultIdentity: Story = {
   name: "Badge",
   args: {
-    className: "badge"
+    className: "badge",
   },
 };
 
 export const CustomColor: Story = {
   name: "CustomColor",
   args: {
-    className: "bg-blue-400 border-white"
+    className: "bg-blue-400 border-white",
   },
 };
 
@@ -39,7 +39,7 @@ export const Tooltip: Story = {
   name: "Tooltip",
   args: {
     tooltip: true,
-    className: "badge"
+    className: "badge",
   },
 };
 
@@ -47,7 +47,7 @@ export const CustomTooltip: Story = {
   name: "CustomTooltip",
   args: {
     tooltip: "Coinbase Verified Account",
-    className: "badge"
+    className: "badge",
   },
 };
 
@@ -65,7 +65,7 @@ export const BadgeOnName: Story = {
         </Name>
       </Identity>
     </App>
-  )
+  ),
 };
 
 export const BadgeOnAvatar: Story = {
@@ -82,5 +82,5 @@ export const BadgeOnAvatar: Story = {
         </Avatar>
       </Identity>
     </App>
-  )
+  ),
 };

@@ -6,10 +6,10 @@ import {
   EarnDeposit as EarnDepositComponent,
   EarnDetails,
   useEarnContext,
-} from '@coinbase/onchainkit/earn';
-import App from './App.tsx';
+} from "@coinbase/onchainkit/earn";
+import App from "../App";
 
-const VAULT_ADDRESS = '0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A';
+const VAULT_ADDRESS = "0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A";
 
 export function EarnMain() {
   return (
@@ -50,7 +50,7 @@ export function RearrangedEarnDeposit() {
   );
 }
 
-const predefinedAmounts = ['0.1', '1', '10'];
+const predefinedAmounts = ["0.1", "1", "10"];
 
 function CustomDepositInterface() {
   const { depositAmount, setDepositAmount } = useEarnContext();
@@ -68,8 +68,8 @@ function CustomDepositInterface() {
               onClick={() => setDepositAmount(amount)}
               className={`rounded-md px-4 py-2 ${
                 selected
-                  ? 'bg-[var(--ock-bg-primary)] text-[var(--ock-text-inverse)]'
-                  : 'bg-[var(--ock-bg-secondary)] text-[var(--ock-text-primary)]'
+                  ? "bg-[var(--ock-bg-primary)] text-[var(--ock-text-inverse)]"
+                  : "bg-[var(--ock-bg-secondary)] text-[var(--ock-text-primary)]"
               }`}
             >
               {amount}

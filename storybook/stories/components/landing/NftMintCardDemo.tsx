@@ -1,5 +1,5 @@
-import { NFTMintCardDefault } from '@coinbase/onchainkit/nft';
-import App from '../App.tsx';
+import { NFTMintCardDefault } from "@coinbase/onchainkit/nft";
+import App from "../../App";
 
 export const nftMintCardDemoCode = `
   import { NFTMintCardDefault } from '@coinbase/onchainkit/nft';

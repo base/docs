@@ -1,19 +1,19 @@
-import React from 'react';
-import type { Meta, StoryObj } from '@storybook/react';
+import React from "react";
+import type { Meta, StoryObj } from "@storybook/react";
 import {
   MintCardMain,
   MintCardTitleAbove,
   MintCardScaled,
-  MintCardOverrideStyles
-} from '../components/NFTComponents';
+  MintCardOverrideStyles,
+} from "../components/NFTComponents";
 
 const meta = {
-  title: 'OnchainKit/NFT/MintCard',
+  title: "OnchainKit/NFT/MintCard",
   component: MintCardMain,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
 } satisfies Meta<typeof MintCardMain>;
 
 export default meta;
@@ -21,26 +21,26 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const CardMain: Story = {
-  name: 'MintCardMain',
+  name: "MintCardMain",
   render: () => <MintCardMain />,
 };
 
 export const CardTitleAbove: Story = {
-  name: 'MintCardTitleAbove',
+  name: "MintCardTitleAbove",
   render: () => <MintCardTitleAbove />,
 };
 
 export const CardOverrideStyles: Story = {
-  name: 'MintCardOverrideStyles',
+  name: "MintCardOverrideStyles",
   render: () => <MintCardOverrideStyles />,
 };
 
 export const CardScaled: Story = {
-  name: 'MintCardScaled',
-  render: () => <MintCardScaled squared={true} />,
+  name: "MintCardScaled",
+  render: () => <MintCardScaled square={true} />,
 };
 
 export const CardNotScaled: Story = {
-  name: 'MintCardNotScaled',
-  render: () => <MintCardScaled squared={false} />,
+  name: "MintCardNotScaled",
+  render: () => <MintCardScaled square={false} />,
 };
