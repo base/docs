@@ -1,11 +1,13 @@
 ---
-title: 'Smart Wallet Profiles Integration in Onchain Vibes Store'
+title: 'Onchain Vibes Store (Profiles)'
 description: 'How Onchain Vibes Store uses Coinbase Smart Wallet Profiles for secure user data collection during onchain checkout.'
 ---
 
+import {GithubRepoCard} from "/snippets/GithubRepoCard.mdx";
+
 ## Overview
 
-Onchain Vibes Store demonstrates how to use **Smart Wallet Profiles**
+Onchain Vibes Store demonstrates how to use [**Smart Wallet Profiles**](/smart-wallet/concepts/features/optional/profiles)
 to securely collect user information (like email and physical address)
 during an onchain transaction. This feature enables seamless, privacy-first
 data collection for e-commerce and other onchain apps.
@@ -22,8 +24,6 @@ Smart Wallet Profiles allow your app to request personal information from users 
 
 Users are always in control: they see exactly what you request and can choose to share or withhold any information.
 
---- 
-
 ## How It Works in This App
 
 1. **User clicks Buy**: The checkout UI lets users select what info to share (email, address).
@@ -32,13 +32,30 @@ Users are always in control: they see exactly what you request and can choose to
 4. **Validation**: The wallet POSTs the data to your callback API for validation.
 5. **Transaction proceeds**: If validation passes, the transaction completes and the app displays the collected info.
 
----
+<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+  <img
+    alt="Onchain Vibes Store"
+    src="https://i.imgur.com/rC674pl.gif"
+    width="1000"
+    loading="lazy"
+  />
+</div>
+<div style={{ textAlign: 'center', marginTop: '0.5rem', fontStyle: 'italic' }}>
+    Onchain Vibes Store Quick Demo
+  </div>
+
+## Skip ahead
+
+If you want to skip ahead and just get the final code, you can find it here:
+
+<GithubRepoCard title="Onchain Vibes Store" githubUrl="https://github.com/base/demos/tree/master/smart-wallet/onchain-vibes-store" />
+
 
 ## UI Walkthrough: CheckoutButton
 
-The main logic lives in [`src/components/CheckoutButton.tsx`](./src/components/CheckoutButton.tsx):
+The main logic lives in `src/components/CheckoutButton.tsx`:
 
-```tsx
+```tsx src/components/CheckoutButton.tsx
 const requests = [];
 if (dataToRequest.email) requests.push({ type: "email", optional: false });
 if (dataToRequest.address) requests.push({ type: "physicalAddress", optional: false });
@@ -79,9 +96,9 @@ const response: any = await provider?.request({
 
 ## API Walkthrough: Data Validation
 
-The callback API is implemented in [`src/api/data-validation/route.ts`](./src/api/data-validation/route.ts):
+The callback API is implemented in `src/api/data-validation/route.ts`:
 
-```ts
+```ts src/api/data-validation/route.ts
 export async function POST(request: NextRequest) {
   const requestData = await request.json();
   try {
@@ -159,12 +176,7 @@ const cbWalletConnector = coinbaseWallet({
 
 ## Resources
 
-- [Profiles Guide](https://docs.base.org/identity/smart-wallet/guides/profiles)
-- [Profiles Reference](https://docs.base.org/identity/smart-wallet/concepts/features/optional/profiles)
-- [Coinbase Smart Wallet Docs](https://docs.base.org/identity/smart-wallet/)
+- [Profiles Guide](/smart-wallet/guides/profiles)
+- [Profiles Reference](/smart-wallet/technical-reference/profiles-reference)
+- [Smart Wallet Docs](/smart-wallet/quickstart)
 - [Wagmi Docs](https://wagmi.sh/)
-
----
-
-This integration makes onchain commerce seamless and privacy-first, with user-controlled data sharing and validation built in.
-
