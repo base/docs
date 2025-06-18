@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import type { ReactNode } from 'react';
-import App from './App.tsx';
+import type { ReactNode } from "react";
+import App from "../App";
 
 type WalletComponentsReact = {
   children: ReactNode;

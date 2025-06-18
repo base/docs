@@ -108,10 +108,16 @@ export default function SubAccount() {
     universalAccount && subAccount && (
       <SubAccountIllustration
         universalAccount={
-          <Address address={universalAccount} hasCopyAddressOnClick={false} />
+          <Address
+            address={universalAccount as `0x${string}`}
+            hasCopyAddressOnClick={false}
+          />
         }
         subAccount={
-          <Address address={subAccount} hasCopyAddressOnClick={false} />
+          <Address
+            address={subAccount as `0x${string}`}
+            hasCopyAddressOnClick={false}
+          />
         }
         universalAccountSigning={universalAccountSigning}
         subAccountSigning={subAccountSigning}
@@ -120,8 +126,11 @@ export default function SubAccount() {
   ) : (
     <Button
       className="border-none bg-sky-600"
-      // onClick={createSubAccount}
+      onClick={createSubAccount}
       disabled={!(signer && provider)}
+      style={{
+        backgroundColor: "rgb(2,132,199)",
+      }}
     >
       Create Sub Account
     </Button>

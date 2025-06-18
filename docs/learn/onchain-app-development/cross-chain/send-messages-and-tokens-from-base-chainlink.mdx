@@ -20,11 +20,9 @@ By the end of this tutorial you should be able to do the following:
 - Use Chainlink CCIP within your smart contract to send messages and/or tokens to contracts on other different chains
 - Deploy and test your smart contracts on Base testnet
 
-:::info
-
+<Info>
 Chainlink CCIP is in an "Early Access" development stage, meaning some of the functionality described within this tutorial is under development and may change in later versions.
-
-:::
+</Info>
 
 ## Prerequisites
 
@@ -53,11 +51,9 @@ The ETH is required for covering gas fees associated with deploying smart contra
 - To fund your wallet with ETH on Optimism Goerli, visit a faucet listed on the [Optimism Faucets](https://docs.optimism.io/builders/tools/faucets) page.
 - To fund your wallet with LINK, visit the [Chainlink Faucet](https://faucets.chain.link/base-testnet).
 
-:::info
-
+<Warning>
 If you are interested in building on Mainnet, you will need to [apply for Chainlink CCIP mainnet access](https://chainlinkcommunity.typeform.com/ccip-form?#ref_id=ccip_docs).
-
-:::
+</Warning>
 
 ---
 
@@ -75,11 +71,9 @@ Users can interact with [Routers](https://docs.chain.link/ccip/architecture#rout
 | Token transfers              | Send tokens from one chain to another.                                                       | Smart contracts or EOAs |
 | Programmable token transfers | Send tokens and arbitrary (encoded) data from one chain to another, in a single transaction. | Smart contracts only    |
 
-:::danger
-
+<Warning>
 Externally owned accounts (EOAs) on EVM blockchains are unable to receive message data, because of this, only smart contracts are supported as receivers when sending arbitrary messages or programmable token transfers. Any attempt to send a programmable token transfer (data and tokens) to an EOA, will result in only the tokens being received.
-
-:::
+</Warning>
 
 ### High-level concepts
 
@@ -107,11 +101,9 @@ Between instructions for a cross-chain interaction making its way from an OnRamp
 
 The Risk Management Network is a secondary validation service built using a variety of offchain and onchain components, with the responsibilities of monitoring all chains against abnormal activities.
 
-:::info
-
+<Info>
 A deep-dive on the technical details of each of these components is too much to cover in this tutorial, but if interested you can learn more by visiting the [Chainlink documentation](https://docs.chain.link/ccip/architecture).
-
-:::
+</Info>
 
 ## Creating a project
 
@@ -140,11 +132,9 @@ This will create a Foundry project with the following basic layout:
 └── test
 ```
 
-:::info
-
+<Info>
 You can delete the `src/Counter.sol`, `test/Counter.t.sol`, and `script/Counter.s.sol` boilerplate files that were generated with the project, as you will not be needing them.
-
-:::
+</Info>
 
 ## Installing Chainlink smart contracts
 
@@ -466,11 +456,9 @@ cast wallet import deployer --interactive
 
 After running the command above, you will be prompted to enter your private key, as well as a password for signing transactions.
 
-:::caution
-
+<Warning>
 For instructions on how to get your private key from Coinbase Wallet, visit the [Coinbase Wallet documentation](https://docs.cloud.coinbase.com/wallet-sdk/docs/developer-settings#show-private-key). **It is critical that you do NOT commit this to a public repo**.
-
-:::
+</Warning>
 
 To confirm that the wallet was imported as the `deployer` account in your Foundry project, run:
 
@@ -508,13 +496,11 @@ With your contracts compiled and environment setup, you are ready to deploy the 
 
 To deploy a smart contract using Foundry, you can use the `forge create` command. The command requires you to specify the smart contract you want to deploy, an RPC URL of the network you want to deploy to, and the account you want to deploy with.
 
-:::info
-
+<Info>
 Your wallet must be funded with ETH on the Base Goerli and Optimism Goerli to cover the gas fees associated with the smart contract deployment. Otherwise, the deployment will fail.
 
 To get testnet ETH for Base Goerli and Optimism Goerli, see the [prerequisites](#prerequisites).
-
-:::
+</Info>
 
 #### Deploying the Sender contract to Base Goerli
 
@@ -547,16 +533,14 @@ In order to pay for the fees associated with sending messages, the `Sender` cont
 Fund your contract directly from your wallet, or by running the following `cast` command:
 
 ```bash
-cast send $BASE_GOERLI_LINK_ADDRESS --rpc-url $BASE_GOERLI_RPC "transfer(address,uint256)" <SENDER_CONTRACT_ADDRESS> 5 --account deployer
+cast send $BASE_GOERLI_LINK_ADDRESS --rpc-url $BASE_GOERLI_RPC "transfer(address,uint256)" `SENDER_CONTRACT_ADDRESS` 5 --account deployer
 ```
 
 The above command sends `5` LINK tokens on Base Goerli testnet to the `Sender` contract.
 
-:::info
-
-Replace `<SENDER_CONTRACT_ADDRESS>` with the contract address of your deployed `Sender` contract before running the provided `cast` command.
-
-:::
+<Info>
+Replace `SENDER_CONTRACT_ADDRESS` with the contract address of your deployed Sender contract before running the provided cast command.
+</Info>
 
 ## Interacting with the smart contract
 
@@ -569,26 +553,22 @@ The `cast` command can be used to call the `sendMessage(uint64, address, string)
 To call the `sendMessage(uint64, address, string)` function of the `Sender` smart contract, run:
 
 ```bash
-cast send <SENDER_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC "sendMessage(uint64, address, string)" $OPTIMISM_GOERLI_CHAIN_SELECTOR <RECEIVER_CONTRACT_ADDRESS> "Based" --account deployer
+cast send `SENDER_CONTRACT_ADDRESS` --rpc-url $BASE_GOERLI_RPC "sendMessage(uint64, address, string)" $OPTIMISM_GOERLI_CHAIN_SELECTOR `RECEIVER_CONTRACT_ADDRESS` "Based" --account deployer
 ```
 
 The command above calls the `sendMessage(uint64, address, string)` to send a message. The parameters passed in to the method include: The chain selector to the destination chain (Optimism Goerli), the `Receiver` contract address, and the text data to be included in the message (`Based`).
 
-:::info
-
-Replace `<SENDER_CONTRACT_ADDRESS>` and `<RECEIVER_CONTRACT_ADDRESS>` with the contract addresses of your deployed `Sender` and `Receiver` contracts respectively before running the provided `cast` command.
-
-:::
+<Info>
+Replace `SENDER_CONTRACT_ADDRESS` and `RECEIVER_CONTRACT_ADDRESS` with the contract addresses of your deployed Sender and Receiver contracts respectively before running the provided cast command.
+</Info>
 
 After running the command, a unique `messageId` should be returned.
 
 Once the transaction has been finalized, it will take a few minutes for CCIP to deliver the data to Optimism Goerli and call the `ccipReceive` function on the `Receiver` contract.
 
-:::info
-
+<Info>
 You can use the [CCIP explorer](https://ccip.chain.link/) to see the status of the CCIP transaction.
-
-:::
+</Info>
 
 ### Receiving data
 
@@ -597,14 +577,12 @@ The `cast` command can also be used to call the `getMessage()` function on the `
 To call the `getMessage()` function of the `Receiver` smart contract, run:
 
 ```bash
-cast send <RECEIVER_CONTRACT_ADDRESS> --rpc-url $OPTIMISM_GOERLI_RPC "getMessage()" --account deployer
+cast send `RECEIVER_CONTRACT_ADDRESS` --rpc-url $OPTIMISM_GOERLI_RPC "getMessage()" --account deployer
 ```
 
-:::info
-
-Replace `<RECEIVER_CONTRACT_ADDRESS>` with the contract addresses of your deployed `Receiver` contract before running the provided `cast` command.
-
-:::
+<Info>
+Replace `RECEIVER_CONTRACT_ADDRESS` with the contract addresses of your deployed Receiver contract before running the provided cast command.
+</Info>
 
 After running the command, the `messageId` and `text` of the last received message should be returned.
 

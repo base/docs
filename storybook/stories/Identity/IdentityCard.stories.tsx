@@ -2,7 +2,7 @@ import { IdentityCard } from "@coinbase/onchainkit/identity";
 import { base } from "viem/chains";
 import App from "../App";
 import type { Meta, StoryObj } from "@storybook/react";
-import { mainnet } from 'wagmi/chains';
+import { mainnet } from "wagmi/chains";
 
 const meta = {
   title: "OnchainKit/Identity/Card",
@@ -37,7 +37,7 @@ export const badgeTooltip: Story = {
   name: "badgeTooltip",
   render: () => (
     <App>
-      <IdentityCard 
+      <IdentityCard
         schemaId="0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9"
         address="0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF"
         chain={base}
@@ -45,14 +45,14 @@ export const badgeTooltip: Story = {
         badgeTooltip={true}
       />
     </App>
-  )
+  ),
 };
 
 export const badgeTooltipCustom: Story = {
   name: "badgeTooltipCustom",
   render: () => (
     <App>
-      <IdentityCard 
+      <IdentityCard
         schemaId="0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9"
         address="0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF"
         chain={base}
@@ -60,19 +60,19 @@ export const badgeTooltipCustom: Story = {
         badgeTooltip="Coinbase Verified"
       />
     </App>
-  )
+  ),
 };
 
 export const Customization: Story = {
   name: "Customization",
   render: () => (
     <App>
-      <IdentityCard 
+      <IdentityCard
         schemaId="0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9"
         address="0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF"
         chain={mainnet}
         className="cyberpunk max-w-[300px]"
       />
     </App>
-  )
+  ),
 };
