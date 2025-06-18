@@ -64,10 +64,10 @@ This document contains all URL redirects needed for the migration from the old C
 - `/identity/smart-wallet/concepts/features/optional/spend-limits` → `/smart-wallet/concepts/features/optional/spend-permissions`
 - `/identity/smart-wallet/guides/spend-limits` → `/smart-wallet/guides/spend-permissions`
 
-### Removed pages (redirect to quickstart):
-- `/identity/smart-wallet/concepts/usage-details/simulations` → `/smart-wallet/quickstart` (removed)
-- `/identity/smart-wallet/guides/sub-accounts/sub-accounts-with-privy` → `/smart-wallet/guides/sub-accounts` (removed)
-- `/identity/smart-wallet/guides/sub-accounts/add-sub-accounts-to-onchainkit-minikit` → `/smart-wallet/guides/sub-accounts` (removed)
+### Sub-accounts pages:
+- `/identity/smart-wallet/concepts/usage-details/simulations` → `/smart-wallet/concepts/usage-details/simulations`
+- `/identity/smart-wallet/guides/sub-accounts/sub-accounts-with-privy` → `/smart-wallet/guides/sub-accounts/sub-accounts-with-privy`
+- `/identity/smart-wallet/guides/sub-accounts/add-sub-accounts-to-onchainkit-minikit` → `/smart-wallet/guides/sub-accounts/add-sub-accounts-to-onchainkit`
 
 ## Basenames Redirects (Content Removed)
 - `/identity/basenames/*` → `/onchainkit/guides/use-basename-in-onchain-app` (removed - entire section)
@@ -114,10 +114,8 @@ This document contains all URL redirects needed for the migration from the old C
 - `/chain/flashblocks/node-providers` → `/base-chain/flashblocks/node-providers`
 
 ### Removed pages (redirect to appropriate fallback):
-- `/chain/bridge-an-l1-token-to-base` → `/base-chain/quickstart/bridge-token` (removed)
-- `/chain/block-building` → `/base-chain/quickstart/why-base` (removed)
-- `/chain/using-base` → `/base-chain/quickstart/why-base` (removed)
-- `/chain/onboarding` → `/get-started/base` (removed)
+- `/chain/bridge-an-l1-token-to-base` → `/base-chain/quickstart/bridge-token` 
+- `/chain/using-base` → `/base-chain/quickstart/connecting-to-base` (removed)
 - `/chain/decentralizing-base-with-optimism` → `/base-chain/quickstart/why-base` (removed)
 - `/chain/builder-anniversary-nft` → `/base-chain/quickstart/why-base` (removed)
 - `/chain/registry-faq` → `/base-chain/tools/onchain-registry-api` (removed)
@@ -134,9 +132,9 @@ This document contains all URL redirects needed for the migration from the old C
 - `/use-cases/defi-your-app` → `/cookbook/defi-your-app`
 - `/use-cases/go-gasless` → `/cookbook/go-gasless`
 - `/use-cases/decentralize-social-app` → `/cookbook/onchain-social`
-- `/use-cases/ai-instructions/eliza` → `/cookbook/ai-prompting` (removed)
-- `/use-cases/ai-instructions/langchain-local` → `/cookbook/ai-prompting` (removed)
-- `/use-cases/ai-instructions/langchain-replit` → `/cookbook/ai-prompting` (removed)
+- `/use-cases/ai-instructions/eliza` → `/cookbook/launch-ai-agents` (removed)
+- `/use-cases/ai-instructions/langchain-local` → `/cookbook/launch-ai-agents` (removed)
+- `/use-cases/ai-instructions/langchain-replit` → `/cookbook/launch-ai-agents` (removed)
 
 ## Cookbook Redirects (Major Changes Due to Rebase)
 
@@ -235,11 +233,11 @@ This document contains all URL redirects needed for the migration from the old C
 - `/learn/hardhat-tools-and-testing/overview` → `/learn/hardhat/hardhat-tools-and-testing/overview` (removed)
 - `/learn/learning-objectives` → `/learn/welcome` (removed)
 - `/learn/help-on-discord` → External Discord link (removed)
-- `/learn/exercise-contracts` → `/learn/welcome` (removed)
+- `/learn/exercise-contracts` → `/learn/exercise-contracts` (this exists )
 
 ## Top-Level and Misc Redirects
 - `/quickstart` → `/get-started/build-app`
-- `/base-services-hub` → `/get-started/products`
+- `/base-services-hub` → `/get-started/base-services-hub`
 - `/` → `/get-started/base`
 - `/docs` → `/get-started/base`
 - `/builderkits` → `/get-started/products`
@@ -260,4 +258,4 @@ This document contains all URL redirects needed for the migration from the old C
 - **Learn Section**: ~150 redirects (with complex nesting)
 - **Cookbook**: ~50 redirects (many removed)
 - **Chain**: ~30 redirects
-- **Removed Content**: 34 pages marked with (removed) - redirect to fallback pages
+- **Removed Content**: 31 pages marked with (removed) - redirect to fallback pages
