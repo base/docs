@@ -1,8 +1,10 @@
 ---
-title: "Add Sub Accounts to OnchainKit"
+title: "Add Sub Accounts to Onchainkit/Minikit"
 ---
 
-import {GithubRepoCard} from "/snippets/GithubRepoCard.mdx";
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
+
+
 
 This guide will show you how to add Sub Accounts to your existing [OnchainKit](/builderkits/onchainkit/getting-started) or [MiniKit](/builderkits/minikit/quickstart) project.
 
@@ -11,18 +13,34 @@ you can read more about it in the [Sub Accounts Intro Page](/identity/smart-wall
 
 Before you start, make sure you have checked the following guides:
 
-- [OnchainKit Quickstart](/onchainkit/getting-started)
-- [OnchainKit Custom Providers](/onchainkit/config/supplemental-providers)
-- [Sub Accounts Intro Page](/smart-wallet/guides/sub-accounts)
+- [OnchainKit Quickstart](/builderkits/onchainkit/getting-started)
+- [MiniKit Quickstart](/builderkits/minikit/quickstart)
+- [OnchainKit Custom Providers](/builderkits/onchainkit/config/supplemental-providers)
+- [Sub Accounts Intro Page](/identity/smart-wallet/guides/sub-accounts)
+
+<Warning>
+**Smart Wallet compatibility with Mini Apps**
+
+The Coinbase Wallet team is working on adding Smart Wallet support to Mini Apps.
+
+For now, you can only use Sub Accounts with OnchainKit/MiniKit outside of the social feed.
+</Warning>
 
 ## Skip ahead
 
 If you want to skip ahead and just get the final code, you can find it here:
 
-<GithubRepoCard title="Sub Account OnchainKit Template Demo" githubUrl="https://github.com/base/demos/tree/master/smart-wallet/sub-accounts-onchainkit" />
+<GithubRepoCard title="Sub Account MiniKit Template Demo" githubUrl="https://github.com/base/demos/tree/master/smart-wallet/sub-accounts-minikit" />
 
+<Warning>
+**About this codebase**
 
-## Add Sub Accounts to your OnchainKit project
+The codebase uses MiniKit, but the same code can be used for OnchainKit with minimal changes.
+
+The difference is detailed in the [Providers](#setting-up-the-onchainkitminikit-providers-config) section.
+</Warning>
+
+## Add Sub Accounts to your OnchainKit/MiniKit project
 
 ### Override the default Coinbase Wallet SDK version
 
@@ -31,7 +49,7 @@ Currently, Sub Accounts are only available in the Smart Wallet development envir
 To override the default Coinbase Wallet SDK version, you can run the following command:
 
 ```bash
-npm pkg set overrides.@coinbase/wallet-sdk=canary
+npm @coinbase/wallet-sdk@canary install
 ```
 
 <Warning>
@@ -43,7 +61,6 @@ Make sure to delete the `node_modules` folder and `package-lock.json` file befor
 rm -rf node_modules package-lock.json
 npm install
 ```
-
 </Warning>
 
 <Check>
@@ -52,7 +69,6 @@ npm install
 This is a temporary solution to get Sub Accounts working.
 
 Once the new version of the Coinbase Wallet SDK is released, you can remove this step.
-
 </Check>
 
 ### Setting up the Wagmi config
@@ -112,7 +128,7 @@ Let's break down the key preference parameters:
 - `keysUrl`: Points to the development environment for Smart Wallet testing
 - `options: 'smartWalletOnly'`: Ensures only Smart Wallet mode is used
 - `enableAutoSubAccounts: true`: When set to true, automatically creates a Sub Account at connection
-- `defaultSpendLimits`: Configures Spend Permissions for Sub Account for a network (eg. Base Sepolia `84532`), including:
+- `defaultSpendLimits`: Configures Spend Limits for Sub Account for a network (eg. Base Sepolia `84532`), including:
 
   - Token address (In this case, `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` represents the native ETH)
   - Allowance WEI amount (in Hex)
@@ -123,23 +139,62 @@ Let's break down the key preference parameters:
 
 Sub Accounts are currently only available in the Smart Wallet development environment.
 To use this environment, you need to set the `keysUrl` to `https://keys-dev.coinbase.com/connect` in your configuration.
-
 </Warning>
 
 ### Setting up the OnchainKit/MiniKit providers config
 
 Once the `wagmi.ts` file is updated, you can update your `providers.tsx` file to include the following:
 
+<CodeGroup>
+```ts providers.tsx (MiniKit)
+"use client";
+
+import { type ReactNode, useState } from "react";
+import { baseSepolia } from "wagmi/chains";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
+import { type State, WagmiProvider } from "wagmi";
+import { getConfig } from "@/wagmi";
+
+export function Providers(props: {
+  children: ReactNode;
+  initialState?: State;
+}) {
+  const [config] = useState(() => getConfig());
+  const [queryClient] = useState(() => new QueryClient());
+
+  return (
+    <WagmiProvider config={config} initialState={props.initialState}>
+      <QueryClientProvider client={queryClient}>
+        <MiniKitProvider
+          apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+          chain={baseSepolia}
+          config={{
+            appearance: {
+              mode: "auto",
+              theme: "mini-app-theme",
+              name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
+              logo: process.env.NEXT_PUBLIC_ICON_URL,
+            },
+          }}
+        >
+          {props.children}
+        </MiniKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+```
 
 ```ts providers.tsx (OnchainKit)
 "use client";
 
-import { type ReactNode, useState } from "react"
-import { baseSepolia } from "wagmi/chains"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { MiniKitProvider } from "@coinbase/onchainkit/minikit"
-import { type State, WagmiProvider } from "wagmi"
-import { getConfig } from "@/wagmi"
+import { type ReactNode, useState } from "react";
+import { baseSepolia } from "wagmi/chains";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
+import { type State, WagmiProvider } from "wagmi";
+import { getConfig } from "@/wagmi";
 
 export function Providers(props: {
   children: ReactNode;
@@ -162,12 +217,21 @@ export function Providers(props: {
   );
 }
 ```
+</CodeGroup>
+
+<Check>
+**For OnchainKit**
+
+For OnchainKit, use `OnchainKitProvider` instead of `MiniKitProvider` as it's detailed in the
+[OnchainKit Custom Providers page](/builderkits/onchainkit/config/supplemental-providers).
+</Check>
 
 ## Run your app
 
 After installing the dependencies as described [above](#override-the-default-coinbase-wallet-sdk-version),
 make sure your environment variables are up to date as per
-the [OnchainKit Quickstart](/builderkits/onchainkit/getting-started)
+the [OnchainKit Quickstart](/builderkits/onchainkit/getting-started)or
+[MiniKit Quickstart](/builderkits/minikit/quickstart).
 
 Then, you can run the app with the following command:
 
@@ -175,6 +239,6 @@ Then, you can run the app with the following command:
 npm run dev
 ```
 
-Congratulations! You've successfully added Sub Accounts to your OnchainKit project.
+Congratulations! You've successfully added Sub Accounts to your OnchainKit/MiniKit project.
 
 If you have any questions, join the _#smart-wallet_ channel on [Discord](https://discord.gg/cdp).
