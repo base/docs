@@ -1,7 +1,45 @@
 # Redirect Analysis - Base Documentation Migration
 
 ## Overview
-This analysis covers the URL structure changes from the old CMS to the new Mintlify documentation system.
+This analysis covers the URL structure changes from the old CMS to the new Mintlify documentation system, including the recent rebase changes from master.
+
+## Recent Changes from Rebase (Git History Analysis)
+
+### 1. **Cookbook Content Removal** (Commit: d0d92a2)
+The following cookbook sections were completely removed from the docs directory:
+- `/cookbook/defi/` - All 3 files deleted
+- `/cookbook/growth/` - All 6 files deleted  
+- `/cookbook/nfts/` - All 6 files deleted
+- `/cookbook/payments/` - All 3 files deleted
+- `/cookbook/social/` - All 3 files deleted
+
+**Total: 21 cookbook files removed**
+
+### 2. **Learn Section Major Restructuring** (Commit: d50a5fc)
+
+#### New Organizational Structure:
+- **Introduction to Ethereum** - Moved from root `/learn/` to `/learn/introduction-to-ethereum/`
+- **Token Development** - Created new section `/learn/token-development/` with subsections:
+  - `/intro-to-tokens/`
+  - `/minimal-tokens/`
+  - `/erc-20-token/`
+  - `/erc-721-token/`
+  - `/nft-guides/` (moved from cookbook)
+- **Hardhat Development** - Reorganized into nested structure:
+  - `/learn/hardhat/hardhat-setup-overview/`
+  - `/learn/hardhat/hardhat-testing/`
+  - `/learn/hardhat/hardhat-deploy/`
+  - `/learn/hardhat/hardhat-verify/`
+  - `/learn/hardhat/hardhat-forking/`
+  - `/learn/hardhat/hardhat-tools-and-testing/`
+  - `/learn/hardhat/etherscan/`
+- **Onchain App Development** - Enhanced with new sections:
+  - `/frontend-setup/` (restored from _pages)
+  - `/reading-and-displaying-data/` (new)
+  - `/writing-to-contracts/` (new)
+  - `/account-abstraction/`
+  - `/cross-chain/`
+  - `/finance/`
 
 ## Major Folder Structure Changes Identified
 
@@ -21,6 +59,7 @@ This analysis covers the URL structure changes from the old CMS to the new Mintl
   - Promoted to top-level tab
   - All ~80+ pages preserved
   - Notable change: `spend-limits` → `spend-permissions`
+  - New page added: `request-overview` in technical reference
 
 - **Basenames**: `/identity/basenames/*` → REMOVED
   - Content integrated into OnchainKit documentation
@@ -38,34 +77,41 @@ This analysis covers the URL structure changes from the old CMS to the new Mintl
   - Some moved to `/base-chain/node-operators/`
 
 ### 4. **Cookbook → Mixed Destinations**
-- **Preserved in Cookbook**:
-  - NFTs, Account Abstraction, Cross-chain sections
-  - Use case guides reorganized into: growth/, payments/, social/, defi/
+- **Completely Removed** (as of rebase):
+  - `/cookbook/defi/*` → Content may exist in Learn section
+  - `/cookbook/growth/*` → No replacement found
+  - `/cookbook/nfts/*` → Moved to `/learn/token-development/nft-guides/`
+  - `/cookbook/payments/*` → No replacement found
+  - `/cookbook/social/*` → No replacement found
   
-- **Moved to Learn**:
-  - Smart contract development (Hardhat, Foundry, Remix)
-  - Client-side development
-  - IPFS content
-  
-- **Removed**: Token gating → redirect to `/learn/welcome`
+- **Still in Cookbook**:
+  - Account Abstraction → Moved to `/learn/onchain-app-development/account-abstraction/`
+  - Cross-chain → Moved to `/learn/onchain-app-development/cross-chain/`
+  - IPFS → Moved to `/learn/onchain-app-development/deploy-with-fleek`
+  - Token gating → Removed completely
 
 ### 5. **Use Cases → Cookbook**
 - All `/use-cases/*` → `/cookbook/*`
 - AI instructions subsection removed entirely
 
-### 6. **Learn → Consolidated Structure**
-- Flattened hierarchy in several areas:
-  - `/learn/introduction-to-ethereum/*` → `/learn/*` (direct pages)
-  - Hardhat sections consolidated under `/learn/hardhat/`
-  - Frontend/onchain app development sections removed
+### 6. **Learn → Major Restructuring**
+- **Flattened then Re-nested**:
+  - Introduction to Ethereum: `/learn/*` → `/learn/introduction-to-ethereum/*`
+  - Token content: `/learn/[token-type]/*` → `/learn/token-development/[token-type]/*`
+  - Hardhat: `/learn/hardhat/*` → `/learn/hardhat/[subsection]/*`
+  
+- **New Sections Added**:
+  - `/learn/onchain-concepts/` (new)
+  - `/learn/onchain-app-development/` (expanded)
+  - Frontend development content restored
 
 ### 7. **Wallet App → Added Introduction Layer**
 - `/wallet-app/*` → `/wallet-app/introduction/*`
-- Added grouping for better organization
+- MiniKit content moved here from Builder Kits
 
 ## Files Not Found in New Structure (Removed/Missing)
 
-### Chain Section (Missing)
+### Chain Section (Missing - Need Redirects)
 1. `/chain/bridge-an-l1-token-to-base`
 2. `/chain/block-building`
 3. `/chain/using-base`
@@ -79,52 +125,71 @@ This analysis covers the URL structure changes from the old CMS to the new Mintl
 2. `/identity/smart-wallet/guides/sub-accounts/sub-accounts-with-privy`
 3. `/identity/smart-wallet/guides/sub-accounts/add-sub-accounts-to-onchainkit-minikit`
 
-### Learn Section (Removed)
-1. `/learn/development-tools/overview`
-2. `/learn/frontend-setup/*` (entire section)
-3. `/learn/reading-and-displaying-data/*` (entire section)
-4. `/learn/writing-to-contracts/*` (entire section)
-5. `/learn/hardhat-tools-and-testing/overview`
-6. `/learn/learning-objectives`
-7. `/learn/help-on-discord`
+### Cookbook Section (Removed in Rebase)
+All content under:
+1. `/cookbook/growth/*` - 6 files
+2. `/cookbook/payments/*` - 3 files  
+3. `/cookbook/social/*` - 3 files
+4. `/cookbook/token-gating/*`
 
 ### Use Cases (Removed)
 1. `/use-cases/ai-instructions/eliza`
 2. `/use-cases/ai-instructions/langchain-local`
 3. `/use-cases/ai-instructions/langchain-replit`
 
+## Content Migration Patterns
+
+### 1. **Cookbook → Learn Migration**
+- NFT guides: `/cookbook/nfts/*` → `/learn/token-development/nft-guides/*`
+- Account Abstraction: `/cookbook/account-abstraction/*` → `/learn/onchain-app-development/account-abstraction/*`
+- Cross-chain: `/cookbook/cross-chain/*` → `/learn/onchain-app-development/cross-chain/*`
+- Finance/DeFi: `/cookbook/defi/*` → `/learn/onchain-app-development/finance/*`
+- IPFS: `/cookbook/ipfs/*` → `/learn/onchain-app-development/deploy-with-fleek`
+
+### 2. **Learn Internal Reorganization**
+- Hardhat content deeply nested into functional groups
+- Token development consolidated under single section
+- Frontend/app development expanded with new content
+
 ## Key Observations
 
-### 1. **Promotion Strategy**
-Major products (OnchainKit, Smart Wallet) were promoted from subdirectories to top-level tabs, indicating increased importance.
+### 1. **Content Consolidation Strategy**
+- Cookbook being phased out in favor of Learn section
+- Technical tutorials moved to appropriate Learn subsections
+- Use case guides removed or consolidated
 
-### 2. **Content Consolidation**
-- Basenames merged into OnchainKit
-- Use Cases merged into Cookbook
-- Some Learn content consolidated or removed
+### 2. **Improved Organization**
+- Learn section now has clearer hierarchy
+- Related content grouped together (all token content, all Hardhat content)
+- Frontend development restored and expanded
 
-### 3. **Naming Conventions**
-- More descriptive URLs: `diffs-ethereum-base` instead of `differences-between-ethereum-and-base`
-- Terminology updates: `spend-limits` → `spend-permissions`
-
-### 4. **External Dependencies**
-Several sections now point to external CDP documentation:
-- AgentKit
-- Paymaster
-- Appchains
-- Verifications
-
-### 5. **Content Removal**
-Significant amount of frontend/client-side development content was removed from Learn section, possibly indicating a shift in documentation focus.
+### 3. **Content Gaps**
+- Many cookbook "growth" and "payments" guides have no clear replacement
+- Some chain documentation removed without replacement
+- AI-related content completely removed
 
 ## Redirect Statistics
-- **Total redirects needed**: ~400+
-- **Largest sections**: OnchainKit (~100), Smart Wallet (~80)
-- **Complete removals**: ~30 pages
-- **External redirects**: 4 (to CDP docs)
+- **Total redirects needed**: ~450+
+- **New from rebase**: ~50+ additional redirects
+- **Complete removals**: ~50+ pages (need fallback redirects)
+- **Complex migrations**: Cookbook → Learn with path changes
 
-## Recommendations for Review
-1. Verify all removed Chain section pages - determine if content should be preserved
-2. Check if removed Learn frontend content should redirect somewhere specific
-3. Confirm Basenames consolidation into OnchainKit is intentional
-4. Review removed AI instructions content - was this intentionally deprecated?
+## Special Attention Required
+
+### 1. **Deleted Cookbook Content**
+Need to determine redirect strategy for:
+- Growth guides (cast-actions, hyperframes, etc.) - Still exist in _pages but not in docs
+- Payment guides - No clear replacement
+- Social guides - No clear replacement
+
+### 2. **Missing Chain Documentation**
+Several chain pages have no replacement - need fallback strategy
+
+### 3. **Path Complexity**
+Some redirects require careful mapping due to deep nesting changes in Learn section
+
+## Recommendations
+1. For removed cookbook content with no replacement → Redirect to `/learn/welcome`
+2. For removed chain content → Redirect to `/base-chain/quickstart/why-base` or `/get-started/base`
+3. Create a "migration guide" page explaining where content has moved
+4. Verify all NFT guide redirects map correctly to new token-development section
