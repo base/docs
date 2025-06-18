@@ -68,12 +68,11 @@ You should have a folder structure similar to this:
 
 The `src` folder will contain a `Counter.sol` file which will serve as the contract you want to deploy.
 
-:::note[You will need ETH on Base to deploy]
+<Note title="You will need ETH on Base to deploy">
 You (the deployer wallet) will need some ETH in order to broadcast the transaction to the Base network. Fortunately, transactions are usually < 1 cent on Base mainnet.
 
 If using a [Coinbase Wallet] use the "Buy" button to onramp crypto from your Coinbase account.
-
-:::
+</Note>
 
 You will need a private key of the wallet that you want to deploy the smart contract from. Obtain it and store it as an env variable in your terminal.
 
@@ -99,8 +98,7 @@ It's deployment time! Deploy the `Counter.sol` contract using `forge create --rp
 
 Once deployed, it should return something like this:
 
-```bash
-[⠊] Compiling...
+```bash ⠊ Compiling...
 [⠢] Compiling 1 files with Solc 0.8.26
 [⠆] Solc 0.8.26 finished in 1.23s
 Compiler run successful!
@@ -148,12 +146,11 @@ Create an `async` function to call the basescan api. Basescan offers a few endpo
 
 To verify a contract you will use the `verifysourcecode` route, with the `contract` module, and your `apiKey` as query parameters.
 
-:::tip[Unsure what data to input?]
-
+<Tip title="Unsure what data to input?">
 In every foundry project you will have a `.json` file that contains the contracts metadata and ABI. For this particular project, this information is located in the `/verify_contracts/out/Counter.sol/Counter.json`
 
 Under the `Metadata` object you will find the compiler version under `evmversion`
-:::
+</Tip>
 
 Putting everything together, our function will look like this:
 
@@ -272,7 +269,7 @@ Run the command and you will see a that the contract should already be verified 
 
 ## Conclusion
 
-Congratulations! You’ve successfully deployed and verified a smart contract using the Basescan API. Now, your users don’t have to rely solely on your word—they can verify the contract’s functionality through the code itself.
+Congratulations! You've successfully deployed and verified a smart contract using the Basescan API. Now, your users don't have to rely solely on your word—they can verify the contract's functionality through the code itself.
 
 
 
