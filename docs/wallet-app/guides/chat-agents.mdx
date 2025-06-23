@@ -19,7 +19,7 @@ Real Examples:
 
 • AI Trading Companion: Message "buy $100 ETH when it hits $3,000" and your agent executes trades 24/7 while you sleep.
 
-• Travel Planning Bot: "Book flight LAX to NYC under $300" and get instant booking with crypto payments, all in your group chat
+• Travel Planning Agent: "Book flight LAX to NYC under $300" and get instant booking with crypto payments, all in your group chat
 
 • Coinbase Wallet & XMTP are combining AI, crypto, and mini apps with secure messaging – to unlock use-cases never before possible. Secure group chats & DMs are the new surface area for developers.
 
@@ -28,7 +28,7 @@ Real Examples:
 This guide will walk you through creating, testing, and deploying your first XMTP messaging agent. By the end, you'll have a fully functional agent that can send and receive messages on the XMTP messaging network.
 
 **Prerequisites**  
-• Node.js (v16 or higher)  
+• Node.js (v20 or higher)  
 • Git  
 • A code editor  
 • Basic knowledge of JavaScript/TypeScript
@@ -37,109 +37,116 @@ This guide will walk you through creating, testing, and deploying your first XMT
 
 - [Getting Started with XMTP (Video)](https://www.youtube.com/watch?v=djRLnWUvwIA)
 - [Building Agents on XMTP](https://github.com/ephemeraHQ/xmtp-agent-examples)
+- [Cursor Rules](https://github.com/ephemeraHQ/xmtp-agent-examples/blob/main/.cursor/rules/xmtp.md)
 - [XMTP Documentation](https://docs.xmtp.org/)
-- [Coinbase AgentKit](https://github.com/coinbase/agentkit)
-- [Coinbase Developer Platform](https://docs.cdp.coinbase.com/)
 - [Faucets](https://portal.cdp.coinbase.com/products/faucet)
-- [OnchainKit](https://onchainkit.xyz/)
 
 **STEP 1: SET UP YOUR DEVELOPMENT ENVIRONMENT**
 
-Clone the XMTP Bot Starter Template:
+Clone the XMTP Agent Examples Repository:
 
-```javascript
-git clone https://github.com/xmtp/bot-starter
-cd bot-starter
-```
-
-Alternative: create from scratch:
-
-```javascript
-mkdir my-xmtp-bot
-cd my-xmtp-bot
-npm init -y
+```bash
+git clone https://github.com/ephemeraHQ/xmtp-agent-examples.git
+cd xmtp-agent-examples
 ```
 
 **STEP 2: INSTALL DEPENDENCIES**
 
-Install the required XMTP SDK and other dependencies:
+Install all required packages:
 
-```javascript
-npm install @xmtp/xmtp-js ethers dotenv
+```bash
+npm
 ```
 
-For TypeScript support (recommended):
+**STEP 3: GENERATE KEYS FOR YOUR AGENT**
 
-```javascript
-npm install -D typescript @types/node ts-node
-```
+Run the key generation script to create your agent's wallet:
 
-**STEP 3: GENERATE KEYS FOR YOUR BOT**
-
-Run the key generation script to create your bot's wallet:
-
-```javascript
-npm run gen:keys
+```bash
+npm gen:keys
 ```
 
 This creates a .env file with:
 
-```javascript
-XMTP_ENV=dev
-PRIVATE_KEY=0x... (Your bot's private key)
-PUBLIC_ADDRESS=0x... (Your bot's public address)
+```bash
+WALLET_KEY=0x... # Your agent's private key
+ENCRYPTION_KEY=... # Encryption key for local database
+XMTP_ENV=dev # Environment (local, dev, production)
 ```
 
-IMPORTANT:  
-• Keep your PRIVATE_KEY secure and never commit it to version control  
-• Start with XMTP_ENV=dev for testing  
-• Switch to XMTP_ENV=production when ready to go live
+**STEP 4: WRITE YOUR AGENT LOGIC**
 
-**STEP 4: WRITE YOUR BOT LOGIC**
-
-Create a basic bot that responds to messages:
+Create a basic agent that responds to messages:
 
 ```javascript
-// bot.js
-import { Client } from '@xmtp/xmtp-js'
-import { Wallet } from 'ethers'
+// import the xmtp sdk
+import { Client, type XmtpEnv, type Signer } from "@xmtp/node-sdk";
 
-const wallet = new Wallet(process.env.PRIVATE_KEY)
-const xmtp = await Client.create(wallet, { env: process.env.XMTP_ENV })
+// encryption key, must be consistent across runs
+const encryptionKey: Uint8Array = ...;
+const signer: Signer = ...;
+const env: XmtpEnv = "dev";
 
-// Listen for new conversations
-for await (const conversation of await xmtp.conversations.stream()) {
-  console.log(`New conversation started with ${conversation.peerAddress}`)
+// create the client
+const client = await Client.create(signer, {encryptionKey, env });
+// sync the client to get the latest messages
+await client.conversations.sync();
 
-  // Listen for messages in this conversation
-  for await (const message of await conversation.streamMessages()) {
-    if (message.senderAddress === xmtp.address) continue // Skip own messages
-
-    console.log(`Received: ${message.content}`)
-
-    // Simple echo bot response
-    await conversation.send(`You said: ${message.content}`)
-  }
+// listen to all messages
+const stream = await client.conversations.streamAllMessages();
+for await (const message of  stream) {
+  // ignore messages from the agent
+  if (message?.senderInboxId === client.inboxId ) continue;
+  // get the conversation by id
+  const conversation = await client.conversations.getConversationById(message.conversationId);
+  // send a message from the agent
+  await conversation.send("gm");
 }
-
 ```
 
-**STEP 5: TEST YOUR BOT**
+Then run your agent:
+
+```bash
+npm dev
+```
+
+### Getting the address of a user
+
+Each user has a unique inboxId for retrieving their associated addresses (identifiers). One inboxId can have multiple identifiers like passkeys or EVM wallet addresses.
+
+```tsx
+const inboxState = await client.preferences.inboxStateFromInboxIds([
+  message.senderInboxId,
+]);
+const addressFromInboxId = inboxState[0].identifiers[0].identifier;
+```
+
+You can also explore example implementations in the `/examples` folder, including:
+
+- [xmtp-gm](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gm): A simple agent that replies to all text messages with "gm".
+- [xmtp-gpt](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gpt): An example using GPT API's to answer messages.
+- [xmtp-nft-gated-group](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-nft-gated-group): Add members to a group based on an NFT
+- [xmtp-coinbase-agentkit](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-coinbase-agentkit): Agent that uses a CDP for gassless USDC on base
+- [xmtp-transactions](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-transactions): Use XMTP content types to send transactions
+- [xmtp-smart-wallet](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-smart-wallet): Agent that uses a smart wallet to send messages
+
+
+**STEP 5: TEST YOUR AGENT**
 
 **Development Testing**
 
-1\. Start your bot:
+1\. Start your agent:
 
 ```javascript
-npm start
+npm dev
 ```
 
 2\. Test on [xmtp.chat:](https://xmtp.chat/conversations)  
 • Go to https://xmtp.chat  
 • Connect your personal wallet  
 • Switch to Dev environment in settings  
-• Start a new conversation with your bot's public address (from .env)  
-• Send a test message and verify the bot responds
+• Start a new conversation with your agent's public address (from .env)  
+• Send a test message and verify the agent responds
 
 **Production Testing**
 
@@ -152,28 +159,28 @@ XMTP_ENV=production
 2\. Test on Coinbase Wallet:  
 • Open Coinbase Wallet mobile app  
 • Go to messaging  
-• Start conversation with your bot's address  
+• Start conversation with your agent's address  
 • Verify functionality
 
-**STEP 6: GET A BASENAME FOR YOUR BOT**
+**STEP 6: GET A BASENAME FOR YOUR AGENT**
 
-Give your bot a human-readable name:
+Give your agent a human-readable name:
 
-**1\. Import bot wallet to Coinbase Wallet extension:**  
+**1\. Import agent wallet to Coinbase Wallet extension:**  
 • Install Coinbase Wallet browser extension  
-• Import using your bot's private key
+• Import using your agent's private key
 
 **2\. Purchase a basename:**  
 • Visit https://base.org/names  
-• Connect your bot's wallet  
-• Search and purchase your desired basename (e.g., mybot.base.eth)  
+• Connect your agent's wallet  
+• Search and purchase your desired basename (e.g., myagent.base.eth)  
 • Set as primary name
 
 **3\. Verify setup:**  
-• Your bot can now be reached via the basename instead of the long address  
-• Users can message mybot.base.eth instead of 0x123...
+• Your agent can now be reached via the basename instead of the long address  
+• Users can message myagent.base.eth instead of 0x123...
 
-**STEP 7: DEPLOY YOUR BOT**
+**STEP 7: DEPLOY YOUR AGENT**
 
 **Option 1: Railway (Recommended)**
 
@@ -181,7 +188,8 @@ Give your bot a human-readable name:
 • Connect your GitHub repository  
 • Add environment variables in Railway dashboard:  
  \- XMTP_ENV=production  
- \- PRIVATE_KEY=your_bot_private_key  
+ \- WALLET_KEY=your_agent_private_key  
+ \- ENCRYPTION_KEY=your_agent_encryption_key
 • Deploy and monitor logs
 
 **Option 2: Other Platforms**  
@@ -193,22 +201,34 @@ Heroku, Vercel, or any Node.js hosting platform:
 **STEP 8: MONITOR AND MAINTAIN**
 
 **Best Practices**  
-1\. Logging: Add comprehensive logging to track bot activity  
+1\. Logging: Add comprehensive logging to track agent activity  
 2\. Error Handling: Implement try-catch blocks for network issues  
-3\. Rate Limiting: Respect XMTP rate limits in your bot logic  
+3\. Rate Limiting: Respect XMTP rate limits in your agent logic  
 4\. Security: Never expose private keys; use environment variables
 
 **Monitoring**  
-Add to your bot for basic monitoring:
+
+Add to your agent for basic monitoring:
 
 ```javascript
-- console.log(\`Bot started. Address: ${xmtp.address}\`)
-- console.log(\`Environment: ${process.env.XMTP_ENV}\`)
-- console.log(\`Listening for messages...\`)
+const inboxState = await client.preferences.inboxState();
+const address = inboxState.identifiers[0].identifier;
+const inboxId = client.inboxId;
+const installationId = client.installationId;
+const conversations = await client.conversations.list();
+
+console.log(`
+✓ XMTP Client:
+• InboxId: ${inboxId}
+• Address: ${address}
+• Conversations: ${conversations.length}
+• Installations: ${inboxState.installations.length}
+• InstallationId: ${installationId}
+• Network: ${process.env.XMTP_ENV}`);
 ```
 
 ## Getting featured
 
-Fill out the form [here](https://app.deform.cc/form/52b71db4-bfa2-4ef5-a954-76c66250bdd2/?page_number=0) to submit your agent for review. If approved, your bot will be featured in Coinbase Wallet. You will hear back from us within 5 business days.
+Fill out the form [here](https://app.deform.cc/form/52b71db4-bfa2-4ef5-a954-76c66250bdd2/?page_number=0) to submit your agent for review. If approved, your agent will be featured in Coinbase Wallet. You will hear back from us within 5 business days.
 
 Need help or have feature requests? Visit [https://community.xmtp.org/](https://community.xmtp.org/)
