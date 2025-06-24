@@ -65,7 +65,7 @@ const LandingFooter: React.FC = () => {
           href: 'https://discord.com/channels/1220414409550336183/1253768005863739565',
         },
         { text: 'Twitter', href: 'https://x.com/Onchainkit' },
-        { text: 'Warpcast', href: 'https://warpcast.com/~/channel/onchainkit' },
+        { text: 'Farcaster', href: 'https://farcaster.xyz/~/channel/onchainkit' },
         {
           text: 'Contribute',
           href: 'https://onchainkit.xyz/guides/contribution',
