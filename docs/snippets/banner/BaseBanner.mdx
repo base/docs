@@ -1,6 +1,7 @@
 export const BaseBanner = ({
   content = null,
   id,
+  dismissable = true
 }) => {
   const LOCAL_STORAGE_KEY_PREFIX = 'cb-docs-banner';
   const [isVisible, setIsVisible] = useState(true);
@@ -20,16 +21,16 @@ export const BaseBanner = ({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white py-8 px-4 z-50 text-black dark:bg-black dark:text-white">
-      <div className="flex justify-between items-center">
-        {content}
-        <button
+    <div className="fixed bottom-0 left-0 right-0 bg-white py-8 px-4 lg:px-12 z-50 text-black dark:bg-black dark:text-white">
+      <div className="flex items-center max-w-8xl mx-auto">
+        {typeof content === 'function' ? content({ onDismiss }) : content}
+        {dismissable && <button
           onClick={onDismiss}
           className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           aria-label="Dismiss banner"
         >
           ✕
-        </button>
+        </button>}
       </div>
     </div>
   );
