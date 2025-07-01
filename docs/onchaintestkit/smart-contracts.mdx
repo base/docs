@@ -1,0 +1,600 @@
+---
+title: "Smart Contract Testing"
+description: "Test smart contract deployments and interactions with OnchainTestKit"
+---
+
+OnchainTestKit provides powerful tools for testing smart contract interactions alongside your dApp UI. This guide covers setting up contract testing, deploying contracts deterministically, and testing complex contract scenarios.
+
+## Smart Contract Setup
+
+### Prerequisites
+
+<Steps>
+<Step title="Install Foundry">
+Foundry is required for compiling contracts:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+</Step>
+
+<Step title="Create Foundry project">
+Set up your smart contracts project:
+
+```bash
+mkdir smart-contracts && cd smart-contracts
+forge init
+```
+</Step>
+
+<Step title="Configure environment">
+Add to your `.env` file:
+
+```bash
+# Path to your smart contracts
+E2E_CONTRACT_PROJECT_ROOT=../smart-contracts
+```
+</Step>
+</Steps>
+
+### Project Structure
+
+```
+your-project/
+├── frontend/           # Your dApp
+│   └── e2e/           # E2E tests
+└── smart-contracts/   # Foundry project
+    ├── foundry.toml
+    ├── src/           # Contract source files
+    ├── test/          # Contract unit tests
+    └── script/        # Deployment scripts
+```
+
+### Foundry Configuration
+
+Create `smart-contracts/foundry.toml`:
+
+```toml
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.20"
+optimizer = true
+optimizer_runs = 200
+
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+mainnet = "${MAINNET_RPC_URL}"
+```
+
+## Writing Smart Contracts
+
+### Example Token Contract
+
+```solidity
+// smart-contracts/src/SimpleToken.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract SimpleToken is ERC20, Ownable {
+    uint256 public constant MAX_SUPPLY = 1000000 * 10**18;
+    
+    constructor() ERC20("Simple Token", "STK") Ownable(msg.sender) {
+        _mint(msg.sender, MAX_SUPPLY / 10);
+    }
+    
+    function mint(address to, uint256 amount) public onlyOwner {
+        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
+        _mint(to, amount);
+    }
+}
+```
+
+### Building Contracts
+
+```bash
+cd smart-contracts
+
+# Install dependencies
+forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts
+
+# Build contracts
+forge build
+```
+
+## Using SmartContractManager
+
+The `smartContractManager` fixture is automatically available when `E2E_CONTRACT_PROJECT_ROOT` is set:
+
+```typescript
+test("deploy and test contract", async ({ 
+  page, 
+  metamask, 
+  smartContractManager,
+  node 
+}) => {
+  // Contract deployment and testing
+})
+```
+
+## Contract Deployment
+
+### Deterministic Deployment with CREATE2
+
+OnchainTestKit uses CREATE2 for deterministic contract addresses:
+
+```typescript
+test("should deploy SimpleToken contract using CREATE2", async ({
+  page,
+  smartContractManager,
+  node,
+}) => {
+  if (!smartContractManager || !node) {
+    throw new Error("SmartContractManager or node not initialized")
+  }
+
+  // Deploy the SimpleToken contract
+  const salt =
+    "0x0000000000000000000000000000000000000000000000000000000000000001" as Hex
+  const deployer = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address // Anvil's first account
+
+  const tokenAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt,
+    deployer,
+  })
+
+  // Verify the contract was deployed
+  expect(tokenAddress).toBeDefined()
+  expect(tokenAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
+
+  // Create a public client to verify the deployment
+  const publicClient = createPublicClient({
+    chain: localhost,
+    transport: http(`http://localhost:${node.port}`),
+  })
+
+  // Check the contract code exists
+  const code = await publicClient.getBytecode({ address: tokenAddress })
+  expect(code).toBeDefined()
+  expect(code).not.toBe("0x")
+
+  console.log(`SimpleToken deployed at: ${tokenAddress}`)
+})
+```
+
+<Info>
+CREATE2 ensures the same contract address across test runs when using the same salt and deployer.
+</Info>
+
+### Verifying Deterministic Addresses
+
+```typescript
+test("should deploy at deterministic address with same salt", async ({
+  page,
+  smartContractManager,
+  node,
+}) => {
+  if (!smartContractManager || !node) {
+    throw new Error("SmartContractManager or node not initialized")
+  }
+
+  const salt =
+    "0x0000000000000000000000000000000000000000000000000000000000000002" as Hex
+  const deployer = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address
+
+  // Take a snapshot before deployment
+  const snapshotId = await node.snapshot()
+
+  // Deploy first time
+  const firstAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt,
+    deployer,
+  })
+
+  // Revert to snapshot to simulate a fresh chain
+  await node.revert(snapshotId)
+
+  // Deploy again with same salt
+  const secondAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt,
+    deployer,
+  })
+
+  // Addresses should be the same due to CREATE2
+  expect(firstAddress).toBe(secondAddress)
+})
+```
+
+## Testing Contract Interactions
+
+### Reading Contract State
+
+```typescript
+test("should interact with deployed contract", async ({
+  page,
+  smartContractManager,
+  node,
+}) => {
+  if (!smartContractManager || !node) {
+    throw new Error("SmartContractManager or node not initialized")
+  }
+
+  // Deploy the contract
+  const salt =
+    "0x0000000000000000000000000000000000000000000000000000000000000003" as Hex
+  const deployer = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address
+
+  const tokenAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt,
+    deployer,
+  })
+
+  // Create a public client to interact with the contract
+  const publicClient = createPublicClient({
+    chain: localhost,
+    transport: http(`http://localhost:${node.port}`),
+  })
+
+  // Check the owner of the contract
+  const owner = await publicClient.readContract({
+    address: tokenAddress,
+    abi: [
+      {
+        name: "owner",
+        type: "function",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [{ name: "", type: "address" }],
+      },
+    ],
+    functionName: "owner",
+  }) as Address
+
+  console.log(`Contract owner: ${owner}`)
+
+  // Check the owner's balance (should have 10% of max supply from constructor)
+  const ownerBalance = await publicClient.readContract({
+    address: tokenAddress,
+    abi: [
+      {
+        name: "balanceOf",
+        type: "function",
+        stateMutability: "view",
+        inputs: [{ name: "account", type: "address" }],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ],
+    functionName: "balanceOf",
+    args: [owner],
+  })
+
+  expect(ownerBalance).toBe(BigInt("100000000000000000000000")) // 100k tokens (10% of 1M)
+
+  // Verify contract metadata
+  const [name, symbol, totalSupply] = await Promise.all([
+    publicClient.readContract({
+      address: tokenAddress,
+      abi: [
+        {
+          name: "name",
+          type: "function",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ name: "", type: "string" }],
+        },
+      ],
+      functionName: "name",
+    }),
+    publicClient.readContract({
+      address: tokenAddress,
+      abi: [
+        {
+          name: "symbol",
+          type: "function",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ name: "", type: "string" }],
+        },
+      ],
+      functionName: "symbol",
+    }),
+    publicClient.readContract({
+      address: tokenAddress,
+      abi: [
+        {
+          name: "totalSupply",
+          type: "function",
+          stateMutability: "view",
+          inputs: [],
+          outputs: [{ name: "", type: "uint256" }],
+        },
+      ],
+      functionName: "totalSupply",
+    }),
+  ])
+
+  expect(name).toBe("Simple Token")
+  expect(symbol).toBe("STK")
+  expect(totalSupply).toBe(BigInt("100000000000000000000000")) // 100k tokens initially minted
+})
+```
+
+### UI Contract Interactions
+
+```typescript
+test("should connect wallet and interact with deployed contract", async ({
+  page,
+  metamask,
+  smartContractManager,
+  node,
+}) => {
+  if (!metamask) {
+    throw new Error("MetaMask is not defined")
+  }
+
+  // Deploy contract first
+  const salt =
+    "0x0000000000000000000000000000000000000000000000000000000000000006" as Hex
+  const deployer = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address
+
+  const tokenAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt,
+    deployer,
+  })
+
+  // Connect wallet to the app
+  await page.getByTestId("ockConnectButton").first().click()
+  await page
+    .getByTestId("ockModalOverlay")
+    .first()
+    .getByRole("button", { name: "MetaMask" })
+    .click()
+
+  // Handle MetaMask connection
+  await metamask.handleAction(BaseActionType.CONNECT_TO_DAPP)
+
+  // Verify wallet is connected
+  await page.waitForSelector("text=/0x[a-fA-F0-9]{4}.*[a-fA-F0-9]{4}/", {
+    timeout: 10000,
+  })
+
+  // Now the user could interact with the deployed contract through the UI
+  console.log(`User can now interact with token at: ${tokenAddress}`)
+})
+```
+
+## Batch Operations
+
+Deploy multiple contracts and set up complex state:
+
+```typescript
+test("should perform batch operations", async ({
+  page,
+  smartContractManager,
+  node,
+}) => {
+  if (!smartContractManager || !node) {
+    throw new Error("SmartContractManager or node not initialized")
+  }
+
+  const deployer = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address
+
+  // Deploy multiple contracts and execute multiple calls
+  await smartContractManager.setContractState(
+    {
+      deployments: [
+        {
+          name: "SimpleToken",
+          args: [],
+          salt: "0x0000000000000000000000000000000000000000000000000000000000000004" as Hex,
+          deployer,
+        },
+      ],
+      calls: [],
+    },
+    node,
+  )
+
+  // Get the deployed contract address
+  const publicClient = createPublicClient({
+    chain: localhost,
+    transport: http(`http://localhost:${node.port}`),
+  })
+
+  // Verify deployment by checking for events or code
+  const logs = await publicClient.getLogs({
+    fromBlock: "latest",
+    toBlock: "latest",
+  })
+
+  expect(logs.length).toBeGreaterThan(0)
+})
+```
+
+## Testing State Persistence
+
+Test contract state persistence across snapshots:
+
+```typescript
+test("should test contract state persistence across snapshots", async ({
+  page,
+  smartContractManager,
+  node,
+}) => {
+  if (!smartContractManager || !node) {
+    throw new Error("SmartContractManager or node not initialized")
+  }
+
+  // Deploy contract
+  const salt =
+    "0x0000000000000000000000000000000000000000000000000000000000000007" as Hex
+  const deployer = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address
+
+  const tokenAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt,
+    deployer,
+  })
+
+  // Create public client
+  const publicClient = createPublicClient({
+    chain: localhost,
+    transport: http(`http://localhost:${node.port}`),
+  })
+
+  const owner = await publicClient.readContract({
+    address: tokenAddress,
+    abi: [
+      {
+        name: "owner",
+        type: "function",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [{ name: "", type: "address" }],
+      },
+    ],
+    functionName: "owner",
+  }) as Address
+
+  // Take a snapshot
+  const snapshotId = await node.snapshot()
+
+  // Check initial state
+  const initialOwnerBalance = await publicClient.readContract({
+    address: tokenAddress,
+    abi: [
+      {
+        name: "balanceOf",
+        type: "function",
+        stateMutability: "view",
+        inputs: [{ name: "account", type: "address" }],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ],
+    functionName: "balanceOf",
+    args: [owner],
+  })
+
+  expect(initialOwnerBalance).toBe(BigInt("100000000000000000000000")) // 100k tokens
+
+  // Deploy another contract to change state
+  const salt2 =
+    "0x0000000000000000000000000000000000000000000000000000000000000008" as Hex
+  const secondTokenAddress = await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt: salt2,
+    deployer,
+  })
+
+  // Verify the second contract was deployed
+  const secondContractCode = await publicClient.getBytecode({
+    address: secondTokenAddress,
+  })
+  expect(secondContractCode).toBeDefined()
+  expect(secondContractCode).not.toBe("0x")
+
+  // Revert to snapshot
+  await node.revert(snapshotId)
+
+  // Check that the second contract no longer exists
+  const codeAfterRevert = await publicClient.getBytecode({
+    address: secondTokenAddress,
+  })
+  expect(codeAfterRevert).toBeUndefined()
+
+  // Verify the first contract still exists and has the same state
+  const firstContractCodeAfterRevert = await publicClient.getBytecode({
+    address: tokenAddress,
+  })
+  expect(firstContractCodeAfterRevert).toBeDefined()
+  expect(firstContractCodeAfterRevert).not.toBe("0x")
+
+  const ownerBalanceAfterRevert = await publicClient.readContract({
+    address: tokenAddress,
+    abi: [
+      {
+        name: "balanceOf",
+        type: "function",
+        stateMutability: "view",
+        inputs: [{ name: "account", type: "address" }],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ],
+    functionName: "balanceOf",
+    args: [owner],
+  })
+
+  expect(ownerBalanceAfterRevert).toBe(initialOwnerBalance)
+})
+```
+
+## Best Practices
+
+<AccordionGroup>
+<Accordion title="Use deterministic addresses">
+Always use CREATE2 with consistent salts for predictable contract addresses:
+
+```typescript
+const SALTS = {
+  TOKEN: "0x01" as Hex,
+  STAKING: "0x02" as Hex,
+  GOVERNANCE: "0x03" as Hex,
+}
+```
+</Accordion>
+
+<Accordion title="Clean contract state">
+Deploy fresh contracts for each test to ensure isolation:
+
+```typescript
+test.beforeEach(async ({ smartContractManager, node }) => {
+  // Fresh deployment for each test
+  await smartContractManager.deployContract({
+    name: "SimpleToken",
+    args: [],
+    salt: `0x${Date.now().toString(16)}` as Hex,
+    deployer: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" as Address,
+  })
+})
+```
+</Accordion>
+
+<Accordion title="Test both success and failure">
+Always test both successful and failing contract interactions:
+
+```typescript
+test.describe("Token minting", () => {
+  test("owner can mint", async ({ /* ... */ }) => {
+    // Test successful mint
+  })
+
+  test("non-owner cannot mint", async ({ /* ... */ }) => {
+    // Test revert
+  })
+})
+```
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Browse complete examples](https://github.com/coinbase/onchaintestkit/tree/master/example/frontend/e2e)
+- [Set up CI/CD](/onchaintestkit/ci-cd)
+- [Learn best practices](/onchaintestkit/best-practices) 

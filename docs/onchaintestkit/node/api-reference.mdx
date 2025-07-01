@@ -1,0 +1,359 @@
+---
+title: "Node API Reference"
+description: "Complete API reference for LocalNodeManager"
+---
+
+## LocalNodeManager Class
+
+Manages the lifecycle and state of a local Anvil Ethereum node for testing. Handles dynamic port allocation, process management, and exposes a rich set of methods for manipulating the blockchain state.
+
+### Constructor
+
+```typescript
+new LocalNodeManager(config?: NodeConfig)
+```
+
+Creates a new instance with the specified configuration.
+
+<ParamField path="config" type="NodeConfig">
+  Optional node configuration options. See [Configuration](/onchaintestkit/node/configuration) for details.
+</ParamField>
+
+### Properties
+
+<ParamField path="port" type="number">
+  The allocated port number, or -1 if not started.
+</ParamField>
+
+<ParamField path="rpcUrl" type="string">
+  The RPC URL for the running node (e.g., `http://localhost:12345`).
+</ParamField>
+
+## Lifecycle Methods
+
+### start()
+
+```typescript
+async start(): Promise<void>
+```
+
+Starts the Anvil node with the configured options. Allocates a port, spawns the process, and waits for readiness.
+
+```typescript
+const node = new LocalNodeManager()
+await node.start()
+console.log(`Node running at ${node.rpcUrl}`)
+```
+
+### stop()
+
+```typescript
+async stop(): Promise<void>
+```
+
+Stops the running Anvil node and cleans up resources.
+
+```typescript
+await node.stop()
+```
+
+### getPort()
+
+```typescript
+getPort(): number | null
+```
+
+Returns the allocated port number for this node instance, or `null` if not started.
+
+```typescript
+const port = node.getPort()
+// Use port for configuration
+```
+
+## State Management Methods
+
+### snapshot()
+
+```typescript
+async snapshot(): Promise<string>
+```
+
+Takes a snapshot of the current chain state. Returns a snapshot ID for later use with `revert()`.
+
+```typescript
+const snapshotId = await node.snapshot()
+// Make changes...
+await node.revert(snapshotId)
+```
+
+### revert()
+
+```typescript
+async revert(snapshotId: string): Promise<void>
+```
+
+Reverts the chain state to a previous snapshot.
+
+<ParamField path="snapshotId" type="string" required>
+  The ID returned from `snapshot()`
+</ParamField>
+
+### reset()
+
+```typescript
+async reset(forkBlock?: bigint): Promise<void>
+```
+
+Resets the chain state to the initial state or a specified fork block.
+
+<ParamField path="forkBlock" type="bigint">
+  Optional block number to reset to (when in fork mode)
+</ParamField>
+
+## Mining Methods
+
+### mine()
+
+```typescript
+async mine(blocks = 1): Promise<void>
+```
+
+Mines a specified number of blocks.
+
+<ParamField path="blocks" type="number" default="1">
+  Number of blocks to mine
+</ParamField>
+
+```typescript
+// Mine 10 blocks
+await node.mine(10)
+```
+
+### setAutomine()
+
+```typescript
+async setAutomine(enabled: boolean): Promise<void>
+```
+
+Enables or disables automatic block mining.
+
+<ParamField path="enabled" type="boolean" required>
+  Whether to enable automatic mining
+</ParamField>
+
+```typescript
+// Disable automine for manual control
+await node.setAutomine(false)
+```
+
+## Time Manipulation Methods
+
+### setNextBlockTimestamp()
+
+```typescript
+async setNextBlockTimestamp(timestamp: number): Promise<void>
+```
+
+Sets the timestamp for the next block.
+
+<ParamField path="timestamp" type="number" required>
+  Unix timestamp in seconds
+</ParamField>
+
+### increaseTime()
+
+```typescript
+async increaseTime(seconds: number): Promise<void>
+```
+
+Increases chain time by the specified number of seconds.
+
+<ParamField path="seconds" type="number" required>
+  Number of seconds to advance
+</ParamField>
+
+```typescript
+// Advance time by 1 day
+await node.increaseTime(86400)
+```
+
+### setTime()
+
+```typescript
+async setTime(timestamp: number): Promise<void>
+```
+
+Sets absolute chain time.
+
+<ParamField path="timestamp" type="number" required>
+  Unix timestamp in seconds
+</ParamField>
+
+## Account Management Methods
+
+### getAccounts()
+
+```typescript
+async getAccounts(): Promise<string[]>
+```
+
+Returns an array of available account addresses.
+
+```typescript
+const accounts = await node.getAccounts()
+console.log(`Available accounts: ${accounts.length}`)
+```
+
+### setBalance()
+
+```typescript
+async setBalance(address: string, balance: bigint): Promise<void>
+```
+
+Sets the balance for the specified address.
+
+<ParamField path="address" type="string" required>
+  The address to modify
+</ParamField>
+
+<ParamField path="balance" type="bigint" required>
+  The new balance in wei
+</ParamField>
+
+```typescript
+await node.setBalance(
+  "0x742d35Cc6634C0532925a3b844Bc9e7595f8fA65",
+  parseEther("100")
+)
+```
+
+### setNonce()
+
+```typescript
+async setNonce(address: string, nonce: number): Promise<void>
+```
+
+Sets the nonce for the specified address.
+
+<ParamField path="address" type="string" required>
+  The address to modify
+</ParamField>
+
+<ParamField path="nonce" type="number" required>
+  The new nonce value
+</ParamField>
+
+### impersonateAccount()
+
+```typescript
+async impersonateAccount(address: string): Promise<void>
+```
+
+Enables impersonation of the specified account.
+
+<ParamField path="address" type="string" required>
+  The address to impersonate
+</ParamField>
+
+```typescript
+// Impersonate a whale address
+await node.impersonateAccount("0xWhaleAddress")
+```
+
+### stopImpersonatingAccount()
+
+```typescript
+async stopImpersonatingAccount(address: string): Promise<void>
+```
+
+Disables impersonation of the specified account.
+
+<ParamField path="address" type="string" required>
+  The address to stop impersonating
+</ParamField>
+
+## Contract Methods
+
+### setCode()
+
+```typescript
+async setCode(address: string, code: string): Promise<void>
+```
+
+Sets the contract code at the specified address.
+
+<ParamField path="address" type="string" required>
+  The contract address
+</ParamField>
+
+<ParamField path="code" type="string" required>
+  The contract bytecode (hex string)
+</ParamField>
+
+### setStorageAt()
+
+```typescript
+async setStorageAt(
+  address: string, 
+  slot: string, 
+  value: string
+): Promise<void>
+```
+
+Sets the storage value at the specified slot for a contract.
+
+<ParamField path="address" type="string" required>
+  The contract address
+</ParamField>
+
+<ParamField path="slot" type="string" required>
+  The storage slot (hex string)
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  The value to store (hex string)
+</ParamField>
+
+## Gas Configuration Methods
+
+### setNextBlockBaseFeePerGas()
+
+```typescript
+async setNextBlockBaseFeePerGas(fee: bigint): Promise<void>
+```
+
+Sets the base fee for the next block (EIP-1559).
+
+<ParamField path="fee" type="bigint" required>
+  The base fee in wei
+</ParamField>
+
+### setMinGasPrice()
+
+```typescript
+async setMinGasPrice(price: bigint): Promise<void>
+```
+
+Sets the minimum gas price.
+
+<ParamField path="price" type="bigint" required>
+  The minimum gas price in wei
+</ParamField>
+
+## Network Methods
+
+### setChainId()
+
+```typescript
+async setChainId(chainId: number): Promise<void>
+```
+
+Sets the chain ID.
+
+<ParamField path="chainId" type="number" required>
+  The new chain ID
+</ParamField>
+
+## Next Steps
+
+- Learn about [configuration options](/onchaintestkit/node/configuration) 

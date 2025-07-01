@@ -1,0 +1,373 @@
+---
+title: "Coinbase Wallet Testing"
+description: "Coinbase Wallet-specific features including passkey authentication support"
+---
+
+Coinbase Wallet provides unique features like passkey/WebAuthn support alongside standard wallet functionality. OnchainTestKit offers comprehensive automation for all Coinbase Wallet features.
+
+## Coinbase Wallet-Specific Actions
+
+In addition to the [common wallet actions](/onchaintestkit/wallets/common-actions), Coinbase Wallet supports these specific actions:
+
+```typescript
+enum CoinbaseSpecificActionType {
+  LOCK = "lock",                           // Lock the wallet
+  UNLOCK = "unlock",                       // Unlock the wallet
+  ADD_TOKEN = "addToken",                  // Add a custom token
+  ADD_ACCOUNT = "addAccount",              // Create a new account
+  SWITCH_ACCOUNT = "switchAccount",        // Switch between accounts
+  ADD_NETWORK = "addNetwork",              // Add a custom network
+  SEND_TOKENS = "sendTokens",              // Send tokens (not yet implemented)
+  HANDLE_PASSKEY_POPUP = "handlePasskeyPopup", // Handle WebAuthn/Passkey authentication
+}
+```
+
+## Passkey/WebAuthn Support
+
+One of Coinbase Wallet's unique features is support for passkey authentication, providing enhanced security through WebAuthn.
+
+### Passkey Configuration
+
+```typescript
+interface PasskeyConfig {
+  name: string;        // Display name for the passkey
+  rpId: string;        // Relying Party ID (domain)
+  rpName: string;      // Relying Party Name
+  userId: string;      // User identifier
+  isUserVerified?: boolean; // Whether user verification is required
+}
+```
+
+### Passkey Registration
+
+Register a new passkey for wallet authentication:
+
+```typescript
+test('register passkey', async ({ page, coinbase }) => {
+  // Trigger passkey registration
+  const [popup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByTestId('register-passkey').click(),
+  ]);
+
+  // Handle passkey registration
+  await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+    mainPage: page,
+    popup: popup,
+    passkeyAction: 'register',
+    passkeyConfig: {
+      name: 'My Test Passkey',
+      rpId: 'localhost',
+      rpName: 'My dApp',
+      userId: 'test-user-123',
+      isUserVerified: true,
+    },
+  });
+});
+```
+
+### Passkey Authentication
+
+Use passkey for transaction approval:
+
+```typescript
+test('approve transaction with passkey', async ({ page, coinbase }) => {
+  // Trigger transaction
+  const [txPopup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByRole('button', { name: 'Send Transaction' }).click(),
+  ]);
+
+  // Approve with passkey
+  await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+    mainPage: page,
+    popup: txPopup,
+    passkeyAction: 'approve',
+  });
+});
+```
+
+### Complete Passkey Flow Example
+
+```typescript
+test('complete passkey flow', async ({ page, coinbase }) => {
+  if (!coinbase) throw new Error('Coinbase fixture is required');
+
+  // Connect wallet
+  await page.getByTestId('connect-wallet').click();
+  await page.getByRole('button', { name: 'Coinbase' }).click();
+  await coinbase.handleAction(BaseActionType.CONNECT_TO_DAPP);
+
+  // Register passkey
+  const [registerPopup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByTestId('setup-passkey').click(),
+  ]);
+
+  await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+    mainPage: page,
+    popup: registerPopup,
+    passkeyAction: 'register',
+    passkeyConfig: {
+      name: 'Test Passkey',
+      rpId: 'localhost',
+      rpName: 'Test dApp',
+      userId: 'user-' + Date.now(),
+      isUserVerified: true,
+    },
+  });
+
+  // Use passkey for transaction
+  await page.getByRole('button', { name: 'Send ETH' }).click();
+  
+  const [txPopup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByRole('button', { name: 'Confirm' }).click(),
+  ]);
+
+  await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+    mainPage: page,
+    popup: txPopup,
+    passkeyAction: 'approve',
+  });
+
+  // Verify transaction success
+  await expect(page.getByText('Transaction successful')).toBeVisible();
+});
+```
+
+## Account Management
+
+### Add New Account
+
+```typescript
+await coinbase.handleAction(CoinbaseSpecificActionType.ADD_ACCOUNT, {
+  accountName: 'DeFi Account',
+});
+```
+
+### Switch Between Accounts
+
+```typescript
+await coinbase.handleAction(CoinbaseSpecificActionType.SWITCH_ACCOUNT, {
+  accountName: 'DeFi Account',
+});
+```
+
+### Account Management Example
+
+```typescript
+test('manage Coinbase accounts', async ({ page, coinbase }) => {
+  // Add multiple accounts
+  await coinbase.handleAction(CoinbaseSpecificActionType.ADD_ACCOUNT, {
+    accountName: 'Trading Account',
+  });
+
+  await coinbase.handleAction(CoinbaseSpecificActionType.ADD_ACCOUNT, {
+    accountName: 'Savings Account',
+  });
+
+  // Switch to specific account
+  await coinbase.handleAction(CoinbaseSpecificActionType.SWITCH_ACCOUNT, {
+    accountName: 'Trading Account',
+  });
+});
+```
+
+## Network Management
+
+### Add Custom Network
+
+```typescript
+await coinbase.handleAction(CoinbaseSpecificActionType.ADD_NETWORK, {
+  network: {
+    name: 'Base Mainnet',
+    rpcUrl: 'https://mainnet.base.org',
+    chainId: 8453,
+    symbol: 'ETH',
+  },
+});
+```
+
+## Wallet Lock/Unlock
+
+### Lock Wallet
+
+```typescript
+await coinbase.handleAction(CoinbaseSpecificActionType.LOCK);
+```
+
+### Unlock Wallet
+
+```typescript
+await coinbase.handleAction(CoinbaseSpecificActionType.UNLOCK, {
+  password: 'YourWalletPassword',
+});
+```
+
+## Coinbase Wallet Configuration
+
+### Basic Configuration
+
+```typescript
+import { configure } from '@coinbase/onchaintestkit';
+
+const coinbaseConfig = configure()
+  .withCoinbase()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'COMPLEXPASSWORD1',
+  })
+  .build();
+```
+
+### Advanced Configuration
+
+```typescript
+const coinbaseConfig = configure()
+  .withCoinbase()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'COMPLEXPASSWORD1',
+  })
+  .withNetwork({
+    name: 'Base Sepolia',
+    chainId: 84532,
+    symbol: 'ETH',
+    rpcUrl: 'https://sepolia.base.org',
+  })
+  .withCustomSetup(async (wallet, context) => {
+    // Add custom tokens
+    await wallet.handleAction(CoinbaseSpecificActionType.ADD_TOKEN, {
+      tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      tokenSymbol: 'USDC',
+      tokenDecimals: 6,
+    });
+    
+    // Add additional accounts
+    await wallet.handleAction(CoinbaseSpecificActionType.ADD_ACCOUNT, {
+      accountName: 'DeFi Operations',
+    });
+  })
+  .build();
+```
+
+## Complete Coinbase Wallet Test Example
+
+Here's a comprehensive example demonstrating various Coinbase Wallet features:
+
+```typescript
+import { createOnchainTest, CoinbaseSpecificActionType, BaseActionType } from '@coinbase/onchaintestkit';
+import { configure } from '@coinbase/onchaintestkit';
+
+const config = configure()
+  .withLocalNode({
+    chainId: 84532,
+    forkUrl: process.env.E2E_TEST_FORK_URL,
+  })
+  .withCoinbase()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'COMPLEXPASSWORD1',
+  })
+  .build();
+
+const test = createOnchainTest(config);
+
+test('comprehensive Coinbase test', async ({ page, coinbase, node }) => {
+  if (!coinbase) throw new Error('Coinbase fixture is required');
+
+  // Navigate to dApp
+  await page.goto('https://app.example.com');
+
+  // Connect wallet
+  await page.getByTestId('connect-wallet').click();
+  await page.getByRole('button', { name: 'Coinbase' }).click();
+  await coinbase.handleAction(BaseActionType.CONNECT_TO_DAPP);
+
+  // Setup passkey
+  const [passkeyPopup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByTestId('enable-passkey').click(),
+  ]);
+
+  await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+    mainPage: page,
+    popup: passkeyPopup,
+    passkeyAction: 'register',
+    passkeyConfig: {
+      name: 'Test Passkey',
+      rpId: 'localhost',
+      rpName: 'Example dApp',
+      userId: 'test-user',
+      isUserVerified: true,
+    },
+  });
+
+  // Add custom network
+  await coinbase.handleAction(CoinbaseSpecificActionType.ADD_NETWORK, {
+    network: {
+      name: 'Local Test Network',
+      rpcUrl: `http://localhost:${node?.port}`,
+      chainId: 84532,
+      symbol: 'ETH',
+    },
+  });
+
+  // Switch to the network
+  await coinbase.handleAction(BaseActionType.SWITCH_NETWORK, {
+    networkName: 'Local Test Network',
+  });
+
+  // Perform transaction with passkey approval
+  await page.getByRole('button', { name: 'Send Transaction' }).click();
+  
+  const [txPopup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByRole('button', { name: 'Confirm' }).click(),
+  ]);
+
+  await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+    mainPage: page,
+    popup: txPopup,
+    passkeyAction: 'approve',
+  });
+
+  // Verify success
+  await expect(page.getByText('Transaction complete')).toBeVisible();
+});
+```
+
+## PasskeyAuthenticator Class
+
+Coinbase Wallet uses the `PasskeyAuthenticator` class internally to manage WebAuthn credentials:
+
+```typescript
+class PasskeyAuthenticator {
+  constructor(page: Page);
+  
+  async setup(options: PasskeySetupOptions): Promise<void>;
+  async createCredential(options: CredentialCreationOptions): Promise<PublicKeyCredential>;
+  async getCredential(options: CredentialRequestOptions): Promise<PublicKeyCredential>;
+  async cleanup(): Promise<void>;
+}
+```
+
+## Best Practices
+
+<Tip>
+Always handle popups when working with passkeys - they open in separate browser windows
+</Tip>
+
+<Warning>
+Passkey credentials are tied to specific domains (rpId). Use consistent values across tests
+</Warning>
+
+<Info>
+Coinbase Wallet requires stronger passwords than some other wallets. Use complex passwords with numbers and special characters
+</Info>
+
+## Next Steps
+
+- Explore the [API reference](/onchaintestkit/wallets/api-reference)
+- See [complete test examples](/onchaintestkit/examples) 

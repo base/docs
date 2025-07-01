@@ -1,0 +1,224 @@
+---
+title: "SmartContractManager"
+description: "High-level API for deterministic contract deployment and testing"
+---
+
+## Overview
+
+The `SmartContractManager` is a high-level manager for deploying contracts using CREATE2, executing contract calls, and orchestrating contract state for tests. It handles the complexity of contract deployment and interaction, allowing you to focus on test logic rather than blockchain plumbing.
+
+## Constructor
+
+```typescript
+new SmartContractManager(projectRoot: string)
+```
+
+Creates a new SmartContractManager instance.
+
+<ParamField path="projectRoot" type="string" required>
+  Path to the root of the project (used to locate contract artifacts)
+</ParamField>
+
+## Properties
+
+<ParamField path="projectRoot" type="string">
+  Root directory for artifact lookup
+</ParamField>
+
+<ParamField path="publicClient" type="PublicClient">
+  viem public client (initialized in `initialize`)
+</ParamField>
+
+<ParamField path="walletClient" type="WalletClient">
+  viem wallet client (initialized in `initialize`)
+</ParamField>
+
+<ParamField path="deployedContracts" type="Map<Address, Abi>">
+  Map of deployed contract addresses to their ABIs
+</ParamField>
+
+<ParamField path="proxyDeployer" type="ProxyDeployer">
+  Instance of ProxyDeployer for managing the deployment proxy
+</ParamField>
+
+## Methods
+
+### initialize()
+
+```typescript
+async initialize(node: LocalNodeManager): Promise<void>
+```
+
+Initializes viem clients and ensures the proxy is deployed. Must be called before using other methods.
+
+<ParamField path="node" type="LocalNodeManager" required>
+  The local node manager instance
+</ParamField>
+
+### deployContract()
+
+```typescript
+async deployContract(deployment: ContractDeployment): Promise<Address>
+```
+
+Deploys a contract using CREATE2 and stores its ABI.
+
+<ParamField path="deployment" type="ContractDeployment" required>
+  Contract deployment configuration
+</ParamField>
+
+**Returns:** The deployed contract address
+
+### executeCall()
+
+```typescript
+async executeCall(call: ContractCall): Promise<Hex>
+```
+
+Executes a contract function call as a transaction.
+
+<ParamField path="call" type="ContractCall" required>
+  Contract call configuration
+</ParamField>
+
+**Returns:** The transaction hash
+
+### setContractState()
+
+```typescript
+async setContractState(
+  config: SetupConfig, 
+  node: LocalNodeManager
+): Promise<void>
+```
+
+Deploys contracts and executes calls as specified in a setup config. This is useful for setting up complex test scenarios.
+
+<ParamField path="config" type="SetupConfig" required>
+  Setup configuration with deployments and calls
+</ParamField>
+
+<ParamField path="node" type="LocalNodeManager" required>
+  The local node manager instance
+</ParamField>
+
+### predictContractAddress()
+
+```typescript
+predictContractAddress(
+  salt: Hex, 
+  bytecode: Hex, 
+  args: readonly unknown[]
+): Address
+```
+
+Predicts the address for a CREATE2 deployment without actually deploying.
+
+<ParamField path="salt" type="Hex" required>
+  32-byte salt for CREATE2
+</ParamField>
+
+<ParamField path="bytecode" type="Hex" required>
+  Contract bytecode
+</ParamField>
+
+<ParamField path="args" type="readonly unknown[]" required>
+  Constructor arguments
+</ParamField>
+
+**Returns:** The predicted contract address
+
+## Contract Artifacts
+
+The SmartContractManager loads contract artifacts from your project's build directory. It supports:
+
+- **Foundry**: Looks for artifacts in `out/` directory
+- **Hardhat**: Looks for artifacts in `artifacts/` directory
+
+### Artifact Structure
+
+Artifacts should contain:
+```typescript
+{
+  abi: [...],        // Contract ABI
+  bytecode: "0x..." // Contract bytecode
+}
+```
+
+## Complete Examples
+
+### Basic Token Deployment
+
+```typescript
+import { SmartContractManager } from '@coinbase/onchaintestkit/contracts/SmartContractManager';
+import { LocalNodeManager } from '@coinbase/onchaintestkit/node/LocalNodeManager';
+
+async function deployToken() {
+  const node = new LocalNodeManager({ chainId: 31337 });
+  await node.start();
+
+  try {
+    const scm = new SmartContractManager(process.cwd());
+    await scm.initialize(node);
+
+    // Deploy ERC20 token
+    const tokenAddress = await scm.deployContract({
+      name: 'ERC20Token',
+      args: ['Test Token', 'TEST', 1000000n * 10n ** 18n],
+      salt: '0x' + '01'.repeat(32),
+      deployer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    });
+
+    console.log(`Token deployed at: ${tokenAddress}`);
+
+    // Mint tokens
+    await scm.executeCall({
+      target: tokenAddress,
+      functionName: 'mint',
+      args: ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 1000n * 10n ** 18n],
+      account: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    });
+
+  } finally {
+    await node.stop();
+  }
+}
+```
+
+## Best Practices
+
+<Steps>
+<Step title="Initialize before use">
+  Always call `initialize()` before using other methods
+</Step>
+
+<Step title="Use deterministic salts">
+  Generate salts based on test names or contract purposes for reproducibility
+</Step>
+
+<Step title="Handle deployment errors">
+  Wrap deployments in try-catch blocks to handle failures gracefully
+</Step>
+
+<Step title="Clean up resources">
+  Always stop the node after tests complete
+</Step>
+</Steps>
+
+## Tips and Tricks
+
+<Tip>
+Use the `predictContractAddress` method to get addresses before deployment. This is useful for setting up circular dependencies.
+</Tip>
+
+<Info>
+The SmartContractManager keeps track of deployed contracts' ABIs, making it easier to interact with them later.
+</Info>
+
+<Warning>
+Contract addresses depend on bytecode. Changing compiler settings or contract code will result in different addresses.
+</Warning>
+
+## See Also
+
+- [ProxyDeployer](/onchaintestkit/contracts/proxy-deployer) - Lower-level proxy management

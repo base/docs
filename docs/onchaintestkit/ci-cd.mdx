@@ -1,0 +1,148 @@
+---
+title: "CI/CD Integration"
+description: "Set up OnchainTestKit tests in your continuous integration pipeline"
+---
+
+Learn how to integrate OnchainTestKit into your CI/CD pipeline for automated blockchain testing on every commit. The example will likely will be slightly different depending on your project structure.
+
+## GitHub Actions
+
+### Basic Example Setup
+
+Create `.github/workflows/e2e-tests.yml`:
+
+```yaml
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Set up Corepack + yarn
+        run: |
+          npm install -g corepack
+          yarn set version 4.9.2
+
+      - name: Install root dependencies
+        run: yarn
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build contracts
+        run: |
+          cd smart-contracts
+          forge install foundry-rs/forge-std
+          forge install OpenZeppelin/openzeppelin-contracts
+          forge build
+
+      - name: Install Playwright browsers
+        run: yarn playwright install --with-deps
+
+      - name: Prepare wallet extensions
+        run: |
+          yarn prepare-metamask
+          yarn prepare-coinbase
+
+      - name: Build application
+        run: |
+          echo "E2E_TEST_SEED_PHRASE=${{ secrets.E2E_TEST_SEED_PHRASE }}" > .env
+          echo "E2E_CONTRACT_PROJECT_ROOT=../smart-contracts" >> .env
+          yarn build
+
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Run E2E tests
+        env:
+          NODE_OPTIONS: '--dns-result-order=ipv4first'
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" yarn test:e2e
+```
+
+## Optimization Tips
+
+<AccordionGroup>
+
+<Accordion title="Use headless mode in CI">
+Always run headless in CI for better performance:
+
+```typescript
+use: {
+  headless: !!process.env.CI,
+  video: process.env.CI ? 'retain-on-failure' : 'off',
+}
+```
+</Accordion>
+
+<Accordion title="Implement retry logic">
+Add smart retry logic for flaky tests:
+
+```typescript
+retries: process.env.CI ? 2 : 0,
+```
+</Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+
+<Accordion title="Error: connect ECONNREFUSED ::1:{SOME_PORT}">
+This error occurs when Node.js resolves "localhost" to ::1 (IPv6) but Anvil only listens on IPv4 addresses.
+
+**Solution:** Force Node.js to prefer IPv4 addresses by setting the `NODE_OPTIONS` environment variable:
+
+```yaml
+- name: Run E2E tests
+  env:
+    NODE_OPTIONS: '--dns-result-order=ipv4first'
+  run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" yarn test:e2e
+```
+
+This ensures:
+- `localhost` resolves to `127.0.0.1` (IPv4) instead of `::1` (IPv6)
+- Anvil can properly listen on the resolved address
+- Tests can successfully connect to the local blockchain
+</Accordion>
+
+<Accordion title="Flaky tests with high parallelism only in CI/CD workflows">
+E2E tests may become less reliable with increased parallelism, especially when multiple wallet interactions occur simultaneously. This is 
+not an issue locally though.
+
+**Solutions:**
+- Reduce test parallelism in CI environments:
+  ```typescript
+  workers: process.env.CI ? 1 : 4,
+  ```
+- Add longer timeouts for wallet operations:
+  ```typescript
+  timeout: 60_000, // 60 seconds for wallet-heavy tests
+  ```
+- Use test isolation to prevent state conflicts:
+  ```typescript
+  testInfo.annotations.push({ type: 'serial' });
+  ```
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+- [Browse examples](/onchaintestkit/examples)

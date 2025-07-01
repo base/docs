@@ -1,0 +1,245 @@
+---
+title: "Installation & Setup"
+description: "Complete installation guide for OnchainTestKit with troubleshooting"
+---
+
+This guide provides detailed instructions for installing and setting up OnchainTestKit in your project.
+
+## System Requirements
+
+<Info>
+OnchainTestKit requires the following software to be installed on your system:
+</Info>
+
+- **Node.js**: Version 14 or higher
+- **Package Manager**: npm, yarn, bun, or pnpm
+- **Foundry**: For running local Anvil nodes
+- **Operating System**: macOS, Linux, or Windows (with WSL2)
+
+## Installation Steps
+
+<Tabs>
+<Tab title="yarn">
+```bash
+# Install OnchainTestKit and Playwright
+yarn add -D @coinbase/onchaintestkit @playwright/test
+
+# Install Playwright browsers with system dependencies
+yarn playwright install --with-deps
+
+# Download wallet extensions
+yarn prepare-metamask
+yarn prepare-coinbase
+```
+</Tab>
+
+<Tab title="npm">
+```bash
+# Install OnchainTestKit and Playwright
+npm install -D @coinbase/onchaintestkit @playwright/test
+
+# Install Playwright browsers with system dependencies
+npx playwright install --with-deps
+
+# Download wallet extensions
+npm run prepare-metamask
+npm run prepare-coinbase
+```
+</Tab>
+
+<Tab title="bun">
+```bash
+# Install OnchainTestKit and Playwright
+bun add -D @coinbase/onchaintestkit @playwright/test
+
+# Install Playwright browsers with system dependencies
+bunx playwright install --with-deps
+
+# Download wallet extensions
+bun prepare-metamask
+bun prepare-coinbase
+```
+</Tab>
+</Tabs>
+
+## Installing Foundry
+
+OnchainTestKit uses Anvil (part of Foundry) for local blockchain nodes. Install Foundry using the official installer:
+
+```bash
+# Install Foundry
+curl -L https://foundry.paradigm.xyz | bash
+
+# Update PATH (may need to restart terminal)
+source ~/.bashrc
+
+# Verify installation
+anvil --version
+```
+
+<Tip>
+For Windows users, we recommend using WSL2 for the best experience. Foundry works natively on macOS and Linux.
+</Tip>
+
+## Environment Configuration
+
+Create a `.env` file in your project root with the following variables:
+
+```bash .env
+# Test wallet seed phrase (NEVER use production wallets!)
+E2E_TEST_SEED_PHRASE="test test test test test test test test test test test junk"
+
+# Optional: Fork configuration for testing against mainnet state
+E2E_TEST_FORK_URL="https://mainnet.base.org"
+E2E_TEST_FORK_BLOCK_NUMBER="12345678"
+
+# Optional: Smart contract project root
+E2E_CONTRACT_PROJECT_ROOT="../smart-contracts"
+```
+
+<Warning>
+Never commit `.env` files to version control. Add `.env` to your `.gitignore` file.
+</Warning>
+
+## Project Structure
+
+We recommend organizing your tests in the following structure:
+
+```
+your-project/
+├── e2e/
+│   ├── tests/
+│   │   ├── connect.spec.ts
+│   │   ├── transactions.spec.ts
+│   │   └── contracts.spec.ts
+│   ├── config/
+│   │   ├── metamask.config.ts
+│   │   └── coinbase.config.ts
+│   └── helpers/
+│       └── wallet.helpers.ts
+├── src/                    # Your application code
+├── .env                    # Environment variables
+└── playwright.config.ts    # Playwright configuration
+```
+
+## Playwright Configuration
+
+Create a `playwright.config.ts` file:
+
+```typescript playwright.config.ts
+import { defineConfig, devices } from "@playwright/test"
+require("dotenv").config({ path: "./.env" })
+
+/**
+ * Read environment variables from file.
+ * https://github.com/motdotla/dotenv
+ */
+
+
+// Use process.env.PORT by default and fallback to port 4000
+const PORT = process.env.PORT || 4000
+
+// Set webServer.url and use.baseURL with the location of the WebServer respecting the correct set port
+const baseURL = `http://localhost:${PORT}`
+
+/**
+ * See https://playwright.dev/docs/test-configuration.
+ */
+export default defineConfig({
+  timeout: 120000,
+  testDir: "./e2e",
+  /* Run tests in files in parallel */
+  fullyParallel: false,
+  /* Fail the build on CI if you accidentally left test.only in the source code. */
+  forbidOnly: !!process.env.CI,
+  /* Retry on CI only */
+  retries: process.env.CI ? 3 : 0,
+  /* Opt into parallel tests on CI. */
+  workers: 10,
+  maxFailures: 3,
+  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  reporter: "line",
+  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  use: {
+    /* Base URL to use in actions like `await page.goto('/')`. */
+    baseURL,
+
+    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    trace: "on-first-retry",
+  },
+
+  /* Configure projects for major browsers */
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    // },
+
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    // },
+
+    /* Test against mobile viewports. */
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
+
+    /* Test against branded browsers. */
+    // {
+    //   name: 'Microsoft Edge',
+    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    // },
+    // {
+    //   name: 'Google Chrome',
+    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    // },
+  ],
+
+  // Run your local dev server before starting the tests:
+  // https://playwright.dev/docs/test-advanced#launching-a-development-web-server-during-the-tests
+  webServer: {
+    command: "yarn start -p 4000",
+    url: baseURL,
+    timeout: 30 * 1000,
+    reuseExistingServer: !process.env.CI,
+  },
+})
+
+```
+
+## Verifying Installation
+
+Run this command to verify everything is installed correctly:
+
+```bash
+# Check Node.js
+node --version
+
+# Check Playwright
+npx playwright --version
+
+# Check Anvil
+anvil --version
+
+# List installed browsers
+npx playwright show-browsers
+```
+
+## Next Steps
+
+Now that you have OnchainTestKit installed, you're ready to:
+
+- [Configure your wallets](/onchaintestkit/configuration)
+- [Write your first test](/onchaintestkit/writing-tests)
+- [Set up smart contract testing](/onchaintestkit/smart-contracts) 

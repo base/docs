@@ -1,0 +1,180 @@
+---
+title: "Quickstart"
+description: "Get up and running with OnchainTestKit in under 10 minutes"
+---
+
+This quickstart guide will help you set up OnchainTestKit and write your first blockchain test in minutes. We'll create a simple test that connects a wallet and performs a transaction.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Node.js ≥ 14
+- npm, yarn, or bun (this guide uses yarn)
+- [Foundry](https://book.getfoundry.sh/) installed for Anvil local node
+
+<Note>
+Need to install Foundry? Run:
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+</Note>
+
+## Quick Setup
+
+<Steps>
+<Step title="Install dependencies">
+Install OnchainTestKit and Playwright:
+
+```bash
+yarn add -D @coinbase/onchaintestkit @playwright/test
+yarn playwright install --with-deps
+```
+</Step>
+
+<Step title="Download wallet extensions">
+Prepare the wallet extensions for testing:
+
+```bash
+# Download MetaMask
+yarn prepare-metamask
+
+# Download Coinbase Wallet  
+yarn prepare-coinbase
+```
+</Step>
+
+<Step title="Create environment variables">
+Create a `.env` file in your project root:
+
+```bash .env
+# Test wallet seed phrase (NEVER use production wallets!)
+E2E_TEST_SEED_PHRASE="test test test test test test test test test test test junk"
+```
+
+<Warning>
+This is a test seed phrase. Never use your real wallet seed phrase in tests!
+</Warning>
+</Step>
+
+<Step title="Create your first test">
+Create `e2e/connectWallet.spec.ts`:
+
+```typescript e2e/connectWallet.spec.ts
+import { createOnchainTest } from "@coinbase/onchaintestkit"
+import { configure } from "@coinbase/onchaintestkit"
+import { baseSepolia } from "viem/chains"
+
+// Configure MetaMask
+const config = configure()
+  .withLocalNode({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.E2E_TEST_FORK_URL, // This can be mainnet or testnet sepolia url
+    forkBlockNumber: BigInt(process.env.E2E_TEST_FORK_BLOCK_NUMBER ?? "0"),
+    hardfork: "cancun",
+  })
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: DEFAULT_SEED_PHRASE ?? "",
+    password: DEFAULT_PASSWORD,
+  })
+  // Add the network with the actual port in a custom setup
+  .withNetwork({
+    name: "Base Sepolia",
+    chainId: baseSepolia.id,
+    symbol: "ETH",
+    // placeholder for the actual rpcUrl, which is auto injected by the node fixture
+    rpcUrl: "http://localhost:8545",
+  })
+  .build()
+
+// Create test with configuration
+const test = createOnchainTest(config)
+
+test.describe("Wallet Connection", () => {
+  test("should connect to MetaMask", async ({ page, metamask }) => {
+    if (!metamask) throw new Error("MetaMask not initialized")
+
+    await page.getByTestId('ockConnectButton').first().click();
+    console.log('[connectWallet] Wallet connect modal opened');
+
+    // Select MetaMask from wallet options
+    await page
+      .getByTestId('ockModalOverlay')
+      .first()
+      .getByRole('button', { name: 'MetaMask' })
+      .click();
+    console.log('[connectWallet] MetaMask option clicked');
+
+    // Handle MetaMask connection request
+    await metamask.handleAction(BaseActionType.CONNECT_TO_DAPP);
+    console.log('[connectWallet] MetaMask handleAction finished, URL after connect:', page.url());
+  })
+})
+```
+</Step>
+
+<Step title="Run your test">
+Execute your test:
+
+```bash
+yarn playwright test e2e/connectWallet.spec.ts
+```
+
+To see the browser in action:
+
+```bash
+yarn playwright test e2e/connectWallet.spec.ts --headed
+```
+</Step>
+</Steps>
+
+<Tip>
+Want to see more real-world examples? Check out the **[comprehensive test examples](https://github.com/coinbase/onchaintestkit/tree/master/example/frontend/e2e)** in the OnchainTestKit repository. These examples cover:
+- Token swaps
+- NFT minting
+- Multiple wallet interactions
+- Complex transaction flows
+- And much more!
+</Tip>
+
+## What's Next?
+
+<CardGroup cols={2}>
+<Card title="Installation Guide" icon="download" href="/onchaintestkit/installation">
+  Detailed installation instructions and troubleshooting
+</Card>
+<Card title="Configuration" icon="gear" href="/onchaintestkit/configuration">
+  Learn about advanced configuration options
+</Card>
+<Card title="Writing Tests" icon="code" href="/onchaintestkit/writing-tests">
+  Deep dive into writing comprehensive tests
+</Card>
+<Card title="Smart Contracts" icon="file-contract" href="/onchaintestkit/smart-contracts">
+  Test smart contract interactions
+</Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+<Accordion title="Wallet extension not found">
+Make sure you've run the prepare commands:
+```bash
+yarn prepare-metamask
+yarn prepare-coinbase
+```
+</Accordion>
+
+<Accordion title="Tests timing out">
+Increase the test timeout in your config:
+```typescript
+test.setTimeout(60000) // 60 seconds
+```
+</Accordion>
+
+<Accordion title="Port already in use">
+The local node might be using a port that's already taken. OnchainTestKit automatically handles port allocation for parallel tests.
+</Accordion>
+</AccordionGroup> 

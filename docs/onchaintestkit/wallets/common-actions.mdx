@@ -1,0 +1,289 @@
+---
+title: "Common Wallet Actions"
+description: "Actions and operations supported by all wallet implementations"
+---
+
+This guide covers the common actions and operations that are supported by both MetaMask and Coinbase Wallet. These actions form the foundation of wallet testing with OnchainTestKit.
+
+## Base Actions
+
+All wallets support these fundamental actions through the `BaseActionType` enum:
+
+```typescript
+enum BaseActionType {
+  IMPORT_WALLET_FROM_SEED = "importWalletFromSeed",
+  IMPORT_WALLET_FROM_PRIVATE_KEY = "importWalletFromPrivateKey",
+  SWITCH_NETWORK = "switchNetwork",
+  CONNECT_TO_DAPP = "connectToDapp",
+  HANDLE_TRANSACTION = "handleTransaction",
+  HANDLE_SIGNATURE = "handleSignature",
+  CHANGE_SPENDING_CAP = "changeSpendingCap",
+  REMOVE_SPENDING_CAP = "removeSpendingCap",
+}
+```
+
+## Wallet Import and Setup
+
+### Import from Seed Phrase
+
+<CodeGroup>
+```typescript MetaMask
+await metamask.handleAction(BaseActionType.IMPORT_WALLET_FROM_SEED, {
+  seedPhrase: "test test test test test test test test test test test junk",
+  password: "MyPassword123!"
+});
+```
+
+```typescript Coinbase Wallet
+await coinbase.handleAction(BaseActionType.IMPORT_WALLET_FROM_SEED, {
+  seedPhrase: "test test test test test test test test test test test junk",
+  password: "MyPassword123!"
+});
+```
+</CodeGroup>
+
+### Import from Private Key
+
+<CodeGroup>
+```typescript MetaMask
+await metamask.handleAction(BaseActionType.IMPORT_WALLET_FROM_PRIVATE_KEY, {
+  privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+});
+```
+
+```typescript Coinbase Wallet
+await coinbase.handleAction(BaseActionType.IMPORT_WALLET_FROM_PRIVATE_KEY, {
+  privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+});
+```
+</CodeGroup>
+
+## Network Operations
+
+### Switch Network
+
+<CodeGroup>
+```typescript Basic Network Switch
+await wallet.handleAction(BaseActionType.SWITCH_NETWORK, {
+  networkName: "Base Sepolia"
+});
+```
+
+```typescript Testnet Switch
+await wallet.handleAction(BaseActionType.SWITCH_NETWORK, {
+  networkName: "Base Sepolia",
+  isTestnet: true
+});
+```
+</CodeGroup>
+
+## dApp Connection
+
+### Connect to dApp
+
+```typescript
+test('connect wallet to dApp', async ({ page, metamask }) => {
+  // Click connect button on dApp
+  await page.getByTestId('ockConnectButton').click();
+  
+  // Select wallet from modal
+  await page.getByRole('button', { name: 'MetaMask' }).click();
+  
+  // Handle connection in wallet
+  await metamask.handleAction(BaseActionType.CONNECT_TO_DAPP);
+  
+  // Verify connection
+  await expect(page.getByTestId('wallet-connected')).toBeVisible();
+});
+```
+
+## Transaction Handling
+
+### Approve Transaction
+
+```typescript
+await wallet.handleAction(BaseActionType.HANDLE_TRANSACTION, {
+  approvalType: ActionApprovalType.APPROVE
+});
+```
+
+### Reject Transaction
+
+```typescript
+await wallet.handleAction(BaseActionType.HANDLE_TRANSACTION, {
+  approvalType: ActionApprovalType.REJECT
+});
+```
+
+### Complete Transaction Flow
+
+```typescript
+test('complete transaction', async ({ page, metamask }) => {
+  // Trigger transaction on dApp
+  await page.getByRole('button', { name: 'Send Transaction' }).click();
+  
+  // Wait for wallet notification
+  await page.waitForTimeout(1000);
+  
+  // Approve transaction
+  await metamask.handleAction(BaseActionType.HANDLE_TRANSACTION, {
+    approvalType: ActionApprovalType.APPROVE
+  });
+  
+  // Wait for confirmation
+  await expect(page.getByText('Transaction confirmed')).toBeVisible();
+});
+```
+
+## Signature Handling
+
+### Sign Message
+
+```typescript
+await wallet.handleAction(BaseActionType.HANDLE_SIGNATURE, {
+  approvalType: ActionApprovalType.APPROVE
+});
+```
+
+### Sign Typed Data
+
+```typescript
+test('sign typed data', async ({ page, metamask }) => {
+  // Trigger signature request
+  await page.getByRole('button', { name: 'Sign Message' }).click();
+  
+  // Approve signature
+  await metamask.handleAction(BaseActionType.HANDLE_SIGNATURE, {
+    approvalType: ActionApprovalType.APPROVE
+  });
+  
+  // Verify signature
+  await expect(page.getByTestId('signature-result')).toBeVisible();
+});
+```
+
+## Token Approvals
+
+### Change Spending Cap
+
+```typescript
+await wallet.handleAction(BaseActionType.CHANGE_SPENDING_CAP, {
+  approvalType: ActionApprovalType.APPROVE
+});
+```
+
+### Remove Spending Cap
+
+```typescript
+await wallet.handleAction(BaseActionType.REMOVE_SPENDING_CAP, {
+  approvalType: ActionApprovalType.APPROVE
+});
+```
+
+## Notification Detection
+
+Both wallets support detecting the type of notification currently displayed:
+
+```typescript
+const notificationType = await wallet.identifyNotificationType();
+// Returns: 'Transaction' | 'SpendingCap' | 'Signature' | 'RemoveSpendCap'
+
+switch (notificationType) {
+  case 'Transaction':
+    await wallet.handleAction(BaseActionType.HANDLE_TRANSACTION, { 
+      approvalType: ActionApprovalType.APPROVE 
+    });
+    break;
+  case 'SpendingCap':
+    await wallet.handleAction(BaseActionType.CHANGE_SPENDING_CAP, { 
+      approvalType: ActionApprovalType.APPROVE 
+    });
+    break;
+  case 'Signature':
+    await wallet.handleAction(BaseActionType.HANDLE_SIGNATURE, { 
+      approvalType: ActionApprovalType.APPROVE 
+    });
+    break;
+}
+```
+
+## Approval Types
+
+All approval actions support these types:
+
+```typescript
+enum ActionApprovalType {
+  APPROVE = "approve",
+  REJECT = "reject",
+}
+```
+
+## Complete Example
+
+Here's a complete example that demonstrates multiple common actions:
+
+```typescript
+import { createOnchainTest, BaseActionType, ActionApprovalType } from '@coinbase/onchaintestkit';
+import { metamaskWalletConfig } from './config/metamaskWalletConfig';
+
+const test = createOnchainTest(metamaskWalletConfig);
+
+test('complete wallet flow', async ({ page, metamask }) => {
+  if (!metamask) throw new Error('MetaMask fixture is required');
+
+  // Connect to dApp
+  await page.getByTestId('ockConnectButton').click();
+  await page.getByRole('button', { name: 'MetaMask' }).click();
+  await metamask.handleAction(BaseActionType.CONNECT_TO_DAPP);
+  
+  // Switch network
+  await page.getByTestId('switch-network').click();
+  await metamask.handleAction(BaseActionType.SWITCH_NETWORK, {
+    networkName: 'Base Sepolia',
+    isTestnet: true
+  });
+  
+  // Perform swap transaction
+  await page.locator('input[placeholder="0.0"]').fill('0.1');
+  await page.getByRole('button', { name: 'Swap' }).click();
+  
+  // Handle spending cap if needed
+  let notificationType = await metamask.identifyNotificationType();
+  if (notificationType === 'SpendingCap') {
+    await metamask.handleAction(BaseActionType.CHANGE_SPENDING_CAP, { 
+      approvalType: ActionApprovalType.APPROVE 
+    });
+  }
+  
+  // Handle transaction
+  notificationType = await metamask.identifyNotificationType();
+  if (notificationType === 'Transaction') {
+    await metamask.handleAction(BaseActionType.HANDLE_TRANSACTION, { 
+      approvalType: ActionApprovalType.APPROVE 
+    });
+  }
+  
+  // Verify success
+  await expect(page.getByRole('link', { name: 'View on Explorer' })).toBeVisible();
+});
+```
+
+## Best Practices
+
+<Info>
+Always check for wallet fixture existence before using it in tests
+</Info>
+
+<Warning>
+Never use production wallets or seed phrases in tests
+</Warning>
+
+<Tip>
+Use `identifyNotificationType()` when handling complex flows with multiple approval steps
+</Tip>
+
+## Next Steps
+
+- Learn about [MetaMask-specific features](/onchaintestkit/wallets/metamask)
+- Explore [Coinbase Wallet-specific features](/onchaintestkit/wallets/coinbase)
+- Discover [advanced testing features](/onchaintestkit/wallets/advanced-features) 

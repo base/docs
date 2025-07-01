@@ -1,0 +1,303 @@
+---
+title: "MetaMask Wallet Testing"
+description: "MetaMask-specific features and actions for automated testing"
+---
+
+MetaMask is one of the most popular Ethereum wallets, and OnchainTestKit provides comprehensive support for automating MetaMask interactions in your tests.
+
+## MetaMask-Specific Actions
+
+In addition to the [common wallet actions](/onchaintestkit/wallets/common-actions), MetaMask supports these specific actions:
+
+```typescript
+enum MetaMaskSpecificActionType {
+  LOCK = "lock",                           // Lock the wallet (not yet implemented)
+  UNLOCK = "unlock",                       // Unlock the wallet (not yet implemented)
+  ADD_TOKEN = "addToken",                  // Add a custom token
+  ADD_ACCOUNT = "addAccount",              // Create a new account
+  RENAME_ACCOUNT = "renameAccount",        // Rename an account (not yet implemented)
+  REMOVE_ACCOUNT = "removeAccount",        // Remove an account
+  SWITCH_ACCOUNT = "switchAccount",        // Switch between accounts
+  ADD_NETWORK = "addNetwork",              // Add a custom network
+  APPROVE_ADD_NETWORK = "approveAddNetwork", // Approve network addition request
+}
+```
+
+## Account Management
+
+### Add New Account
+
+Create additional accounts in MetaMask:
+
+```typescript
+await metamask.handleAction(MetaMaskSpecificActionType.ADD_ACCOUNT, {
+  accountName: 'Trading Account',
+});
+```
+
+### Switch Between Accounts
+
+```typescript
+await metamask.handleAction(MetaMaskSpecificActionType.SWITCH_ACCOUNT, {
+  accountName: 'Trading Account',
+});
+```
+
+### Remove Account
+
+```typescript
+await metamask.handleAction(MetaMaskSpecificActionType.REMOVE_ACCOUNT, {
+  accountName: 'Old Account',
+});
+```
+
+### Complete Account Management Example
+
+```typescript
+test('MetaMask account management', async ({ page, metamask }) => {
+  if (!metamask) throw new Error('MetaMask fixture is required');
+
+  // Add a new account
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_ACCOUNT, {
+    accountName: 'DeFi Account',
+  });
+
+  // Add another account
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_ACCOUNT, {
+    accountName: 'Trading Account',
+  });
+
+  // Switch between accounts
+  await metamask.handleAction(MetaMaskSpecificActionType.SWITCH_ACCOUNT, {
+    accountName: 'DeFi Account',
+  });
+
+  // Remove an account
+  await metamask.handleAction(MetaMaskSpecificActionType.REMOVE_ACCOUNT, {
+    accountName: 'Trading Account',
+  });
+});
+```
+
+## Network Management
+
+### Add Custom Network
+
+Add a custom network to MetaMask:
+
+```typescript
+await metamask.handleAction(MetaMaskSpecificActionType.ADD_NETWORK, {
+  network: {
+    name: 'Custom L2',
+    rpcUrl: 'https://rpc.custom-l2.network',
+    chainId: 12345,
+    symbol: 'ETH',
+    blockExplorerUrl: 'https://explorer.custom-l2.network', // Optional
+  },
+});
+```
+
+### Approve Network Addition
+
+When a dApp requests to add a network:
+
+```typescript
+test('approve network addition from dApp', async ({ page, metamask }) => {
+  // dApp triggers network addition
+  await page.getByRole('button', { name: 'Add Custom Network' }).click();
+
+  // Approve in MetaMask
+  await metamask.handleAction(MetaMaskSpecificActionType.APPROVE_ADD_NETWORK, {
+    approvalType: ActionApprovalType.APPROVE,
+  });
+});
+```
+
+### Network Switching
+
+Switch to a specific network with testnet detection:
+
+```typescript
+await metamask.handleAction(BaseActionType.SWITCH_NETWORK, {
+  networkName: 'Base Sepolia',
+  isTestnet: true, // Helps locate testnet networks
+});
+```
+
+## Token Management
+
+### Add Custom Token
+
+Add ERC-20 tokens to MetaMask:
+
+```typescript
+await metamask.handleAction(MetaMaskSpecificActionType.ADD_TOKEN, {
+  tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
+  tokenSymbol: 'USDC',
+  tokenDecimals: 6,
+});
+```
+
+### Token Management Example
+
+```typescript
+test('add multiple tokens', async ({ page, metamask }) => {
+  // Add USDC
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_TOKEN, {
+    tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    tokenSymbol: 'USDC',
+    tokenDecimals: 6,
+  });
+
+  // Add DAI
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_TOKEN, {
+    tokenAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+    tokenSymbol: 'DAI',
+    tokenDecimals: 18,
+  });
+});
+```
+
+## MetaMask Configuration
+
+### Basic Configuration
+
+```typescript
+import { configure } from '@coinbase/onchaintestkit';
+
+const metamaskConfig = configure()
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'PASSWORD',
+  })
+  .build();
+```
+
+### Advanced Configuration with Custom Setup
+
+```typescript
+const metamaskConfig = configure()
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'PASSWORD',
+  })
+  .withCustomSetup(async (wallet, context) => {
+    // Import additional accounts
+    await wallet.handleAction(BaseActionType.IMPORT_WALLET_FROM_PRIVATE_KEY, {
+      privateKey: process.env.SECONDARY_PRIVATE_KEY!,
+    });
+    
+    // Add custom tokens
+    await wallet.handleAction(MetaMaskSpecificActionType.ADD_TOKEN, {
+      tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      tokenSymbol: 'USDC',
+      tokenDecimals: 6,
+    });
+    
+    // Add custom networks
+    await wallet.handleAction(MetaMaskSpecificActionType.ADD_NETWORK, {
+      network: {
+        name: 'Base Mainnet',
+        rpcUrl: 'https://mainnet.base.org',
+        chainId: 8453,
+        symbol: 'ETH',
+      },
+    });
+  })
+  .build();
+```
+
+## Complete MetaMask Test Example
+
+Here's a comprehensive example demonstrating various MetaMask features:
+
+```typescript
+import { createOnchainTest, MetaMaskSpecificActionType, BaseActionType } from '@coinbase/onchaintestkit';
+import { configure } from '@coinbase/onchaintestkit';
+import { baseSepolia } from "viem/chains"
+
+const config = configure()
+  .withLocalNode({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.E2E_TEST_FORK_URL,
+  })
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'PASSWORD',
+  })
+  .withNetwork({
+    name: "Base Sepolia",
+    chainId: baseSepolia.id,
+    symbol: "ETH",
+    // placeholder for the actual rpcUrl, which is auto injected by the node fixture
+    rpcUrl: "http://localhost:8545",
+  })
+  .build();
+
+const test = createOnchainTest(config);
+
+test('comprehensive MetaMask test', async ({ page, metamask }) => {
+  if (!metamask) throw new Error('MetaMask fixture is required');
+
+  // Add accounts
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_ACCOUNT, {
+    accountName: 'DeFi Account',
+  });
+
+  // Add custom network
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_NETWORK, {
+    network: {
+      name: 'Base Mainnet',
+      rpcUrl: 'https://mainnet.base.org',
+      chainId: 8453,
+      symbol: 'ETH',
+    },
+  });
+
+  // Switch network
+  await metamask.handleAction(BaseActionType.SWITCH_NETWORK, {
+    networkName: 'Base Mainnet',
+  });
+
+  // Add tokens
+  await metamask.handleAction(MetaMaskSpecificActionType.ADD_TOKEN, {
+    tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    tokenSymbol: 'USDC',
+    tokenDecimals: 6,
+  });
+
+  // Connect to dApp
+  await page.goto('https://app.example.com');
+  await page.getByTestId('connect-wallet').click();
+  await page.getByRole('button', { name: 'MetaMask' }).click();
+  await metamask.handleAction(BaseActionType.CONNECT_TO_DAPP);
+
+  // Perform transaction
+  await page.getByRole('button', { name: 'Send Transaction' }).click();
+  await metamask.handleAction(BaseActionType.HANDLE_TRANSACTION, {
+    approvalType: ActionApprovalType.APPROVE,
+  });
+});
+```
+
+## Best Practices
+
+<Tip>
+When adding networks, always include the chainId to ensure proper network identification
+</Tip>
+
+<Warning>
+Account removal is permanent within the test context. Plan your test flow accordingly
+</Warning>
+
+<Info>
+MetaMask automatically saves state between actions, so network and token additions persist throughout the test
+</Info>
+
+## Next Steps
+
+- Explore [Coinbase Wallet features](/onchaintestkit/wallets/coinbase)
+- See the [API reference](/onchaintestkit/wallets/api-reference) 

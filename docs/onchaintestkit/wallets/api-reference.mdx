@@ -1,0 +1,394 @@
+---
+title: "Wallet API Reference"
+description: "Complete API reference for wallet testing with OnchainTestKit"
+---
+
+## Classes
+
+### BaseWallet
+
+Abstract base class for wallet implementations.
+
+```typescript
+abstract class BaseWallet {
+  constructor(page: Page, context: BrowserContext);
+  
+  abstract handleAction(action: string, options?: ActionOptions): Promise<void>;
+  abstract identifyNotificationType(): Promise<NotificationPageType | null>;
+}
+```
+
+### MetaMask
+
+MetaMask wallet automation class.
+
+```typescript
+class MetaMask extends BaseWallet {
+  static async initialize(): Promise<{ page: Page; context: BrowserContext }>;
+  static async createContext(): Promise<BrowserContext>;
+  
+  async handleAction(
+    action: BaseActionType | MetaMaskSpecificActionType, 
+    options?: ActionOptions
+  ): Promise<void>;
+  
+  async identifyNotificationType(): Promise<NotificationPageType | null>;
+}
+```
+
+### CoinbaseWallet
+
+Coinbase Wallet automation class.
+
+```typescript
+class CoinbaseWallet extends BaseWallet {
+  static async initialize(): Promise<{ page: Page; context: BrowserContext }>;
+  static async createContext(): Promise<BrowserContext>;
+  
+  async handleAction(
+    action: BaseActionType | CoinbaseSpecificActionType, 
+    options?: ActionOptions
+  ): Promise<void>;
+  
+  async identifyNotificationType(): Promise<NotificationPageType | null>;
+  
+  async handlePasskeyPopup(options: PasskeyOptions): Promise<void>;
+}
+```
+
+### PasskeyAuthenticator
+
+WebAuthn virtual authenticator for Coinbase Wallet.
+
+```typescript
+class PasskeyAuthenticator {
+  constructor(page: Page);
+  
+  async setup(options: PasskeySetupOptions): Promise<void>;
+  async createCredential(options: CredentialCreationOptions): Promise<PublicKeyCredential>;
+  async getCredential(options: CredentialRequestOptions): Promise<PublicKeyCredential>;
+  async cleanup(): Promise<void>;
+}
+```
+
+## Enums
+
+### BaseActionType
+
+Common actions supported by all wallets.
+
+```typescript
+enum BaseActionType {
+  IMPORT_WALLET_FROM_SEED = "importWalletFromSeed",
+  IMPORT_WALLET_FROM_PRIVATE_KEY = "importWalletFromPrivateKey",
+  SWITCH_NETWORK = "switchNetwork",
+  CONNECT_TO_DAPP = "connectToDapp",
+  HANDLE_TRANSACTION = "handleTransaction",
+  HANDLE_SIGNATURE = "handleSignature",
+  CHANGE_SPENDING_CAP = "changeSpendingCap",
+  REMOVE_SPENDING_CAP = "removeSpendingCap",
+}
+```
+
+### MetaMaskSpecificActionType
+
+MetaMask-specific actions.
+
+```typescript
+enum MetaMaskSpecificActionType {
+  LOCK = "lock",                           // Not yet implemented
+  UNLOCK = "unlock",                       // Not yet implemented
+  ADD_TOKEN = "addToken",
+  ADD_ACCOUNT = "addAccount",
+  RENAME_ACCOUNT = "renameAccount",        // Not yet implemented
+  REMOVE_ACCOUNT = "removeAccount",
+  SWITCH_ACCOUNT = "switchAccount",
+  ADD_NETWORK = "addNetwork",
+  APPROVE_ADD_NETWORK = "approveAddNetwork",
+}
+```
+
+### CoinbaseSpecificActionType
+
+Coinbase Wallet-specific actions.
+
+```typescript
+enum CoinbaseSpecificActionType {
+  LOCK = "lock",
+  UNLOCK = "unlock",
+  ADD_TOKEN = "addToken",
+  ADD_ACCOUNT = "addAccount",
+  SWITCH_ACCOUNT = "switchAccount",
+  ADD_NETWORK = "addNetwork",
+  SEND_TOKENS = "sendTokens",              // Not yet implemented
+  HANDLE_PASSKEY_POPUP = "handlePasskeyPopup",
+}
+```
+
+### NotificationPageType
+
+Types of wallet notifications.
+
+```typescript
+enum NotificationPageType {
+  SpendingCap = "spending-cap",
+  Signature = "signature",
+  Transaction = "transaction",
+  RemoveSpendCap = "remove-spend-cap",
+}
+```
+
+### ActionApprovalType
+
+Approval types for wallet actions.
+
+```typescript
+enum ActionApprovalType {
+  APPROVE = "approve",
+  REJECT = "reject",
+}
+```
+
+## Types
+
+### ActionOptions
+
+Options for wallet actions.
+
+```typescript
+interface ActionOptions {
+  // Common options
+  approvalType?: ActionApprovalType;
+  
+  // Network switching
+  networkName?: string;
+  isTestnet?: boolean;
+  
+  // Wallet import
+  seedPhrase?: string;
+  password?: string;
+  privateKey?: string;
+  
+  // Account management
+  accountName?: string;
+  
+  // Token management
+  tokenAddress?: string;
+  tokenSymbol?: string;
+  tokenDecimals?: number;
+  
+  // Network management
+  network?: NetworkConfig;
+  
+  // Passkey options (Coinbase only)
+  mainPage?: Page;
+  popup?: Page;
+  passkeyAction?: 'register' | 'approve';
+  passkeyConfig?: PasskeyConfig;
+}
+```
+
+### NetworkConfig
+
+Network configuration object.
+
+```typescript
+interface NetworkConfig {
+  name: string;
+  rpcUrl: string;
+  chainId: number;
+  symbol: string;
+  isTestnet?: boolean;
+  blockExplorerUrl?: string;
+}
+```
+
+### WalletSetupContext
+
+Context provided during wallet setup.
+
+```typescript
+interface WalletSetupContext {
+  localNodePort?: number;
+}
+```
+
+### PasskeyConfig
+
+Configuration for passkey authentication (Coinbase only).
+
+```typescript
+interface PasskeyConfig {
+  name: string;
+  rpId: string;
+  rpName: string;
+  userId: string;
+  isUserVerified?: boolean;
+}
+```
+
+### MetaMaskConfig
+
+MetaMask wallet configuration.
+
+```typescript
+interface MetaMaskConfig {
+  type: 'metamask';
+  seedPhrase?: {
+    phrase: string;
+    password: string;
+  };
+  network?: NetworkConfig;
+  customSetup?: (wallet: MetaMask, context: WalletSetupContext) => Promise<void>;
+}
+```
+
+### CoinbaseConfig
+
+Coinbase Wallet configuration.
+
+```typescript
+interface CoinbaseConfig {
+  type: 'coinbase';
+  seedPhrase?: {
+    phrase: string;
+    password: string;
+  };
+  network?: NetworkConfig;
+  customSetup?: (wallet: CoinbaseWallet, context: WalletSetupContext) => Promise<void>;
+}
+```
+
+## Configuration Builder
+
+### configure()
+
+Creates a configuration builder.
+
+```typescript
+function configure(): ConfigBuilder;
+```
+
+### ConfigBuilder Methods
+
+```typescript
+interface ConfigBuilder {
+  withMetaMask(): ConfigBuilder;
+  withCoinbase(): ConfigBuilder;
+  withSeedPhrase(config: SeedPhraseConfig): ConfigBuilder;
+  withNetwork(network: NetworkConfig): ConfigBuilder;
+  withLocalNode(config: LocalNodeConfig): ConfigBuilder;
+  withCustomSetup(setup: CustomSetupFunction): ConfigBuilder;
+  build(): OnchainTestConfig;
+}
+```
+
+## Test Creation
+
+### createOnchainTest()
+
+Creates a test function with wallet fixtures.
+
+```typescript
+function createOnchainTest(config: OnchainTestConfig): TestFunction;
+```
+
+### Test Fixtures
+
+```typescript
+interface TestFixtures {
+  page: Page;                              // Playwright page
+  metamask?: MetaMask;                     // MetaMask instance (if configured)
+  coinbase?: CoinbaseWallet;               // Coinbase instance (if configured)
+  node?: LocalNodeManager;                 // Local node manager (if configured)
+  smartContractManager?: SmartContractManager; // Smart contract manager
+}
+```
+
+## Usage Examples
+
+### Basic Wallet Action
+
+```typescript
+await wallet.handleAction(BaseActionType.CONNECT_TO_DAPP);
+```
+
+### Action with Options
+
+```typescript
+await wallet.handleAction(BaseActionType.HANDLE_TRANSACTION, {
+  approvalType: ActionApprovalType.APPROVE
+});
+```
+
+### Network Switching
+
+```typescript
+await wallet.handleAction(BaseActionType.SWITCH_NETWORK, {
+  networkName: 'Base Sepolia',
+  isTestnet: true
+});
+```
+
+### Token Addition (MetaMask)
+
+```typescript
+await metamask.handleAction(MetaMaskSpecificActionType.ADD_TOKEN, {
+  tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  tokenSymbol: 'USDC',
+  tokenDecimals: 6
+});
+```
+
+### Passkey Handling (Coinbase)
+
+```typescript
+await coinbase.handleAction(CoinbaseSpecificActionType.HANDLE_PASSKEY_POPUP, {
+  mainPage: page,
+  popup: popup,
+  passkeyAction: 'register',
+  passkeyConfig: {
+    name: 'Test Passkey',
+    rpId: 'localhost',
+    rpName: 'My dApp',
+    userId: 'user123',
+    isUserVerified: true
+  }
+});
+```
+
+## Error Handling
+
+All wallet methods may throw errors. Common error scenarios:
+
+- Wallet extension not found
+- Network not available
+- Account not found
+- Transaction rejected
+- Timeout exceeded
+
+```typescript
+try {
+  await wallet.handleAction(BaseActionType.CONNECT_TO_DAPP);
+} catch (error) {
+  if (error.message.includes('timeout')) {
+    // Handle timeout
+  } else if (error.message.includes('rejected')) {
+    // Handle rejection
+  }
+}
+```
+
+## Best Practices
+
+1. **Always check fixture existence**: Verify wallet fixtures are available before use
+2. **Use appropriate action types**: Use base actions for common operations, specific actions for wallet-unique features
+3. **Handle errors gracefully**: Wrap wallet actions in try-catch blocks
+4. **Wait for UI updates**: Allow time for UI to update after wallet actions
+5. **Use notification detection**: Use `identifyNotificationType()` for dynamic flows
+
+## See Also
+
+- [Common Wallet Actions](/onchaintestkit/wallets/common-actions)
+- [MetaMask Features](/onchaintestkit/wallets/metamask)
+- [Coinbase Wallet Features](/onchaintestkit/wallets/coinbase)

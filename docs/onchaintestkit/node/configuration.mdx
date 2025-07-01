@@ -1,0 +1,246 @@
+---
+title: "Node Configuration"
+description: "Configuration options for LocalNodeManager"
+---
+
+## Configuration Overview
+
+The `LocalNodeManager` constructor accepts a `NodeConfig` object that allows you to customize the behavior of your local Anvil node. All configuration options are optional, with sensible defaults provided.
+
+## Basic Configuration
+
+```typescript
+import { LocalNodeManager } from '@coinbase/onchaintestkit'
+
+const node = new LocalNodeManager({
+    chainId: 84532,
+    port: 8545,
+    blockTime: 1,
+})
+```
+
+## NodeConfig Type
+
+```typescript
+interface NodeConfig {
+    port?: number;
+    portRange?: [number, number];
+    chainId?: number;
+    mnemonic?: string;
+    forkUrl?: string;
+    forkBlockNumber?: bigint;
+    forkRetryInterval?: number;
+    defaultBalance?: bigint;
+    totalAccounts?: number;
+    blockTime?: number;
+    blockGasLimit?: bigint;
+    noMining?: boolean;
+    hardfork?: "london" | "berlin" | "cancun";
+}
+```
+
+## Configuration Options
+
+### Network Settings
+
+<ParamField path="chainId" type="number" default="84532">
+  The chain ID for the network. Common values:
+  - `1` - Ethereum Mainnet
+  - `8453` - Base Mainnet
+  - `84532` - Base Sepolia
+  - `31337` - Default Hardhat/Anvil
+</ParamField>
+
+<ParamField path="hardfork" type="string">
+  Specific hardfork to use. Options: `"london"`, `"berlin"`, `"cancun"`
+</ParamField>
+
+### Port Configuration
+
+<ParamField path="port" type="number">
+  Fixed port number for the RPC server. If not specified, a port will be dynamically allocated.
+</ParamField>
+
+<ParamField path="portRange" type="[number, number]" default="[10000, 20000]">
+  Port range for automatic port selection when `port` is not specified.
+</ParamField>
+
+### Fork Mode
+
+<ParamField path="forkUrl" type="string">
+  URL to fork from (e.g., mainnet or testnet RPC endpoint). Enables fork mode.
+  
+  ```typescript
+  forkUrl: "https://mainnet.base.org"
+  ```
+</ParamField>
+
+<ParamField path="forkBlockNumber" type="bigint">
+  Specific block number to fork from. Must be used with `forkUrl`.
+  
+  ```typescript
+  forkBlockNumber: 18000000n
+  ```
+</ParamField>
+
+<ParamField path="forkRetryInterval" type="number">
+  Retry interval for fork requests in milliseconds.
+</ParamField>
+
+### Account Configuration
+
+<ParamField path="mnemonic" type="string">
+  Mnemonic phrase for generating test accounts.
+  
+  ```typescript
+  mnemonic: "test test test test test test test test test test test junk"
+  ```
+</ParamField>
+
+<ParamField path="defaultBalance" type="bigint" default="10000 ETH">
+  Default balance for test accounts in wei.
+  
+  ```typescript
+  defaultBalance: parseEther("100")
+  ```
+</ParamField>
+
+<ParamField path="totalAccounts" type="number" default="10">
+  Number of test accounts to generate.
+</ParamField>
+
+### Mining Configuration
+
+<ParamField path="blockTime" type="number" default="0">
+  Time between blocks in seconds. Set to `0` for instant mining (default).
+</ParamField>
+
+<ParamField path="noMining" type="boolean" default="false">
+  Disable automatic mining. Blocks must be manually mined with `node.mine()`.
+</ParamField>
+
+<ParamField path="blockGasLimit" type="bigint">
+  Gas limit per block.
+</ParamField>
+
+## Configuration Examples
+
+### Basic Local Testing
+
+```typescript
+const node = new LocalNodeManager({
+    chainId: 31337,
+    defaultBalance: parseEther("1000"),
+    totalAccounts: 5,
+})
+```
+
+### Fork Mainnet
+
+```typescript
+const node = new LocalNodeManager({
+    chainId: 1,
+    forkUrl: process.env.ETH_MAINNET_RPC,
+    forkBlockNumber: 18500000n,
+    hardfork: "cancun",
+})
+```
+
+### Base Sepolia Fork
+
+```typescript
+const node = new LocalNodeManager({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.BASE_SEPOLIA_RPC,
+    forkBlockNumber: BigInt(process.env.FORK_BLOCK || "0"),
+    mnemonic: process.env.TEST_MNEMONIC,
+})
+```
+
+### Manual Mining Mode
+
+```typescript
+const node = new LocalNodeManager({
+    noMining: true,
+    blockGasLimit: 30_000_000n,
+})
+
+await node.start()
+
+// Manually mine blocks when needed
+await node.mine(1)
+```
+
+### Fixed Port Configuration
+
+```typescript
+const node = new LocalNodeManager({
+    port: 8545, // Always use port 8545
+    chainId: 31337,
+})
+```
+
+### Custom Port Range
+
+```typescript
+const node = new LocalNodeManager({
+    portRange: [20000, 30000], // Use ports 20000-30000
+    chainId: 31337,
+})
+```
+
+## Environment Variables
+
+It's recommended to use environment variables for sensitive or environment-specific configuration:
+
+```bash
+# .env.test
+E2E_TEST_FORK_URL=https://mainnet.base.org
+E2E_TEST_FORK_BLOCK_NUMBER=18500000
+E2E_TEST_SEED_PHRASE="test test test test test test test test test test test junk"
+```
+
+```typescript
+const node = new LocalNodeManager({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.E2E_TEST_FORK_URL,
+    forkBlockNumber: BigInt(process.env.E2E_TEST_FORK_BLOCK_NUMBER ?? "0"),
+    mnemonic: process.env.E2E_TEST_SEED_PHRASE,
+})
+```
+
+## Default Values
+
+When no configuration is provided, these defaults are used:
+
+- **chainId**: `84532` (Base Sepolia)
+- **portRange**: `[10000, 20000]`
+- **defaultBalance**: `10000 ETH` per account
+- **totalAccounts**: `10`
+- **blockTime**: `0` (instant mining)
+- **noMining**: `false`
+
+## Best Practices
+
+<Steps>
+<Step title="Use Environment Variables">
+  Store RPC URLs, mnemonics, and API keys in environment variables
+</Step>
+
+<Step title="Fork for Integration Tests">
+  Use fork mode to test against real mainnet/testnet state
+</Step>
+
+<Step title="Dynamic Ports for Parallel Tests">
+  Let the system allocate ports automatically for parallel test execution
+</Step>
+
+<Step title="Consistent Configuration">
+  Share configuration between tests using a common config file
+</Step>
+</Steps>
+
+## Next Steps
+
+- Learn about [LocalNodeManager API](/onchaintestkit/node/api-reference)
+- See [complete examples](https://github.com/coinbase/onchaintestkit/tree/master/example/frontend/e2e) 

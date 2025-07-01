@@ -1,0 +1,286 @@
+---
+title: "Configuration"
+description: "Learn how to configure wallets, networks, and test environments"
+---
+
+OnchainTestKit uses a fluent builder pattern for configuration, making it easy to set up different wallet and network combinations for your tests.
+
+## Configuration Builder
+
+The `configure()` function provides a chainable API for building test configurations:
+
+```typescript
+import { configure } from '@coinbase/onchaintestkit';
+
+const config = configure()
+  .withLocalNode({ chainId: 1337 })
+  .withMetaMask()
+  .withNetwork({
+    name: 'Base Sepolia',
+    rpcUrl: 'http://localhost:8545',
+    chainId: 84532,
+    symbol: 'ETH',
+  })
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'PASSWORD',
+  })
+  .build();
+```
+
+## Wallet Configuration
+
+### MetaMask Configuration
+
+<CodeGroup>
+```typescript Basic Setup
+import { configure } from '@coinbase/onchaintestkit';
+
+const metamaskConfig = configure()
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'PASSWORD',
+  })
+  .build();
+```
+
+```typescript With Local Node
+import { baseSepolia } from 'viem/chains';
+
+const metamaskConfig = configure()
+  .withLocalNode({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.E2E_TEST_FORK_URL,
+    forkBlockNumber: BigInt(process.env.E2E_TEST_FORK_BLOCK_NUMBER ?? "0"),
+    hardfork: 'cancun',
+  })
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'PASSWORD',
+  })
+  .withNetwork({
+    name: 'Base Sepolia',
+    chainId: baseSepolia.id,
+    symbol: 'ETH',
+    rpcUrl: 'http://localhost:8545',
+  })
+  .build();
+```
+
+```typescript Complete Example
+// e2e/config/metamask.config.ts
+import { baseSepolia } from "viem/chains"
+import { configure } from "@coinbase/onchaintestkit"
+
+export const DEFAULT_PASSWORD = "PASSWORD"
+export const DEFAULT_SEED_PHRASE = process.env.E2E_TEST_SEED_PHRASE
+
+const config = configure()
+  .withLocalNode({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.E2E_TEST_FORK_URL,
+    forkBlockNumber: BigInt(process.env.E2E_TEST_FORK_BLOCK_NUMBER ?? "0"),
+    hardfork: "cancun",
+  })
+  .withMetaMask()
+  .withSeedPhrase({
+    seedPhrase: DEFAULT_SEED_PHRASE ?? "",
+    password: DEFAULT_PASSWORD,
+  })
+  .withNetwork({
+    name: "Base Sepolia",
+    chainId: baseSepolia.id,
+    symbol: "ETH",
+    rpcUrl: "http://localhost:8545",
+  })
+  .build()
+
+export const metamaskWalletConfig = config
+```
+</CodeGroup>
+
+### Coinbase Wallet Configuration
+
+<CodeGroup>
+```typescript Basic Setup
+import { configure } from '@coinbase/onchaintestkit';
+
+const coinbaseConfig = configure()
+  .withCoinbase()
+  .withSeedPhrase({
+    seedPhrase: process.env.E2E_TEST_SEED_PHRASE!,
+    password: 'COMPLEXPASSWORD1',
+  })
+  .build();
+```
+
+```typescript Complete Example
+// e2e/config/coinbase.config.ts
+import { baseSepolia } from "viem/chains"
+import { configure } from "@coinbase/onchaintestkit"
+
+export const DEFAULT_PASSWORD = "COMPLEXPASSWORD1"
+export const DEFAULT_SEED_PHRASE = process.env.E2E_TEST_SEED_PHRASE
+
+const config = configure()
+  .withLocalNode({
+    chainId: baseSepolia.id,
+    forkUrl: process.env.E2E_TEST_FORK_URL,
+    forkBlockNumber: BigInt(process.env.E2E_TEST_FORK_BLOCK_NUMBER ?? "0"),
+    hardfork: "cancun",
+  })
+  .withCoinbase()
+  .withSeedPhrase({
+    seedPhrase: DEFAULT_SEED_PHRASE ?? "",
+    password: DEFAULT_PASSWORD,
+  })
+  .withNetwork({
+    name: "Base Sepolia",
+    chainId: baseSepolia.id,
+    symbol: "ETH",
+    rpcUrl: "http://localhost:8545",
+  })
+  .build()
+
+export const coinbaseWalletConfig = config
+```
+</CodeGroup>
+
+## Network Configuration
+
+### Local Node Options
+
+Configure a local Anvil node with specific parameters:
+
+```typescript
+.withLocalNode({
+  // Required: Chain ID for the local network
+  chainId: 1337,
+  
+  // Optional: Fork from an existing network
+  forkUrl: "https://mainnet.base.org",
+  
+  // Optional: Fork from a specific block
+  forkBlockNumber: BigInt("12345678"),
+  
+  // Optional: EVM hardfork to use
+  hardfork: "cancun",
+  
+  // Optional: Port range for parallel testing
+  minPort: 9545,
+  maxPort: 9645,
+})
+```
+
+### Network Details
+
+Add custom networks to your wallet:
+
+```typescript
+.withNetwork({
+  name: "My Custom Network",
+  chainId: 12345,
+  symbol: "ETH",
+  rpcUrl: "https://my-rpc-endpoint.com", // This is ususally localhost:8545 since the onchaintestkit network interceptor listens to this port and forwards RPC requests sent to this port to the anvil node
+  isTestnet: true,  // Optional: mark as testnet
+})
+```
+
+## Environment Variables
+
+<Tip>
+Use environment variables to keep sensitive data out of your code and enable different configurations for different environments.
+</Tip>
+
+### Required Variables
+
+```bash .env
+# Test wallet seed phrase
+E2E_TEST_SEED_PHRASE="test test test test test test test test test test test junk"
+```
+
+### Other Env Variables
+
+```bash .env
+# Fork configuration
+E2E_TEST_FORK_URL="https://mainnet.base.org"
+E2E_TEST_FORK_BLOCK_NUMBER="12345678"
+
+# Smart contract project
+E2E_CONTRACT_PROJECT_ROOT="../smart-contracts"
+
+# Custom RPC endpoints
+E2E_BASE_MAINNET_RPC="https://my-custom-rpc.com"
+E2E_BASE_SEPOLIA_RPC="https://my-testnet-rpc.com"
+
+# Test timeouts
+E2E_TEST_TIMEOUT="60000"
+```
+
+## Using Configurations in Tests
+
+```typescript
+import { createOnchainTest } from '@coinbase/onchaintestkit';
+import { metamaskWalletConfig } from './config/metamask.config';
+
+const test = createOnchainTest(metamaskWalletConfig);
+
+test('my test', async ({ page, metamask, node }) => {
+  // Your test code here
+  console.log(`Local node running on port: ${node?.port}`);
+});
+```
+
+## Configuration Best Practices
+
+<Steps>
+<Step title="Separate config files">
+Create separate configuration files for each wallet type to keep your code organized:
+
+```
+e2e/config/
+├── metamask.config.ts
+├── coinbase.config.ts
+└── shared.config.ts
+```
+</Step>
+
+<Step title="Use environment variables">
+Never hardcode sensitive data. Always use environment variables for:
+- Seed phrases
+- API keys
+- RPC endpoints
+- Private keys
+</Step>
+
+<Step title="Type your configurations">
+Export typed configurations for better IDE support:
+
+```typescript
+import type { OnchainTestConfig } from '@coinbase/onchaintestkit';
+
+export const metamaskConfig: OnchainTestConfig = configure()
+  .withMetaMask()
+  // ... rest of config
+  .build();
+```
+</Step>
+
+<Step title="Validate environment">
+Add validation for required environment variables:
+
+```typescript
+if (!process.env.E2E_TEST_SEED_PHRASE) {
+  throw new Error('E2E_TEST_SEED_PHRASE is required');
+}
+```
+</Step>
+</Steps>
+
+## Next Steps
+
+- [Write your first test](/onchaintestkit/writing-tests)
+- [Test smart contracts](/onchaintestkit/smart-contracts)
+- [See complete examples](/onchaintestkit/examples) 

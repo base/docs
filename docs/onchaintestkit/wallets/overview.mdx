@@ -1,0 +1,108 @@
+---
+title: "Wallet Testing Overview"
+description: "Comprehensive overview of wallet testing with OnchainTestKit"
+---
+
+## Architecture
+
+<Frame>
+```mermaid
+flowchart TD
+    subgraph "Test Runner (Playwright)"
+        T1[Test File 1]
+        T2[Test File 2]
+        T3[Test File N]
+    end
+
+    subgraph LocalNodeManager
+        LN1[Anvil Node 1]
+        LN2[Anvil Node 2]
+        LN3[Anvil Node N]
+    end
+
+    subgraph Wallets
+        MM[MetaMask]
+        CBW[Coinbase Wallet]
+    end
+
+    T1 -- uses --> MM
+    T2 -- uses --> CBW
+    T3 -- uses --> MM
+    T1 -- connects --> LN1
+    T2 -- connects --> LN2
+    T3 -- connects --> LN3
+    MM -- interacts --> LN1
+    CBW -- interacts --> LN2
+```
+</Frame>
+
+## Core Concepts
+
+### 1. Wallet Abstraction
+
+- **MetaMask** and **Coinbase Wallet** are modeled as programmable objects.
+- Actions like importing wallets, switching networks, and handling notifications are exposed as high-level methods.
+
+### 2. Local Node Management
+
+- Each test can spin up its own local Ethereum node (Anvil) with automatic port allocation.
+- Supports chain state manipulation (snapshots, reverts), time travel, and account impersonation.
+
+### 3. Parallelization
+
+- Designed for parallel Playwright test execution.
+- Each worker gets a unique node and wallet context, avoiding cross-test interference.
+
+<Frame>
+```mermaid
+sequenceDiagram
+    participant Worker1 as Playwright Worker 1
+    participant Node1 as Anvil Node 1
+    participant Worker2 as Playwright Worker 2
+    participant Node2 as Anvil Node 2
+
+    Worker1->>Node1: Start node on port 10001
+    Worker2->>Node2: Start node on port 10002
+    Worker1->>Node1: Run tests
+    Worker2->>Node2: Run tests
+    Worker1->>Node1: Stop node
+    Worker2->>Node2: Stop node
+```
+</Frame>
+
+## Supported Wallets
+
+<CardGroup cols={2}>
+<Card title="MetaMask" icon="fox" href="/onchaintestkit/wallets/metamask">
+  Full support for MetaMask automation including account management, network switching, and transaction handling
+</Card>
+<Card title="Coinbase Wallet" icon="circle-c" href="/onchaintestkit/wallets/coinbase">
+  Complete Coinbase Wallet support with passkey authentication and WebAuthn integration
+</Card>
+</CardGroup>
+
+## Best Practices
+
+- Always check for wallet fixture existence before running actions
+- Use environment variables for sensitive data (seed phrases, passwords)
+- Use Playwright's parallelization features for fast test execution
+- Clean up local nodes after tests to free resources
+- Use snapshots for efficient state management between test steps
+- For Coinbase Wallet passkey tests, ensure proper credential management between registration and approval steps
+- When testing network switching, ensure the network is already added or use the ADD_NETWORK action first
+
+## Next Steps
+
+<Steps>
+<Step title="Quick Start">
+  Follow our [Quick Start guide](/onchaintestkit/quickstart) to get up and running quickly
+</Step>
+
+<Step title="Learn Common Actions">
+  Explore [common wallet actions](/onchaintestkit/wallets/common-actions) available across all wallets
+</Step>
+
+<Step title="Wallet-Specific Features">
+  Dive into [MetaMask](/onchaintestkit/wallets/metamask) or [Coinbase Wallet](/onchaintestkit/wallets/coinbase) specific features
+</Step>
+</Steps> 
