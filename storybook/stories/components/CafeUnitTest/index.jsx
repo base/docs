@@ -6,7 +6,7 @@ import { useAccount, useSwitchChain } from "wagmi";
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { mainnet, base, baseSepolia, baseGoerli } from "wagmi/chains";
-import { coinbaseWallet } from "wagmi/connectors";
+import { coinbaseWallet, metaMask, injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import {
@@ -60,22 +60,28 @@ const buttonDisabledColor = {
 };
 
 const inputStyle = {
-  padding: "14px",
-  borderRadius: "6px",
-  border: "1px solid lightGrey",
+  padding: "16px 20px",
+  borderRadius: "12px",
+  border: "2px solid #e2e8f0",
   fontSize: "14px",
-  marginRight: "5px",
+  marginRight: "12px",
   width: "70%",
 };
 
 const messageStyle = {
-  backgroundColor: "#d1ecf1",
-  color: "#0c5460",
-  border: "1px solid #bee5eb",
-  padding: "10px 5px 10px 20px",
-  borderRadius: "6px",
-  marginBottom: "5px",
+  background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+  color: "white",
+  border: "none",
+  padding: "16px 24px",
+  borderRadius: "12px",
+  marginBottom: "12px",
   fontWeight: "500",
+  fontSize: "14px",
+  boxShadow: "0 4px 15px rgba(79, 172, 254, 0.2)",
+  backdropFilter: "blur(10px)",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
 };
 
 const errorMessageStyle = {
@@ -86,6 +92,11 @@ const errorMessageStyle = {
   borderRadius: "6px",
   marginBottom: "5px",
   fontWeight: "500",
+  fontSize: "14px",
+  boxShadow: "0 4px 15px rgba(255, 107, 107, 0.2)",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
 };
 
 const loadingMessageStyle = {
@@ -99,7 +110,56 @@ const loadingMessageStyle = {
 };
 
 const directionsStyle = {
-  padding: "10px 0 10px 0",
+  padding: "20px 0",
+  fontSize: "16px",
+  lineHeight: "1.6",
+  color: "#2d3748",
+  fontWeight: "500",
+};
+
+const containerStyle = {
+  fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+  maxWidth: "800px",
+  margin: "0 auto",
+  padding: "32px",
+  background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
+  borderRadius: "20px",
+  boxShadow: "0 10px 40px rgba(0, 0, 0, 0.1)",
+  backdropFilter: "blur(10px)",
+  border: "1px solid rgba(255, 255, 255, 0.2)",
+  minHeight: "600px",
+};
+
+const cardStyle = {
+  background: "rgba(255, 255, 255, 0.9)",
+  backdropFilter: "blur(10px)",
+  borderRadius: "16px",
+  padding: "24px",
+  marginBottom: "24px",
+  boxShadow: "0 8px 25px rgba(0, 0, 0, 0.08)",
+  border: "1px solid rgba(255, 255, 255, 0.5)",
+};
+
+const titleStyle = {
+  fontSize: "24px",
+  fontWeight: "700",
+  color: "#2d3748",
+  marginBottom: "24px",
+  textAlign: "center",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  backgroundClip: "text",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+};
+
+const walletSectionStyle = {
+  background: "rgba(255, 255, 255, 0.95)",
+  borderRadius: "16px",
+  padding: "24px",
+  marginBottom: "4px",
+  boxShadow: "0 8px 25px rgba(0, 0, 0, 0.08)",
+  border: "1px solid rgba(255, 255, 255, 0.5)",
+  textAlign: "center",
 };
 
 // Create a query client for tanstack query (required by wagmi v2)
@@ -128,6 +188,12 @@ const wagmiConfig = createConfig({
     coinbaseWallet({
       appName: "OnchainKit",
     }),
+    metaMask({
+      dappMetadata: {
+        name: "OnchainKit",
+      },
+    }),
+    injected(),
   ],
   ssr: true,
   transports: {
@@ -396,35 +462,73 @@ export function CafeUnitTest({ nftNum }) {
     if (isDisconnected) {
       return (
         <div>
-          <WalletDefault />
-          <div>Please connect your wallet.</div>
+          <Wallet>
+            <ConnectWallet>
+              <Avatar className="h-6 w-6" />
+              <Name />
+            </ConnectWallet>
+          </Wallet>
+          <div style={{
+            marginTop: "12px",
+            color: "#4a5568",
+            fontSize: "16px",
+            fontWeight: "500",
+            textAlign: "center"
+          }}>
+            Please connect your wallet to continue
+          </div>
         </div>
       );
     }
-    if (isConnecting) {
-      return <div>Connecting...</div>;
-    }
+          if (isConnecting) {
+        return (
+          <div style={{
+            color: "#4a5568",
+            fontSize: "16px",
+            fontWeight: "500",
+            textAlign: "center",
+            padding: "20px"
+          }}>
+            Connecting...
+          </div>
+        );
+      }
     if (chain?.id !== baseSepolia.id) {
-      return (
-        <div>
-          <div>You are not connected to Base Sepolia</div>
-          <button
-            style={{
-              ...buttonStyle,
-              ...buttonEnabledColor,
-              marginTop: "10px",
-            }}
-            onClick={() => switchChain({ chainId: baseSepolia.id })}
-          >
-            Switch to Base Sepolia
-          </button>
-        </div>
-      );
+              return (
+          <div style={{ textAlign: "center", padding: "20px" }}>
+            <div style={{
+              color: "#e53e3e",
+              fontSize: "16px",
+              fontWeight: "600",
+              marginBottom: "16px"
+            }}>
+              ⚠️ You are not connected to Base Sepolia
+            </div>
+            <button
+              style={{
+                ...buttonStyle,
+                ...buttonEnabledColor,
+                marginTop: "10px",
+              }}
+              onClick={() => switchChain({ chainId: baseSepolia.id })}
+            >
+              Switch to Base Sepolia
+            </button>
+          </div>
+        );
     }
     return (
-      <div>
-        <hr />
-        <div className="relative">
+              <div style={{
+          fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+          maxWidth: "600px",
+          margin: "0 auto",
+          padding: "24px",
+          background: "white",
+          borderRadius: "16px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
+          color: "#1a202c",
+        }}>
+        <div className="relative" style={{ marginBottom: "24px" }}>
           <Wallet>
             <ConnectWallet>
               <Avatar className="h-6 w-6" />
@@ -442,48 +546,73 @@ export function CafeUnitTest({ nftNum }) {
             </WalletDropdown>
           </Wallet>
         </div>
-        <br />
-        <div>{renderTests()}</div>
-        <div>{renderResult()}</div>
-        <div>
-          <form>
-            <label htmlFor="submissionAddressField">
-              <input
-                placeholder="Contract address"
-                style={inputStyle}
-                type="text"
-                id="submissionAddressField"
-                value={contractFormEntry}
-                onChange={handleContractChange}
-                disabled={testingState === "testing" || testingState === "waiting"}
-              />
-            </label>
-            {testingState === "idle" || testingState === "error" || testingState === "completed" ? (
-              <button
-                style={{
-                  ...buttonStyle,
-                  ...buttonEnabledColor,
-                }}
-                type="button"
-                onClick={handleContractSubmit}
-              >
+
+        <div style={{ marginTop: "6px" }}>
+          {renderTests()}
+        </div>
+        
+        <div style={{ marginTop: "6px" }}>
+          {renderResult()}
+        </div>
+        
+        <form style={{ marginTop: "1px" }}>
+          <input
+            placeholder="Enter contract address (0x...)"
+            style={{
+              ...inputStyle,
+              marginBottom: "6px",
+              color: "#1a202c",
+              fontWeight: "500",
+            }}
+            type="text"
+            id="submissionAddressField"
+            value={contractFormEntry}
+            onChange={handleContractChange}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#667eea";
+              e.target.style.boxShadow = "0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#e2e8f0";
+              e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.05)";
+            }}
+            disabled={testingState === "testing" || testingState === "waiting"}
+          />
+          {testingState === "idle" || testingState === "error" || testingState === "completed" ? (
+            <button
+              style={{
+                ...buttonStyle,
+                ...buttonEnabledColor,
+              }}
+              type="button"
+              onClick={handleContractSubmit}
+              onMouseEnter={(e) => {
+                if (!e.target.disabled) {
+                  Object.assign(e.target.style, buttonEnabledColor);
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.transform = "translateY(0)";
+                  e.target.style.boxShadow = "0 4px 15px rgba(0, 81, 255, 0.3)";
+                }
+              }}
+                          >
                 Submit
               </button>
-            ) : (
-              <button
-                style={{
-                  ...buttonStyle,
-                  ...buttonDisabledColor,
-                }}
-                type="button"
-                disabled
+          ) : (
+            <button
+              style={{
+                ...buttonStyle,
+                ...buttonDisabledColor,
+              }}
+              type="button"
+                              disabled
               >
-                {testingState === "testing" ? "Testing..." : "Waiting for confirmation..."}
+                {testingState === "testing" ? "🔍 Testing Contract..." : "⏳ Waiting for confirmation..."}
               </button>
-            )}
-          </form>
-        </div>
-        <br />
+          )}
+        </form>
       </div>
     );
   }
@@ -505,6 +634,12 @@ function CafeUnitTestWithProviders(props) {
         coinbaseWallet({
           appName: "OnchainKit",
         }),
+        metaMask({
+          dappMetadata: {
+            name: "OnchainKit",
+          },
+        }),
+        injected(),
       ],
       ssr: true,
       transports: {
@@ -530,26 +665,68 @@ function CafeUnitTestWithProviders(props) {
   const viteProjectId = "81eac42f-0b13-48e3-a6bb-9dd44a958a1e";
 
   return (
-    <WagmiProvider config={configRef.current}>
-      <QueryClientProvider client={queryClientRef.current}>
-        <OnchainKitProvider
-          apiKey={viteCdpApiKey}
-          chain={baseSepolia}
-          projectId={viteProjectId}
-          schemaId="0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9"
-          config={{
-            appearance: {
-              mode: "auto",
-              theme: "default",
-            },
-          }}
-        >
-          <ErrorBoundary>
-            <CafeUnitTest {...props} />
-          </ErrorBoundary>
-        </OnchainKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <>
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          
+          .cafe-unit-test-container {
+            animation: fadeIn 0.5s ease-out;
+            color: #1a202c;
+          }
+          
+          .cafe-unit-test-container input:focus {
+            transform: translateY(-1px);
+          }
+          
+          .cafe-unit-test-container button:hover:not(:disabled) {
+            transform: translateY(-2px) !important;
+          }
+          
+          .cafe-unit-test-container button:active:not(:disabled) {
+            transform: translateY(0px) !important;
+          }
+          
+          .cafe-unit-test-container input::placeholder {
+            color: #a0aec0;
+            font-weight: 400;
+          }
+        `}
+      </style>
+      <WagmiProvider config={configRef.current}>
+        <QueryClientProvider client={queryClientRef.current}>
+          <OnchainKitProvider
+            apiKey={viteCdpApiKey}
+            chain={baseSepolia}
+            projectId={viteProjectId}
+            schemaId="0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9"
+            config={{
+              appearance: {
+                mode: "auto",
+                theme: "default",
+              },
+              wallet: {
+                display: 'modal',
+              },
+            }}
+          >
+            <ErrorBoundary>
+              <div className="cafe-unit-test-container">
+                <CafeUnitTest {...props} />
+              </div>
+            </ErrorBoundary>
+          </OnchainKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </>
   );
 }
 
