@@ -202,6 +202,66 @@ You can self-host your own backend as long as it follows the [Farcaster Mini App
 </Tab>
 </Tabs>
 
+## Mini Apps Compatibility in Coinbase Wallet
+
+Coinbase Wallet is working towards full compatibility with the Farcaster Mini App SDK. While we continue to enhance support during the beta phase, there are currently some features that are not yet supported.
+
+### AI-Powered Compatibility Checking
+We provide a [validate.txt](https://raw.githubusercontent.com/base/demos/refs/heads/master/minikit/mini-app-help/validate.txt) file that can be used with AI tools to automatically check your codebase for Coinbase Wallet compatibility issues. Similar to llms.txt files, you can provide this validation file to language models to scan your Mini App code and receive a detailed compatibility report highlighting any unsupported features or patterns.
+
+<Warning>
+This AI validation is experimental and should only be used in a read-only capacity for analysis and reporting purposes.
+</Warning>
+
+### Currently Unsupported Features
+
+The following Mini App SDK features are **not currently supported** in Coinbase Wallet:
+
+#### Environment Detection
+
+* `sdk.isInMiniApp()`
+
+#### Haptic Feedback
+
+* All haptic-related SDK methods
+
+#### Token Actions
+
+* `sdk.actions.swapToken` \- Token swapping functionality  
+* `sdk.actions.sendToken` \- Token sending functionality  
+* `sdk.actions.viewToken` \- Token viewing functionality
+
+#### Navigation & Links
+
+* Direct HTML links (`<a href=`, `<Link href=`)  
+* Warpcast composer URLs (`warpcast.com/~/compose`, `farcaster.com/~/compose`)
+
+#### Context Features
+
+* `Share extensions` \-  Because share extensions heavily rely on context this will not work in CBW.
+* `sdk.context.location` \- Share link detection and embed context
+
+#### Supported Chains
+
+* Base
+* Optimism
+* Arbitrum
+* Polygon
+* Zora
+* BNB
+* Avalanche C-Chain
+
+
+### Development Notes
+
+* Use `sdk.actions.openUrl()` for external navigation instead of direct HTML links  
+* Use `sdk.actions.composeCast()` instead of Warpcast composer URLs  
+* Implement visual feedback alternatives for haptic feedback  
+* Avoid relying on location context for core functionality
+* To conditionally render functionality based on the user's client, check context.client.clientFid (Coinbase Wallet returns 399519)
+
+We are actively working to expand compatibility and expect to support additional features in future releases.
+
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
 <PolicyBanner />
