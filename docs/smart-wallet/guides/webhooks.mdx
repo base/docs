@@ -1,0 +1,372 @@
+---
+title: "Webhooks"
+---
+
+Webhooks allow your application to receive real-time notifications about Base Account transactions and user profile data. This enables you to build automated workflows, update your database, and provide immediate feedback to users.
+
+## Overview
+
+Base Account webhooks are triggered when users complete transactions that include profile data requests. The webhook payload contains transaction details and any requested user profile information that the user consented to share.
+
+## Setting Up Webhooks
+
+### 1. Configure Callback URL
+
+When initiating a transaction with profile data requests, include a `callbackURL` in the `dataCallback` capability:
+
+```javascript
+import { useSendCalls } from 'wagmi/experimental'
+
+function useProfileCheckout() {
+  const { sendCalls } = useSendCalls()
+
+  const handleCheckout = async (profileRequests) => {
+    await sendCalls({
+      calls: [
+        // Your transaction calls
+      ],
+      capabilities: {
+        dataCallback: {
+          requests: profileRequests,
+          callbackURL: "https://your-app.com/api/webhooks/base-account"
+        }
+      }
+    })
+  }
+
+  return { handleCheckout }
+}
+```
+
+### 2. Create Webhook Endpoint
+
+Your webhook endpoint should handle POST requests and validate the incoming data:
+
+```javascript
+// pages/api/webhooks/base-account.js
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  try {
+    const payload = req.body
+    
+    // Validate webhook signature (recommended)
+    if (!validateWebhookSignature(req)) {
+      return res.status(401).json({ error: 'Invalid signature' })
+    }
+
+    // Process the webhook payload
+    await processTransactionData(payload)
+    
+    res.status(200).json({ success: true })
+  } catch (error) {
+    console.error('Webhook processing error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+}
+```
+
+## Webhook Payload
+
+The webhook payload contains transaction information and user profile data:
+
+```json
+{
+  "transactionHash": "0x...",
+  "chainId": 8453,
+  "blockNumber": 12345678,
+  "timestamp": "2024-01-15T10:30:00Z",
+  "userAddress": "0x...",
+  "profileData": {
+    "email": "user@example.com",
+    "firstName": "John", 
+    "lastName": "Doe",
+    "phone": "+1234567890"
+  },
+  "transactionData": {
+    "calls": [
+      {
+        "to": "0x...",
+        "value": "0",
+        "data": "0x..."
+      }
+    ],
+    "value": "1000000000000000000"
+  }
+}
+```
+
+## Processing Webhook Data
+
+### Update User Records
+
+Use the webhook data to update your application's user records:
+
+```javascript
+async function processTransactionData(payload) {
+  const { userAddress, profileData, transactionHash } = payload
+
+  // Update user profile in your database
+  await updateUser(userAddress, {
+    email: profileData.email,
+    firstName: profileData.firstName,
+    lastName: profileData.lastName,
+    phone: profileData.phone,
+    lastTransactionHash: transactionHash
+  })
+
+  // Send confirmation email
+  if (profileData.email) {
+    await sendTransactionConfirmation(profileData.email, transactionHash)
+  }
+
+  // Update order status
+  await updateOrderStatus(transactionHash, 'completed')
+}
+```
+
+### Handle Different Data Types
+
+Different profile requests return different data structures:
+
+```javascript
+function extractProfileData(payload) {
+  const data = {}
+
+  if (payload.profileData.email) {
+    data.contactInfo = {
+      email: payload.profileData.email,
+      phone: payload.profileData.phone
+    }
+  }
+
+  if (payload.profileData.firstName || payload.profileData.lastName) {
+    data.personalInfo = {
+      firstName: payload.profileData.firstName,
+      lastName: payload.profileData.lastName
+    }
+  }
+
+  return data
+}
+```
+
+## Security Best Practices
+
+### Validate Webhook Signatures
+
+Always validate webhook signatures to ensure requests are from Base Account:
+
+```javascript
+import crypto from 'crypto'
+
+function validateWebhookSignature(req) {
+  const signature = req.headers['x-base-signature']
+  const timestamp = req.headers['x-base-timestamp']
+  const payload = JSON.stringify(req.body)
+  
+  // Verify timestamp to prevent replay attacks
+  const now = Math.floor(Date.now() / 1000)
+  if (Math.abs(now - parseInt(timestamp)) > 300) { // 5 minute tolerance
+    return false
+  }
+
+  // Verify signature
+  const expectedSignature = crypto
+    .createHmac('sha256', process.env.WEBHOOK_SECRET)
+    .update(timestamp + payload)
+    .digest('hex')
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature, 'hex'),
+    Buffer.from(expectedSignature, 'hex')
+  )
+}
+```
+
+### Use HTTPS
+
+Always use HTTPS endpoints for webhook URLs to ensure data is encrypted in transit.
+
+### Implement Idempotency
+
+Handle duplicate webhook deliveries gracefully:
+
+```javascript
+const processedTransactions = new Set()
+
+async function processTransactionData(payload) {
+  const { transactionHash } = payload
+
+  // Check if already processed
+  if (processedTransactions.has(transactionHash)) {
+    return { status: 'already_processed' }
+  }
+
+  // Process the transaction
+  await updateDatabase(payload)
+  
+  // Mark as processed
+  processedTransactions.add(transactionHash)
+  
+  return { status: 'processed' }
+}
+```
+
+## Error Handling
+
+### Retry Logic
+
+Implement exponential backoff for failed webhook deliveries:
+
+```javascript
+async function handleWebhookWithRetry(payload, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await processTransactionData(payload)
+      return { success: true }
+    } catch (error) {
+      console.error(`Webhook attempt ${attempt} failed:`, error)
+      
+      if (attempt === maxRetries) {
+        // Send to dead letter queue or alert system
+        await handleFinalFailure(payload, error)
+        throw error
+      }
+      
+      // Exponential backoff
+      await new Promise(resolve => 
+        setTimeout(resolve, Math.pow(2, attempt) * 1000)
+      )
+    }
+  }
+}
+```
+
+### Monitor Webhook Health
+
+Track webhook delivery success rates and response times:
+
+```javascript
+async function monitorWebhookHealth(payload) {
+  const startTime = Date.now()
+  
+  try {
+    await processTransactionData(payload)
+    
+    // Log success metrics
+    await logMetric('webhook.success', 1)
+    await logMetric('webhook.duration', Date.now() - startTime)
+  } catch (error) {
+    await logMetric('webhook.failure', 1)
+    await logError('webhook.error', error)
+  }
+}
+```
+
+## Testing Webhooks
+
+### Local Development
+
+Use tools like ngrok to expose your local development server:
+
+```bash
+# Install ngrok
+npm install -g ngrok
+
+# Expose local server
+ngrok http 3000
+
+# Use the HTTPS URL as your webhook endpoint
+# https://abc123.ngrok.io/api/webhooks/base-account
+```
+
+### Webhook Testing
+
+Test your webhook endpoint with sample payloads:
+
+```javascript
+// test-webhook.js
+const testPayload = {
+  transactionHash: "0x123...",
+  chainId: 8453,
+  blockNumber: 12345678,
+  timestamp: new Date().toISOString(),
+  userAddress: "0xabc...",
+  profileData: {
+    email: "test@example.com",
+    firstName: "Test",
+    lastName: "User"
+  }
+}
+
+fetch('http://localhost:3000/api/webhooks/base-account', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(testPayload)
+})
+```
+
+## Common Use Cases
+
+### E-commerce Order Processing
+
+Automatically update order status and send confirmations:
+
+```javascript
+async function processEcommerceOrder(payload) {
+  const { transactionHash, profileData } = payload
+  
+  // Find order by transaction hash
+  const order = await findOrderByTransactionHash(transactionHash)
+  
+  if (order) {
+    // Update order status
+    await updateOrder(order.id, {
+      status: 'paid',
+      customerEmail: profileData.email,
+      customerName: `${profileData.firstName} ${profileData.lastName}`,
+      paidAt: new Date()
+    })
+    
+    // Send confirmation email
+    await sendOrderConfirmation(order, profileData.email)
+  }
+}
+```
+
+### User Onboarding
+
+Complete user registration when they make their first transaction:
+
+```javascript
+async function completeUserOnboarding(payload) {
+  const { userAddress, profileData } = payload
+  
+  // Check if user exists
+  let user = await findUserByAddress(userAddress)
+  
+  if (!user) {
+    // Create new user account
+    user = await createUser({
+      walletAddress: userAddress,
+      email: profileData.email,
+      firstName: profileData.firstName,
+      lastName: profileData.lastName,
+      onboardedAt: new Date()
+    })
+    
+    // Send welcome email
+    await sendWelcomeEmail(user)
+  } else {
+    // Update existing user with profile data
+    await updateUser(user.id, profileData)
+  }
+}
+```
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
