@@ -1,0 +1,268 @@
+---
+title: "Overview (Base Pay)"
+---
+
+# Base Pay SDK Developer Guide
+
+## What is Base Pay SDK?
+
+A simple JavaScript library that lets your users send USDC (digital dollars) on the Base network. No crypto knowledge required - we handle all the complexity. **No fees for merchants or users.**
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @base-org/account-sdk
+```
+
+```bash pnpm
+pnpm add @base-org/account-sdk
+```
+
+```bash yarn
+yarn add @base-org/account-sdk
+```
+
+```bash bun
+bun add @base-org/account-sdk
+```
+</CodeGroup>
+
+## Quick Start
+
+Request $10.50 USDC:
+
+```javascript
+import { pay } from '@base-org/account/pay';
+
+const result = await pay({
+  amount: "10.50",
+  to: "0xYourWalletAddressHere"
+});
+```
+
+<Note>
+**That's it!** When this code executes, a Coinbase Wallet popup will appear for users to approve the payment.
+</Note>
+
+## Complete Integration Example
+
+Here's everything you need for a working payment:
+
+```javascript
+import { pay, getPaymentStatus } from '@coinbase/base-pay-sdk/merchant';
+
+async function handlePayment() {
+  // 1. Send payment
+  const payment = await pay({
+    amount: "25.00",  // Amount in USDC (like USD)
+    to: "0xYourWalletAddressHere"
+  });
+
+  if (!payment.success) {
+    alert(`Payment failed: ${payment.error}`);
+    return;
+  }
+
+  // At this point the user has submitted the payment, 
+  // but it has not been confirmed on the blockchain. 
+  // We'll check the status by making a second call
+
+  // 2. Check if payment completed
+  const response = await getPaymentStatus({
+    transactionId: payment.transactionId
+  });
+
+  if (response.status === 'completed') {
+    alert('Payment successful!');
+  }
+}
+```
+
+## Testing Your Integration
+
+### Getting Test USDC
+
+Before testing payments, you'll need some test USDC on Base Sepolia:
+
+<Steps>
+  <Step title="Visit Circle's Faucet">
+    Go to [Circle's Faucet](https://faucet.circle.com) to get test USDC
+  </Step>
+  <Step title="Select Network">
+    Select "Base Sepolia" from the network dropdown
+  </Step>
+  <Step title="Enter Address">
+    Enter your wallet address
+  </Step>
+  <Step title="Request USDC">
+    Click "Send" to receive 10 test USDC
+  </Step>
+</Steps>
+
+<Info>
+You can request 10 USDC per hour, per address
+</Info>
+
+### Test Environment Setup
+
+Use the testnet flag for testing:
+
+```javascript
+// Add testnet: true for testing (test funds hold no real value)
+const result = await pay({
+  amount: "100.00",
+  to: "0xYourWalletAddressHere",
+  testnet: true
+});
+```
+
+## Type Definitions
+
+### PayOptions
+
+```typescript
+interface PayOptions {
+  /** Amount of USDC to send (e.g., "10.50" or "0.01") */
+  amount: string;
+  /** Ethereum address to send USDC to (must start with 0x) */
+  to: string;
+  /** Set to true to use Base Sepolia testnet instead of mainnet */
+  testnet?: boolean;
+}
+```
+
+### Payment Results
+
+```typescript
+interface PaymentSuccess {
+  success: true;
+  /** Transaction hash - use this to check payment status */
+  transactionId: string;
+  /** Amount that was sent */
+  amount: string;
+  /** Address that received the payment */
+  to: string;
+}
+
+interface PaymentError {
+  success: false;
+  /** Error message explaining what went wrong */
+  error: string;
+  /** Amount that was attempted */
+  amount: string;
+  /** Address that would have received the payment */
+  to: string;
+}
+
+type PayResult = PaymentSuccess | PaymentError;
+```
+
+### Payment Status
+
+```typescript
+interface GetPaymentStatusOptions {
+  /** Transaction hash from pay result */
+  transactionId: string;
+  /** Must match testnet setting used in pay */
+  testnet?: boolean;
+}
+
+interface PaymentStatus {
+  /** Current status of the payment */
+  status: "completed" | "pending" | "failed" | "not_found";
+  /** Original transaction hash */
+  transactionId: string;
+  /** Human-readable status message */
+  message: string;
+  /** Amount that was sent */
+  amount: string;
+  /** Address that received the payment */
+  to: string;
+}
+```
+
+### Function Signatures
+
+```typescript
+/**
+ * Sends USDC to an Ethereum address
+ * @throws {Error} If the input parameters are invalid
+ */
+declare function pay(options: PayOptions): Promise<PayResult>;
+
+/**
+ * Checks the status of a payment
+ * @throws {Error} If the transaction ID is invalid
+ */
+declare function getPaymentStatus(options: GetPaymentStatusOptions): Promise<PaymentStatus>;
+```
+
+## Common Issues & Solutions
+
+### "Invalid Ethereum address"
+
+The 'to' address should start with "0x" followed by 40 characters.
+
+<CodeGroup>
+```javascript ✅ Correct
+"0x742d35Cc6634C0532925a3b844Bc9e7595f6E123"
+```
+
+```javascript ❌ Missing 0x
+"742d35Cc6634C0532925a3b844Bc9e7595f6E123"
+```
+
+```javascript ❌ Too short
+"0x742d35Cc"
+```
+</CodeGroup>
+
+### "User rejected the request"
+
+<Warning>
+The user closed the wallet popup or clicked "Reject". This is normal - just like abandoning a shopping cart.
+</Warning>
+
+### "Amount has too many decimal places"
+
+Amount only supports up to 2 decimal places:
+
+<CodeGroup>
+```javascript ✅ Valid amounts
+"10.50"
+"10.1" 
+"0.01"
+".1"
+```
+
+```javascript ❌ Invalid amount
+"10.123" // Too many decimals
+```
+</CodeGroup>
+
+### Payment stays "pending"
+
+Payments usually complete in 5-10 seconds. If it takes longer:
+
+<Steps>
+  <Step title="Wait">
+    Wait up to 30 seconds for blockchain confirmation
+  </Step>
+  <Step title="Check on Block Explorer">
+    Check your transactionId on [BaseScan](https://basescan.org) (mainnet) or [Base Sepolia](https://sepolia.basescan.org) (testnet)
+  </Step>
+</Steps>
+
+<Tip>
+**Pro tip**: Use webhooks to get notified when payments complete instead of polling the status endpoint.
+</Tip>
+
+## Next Steps
+
+- **[Set up webhooks](/smart-wallet/guides/webhooks)**: Get real-time payment notifications
+- **[View examples](/smart-wallet/examples/onchain-vibes-store-with-profiles)**: See Base Pay in action
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
