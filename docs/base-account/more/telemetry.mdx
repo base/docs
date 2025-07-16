@@ -1,0 +1,89 @@
+---
+title: Telemetry · Base Account
+sidebarTitle: Telemetry
+description: Understanding Base Account's anonymous telemetry system and how to configure it.
+---
+
+Base Account includes an anonymous telemetry system to help us better understand how Base Account is used across applications and improve the developer experience. Participation in this anonymous program is optional—if you'd prefer not to share any usage data, you can easily opt out.
+
+### Why Are We Collecting Telemetry?
+
+Base Account provides critical wallet infrastructure for onchain applications with features like signing transactions & messages, signer management, and more. By collecting telemetry data, we can:
+
+- **Monitor Wallet Operation Success**: Track which wallet operations (signing, connecting, transactions) are most reliable and identify failure patterns
+- **Data-Informed Improvements**: Help our engineering team generate insights that drive future wallet enhancements and reliability improvements
+- **Proactive Issue Detection**: Quickly detect issues with new SDK releases or wallet operations through operational metrics and error monitoring
+
+### What Data Will Be Collected?
+
+Telemetry data is completely anonymous and focused on functional metrics. Specifically, we collect:
+
+- **Request Success Metrics**: Information about the success and failure rates of wallet requests to identify reliability issues
+- **Error Events**: Generic error events with operational context to help us improve Base Account reliability
+- **UI Component Usage**: Anonymous metrics on interface component functionality to ensure optimal reliability
+
+**Privacy First**: No sensitive data—such as private keys, transaction contents, user addresses, or personal information—is ever collected.
+
+### How Does It Work?
+
+Telemetry is integrated into the Base Account SDK and automatically triggers when certain wallet events occur (provided telemetry is enabled in your configuration). The data is sent to secure Coinbase endpoints for analysis.
+
+For example, when a wallet request occurs, a telemetry event like this is sent:
+
+```bash
+curl 'https://cca-lite.coinbase.com/amp' \
+  -H 'content-type: application/x-www-form-urlencoded; charset=utf-8' \
+  -H 'origin: https://your-app.com' \
+  --data-raw 'e=[{"event_type":"scw_signer.request.started","event_properties":{"method":"eth_requestAccounts","correlationId":"abc123-def456","sdkVersion":"4.3.2","appName":"Your App Name","appOrigin":"https://your-app.com"}}]'
+```
+
+The payload contains an array of telemetry events with operational data including:
+
+- **event_type**: The specific wallet operation being tracked
+- **method**: The wallet method being called (e.g., `eth_requestAccounts`)
+- **correlationId**: A unique identifier for request tracking
+- **sdkVersion**: The Base Account SDK version
+- **appName**: Your application name
+- **appOrigin**: Your application's domain
+
+### How Do I Opt Out?
+
+By default, telemetry collection follows an opt-out model. If you'd like to disable telemetry in your app that uses the Base Account SDK, you can configure it during SDK initialization:
+
+```typescript
+import { createCoinbaseWalletSDK } from "@coinbase/wallet-sdk";
+
+const sdk = createCoinbaseWalletSDK({
+  appName: "My App",
+  appLogoUrl: "https://example.com/logo.png",
+  telemetry: false, // [!code focus]
+});
+
+const provider = sdk.makeProvider();
+```
+
+For legacy Coinbase Wallet SDK class based components:
+
+```tsx
+import { CoinbaseWalletSDK } from "@coinbase/wallet-sdk";
+
+const sdk = new CoinbaseWalletSDK({
+  appName: "My App",
+  appLogoUrl: "https://example.com/logo.png",
+});
+
+const provider = sdk.makeProvider({
+  telemetry: false, // [!code focus]
+});
+```
+
+We believe that this telemetry initiative will help us make Base Account even better for all developers—by focusing our improvements on the most critical wallet operations and catching issues early. If you have any questions or feedback, please reach out to the Base Account team.
+
+Happy building with Base Account!
+
+— The Base Account team
+
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
