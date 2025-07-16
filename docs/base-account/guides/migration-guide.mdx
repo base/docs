@@ -1,0 +1,62 @@
+---
+title: "Migrate from Coinbase Wallet SDK"
+description: "A guide to migrating from the Coinbase Wallet SDK to the Base Account."
+---
+
+## Overview
+
+The Base Account SDK allows Base Account users to connect 3rd party mobile and web applications. The Base Account SDK is the successor to the Coinbase Wallet SDK, which is now considered legacy.  
+
+Developers should integrate the Base Account SDK such that users connect to use it via a "Sign in with Base" or "Base" button (see guide). 
+
+We do not recommend immediately replacing existing "Coinbase Wallet" buttons in your app, but rather add the Base Account button as an additional option, next to a "Coinbase Wallet" button. This will allow a transition period for users to get familiar with the new Base brand. 
+
+Driving this change is a transition of our mobile app: the Coinbase Wallet app is now the Base app. We are gradually transitioning all of our users to have Base Accounts, which are powered by our Smart Wallet platform. 
+
+Below is a table of existing users and how they will connect to apps now and in the future:
+
+| User Type | Today | Future (~Fall 2025) |
+|-----------|-------|---------------------|
+| Smart Wallet users (web and mobile app) | Automatically have a Base Account, can use "Sign in with Base" | No change |
+| New Base app users | Automatically have a Base Account, can use "Sign in with Base" | No change |
+| Coinbase Wallet Extension Users | Should continue to connect with "Coinbase Wallet" button | Will have a path to migrate to Base Account and use "Sign in with Base" |
+| Coinbase Wallet mobile app EOA users | Should continue to connect with "Coinbase Wallet" button | Will have a path to migrate to Base Account and use "Sign in with Base" |
+
+## Changes to user experience when click "Coinbase Wallet" 
+
+As of SDK v4.0, users without Coinbase Wallet extension are directed to a popup window where they can choose to connect with the mobile app, via WalletLink, or use a passkey-powered Smart Wallet natively on the web. 
+
+This will continue to be the case, but the logged out experience has changed to educate Smart Wallet users that they should be using "Sign in with Base" in the future. Here is how it looks on desktop.
+
+<div style={{ display: 'flex', justifyContent: 'center', margin: '2rem 0' }}>
+  <img src="/images/base-account/CreateWalletFlow.png" alt="Create Wallet Flow" style={{ width: '300px', height: 'auto' }} />
+</div>
+
+<div style={{ textAlign: 'center', fontStyle: 'italic', marginBottom: '2rem' }}>
+  Desktop experience showing the updated logged out flow for Coinbase Wallet users
+</div>
+
+If you would like to avoid users seeing any popup window, we recommend using a version of the Coinbase Wallet SDK < 4.0
+
+## How to migrate?
+
+If you're using the SDK, you can simply replace the Coinbase Wallet SDK with the Base Account SDK.
+
+```tsx
+import { createBaseAccountSDK } from "@base-org/account";
+
+const baseAccount = createBaseAccountSDK({
+  // ...
+});
+```
+
+For more information please refer to the [Quickstart](/base-account/quickstart/web) guide.
+
+If you're using a third party library, you can follow the [Wagmi](/base-account/framework-integrations/nextjs-with-wagmi) or [Privy](/base-account/framework-integrations/nextjs-with-privy) guides.
+
+We will have a more complete migration guide in the near future.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
+

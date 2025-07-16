@@ -1,0 +1,286 @@
+---
+title: "Batch Transactions"
+---
+
+With Base Account, you can send multiple onchain calls in a single transaction. Doing so improves the UX of multi-step interactions by reducing them to a single click. A common example of where you might want to leverage batch transactions is an ERC-20 `approve` followed by a swap.
+
+You can submit batch transactions by using the `wallet_sendCalls` RPC method, defined in [EIP-5792](https://eips.ethereum.org/EIPS/eip-5792).
+
+## Installation
+
+Install the Base Account SDK:
+
+<CodeGroup>
+```bash npm
+npm install @base-org/account
+```
+
+```bash pnpm
+pnpm add @base-org/account
+```
+
+```bash yarn
+yarn add @base-org/account
+```
+
+```bash bun
+bun add @base-org/account
+```
+</CodeGroup>
+
+## Setup
+
+### Initialize the SDK
+
+Import and create the Base Account SDK instance:
+
+```tsx
+import { createBaseAccountSDK, base } from '@base-org/account';
+
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.constants.CHAIN_IDS.base],
+});
+
+const provider = sdk.getProvider();
+```
+
+## Basic Batch Transaction
+
+### Simple Multiple Transfers
+
+Send multiple ETH transfers in a single transaction:
+
+```tsx
+import { createBaseAccountSDK, getCryptoKeyAccount, base } from '@base-org/account';
+import { numberToHex, parseEther } from 'viem';
+
+const sdk = createBaseAccountSDK({
+  appName: 'Batch Transaction Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.constants.CHAIN_IDS.base],
+});
+
+const provider = sdk.getProvider();
+
+async function sendBatchTransfers() {
+  try {
+    // Get crypto account
+    const cryptoAccount = await getCryptoKeyAccount();
+    const fromAddress = cryptoAccount?.account?.address;
+
+    // Prepare batch calls
+    const calls = [
+      {
+        to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+        value: numberToHex(parseEther('0.001')), // 0.001 ETH
+        data: '0x', // Empty data for simple transfer
+      },
+      {
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f6E456',
+        value: numberToHex(parseEther('0.001')), // 0.001 ETH  
+        data: '0x', // Empty data for simple transfer
+      }
+    ];
+
+    // Send batch transaction
+    const result = await provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: '2.0.0',
+        from: fromAddress,
+        chainId: numberToHex(base.constants.CHAIN_IDS.base),
+        atomicRequired: true, // All calls must succeed or all fail
+        calls: calls
+      }]
+    });
+
+    console.log('Batch transaction sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Batch transaction failed:', error);
+    throw error;
+  }
+}
+```
+
+## Contract Interactions
+
+### ERC-20 Approve and Transfer
+
+A common pattern is to approve and then transfer ERC-20 tokens:
+
+```tsx
+import { createBaseAccountSDK, getCryptoKeyAccount, base } from '@base-org/account';
+import { numberToHex, parseUnits, encodeFunctionData } from 'viem';
+
+// ERC-20 ABI for approve and transfer functions
+const erc20Abi = [
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: [{ name: '', type: 'bool' }]
+  },
+  {
+    name: 'transfer',
+    type: 'function', 
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: [{ name: '', type: 'bool' }]
+  }
+] as const;
+
+async function approveAndTransfer() {
+  const sdk = createBaseAccountSDK({
+    appName: 'ERC-20 Batch Demo',
+    appLogoUrl: 'https://base.org/logo.png',
+    appChainIds: [base.constants.CHAIN_IDS.base],
+  });
+
+  const provider = sdk.getProvider();
+  const cryptoAccount = await getCryptoKeyAccount();
+  const fromAddress = cryptoAccount?.account?.address;
+
+  const tokenAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
+  const spenderAddress = '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad'; // Example spender
+  const recipientAddress = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
+  const amount = parseUnits('10', 6); // 10 USDC (6 decimals)
+
+  const calls = [
+    {
+      to: tokenAddress,
+      value: '0x0',
+      data: encodeFunctionData({
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [spenderAddress, amount]
+      })
+    },
+    {
+      to: tokenAddress,
+      value: '0x0', 
+      data: encodeFunctionData({
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [recipientAddress, amount]
+      })
+    }
+  ];
+
+  const result = await provider.request({
+    method: 'wallet_sendCalls',
+    params: [{
+      version: '2.0.0',
+      from: fromAddress,
+      chainId: numberToHex(base.constants.CHAIN_IDS.base),
+      atomicRequired: true,
+      calls: calls
+    }]
+  });
+
+  return result;
+}
+```
+
+## Advanced Features
+
+### Checking Wallet Capabilities
+
+Before sending batch transactions, you can check if the wallet supports atomic batching:
+
+```tsx
+async function checkCapabilities() {
+  const provider = sdk.getProvider();
+  
+  try {
+    const cryptoAccount = await getCryptoKeyAccount();
+    const address = cryptoAccount?.account?.address;
+    
+    const capabilities = await provider.request({
+      method: 'wallet_getCapabilities',
+      params: [address]
+    });
+    
+    const baseCapabilities = capabilities[base.constants.CHAIN_IDS.base];
+    
+    if (baseCapabilities?.atomicBatch?.supported) {
+      console.log('Atomic batching is supported');
+      return true;
+    } else {
+      console.log('Atomic batching is not supported');
+      return false;
+    }
+  } catch (error) {
+    console.error('Failed to check capabilities:', error);
+    return false;
+  }
+}
+```
+
+### Non-Atomic Batching
+
+Sometimes you want calls to execute sequentially, even if some fail:
+
+```tsx
+const result = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '2.0.0',
+    from: fromAddress,
+    chainId: numberToHex(base.constants.CHAIN_IDS.base),
+    atomicRequired: false, // Allow partial execution
+    calls: calls
+  }]
+});
+```
+
+## Error Handling
+
+Handle common batch transaction errors:
+
+```tsx
+async function sendBatchWithErrorHandling(calls: any[]) {
+  try {
+    const cryptoAccount = await getCryptoKeyAccount();
+    const fromAddress = cryptoAccount?.account?.address;
+    
+    const result = await provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: '2.0.0',
+        from: fromAddress,
+        chainId: numberToHex(base.constants.CHAIN_IDS.base),
+        atomicRequired: true,
+        calls: calls
+      }]
+    });
+    
+    return { success: true, data: result };
+  } catch (error: any) {
+    console.error('Batch transaction error:', error);
+    
+    if (error.code === 4001) {
+      return { success: false, error: 'User rejected the transaction' };
+    } else if (error.code === 5740) {
+      return { success: false, error: 'Batch too large for wallet to process' };
+    } else if (error.code === -32602) {
+      return { success: false, error: 'Invalid request format' };
+    } else {
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+  }
+}
+```
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

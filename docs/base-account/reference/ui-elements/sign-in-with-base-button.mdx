@@ -1,0 +1,544 @@
+---
+title: "SignInWithBaseButton"
+description: "Pre-built React component for user authentication with Base Account"
+---
+
+The `SignInWithBaseButton` is a ready-to-use React component that provides a seamless authentication experience using Base Account. It handles the entire sign-in flow including wallet connection, message signing, and user authentication.
+
+<Warning>
+**Please Follow the brand guidelines** 
+
+If you intend on using the SignInWithBaseButton, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
+</Warning>
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @base-org/account-ui
+```
+
+```bash pnpm
+pnpm add @base-org/account-ui
+```
+
+```bash yarn
+yarn add @base-org/account-ui
+```
+
+```bash bun
+bun add @base-org/account-ui
+```
+</CodeGroup>
+
+## Basic Usage
+
+```tsx
+import { SignInWithBaseButton } from '@base-org/account-ui/react';
+
+function LoginForm() {
+  const handleSignIn = () => {
+    console.log('User clicked sign in');
+    // Custom sign-in logic here
+  };
+
+  return (
+    <SignInWithBaseButton 
+      align="center"
+      variant="solid"
+      colorScheme="light"
+      onClick={handleSignIn}
+    />
+  );
+}
+```
+
+## Props
+
+### Styling Props
+
+<ParamField body="align" type="'left' | 'center' | 'right'">
+Button alignment within its container (default: 'left')
+</ParamField>
+
+<ParamField body="variant" type="'solid' | 'transparent'">
+Button variant style (default: 'solid')
+</ParamField>
+
+<ParamField body="colorScheme" type="'light' | 'dark' | 'system'">
+Color scheme for the button appearance (default: 'system')
+</ParamField>
+
+<ParamField body="size" type="'small' | 'medium' | 'large'">
+Button size (default: 'medium')
+</ParamField>
+
+<ParamField body="disabled" type="boolean">
+Whether the button is disabled (default: false)
+</ParamField>
+
+### Event Handlers
+
+<ParamField body="onClick" type="function">
+Callback function called when the button is clicked
+</ParamField>
+
+<ParamField body="onSignInResult" type="function">
+Callback function called when authentication completes (success or failure)
+</ParamField>
+
+## Styling Options
+
+### Alignment
+
+```tsx
+{/* Left aligned */}
+<SignInWithBaseButton align="left" onClick={handleSignIn} />
+
+{/* Center aligned */}
+<SignInWithBaseButton align="center" onClick={handleSignIn} />
+
+{/* Right aligned */}
+<SignInWithBaseButton align="right" onClick={handleSignIn} />
+```
+
+### Variants
+
+```tsx
+{/* Solid variant (default) */}
+<SignInWithBaseButton variant="solid" onClick={handleSignIn} />
+
+{/* Transparent variant */}
+<SignInWithBaseButton variant="transparent" onClick={handleSignIn} />
+```
+
+### Color Schemes
+
+```tsx
+{/* Light theme */}
+<SignInWithBaseButton colorScheme="light" onClick={handleSignIn} />
+
+{/* Dark theme */}
+<SignInWithBaseButton colorScheme="dark" onClick={handleSignIn} />
+
+{/* System theme (follows user's system preference) */}
+<SignInWithBaseButton colorScheme="system" onClick={handleSignIn} />
+```
+
+### Sizes
+
+```tsx
+{/* Different sizes */}
+<SignInWithBaseButton size="small" onClick={handleSignIn} />
+<SignInWithBaseButton size="medium" onClick={handleSignIn} />
+<SignInWithBaseButton size="large" onClick={handleSignIn} />
+```
+
+## Authentication Flow Integration
+
+### Complete Authentication Example
+
+```tsx
+import React, { useState } from 'react';
+import { SignInWithBaseButton } from '@base-org/account-ui/react';
+import { createBaseAccountSDK, getCryptoKeyAccount } from '@base-org/account';
+import { createWalletClient, custom } from 'viem';
+import { base } from 'viem/chains';
+
+export default function AuthenticationDemo() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const sdk = createBaseAccountSDK({
+    appName: 'Authentication Demo',
+    appLogoUrl: 'https://example.com/logo.png',
+    appChainIds: [base.id],
+  });
+
+  const handleSignIn = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get the provider and create wallet client
+      const provider = sdk.getProvider();
+      const client = createWalletClient({
+        chain: base,
+        transport: custom(provider)
+      });
+
+      // Get account address
+      const [account] = await client.getAddresses();
+
+      // Sign authentication message
+      const message = `Sign in to MyApp at ${Date.now()}`;
+      const signature = await client.signMessage({ 
+        account,
+        message,
+      });
+
+      // Verify signature on backend (optional)
+      const authResult = await verifySignature(account, message, signature);
+
+      if (authResult.success) {
+        setUser({
+          address: account,
+          signature: signature,
+          timestamp: Date.now()
+        });
+        console.log('User authenticated successfully');
+      } else {
+        throw new Error('Authentication verification failed');
+      }
+    } catch (err) {
+      console.error('Authentication failed:', err);
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    setUser(null);
+    setError(null);
+  };
+
+  // Mock backend verification (replace with your API)
+  const verifySignature = async (address, message, signature) => {
+    // Send to your backend for verification
+    const response = await fetch('/api/verify-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, message, signature })
+    });
+    return response.json();
+  };
+
+  if (user) {
+    return (
+      <div className="authenticated">
+        <h3>Welcome!</h3>
+        <p><strong>Address:</strong> {user.address}</p>
+        <p><strong>Signed in at:</strong> {new Date(user.timestamp).toLocaleString()}</p>
+        <button onClick={handleSignOut} className="sign-out-btn">
+          Sign Out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="authentication">
+      <h2>Sign In to Continue</h2>
+      <p>Connect your Base Account to access the application</p>
+      
+      <SignInWithBaseButton 
+        align="center"
+        variant="solid"
+        colorScheme="light"
+        size="large"
+        disabled={loading}
+        onClick={handleSignIn}
+      />
+      
+      {loading && (
+        <div className="loading">
+          Authenticating...
+        </div>
+      )}
+      
+      {error && (
+        <div className="error">
+          <p>Authentication failed: {error}</p>
+          <button onClick={() => setError(null)}>Try Again</button>
+        </div>
+      )}
+      
+      <style jsx>{`
+        .authentication {
+          max-width: 400px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          text-align: center;
+        }
+        
+        .authenticated {
+          max-width: 400px;
+          margin: 0 auto;
+          padding: 20px;
+          background: #f8f9fa;
+          border-radius: 12px;
+        }
+        
+        .loading {
+          margin-top: 20px;
+          color: #666;
+          font-style: italic;
+        }
+        
+        .error {
+          margin-top: 20px;
+          padding: 15px;
+          background: #f8d7da;
+          border: 1px solid #f5c6cb;
+          border-radius: 8px;
+          color: #721c24;
+        }
+        
+        .sign-out-btn {
+          background: #6c757d;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 6px;
+          cursor: pointer;
+          margin-top: 15px;
+        }
+        
+        .sign-out-btn:hover {
+          background: #5a6268;
+        }
+      `}</style>
+    </div>
+  );
+}
+```
+
+### SIWE Integration
+
+```tsx
+import { createSiweMessage } from 'siwe';
+
+const handleSignInWithSIWE = async () => {
+  try {
+    const provider = sdk.getProvider();
+    const client = createWalletClient({
+      chain: base,
+      transport: custom(provider)
+    });
+
+    const [account] = await client.getAddresses();
+
+    // Create SIWE message
+    const siweMessage = createSiweMessage({
+      address: account,
+      chainId: base.id,
+      domain: window.location.host,
+      nonce: Math.random().toString(36).substring(7),
+      uri: window.location.origin,
+      version: '1',
+      statement: 'Sign in to MyApp with your Base Account'
+    });
+
+    // Sign the SIWE message
+    const signature = await client.signMessage({ 
+      account,
+      message: siweMessage.prepareMessage(),
+    });
+
+    // Verify with your backend
+    const authResult = await fetch('/api/siwe-verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: siweMessage,
+        signature: signature
+      })
+    });
+
+    if (authResult.ok) {
+      const userData = await authResult.json();
+      setUser(userData);
+    }
+  } catch (error) {
+    console.error('SIWE authentication failed:', error);
+  }
+};
+
+<SignInWithBaseButton 
+  align="center"
+  variant="solid"
+  colorScheme="light"
+  onClick={handleSignInWithSIWE}
+/>
+```
+
+## Custom Button States
+
+### Loading State
+
+```tsx
+function CustomSignInButton() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      // Authentication logic
+      await authenticateUser();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <SignInWithBaseButton 
+      disabled={isLoading}
+      onClick={handleSignIn}
+      colorScheme="light"
+    />
+  );
+}
+```
+
+### Error State Handling
+
+```tsx
+function SignInWithErrorHandling() {
+  const [error, setError] = useState(null);
+
+  const handleSignIn = async () => {
+    try {
+      setError(null);
+      await authenticateUser();
+    } catch (err) {
+      if (err.code === 4001) {
+        setError('User rejected the authentication request');
+      } else if (err.code === -32002) {
+        setError('Authentication request already pending');
+      } else {
+        setError('Authentication failed. Please try again.');
+      }
+    }
+  };
+
+  return (
+    <div>
+      <SignInWithBaseButton 
+        onClick={handleSignIn}
+        colorScheme="light"
+      />
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Integration with Authentication Providers
+
+### NextAuth.js Integration
+
+```tsx
+// pages/api/auth/[...nextauth].js
+import NextAuth from 'next-auth'
+import CredentialsProvider from 'next-auth/providers/credentials'
+import { verifyMessage } from 'viem'
+
+export default NextAuth({
+  providers: [
+    CredentialsProvider({
+      name: 'Base Account',
+      credentials: {
+        address: { label: 'Address', type: 'text' },
+        message: { label: 'Message', type: 'text' },
+        signature: { label: 'Signature', type: 'text' },
+      },
+      async authorize(credentials) {
+        try {
+          const isValid = await verifyMessage({
+            address: credentials.address,
+            message: credentials.message,
+            signature: credentials.signature,
+          });
+
+          if (isValid) {
+            return {
+              id: credentials.address,
+              name: credentials.address,
+              email: null,
+            };
+          }
+          return null;
+        } catch (error) {
+          return null;
+        }
+      },
+    }),
+  ],
+});
+
+// Frontend component
+import { signIn } from 'next-auth/react';
+
+const handleSignIn = async () => {
+  // ... get signature as before
+  
+  const result = await signIn('credentials', {
+    address: account,
+    message: message,
+    signature: signature,
+    redirect: false,
+  });
+
+  if (result?.ok) {
+    console.log('Signed in successfully');
+  }
+};
+```
+
+## TypeScript Support
+
+```tsx
+import { SignInWithBaseButton } from '@base-org/account-ui/react';
+
+interface AuthButtonProps {
+  onAuthSuccess: (userAddress: string) => void;
+  onAuthError: (error: string) => void;
+}
+
+function AuthButton({ onAuthSuccess, onAuthError }: AuthButtonProps) {
+  const handleSignIn = async () => {
+    try {
+      // Authentication logic
+      const userAddress = await authenticateUser();
+      onAuthSuccess(userAddress);
+    } catch (error) {
+      onAuthError(error.message);
+    }
+  };
+
+  return (
+    <SignInWithBaseButton 
+      align="center"
+      variant="solid"
+      colorScheme="light"
+      onClick={handleSignIn}
+    />
+  );
+}
+```
+
+## Best Practices
+
+1. **Handle Loading States**: Disable the button during authentication to prevent multiple attempts
+
+2. **Error Handling**: Provide clear error messages for different failure scenarios
+
+3. **Security**: Always verify signatures on your backend before trusting authentication
+
+4. **User Experience**: Show clear feedback during the authentication process
+
+5. **Accessibility**: The button includes proper ARIA labels and keyboard navigation
+
+6. **Testing**: Test with different wallet states (connected, disconnected, etc.)
+
+The SignInWithBaseButton provides a complete, production-ready authentication solution that handles all the complexity of wallet-based authentication while providing a familiar user experience.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

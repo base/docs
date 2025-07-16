@@ -1,0 +1,136 @@
+---
+title: "Spend Permissions"
+---
+
+## Overview
+
+Spend Permissions let you designate a trusted `spender` that can move assets out of a user's Base Account on their behalf.
+
+After the user signs the permission, the `spender` can initiate transfers within the limits you define — no additional prompts, pop-ups, or signatures needed from the user. This powers seamless experiences such as subscription renewals, algorithmic trading, and automated payouts.
+
+Read more about the Spend Permission Manager contract and supported chains on [GitHub](https://github.com/coinbase/spend-permissions).
+
+
+## Usage
+
+### Request a Spend Permission
+
+You create an EIP-712 payload that describes the permission and ask the user to sign it. Store the resulting signature along with the permission data so you can register the permission on-chain later.
+
+| Field Name | Type | Description |
+|------------|------|-------------|
+| `account` | `address` | Smart account this spend permission is valid for |
+| `spender` | `address` | Entity that can spend `account`'s tokens |
+| `token` | `address` | Token address (ERC-7528 native token or ERC-20 contract) |
+| `allowance` | `uint160` | Maximum allowed value to spend within each `period` |
+| `period` | `uint48` | Time duration for resetting used `allowance` on a recurring basis (seconds) |
+| `start` | `uint48` | Timestamp this spend permission is valid starting at (inclusive, unix seconds) |
+| `end` | `uint48` | Timestamp this spend permission is valid until (exclusive, unix seconds) |
+| `salt` | `uint256` | Arbitrary data to differentiate unique spend permissions with otherwise identical fields |
+| `extraData` | `bytes` | Arbitrary data to attach to a spend permission which may be consumed by the `spender` |
+
+```tsx
+const SPEND_PERMISSION_MANAGER_ADDRESS = '0xf85210B21cC50302F477BA56686d2019dC9b67Ad' as const;
+
+const spendPermissionData = {
+  account: '0x...',
+  spender: '0x...',
+  token: '0x...',
+  allowance: '0x...',
+  period: '0x...',
+  start: new Date().getTime() / 1000,
+  end: new Date().getTime() / 1000 + 60 * 60 * 24 * 30, // 30 days
+  salt: '0x',
+  extraData: '0x',
+}
+
+const eip712Data = {
+  domain: {
+    name: 'Spend Permission Manager',
+    version: '1',
+    chainId: 8453, // or any other supported chain
+    verifyingContract: SPEND_PERMISSION_MANAGER_ADDRESS,
+  },
+  types: {
+    SpendPermission: [
+      { name: 'account', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'allowance', type: 'uint160' },
+      { name: 'period', type: 'uint48' },
+      { name: 'start', type: 'uint48' },
+      { name: 'end', type: 'uint48' },
+      { name: 'salt', type: 'uint256' },
+      { name: 'extraData', type: 'bytes' },
+    ],
+  },
+  primaryType: 'SpendPermission',
+  message: spendPermissionData,
+};
+
+// Request a signature from the user
+const signature = await provider.request({
+  method: 'eth_signTypedData_v4',
+  params: [account, JSON.stringify(eip712Data)],
+});
+
+console.log('Spend Permission signature:', signature);
+```
+
+### Use the Spend Permission
+
+Using a permission is a two-step flow:
+
+1. **Register the permission** — Call `approveWithSignature` with the signed payload to store the permission on-chain.
+2. **Spend tokens** — From the `spender` address, call `spend` with the same payload and an `amount`. The contract validates the permission and transfers tokens from the user's account to the `spender`.
+
+You can batch the two calls into a single transaction (see the example below), or send them separately. Registration only needs to happen once per permission.
+
+The easiest way to encode these function calls is to use a tool such as [viem](https://viem.sh/docs/contract/encodeFunctionData#encodefunctiondata). 
+
+Find the ABI for the Spend Permission Manager contract [here](https://github.com/ilikesymmetry/spend-permissions-quickstart/blob/main/lib/abi/SpendPermissionManager.ts) or on [Basescan](https://basescan.org/address/0xf85210B21cC50302F477BA56686d2019dC9b67Ad#code).
+
+
+```tsx
+const SPEND_PERMISSION_MANAGER_ADDRESS = '0xf85210B21cC50302F477BA56686d2019dC9b67Ad' as const;
+const spendPermissionManagerAbi = [...]; // See the ABI file above
+
+// Approval call
+const approvalCallData = encodeFunctionData({
+  abi: spendPermissionManagerAbi,
+  functionName: 'approveWithSignature',
+  args: [spendPermissionData, signature],
+});
+
+// Spend call
+const spendCallData = encodeFunctionData({
+  abi: spendPermissionManagerAbi,
+  functionName: 'spend',
+  args: [spendPermissionData, amount],
+});
+
+// Send the calls from the spender wallet using an EIP-1193 wallet provider
+// const provider = ...
+
+// This combines the approval and spend calls into a single transaction
+// but you can also send them separately and the approval only needs to be done once
+const callsId = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [
+    {
+      version: "2.0",
+      atomicRequired: true,
+      from: spender,
+      calls: [
+        { to: SPEND_PERMISSION_MANAGER_ADDRESS, data: approvalCallData, value: '0x0' },
+        { to: SPEND_PERMISSION_MANAGER_ADDRESS, data: spendCallData, value: '0x0' },
+      ],
+    }
+  ],
+})
+```
+
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

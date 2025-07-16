@@ -1,0 +1,91 @@
+---
+title: "Web (HTML + JS)"
+---
+
+This quick-start shows the **minimum** code required to add Sign in with Base and Base Pay to any web page using nothing but the Base Account SDK. No frameworks, no additional libraries.
+
+## 1. Install the SDK
+
+<CodeGroup>
+```bash npm
+npm install @base-org/account
+```
+
+```bash pnpm
+pnpm add @base-org/account
+```
+
+```bash yarn
+yarn add @base-org/account
+```
+
+```bash bun
+bun add @base-org/account
+```
+</CodeGroup>
+
+If you prefer a CDN import, you can skip the install step and replace the `import` line below with:
+
+```html
+<script type="module" src="https://cdn.skypack.dev/@base-org/account"></script>
+```
+
+## 2. Copy-paste this HTML file
+
+```html title="index.html" lineNumbers
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Base Account Quick-start</title>
+  </head>
+  <body>
+    <!-- TODO! Button styles -->
+    <button id="signin">Sign in with Base</button>
+    <button id="pay" disabled>Pay 5&nbsp;USDC on testnet</button>
+
+    <script type="module">
+      import { createBaseAccountSDK, pay, getPaymentStatus } from "@base-org/account";
+
+      // Initialise SDK with the injected provider (the user will be prompted to connect on first call).
+      const sdk = createBaseAccountSDK();
+
+      // Optional sign-in step – not required for `pay()`, but useful to get the user address.
+       document.getElementById("signin").onclick = async () => {
+         await sdk.getProvider().request({ method: "wallet_connect" });
+         document.getElementById("pay").disabled = false;
+       };
+
+       // One-tap USDC payment (works even if you skip the sign-in button above).
+       document.getElementById("pay").onclick = async () => {
+         const { id } = await pay({
+           amount: "5.00", // USD – SDK quotes equivalent USDC
+           to: "0xRecipientAddress",
+           testnet: true // set to false or omit for Mainnet
+         });
+
+         const { status } = await getPaymentStatus({ id });
+         alert(`Payment status: ${status}`);
+       };
+     </script>
+   </body>
+ </html>
+```
+
+## 3. Serve the file
+
+Any static server will work:
+
+```bash
+npx serve .
+# or
+python -m http.server
+```
+
+Open http://localhost:3000, click **Sign in with Base** (optional) and then **Pay**, approve the transaction, and you’ve sent 5 USDC on Base Sepolia—done! 🎉
+
+## Next steps
+
+* **[Request profile data](/base-account/guides/accept-payments#collect-user-information-optional)** – ask the user for email, shipping address, etc. during `pay()`
+* **[Sub Accounts guide](/base-account/improve-ux/sub-accounts)** – embed gas-less child wallets inside your app
+* **[Mobile quick-start](/base-account/quickstart/mobile-integration)** – the same flow for React Native

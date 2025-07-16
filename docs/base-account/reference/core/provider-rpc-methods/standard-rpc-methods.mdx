@@ -1,0 +1,464 @@
+---
+title: "Other RPC Methods"
+description: "Other commonly used Ethereum RPC methods are supported by Base Account"
+---
+
+Base Account supports all standard Ethereum RPC methods, ensuring compatibility with existing web3 applications and libraries. This page provides a comprehensive reference for commonly used methods.
+
+## Account Methods
+
+### eth_accounts
+
+Returns a list of addresses owned by the client.
+
+```javascript
+const accounts = await provider.request({ method: 'eth_accounts' });
+// Returns: ['0x1234...', '0x5678...']
+```
+
+### eth_requestAccounts
+
+Requests that the user provide an Ethereum address to be identified by. This method is used to initiate a connection between your application and the user's wallet.
+
+```javascript
+const accounts = await provider.request({ method: 'eth_requestAccounts' });
+// Returns: ['0x1234...']
+```
+
+## Chain Information
+
+### eth_chainId
+
+Returns the chain ID of the current network.
+
+```javascript
+const chainId = await provider.request({ method: 'eth_chainId' });
+// Returns: '0x2105' (8453 for Base mainnet)
+```
+
+### eth_blockNumber
+
+Returns the number of the most recent block.
+
+```javascript
+const blockNumber = await provider.request({ method: 'eth_blockNumber' });
+// Returns: '0x1b4' (hex encoded block number)
+```
+
+### eth_coinbase
+
+Returns the client coinbase address.
+
+```javascript
+const coinbase = await provider.request({ method: 'eth_coinbase' });
+// Returns: '0x1234...'
+```
+
+## Balance and Transaction Data
+
+### eth_getBalance
+
+Returns the balance of the account of given address.
+
+```javascript
+const balance = await provider.request({
+  method: 'eth_getBalance',
+  params: ['0x1234...', 'latest']
+});
+// Returns: '0x1b1ae4d6e2ef500000' (hex encoded balance in wei)
+```
+
+### eth_getTransactionCount
+
+Returns the number of transactions sent from an address.
+
+```javascript
+const nonce = await provider.request({
+  method: 'eth_getTransactionCount',
+  params: ['0x1234...', 'latest']
+});
+// Returns: '0x1' (hex encoded transaction count)
+```
+
+### eth_getTransactionByHash
+
+Returns information about a transaction by transaction hash.
+
+```javascript
+const transaction = await provider.request({
+  method: 'eth_getTransactionByHash',
+  params: ['0xabcd...']
+});
+// Returns transaction object
+```
+
+### eth_getTransactionReceipt
+
+Returns the receipt of a transaction by transaction hash.
+
+```javascript
+const receipt = await provider.request({
+  method: 'eth_getTransactionReceipt',
+  params: ['0xabcd...']
+});
+// Returns transaction receipt object
+```
+
+## Block Information
+
+### eth_getBlockByNumber
+
+Returns information about a block by block number.
+
+```javascript
+const block = await provider.request({
+  method: 'eth_getBlockByNumber',
+  params: ['latest', false]
+});
+// Returns block object
+```
+
+### eth_getBlockByHash
+
+Returns information about a block by block hash.
+
+```javascript
+const block = await provider.request({
+  method: 'eth_getBlockByHash',
+  params: ['0x1234...', false]
+});
+// Returns block object
+```
+
+### eth_getBlockTransactionCountByNumber
+
+Returns the number of transactions in a block by block number.
+
+```javascript
+const count = await provider.request({
+  method: 'eth_getBlockTransactionCountByNumber',
+  params: ['latest']
+});
+// Returns: '0x10' (hex encoded transaction count)
+```
+
+### eth_getBlockTransactionCountByHash
+
+Returns the number of transactions in a block by block hash.
+
+```javascript
+const count = await provider.request({
+  method: 'eth_getBlockTransactionCountByHash',
+  params: ['0x1234...']
+});
+// Returns: '0x10' (hex encoded transaction count)
+```
+
+## Transaction Methods
+
+### eth_sendTransaction
+
+Creates new message call transaction or a contract creation for signed transactions.
+
+```javascript
+const txHash = await provider.request({
+  method: 'eth_sendTransaction',
+  params: [{
+    from: '0x1234...',
+    to: '0x5678...',
+    value: '0x1b1ae4d6e2ef500000', // 0.5 ETH in wei
+    gas: '0x5208', // 21000 gas
+    gasPrice: '0x9184e72a000' // 10 gwei
+  }]
+});
+// Returns: '0xabcd...' (transaction hash)
+```
+
+### eth_sendRawTransaction
+
+Creates new message call transaction or a contract creation for signed transactions.
+
+```javascript
+const txHash = await provider.request({
+  method: 'eth_sendRawTransaction',
+  params: ['0xf86c...'] // signed transaction data
+});
+// Returns: '0xabcd...' (transaction hash)
+```
+
+## Gas and Fee Methods
+
+### eth_estimateGas
+
+Generates and returns an estimate of how much gas is necessary to allow the transaction to complete.
+
+```javascript
+const gasEstimate = await provider.request({
+  method: 'eth_estimateGas',
+  params: [{
+    from: '0x1234...',
+    to: '0x5678...',
+    value: '0x1b1ae4d6e2ef500000'
+  }]
+});
+// Returns: '0x5208' (hex encoded gas estimate)
+```
+
+### eth_gasPrice
+
+Returns the current price per gas in wei.
+
+```javascript
+const gasPrice = await provider.request({ method: 'eth_gasPrice' });
+// Returns: '0x9184e72a000' (hex encoded gas price in wei)
+```
+
+### eth_feeHistory
+
+Returns base fee per gas and transaction effective priority fee per gas history for the requested/supported block range.
+
+```javascript
+const feeHistory = await provider.request({
+  method: 'eth_feeHistory',
+  params: [
+    '0x4', // block count
+    'latest', // newest block
+    [25, 75] // reward percentiles
+  ]
+});
+// Returns fee history object
+```
+
+## Contract and Storage Methods
+
+### eth_getCode
+
+Returns code at a given address.
+
+```javascript
+const code = await provider.request({
+  method: 'eth_getCode',
+  params: ['0x1234...', 'latest']
+});
+// Returns: '0x608060405234801561001057600080fd5b50...' (contract bytecode)
+```
+
+### eth_getStorageAt
+
+Returns the value from a storage position at a given address.
+
+```javascript
+const storageValue = await provider.request({
+  method: 'eth_getStorageAt',
+  params: ['0x1234...', '0x0', 'latest']
+});
+// Returns: '0x0000000000000000000000000000000000000000000000000000000000000001'
+```
+
+### eth_getLogs
+
+Returns an array of all logs matching a given filter object.
+
+```javascript
+const logs = await provider.request({
+  method: 'eth_getLogs',
+  params: [{
+    fromBlock: '0x1',
+    toBlock: 'latest',
+    address: '0x1234...',
+    topics: ['0xabcd...']
+  }]
+});
+// Returns array of log objects
+```
+
+### eth_getProof
+
+Returns the account and storage values of the specified account including the Merkle-proof.
+
+```javascript
+const proof = await provider.request({
+  method: 'eth_getProof',
+  params: ['0x1234...', ['0x0'], 'latest']
+});
+// Returns proof object
+```
+
+## Signing Methods
+
+### personal_sign
+
+Signs a message with the private key of the given account.
+
+```javascript
+const signature = await provider.request({
+  method: 'personal_sign',
+  params: ['0x48656c6c6f20576f726c64', '0x1234...'] // "Hello World" in hex
+});
+// Returns: '0x1234...' (signature)
+```
+
+### eth_signTypedData_v4
+
+Signs typed data according to EIP-712.
+
+```javascript
+const signature = await provider.request({
+  method: 'eth_signTypedData_v4',
+  params: ['0x1234...', typedData]
+});
+// Returns: '0x1234...' (signature)
+```
+
+## Network Methods
+
+### wallet_addEthereumChain
+
+Adds an Ethereum chain to the wallet.
+
+```javascript
+await provider.request({
+  method: 'wallet_addEthereumChain',
+  params: [{
+    chainId: '0x2105',
+    chainName: 'Base',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18
+    },
+    rpcUrls: ['https://mainnet.base.org'],
+    blockExplorerUrls: ['https://basescan.org']
+  }]
+});
+```
+
+### wallet_switchEthereumChain
+
+Switches the wallet to the specified Ethereum chain.
+
+```javascript
+await provider.request({
+  method: 'wallet_switchEthereumChain',
+  params: [{ chainId: '0x2105' }] // Base mainnet
+});
+```
+
+### wallet_watchAsset
+
+Requests that the user track the token in their wallet.
+
+```javascript
+await provider.request({
+  method: 'wallet_watchAsset',
+  params: {
+    type: 'ERC20',
+    options: {
+      address: '0x1234...',
+      symbol: 'TOKEN',
+      decimals: 18,
+      image: 'https://example.com/token.png'
+    }
+  }
+});
+```
+
+## Advanced Methods
+
+### eth_getTransactionByBlockHashAndIndex
+
+Returns information about a transaction by block hash and transaction index position.
+
+```javascript
+const transaction = await provider.request({
+  method: 'eth_getTransactionByBlockHashAndIndex',
+  params: ['0x1234...', '0x0']
+});
+// Returns transaction object
+```
+
+### eth_getTransactionByBlockNumberAndIndex
+
+Returns information about a transaction by block number and transaction index position.
+
+```javascript
+const transaction = await provider.request({
+  method: 'eth_getTransactionByBlockNumberAndIndex',
+  params: ['latest', '0x0']
+});
+// Returns transaction object
+```
+
+### eth_getUncleCountByBlockHash
+
+Returns the number of uncles in a block by block hash.
+
+```javascript
+const uncleCount = await provider.request({
+  method: 'eth_getUncleCountByBlockHash',
+  params: ['0x1234...']
+});
+// Returns: '0x0' (hex encoded uncle count)
+```
+
+### eth_getUncleCountByBlockNumber
+
+Returns the number of uncles in a block by block number.
+
+```javascript
+const uncleCount = await provider.request({
+  method: 'eth_getUncleCountByBlockNumber',
+  params: ['latest']
+});
+// Returns: '0x0' (hex encoded uncle count)
+```
+
+### web3_clientVersion
+
+Returns the current client version.
+
+```javascript
+const version = await provider.request({ method: 'web3_clientVersion' });
+// Returns: 'base-account/1.0.0'
+```
+
+## Error Handling
+
+All RPC methods can throw errors. Common error codes include:
+
+- `-32700`: Parse error
+- `-32600`: Invalid request
+- `-32601`: Method not found
+- `-32602`: Invalid params
+- `-32603`: Internal error
+- `-32000`: Server error
+
+```javascript
+try {
+  const result = await provider.request({
+    method: 'eth_getBalance',
+    params: ['0x1234...', 'latest']
+  });
+} catch (error) {
+  console.error('RPC Error:', error.code, error.message);
+}
+```
+
+## Best Practices
+
+1. **Always handle errors**: RPC calls can fail for various reasons
+2. **Use appropriate block parameters**: `latest`, `earliest`, `pending`, or specific block numbers
+3. **Validate addresses**: Ensure addresses are properly formatted
+4. **Cache responses**: Some data doesn't change frequently
+5. **Use batch requests**: When supported, batch multiple calls for efficiency
+
+## Compatibility
+
+Base Account maintains full compatibility with:
+- Web3.js
+- Ethers.js
+- Wagmi
+- Viem
+- Other standard web3 libraries
+
+All standard RPC methods work exactly as expected, ensuring your existing applications can integrate with Base Account without modification.

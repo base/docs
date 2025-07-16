@@ -1,0 +1,127 @@
+---
+title: "Accept Payments"
+description: "Add one-tap USDC payments to your app with the pay() helper and Base Pay Button."
+---
+
+## Why Base Pay?
+
+USDC on Base is a fully-backed digital dollar that settles in seconds and costs pennies in gas.  Base Pay lets you accept those dollars with a single click—no cards, no FX fees, no chargebacks.
+
+* **Any user can pay** – works with every Base Account (smart-wallet) out of the box.
+* **USDC, not gas** – you charge in dollars; gas sponsorship is handled automatically.
+* **Fast** – most payments confirm in &lt;2&nbsp;seconds on Base.
+* **No extra fees** – you receive the full amount.
+
+<Note>
+👉  Want to poke around before coding?  <a href="https://pay.playground.base.org" target="_blank">Open the interactive Playground</a>.
+</Note>
+
+## Client-side (Browser SDK)
+
+```ts Browser (SDK)
+import { createBaseAccountSDK, pay, getPaymentStatus } from '@base-org/account';
+
+// Initialise SDK (defaults are fine for most apps)
+const provider = createBaseAccountSDK().getProvider();
+
+// Trigger a payment – user will see a popup from their wallet service
+const { id } = await pay({
+  amount: '1.00',           // USD amount (we quote USDC internally)
+  to:    '0xRecipient',     // your address
+  testnet: true            // set false for Mainnet
+});
+
+// Option 1: Poll until mined
+const { status } = await getPaymentStatus({ id });
+if (status === 'completed') console.log('🎉 payment settled');
+```
+
+
+This is what the user will see when prompted to pay:
+
+<div style={{ display: 'flex', justifyContent: 'center'}}>
+  <img src="/images/base-account/BasePayFlow.png" alt="Pay Popup" style={{ width: '300px', height: 'auto' }} />
+</div>
+
+### Collect user information (optional)
+
+Need an email, phone, or shipping address at checkout?  Pass a <code>payerInfo</code> object:
+
+```ts
+await pay({
+  amount: '25.00',
+  to: '0xRecipient',
+  payerInfo: {
+    requests: [
+      { type: 'email' },
+      { type: 'phoneNumber', optional: true }
+    ],
+    callbackURL: 'https://your-api.com/validate' // Optional - for server-side validation
+  }
+});
+```
+
+Supported request types:
+
+| type | returns |
+|---------|---------|
+| <code>email</code> | string |
+| <code>name</code> | &#123; firstName, familyName &#125; |
+| <code>phoneNumber</code> | &#123; number, country &#125; |
+| <code>physicalAddress</code> | full address object |
+| <code>onchainAddress</code> | string |
+
+<Warning>Required by default — set <code>optional: true</code> to avoid aborting the payment if the user declines.</Warning>
+
+<Tip>
+**How to validate the user's information?**
+
+You can use the `callbackURL` to validate the user's information on the server side.
+
+Learn more about this in the [callbackURL reference](/base-account/reference/base-pay/Data#callbackurl).
+</Tip>
+
+## Polling example
+
+```ts Backend (SDK)
+import { getPaymentStatus } from '@base-org/account';
+
+export async function checkPayment(txId) {
+  const status = await getPaymentStatus({ id: txId });
+  if (status.status === 'completed') {
+    // fulfil order
+  }
+}
+```
+
+## Add the Base Pay Button
+
+Use the pre-built component for a native look-and-feel:
+
+```tsx title="Checkout.tsx"
+import { BasePayButton } from '@base-org/account-ui/react';
+import { pay } from '@base-org/account';
+
+export function Checkout() {
+  return (
+    <BasePayButton
+      colorScheme="light"
+      onClick={() => pay({ amount: '5.00', to: '0xRecipient' })}
+    />
+  );
+}
+```
+
+
+See full props and theming options in the [Button Reference](/base-account/reference/ui-elements/base-pay-button) and [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines).
+
+## Test on Base Sepolia
+
+1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select “Base Sepolia”).  
+2. Pass <code>testnet: true</code> in your <code>pay()</code> call.  
+3. Use <a href="https://sepolia.basescan.org" target="_blank">Sepolia BaseScan</a> to watch the transaction.
+
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner /> 

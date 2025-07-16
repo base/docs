@@ -1,0 +1,565 @@
+---
+title: 'Sub Accounts'
+description: 'Learn how to create and manage Sub Accounts using Base Account SDK'
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
+
+## What are Sub Accounts?
+
+Base Account's self-custodial design requires a user passkey prompt for each wallet interaction, such as transactions or message signing. While this ensures user awareness and approval of every wallet interaction, it can impact user experience in applications requiring frequent wallet interactions.
+
+To support Base Account with user experiences that need more developer control over wallet interactions, we've built Sub Accounts in conjunction with [ERC-7895](https://eip.tools/eip/7895), a new wallet RPC for creating hierarchical relationships between wallet accounts.
+
+Sub Accounts allow you to provision wallet accounts that are directly embedded in your application for your users. You can control when a Sub Account is created and interact with them just as you would with another wallet via the wallet provider or popular web3 libraries like OnchainKit, wagmi, and viem.
+
+These Sub Accounts are linked to the end user's Base Account through an onchain relationship. When combined with our [Spend Permission feature](/base-account/improve-ux/spend-permissions), this creates a powerful foundation for provisioning and funding app accounts securely, while giving you ample control over building the user experience that makes the most sense for your application.
+
+## Key Benefits
+
+- **Seamless UX**: Reduce user friction by eliminating repeated signing prompts
+- **Developer Control**: Manage when and how Sub Accounts are created
+- **Secure Relationships**: Onchain linking between main account and sub accounts
+- **Spend Permissions**: Control what Sub Accounts can spend and when
+- **Easy Integration**: Works with existing web3 libraries and tools
+
+<Note>
+If you would like to see a live demo of Sub Accounts in action, check out our [Sub Accounts Demo](https://sub-account-demo.com).
+</Note>
+
+<Tip>
+**Pair with Spend Permissions** 
+
+In order to make your UX more seamless, you can pair Sub Accounts with the
+[Spend Permissions](/base-account/improve-ux/spend-permissions)
+to make transactions on behalf of the user.
+</Tip>
+
+## Installation
+
+Install the Base Account SDK:
+
+<CodeGroup>
+```bash npm
+npm install @base-org/account
+```
+
+```bash pnpm
+pnpm add @base-org/account
+```
+
+```bash yarn
+yarn add @base-org/account
+```
+
+```bash bun
+bun add @base-org/account
+```
+</CodeGroup>
+
+## Basic Setup
+
+### Initialize the SDK
+
+First, set up the Base Account SDK with Sub Account support:
+
+```tsx
+import { createBaseAccountSDK, getCryptoKeyAccount } from '@base-org/account';
+import { base } from 'viem/chains';
+
+// Initialize SDK with Sub Account configuration
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+});
+
+// Get an EIP-1193 provider
+const provider = sdk.getProvider()
+```
+
+## Using Sub Accounts
+
+### Create a New Sub Account
+
+Create a Sub Account for your application using the provider RPC method:
+
+```tsx
+// Create sub account
+const subAccount = await provider.request({
+  method: 'wallet_addSubAccount',
+  params: [
+    {
+      account: {
+        type: 'create',
+      },
+    }
+  ],
+});
+
+console.log('Sub Account created:', subAccount.address);
+```
+
+<Tip>
+**Tip:** 
+
+Make sure to authenticate the user with their universal account before creating a Sub Account.
+For that, you can choose one of the following options:
+- Follow the [Authenticate users](/base-account/guides/authenticate-users) guide
+- Simply use `provider.request({ method: 'eth_requestAccounts' });` for a simple wallet connection
+
+</Tip>
+
+Create a Sub Account using the SDK convenience method:
+
+```tsx
+// Create new sub account
+const subAccount = await sdk.subAccount.create();
+
+console.log('Sub Account created:', subAccount.address);
+```
+
+This is what the user will see when prompted to create a Sub Account:
+
+<div style={{ display: 'flex', justifyContent: 'center'}}>
+  <img src="/images/base-account/SubAccountCreation.png" alt="Sub Account Creation Flow" style={{ width: '300px', height: 'auto' }} />
+</div>
+
+
+### Get Existing Sub Account
+
+Retrieve an existing Sub Account using the provider RPC method:
+
+```tsx
+// Get the universal account
+const [universalAddress] = await provider.request({
+  method: "eth_requestAccounts",
+  params: []
+})
+
+// Get sub account for universal account
+const { subAccounts: [subAccount] } = await provider.request({
+  method: 'wallet_getSubAccounts',
+  params: [{
+    account: universalAddress,
+    domain: window.location.origin,
+  }]
+})
+
+if (subAccount) {
+  console.log('Sub Account found:', subAccount.address);
+} else {
+  console.log('No Sub Account exists for this app');
+}
+```
+
+Get the Sub Account associated with the current app using the SDK convenience method:
+
+```tsx
+// Get sub account
+const subAccount = await sdk.subAccount.get();
+
+console.log('Sub Account:', subAccount);
+```
+### Send transactions
+
+To send transactions from the connected sub account you can use EIP-5792 `wallet_sendCalls` or `eth_sendTransaction`. You need to specify the `from` parameter to be the sub account address.
+
+
+
+<Tip>
+**Tip:** 
+
+When the sub account is connected, it is the second account in the array returned by `eth_requestAccounts` or `eth_accounts`.
+</Tip>
+
+
+```tsx
+// Get the sub account address
+const [universalAddress, subAccountAddress] = await provider.request({
+  method: "eth_requestAccounts", // or "eth_accounts" if already connected
+  params: []
+})
+
+// wallet_sendCalls
+const callsId = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "2.0",
+    atomicRequired: true,
+    from: subAccountAddress,
+    calls: [{
+      to: '0x...',
+      data: '0x...',
+      value: '0x...',
+    }],
+    capabilities: {
+      // https://docs.cdp.coinbase.com/paymaster/introduction/welcome
+      paymasterUrl: "https://...",
+    },
+  }]
+})
+
+console.log('Calls sent:', callsId);
+
+
+// eth_sendTransaction
+const tx = await provider.request({
+  method: 'eth_sendTransaction',
+  params: [{
+    from: subAccountAddress,
+    to: '0x...',
+    data: '0x...',
+    value: '0x...',
+  }]
+})
+
+console.log('Transaction sent:', tx);
+```
+
+### Add Owner Account
+
+Add an owner to a Sub Account:
+
+```tsx
+// Add owner account
+const ownerAccount = await sdk.subAccount.addOwner({
+  address: subAccount?.address,
+  publicKey: cryptoAccount?.account?.publicKey,
+  chainId: base.id,
+});
+
+console.log('Owner added to Sub Account');
+```
+
+## Complete Integration Example
+
+Here's a full React component that demonstrates Sub Account creation and usage:
+
+```tsx
+import { createBaseAccountSDK } from "@base-org/account";
+import { useCallback, useEffect, useState } from "react";
+import { baseSepolia } from "viem/chains";
+
+interface SubAccount {
+  address: `0x${string}`;
+  factory?: `0x${string}`;
+  factoryData?: `0x${string}`;
+}
+
+interface GetSubAccountsResponse {
+  subAccounts: SubAccount[];
+}
+
+interface WalletAddSubAccountResponse {
+  address: `0x${string}`;
+  factory?: `0x${string}`;
+  factoryData?: `0x${string}`;
+}
+
+export default function SubAccountDemo() {
+  const [provider, setProvider] = useState<ReturnType<
+    ReturnType<typeof createBaseAccountSDK>["getProvider"]
+  > | null>(null);
+  const [subAccount, setSubAccount] = useState<SubAccount | null>(null);
+  const [universalAddress, setUniversalAddress] = useState<string>("");
+  const [connected, setConnected] = useState(false);
+  const [loadingSubAccount, setLoadingSubAccount] = useState(false);
+  const [loadingUniversal, setLoadingUniversal] = useState(false);
+  const [status, setStatus] = useState("");
+
+  // Initialize SDK and crypto account
+  useEffect(() => {
+    const initializeSDK = async () => {
+      try {
+        const sdkInstance = createBaseAccountSDK({
+          appName: "Sub Account Demo",
+          appLogoUrl: "https://base.org/logo.png",
+          appChainIds: [baseSepolia.id],
+        });
+
+        // Get the provider
+        const providerInstance = sdkInstance.getProvider();
+        setProvider(providerInstance);
+
+        setStatus("SDK initialized - ready to connect");
+      } catch (error) {
+        console.error("SDK initialization failed:", error);
+        setStatus("SDK initialization failed");
+      }
+    };
+
+    initializeSDK();
+  }, []);
+
+  const connectWallet = async () => {
+    if (!provider) {
+      setStatus("Provider not initialized");
+      return;
+    }
+
+    setLoadingSubAccount(true);
+    setStatus("Connecting wallet...");
+
+    try {
+      // Connect to the wallet
+      const accounts = (await provider.request({
+        method: "eth_requestAccounts",
+        params: [],
+      })) as string[];
+
+      const universalAddr = accounts[0];
+      setUniversalAddress(universalAddr);
+      setConnected(true);
+
+      // Check for existing sub account
+      const response = (await provider.request({
+        method: "wallet_getSubAccounts",
+        params: [
+          {
+            account: universalAddr,
+            domain: window.location.origin,
+          },
+        ],
+      })) as GetSubAccountsResponse;
+
+      const existing = response.subAccounts[0];
+      if (existing) {
+        setSubAccount(existing);
+        setStatus("Connected! Existing Sub Account found");
+      } else {
+        setStatus("Connected! No existing Sub Account found");
+      }
+    } catch (error) {
+      console.error("Connection failed:", error);
+      setStatus("Connection failed");
+    } finally {
+      setLoadingSubAccount(false);
+    }
+  };
+
+  const createSubAccount = async () => {
+    if (!provider) {
+      setStatus("Provider not initialized");
+      return;
+    }
+
+    setLoadingSubAccount(true);
+    setStatus("Creating Sub Account...");
+
+    try {
+      const newSubAccount = (await provider.request({
+        method: "wallet_addSubAccount",
+        params: [
+          {
+            account: {
+              type: 'create',
+            },
+          }
+        ],
+      })) as WalletAddSubAccountResponse;
+
+      setSubAccount(newSubAccount);
+      setStatus("Sub Account created successfully!");
+    } catch (error) {
+      console.error("Sub Account creation failed:", error);
+      setStatus("Sub Account creation failed");
+    } finally {
+      setLoadingSubAccount(false);
+    }
+  };
+
+  const sendCalls = useCallback(
+    async (
+      calls: Array<{ to: string; data: string; value: string }>,
+      from: string,
+      setLoadingState: (loading: boolean) => void
+    ) => {
+      if (!provider) {
+        setStatus("Provider not available");
+        return;
+      }
+
+      setLoadingState(true);
+      setStatus("Sending calls...");
+
+      try {
+        const callsId = (await provider.request({
+          method: "wallet_sendCalls",
+          params: [
+            {
+              version: "2.0",
+              atomicRequired: true,
+              chainId: `0x${baseSepolia.id.toString(16)}`, // Convert to hex
+              from,
+              calls,
+              capabilities: {
+                // https://docs.cdp.coinbase.com/paymaster/introduction/welcome
+                // paymasterUrl: "your paymaster url",
+              },
+            },
+          ],
+        })) as string;
+
+        setStatus(`Calls sent! Calls ID: ${callsId}`);
+      } catch (error) {
+        console.error("Send calls failed:", error);
+        setStatus("Send calls failed");
+      } finally {
+        setLoadingState(false);
+      }
+    },
+    [provider]
+  );
+
+  const sendCallsFromSubAccount = useCallback(async () => {
+    if (!subAccount) {
+      setStatus("Sub account not available");
+      return;
+    }
+
+    const calls = [
+      {
+        to: "0x4bbfd120d9f352a0bed7a014bd67913a2007a878",
+        data: "0x9846cd9e", // yoink
+        value: "0x0",
+      },
+    ];
+
+    await sendCalls(calls, subAccount.address, setLoadingSubAccount);
+  }, [sendCalls, subAccount]);
+
+  const sendCallsFromUniversal = useCallback(async () => {
+    if (!universalAddress) {
+      setStatus("Universal account not available");
+      return;
+    }
+
+    const calls = [
+      {
+        to: "0x4bbfd120d9f352a0bed7a014bd67913a2007a878",
+        data: "0x9846cd9e", // yoink
+        value: "0x0",
+      },
+    ];
+
+    await sendCalls(calls, universalAddress, setLoadingUniversal);
+  }, [sendCalls, universalAddress]);
+
+  return (
+    <div className="sub-account-demo">
+      <h2>Sub Account Demo</h2>
+
+      <div className="status">
+        <p>
+          <strong>Status:</strong> {status}
+        </p>
+        {universalAddress && (
+          <p>
+            <strong>Universal Account:</strong> {universalAddress}
+          </p>
+        )}
+        {subAccount && (
+          <p>
+            <strong>Sub Account:</strong> {subAccount.address}
+          </p>
+        )}
+      </div>
+
+      <div className="actions">
+        {!connected ? (
+          <button
+            onClick={connectWallet}
+            disabled={loadingSubAccount || !provider}
+            className="connect-btn"
+          >
+            {loadingSubAccount ? "Connecting..." : "Connect Wallet"}
+          </button>
+        ) : !subAccount ? (
+          <button
+            onClick={createSubAccount}
+            disabled={loadingSubAccount}
+            className="create-btn"
+          >
+            {loadingSubAccount ? "Creating..." : "Add Sub Account"}
+          </button>
+        ) : (
+          <div>
+            <button
+              onClick={sendCallsFromSubAccount}
+              disabled={loadingSubAccount}
+              className="sub-account-btn"
+            >
+              {loadingSubAccount ? "Sending..." : "Send Calls from Sub Account"}
+            </button>
+            <button
+              onClick={sendCallsFromUniversal}
+              disabled={loadingUniversal}
+              className="universal-btn"
+            >
+              {loadingUniversal
+                ? "Sending..."
+                : "Send Calls from Universal Account"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .sub-account-demo {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          font-family: Arial, sans-serif;
+        }
+
+        .status {
+          border-radius: 8px;
+          margin: 20px 0;
+        }
+
+        .status p {
+          margin: 5px 0;
+        }
+
+        .actions {
+          margin: 20px 0;
+        }
+
+        .connect-btn,
+        .create-btn,
+        .sub-account-btn,
+        .universal-btn {
+          background: #0052ff;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          margin-right: 15px;
+          margin-bottom: 10px;
+        }
+
+        .connect-btn:disabled,
+        .create-btn:disabled,
+        .sub-account-btn:disabled,
+        .universal-btn:disabled {
+          background: #ccc;
+          cursor: not-allowed;
+        }
+
+        .connect-btn:hover:not(:disabled),
+        .create-btn:hover:not(:disabled),
+        .sub-account-btn:hover:not(:disabled),
+        .universal-btn:hover:not(:disabled) {
+          background: #0041cc;
+        }
+      `}</style>
+    </div>
+  );
+}
+```
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
