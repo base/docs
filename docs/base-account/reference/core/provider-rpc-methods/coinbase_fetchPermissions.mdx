@@ -1,0 +1,118 @@
+---
+title: "coinbase_fetchPermissions"
+description: "Retrieve permissions associated with a specific account, chain, and spender"
+---
+
+Coinbase-specific RPC method
+
+<Info>
+Retrieves permissions associated with a specific account, chain, and spender. This method excludes permissions that have expired or been revoked, returning only active spend permissions.
+</Info>
+
+## Parameters
+
+<ParamField body="account" type="string" required>
+The address of the account whose permissions are being queried.
+</ParamField>
+
+<ParamField body="chainId" type="string" required>
+The ID of the blockchain, in hexadecimal format.
+</ParamField>
+
+<ParamField body="spender" type="string" required>
+The entity granted with the permission to spend the account's funds.
+</ParamField>
+
+<ParamField body="pageOptions" type="object">
+Optional pagination settings for the request.
+
+<Expandable title="PageOptions properties">
+<ParamField body="pageSize" type="number">
+The number of permissions to fetch in a single request. Defaults to 50.
+</ParamField>
+
+<ParamField body="cursor" type="string">
+A unique identifier to start fetching from a specific page.
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+The permissions response object.
+
+<Expandable title="FetchPermissionsResult properties">
+<ResponseField name="permissions" type="array">
+An array of permission objects.
+</ResponseField>
+
+<ResponseField name="pageDescription" type="object">
+Pagination information for the response.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "coinbase_fetchPermissions",
+  "params": [{
+    "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
+    "chainId": "0x14A34",
+    "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d"
+  }]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "permissions": [
+      {
+        "createdAt": 1640995200,
+        "permissionHash": "0xabc123...",
+        "signature": "0xdef456...",
+        "spendPermission": {
+          "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
+          "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d",
+          "token": "0xA0b86a33E6441b97B7cd5C4F5B42a6e2F8a38923",
+          "allowance": "1000000000000000000",
+          "period": 86400,
+          "start": 1640995200,
+          "end": 1672531200,
+          "salt": "12345678901234567890",
+          "extraData": "0x"
+        }
+      }
+    ],
+    "pageDescription": {
+      "pageSize": 1,
+      "nextCursor": "abc123next"
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message                        | Description |
+| ---- | ------------------------------ | ----------- |
+| 4001 | User rejected the request      | User denied the permission request |
+| 4100 | Requested method not supported | The method is not supported by the wallet |
+| -32602 | Invalid params                 | Invalid account, chainId, or spender parameters |
+
+<Warning>
+Ensure the `chainId`, `account`, and `spender` parameters are correctly formatted and valid for the blockchain you are querying.
+</Warning>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

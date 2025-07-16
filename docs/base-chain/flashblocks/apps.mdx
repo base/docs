@@ -1,22 +1,29 @@
 ---
 title: Flashblocks
 sidebarTitle: Apps
-description: Experience lightning-fast transaction confirmations on Base by using Flashblocks. Preconfirmations happen in just 200 milliseconds—designed for real-time apps, games, and seamless UX.
+description: Experience lightning-fast transaction confirmations of Base by using Flashblocks. Preconfirmations happen in just 200 milliseconds—designed for real-time apps, games, and seamless UX.
 ---
 
 ## Overview
 
-Flashblocks enable up to 200 millisecond transaction confirmations on Base by leveraging preconfirmations, ultra-fast signals that arrive before the next block is sealed. Built for developers who demand instant UX, it's ideal for high-frequency apps, games, and real-time interactions where waiting even a few seconds is too long. By integrating directly within Base's infrastructure, Flashblocks enables, seamless, ultrafast and snappy user experiences without compromising security. 
+Flashblocks enable up to 200 millisecond transaction confirmations on Base by leveraging preconfirmations, ultra-fast signals that arrive before the next block is sealed. Built for developers who demand instant UX, it's ideal for high-frequency apps, games, and real-time interactions where waiting even a few seconds is too long. By integrating directly within Base's infrastructure, Flashblocks enables, seamless, ultrafast and snappy user experiences without compromising security.
 
 ## Integrating Flashblocks
 
-Flashblocks is enabled for developers on Base Sepolia with full support for mainnet coming very soon. There are two ways you can integrate with Flashblocks data. You can either use the WebSocket API to stream real-time block updates, or use the RPC API to query the Flashblocks-aware RPC endpoint.
+Flashblocks is enabled for developers on Base. There are two ways you can integrate with Flashblocks data. You can either use the WebSocket API to stream real-time block updates, or use the RPC API to query the Flashblocks-aware RPC endpoint.
 
 ### RPC API
 
-You can utilize our Flashblock aware RPC endpoint at `https://sepolia-preconf.base.org`.
+Base offers the following public Flashblocks aware RPC endpoints. These are rate limited and may not be suitable for production use - we recommend using a node provider that runs Flashblocks integrated nodes.
+Major node providers such as Alchemy, Infura, QuickNode and dRPC have Flashblocks-aware RPCs that can be leveraged
 
-In addition to these flashblock-specific methods, all standard Ethereum JSON-RPC methods are supported as usual.
+   | Network            | URL                              |
+   | :----------------- | :------------------------------- |
+   | Mainnet            | https://mainnet-preconf.base.org |
+   | Sepolia            | https://sepolia-preconf.base.org |
+
+
+The following RPC methods can return Flashblocks specific data. All standard Ethereum JSON-RPC methods are still supported as usual.
 
 #### eth_getBlockByNumber
 
@@ -198,105 +205,6 @@ You should see the confirmation time significantly lower than the standard RPC e
 
 
 
-### WebSocket API
-
-You can also use our WebSocket API to stream realtime flashblocks updates.
-
-You can connect to the websocket endpoint with any WebSocket library of CLI tool. The endpoint is available at wss://sepolia.flashblocks.base.org/ws.
-
-We recommend using our [websocket utility client](https://github.com/danyalprout/flashblocks-websocket-client) to decompress brotli encoded messages properly.
-
-#### CLI Example
-
-Download our [websocket utility client](https://github.com/danyalprout/flashblocks-websocket-client) to decompress brotli encoded messages properly.
-
-From your terminal, you can then connect to the websocket stream by running:
-```
-flashblocks-websocket-client wss://sepolia.flashblocks.base.org/ws
-```
-
-In your terminal, you'll see a stream of all the Flashblocks being sent over the websocket connection.
-
-#### Interpreting the data
-
-To minimize the amount of data sent to clients, each Flashblock only includes the diff data from the previous block. The initial Flashblock (when index is zero) includes the block properties (e.g. number, gas limit) and the subsequent Flashblocks only include the diff data (e.g. transactions that are present in that Flashblock).
-
-**Example Initial Response**
-```
-{
-  "payload_id": "0x03997352d799c31a",
-  "index": 0,
-  "base": {
-    "parent_hash": "0x9edc29b8b0a1e31d28616e40c16132ad0d58faa8bb952595b557526bdb9a960a",
-    "fee_recipient": "0x4200000000000000000000000000000000000011",
-    "block_number": "0x158a0e9",
-    "gas_limit": "0x3938700",
-    "timestamp": "0x67bf8332",
-    "base_fee_per_gas": "0xfa"
-    // ... other base fields ...
-  },
-  "diff": {
-    "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
-    "block_hash": "0x5c330e55a190f82ea486b61e5b12e27dfb4fb3cecfc5746886ef38ca1281bce8",
-    "gas_used": "0xab3f",
-    "transactions": [
-      "0x7ef8f8a0b4afc0b7ce10e150801bbaf08ac33fecb0f38311793abccb022120d321c6d276..."
-    ],
-    "withdrawals": []
-    // ... other diff fields ...
-  },
-  "metadata": {
-    "block_number": 22585577,
-    "new_account_balances": {
-      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0",
-      // ... other balances ...
-    },
-    "receipts": {
-      "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
-        "Deposit": {
-          "status": "0x1",
-          "depositNonce": "0x158a0ea"
-          // ... other receipt fields ...
-        }
-      }
-    }
-  }
-}
-```
-
-**Example Diff Response**
-```
-{
-  "payload_id": "0x03e303378749418d",
-  "index": 4,
-  "diff": {
-    "state_root": "0x7a8f45038665072f382730e689f4a1561835c9987fca8942fa95872fb9367eaa",
-    "block_hash": "0x9b32f7a14cbd1efc8c2c5cad5eb718ec9e0c5da92c3ba7080f8d4c49d660c332",
-    "gas_used": "0x1234f",
-    "transactions": [
-      "0x7ef8f8a0b4afc0b7ce10e150801bbaf08ac33fecb0f38311793abccb022120d321c6d276..."
-    ],
-    "withdrawals": []
-    // ... other diff fields ...
-  },
-  "metadata": {
-    "block_number": 22585577,
-    "new_account_balances": {
-      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0",
-      "0x4200000000000000000000000000000000000015": "0x1234"
-      // ... other balances ...
-    },
-    "receipts": {
-      "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
-        "status": "0x1",
-        "gasUsed": "0x1234f",
-        "logs": []
-        // ... other receipt fields ...
-      }
-    }
-  }
-}
-```
 
 ## Support
 

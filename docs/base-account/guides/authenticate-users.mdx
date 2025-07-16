@@ -1,0 +1,166 @@
+---
+title: "Authenticate Users"
+description: "Let a user click “Sign in with Base,” prove ownership of their onchain account, and give your server everything it needs to create a session – using open standards and no passwords"
+---
+
+
+## Why wallet signatures instead of passwords?
+
+1. **No new passwords** – authentication happens with the key the user already controls.  
+2. **Nothing to steal or reuse** – each login is a one-off, domain-bound signature that never leaves the user’s device.  
+3. **Wallet-agnostic** – works in any EIP-1193 wallet (browser extension, mobile deep-link, embedded provider) and follows the open ["Sign in with Ethereum" (SIWE) EIP-4361](https://eips.ethereum.org/EIPS/eip-4361) standard.
+
+Base Accounts build on those standards so you can reuse any SIWE tooling – while still benefiting from passkeys, session keys, and smart-wallet security.
+
+## High-level flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant AppServer as "App Server"
+    participant SDK
+    participant Account
+
+    User->>Browser: Click "Sign in with Base"
+    Browser->>AppServer: GET /auth/nonce
+    AppServer-->>Browser: nonce
+
+    Browser->>SDK: wallet_connect(signInWithEthereum {nonce})
+    SDK->>Account: wallet_connect(...)
+    User->>Account: Approve connection
+    Account-->>SDK: {address, message, signature}
+    SDK-->>Browser: {address, message, signature}
+
+    Browser-->>AppServer: POST /auth/verify {address, message, signature}
+    AppServer-->>Browser: session token / JWT
+```
+
+<Note type="info">
+**Undeployed Smart Wallets?**  <br/> Base Account signatures include the <a href="https://eips.ethereum.org/EIPS/eip-6492" target="_blank">ERC-6492</a> wrapper so they can be verified even before the wallet contract is deployed.  Viem’s `verifyMessage` and `verifyTypedData` handle this automatically.
+</Note>
+
+## Implementation 
+
+### Code Snippets
+
+<CodeGroup>
+```ts Browser (SDK)
+import { createBaseAccountSDK } from "@base-org/account";
+
+// Initialise the SDK (no config needed for defaults)
+const provider = createBaseAccountSDK().getProvider();
+
+// 1 — fetch a nonce from your backend
+const nonce = await fetch('/auth/nonce').then(r => r.text());
+
+// 2 — connect and authenticate
+try {
+  const { accounts } = await provider.request({
+    method: 'wallet_connect',
+    params: [{
+      version: '1',
+      capabilities: {
+        signInWithEthereum: { nonce, chainId: '0x1' }
+      }
+    }]
+  });
+  const { address } = accounts[0];
+  const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+  await fetch('/auth/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, message, signature })
+  });
+} catch (err) {
+  console.error(`err ${err}`);
+}
+```
+```ts Backend (Viem)
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+export async function verifySig(req, res) {
+  const { address, message, signature } = req.body;
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: 'Invalid signature' });
+  // create session / JWT
+  res.json({ ok: true });
+}
+```
+</CodeGroup>
+
+<Note type="tip">
+If using the above code beyond Base Account, note that not every wallet supports the new [<code>wallet_connect</code> method](https://eips.ethereum.org/EIPS/eip-7846) yet.  If the call throws <code>method_not_supported</code>, fall back to using <code>eth_requestAccounts</code> and <code>personal_sign</code>.
+</Note>
+
+<Note>
+For a full React example see the <a href="/docs/base-account/framework-integrations/react-wagmi">React + Wagmi guide</a>.
+</Note>
+
+### Example Express Server
+
+```ts title="server/auth.ts"
+import crypto from 'crypto';
+import express from 'express';
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const app = express();
+app.use(express.json());
+
+// Simple in-memory nonce store (swap for Redis or DB in production)
+const nonces = new Set<string>();
+
+app.get('/auth/nonce', (_, res) => {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  nonces.add(nonce);
+  res.send(nonce);
+});
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+app.post('/auth/verify', async (req, res) => {
+  const { address, message, signature } = req.body;
+
+  // 1. Check nonce hasn\'t been reused
+  const nonce = message.match(/at (\w{32})$/)?.[1];
+  if (!nonce || !nonces.delete(nonce)) {
+    return res.status(400).json({ error: 'Invalid or reused nonce' });
+  }
+
+  // 2. Verify signature
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: 'Invalid signature' });
+
+  // 3. Create session / JWT here
+  res.json({ ok: true });
+});
+
+app.listen(3001, () => console.log('Auth server listening on :3001'));
+```
+
+## Add the Base Sign In With Base Button
+
+Use the pre-built component for a native look-and-feel:
+
+```tsx title="Checkout.tsx"
+import { SignInWithBaseButton } from '@base-org/account-ui/react';
+
+export function Checkout() {
+  return (
+    <SignInWithBaseButton
+      colorScheme="light"
+      onClick={() => signInWithBase()}
+    />
+  );
+}
+```
+
+See full props and theming options in the [Button Reference](/base-account/reference/ui-elements/sign-in-with-base-button) and [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines).
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

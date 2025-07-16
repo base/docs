@@ -1,0 +1,323 @@
+---
+title: "NextJS with Wagmi"
+---
+
+Learn how to integrate Base Account seamlessly with Wagmi for React applications, enabling Base Account SDK functionality with familiar React hooks.
+
+## Overview
+
+[Wagmi](https://wagmi.sh/) is a collection of React hooks for Ethereum Virtual Machine (EVM) compatible networks that makes it easy to work with wallets, contracts, transactions, and signing. Base Account integrates perfectly with Wagmi, allowing you to use all your familiar hooks.
+
+### What you'll achieve
+
+By the end of this guide, you will:
+
+- Set up Wagmi with Base Account connector
+- Use standard Wagmi hooks with Base Account
+- Implement advanced Base Account features through Wagmi
+- Work with Base Account-specific capabilities
+
+## Installation
+
+After [creating a new Next.js project](https://nextjs.org/docs/app/getting-started/installation), install the required dependencies:
+
+<CodeGroup>
+```bash npm
+npm install wagmi viem @base-org/account
+```
+
+```bash pnpm
+pnpm add wagmi viem @base-org/account
+```
+
+```bash yarn
+yarn add wagmi viem @base-org/account
+```
+
+```bash bun
+bun add wagmi viem @base-org/account
+```
+</CodeGroup>
+
+<Tip>
+You can also use the command line `npm create wagmi@latest` to create a new full Wagmi project.
+</Tip>
+
+## Basic Setup
+
+### 1. Configure Wagmi with Base Account
+
+Create your Wagmi configuration with the Base Account connector configured for Base Account:
+
+```typescript
+// config/wagmi.ts
+import { http, createConfig } from 'wagmi'
+import type { CreateConnectorFn } from 'wagmi'
+import { base } from 'wagmi/chains'
+import { baseAccountConnector } from '@base-org/account-sdk'
+
+
+export const config = createConfig({
+  chains: [base],
+  connectors: [
+    baseAccountConnector({
+      appName: 'Base App',
+    }) as CreateConnectorFn
+  ],
+  transports: {
+    [base.id]: http()
+  },
+})
+```
+
+### 2. Wrap Your App
+
+Wrap your application with the Wagmi provider:
+
+```tsx
+// app/layout.tsx or pages/_app.tsx
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { config } from './config/wagmi'
+
+const queryClient = new QueryClient()
+
+export default function App({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
+}
+```
+
+## Basic Usage
+
+### Connection Component
+
+Create a component to handle wallet connection:
+
+```tsx
+// components/ConnectWallet.tsx
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
+
+export function ConnectWallet() {
+  const { address, isConnected } = useAccount()
+  const { connect, connectors, isPending } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  if (isConnected) {
+    return (
+      <div className="flex items-center gap-4">
+        <span>Connected: {address}</span>
+        <button 
+          onClick={() => disconnect()}
+          className="px-4 py-2 bg-red-500 text-white rounded"
+        >
+          Disconnect
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button
+          key={connector.uid}
+          onClick={() => connect({ connector })}
+          disabled={isPending}
+          className="px-4 py-2 bg-blue-500 text-white rounded"
+        >
+          {isPending ? 'Connecting...' : `Connect with ${connector.name}`}
+        </button>
+      ))}
+    </div>
+  )
+}
+```
+
+### Send one or multiple transactions
+
+Use Wagmi's contract hooks with Base Account for seamless smart contract interaction:
+
+```tsx
+// components/ContractInteraction.tsx
+import { useState } from 'react'
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { parseUnits } from 'viem'
+
+// ERC-20 Token ABI (simplified)
+const tokenAbi = [
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'transfer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const
+
+const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' // USDC on Base
+
+export function ContractInteraction() {
+  const [recipient, setRecipient] = useState('')
+  const [amount, setAmount] = useState('')
+
+  // Read contract data
+  const { data: balance, refetch: refetchBalance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: tokenAbi,
+    functionName: 'balanceOf',
+    args: ['0x...'], // User's address
+  })
+
+  // Write to contract
+  const { 
+    data: hash, 
+    writeContract,
+    isPending: isWriting 
+  } = useWriteContract()
+
+  const { 
+    isLoading: isConfirming,
+    isSuccess: isConfirmed 
+  } = useWaitForTransactionReceipt({ hash })
+
+  const handleTransfer = () => {
+    if (!recipient || !amount) return
+
+    writeContract({
+      address: USDC_ADDRESS,
+      abi: tokenAbi,
+      functionName: 'transfer',
+      args: [recipient as `0x${string}`, parseUnits(amount, 6)], // USDC has 6 decimals
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold">USDC Balance</h3>
+        <p>{balance ? (Number(balance) / 1000000).toFixed(2) : '0'} USDC</p>
+        <button 
+          onClick={() => refetchBalance()}
+          className="px-3 py-1 bg-gray-500 text-white rounded text-sm"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div>
+        <label className="block mb-2">Recipient:</label>
+        <input 
+          type="text" 
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+          className="w-full p-2 border rounded"
+          placeholder="0x..."
+        />
+      </div>
+
+      <div>
+        <label className="block mb-2">Amount (USDC):</label>
+        <input 
+          type="number" 
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-full p-2 border rounded"
+          placeholder="10.50"
+          step="0.01"
+        />
+      </div>
+
+      <button 
+        onClick={handleTransfer}
+        disabled={isWriting || isConfirming || !recipient || !amount}
+        className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+      >
+        {isWriting ? 'Preparing...' : isConfirming ? 'Confirming...' : 'Transfer USDC'}
+      </button>
+
+      {hash && (
+        <div>
+          <div>Transaction: {hash}</div>
+          {isConfirmed && (
+            <div className="text-green-600">Transfer completed!</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+```
+## Advanced Usage
+
+For additional features, you can always access the Base Account provider directly, like so:
+
+```tsx
+import { useConnector } from 'wagmi'
+import { parseEther, encodeFunctionData } from 'viem'
+
+export function BatchTransactions() {
+  const { address } = useAccount()
+  const connector = useConnector()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const sendBatchTransactions = async () => {
+    if (!connector || !address) return
+
+    setIsLoading(true)
+    try {
+      // Create multiple calls
+      const calls = [
+        {
+          to: '0x...' as `0x${string}`,
+          value: parseEther('0.001'),
+          data: '0x' as `0x${string}`
+        },
+        {
+          to: '0x...' as `0x${string}`,
+          value: parseEther('0.002'),
+          data: '0x' as `0x${string}`
+        }
+      ]
+
+      // Send batch transaction using connector
+      const result = await connector.provider?.request({
+        method: 'wallet_sendCalls',
+        params: [{
+          version: '1.0',
+          chainId: `0x${Number(8453).toString(16)}`, // Base mainnet
+          from: address,
+          calls: calls
+        }]
+      })
+
+      console.log('Batch transaction result:', result)
+    } catch (error) {
+      console.error('Batch transaction failed:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+```
+
+Once you have access to the Base Account provider,
+you can use it to call specific RPC methods as shown in the [reference](/base-account/reference/core/getProvider).
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

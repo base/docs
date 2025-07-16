@@ -1,0 +1,120 @@
+---
+title: "pay"
+---
+
+## Overview
+
+The `pay` function is the core method of Base Pay that lets your users send USDC (digital dollars) on the Base network. No crypto knowledge required - we handle all the complexity. **No fees for merchants or users.**
+
+## Function Signature
+
+```typescript
+/**
+ * Sends USDC to an Ethereum address
+ * @throws {Error} If the input parameters are invalid
+ */
+declare function pay(options: PayOptions): Promise<PayResult>;
+```
+
+## Parameters
+
+### PayOptions
+
+```typescript
+interface PayOptions {
+  /** Amount of USDC to send (e.g., "10.50" or "0.01") */
+  amount: string;
+  /** Ethereum address to send USDC to (must start with 0x) */
+  to: string;
+  /** Set to true to use Base Sepolia testnet instead of mainnet */
+  testnet?: boolean;
+  /** Optional payer information configuration for data callbacks */
+  payerInfo?: PayerInfo;
+}
+
+interface PayerInfo {
+  /** Information requests from the payer */
+  requests: InfoRequest[];
+  /** Optional callback URL for server-side validation */
+  callbackURL?: string;
+}
+
+interface InfoRequest {
+  /** The type of information being requested */
+  type: 'email' | 'physicalAddress' | 'phoneNumber' | 'name' | 'onchainAddress';
+  /** Whether this information is optional (default: false) */
+  optional?: boolean;
+}
+```
+
+## Returns
+
+### PayResult
+
+```typescript
+interface PaymentSuccess {
+  success: true;
+  /** Transaction hash - use this to check payment status */
+  id: string;
+  /** Amount that was sent */
+  amount: string;
+  /** Address that received the payment */
+  to: string;
+  /** Optional responses from information requests */
+  payerInfoResponses?: PayerInfoResponses;
+}
+
+interface PaymentError {
+  success: false;
+  /** Error message explaining what went wrong */
+  error: string;
+  /** Amount that was attempted */
+  amount: string;
+  /** Address that would have received the payment */
+  to: string;
+}
+
+type PayResult = PaymentSuccess | PaymentError;
+```
+
+## Usage Example
+
+```typescript
+import { pay } from '@base-org/account';
+
+async function sendPayment() {
+  try {
+    const result = await pay({
+      amount: "10.50",
+      to: "0x1234567890123456789012345678901234567890",
+      testnet: false // Use mainnet
+    });
+
+    if (result.success) {
+      console.log("Payment successful!");
+      console.log("Transaction ID:", result.id);
+      console.log("Amount sent:", result.amount);
+      console.log("Sent to:", result.to);
+    } else {
+      console.error("Payment failed:", result.error);
+    }
+  } catch (error) {
+    console.error("Payment error:", error);
+  }
+}
+```
+
+## Error Handling
+
+The `pay` function can throw errors for invalid parameters:
+
+- Invalid amount format
+- Invalid Ethereum address format
+- Network connection issues
+- User rejection of the payment
+
+Always wrap calls to `pay` in a try-catch block to handle these errors gracefully.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
