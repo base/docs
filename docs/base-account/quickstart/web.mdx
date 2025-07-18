@@ -1,10 +1,26 @@
 ---
-title: "Web (HTML + JS)"
+title: "Web (React)"
 ---
 
-This quick-start shows the **minimum** code required to add Sign in with Base and Base Pay to any web page using nothing but the Base Account SDK. No frameworks, no additional libraries.
+This quick-start shows the **minimum** code required to add Sign in with Base and Base Pay to any React app using the Base Account SDK.
 
-## 1. Install the SDK
+## 1. Create a new React app
+
+If you're starting fresh, create a new React app:
+
+<CodeGroup>
+```bash npm
+npx create-react-app base-account-quickstart
+cd base-account-quickstart
+```
+
+```bash yarn
+yarn create react-app base-account-quickstart
+cd base-account-quickstart
+```
+</CodeGroup>
+
+## 2. Install the SDK
 
 <CodeGroup>
 ```bash npm
@@ -24,65 +40,120 @@ bun add @base-org/account
 ```
 </CodeGroup>
 
-If you prefer a CDN import, you can skip the install step and replace the `import` line below with:
+<Tip>
+**Got a peer dependency error?**
 
-```html
-<script type="module" src="https://cdn.skypack.dev/@base-org/account"></script>
+Use `--legacy-peer-deps` flag if you get a peer dependency error.
+</Tip>
+
+## 3. Replace src/App.js with this component
+
+```jsx title="src/App.js" lineNumbers
+import React, { useState } from 'react';
+import { createBaseAccountSDK, pay, getPaymentStatus } from '@base-org/account';
+
+function App() {
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('');
+
+  // Initialize SDK
+  const sdk = createBaseAccountSDK(
+    {
+      appName: 'Base Account Quick-start',
+      appLogo: 'https://base.org/logo.png',
+    }
+  );
+
+  // Optional sign-in step – not required for `pay()`, but useful to get the user address
+  const handleSignIn = async () => {
+    try {
+      await sdk.getProvider().request({ method: 'wallet_connect' });
+      setIsSignedIn(true);
+    } catch (error) {
+      console.error('Sign in failed:', error);
+    }
+  };
+
+  // One-tap USDC payment (works even if you skip the sign-in button above)
+  const handlePayment = async () => {
+    try {
+      const { id } = await pay({
+        amount: '5.00', // USD – SDK quotes equivalent USDC
+        to: '0xRecipientAddress', // Replace with your recipient address
+        testnet: true // set to false or omit for Mainnet
+      });
+
+      const { status } = await getPaymentStatus({ id });
+      setPaymentStatus(`Payment status: ${status}`);
+    } catch (error) {
+      console.error('Payment failed:', error);
+      setPaymentStatus('Payment failed');
+    }
+  };
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>Base Account Quick-start</h1>
+      
+      <button 
+        onClick={handleSignIn}
+        style={{ 
+          padding: '10px 20px', 
+          margin: '10px', 
+          backgroundColor: '#0052ff',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer'
+        }}
+      >
+        Sign in with Base
+      </button>
+      
+      <button 
+        onClick={handlePayment}
+        style={{ 
+          padding: '10px 20px', 
+          margin: '10px', 
+          backgroundColor: '#00d395',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer'
+        }}
+      >
+        Pay 5 USDC on testnet
+      </button>
+
+      {paymentStatus && (
+        <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '5px' }}>
+          {paymentStatus}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
 ```
 
-## 2. Copy-paste this HTML file
+<Note>
+**Note:**
 
-```html title="index.html" lineNumbers
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Base Account Quick-start</title>
-  </head>
-  <body>
-    <!-- TODO! Button styles -->
-    <button id="signin">Sign in with Base</button>
-    <button id="pay" disabled>Pay 5&nbsp;USDC on testnet</button>
+Make sure to replace `0xRecipientAddress` with your recipient address.
+</Note>
 
-    <script type="module">
-      import { createBaseAccountSDK, pay, getPaymentStatus } from "@base-org/account";
 
-      // Initialise SDK with the injected provider (the user will be prompted to connect on first call).
-      const sdk = createBaseAccountSDK();
 
-      // Optional sign-in step – not required for `pay()`, but useful to get the user address.
-       document.getElementById("signin").onclick = async () => {
-         await sdk.getProvider().request({ method: "wallet_connect" });
-         document.getElementById("pay").disabled = false;
-       };
-
-       // One-tap USDC payment (works even if you skip the sign-in button above).
-       document.getElementById("pay").onclick = async () => {
-         const { id } = await pay({
-           amount: "5.00", // USD – SDK quotes equivalent USDC
-           to: "0xRecipientAddress",
-           testnet: true // set to false or omit for Mainnet
-         });
-
-         const { status } = await getPaymentStatus({ id });
-         alert(`Payment status: ${status}`);
-       };
-     </script>
-   </body>
- </html>
-```
-
-## 3. Serve the file
-
-Any static server will work:
+## 4. Start your app
 
 ```bash
-npx serve .
-# or
-python -m http.server
+npm start
 ```
 
-Open http://localhost:3000, click **Sign in with Base** (optional) and then **Pay**, approve the transaction, and you’ve sent 5 USDC on Base Sepolia—done! 🎉
+Open http://localhost:3000, click **Sign in with Base** (optional) and then **Pay**, approve the transaction, and you've sent 5 USDC on Base Sepolia—done! 🎉
+
+**Note:** If you have an existing React app, just install the SDK (`npm install @base-org/account`) and add the component above to your project.
 
 ## Next steps
 
