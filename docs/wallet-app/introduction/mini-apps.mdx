@@ -84,8 +84,85 @@ If you run `npm create onchain --mini`, your mini app will have a "Connect Walle
 </Note>
 </Tab>
 
-<Tab title="Frame SDK">
-By using either `sdk.wallet.getEthereumProvider()` from [@farcaster/frame-sdk](https://www.npmjs.com/package/@farcaster/frame-sdk) or by using [@farcaster/frame-wagmi-connector](https://www.npmjs.com/package/@farcaster/frame-wagmi-connector) with your Wagmi config
+<Tab title="Wagmi">
+[Wagmi](https://wagmi.sh) is a powerful JavaScript library for building Ethereum applications, and using it alongside any other onchain logic you have configured is very simple. 
+It only takes the two steps below to auto-connect to the user's wallet with Wagmi:
+
+1) Set up your WagmiProvider to use the Farcaster mini app connector
+```javascript
+import { createConfig, http, WagmiProvider } from "wagmi";
+import { base } from "wagmi/chains";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
+
+export const config = createConfig({
+  chains: [base],
+  transports: {
+    [base.id]: http()
+  },
+  connectors: [farcasterFrame()],
+});
+
+const queryClient = new QueryClient();
+
+export default function Provider({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+```
+
+2) Listen for and use the auto-connected wallet session, if not connect the user
+
+```javascript
+"use client";
+
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { config } from "~/components/providers/WagmiProvider";
+
+export function WalletConnectMinimal() {
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  return (
+    <button onClick={() => 
+      isConnected 
+        ? disconnect() 
+        : connect({ connector: config.connectors[0] })}>
+      {isConnected ? "Disconnect" : "Connect"}
+    </button>
+  );
+}
+```
+</Tab>
+
+<Tab title="Browser Window">
+Because of the open standards this is built on top of, you can both listen for and connect to our injected wallet provider without installing any new package, directly from the browser window's DOM! There are two ways to do this that are both highlighted below:
+
+Connect directly with `window.ethereum`
+```javascript
+// Check if provider exists  
+if (window.ethereum) {  
+  // Use the provider directly  
+  const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });  
+  const chainId = await window.ethereum.request({ method: 'eth_chainId' });  
+}
+```
+
+Use EIP-6963 discovery to listen for the provider's injection
+```javascript
+// Listen for provider announcements  
+window.addEventListener('eip6963:announceProvider', (event) => {  
+  const provider = event.detail.provider;  
+  // Use the provider  
+});  
+  
+// Request providers  
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+```
 </Tab>
 </Tabs>
 
@@ -230,6 +307,10 @@ The following Mini App SDK features are **not currently supported** in Base App:
 #### Token Actions
 * `sdk.actions.swapToken()`
 * `sdk.actions.sendToken()` 
+
+### Wallet Interactions
+* `sdk.actions.getEthereumProvider()`
+  * Note: We still expose an [EIP-1193 Ethereum Provider](https://eips.ethereum.org/EIPS/eip-1193) that you can auto-detect or use in a package such as MiniKit/Wagmi 
 
 #### Navigation & Links
 
