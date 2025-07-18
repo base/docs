@@ -27,6 +27,20 @@ Future versions of Base Account may support it.
 You can use a factory contract or a transaction with the `CREATE2` opcode to deploy a smart contract.
 </Tip>
 
+## Solidity's Builtin `transfer` function
+
+The `transfer` function is a built-in member of the `address` type in Solidity that can be used to send ETH to an address. Base Account wallets cannot receive ETH using this function.
+This function has long been considered deprecated in favor of `call` by the Solidity community, but some older contracts still use it.
+
+The reason for this is that `transfer` only forwards 2300 gas to the `transfer` call, a protective mechanism that was designed to prevent reentrancy attacks by limiting the amount of
+gas available to a smart contract that might reenter the caller.
+In the modern world of smart contract wallets (including for Base Account), this is often not enough gas for the smart contract's `receive` or `fallback` functions to complete their work,
+causing the transaction to revert.
+
+### Known affected contracts
+
+- The [WETH9 contract](https://basescan.org/token/0x4200000000000000000000000000000000000006) uses `transfer` to send ETH to the user's wallet and therefore Base Accounts cannot directly unwrap ETH from it.
+
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
 <PolicyBanner />
