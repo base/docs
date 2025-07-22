@@ -22,10 +22,14 @@ sequenceDiagram
     participant SDK
     participant Account
 
-    User->>Browser: Click "Sign in with Base"
-    Browser->>AppServer: GET /auth/nonce
-    AppServer-->>Browser: nonce
+    alt Generate locally
+        Browser->>Browser: randomNonce()
+    else Prefetch
+        Browser->>AppServer: GET /auth/nonce (on page load)
+        AppServer-->>Browser: nonce
+    end
 
+    User->>Browser: Click "Sign in with Base"
     Browser->>SDK: wallet_connect(signInWithEthereum {nonce})
     SDK->>Account: wallet_connect(...)
     User->>Account: Approve connection
@@ -47,12 +51,15 @@ sequenceDiagram
 <CodeGroup>
 ```ts Browser (SDK)
 import { createBaseAccountSDK } from "@base-org/account";
+import crypto from 'crypto';
 
-// Initialise the SDK (no config needed for defaults)
+// Initialize the SDK (no config needed for defaults)
 const provider = createBaseAccountSDK().getProvider();
 
-// 1 — fetch a nonce from your backend
-const nonce = await fetch('/auth/nonce').then(r => r.text());
+// 1 — get a fresh nonce (generate locally or prefetch from backend)
+const nonce = window.crypto.randomUUID().replace(/-/g, '');
+// OR prefetch from server
+// const nonce = await fetch('/auth/nonce').then(r => r.text()); 
 
 // 2 — connect and authenticate
 try {
@@ -61,7 +68,10 @@ try {
     params: [{
       version: '1',
       capabilities: {
-        signInWithEthereum: { nonce, chainId: '0x1' }
+        signInWithEthereum: { 
+          nonce, 
+          chainId: '0x2105' // Base Mainnet - 8453
+        }
       }
     }]
   });
@@ -93,12 +103,18 @@ export async function verifySig(req, res) {
 </CodeGroup>
 
 <Note type="tip">
-If using the above code beyond Base Account, note that not every wallet supports the new [<code>wallet_connect</code> method](https://eips.ethereum.org/EIPS/eip-7846) yet.  If the call throws <code>method_not_supported</code>, fall back to using <code>eth_requestAccounts</code> and <code>personal_sign</code>.
+If using the above code beyond Base Account, note that not every wallet supports the new [<code>wallet_connect</code> method](/base-account/reference/core/provider-rpc-methods/wallet_connect) yet.  If the call throws [<code>method_not_supported</code>], fall back to using <code>eth_requestAccounts</code> and <code>personal_sign</code>.
 </Note>
 
+<Note type="tip">
+To avoid [popup blockers](/base-account/more/troubleshooting/usage-details/popups#default-blocking-behavior), fetch or generate the nonce <strong>before</strong> the user presses "Sign in with Base" (for example on page load). For security, the only requirement is that your backend keeps track of every nonce and refuses any that are reused – regardless of where it originated.
+</Note>
+
+{/* 
+TODO: Link Wagmi Sign in with Base guide
 <Note>
 For a full React example see the <a href="/docs/base-account/framework-integrations/react-wagmi">React + Wagmi guide</a>.
-</Note>
+</Note> */}
 
 ### Example Express Server
 
@@ -146,10 +162,10 @@ app.listen(3001, () => console.log('Auth server listening on :3001'));
 
 Use the pre-built component for a native look-and-feel:
 
-```tsx title="Checkout.tsx"
+```tsx title="App.tsx"
 import { SignInWithBaseButton } from '@base-org/account-ui/react';
 
-export function Checkout() {
+export function App() {
   return (
     <SignInWithBaseButton
       colorScheme="light"
