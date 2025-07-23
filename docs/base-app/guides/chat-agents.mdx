@@ -3,15 +3,15 @@ title: "Chat Agents in Base App"
 sidebarTitle: "Chat Agents" 
 ---
 
-This guide will cover how you can get started building messaging agents for Coinbase Wallet, using XMTP, a decentralized messaging protocol. Discover a fast, easy way to build and get distribution in Coinbase Wallet.
+This guide will cover how you can get started building messaging agents for Base App, using XMTP, a decentralized messaging protocol. Discover a fast, easy way to build and get distribution in Base App.
 
 - Why agents?
 - Getting started with XMTP
-- Getting featured in Coinbase Wallet
+- Getting featured in Base App
 
 ## Why agents?
 
-Messaging is the largest use-case in the world, but it’s more than just conversations—it’s a secure, programmable channel for financial and social innovation. When combined with the onchain capabilities of Coinbase Wallet, builders have a new surface area to build 10X better messaging experiences not currently possible on legacy platforms like WhatsApp or Messenger.
+Messaging is the largest use-case in the world, but it’s more than just conversations—it’s a secure, programmable channel for financial and social innovation. When combined with the onchain capabilities of Base App, builders have a new surface area to build 10X better messaging experiences not currently possible on legacy platforms like WhatsApp or Messenger.
 
 Real Examples:
 
@@ -167,7 +167,7 @@ XMTP_ENV=production
 Give your agent a human-readable name:
 
 **1. Import agent wallet to Base App extension:**  
-• Install Coinbase Wallet browser extension  
+• Install Base App browser extension  
 • Import using your agent's private key
 
 **2. Purchase a basename:**  
@@ -225,6 +225,11 @@ console.log(`
 • Installations: ${inboxState.installations.length}
 • InstallationId: ${installationId}
 • Network: ${process.env.XMTP_ENV}`);
+
+* console.log(\`Agent started. Address: ${xmtp.address}\`)  
+* console.log(\`Environment: ${process.env.XMTP\_ENV}\`)  
+* console.log(\`Listening for messages...\`)
+
 ```
 
 ## Content types
@@ -285,7 +290,7 @@ We'll outline the standard and custom XMTP content types you can utilize in your
 
 ### Base App Content Types
 
-There are content types developed by the Base App team for agents in Coinbase Wallet. Other XMTP clients may not support these content types.
+There are content types developed by the Base App team for agents in Base App. Other XMTP clients may not support these content types.
 
 **Quick Actions (coinbase.com/actions:1.0)**
 
@@ -337,6 +342,15 @@ Example: Payment Options
   expiresAt: '2024-12-31T23:59:59Z'
 }
 ```
+<Frame caption="Example of Quick Actions message">
+<img
+  alt="Manifest Embed Example"
+  src="/images/tba_example.jpeg"
+  height="364"
+/>
+
+</Frame>
+
 
 **Intent (coinbase.com/intent:1.0)**
 
@@ -373,27 +387,63 @@ Example: Intent Message
 }
 ```
 
+<Frame caption="Example of Intent Message">
+<img src="/images/transaction_chat.jpeg" alt="Analytics dashboard with charts" />
+</Frame>
+
+## Custom Transaction Trays
+
+If you would like to display agent information such as favicon and branded title, utilize the metadata property of wallet send calls data.
+
+#### **Example: Display agent information**
+
+```ts
+// example of wallet send calls data shape{
+  version: "1.0",
+  from: request.from as `0x${string}`,
+  chainId: this.networkConfig.chainId,
+  calls: [
+	{
+	  ...
+  metadata: {
+    description: "Transfer token",
+    ...other fields,
+    hostname: "tba.chat",
+    faviconUrl: "https://tba.chat/favicon",
+    title: "Your favorite Agent"
+  }	
+ 	}
+  ]  
+}
+```
+<Frame caption="transaction tray">
+<img src="/images/transaction_tray.jpeg" alt="Transaction tray" />
+</Frame>
+
+You can send “GM” to **tbachat.base.eth** to get more details about message content types we support and get the firsthand experience on by interacting with our agent
+
+Our agent repo is found [here](https://github.com/siwan-cb/tba-chat-example-bot)
+
+
 ### Best practices
 
-- Always validate content structures
-- Provide fallbacks for unsupported clients
-- Test across client versions
-- Limit message and metadata size
-- Follow XIP-67
-
-Your agent should respond to both direct messages and group chat messages (if applicable).
-
-For direct messages, it should automatically respond.
-
-We recommend reacting to messages with an emoji (like 👀 or ⌛) to indicate the message was received, while the response is processing.
+1. Always validate content structures  
+2. Provide fallbacks for unsupported clients  
+3. Test across client versions  
+4. Limit message and metadata size  
+5. Follow [XIP-67](https://community.xmtp.org/t/xip-67-inline-actions/941)  
+6. Your agent should respond to both direct messages and group chat messages (if applicable).   
+7. For direct messages, it should automatically respond.   
+8. We recommend reacting to messages with an emoji (like 👀or ⌛) to indicate the message was received, while the response is processing.   
+9. For group chat messages, agents should only respond if they are mentioned with the “@” symbol and the agent’s name. (example “@bankr”), OR if the user replies directly to a message from the agent (using the reply content type). 
 
 For group chat messages, agents should only respond if they are mentioned with the "@" symbol and the agent's name. (example "@bankr"), OR if the user replies directly to a message from the agent (using the reply content type).
 
 ## Getting featured
 
-Fill out the form [here](https://app.deform.cc/form/52b71db4-bfa2-4ef5-a954-76c66250bdd2/?page_number=0) to submit your agent for review. If approved, your agent will be featured in Coinbase Wallet. You will hear back from us within 5 business days.
+Fill out the form [here](https://app.deform.cc/form/52b71db4-bfa2-4ef5-a954-76c66250bdd2/?page_number=0) to submit your agent for review. Note, agents often go through multiple rounds of feedback before they are ready to be featured. Once approved, your agent will be featured in Base App. You will hear back from us within 5 business days. 
 
-Need help or have feature requests? Visit [https://community.xmtp.org/](https://community.xmtp.org/)
+Need help or have feature requests? Visit [https://community.xmtp.org/](https://community.xmtp.org/) 
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
