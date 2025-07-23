@@ -125,6 +125,36 @@ This is what the user will see when prompted to create a Sub Account:
   <img src="/images/base-account/SubAccountCreation.png" alt="Sub Account Creation Flow" style={{ width: '300px', height: 'auto' }} />
 </div>
 
+### Import an existing Sub Account
+
+If you already have a deployed Smart Contract Account, you can import it as a Sub Account using the provider RPC method:
+
+```tsx
+const subAccount = await provider.request({
+  method: 'wallet_addSubAccount',
+  params: [
+    {
+      account: {
+        type: 'deployed',
+        address: '0xYourSmartContractAccountAddress',
+        chainId: 8453 // the chain the account is deployed on
+      },
+    }
+  ],
+});
+
+console.log('Sub Account added:', subAccount.address);
+```
+
+<Note>
+
+After the Sub Account is imported, you will need to add the Base Account address as an owner of the Sub Account. This currently needs to be done manually
+by calling the addOwner function on the Smart Contract Account that was imported and setting the Base Account address as the owner.
+
+Additionally, only Coinbase Smart Wallet contracts are currently supported for importing as a Sub Account into your Base Account.
+</Note>
+
+
 
 ### Get Existing Sub Account
 
