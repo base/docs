@@ -116,8 +116,106 @@ curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json
 
 ### Libraries
 
-For popular libraries, they sometimes require additional RPC support for transaction preconfirmation to work properly.
-We are working on adding Flashblocks support to the following libraries:
+You will need to use a Flashblocks-aware RPC endpoint to use Flashblocks with the following libraries:
+
+#### [Wagmi](https://wagmi.sh)
+
+To use Flashblocks with Wagmi, you will need to use the `basePreconf` chain in the Wagmi Config (see `config.ts`).
+
+<CodeGroup>
+
+```tsx Example.tsx
+import { useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
+
+function SendTransaction() {
+  const { data: hash, sendTransaction } = useSendTransaction();
+  const { data: receipt } = useWaitForTransactionReceipt({ hash });
+
+  return (
+    <div>
+      <button 
+        onClick={() => sendTransaction({ 
+          to: "0x...", 
+          value: parseEther('0.0001'),
+        })}
+      >
+        Send Transaction
+      </button>
+      {hash && <div>Hash: {hash}</div>}
+      {receipt && <div>Included on block number: {receipt.blockNumber}</div>}
+    </div>
+  )
+}
+```
+
+```tsx App.tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { WagmiProvider, useAccount } from 'wagmi'
+import { config } from './config'
+import { Example } from './Example'
+
+const queryClient = new QueryClient()
+
+function App() {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}> 
+        <Example />
+      </QueryClientProvider> 
+    </WagmiProvider>
+  )
+}
+```
+
+```tsx config.ts
+import { createConfig, http } from "wagmi";
+import { baseSepoliaPreconf } from "wagmi/chains";
+import { baseAccount } from "wagmi/connectors";
+
+export const config = createConfig({
+  chains: [baseSepoliaPreconf],
+  connectors: [baseAccount()],
+  transports: {
+    [baseSepoliaPreconf.id]: http(),
+  },
+});
+```
+
+</CodeGroup>
+
+#### [Viem](https://viem.sh)
+
+```ts
+import { createWalletClient, http, parseEther, publicActions } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepoliaPreconf } from "viem/chains";
+
+// Create client with the Flashblocks-aware chain.
+const account = privateKeyToAccount(`0x${process.env.PRIVATE_KEY}`);
+const client = createWalletClient({
+  account,
+  chain: baseSepoliaPreconf,
+  transport: http(),
+})
+  .extend(publicActions);
+
+const submissionTime = new Date();
+console.log(`Submitting transaction at: ${submissionTime.toISOString()}`);
+
+// Send transaction.
+const hash = await client.sendTransaction({
+  to: "0x...",
+  value: parseEther('0.0001'),
+});
+console.log(`Transaction hash: ${hash}`);
+
+// Wait for transaction to be included.
+const receipt = await client.waitForTransactionReceipt({ hash });
+const confirmTime = new Date();
+
+console.log(`Transaction included at: ${confirmTime.toISOString()}`);
+console.log(`Time difference: ${confirmTime - submissionTime}ms`);
+```
 
 #### [Ethers](https://github.com/ethers-io/ethers.js)
 
@@ -150,61 +248,8 @@ We are working on adding Flashblocks support to the following libraries:
     console.log(`Time difference: ${confirmationTime - submissionTime}ms`);
   }
 ```
+
 You should see the confirmation time significantly lower than the standard RPC endpoint.
-
-#### [Viem/Wagmi](https://viem.sh)
-
-```jsx
-// Create wallet client
-  const account = privateKeyToAccount(`0x${process.env.PRIVATE_KEY}`);
-  const walletClient = createWalletClient({
-    account,
-    chain: {
-      id: 84532,
-      name: "base-sepolia",
-      network: "base-sepolia",
-    },
-    transport: http(
-      "https://sepolia-preconf.base.org"
-    ),
-  });
-
-  // Create public client for waiting
-  const publicClient = createPublicClient({
-    chain: {
-      id: 84532,
-      name: "base-sepolia",
-      network: "base-sepolia",
-    },
-    transport: http(
-      "https://sepolia-preconf.base.org"
-    ),
-  });
-
-  try {
-    const submissionTime = new Date();
-    console.log(`Submitting transaction at: ${submissionTime.toISOString()}`);
-
-    // Send transaction
-    const hash = await walletClient.sendTransaction({
-      to: "<SOME ADDRESS>",
-      value: parseEther("0.0000001"),
-    });
-    console.log(`Transaction hash: ${hash}`);
-
-    // Wait for transaction to be mined
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    const confirmTime = new Date();
-
-    console.log(`Transaction mined at: ${confirmTime.toISOString()}`);
-    console.log(`Time difference: ${confirmTime - submissionTime}ms`);
-  } catch (error) {
-    console.error("Error:", error);
-  }
-```
-
-
-
 
 ## Support
 
