@@ -43,9 +43,11 @@ your-domain.com/
 
 **Are you having wallet connection problems?** → [Go to Wallet Connection Problems](#4-wallet-connection-problems)
 
-**Are you looking for testing tools ?** → [Go to Mobile Testing & Debugging](#5-mobile-testing--debugging)
+**Are you looking for testing tools ?** → [Go to Mobile Testing & Debugging](#6-mobile-testing--debugging)
 
 **Are changes not appearing after updates?** → [Go to Manifest Configuration Problems](#2-manifest-configuration-problems) 
+
+**Does your app close unexpectedly during user interactions?** → [Go to Gesture Conflicts and App Dismissal Issues](#5-gesture-conflicts-and-app-dismissal-issues)
 
 ## **Detailed Problem Solutions**
 
@@ -270,8 +272,29 @@ function WalletConnection() {
 }
 ```
 
+## **5\. Gesture Conflicts and App Dismissal Issues** 
 
-## **5\. Mobile Testing & Debugging** 
+**Problem**: App closes when users swipe, drag, or perform touch gestures.
+
+**Symptoms**:
+
+* Mini App closes when users swipe, drag, or perform touch gestures
+* App dismisses during game interactions or custom navigation  
+* Users can't complete multi-step touch interactions
+
+**Root Cause**: Mini Apps run in modal containers where native gestures (swipes, taps outside the app area) automatically close the app. If your app uses similar gestures, they conflict with these native dismissal behaviors.
+
+**Solution**: Disable native gestures when calling `sdk.actions.ready()`:
+
+```ts
+// Instead of this:
+await sdk.actions.ready();
+
+// Use this if your app has gesture conflicts:
+await sdk.actions.ready({ disableNativeGestures: true });
+```
+
+## **6\. Mobile Testing & Debugging** 
 
 ### **Using Eruda for Mobile Debug**
 
