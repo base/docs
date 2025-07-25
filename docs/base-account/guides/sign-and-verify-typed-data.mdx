@@ -1,15 +1,35 @@
 ---
-title: "Sign Typed Data"
-description: "Use EIP-712 structured data signing to create secure, readable messages that users can verify and sign with their Base Account"
+title: "Sign and Verify Typed Data"
+description: "EIP-712 structured data signing and verification for Base Account"
 ---
 
 ## Overview
 
-EIP-712 structured data signing allows you to create human-readable, type-safe messages that users can sign with their wallet. Unlike personal signatures, typed data signatures are structured and domain-bound, making them ideal for secure application-specific use cases like permissions, attestations, and proofs.
+Base Account uses [Smart Wallet contracts](https://github.com/coinbase/smart-wallet) under the hood. Smart contract wallets introduce a few differences in how messages are signed compared to traditional Externally Owned Accounts (EOAs). This guide explains how to properly implement message signing using Base Account, covering both standard messages and typed data signatures, as well as some edge cases.
 
-Base Accounts fully support EIP-712 signing through the standard `eth_signTypedData_v4` method, with automatic ERC-6492 wrapping for undeployed smart wallets.
+## Introduction
+
+Before walking through the details of how to sign and verify messages using Base Account, it's important to understand some of the use cases of signing messages with wallets, as well as the key differences between EOAs and smart contracts when it comes to signing messages.
+
+### Use Cases for Wallet Signatures
+
+Blockchain-based apps use wallet signatures for two main categories:
+
+1. **Signatures for offchain verification**: Used for authenticating users in onchain apps (e.g., Sign-In with Ethereum) to avoid spoofing. The signature is not used for any onchain action.
+
+2. **Signatures for onchain verification**: Used for signing onchain permissions (e.g., [Permit2](https://github.com/Uniswap/permit2)) or batching transactions. The signature is usually stored for future transactions.
+
+### Smart Contract Wallet Differences
+
+Smart contract wallets handle signatures differently from EOAs in several ways:
+
+- The contract itself doesn't produce signatures - instead, the owner (e.g., passkey) signs messages
+- Verification happens through the `isValidSignature` function defined in [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271)
+- Smart contract wallet addresses are often deterministic, allowing signature support before deployment via [ERC-6492](https://eips.ethereum.org/EIPS/eip-6492)
 
 ## High-level flow
+
+In this guide, we'll walk through the high-level flow of signing and verifying messages using Base Account.
 
 ```mermaid
 sequenceDiagram
@@ -35,6 +55,9 @@ sequenceDiagram
 
 ## Implementation
 
+For the purposes of this guide, we'll use a simple example of a typed data payload that contains a permission
+to spend user's funds (see [Spend Permissions](/base-account/improve-ux/spend-permissions))
+
 ### Code Snippets
 
 <CodeGroup>
@@ -47,28 +70,26 @@ const provider = createBaseAccountSDK().getProvider();
 // 1 — Prepare the typed data payload
 const typedData = {
   domain: {
-    name: 'My App',
+    name: 'Spend Permission Manager',
     version: '1',
-    chainId: 8453, // Base mainnet
-    verifyingContract: '0x...' // Your contract address
+    chainId: 8453, // or any other supported chain
+    verifyingContract: SPEND_PERMISSION_MANAGER_ADDRESS,
   },
   types: {
-    Permission: [
-      { name: 'user', type: 'address' },
-      { name: 'action', type: 'string' },
-      { name: 'resource', type: 'string' },
-      { name: 'expiry', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' }
-    ]
+    SpendPermission: [
+      { name: 'account', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'allowance', type: 'uint160' },
+      { name: 'period', type: 'uint48' },
+      { name: 'start', type: 'uint48' },
+      { name: 'end', type: 'uint48' },
+      { name: 'salt', type: 'uint256' },
+      { name: 'extraData', type: 'bytes' },
+    ],
   },
-  primaryType: 'Permission',
-  message: {
-    user: '0x...',
-    action: 'read',
-    resource: 'profile',
-    expiry: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-    nonce: 123456
-  }
+  primaryType: 'SpendPermission',
+  message: spendPermissionData,
 };
 
 // 2 — Request signature from user
@@ -148,94 +169,6 @@ export async function verifyTypedData(req, res) {
 ```
 </CodeGroup>
 
-## Common Use Cases
-
-### 1. Permissions and Authorizations
-
-```tsx
-const permissionTypedData = {
-  domain: {
-    name: 'MyDApp',
-    version: '1',
-    chainId: 8453,
-    verifyingContract: '0x...'
-  },
-  types: {
-    Permission: [
-      { name: 'user', type: 'address' },
-      { name: 'action', type: 'string' },
-      { name: 'resource', type: 'string' },
-      { name: 'expiry', type: 'uint256' }
-    ]
-  },
-  primaryType: 'Permission',
-  message: {
-    user: userAddress,
-    action: 'transfer',
-    resource: 'tokens',
-    expiry: Math.floor(Date.now() / 1000) + 86400 // 24 hours
-  }
-};
-```
-
-### 2. Attestations and Proofs
-
-```tsx
-const attestationTypedData = {
-  domain: {
-    name: 'Identity Verifier',
-    version: '1',
-    chainId: 8453,
-    verifyingContract: '0x...'
-  },
-  types: {
-    Attestation: [
-      { name: 'subject', type: 'address' },
-      { name: 'claim', type: 'string' },
-      { name: 'value', type: 'string' },
-      { name: 'timestamp', type: 'uint256' }
-    ]
-  },
-  primaryType: 'Attestation',
-  message: {
-    subject: userAddress,
-    claim: 'email_verified',
-    value: 'true',
-    timestamp: Math.floor(Date.now() / 1000)
-  }
-};
-```
-
-### 3. Orders and Transactions
-
-```tsx
-const orderTypedData = {
-  domain: {
-    name: 'Marketplace',
-    version: '1',
-    chainId: 8453,
-    verifyingContract: '0x...'
-  },
-  types: {
-    Order: [
-      { name: 'maker', type: 'address' },
-      { name: 'taker', type: 'address' },
-      { name: 'tokenId', type: 'uint256' },
-      { name: 'price', type: 'uint256' },
-      { name: 'deadline', type: 'uint256' }
-    ]
-  },
-  primaryType: 'Order',
-  message: {
-    maker: userAddress,
-    taker: '0x0000000000000000000000000000000000000000', // Any taker
-    tokenId: 123,
-    price: '1000000000000000000', // 1 ETH in wei
-    deadline: Math.floor(Date.now() / 1000) + 3600
-  }
-};
-```
-
 ## Example Express Server
 
 ```ts title="server/typed-data.ts"
@@ -261,30 +194,8 @@ app.get('/typed-data/prepare', (req, res) => {
   const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 hour
   
   const typedData = {
-    domain: {
-      name: 'My App',
-      version: '1',
-      chainId: 8453,
-      verifyingContract: '0x1234567890123456789012345678901234567890'
-    },
-    types: {
-      Permission: [
-        { name: 'user', type: 'address' },
-        { name: 'action', type: 'string' },
-        { name: 'resource', type: 'string' },
-        { name: 'expiry', type: 'uint256' },
-        { name: 'nonce', type: 'uint256' }
-      ]
-    },
-    primaryType: 'Permission',
-    message: {
-      user: userAddress,
-      action: action || 'read',
-      resource: resource || 'profile',
-      expiry,
-      nonce
-    }
-  };
+    // YOUR TYPED DATA HERE
+  }
   
   res.json(typedData);
 });
@@ -368,15 +279,6 @@ Always include expiry timestamps for time-bound signatures:
 
 ```tsx
 const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-```
-
-### Error Handling
-Provide clear error messages for common failure cases:
-
-```tsx
-if (expiry < now) return res.status(400).json({ error: 'Signature expired' });
-if (usedNonces.has(nonce)) return res.status(400).json({ error: 'Nonce reused' });
-if (!valid) return res.status(401).json({ error: 'Invalid signature' });
 ```
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
