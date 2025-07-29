@@ -92,10 +92,16 @@ const { id } = await pay({
 });
 
 // Option 1: Poll until mined
-const { status } = await getPaymentStatus({ id });
+const { status } = await getPaymentStatus({ 
+  id,
+  testnet: true            // MUST match the testnet setting used in pay()
+});
 if (status === 'completed') console.log('🎉 payment settled');
 ```
 
+<Note>
+**Important:** The `testnet` parameter in `getPaymentStatus()` must match the value used in the original `pay()` call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
+</Note>
 
 This is what the user will see when prompted to pay:
 
@@ -146,8 +152,11 @@ Learn more about this in the [callbackURL reference](/base-account/reference/cor
 ```ts Backend (SDK)
 import { getPaymentStatus } from '@base-org/account';
 
-export async function checkPayment(txId) {
-  const status = await getPaymentStatus({ id: txId });
+export async function checkPayment(txId, testnet = false) {
+  const status = await getPaymentStatus({ 
+    id: txId,
+    testnet  // Must match the testnet setting from the original pay() call
+  });
   if (status.status === 'completed') {
     // fulfil order
   }
@@ -238,8 +247,8 @@ If you intend on using the BasePayButton, please follow the [Brand Guidelines](/
 
 ## Test on Base Sepolia
 
-1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select “Base Sepolia”).  
-2. Pass <code>testnet: true</code> in your <code>pay()</code> call.  
+1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select "Base Sepolia").  
+2. Pass <code>testnet: true</code> in your <code>pay()</code> and <code>getPaymentStatus()</code> calls.  
 3. Use <a href="https://sepolia.basescan.org" target="_blank">Sepolia BaseScan</a> to watch the transaction.
 
 
