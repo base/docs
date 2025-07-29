@@ -5,7 +5,9 @@ description: "Core utility functions for key management and account access"
 
 The Base Account SDK provides several core utility functions for managing cryptographic keys and accessing account information. These functions are essential for advanced integrations and Sub Account management.
 
-## generateKeyPair
+## Core Functions
+
+### [generateKeyPair](/base-account/reference/core/generateKeyPair)
 
 Generates a new P256 key pair for use with Base Account.
 
@@ -16,44 +18,7 @@ const keyPair = await generateKeyPair();
 console.log('New key pair generated:', keyPair);
 ```
 
-### Returns
-
-```typescript
-Promise<P256KeyPair>
-```
-
-A P256 key pair object containing:
-- `publicKey`: The public key for the generated pair
-- `privateKey`: The private key (handle with care)
-
-### Usage Example
-
-```tsx
-async function createNewKeyPair() {
-  try {
-    const keyPair = await generateKeyPair();
-    
-    // Use the public key for account creation
-    console.log('Public key:', keyPair.publicKey);
-    
-    // Store private key securely (if needed)
-    // Note: Handle private keys with extreme care
-    
-    return keyPair;
-  } catch (error) {
-    console.error('Failed to generate key pair:', error);
-    throw error;
-  }
-}
-```
-
-<Warning>
-**Private Key Security**
-
-Never expose private keys in client-side code or transmit them over insecure channels. Store them securely using appropriate key management systems.
-</Warning>
-
-## getKeypair
+### [getKeypair](/base-account/reference/core/getKeypair)
 
 Retrieves an existing P256 key pair if one has been previously generated and stored.
 
@@ -68,34 +33,7 @@ if (existingKeyPair) {
 }
 ```
 
-### Returns
-
-```typescript
-Promise<P256KeyPair | null>
-```
-
-Returns the stored P256 key pair or `null` if no key pair exists.
-
-### Usage Example
-
-```tsx
-async function getOrCreateKeyPair() {
-  // Try to get existing key pair first
-  let keyPair = await getKeypair();
-  
-  if (!keyPair) {
-    // Generate new key pair if none exists
-    console.log('No existing key pair, generating new one...');
-    keyPair = await generateKeyPair();
-  } else {
-    console.log('Using existing key pair');
-  }
-  
-  return keyPair;
-}
-```
-
-## getCryptoKeyAccount
+### [getCryptoKeyAccount](/base-account/reference/core/getCryptoKeyAccount)
 
 Retrieves the current crypto account associated with the user's session. This is the primary function for accessing account information.
 
@@ -106,70 +44,6 @@ const cryptoAccount = await getCryptoKeyAccount();
 if (cryptoAccount?.account) {
   console.log('Account address:', cryptoAccount.account.address);
   console.log('Public key:', cryptoAccount.account.publicKey);
-}
-```
-
-### Returns
-
-```typescript
-Promise<{
-  account: OneOf<WebAuthnAccount | LocalAccount> | null;
-}>
-```
-
-Returns an object containing:
-- `account`: The user's account (WebAuthn-based or local), or `null` if no account exists
-
-### Account Types
-
-The returned account can be one of two types:
-
-#### WebAuthnAccount
-For accounts using WebAuthn (passkeys):
-```typescript
-interface WebAuthnAccount {
-  address: string;
-  publicKey: string;
-  type: 'webauthn';
-  // Additional WebAuthn-specific properties
-}
-```
-
-#### LocalAccount  
-For local development accounts:
-```typescript
-interface LocalAccount {
-  address: string;
-  publicKey: string;
-  type: 'local';
-  // Additional local account properties
-}
-```
-
-### Usage Example
-
-```tsx
-async function getCurrentAccount() {
-  try {
-    const cryptoAccount = await getCryptoKeyAccount();
-    
-    if (!cryptoAccount?.account) {
-      console.log('No account found - user needs to sign in');
-      return null;
-    }
-    
-    const { account } = cryptoAccount;
-    
-    console.log('Account found:');
-    console.log('- Address:', account.address);
-    console.log('- Type:', account.type);
-    console.log('- Public Key:', account.publicKey);
-    
-    return account;
-  } catch (error) {
-    console.error('Failed to get crypto account:', error);
-    throw error;
-  }
 }
 ```
 
