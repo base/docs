@@ -188,43 +188,6 @@ After successful connection, the wallet will emit connection events and provide 
 When using the `signInWithEthereum` capability, always generate a fresh, unique nonce for each authentication attempt to prevent replay attacks. The signature can be verified on your backend using libraries like viem.
 </Tip>
 
-## Usage with Capabilities
-
-### Authentication with signInWithEthereum
-
-```typescript
-import { createBaseAccountSDK } from '@base-org/account';
-
-const provider = createBaseAccountSDK().getProvider();
-
-// Generate unique nonce
-const nonce = window.crypto.randomUUID().replace(/-/g, '');
-
-// Connect with authentication
-const { accounts } = await provider.request({
-  method: 'wallet_connect',
-  params: [{
-    version: '1',
-    capabilities: {
-      signInWithEthereum: { 
-        nonce, 
-        chainId: '0x2105' // Base Mainnet
-      }
-    }
-  }]
-});
-
-// Extract authentication data
-const { address } = accounts[0];
-const { message, signature } = accounts[0].capabilities.signInWithEthereum;
-
-// Send to backend for verification
-await fetch('/auth/verify', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ address, message, signature })
-});
-```
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
