@@ -2,7 +2,7 @@
 title: "Overview"
 ---
 
-The `request` method allows apps to make make Ethereum RPC requests to the wallet.
+The `request` method allows apps to make Ethereum RPC requests to the wallet.
 
 ## Specification
 
@@ -13,18 +13,37 @@ interface RequestArguments {
 }
 
 interface ProviderRpcError extends Error {
+  message: string;
   code: number;
   data?: unknown;
 }
 
-interface CoinbaseWalletProvider {
+interface ProviderInterface {
   /**
    * @param {RequestArguments} args request arguments.
    * @returns A promise that resolves with the result.
-   * @throws {ProviderRpcError} incase of error.
-   * @fires CoinbaseWalletProvider#connect When the provider successfully connects.
+   * @throws {ProviderRpcError} in case of error.
    */
-  request: (args: RequestArguments) => Promise<unknown>
+  request(args: RequestArguments): Promise<unknown>;
+  disconnect(): Promise<void>;
+  emit<K extends keyof ProviderEventMap>(event: K, ...args: [ProviderEventMap[K]]): boolean;
+  on<K extends keyof ProviderEventMap>(event: K, listener: (_: ProviderEventMap[K]) => void): this;
+}
+
+type CreateProviderOptions = Partial<AppMetadata> & {
+  preference?: Preference;
+  subAccounts?: Omit<SubAccountOptions, 'enableAutoSubAccounts'>;
+  paymasterUrls?: Record<number, string>;
+};
+
+interface BaseAccountSDK {
+  getProvider(): ProviderInterface;
+  subAccount: {
+    create(account: AddSubAccountAccount): Promise<SubAccount>;
+    get(): Promise<SubAccount | null>;
+    addOwner(params: { address?: `0x${string}`; publicKey?: `0x${string}`; chainId: number }): Promise<string>;
+    setToOwnerAccount(toSubAccountOwner: ToOwnerAccountFn): void;
+  };
 }
 ```
 
@@ -43,16 +62,16 @@ const txHash = await provider.request({
 ```
 
 ```ts setup.ts filename="setup.ts"
-import { CoinbaseWalletSDK } from '@coinbase/wallet-sdk'
+import { createBaseAccountSDK } from '@base-org/account'
 
 const baseSepoliaChainId = 84532;
 
-export const sdk = new CoinbaseWalletSDK({
+export const sdk = createBaseAccountSDK({
   appName: 'My App Name',
   appChainIds: [baseSepoliaChainId]
 });
 
-const provider = sdk.makeWeb3Provider();
+const provider = sdk.getProvider();
 ```
 </CodeGroup>
 
@@ -68,28 +87,57 @@ Requests are handled in one of three ways
 
 The following RPC requests are sent to the Wallet application:
 
-- eth_ecRecover
-- personal_sign
-- personal_ecRecover
-- eth_signTransaction
-- eth_sendTransaction
-- eth_signTypedData_v1
-- eth_signTypedData_v3
-- eth_signTypedData_v4
-- eth_signTypedData
-- wallet_addEthereumChain
-- wallet_watchAsset
-- wallet_sendCalls
-- wallet_showCallsStatus
+- [`personal_sign`](/base-account/reference/core/provider-rpc-methods/personal_sign)
+- [`eth_sendTransaction`](/base-account/reference/core/provider-rpc-methods/eth_sendTransaction)
+- [`eth_sendRawTransaction`](/base-account/reference/core/provider-rpc-methods/eth_sendRawTransaction)
+- [`eth_signTypedData_v4`](/base-account/reference/core/provider-rpc-methods/eth_signTypedData_v4)
+- [`wallet_addEthereumChain`](/base-account/reference/core/provider-rpc-methods/wallet_addEthereumChain)
+- [`wallet_watchAsset`](/base-account/reference/core/provider-rpc-methods/wallet_watchAsset)
+- [`wallet_sendCalls`](/base-account/reference/core/provider-rpc-methods/wallet_sendCalls)
+- [`wallet_getCallsStatus`](/base-account/reference/core/provider-rpc-methods/wallet_getCallsStatus)
+- [`wallet_connect`](/base-account/reference/core/provider-rpc-methods/wallet_connect)
+- [`wallet_getCapabilities`](/base-account/reference/core/provider-rpc-methods/wallet_getCapabilities)
+- [`wallet_switchEthereumChain`](/base-account/reference/core/provider-rpc-methods/wallet_switchEthereumChain)
+- [`wallet_addSubAccount`](/base-account/reference/core/provider-rpc-methods/wallet_addSubAccount)
+- [`wallet_getSubAccounts`](/base-account/reference/core/provider-rpc-methods/wallet_getSubAccounts)
+- [`coinbase_fetchPermissions`](/base-account/reference/core/provider-rpc-methods/coinbase_fetchPermissions)
 
 ### 2. Handled Locally by the SDK
 
-The following requests are handled locally by the SDK, with no external calls.
+The following requests are handled locally by the SDK, with no external calls:
 
-- eth_requestAccounts
-- eth_accounts
-- eth_coinbase
-- net_version
-- eth_chainId
-- wallet_getCapabilities
-- wallet_switchEthereumChain
+- [`eth_requestAccounts`](/base-account/reference/core/provider-rpc-methods/eth_requestAccounts)
+- [`eth_accounts`](/base-account/reference/core/provider-rpc-methods/eth_accounts)
+- [`eth_coinbase`](/base-account/reference/core/provider-rpc-methods/eth_coinbase)
+- [`eth_chainId`](/base-account/reference/core/provider-rpc-methods/eth_chainId)
+- [`web3_clientVersion`](/base-account/reference/core/provider-rpc-methods/web3_clientVersion)
+
+### 3. Passed to RPC Provider
+
+Standard Ethereum RPC methods are passed to the configured RPC provider for the current chain, including:
+
+- [`eth_getBalance`](/base-account/reference/core/provider-rpc-methods/eth_getBalance)
+- [`eth_blockNumber`](/base-account/reference/core/provider-rpc-methods/eth_blockNumber)
+- [`eth_gasPrice`](/base-account/reference/core/provider-rpc-methods/eth_gasPrice)
+- [`eth_estimateGas`](/base-account/reference/core/provider-rpc-methods/eth_estimateGas)
+- [`eth_feeHistory`](/base-account/reference/core/provider-rpc-methods/eth_feeHistory)
+- [`eth_getBlockByNumber`](/base-account/reference/core/provider-rpc-methods/eth_getBlockByNumber)
+- [`eth_getBlockByHash`](/base-account/reference/core/provider-rpc-methods/eth_getBlockByHash)
+- [`eth_getTransactionByHash`](/base-account/reference/core/provider-rpc-methods/eth_getTransactionByHash)
+- [`eth_getTransactionReceipt`](/base-account/reference/core/provider-rpc-methods/eth_getTransactionReceipt)
+- [`eth_getTransactionCount`](/base-account/reference/core/provider-rpc-methods/eth_getTransactionCount)
+- [`eth_getTransactionByBlockHashAndIndex`](/base-account/reference/core/provider-rpc-methods/eth_getTransactionByBlockHashAndIndex)
+- [`eth_getTransactionByBlockNumberAndIndex`](/base-account/reference/core/provider-rpc-methods/eth_getTransactionByBlockNumberAndIndex)
+- [`eth_getBlockTransactionCountByHash`](/base-account/reference/core/provider-rpc-methods/eth_getBlockTransactionCountByHash)
+- [`eth_getBlockTransactionCountByNumber`](/base-account/reference/core/provider-rpc-methods/eth_getBlockTransactionCountByNumber)
+- [`eth_getCode`](/base-account/reference/core/provider-rpc-methods/eth_getCode)
+- [`eth_getStorageAt`](/base-account/reference/core/provider-rpc-methods/eth_getStorageAt)
+- [`eth_getLogs`](/base-account/reference/core/provider-rpc-methods/eth_getLogs)
+- [`eth_getProof`](/base-account/reference/core/provider-rpc-methods/eth_getProof)
+- [`eth_getUncleCountByBlockHash`](/base-account/reference/core/provider-rpc-methods/eth_getUncleCountByBlockHash)
+- [`eth_getUncleCountByBlockNumber`](/base-account/reference/core/provider-rpc-methods/eth_getUncleCountByBlockNumber)
+- [`eth_sendRawTransaction`](/base-account/reference/core/provider-rpc-methods/eth_sendRawTransaction)
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

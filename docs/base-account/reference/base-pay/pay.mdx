@@ -1,116 +1,156 @@
 ---
 title: "pay"
+description: "Send USDC payments on the Base network"
 ---
 
-## Overview
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 
+<Info>
 The `pay` function is the core method of Base Pay that lets your users send USDC (digital dollars) on the Base network. No crypto knowledge required - we handle all the complexity. **No fees for merchants or users.**
-
-## Function Signature
-
-```typescript
-/**
- * Sends USDC to an Ethereum address
- * @throws {Error} If the input parameters are invalid
- */
-declare function pay(options: PayOptions): Promise<PayResult>;
-```
+</Info>
 
 ## Parameters
 
-### PayOptions
+<ParamField body="amount" type="string" required>
+Amount of USDC to send (e.g., "10.50" or "0.01").
+</ParamField>
 
-```typescript
-interface PayOptions {
-  /** Amount of USDC to send (e.g., "10.50" or "0.01") */
-  amount: string;
-  /** Ethereum address to send USDC to (must start with 0x) */
-  to: string;
-  /** Set to true to use Base Sepolia testnet instead of mainnet */
-  testnet?: boolean;
-  /** Optional payer information configuration for data callbacks */
-  payerInfo?: PayerInfo;
-}
+<ParamField body="to" type="string" required>
+Ethereum address to send USDC to (must start with 0x).
 
-interface PayerInfo {
-  /** Information requests from the payer */
-  requests: InfoRequest[];
-  /** Optional callback URL for server-side validation */
-  callbackURL?: string;
-}
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
 
-interface InfoRequest {
-  /** The type of information being requested */
-  type: 'email' | 'physicalAddress' | 'phoneNumber' | 'name' | 'onchainAddress';
-  /** Whether this information is optional (default: false) */
-  optional?: boolean;
-}
-```
+<ParamField body="testnet" type="boolean">
+Set to true to use Base Sepolia testnet instead of mainnet. Default: false
+</ParamField>
+
+<ParamField body="payerInfo" type="object">
+Optional payer information configuration for data callbacks.
+
+<Expandable title="PayerInfo properties">
+<ParamField body="requests" type="array" required>
+Array of information requests from the payer.
+
+<Expandable title="InfoRequest properties">
+<ParamField body="type" type="string" required>
+The type of information being requested.
+
+**Possible values:** `'email' | 'physicalAddress' | 'phoneNumber' | 'name' | 'onchainAddress'`
+</ParamField>
+
+<ParamField body="optional" type="boolean">
+Whether this information is optional. Default: false
+</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField body="callbackURL" type="string">
+Optional callback URL for server-side validation.
+</ParamField>
+</Expandable>
+</ParamField>
 
 ## Returns
 
-### PayResult
+<ResponseField name="result" type="PayResult">
+Payment result indicating success or failure.
 
-```typescript
-interface PaymentSuccess {
-  success: true;
-  /** Transaction hash - use this to check payment status */
-  id: string;
-  /** Amount that was sent */
-  amount: string;
-  /** Address that received the payment */
-  to: string;
-  /** Optional responses from information requests */
-  payerInfoResponses?: PayerInfoResponses;
-}
+<Expandable title="Payment Success properties">
+<ResponseField name="success" type="boolean">
+Always true for successful payments.
+</ResponseField>
 
-interface PaymentError {
-  success: false;
-  /** Error message explaining what went wrong */
-  error: string;
-  /** Amount that was attempted */
-  amount: string;
-  /** Address that would have received the payment */
-  to: string;
-}
+<ResponseField name="id" type="string">
+Transaction hash - use this to check payment status.
+</ResponseField>
 
-type PayResult = PaymentSuccess | PaymentError;
-```
+<ResponseField name="amount" type="string">
+Amount that was sent.
+</ResponseField>
 
-## Usage Example
+<ResponseField name="to" type="string">
+Address that received the payment.
+</ResponseField>
 
-```typescript
+<ResponseField name="payerInfoResponses" type="object">
+Optional responses from information requests.
+</ResponseField>
+</Expandable>
+
+<Expandable title="Payment Error properties">
+<ResponseField name="success" type="boolean">
+Always false for failed payments.
+</ResponseField>
+
+<ResponseField name="error" type="string">
+Error message explaining what went wrong.
+</ResponseField>
+
+<ResponseField name="amount" type="string">
+Amount that was attempted.
+</ResponseField>
+
+<ResponseField name="to" type="string">
+Address that would have received the payment.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+
+<RequestExample>
+```typescript Basic Payment
 import { pay } from '@base-org/account';
 
-async function sendPayment() {
-  try {
-    const result = await pay({
-      amount: "10.50",
-      to: "0x1234567890123456789012345678901234567890",
-      testnet: false // Use mainnet
-    });
+const result = await pay({
+  amount: "10.50",
+  to: "0x1234567890123456789012345678901234567890",
+  testnet: false
+});
+```
 
-    if (result.success) {
-      console.log("Payment successful!");
-      console.log("Transaction ID:", result.id);
-      console.log("Amount sent:", result.amount);
-      console.log("Sent to:", result.to);
-    } else {
-      console.error("Payment failed:", result.error);
-    }
-  } catch (error) {
-    console.error("Payment error:", error);
+```typescript Payment with Data Collection
+const result = await pay({
+  amount: "25.00",
+  to: "0x1234567890123456789012345678901234567890",
+  payerInfo: {
+    requests: [
+      { type: 'email', optional: false },
+      { type: 'physicalAddress', optional: true }
+    ],
+    callbackURL: "https://your-api.com/validate"
+  }
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Success Response
+{
+  success: true,
+  id: "0xabcd1234...",
+  amount: "10.50",
+  to: "0x1234567890123456789012345678901234567890",
+  payerInfoResponses: {
+    email: "user@example.com"
   }
 }
 ```
 
+```typescript Error Response
+{
+  success: false,
+  error: "Insufficient balance",
+  amount: "10.50",
+  to: "0x1234567890123456789012345678901234567890"
+}
+```
+</ResponseExample>
+
 ## Error Handling
 
-The `pay` function can throw errors for invalid parameters:
-
-- Invalid amount format
-- Invalid Ethereum address format
-- Network connection issues
-- User rejection of the payment
-
 Always wrap calls to `pay` in a try-catch block to handle these errors gracefully.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

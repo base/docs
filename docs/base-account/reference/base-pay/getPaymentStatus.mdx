@@ -1,140 +1,141 @@
 ---
 title: "getPaymentStatus"
+description: "Check the status of a payment transaction"
 ---
 
-## Overview
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 
+<Info>
 The `getPaymentStatus` function allows you to check the status of a payment transaction after it has been submitted. Use this to track whether a payment has been completed, is still pending, or has failed.
-
-## Function Signature
-
-```typescript
-/**
- * Checks the status of a payment
- * @throws {Error} If the transaction ID is invalid
- */
-declare function getPaymentStatus(options: GetPaymentStatusOptions): Promise<PaymentStatus>;
-```
+</Info>
 
 ## Parameters
 
-### GetPaymentStatusOptions
+<ParamField body="id" type="string" required>
+Transaction hash from the pay result that you want to check the status of.
 
-```typescript
-interface GetPaymentStatusOptions {
-  /** Transaction hash from pay result */
-  id: string;
-  /** Must match testnet setting used in pay */
-  testnet?: boolean;
-}
-```
+**Pattern:** `^0x[0-9a-fA-F]{64}$`
+</ParamField>
+
+<ParamField body="testnet" type="boolean">
+Must match the testnet setting used in the original pay call. Default: false
+</ParamField>
 
 ## Returns
 
-### PaymentStatus
+<ResponseField name="result" type="PaymentStatus">
+Payment status information including current state and details.
 
-```typescript
-interface PaymentStatus {
-  /** Current status of the payment */
-  status: "completed" | "pending" | "failed" | "not_found";
-  /** Original transaction hash */
-  id: string;
-  /** Human-readable status message */
-  message: string;
-  /** Sender address (present for pending, completed, and failed) */
-  sender?: string;
-  /** Amount that was sent (present for completed transactions) */
-  amount?: string;
-  /** Address that received the payment (present for completed transactions) */
-  recipient?: string;
-  /** Error details (present for failed status) */
-  error?: string;
-}
+<Expandable title="PaymentStatus properties">
+<ResponseField name="status" type="string">
+Current status of the payment.
+
+**Possible values:**
+- `"completed"`: Payment successfully processed and confirmed
+- `"pending"`: Payment still being processed by the network  
+- `"failed"`: Payment failed to process (funds not transferred)
+- `"not_found"`: Transaction ID not found or invalid
+</ResponseField>
+
+<ResponseField name="id" type="string">
+Original transaction hash that was queried.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+Human-readable status message explaining the current state.
+</ResponseField>
+
+<ResponseField name="sender" type="string">
+Sender address (present for pending, completed, and failed statuses).
+</ResponseField>
+
+<ResponseField name="amount" type="string">
+Amount that was sent (present for completed transactions).
+</ResponseField>
+
+<ResponseField name="recipient" type="string">
+Address that received the payment (present for completed transactions).
+</ResponseField>
+
+<ResponseField name="error" type="string">
+Error details (present for failed status).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+
+<RequestExample>
+```typescript Basic Status Check
+import { getPaymentStatus } from '@base-org/account';
+
+const status = await getPaymentStatus({
+  id: "0xabcd1234...",
+  testnet: false
+});
+
+console.log("Payment status:", status.status);
 ```
 
-## Status Types
-
-- **`completed`**: Payment has been successfully processed and confirmed on the blockchain
-- **`pending`**: Payment is still being processed by the network
-- **`failed`**: Payment failed to process (funds are not transferred)
-- **`not_found`**: Transaction ID not found or invalid
-
-## Usage Example
-
-```typescript
+```typescript Complete Payment Flow
 import { pay, getPaymentStatus } from '@base-org/account';
 
-async function sendAndTrackPayment() {
-  try {
-    // First, send a payment
-    const payResult = await pay({
-      amount: "10.50",
-      to: "0x1234567890123456789012345678901234567890",
-      testnet: false
-    });
+// Send payment
+const payResult = await pay({
+  amount: "10.50",
+  to: "0x1234567890123456789012345678901234567890"
+});
 
-    if (payResult.success) {
-      console.log("Payment submitted:", payResult.id);
-      
-      // Check payment status
-      const status = await getPaymentStatus({
-        id: payResult.id,
-        testnet: false
-      });
-      
-      console.log("Payment status:", status.status);
-      console.log("Status message:", status.message);
-      
-      if (status.status === "completed") {
-        console.log("Payment completed successfully!");
-      } else if (status.status === "pending") {
-        console.log("Payment is still processing...");
-      } else if (status.status === "failed") {
-        console.log("Payment failed:", status.message);
-      }
-    }
-  } catch (error) {
-    console.error("Error:", error);
-  }
+if (payResult.success) {
+  // Check status
+  const status = await getPaymentStatus({
+    id: payResult.id,
+    testnet: false
+  });
+  
+  console.log("Status:", status.status);
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Completed Payment
+{
+  status: "completed",
+  id: "0xabcd1234...",
+  message: "Payment completed successfully",
+  sender: "0x742d35Cc4Bf53E0e6C42E5d9F0A8D2F6D8A8B7C9",
+  amount: "10.50",
+  recipient: "0x1234567890123456789012345678901234567890"
 }
 ```
 
-## Polling for Status Updates
-
-For pending payments, you may want to poll the status periodically:
-
-```typescript
-async function pollPaymentStatus(transactionId: string, testnet: boolean = false) {
-  const maxAttempts = 30;
-  const pollInterval = 2000; // 2 seconds
-  
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const status = await getPaymentStatus({
-        id: transactionId,
-        testnet
-      });
-      
-      if (status.status === "completed") {
-        console.log("Payment completed!");
-        return status;
-      } else if (status.status === "failed") {
-        console.log("Payment failed:", status.message);
-        return status;
-      }
-      
-      // Still pending, wait before next check
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-    } catch (error) {
-      console.error("Error checking payment status:", error);
-      break;
-    }
-  }
-  
-  console.log("Payment status check timed out");
-  return null;
+```typescript Pending Payment
+{
+  status: "pending",
+  id: "0xabcd1234...",
+  message: "Payment is being processed",
+  sender: "0x742d35Cc4Bf53E0e6C42E5d9F0A8D2F6D8A8B7C9"
 }
 ```
+
+```typescript Failed Payment
+{
+  status: "failed",
+  id: "0xabcd1234...",
+  message: "Payment failed due to insufficient balance",
+  sender: "0x742d35Cc4Bf53E0e6C42E5d9F0A8D2F6D8A8B7C9",
+  error: "Insufficient balance"
+}
+```
+
+```typescript Transaction Not Found
+{
+  status: "not_found",
+  id: "0xabcd1234...",
+  message: "Transaction not found"
+}
+```
+</ResponseExample>
 
 ## Error Handling
 
@@ -145,3 +146,7 @@ The `getPaymentStatus` function can throw errors for:
 - Transaction not found
 
 Always wrap calls to `getPaymentStatus` in a try-catch block to handle these errors gracefully.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
