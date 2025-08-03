@@ -21,11 +21,59 @@ USDC on Base is a fully-backed digital dollar that settles in seconds and costs 
 If you intend on using the BasePayButton, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
 
 <div style={{ display: 'flex', justifyContent: 'center' }}>
-  <BasePayButton />
+  <button
+      type="button"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px 16px',
+        backgroundColor: '#ffffff',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        minWidth: '180px',
+        height: '44px'
+      }}
+    >
+      <img
+        src="/images/base-account/BasePayBlueLogo.png"
+        alt="Base Pay"
+        style={{
+          height: '20px',
+          width: 'auto'
+        }}
+      />
+    </button>
 </div>
 <br />
 <div style={{ display: 'flex', justifyContent: 'center' }}>
-  <BasePayButton colorScheme="dark" />
+  <button
+      type="button"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px 16px',
+        backgroundColor: '#0000FF',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        minWidth: '180px',
+        height: '44px'
+      }}
+    >
+      <img
+        src="/images/base-account/BasePayWhiteLogo.png"
+        alt="Base Pay"
+        style={{
+          height: '20px',
+          width: 'auto'
+        }}
+      />
+    </button>
 </div>
 
 </Warning>
@@ -44,10 +92,16 @@ const { id } = await pay({
 });
 
 // Option 1: Poll until mined
-const { status } = await getPaymentStatus({ id });
+const { status } = await getPaymentStatus({ 
+  id,
+  testnet: true            // MUST match the testnet setting used in pay()
+});
 if (status === 'completed') console.log('🎉 payment settled');
 ```
 
+<Note>
+**Important:** The `testnet` parameter in `getPaymentStatus()` must match the value used in the original `pay()` call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
+</Note>
 
 This is what the user will see when prompted to pay:
 
@@ -98,8 +152,11 @@ Learn more about this in the [callbackURL reference](/base-account/reference/cor
 ```ts Backend (SDK)
 import { getPaymentStatus } from '@base-org/account';
 
-export async function checkPayment(txId) {
-  const status = await getPaymentStatus({ id: txId });
+export async function checkPayment(txId, testnet = false) {
+  const status = await getPaymentStatus({ 
+    id: txId,
+    testnet  // Must match the testnet setting from the original pay() call
+  });
   if (status.status === 'completed') {
     // fulfil order
   }
@@ -132,21 +189,66 @@ See full props and theming options in the [Button Reference](/base-account/refer
 If you intend on using the BasePayButton, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
 
 <div style={{ display: 'flex', justifyContent: 'center' }}>
-  <BasePayButton />
+  <button
+      type="button"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px 16px',
+        backgroundColor: '#ffffff',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        minWidth: '180px',
+        height: '44px'
+      }}
+    >
+      <img
+        src="/images/base-account/BasePayBlueLogo.png"
+        alt="Base Pay"
+        style={{
+          height: '20px',
+          width: 'auto'
+        }}
+      />
+    </button>
 </div>
 <br />
 <div style={{ display: 'flex', justifyContent: 'center' }}>
-  <BasePayButton colorScheme="dark" />
+  <button
+      type="button"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '12px 16px',
+        backgroundColor: '#0000FF',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        minWidth: '180px',
+        height: '44px'
+      }}
+    >
+      <img
+        src="/images/base-account/BasePayWhiteLogo.png"
+        alt="Base Pay"
+        style={{
+          height: '20px',
+          width: 'auto'
+        }}
+      />
+    </button>
 </div>
 </Warning>
 
 ## Test on Base Sepolia
 
-1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select “Base Sepolia”).  
-2. Pass <code>testnet: true</code> in your <code>pay()</code> call.  
+1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select "Base Sepolia").  
+2. Pass <code>testnet: true</code> in your <code>pay()</code> and <code>getPaymentStatus()</code> calls.  
 3. Use <a href="https://sepolia.basescan.org" target="_blank">Sepolia BaseScan</a> to watch the transaction.
 
-
-import PolicyBanner from "/snippets/PolicyBanner.mdx";
-
-<PolicyBanner /> 
+ 

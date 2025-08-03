@@ -43,9 +43,11 @@ your-domain.com/
 
 **Are you having wallet connection problems?** → [Go to Wallet Connection Problems](#4-wallet-connection-problems)
 
-**Are you looking for testing tools ?** → [Go to Mobile Testing & Debugging](#5-mobile-testing--debugging)
+**Are you looking for testing tools ?** → [Go to Mobile Testing & Debugging](#6-mobile-testing--debugging)
 
 **Are changes not appearing after updates?** → [Go to Manifest Configuration Problems](#2-manifest-configuration-problems) 
+
+**Does your app close unexpectedly during user interactions?** → [Go to Gesture Conflicts and App Dismissal Issues](#5-gesture-conflicts-and-app-dismissal-issues)
 
 ## **Detailed Problem Solutions**
 
@@ -108,12 +110,12 @@ your-domain.com/
 
 **Problem**: Your app has a manifest but still doesn't appear in catalogs.
 
-**Solution**: Your Mini App must be shared in a cast to be indexed.
+**Solution**: Your Mini App must be shared in a post to be indexed.
 
 **Steps to Index Your App**:
 
 1. Complete your manifest setup  
-2. Share your Mini App URL in a cast  
+2. Share your Mini App URL in a post 
 3. Indexing can take up to 10 minutes  
 4. Verify appearance in app catalogs
 
@@ -270,8 +272,29 @@ function WalletConnection() {
 }
 ```
 
+## **5\. Gesture Conflicts and App Dismissal Issues** 
 
-## **5\. Mobile Testing & Debugging** 
+**Problem**: App closes when users swipe, drag, or perform touch gestures.
+
+**Symptoms**:
+
+* Mini App closes when users swipe, drag, or perform touch gestures
+* App dismisses during game interactions or custom navigation  
+* Users can't complete multi-step touch interactions
+
+**Root Cause**: Mini Apps run in modal containers where native gestures (swipes, taps outside the app area) automatically close the app. If your app uses similar gestures, they conflict with these native dismissal behaviors.
+
+**Solution**: Disable native gestures when calling `sdk.actions.ready()`:
+
+```ts
+// Instead of this:
+await sdk.actions.ready();
+
+// Use this if your app has gesture conflicts:
+await sdk.actions.ready({ disableNativeGestures: true });
+```
+
+## **6\. Mobile Testing & Debugging** 
 
 ### **Using Eruda for Mobile Debug**
 
@@ -349,7 +372,7 @@ Before deploying your Mini App, verify these items work correctly:
 
 - [ ] Manifest file is accessible at `/.well-known/farcaster.json`  
 - [ ] App appears in embed when URL is shared  
-- [ ] App appears in search results (after casting)  
+- [ ] App appears in search results (after posting)  
 - [ ] All required manifest fields are present
 
 ## **Getting Additional Help**
@@ -363,7 +386,3 @@ If you're still experiencing issues after following this guide:
 * [Base Discord](https://discord.com/channels/1067165013397213286/1387875275756408883) \- \#minikit channel
 
 
-
-import PolicyBanner from "/snippets/PolicyBanner.mdx";
-
-<PolicyBanner />
