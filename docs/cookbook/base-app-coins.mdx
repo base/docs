@@ -112,7 +112,6 @@ export async function getCurrency(address: string): Promise<Currency> {
 
 ```typescript
 let coinType: string | undefined;
-let appType = "ZORA";
 if (key.hooks === "0xd61A675F8a0c67A73DC3B54FB7318B4D91409040") {
     coinType = "ZORA_CREATOR_COIN"
 } else if (key.hooks === "0x9ea932730A7787000042e34390B8E435dD839040") {
@@ -121,20 +120,49 @@ if (key.hooks === "0xd61A675F8a0c67A73DC3B54FB7318B4D91409040") {
 
 if (!coinType) continue;
 
-if (TBA_PAIRINGS.includes(pool.currency0.wrapped.address) || TBA_PAIRINGS.includes(pool.currency1.wrapped.address)) {
-    appType = "TBA"
-}
+// Detect if the coin is coming from Base App or Zora
+const appType = await categorizeAppType(pool);
 ```
 
 **Base App Token Detection:**
 ```typescript
-const TBA_PAIRINGS = [
-    "0x4200000000000000000000000000000000000006", // WETH
-    // "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" // USDC - not yet used
-]
+
+export async function categorizeAppType(pool: Pool) {
+    async function tryGetPlatformReferrer(address: string) {
+        const zoraBaseCoin = getContract({
+            abi: parseAbi([
+                "function platformReferrer() view returns (address)",
+            ]),
+            address: address as `0x${string}`,
+            client: publicClient
+        })
+
+        try {
+            const platformReferrer = await zoraBaseCoin.read.platformReferrer()
+            return platformReferrer
+        } catch (error) {
+            return ADDRESS_ZERO
+        }
+    }
+
+    // Try to fetch `platformReferrer()` on both currencies in the Pool
+    // falling back to ADDRESS_ZERO if the function does not exist (currency is not a Zora coin)
+    const [currency0PlatformReferrer, currency1PlatformReferrer] = await Promise.all([
+        tryGetPlatformReferrer(pool.currency0.wrapped.address),
+        tryGetPlatformReferrer(pool.currency1.wrapped.address)
+    ])
+
+    // If either of the currencies has the Base App referrer address,
+    // the coin is coming from the Base App
+    if ([currency0PlatformReferrer, currency1PlatformReferrer].includes(BASE_PLATFORM_REFERRER)) {
+        return "TBA"
+    }
+
+    return "ZORA"
+}
 ```
 
-Since the coins are created via Zora, filtering down to which ones are from Base App is a matter of looking at what token the pool is paired with. Tokens created via the Base App are paired with `WETH`. In the future, `USDC` pairing will also be used. Tokens created directly via the Zora app do not pair with `WETH` or `USDC` - so we use this as a way of identifying and tagging if the coin came from Zora or Base App.
+Since the coins are created via Zora, filtering down to which ones are from Base App is a matter of looking at what the platform referrer address is on the Zora coin. We don't know if the Zora coin is necessarily `currency0` or `currency1` in the pool - so we attempt to fetch the platform referrer address for both. For tokens like WETH which don't have that view function available, it will just fall back to the zero address. If either of the currencies return a valid platform referrer address that also matches the referrer address used by the Base App, we classify the coin as having come from the Base App.
 
 
 #### 4. Liquidity Calculations
@@ -267,9 +295,6 @@ const metadata = {
 
 ### Block Range
 Modify `START_BLOCK_NUMBER` and `END_BLOCK_NUMBER` in `index.ts` to scan different ranges or implement continuous monitoring.
-
-### Token Pairing Rules
-Update `TBA_PAIRINGS` array to modify which base tokens indicate Base App classification.
 
 ### Hook Addresses
 Add new hook addresses to the classification logic as new Zora contracts are deployed.
