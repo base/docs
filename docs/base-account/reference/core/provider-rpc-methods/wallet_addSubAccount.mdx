@@ -1,3 +1,4 @@
+```mdx
 ---
 title: "wallet_addSubAccount"
 description: "Add a sub account to the wallet"
@@ -16,7 +17,7 @@ The account configuration object.
 
 <Expandable title="Account object properties">
 <ParamField body="type" type="string" required>
-The type of sub account to create. Can be "create" or "deployed".
+The type of sub account to create. Can be "create", "deployed" or "undeployed".
 </ParamField>
 
 <ParamField body="keys" type="array">
@@ -34,11 +35,19 @@ Hex string of the public key.
 </ParamField>
 
 <ParamField body="address" type="string">
-The address of the deployed account to add as a sub account. (required for "deployed" type).
+The address of the deployed account to add as a sub account. (required for "deployed" and "undeployed" types).
 </ParamField>
 
-<ParamField body="chainId" type="number">
-The chain ID that the account is deployed on. (required for "deployed" type).
+<ParamField body="factory" type="string">
+The factory contract address (optional, only for "undeployed" type).
+</ParamField>
+
+<ParamField body="factoryData" type="string">
+Factory deployment data (optional, only for "undeployed" type).
+</ParamField>
+
+<ParamField body="chainId" type="string">
+The chain ID that the account is deployed on. (optional, only for "undeployed" type).
 </ParamField>
 </Expandable>
 </ParamField>
@@ -51,6 +60,10 @@ Sub account information including address and deployment details.
 <Expandable title="Result properties">
 <ResponseField name="address" type="string">
 The address of the created sub account.
+</ResponseField>
+
+<ResponseField name="chainId" type="string">
+The chain ID that the account is deployed on (optional).
 </ResponseField>
 
 <ResponseField name="factory" type="string">
@@ -89,8 +102,24 @@ Factory deployment data (optional).
   "params": [{
     "account": {
       "type": "deployed",
+      "address": "0x1234567890123456789012345678901234567890"
+    }
+  }]
+}
+```
+
+```json Undeployed Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_addSubAccount",
+  "params": [{
+    "account": {
+      "type": "undeployed",
       "address": "0x1234567890123456789012345678901234567890",
-      "chainId": 8453
+      "factory": "0xabcdef0123456789...",
+      "factoryData": "0xabcdef0123456789...",
+      "chainId": "0x2105"
     }
   }]
 }
@@ -104,7 +133,9 @@ Factory deployment data (optional).
   "jsonrpc": "2.0",
   "result": {
     "address": "0x1234567890123456789012345678901234567890",
-    "chainId": "0x2105"
+    "chainId": "0x2105",
+    "factory": "0xabcdef0123456789...",
+    "factoryData": "0xabcdef0123456789..."
   }
 }
 ```
@@ -121,3 +152,5 @@ Factory deployment data (optional).
 <Warning>
 This is an experimental feature and the API may change in future versions.
 </Warning>
+
+```
