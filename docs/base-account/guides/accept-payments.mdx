@@ -29,18 +29,23 @@ If you intend on using the BasePayButton, please follow the [Brand Guidelines](/
 import { pay, getPaymentStatus } from '@base-org/account';
 
 // Trigger a payment – user will see a popup from their wallet service
-const { id } = await pay({
-  amount: '1.00',           // USD amount (we quote USDC internally)
-  to:    '0xRecipient',     // your address
-  testnet: true            // set false for Mainnet
-});
-
-// Option 1: Poll until mined
-const { status } = await getPaymentStatus({ 
-  id,
-  testnet: true            // MUST match the testnet setting used in pay()
-});
-if (status === 'completed') console.log('🎉 payment settled');
+try {
+  const payment = await pay({
+    amount: '1.00',           // USD amount (USDC used internally)
+    to:    '0xRecipient',     // your address
+    testnet: true            // set false for Mainnet
+  });
+  
+  // Option 1: Poll until mined
+  const { status } = await getPaymentStatus({ 
+    id: payment.id,
+    testnet: true            // MUST match the testnet setting used in pay()
+  });
+  if (status === 'completed') console.log('🎉 payment settled');
+  
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 ```
 
 <Note>
@@ -58,17 +63,39 @@ This is what the user will see when prompted to pay:
 Need an email, phone, or shipping address at checkout?  Pass a <code>payerInfo</code> object:
 
 ```ts
-await pay({
-  amount: '25.00',
-  to: '0xRecipient',
-  payerInfo: {
-    requests: [
-      { type: 'email' },
-      { type: 'phoneNumber', optional: true }
-    ],
-    callbackURL: 'https://your-api.com/validate' // Optional - for server-side validation
+try {
+  const payment = await pay({
+    amount: '25.00',
+    to: '0xRecipient',
+    payerInfo: {
+      requests: [
+        { type: 'email' },
+        { type: 'phoneNumber', optional: true },
+        { type: 'physicalAddress', optional: true }
+      ],
+      callbackURL: 'https://your-api.com/validate' // Optional - for server-side validation
+    }
+  });
+  
+  console.log(`Payment sent! Transaction ID: ${payment.id}`);
+  
+  // Log the collected user information
+  if (payment.payerInfoResponses) {
+    if (payment.payerInfoResponses.email) {
+      console.log(`Email: ${payment.payerInfoResponses.email}`);
+    }
+    if (payment.payerInfoResponses.phoneNumber) {
+      console.log(`Phone: ${payment.payerInfoResponses.phoneNumber.number}`);
+      console.log(`Country: ${payment.payerInfoResponses.phoneNumber.country}`);
+    }
+    if (payment.payerInfoResponses.physicalAddress) {
+      const address = payment.payerInfoResponses.physicalAddress;
+      console.log(`Shipping Address: ${address.name.firstName} ${address.name.familyName}, ${address.address1}, ${address.city}, ${address.state} ${address.postalCode}`);
+    }
   }
-});
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 ```
 
 Supported request types:
@@ -78,7 +105,7 @@ Supported request types:
 | <code>email</code> | string |
 | <code>name</code> | &#123; firstName, familyName &#125; |
 | <code>phoneNumber</code> | &#123; number, country &#125; |
-| <code>physicalAddress</code> | full address object |
+| <code>physicalAddress</code> | [full address object](/base-account/reference/core/capabilities/datacallback#physical-address-object) |
 | <code>onchainAddress</code> | string |
 
 <Warning>Required by default — set <code>optional: true</code> to avoid aborting the payment if the user declines.</Warning>
@@ -116,10 +143,19 @@ import { BasePayButton } from '@base-org/account-ui/react';
 import { pay } from '@base-org/account';
 
 export function Checkout() {
+  const handlePayment = async () => {
+    try {
+      const payment = await pay({ amount: '5.00', to: '0xRecipient' });
+      console.log(`Payment sent! Transaction ID: ${payment.id}`);
+    } catch (error) {
+      console.error(`Payment failed: ${error.message}`);
+    }
+  };
+
   return (
     <BasePayButton
       colorScheme="light"
-      onClick={() => pay({ amount: '5.00', to: '0xRecipient' })}
+      onClick={handlePayment}
     />
   );
 }

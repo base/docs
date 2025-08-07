@@ -79,20 +79,26 @@ console.log("Payment status:", status.status);
 ```typescript Complete Payment Flow
 import { pay, getPaymentStatus } from '@base-org/account';
 
-// Send payment
-const payResult = await pay({
-  amount: "10.50",
-  to: "0x1234567890123456789012345678901234567890"
-});
+try {
+  // Send payment
+  const payment = await pay({
+    amount: "10.50",
+    to: "0x1234567890123456789012345678901234567890"
+  });
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 
-if (payResult.success) {
+try {
   // Check status
   const status = await getPaymentStatus({
-    id: payResult.id,
+    id: payment.id,
     testnet: false
   });
   
   console.log("Status:", status.status);
+  catch (error) {
+  console.error(`Get status Failed: ${error.message}`);
 }
 ```
 </RequestExample>
