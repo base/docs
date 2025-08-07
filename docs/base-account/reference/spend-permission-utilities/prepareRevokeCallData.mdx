@@ -1,0 +1,58 @@
+---
+title: "prepareRevokeCallData"
+description: "Construct calldata so your app's spender can revoke a Spend Permission without user interaction"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  Builds a single revoke call that your app's spender account can submit to
+  revoke a permission silently. This requires your app to control a spender
+  account with rights to revoke.
+</Info>
+
+## Parameters
+
+<ParamField body="permission" type="SpendPermission" required>
+  The permission to revoke.
+</ParamField>
+
+## Returns
+
+<ResponseField name="revokeCall" type="Call">
+Call data for the revoke transaction.
+
+<Expandable title="Call type">
+<ResponseField name="to" type="string" />
+<ResponseField name="data" type="`0x${string}`" />
+<ResponseField name="value" type="`0x0`" />
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```typescript Silent revoke via spender account
+import { prepareRevokeCallData } from "@base-org/account/spend-permission";
+
+const revokeCall = await prepareRevokeCallData(permission);
+
+await provider.request({
+  method: "wallet_sendCalls",
+  params: [
+    {
+      version: "2.0",
+      atomicRequired: true,
+      from: spender,
+      calls: [revokeCall],
+    },
+  ],
+});
+```
+</RequestExample>
+
+## Error Handling
+
+Always wrap the call in a try-catch block to handle these errors gracefully.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
