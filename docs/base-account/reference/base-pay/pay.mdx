@@ -54,13 +54,9 @@ Optional callback URL for server-side validation.
 ## Returns
 
 <ResponseField name="result" type="PayResult">
-Payment result indicating success or failure.
+Payment result on success. The function throws an error on failure.
 
 <Expandable title="Payment Success properties">
-<ResponseField name="success" type="boolean">
-Always true for successful payments.
-</ResponseField>
-
 <ResponseField name="id" type="string">
 Transaction hash - use this to check payment status.
 </ResponseField>
@@ -77,79 +73,131 @@ Address that received the payment.
 Optional responses from information requests.
 </ResponseField>
 </Expandable>
-
-<Expandable title="Payment Error properties">
-<ResponseField name="success" type="boolean">
-Always false for failed payments.
 </ResponseField>
 
-<ResponseField name="error" type="string">
-Error message explaining what went wrong.
-</ResponseField>
+## Errors
 
-<ResponseField name="amount" type="string">
-Amount that was attempted.
-</ResponseField>
-
-<ResponseField name="to" type="string">
-Address that would have received the payment.
-</ResponseField>
-</Expandable>
-</ResponseField>
+The `pay` function throws an error when the payment fails. The error object contains a message explaining what went wrong.
 
 
 <RequestExample>
 ```typescript Basic Payment
 import { pay } from '@base-org/account';
 
-const result = await pay({
-  amount: "10.50",
-  to: "0x1234567890123456789012345678901234567890",
-  testnet: false
-});
+try {
+  const payment = await pay({
+    amount: "10.50",
+    to: "0x1234567890123456789012345678901234567890",
+    testnet: false
+  });
+  console.log(`Payment sent! Transaction ID: ${payment.id}`);
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 ```
 
 ```typescript Payment with Data Collection
-const result = await pay({
-  amount: "25.00",
-  to: "0x1234567890123456789012345678901234567890",
-  payerInfo: {
-    requests: [
-      { type: 'email', optional: false },
-      { type: 'physicalAddress', optional: true }
-    ],
-    callbackURL: "https://your-api.com/validate"
+try {
+  const payment = await pay({
+    amount: "25.00",
+    to: "0x1234567890123456789012345678901234567890",
+    payerInfo: {
+      requests: [
+        { type: 'email', optional: false },
+        { type: 'phoneNumber', optional: true },
+        { type: 'physicalAddress', optional: true }
+      ],
+      callbackURL: "https://your-api.com/validate"
+    }
+  });
+  
+  console.log(`Payment sent! Transaction ID: ${payment.id}`);
+  
+  // Access collected user information
+  if (payment.payerInfoResponses) {
+    console.log('Email:', payment.payerInfoResponses.email);
+    
+    if (payment.payerInfoResponses.phoneNumber) {
+      console.log('Phone:', payment.payerInfoResponses.phoneNumber.number);
+      console.log('Country:', payment.payerInfoResponses.phoneNumber.country);
+    }
+    
+    if (payment.payerInfoResponses.physicalAddress) {
+      const address = payment.payerInfoResponses.physicalAddress;
+      console.log('Address:', address.address1);
+      console.log('City:', address.city);
+      console.log('State:', address.state);
+      console.log('Postal Code:', address.postalCode);
+      console.log('Recipient Name:', `${address.name.firstName} ${address.name.familyName}`);
+    }
   }
-});
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 ```
 </RequestExample>
 
 <ResponseExample>
-```typescript Success Response
+```typescript Basic Success Response
 {
-  success: true,
   id: "0xabcd1234...",
   amount: "10.50",
+  to: "0x1234567890123456789012345678901234567890"
+}
+```
+
+```typescript Success Response with Data Collection
+{
+  id: "0xabcd1234...",
+  amount: "25.00",
   to: "0x1234567890123456789012345678901234567890",
   payerInfoResponses: {
-    email: "user@example.com"
+    email: "user@example.com",
+    phoneNumber: {
+      number: "+1234567890",
+      country: "US"
+    },
+    physicalAddress: {
+      address1: "123 Main St",
+      city: "San Francisco",
+      state: "CA",
+      postalCode: "94105",
+      country: "US",
+      name: {
+        firstName: "John",
+        familyName: "Doe"
+      }
+    }
   }
 }
 ```
 
-```typescript Error Response
+```typescript Error (thrown)
 {
-  success: false,
-  error: "Insufficient balance",
-  amount: "10.50",
-  to: "0x1234567890123456789012345678901234567890"
+  "code": 4001,
+  "message": "Request rejected",
+  "stack": "Error: Request rejected\n    at getEthProviderError..."
 }
 ```
 </ResponseExample>
 
 ## Error Handling
 
-Always wrap calls to `pay` in a try-catch block to handle these errors gracefully.
+The `pay` function throws errors instead of returning a result. Always wrap calls to `pay` in a try-catch block to handle errors gracefully:
+
+```typescript
+try {
+  const payment = await pay({
+    amount: "10.00",
+    to: "0xRecipient"
+  });
+  // Payment succeeded, use payment.id for tracking
+  console.log(`Payment sent! Transaction ID: ${payment.id}`);
+} catch (error) {
+  // Payment failed
+  console.error(`Payment failed: ${error.message}`);
+}
+```
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
