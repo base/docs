@@ -1,0 +1,175 @@
+---
+title: 'Mini App Search and Discovery'
+description: 'Learn how users discover and access Mini Apps in the Base ecosystem, including discovery surfaces, ranking systems, and optimization strategies for maximum visibility.'
+---
+
+> **What you’ll learn**  
+> By the end of this guide, you’ll be able to:
+> - Structure your Mini App’s metadata to create rich, visually compelling user experiences. 
+> - Get your Mini App indexed in Base App search and understand how indexing works.  
+> - Design compelling embeds that drive clicks and engagement from social feeds.  
+> - Choose the right categories and implement strategies to rank higher in “Trending Today.”  
+> - Apply best practices to increase discoverability across all Base App surfaces.  
+
+
+## Metadata
+
+### Manifest
+Your Mini App's [metadata](https://miniapps.farcaster.xyz/docs/specification) is defined in your manifest file located at `/.well-known/farcaster.json`. This JSON file contains all the essential information that Base App needs to display and categorize your Mini App.
+
+<Warning> Mini Apps require a complete manifest. You can read more [here](base-app/introduction/mini-apps#example-manifest) </Warning>
+
+### How Metadata Works
+Each specification element in your manifest serves a specific purpose in Base's interface and directly translates into compelling visual experiences that drive user engagement.
+
+<Frame caption="Manifest data spec">
+<img src="/images/minikit/spec_image.jpeg" alt="Manifest data spec" height="200"/>
+</Frame>
+
+### Why It's Important
+Your metadata determines how your Mini App appears across all Base App surfaces:
+
+- **App icon (1024x1024px)**: Becomes the primary touchpoint users interact with across all surfaces
+- **Embed image (3:2 aspect ratio)**: Creates the visual hook that stops users scrolling in social feeds  
+- **Tagline (50 characters max)**: Provides the instant value proposition that converts browsers into users
+- **Categories**: Determines where your app appears in Base App's browsing sections
+<Note>
+You can find the Figma file for visual guide [here](https://www.figma.com/design/4wx6s24NB0KLgprQAyMT8R/TBA-Mini-App-Specs?node-id=0-1&t=vs3713Z2RarbGRYi-1)
+</Note>
+## Design
+
+### Embeds
+When a user pastes your Mini App's link into a feed, the Base App automatically fetches your page's Open Graph metadata before the post is published. This metadata is used to render a rich embed—complete with your image, title, and call-to-action—that appears instantly in the composer and in followers' feeds. Well-designed embeds make your app stand out in fast-scrolling social contexts and can turn casual impressions into active launches.
+
+<Frame caption="Mini App in the feed">
+<img src="/images/minikit/feed_mini.jpg" alt="mini app feed" height="200"/>
+</Frame>
+
+
+
+
+## Search
+
+### How Search Works
+Users discover Mini Apps through direct search queries in Base App.
+
+<Frame caption="Here in The Base App you can see searching based on partial titles">
+<img src="/images/minikit/search.jpg" alt="search bar in base app" height="200"/>
+</Frame>
+
+Your Mini App will only appear in search results after it has been indexed. To ensure indexing, share your Mini App at least once in Base App. Indexing typically takes ~10 (approx) minutes after the first share.
+
+### Managing Search Indexing
+
+**Development Environment:**
+Add `"noindex": true` to your manifest to prevent development versions from appearing in search results:
+
+```json
+{
+  "frame": {
+    "noindex": true,
+    "name": "Your App (Dev)",
+    // ... other fields
+  }
+}
+```
+
+**Removing from Search:**
+To remove your Mini App from search results:
+
+- **Invalidate manifest:** Update your manifest to make it invalid (removes from all discovery).
+
+<Warning>
+If your Mini App does not show in search please follow the debugging guide [here](/base-app/build-with-minikit/debugging#1-app-discovery--indexing-issues)
+</Warning>
+
+## Discovery
+
+### Trending
+The "Trending Today" section showcases the most popular Mini Apps being actively used and shared.
+
+<Frame caption="Trending Today">
+<img src="/images/minikit/trending_today.jpg" alt="Mini App showing trending view" height="200"/>
+</Frame>
+
+**What determines trending status:**
+- Social sharing frequency 
+- Current user engagement metrics
+
+### Saved
+Multiple surfaces help users discover Mini Apps through social interactions:
+
+**Saved Apps** - Personal launcher and quick access hub
+<Frame caption="Saved Apps">
+<img src="/images/minikit/my-apps.jpg" alt="saved apps" height="200"/>
+</Frame>
+
+This surface functions like the iPhone homescreen for onchain applications. Users see their saved apps and Mini Apps in a personalized view.
+
+**What appears here:**
+- User's saved Mini Apps
+- Recently used applications
+
+**How users access your Mini App:**
+- Click on your Mini App icon after they've saved it
+- Access through recent usage if they've interacted with it recently
+
+<Tip>
+You can prompt users to save your Mini App using the [useAddFrame hook](/base-app/build-with-minikit/overview#useaddframe). Consider waiting until users experience value - after completing their first action or reaching a milestone - for better conversion rates.
+</Tip>
+
+**App Categories** - Browsable directory organized by interest
+<Frame caption="App Categories">
+<img src="/images/minikit/categories.jpg" alt="app categories" height="100"/>
+</Frame>
+
+<Warning>
+Choose your primaryCategory carefully as it determines where your app appears in Base App's category browsing. Available categories are: games, social, finance, utility, productivity, developer-tools, and art-creativity
+</Warning>
+
+<Frame caption="Ranking for the Social Category">
+<img src="/images/minikit/ranking.jpeg" alt="app categories" className="h-18 w-auto" />
+</Frame>
+<Tip> The Base app uses aggregated data (7-day rolling window) to generate dynamic category rankings and identify trending applications.</Tip>
+
+
+### Sharing
+
+**Technical implementation:**
+```html
+<meta name="fc:frame" content='{"version":"next","imageUrl":"https://your-app.com/embed-image","button":{"title":"Play Now","action":{"type":"launch_frame","name":"Your App","url":"https://your-app.com"}}}' />
+```
+
+**Specs**
+**Best practices for embeds:**
+- Add `fc:frame` meta tags to make pages shareable as embeds
+- Optimize embed images for 3:2 aspect ratio  
+- Include compelling call-to-action text in embed buttons
+- Use dynamic embed generation for personalized content
+
+<Warning>
+If your Mini App does not show as an embed please follow the debugging guide [here](/base-app/build-with-minikit/debugging#3-embed-rendering-issues)
+</Warning>
+
+**Build for Discovery:**
+
+- [ ] **Implement proper manifest files:** Ensure your `/.well-known/farcaster.json` includes all required metadata including proper categorization. [Example here](base-app/introduction/mini-apps#example-manifest)
+
+- [ ] **Choose relevant categories:** Select the most appropriate primary category in your manifest to appear in the right discovery sections
+
+- [ ] **Create shareable moments:** Build features that naturally encourage users to share their achievements, creations, or experiences. Follow our [Thinking Social Guide](/base-app/guides/thinking-social)
+
+- [ ] **Design compelling embeds:** Create eye-catching embed images and clear value propositions that encourage clicks from social feeds
+
+- [ ] **Encourage saves:** Implement prompts for users to save your Mini App to their personal launcher for easy return access
+
+## Next Steps
+
+Continue building your Mini App with these resources:
+
+- [MiniKit Documentation](/base-app/build-with-minikit/overview): Complete MiniKit integration guide
+- [Thinking Social](/base-app/guides/thinking-social): Social mechanics and sharing best practices
+
+
+
+By understanding and optimizing for these discovery mechanisms, you'll increase your Mini App's visibility and user engagement in the Base ecosystem. Focus particularly on social sharing mechanics and proper technical implementation to maximize your app's discoverability.
