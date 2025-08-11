@@ -22,12 +22,10 @@ This follows the same flow as shown in the [authenticate users guide](/base-acco
 
 ## Implementation
 
-### 1. Basic Sign In Component
+### Code Snippets
 
-Create a component that handles the complete authentication flow:
-
-```tsx
-// components/SignInWithBase.tsx
+<CodeGroup>
+```ts Browser (Wagmi + SDK)
 import { useState } from 'react'
 import { useConnect, useAccount, useDisconnect } from 'wagmi'
 import { baseAccount } from 'wagmi/connectors'
@@ -54,16 +52,16 @@ export function SignInWithBase() {
     setError(null)
 
     try {
-      // 1. Generate or fetch nonce
+      // 1 — get a fresh nonce (generate locally or prefetch from backend)
       const nonce = window.crypto.randomUUID().replace(/-/g, '')
-      // OR fetch from your backend:
+      // OR prefetch from server
       // const nonce = await fetch('/auth/nonce').then(r => r.text())
 
-      // 2. Connect and get the provider
-      const result = await connectAsync({ connector: baseAccountConnector })
-      const provider = await baseAccountConnector.getProvider()
+      // 2 — connect and get the provider
+      await connectAsync({ connector: baseAccountConnector })
+      const provider = baseAccountConnector.provider
 
-      // 3. Use wallet_connect with signInWithEthereum capabilities
+      // 3 — authenticate with wallet_connect
       const authResult = await provider.request({
         method: 'wallet_connect',
         params: [{
@@ -81,132 +79,55 @@ export function SignInWithBase() {
       const { address, capabilities } = accounts[0]
       const { message, signature } = capabilities.signInWithEthereum
 
-      // 4. Verify signature on your backend
-      const response = await fetch('/auth/verify', {
+      // 4 — verify on backend
+      await fetch('/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, message, signature })
       })
-
-      if (!response.ok) {
-        throw new Error('Authentication failed')
-      }
-
-      const authData = await response.json()
-      console.log('Authentication successful:', authData)
-      
-      // Handle successful authentication (e.g., redirect, update state)
-      
     } catch (err: any) {
-      console.error('Sign in failed:', err)
+      console.error(`err ${err}`)
       setError(err.message || 'Sign in failed')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleSignOut = () => {
-    disconnect()
-    // Clear any auth state in your app
-  }
-
   if (isConnected) {
     return (
       <div className="flex items-center gap-4">
-        <div className="flex flex-col">
-          <span className="text-sm text-gray-600">Connected as:</span>
-          <span className="font-mono text-sm">{address}</span>
-        </div>
-        <button
-          onClick={handleSignOut}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Sign Out
-        </button>
+        <span className="font-mono text-sm">{address}</span>
+        <button onClick={() => disconnect()}>Sign Out</button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <button
-        onClick={handleSignIn}
-        disabled={isLoading || !baseAccountConnector}
-        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isLoading ? 'Signing in...' : 'Sign in with Base'}
-      </button>
-      
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700">
-          {error}
-        </div>
-      )}
-    </div>
+    <button onClick={handleSignIn} disabled={isLoading}>
+      {isLoading ? 'Signing in...' : 'Sign in with Base'}
+    </button>
   )
 }
 ```
+```ts Backend (Viem)
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
 
-### 2. Backend Verification
+const client = createPublicClient({ chain: base, transport: http() });
 
-Set up your backend to verify the signatures (following the authenticate users guide):
-
-```ts
-// pages/api/auth/nonce.ts (optional - you can generate client-side)
-export default function handler(req: any, res: any) {
-  const nonce = crypto.randomBytes(16).toString('hex')
-  // Store nonce in session/database to prevent reuse
-  res.json({ nonce })
+export async function verifySig(req, res) {
+  const { address, message, signature } = req.body;
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: 'Invalid signature' });
+  // create session / JWT
+  res.json({ ok: true });
 }
 ```
-
-```ts
-// pages/api/auth/verify.ts
-import { createPublicClient, http } from 'viem'
-import { base } from 'viem/chains'
-
-const client = createPublicClient({ 
-  chain: base, 
-  transport: http() 
-})
-
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const { address, message, signature } = req.body
-
-  try {
-    // 1. Verify the signature (automatically handles ERC-6492 for undeployed wallets)
-    const isValid = await client.verifyMessage({ 
-      address, 
-      message, 
-      signature 
-    })
-
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid signature' })
-    }
-
-    // 2. Create session/JWT here
-    // const token = jwt.sign({ address }, process.env.JWT_SECRET)
-    
-    res.json({ 
-      success: true, 
-      address,
-      // token 
-    })
-  } catch (error) {
-    console.error('Verification error:', error)
-    res.status(500).json({ error: 'Verification failed' })
-  }
-}
-```
+</CodeGroup>
 
 ### 3. Using the Pre-built Button Component
 
-You can also use the official Base Account UI button component:
+You can also use the official [Sign In With Base](/base-account/reference/ui-elements/sign-in-with-base-button) button component:
 
 ```tsx
 // components/SignInButton.tsx
@@ -229,7 +150,7 @@ export function SignInButton() {
 
       // Connect and get provider
       await connectAsync({ connector: baseAccountConnector })
-      const provider = await baseAccountConnector.getProvider()
+      const provider = baseAccountConnector.provider
 
       // Perform SIWE authentication
       const authResult = await provider.request({
@@ -270,80 +191,9 @@ export function SignInButton() {
 }
 ```
 
-### 4. Complete App Example
+<Warning>
+**Please Follow the Brand Guidelines** 
 
-Here's a complete example integrating everything:
+If you intend on using the `SignInWithBaseButton`, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
 
-```tsx
-// app/page.tsx
-'use client'
-import { SignInWithBase } from '../components/SignInWithBase'
-import { useAccount } from 'wagmi'
-
-export default function HomePage() {
-  const { isConnected, address } = useAccount()
-
-  return (
-    <div className="max-w-md mx-auto mt-16 p-8 bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="text-center space-y-6">
-        <h1 className="text-2xl font-bold">My App</h1>
-        
-        {!isConnected ? (
-          <>
-            <p className="text-gray-600">
-              Sign in with your Base Account to continue
-            </p>
-            <SignInWithBase />
-          </>
-        ) : (
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded">
-              <h2 className="font-semibold text-green-800">Welcome!</h2>
-              <p className="text-sm text-green-700">
-                You're signed in with Base Account
-              </p>
-            </div>
-            
-            <SignInWithBase />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-```
-
-## Error Handling
-
-Handle common error scenarios:
-
-```tsx
-const handleSignIn = async () => {
-  try {
-    // ... authentication logic
-  } catch (err: any) {
-    if (err.code === 4001) {
-      setError('User rejected the sign in request')
-    } else if (err.code === -32002) {
-      setError('Sign in request already pending')
-    } else if (err.message?.includes('method_not_supported')) {
-      // Fallback for wallets that don't support wallet_connect
-      setError('Please update your wallet to use Sign in with Base')
-    } else {
-      setError('Sign in failed. Please try again.')
-    }
-  }
-}
-```
-
-## Notes
-
-- The `wallet_connect` method with `signInWithEthereum` capabilities is the recommended approach for Base Account authentication
-- For wallets that don't support `wallet_connect`, you may need to implement a fallback using `eth_requestAccounts` and `personal_sign`
-- Always verify signatures on your backend using a ERC-6492 compatible library like Viem
-- Generate nonces securely and ensure they can't be reused
-
-## Next Steps
-
-- [Learn about Sub Accounts with Wagmi](/base-account/framework-integrations/wagmi/sub-accounts)
-- [Explore the authenticate users guide](/base-account/guides/authenticate-users)
+</Warning>
