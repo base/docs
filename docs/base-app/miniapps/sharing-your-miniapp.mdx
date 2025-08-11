@@ -1,0 +1,239 @@
+---
+title: "Sharing Your Mini App"
+description: "Make it easy for users to share your mini app and turn every interaction into organic growth"
+---
+
+## Why sharing matters
+
+Sharing is one of the fastest, lowest-cost ways to grow your Base Mini App.
+
+When a user shares your app into a feed, they create a rich, visual invitation for others to join — complete with your branding, imagery, and a clear call-to-action.
+
+Every share:
+
+- **Increases reach** — friends and followers see the app instantly
+- **Drives engagement** — visually compelling embeds get more clicks  
+- **Improves ranking** — shared apps are more likely to appear in "Trending" and category leaderboards
+
+Think of sharing as your app's built-in referral system. The better it looks, the more it spreads.
+
+> **What you'll learn**  
+> By the end of this guide, you'll be able to:
+> - Add share entry points both inside your app and in the Base app directory
+> - Understand how embeds work and how they're generated
+> - Choose between static and dynamic embeds for different use cases
+> - Implement determined and on-demand metadata for personalised sharing
+> - Use MiniKit's built-in metadata generation
+> - Debug and optimise embeds for performance and freshness
+
+## 1. How sharing works
+
+When a user shares your app link, the receiving platform (Base feed, Warpcast, Twitter, etc.) requests Open Graph (OG) metadata from your page. This metadata determines how your embed appears — including the image, title, description, and any interactive button.
+
+### Share flow
+
+1. **User clicks Share**
+2. **Platform fetches your OG tags**
+3. **Platform renders your embed in the feed**
+4. **Viewers can click directly into your app**
+
+## 2. Adding share entry points
+
+### From inside your mini app (recommended)
+
+Don't wait for users to decide to share — integrate sharing into key moments in your app's flow.
+
+**Examples:**
+
+- After a quiz result is generated ("I'm Blossom!")
+- After minting an NFT ("Just minted my first collectible!")
+- After completing a challenge ("Finished today's puzzle in 2 minutes!")
+
+You can trigger the share composer programmatically using `composeCast` from the SDK:
+
+```ts
+import { useComposeCast } from "@farcaster/miniapp";
+
+export default function ShareResultButton({ message }) {
+  const composeCast = useComposeCast();
+
+  return (
+    <button
+      onClick={() => {
+        composeCast({
+          text: message,
+          embeds: ["https://my-mini-app.com/result/blossom"]
+        });
+      }}
+    >
+      Share your result
+    </button>
+  );
+}
+```
+
+<Tip>
+Treat sharing as a reward action — users are most likely to share when celebrating a personal achievement.
+</Tip>
+
+### From the Base app UI
+
+Users can also share directly from your app's detail view in the Base app.
+
+<Frame caption="Share button in the Base app UI">
+  <img src="/images/minikit/share-button-ui.jpg" alt="Share button in Base app" />
+</Frame>
+
+## 3. How embeds are generated
+
+When the platform fetches your URL, it reads the `<meta>` tags from your HTML.
+
+**Example:**
+
+```html
+<meta name="fc:frame" content='{
+  "version":"next",
+  "imageUrl":"https://your-app.com/embed-image",
+  "button":{
+    "title":"Play Now",
+    "action":{
+      "type":"launch_frame",
+      "name":"Your App",
+      "url":"https://your-app.com"
+    }
+  }
+}' />
+```
+
+Your embed consists of:
+
+- **Image** — Main visual hook (3:2 aspect ratio recommended)
+- **Title + description** — Quick pitch for your app
+- **CTA button** — Action to launch the app
+
+<Note>
+If you're using MiniKit, this setup can be automated — see [Using MiniKit for embeds](#6-using-minikit-for-embeds).
+</Note>
+
+## 4. Choosing between static and dynamic embeds
+
+<Frame caption="Static vs. dynamic embed examples">
+  <img src="/images/minikit/static-og.jpg" alt="Static OG embed" />
+  <img src="/images/minikit/dynamic-og.jpg" alt="Dynamic OG embed" />
+</Frame>
+
+### Static embeds (simplest)
+
+A single, unchanging image and text for all shares.
+
+**Pros:**
+- Easy to set up  
+- Consistent branding  
+
+**Cons:**
+- Less personalised
+
+### Determined dynamic metadata (intermediate)
+
+A set of predefined outcomes mapped to different URLs.
+
+**Example:** Personality quiz with fixed results.
+
+```
+/generate/blossom
+/generate/bubbles
+/generate/buttercup
+```
+
+Each URL returns unique OG metadata (image + text).
+
+### On-demand generated metadata (advanced)
+
+Metadata is created in real time when a share happens.  
+Perfect for live, user-specific, or time-sensitive data.
+
+**Example:** A trading dashboard showing a user's current balance.
+
+```
+/generate/user/123
+```
+
+Your backend fetches the latest stats and generates an OG image dynamically.
+
+**Benefits:**
+
+- Highly personalised
+- Reflects live data
+- Drives re-shares when the state changes
+
+<Warning>
+On-demand generation is powerful but can be slower — ensure your endpoint responds quickly to avoid timeouts.
+</Warning>
+
+## 5. How dynamic metadata works (request flow)
+
+1. **User shares a link**
+2. **Platform requests metadata from your server**
+3. **Your route processes parameters** (e.g. `/generate/:userId`)
+4. **Server generates OG metadata** (image, text)
+5. **Embed appears in the feed**
+
+<Tip>
+Use [Vercel OG Image Generation](https://vercel.com/docs/functions/og-image-generation) for fast, serverless image rendering.
+</Tip>
+
+## 6. Using MiniKit for embeds
+
+If you're building with MiniKit, metadata setup is handled in `layout.tsx` or `layout.ts`:
+
+```ts
+export async function generateMetadata(): Promise<Metadata> {
+  const URL = process.env.NEXT_PUBLIC_URL;
+  return {
+    title: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
+    description: "Generated by `create-onchain --mini`, a Next.js template for MiniKit",
+    other: {
+      "fc:frame": JSON.stringify({
+        version: "next",
+        imageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE,
+        button: {
+          title: `Launch ${process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME}`,
+          action: {
+            type: "launch_frame",
+            name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
+            url: URL,
+            splashImageUrl: process.env.NEXT_PUBLIC_SPLASH_IMAGE,
+            splashBackgroundColor: process.env.NEXT_PUBLIC_SPLASH_BACKGROUND_COLOR,
+          },
+        },
+      }),
+    },
+  };
+}
+```
+
+You can customise `imageUrl`, `title`, and `button` for different pages or actions.
+
+## 7. Debugging embeds
+
+### Tools
+
+- **[Farcaster Frame Debugger](https://farcaster.xyz/~/developers/mini-apps/debug)**
+- **[Meta Tags Inspector](https://metatags.io/)**
+
+### Common issues
+
+- Wrong image dimensions (use 3:2)
+- Missing required meta tags
+- Cache headers too aggressive — preventing updates
+
+<Warning>
+Set `Cache-Control` wisely: enough for performance, short enough to allow metadata changes to appear quickly.
+</Warning>
+
+## 8. Next steps
+
+1. **Decide** between static, determined dynamic, or on-demand embeds
+2. **Add** `fc:frame` metadata to your shareable pages
+3. **Integrate** sharing prompts into onboarding and achievement flows
+4. **Test** your embeds across platforms before launch
