@@ -48,15 +48,13 @@ console.log("Spend Permission:", permission);
 
 Using a permission is 2 steps:
 
-1. **Prepare the calls** — Call `prepareSpendCallData` with the permission and an `amount`.
+1. **Prepare the calls** — Call `prepareSpendCallData` with the permission and the requested `amount`.
 2. **Submit the calls** — Submit the calls using your app's spender account.
 
 `prepareSpendCallData` returns an array of calls needed to spend the tokens:
 
 - `approveWithSignature` — When the permission is not yet registered onchain, this call would be prepended to the `spend` call.
-- `spend` — The call to spend the tokens.
-
-This array should have 1 or 2 calls, submit them in order using your app's spender account.
+- `spend` — The call to spend the tokens from the user's Base Account.
 
 ```tsx
 import { prepareSpendCallData } from "@base-org/account/spend-permission";
@@ -97,6 +95,15 @@ await Promise.all(
   )
 );
 ```
+
+<Note>
+**About the `spendCalls` array**
+
+This array has 2 calls when submitting the permission onchain for *the first time*.
+When the permission is already registered onchain, this array has only 1 call (the `spend` call).
+
+For most use cases, you don't need to worry about this.
+</Note>
 
 ### Revoke a Spend Permission
 
