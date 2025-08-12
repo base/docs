@@ -75,11 +75,10 @@ const privyConfig = {
     theme: 'light' as const,
     accentColor: '#0052FF', // Base blue
     logo: 'https://your-logo-url.com/logo.png',
-  },
-  externalWallets: {
-    baseAccount: {
-      connectionOptions: 'all' as const,
-    },
+    walletList: [
+      'base_account', 
+      'coinbase_wallet', // It is recommended to support coinbase_wallet for any users still using the legacy EOA
+    ],
   },
   supportedChains: [base],
 }
@@ -108,6 +107,26 @@ export default function App({ children }: { children: React.ReactNode }) {
     </PrivyProvider>
   )
 }
+```
+
+To have Sign in with Base as a top level sign in option in the login modal, modify your `privyConfig` to include `base_account` in the `loginMethodsAndOrder` field.
+
+```tsx
+const privyConfig = {
+  embeddedWallets: {
+    createOnLogin: 'users-without-wallets' as const,
+    requireUserPasswordOnCreate: false,
+  },
+  loginMethodsAndOrder: {
+    primary: ['base_account','email', 'wallet'],
+  },
+  appearance: {
+    theme: 'light' as const,
+    accentColor: '#0052FF' as const, // Base blue
+    walletList: ['base_account', 'coinbase_wallet'],
+  },
+  supportedChains: [base],
+};
 ```
 
 ### 3. Create Authentication Hook
