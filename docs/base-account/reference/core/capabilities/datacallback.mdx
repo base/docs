@@ -111,7 +111,6 @@ Your callback API will receive a POST request with the following structure:
     data: string;
   }[];
   chainId: string;
-  version: string;
   capabilities: {
     dataCallback: {
       requestedInfo: {
@@ -151,22 +150,23 @@ Your callback API must respond with one of two formats:
 
 ### 1. Success Response
 
-Return the calls the user will end up submitting. They can be the same calls or new ones, but they must be present. You can change all capabilities (e.g. switching Paymaster if calls happen on a different chain) except the data callback capability, which must remain present.
+Return the calls the user will end up submitting wrapped in a `request` object. They can be the same calls or new ones, but they must be present. You can change all capabilities (e.g. switching Paymaster if calls happen on a different chain) except the data callback capability, which must remain present.
 
 ```typescript
 {
-  calls: {
-    to: string;
-    data: string;
-  }[];
-  chainId: string;
-  version: string;
-  capabilities: {
-    dataCallback: {
-      // Original or updated dataCallback capability
+  request: {
+    calls: {
+      to: string;
+      data: string;
+    }[];
+    chainId: string;
+    capabilities: {
+      dataCallback: {
+        // Original or updated dataCallback capability
+      };
+      // Other capabilities can be changed as needed
     };
-    // Other capabilities can be changed as needed
-  };
+  }
 }
 ```
 
@@ -234,13 +234,20 @@ export async function POST(request: Request) {
       return Response.json({ errors });
     }
 
-    // Success - return original calls
-    return Response.json({
-      calls: requestData.calls,
-      chainId: requestData.chainId,
-      version: requestData.version,
-      capabilities: requestData.capabilities
+    // Success - return the request data wrapped in a request object
+    // The wallet expects the response to contain the original or modified calls
+    return Response.json({ 
+      request: requestData 
     });
+    
+    // Alternative: Explicitly enumerate fields if needed
+    // return Response.json({ 
+    //   request: { 
+    //     calls: requestData.calls, 
+    //     chainId: requestData.chainId, 
+    //     capabilities: requestData.capabilities 
+    //   } 
+    // });
 
   } catch (error) {
     return Response.json({

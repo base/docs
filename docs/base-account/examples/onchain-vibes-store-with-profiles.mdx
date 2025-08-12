@@ -121,11 +121,8 @@ export async function POST(request: NextRequest) {
     if (Object.keys(errors).length > 0) {
       return NextResponse.json({ errors });
     }
-    return NextResponse.json({
-      calls: requestData.calls,
-      chainId: requestData.chainId,
-      capabilities: requestData.capabilities
-    });
+    // Return requestData wrapped in request object
+    return NextResponse.json({ request: requestData });
   } catch (error) {
     return NextResponse.json({ errors: { server: "Server error validating data" } });
   }
@@ -133,7 +130,7 @@ export async function POST(request: NextRequest) {
 ```
 
 - The API receives the user's data, validates it, and returns errors if needed.
-- If validation passes, it must return the original `calls`, `chainId`, and `capabilities`.
+- If validation passes, it must return the request data wrapped in a `request` object.
 - If errors are returned, the wallet prompts the user to correct their info.
 
 ---
