@@ -6,7 +6,6 @@ description: "Turn every user action into organic growth with shareable, metadat
 > **What you'll learn**  
 > By the end of this guide, you'll be able to:
 > - Understand how embeds and metadata work together to create rich social previews
-> - Implement shareable routes and embed entry points throughout your Mini App
 > - Choose between static and dynamic embeds for different use cases
 > - Debug and optimize embeds for maximum performance and engagement
 
@@ -23,7 +22,6 @@ Every share:
 - **Improves ranking** — shared apps are more likely to appear in "Trending" and category leaderboards
 - **Creates viral loops** — great experiences encourage users to share with their networks
 
-Think of sharing as your app's built-in referral system. The better the embed looks and the more value it communicates, the more it spreads. 
 
 ## Metadata and Embeds
 
@@ -39,7 +37,7 @@ The metadata acts as instructions that tell the platform exactly how to display 
   <img src="/images/minikit/Diagram.png" alt="How embed data is rendered" />
 </Frame>
 
-### The Metadata-to-Embed Process
+**The complete metadata-to-embed process:**
 
 <Steps>
 <Step title="User shares your link">
@@ -90,7 +88,7 @@ Each piece of metadata directly corresponds to a visual element in the embed:
 Here's how your metadata appears as a rich embed in social feeds:
 
 <Frame caption="Mini App embed in social feed">
-<img src="/images/minikit/feed_mini.jpg" alt="Mini app feed" height="200"/>
+<img src="/images/minikit/feed_mini.jpg" alt="Mini app feed" className="h-[220px] w-auto"/>
 </Frame>
 
 ### Manifest vs Embed Metadata
@@ -143,48 +141,54 @@ This is what actually controls how your embeds appear in social feeds.
 - **Test thoroughly:** Validate embeds across different platforms before launch
 
 <Note>
-If you're using MiniKit, this metadata setup can be automated  see [Using MiniKit for embeds](#using-minikit-for-embeds).
+If you're using MiniKit, this metadata setup is done for you see [Using MiniKit for embeds](#using-minikit-for-embeds).
 </Note>
 
 ## Sharing
 
 ### Adding Share Functionality 
 
-Don't wait for users to decide to share  integrate sharing into key moments in your app's flow where users feel accomplished or want to showcase their achievements.
+Prompt users to share during key accomplishment moments in your app using composeCast from the MiniKit SDK
 
+<Frame caption="CTA for a user to share the Mini App">
+  <img src="/images/minikit/share_cta.jpeg" alt="Share button in a Mini App" className="h-[320px] w-auto" />
+</Frame>
+
+```ts
+import { useComposeCast } from '@coinbase/onchainkit/minikit';
+
+export default function ComposeCastButton() {
+  const { composeCast } = useComposeCast();
+
+  const handleCompose = () => {
+    composeCast({
+      text: 'Just minted an awesome NFT using @coinbase OnchainKit! ',
+    });
+  };
+
+// 
+  const handleComposeWithEmbed = () => {
+    composeCast({
+      text: 'Check out this amazing Mini App!',
+      embeds: ['https://your-mini-app-url.com'],
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={handleCompose}>Share Achievement</button>
+      <button onClick={handleComposeWithEmbed}>Share Frame</button>
+    </div>
+  );
+}
+```
+<Tip>
 **Strategic sharing moments:**
 
 - After completing a quiz ("I'm Blossom!")
 - After minting an NFT ("Just minted my first collectible!")
 - After completing a challenge ("Finished today's puzzle in 2 minutes!")
 - After reaching a milestone ("Hit level 10!")
-
-You can trigger the share composer programmatically using `composeCast` from the SDK:
-
-```ts
-import { useComposeCast } from "@farcaster/miniapp";
-
-export default function ShareResultButton({ message, embedUrl }) {
-  const composeCast = useComposeCast();
-
-  return (
-    <button
-      onClick={() => {
-        composeCast({
-          text: message,
-          embeds: [embedUrl]
-        });
-      }}
-      className="bg-blue-500 text-white px-4 py-2 rounded-lg"
-    >
-      Share your result
-    </button>
-  );
-}
-```
-
-<Tip>
-Treat sharing as a celebration  users are most likely to share when they've accomplished something meaningful or want to show off their results.
 </Tip>
 
 ### From the Base App UI
@@ -192,7 +196,7 @@ Treat sharing as a celebration  users are most likely to share when they've acco
 Users can also share directly from your app's detail view in the Base app through the built-in share functionality.
 
 <Frame caption="Share button in the Base app UI">
-  <img src="/images/minikit/share-button-ui.jpg" alt="Share button in Base app" />
+  <img src="/images/minikit/share-button-ui.jpg" alt="Share button in Base app" className="h-[220px] w-auto"/>
 </Frame>
 
 ## Embed Types
@@ -202,7 +206,7 @@ Users can also share directly from your app's detail view in the Base app throug
 <Tabs>
 <Tab title="Static Embeds">
 <Frame caption="Static embed example - every user shares the same embed">
-  <img src="/images/minikit/static_embed.jpeg" alt="Static OG embed" />
+  <img src="/images/minikit/static_embed.jpeg" alt="Static OG embed" className="h-[220px] w-auto"/>
 </Frame>
 **Use case:** Simple, consistent branding across all shares
 
@@ -224,7 +228,7 @@ A single, unchanging image and text for all shares of your Mini App.
 <Tab title="Dynamic Embeds">
 <Frame caption="Dynamic embed example based user outcome">
   
-  <img src="/images/minikit/dynamic_embed.jpeg" alt="Dynamic OG embed" />
+  <img src="/images/minikit/dynamic_embed.jpeg" alt="Dynamic OG embed" className="h-[220px] w-auto"/>
 </Frame>
 
 **Use case:** Live, user-specific, or time-sensitive data
@@ -283,7 +287,7 @@ Use [Vercel OG Image Generation](https://vercel.com/docs/functions/og-image-gene
 
 ## Implementation
 
-### Using MiniKit for Embeds
+### How MiniKit works with Embeds
 
 If you're building with MiniKit, metadata setup is handled automatically in your `layout.tsx` or `layout.ts` file:
 
@@ -374,8 +378,7 @@ Use these tools to test and validate your embeds before going live:
 <Accordion title="Embeds not updating after changes">
   **Possible causes:**
   - Aggressive cache headers preventing updates
-  - Platform caching previous metadata
-  - CDN or proxy caching issues
+  - Make sure to repost the mini app to update any metadata 
 
   **Solutions:**
   - Set appropriate `Cache-Control` headers (max-age=300 for dynamic content)
@@ -397,6 +400,10 @@ Use these tools to test and validate your embeds before going live:
 </Accordion>
 </AccordionGroup>
 
+<Info>
+Check out or debugging section that covers embed issues (here)[/base-app/mininapps/debugging]
+</Info>
+
 <Warning>
 Set `Cache-Control` headers carefully: long enough for performance (300-600 seconds), short enough to allow metadata updates to appear quickly.
 </Warning>
@@ -411,7 +418,7 @@ Ready to implement sharing in your Mini App? Follow this implementation checklis
 </Step>
 
 <Step title="Implement metadata generation">
-  Add `fc:frame` metadata to your shareable pages using MiniKit's `generateMetadata` function or custom HTML meta tags.
+  Add `fc:frame` metadata to your.
 </Step>
 
 <Step title="Add strategic share points">
