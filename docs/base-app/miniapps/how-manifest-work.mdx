@@ -30,7 +30,7 @@ https://your-domain.com/.well-known/farcaster.json
 ```
 
 <Tip>
-Serve with `Content-Type: application/json` and ensure the file is publicly accessible (no auth).
+
 </Tip>
 
 
@@ -106,14 +106,12 @@ For a visual mapping of how fields render, see the [Mini App specification refer
 | `payload`   | string | Yes      | Encoded payload containing your domain.      |
 | `signature` | string | Yes      | Signature over the payload.                  |
 
-<Tip>
-Use your app’s canonical domain in the payload. Keep this in sync with `frame.canonicalDomain` if you set it.
-</Tip>
-
 
 ### `frame` fields
 
 #### Identity & Launch
+
+Defines your Mini App’s core identity and the URL users land on when they open it.
 
 | Property        | Type   | Required | Description               | Constraints |
 |-----------------|--------|----------|---------------------------|-------------|
@@ -121,25 +119,37 @@ Use your app’s canonical domain in the payload. Keep this in sync with `frame.
 | `name`          | string | Yes      | Mini App name.            | Max 32 chars. |
 | `homeUrl`       | string | Yes      | Default launch URL.       | HTTPS URL, max 1024 chars. |
 | `iconUrl`       | string | Yes      | Icon image URL.           | HTTPS URL, PNG 1024×1024; transparent background discouraged. |
-| `canonicalDomain` | string | No     | Canonical domain for the app. | Domain only (no protocol/port/path), max 1024 chars. |
 
-#### Launch Experience
+---
+
+
+#### Loading Experience
+
+Controls the splash screen visuals and colors shown while your Mini App loads.
 
 | Property                | Type   | Required | Description                | Constraints |
 |-------------------------|--------|----------|----------------------------|-------------|
-| `splashImageUrl`        | string | No       | Loading image.             | HTTPS URL, recommended 200×200px. |
-| `splashBackgroundColor` | string | No       | Loading background color.  | Hex code (e.g., `#000000`). |
+| `splashImageUrl`        | string | Yes      | Loading image.             | HTTPS URL, recommended 200×200px. |
+| `splashBackgroundColor` | string | Yes      | Loading background color.  | Hex code (e.g., `#000000`). |
+
+---
 
 #### Discovery & Search
 
+Determines how your Mini App is indexed, categorized, and surfaced across Base App discovery features.
+
 | Property           | Type     | Required | Description                                        | Constraints |
 |--------------------|----------|----------|----------------------------------------------------|-------------|
-| `primaryCategory`  | string   | No       | Controls where your app appears in category browsing. | One of: `games`, `social`, `finance`, `utility`, `productivity`, `health-fitness`, `news-media`, `music`, `shopping`, `education`, `developer-tools`, `entertainment`, `art-creativity`. |
-| `tags`             | string[] | No       | Search/filter tags.                                | Up to 5; ≤ 20 chars each; lowercase; no spaces/emojis/special chars. |
+| `primaryCategory`  | string   | Yes       | Controls where your app appears in category browsing. | One of: `games`, `social`, `finance`, `utility`, `productivity`, `health-fitness`, `news-media`, `music`, `shopping`, `education`, `developer-tools`, `entertainment`, `art-creativity`. |
+| `tags`             | string[] | Yes       | Search/filter tags.                                | Up to 5; ≤ 20 chars each; lowercase; no spaces/emojis/special chars. |
 | `noindex`          | boolean  | No       | Exclude from search results.                       | `true` = exclude, default = include. |
 | `requiredChains`   | string[] | No       | CAIP-2 chain IDs.                                  | Supported: `eip155:8453` (Base mainnet), `eip155:84532` (Base Sepolia). |
 
+---
+
 #### Display Information
+
+Provides the descriptive text, screenshots, and promotional images shown on your Mini App’s profile.
 
 | Property         | Type     | Required | Description                         | Constraints |
 |------------------|----------|----------|-------------------------------------|-------------|
@@ -149,7 +159,11 @@ Use your app’s canonical domain in the payload. Keep this in sync with `frame.
 | `heroImageUrl`   | string   | No       | Large promo image.                  | 1200×630px (1.91:1), PNG/JPG. |
 | `screenshotUrls` | string[] | No       | Visual previews.                    | Max 3; portrait 1284×2778px recommended. |
 
+---
+
 #### Embeds & Social Sharing
+
+Configures how your Mini App appears when shared in feeds or on social platforms.
 
 | Property                  | Type   | Required | Description               | Constraints |
 |---------------------------|--------|----------|---------------------------|-------------|
@@ -159,12 +173,16 @@ Use your app’s canonical domain in the payload. Keep this in sync with `frame.
 | `imageUrl` (deprecated)   | string | No       | Legacy default feed image.| Prefer `ogImageUrl`. |
 | `buttonTitle` (deprecated)| string | No       | Legacy feed button text.  | Prefer embed button config in OG. |
 
+---
+
 #### Advanced Capabilities
+
+Specifies technical integrations, event handling, and special permissions your Mini App requires.
 
 | Property               | Type     | Required | Description                 | Constraints |
 |------------------------|----------|----------|-----------------------------|-------------|
 | `webhookUrl`           | string   | No       | POST events endpoint.       | HTTPS URL, max 1024 chars. Required if using notifications. |
-| `requiredCapabilities` | string[] | No       | Required SDK capabilities.  | Must match Base capability keys. |
+
 
 <Warning>
 Choose your `primaryCategory` carefully — it determines where your app appears in Base App’s category browsing and rankings.
@@ -174,11 +192,11 @@ Choose your `primaryCategory` carefully — it determines where your app appears
 ## Validation checklist
 
 - Manifest is served over HTTPS at `/.well-known/farcaster.json`  
-- All required fields are present (`frame.version`, `frame.name`, `frame.homeUrl`, `frame.iconUrl`)  
+- All required fields are present 
 - Image sizes match the constraints (icon, OG, hero, screenshots)  
 - Text fields respect character and formatting limits  
 - `"noindex": true` is used only for staging/development  
-- If using `requiredChains`, values are valid CAIP‑2 IDs for Base networks  
+
 
 <Tip>
 Test your manifest with a simple `curl` to confirm accessibility and headers: `curl -sI https://your-domain.com/.well-known/farcaster.json`.
