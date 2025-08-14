@@ -7,14 +7,74 @@ The template wires up core MiniKit pieces so you can ship v0 fast.
 
 ## Providers and initialization
 
-- `MiniKitProvider` wraps your app, configures wagmi and react-query, and applies safe area insets.
-- `useMiniKit` handles initialization and provides `setFrameReady()`.
+The scaffold includes complete MiniKit setup:
+
+```tsx
+// MiniKitProvider configuration
+<MiniKitProvider
+  apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+  chain={base}
+  config={{
+    appearance: {
+      mode: 'auto',
+      theme: 'snake',
+      name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
+      logo: process.env.NEXT_PUBLIC_ICON_URL,
+    },
+  }}
+>
+  {children}
+</MiniKitProvider>
+```
+
+```tsx
+// Frame initialization
+const { setFrameReady, isFrameReady, context } = useMiniKit();
+
+useEffect(() => {
+  if (!isFrameReady) {
+    setFrameReady();
+  }
+}, [setFrameReady, isFrameReady]);
+
+// Context provides:
+// context.user.fid - Farcaster ID
+// context.client.added - User added app  
+// context.location - Launch location
+```
 
 ## Buttons and actions
 
-- Save Frame: uses `useAddFrame()` to let users save your Mini App and returns a `url` and `token` for notifications.
-- External links: `useOpenUrl()` opens URLs within or outside a frame context.
-- Close: `useClose()` dismisses the frame.
+### Save Frame Functionality
+```tsx
+const addFrame = useAddFrame();
+
+const handleAddFrame = async () => {
+  const result = await addFrame();
+  if (result) {
+    console.log('Frame added:', result.url, result.token);
+    // Save url and token to database for notifications
+  }
+};
+```
+
+### External Links and Navigation
+```tsx
+const openUrl = useOpenUrl();
+
+const handleExternalLink = () => {
+  openUrl('https://example.com');
+};
+```
+
+### Close Frame
+```tsx
+const close = useClose();
+
+const handleClose = () => {
+  close();
+};
+```
 
 ## Next steps
 

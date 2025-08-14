@@ -96,11 +96,74 @@ await sdk.actions.ready({ disableNativeGestures: true });
 
 ### 6. Mobile Testing & Debugging
 
-Use Eruda for mobile debugging; remove before production deployment.
+**Eruda Mobile Console Setup:**
+
+Add Eruda for mobile console debugging during development:
+
+```tsx
+import { useEffect } from 'react';
+
+export default function App() {
+  useEffect(() => {
+    // Only load Eruda in development and not on localhost
+    if (typeof window !== 'undefined' && 
+        process.env.NODE_ENV === 'development' && 
+        !window.location.hostname.includes('localhost')) {
+      import('eruda').then((eruda) => eruda.default.init());
+    }
+  }, []);
+
+  return (
+    <div>
+      {/* Your app content */}
+    </div>
+  );
+}
+```
+
+**Mobile Testing Workflow:**
+
+1. Deploy to production or use ngrok for local testing
+2. Share the mini app in a Farcaster DM to yourself  
+3. Open in mobile client (Base App, Farcaster)
+4. Use Eruda console for debugging on mobile
+5. Test across multiple clients for compatibility
+
+**Testing Checklist:**
+
+- [ ] App loads correctly on mobile devices
+- [ ] Touch interactions work properly
+- [ ] Viewport is correctly sized
+- [ ] Images load and display correctly
+- [ ] Console shows no critical errors
 
 ## Advanced Troubleshooting
 
-AI‑Assisted Debugging: Use the CBW MiniApp Validator prompt to scan for unsupported patterns.
+**CBW Validator Tool:**
+
+Use the Coinbase Wallet validator for Base App compatibility analysis. This AI-powered tool can identify unsupported patterns and suggest improvements.
+
+**Complete Manifest Example:**
+
+```json
+{
+  "accountAssociation": {
+    "header": "your-farcaster-header",
+    "payload": "your-farcaster-payload", 
+    "signature": "your-farcaster-signature"
+  },
+  "frame": {
+    "name": "Your Mini App",
+    "iconUrl": "https://yourapp.com/icon.png",
+    "homeUrl": "https://yourapp.com",
+    "imageUrl": "https://yourapp.com/og.png",
+    "buttonTitle": "Launch App", 
+    "description": "Your app description under 130 characters",
+    "primaryCategory": "social",
+    "tags": ["tag1", "tag2"]
+  }
+}
+```
 
 ## Success Verification
 

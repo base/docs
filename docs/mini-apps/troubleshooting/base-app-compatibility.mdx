@@ -13,14 +13,86 @@ Base App is working towards full compatibility with the Farcaster Mini App SDK. 
 - Notifications: not yet supported
 - Mini App actions: `.addMiniApp()`, `.requestCameraAndMicrophoneAccess()` (ETA 8/13)
 
+## Base App Client Detection
+
+```tsx
+import { useMiniKit } from '@coinbase/onchainkit/minikit';
+
+function MyComponent() {
+  const { context } = useMiniKit();
+  const isBaseApp = context.client.clientFid === 309857;
+
+  if (isBaseApp) {
+    // Use Base App-specific features
+    console.log('Running in Base App');
+  }
+  
+  return <div>{/* Your component */}</div>;
+}
+```
+
 ## Wallet Interactions
 
-- `sdk.actions.getEthereumProvider()` — Base App exposes an EIP‑1193 provider; use MiniKit/Wagmi or window provider detection.
+Base App provides multiple wallet integration methods:
+
+### Method 1: OnchainKit (Recommended)
+```tsx
+import { ConnectWallet } from '@coinbase/onchainkit/wallet';
+
+// Base App provides EIP-1193 provider automatically
+function WalletConnection() {
+  return <ConnectWallet />;
+}
+```
+
+### Method 2: Wagmi Hooks  
+```tsx
+import { useConnect } from 'wagmi';
+
+// Works with Base App's injected provider
+function WalletConnect() {
+  const { connect, connectors } = useConnect();
+  // Base App connector available automatically
+}
+```
+
+### Method 3: Browser Window Access
+```tsx
+// Direct access to Base App's provider
+async function connectWallet() {
+  if (window.ethereum) {
+    await window.ethereum.request({
+      method: 'eth_requestAccounts'
+    });
+  }
+}
+```
 
 ## Navigation & Links
 
-- Avoid direct Farcaster/warpcast intent URLs; use SDK actions like `composeCast()`
-- For external links, prefer `openUrl()` over raw anchors
+**Use MiniKit hooks** instead of manual Farcaster deeplinks:
+- ✅ `useOpenUrl()` instead of `farcaster://open-url`
+- ✅ `useComposeCast()` instead of manual cast composition
+- ✅ `useViewProfile()` instead of profile deeplinks
+
+```tsx
+import { useOpenUrl, useComposeCast } from '@coinbase/onchainkit/minikit';
+
+function Navigation() {
+  const openUrl = useOpenUrl();
+  const composeCast = useComposeCast();
+  
+  const handleExternalLink = () => {
+    openUrl('https://example.com');
+  };
+  
+  const handleShare = () => {
+    composeCast({
+      text: "Check this out!",
+      embeds: [window.location.href]
+    });
+  };
+}
 
 ## Supported Chains
 

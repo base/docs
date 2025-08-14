@@ -21,7 +21,7 @@ If you're already using MiniKit and experiencing issues, you can refer to our de
 ## Authentication
 
 <Warning>
-As a general rule of thumb, we recommend that you save authentication that requires an interaction for interactions that require it(eg. buying something, viewing personalized pages etc)
+Only authenticate when needed to talk to your backend. Do not block first load with auth prompts. Defer auth to the moment a protected action occurs (e.g., buy, personalize, post).
 </Warning>
 
 Below we will quickly cover the different methods of authentication offered for mini apps and how well each of them work in Base App:
@@ -40,9 +40,9 @@ This is the expected flow for end-users to Sign In with Farcaster in your mini a
 </Tab>
 
 <Tab title="Wallet Auth">
-Because users in Base App have an in-app smart wallet that doesn't require any app switching, we recommend wallet authentication as the primary method of authentication for developers looking to create a persisted session for the mini app user.
+Base App users already have a Base Account that is instantly available in-app. Prefer leveraging this auto-connected wallet; avoid showing an explicit "Connect Wallet" flow.
 
-As described below, we don't think it's the best practice to prompt the user to log in before that authentication will allow them to do something else in your mini app, but for cases where do you want a secure, persisted session, using a wallet connection is a great option.
+Only present a connect/switch wallet UI if you intentionally support a different wallet. Never make this a blocking step—let users explore, and gate only at the point-of-need.
 </Tab>
 
 <Tab title="Context Data">
@@ -56,6 +56,10 @@ Something important to note is that because of how the current mini app spec is 
 </Tab>
 
 </Tabs>
+
+<CardGroup cols={2}>
+  <Card title="Feature: Authentication" icon="key" href="/mini-apps/features/authentication" />
+</CardGroup>
 
 ## Deeplinks and SDK Actions
 
@@ -80,7 +84,7 @@ As a mini app host, we expose an [EIP-1193 Ethereum Provider](https://eips.ether
 By using the [Wallet](https://docs.base.org/builderkits/onchainkit/wallet/wallet) component offered in OnchainKit/MiniKit
 
 <Note>
-If you run `npm create onchain --mini`, your mini app will have a "Connect Wallet" button already set up
+If you run `npm create onchain --mini`, the template includes a "Connect Wallet" button. In Base App, you typically don't need to show a connect button because the Base Account is already available. Show connect/switch only if you support alternate wallets—and do not gate first use behind it.
 </Note>
 </Tab>
 
@@ -321,7 +325,7 @@ The following Mini App SDK features are **not currently supported** in Base App:
 
 * Direct HTML links to third-party websites (`<a href=`, `<Link href=`)  
   * Note: You can instead use `sdk.actions.openUrl()` to safely open a third-party website in our in-app browser
-* Warpcast/Farcaster composer intent URLs (`warpcast.com/~/compose`, `farcaster.com/~/compose`)
+* Warpcast/Farcaster composer intent URLs (`farcaster.com/~/compose`, `farcaster.com/~/compose`)
   * Note: You can instead use `sdk.actions.composeCast()` to compose a cast directly in Base App
 
 #### Notifications are not yet supported
@@ -350,7 +354,7 @@ The following Mini App SDK features are **not currently supported** in Base App:
 ### Development Notes
 
 * Use `sdk.actions.openUrl()` for external navigation instead of direct HTML links  
-* Use `sdk.actions.composeCast()` instead of Warpcast composer URLs  
+* Use `sdk.actions.composeCast()` instead of Farcaster composer URLs  
 * Implement visual feedback alternatives for haptic feedback  
 * Avoid relying on location context for core functionality
 * To conditionally render functionality based on the user's client, check `context.client.clientFid` (Base App returns `309857`)
