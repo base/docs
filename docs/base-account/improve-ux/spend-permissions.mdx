@@ -11,6 +11,10 @@ After the user signs the permission, the `spender` can initiate transfers within
 
 Read more about the Spend Permission Manager contract and supported chains on [GitHub](https://github.com/coinbase/spend-permissions).
 
+<Callout type="info">
+  Spend Permissions for Base App Mini Apps are coming soon and will be supported in a future update.
+</Callout>
+
 ## Usage
 
 ### Request a Spend Permission
@@ -31,6 +35,14 @@ You create an EIP-712 payload that describes the permission and ask the user to 
 
 ```tsx
 import { requestSpendPermission } from "@base-org/account/spend-permission";
+import { createBaseAccountSDK } from "@base-org/account";
+import { base } from "viem/chains";
+
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+});
 
 const permission = await requestSpendPermission({
   account: "0x...",
@@ -39,6 +51,7 @@ const permission = await requestSpendPermission({
   chainId: 8453, // or any other supported chain
   allowance: 1_000_000n,
   periodInDays: 30,
+  provider: sdk.getProvider(),
 });
 
 console.log("Spend Permission:", permission);
@@ -177,6 +190,15 @@ import {
   prepareRevokeCallData,
 } from "@base-org/account/spend-permission";
 
+import { createBaseAccountSDK } from "@base-org/account";
+import { base } from "viem/chains";
+
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+});
+
 const spender = "0xAppSpenderAddress";
 
 // 1) Fetch available permissions
@@ -184,6 +206,7 @@ const permissions = await fetchPermissions({
   account: "0xUserBaseAccountAddress",
   chainId: 84532,
   spender,
+  provider: sdk.getProvider(),
 });
 
 // ========================================
@@ -237,6 +260,7 @@ const newPermission = await requestSpendPermission({
   chainId: 84532,
   allowance: 1_000_000n,
   periodInDays: 30,
+  provider: sdk.getProvider(),
 });
 
 // 3. prepare the calls

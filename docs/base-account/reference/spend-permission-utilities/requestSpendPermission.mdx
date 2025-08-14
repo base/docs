@@ -54,6 +54,10 @@ Defined in the [Base Account SDK](https://github.com/base/account-sdk)
   Arbitrary data to attach to the permission. Hex string. Defaults to `0x`.
 </ParamField>
 
+<ParamField body="provider" type="EIP1193Provider" required>
+  EIP-1193 compliant Ethereum provider instance. Get this from `sdk.getProvider()`.
+</ParamField>
+
 ## Returns
 
 <ResponseField name="permission" type="SpendPermission">
@@ -93,6 +97,13 @@ Underlying permission fields.
 <RequestExample>
 ```typescript Create and sign a spend permission
 import { requestSpendPermission } from "@base-org/account/spend-permission";
+import { createBaseAccountSDK } from "@base-org/account";
+
+const sdk = createBaseAccountSDK({
+  appName: 'My App',
+  appLogoUrl: 'https://example.com/logo.png',
+  appChainIds: [84532],
+});
 
 const permission = await requestSpendPermission({
   account: "0xUserBaseAccountAddress",
@@ -101,6 +112,7 @@ const permission = await requestSpendPermission({
   chainId: 84532,
   allowance: 1_000_000n,
   periodInDays: 30,
+  provider: sdk.getProvider(),
 });
 
 console.log("Spend Permission:", permission);
