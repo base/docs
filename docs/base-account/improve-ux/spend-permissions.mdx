@@ -11,6 +11,10 @@ After the user signs the permission, the `spender` can initiate transfers within
 
 Read more about the Spend Permission Manager contract and supported chains on [GitHub](https://github.com/coinbase/spend-permissions).
 
+<Callout type="info">
+  Spend Permissions for Base App Mini Apps are coming soon and will be supported in a future update.
+</Callout>
+
 ## Usage
 
 ### Request a Spend Permission
@@ -31,6 +35,14 @@ You create an EIP-712 payload that describes the permission and ask the user to 
 
 ```tsx
 import { requestSpendPermission } from "@base-org/account/spend-permission";
+import { createBaseAccountSDK } from "@base-org/account";
+import { base } from "viem/chains";
+
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+});
 
 const permission = await requestSpendPermission({
   account: "0x...",
@@ -39,6 +51,7 @@ const permission = await requestSpendPermission({
   chainId: 8453, // or any other supported chain
   allowance: 1_000_000n,
   periodInDays: 30,
+  provider: sdk.getProvider(),
 });
 
 console.log("Spend Permission:", permission);
@@ -48,15 +61,13 @@ console.log("Spend Permission:", permission);
 
 Using a permission is 2 steps:
 
-1. **Prepare the calls** — Call `prepareSpendCallData` with the permission and an `amount`.
+1. **Prepare the calls** — Call `prepareSpendCallData` with the permission and the requested `amount`.
 2. **Submit the calls** — Submit the calls using your app's spender account.
 
 `prepareSpendCallData` returns an array of calls needed to spend the tokens:
 
 - `approveWithSignature` — When the permission is not yet registered onchain, this call would be prepended to the `spend` call.
-- `spend` — The call to spend the tokens.
-
-This array should have 1 or 2 calls, submit them in order using your app's spender account.
+- `spend` — The call to spend the tokens from the user's Base Account.
 
 ```tsx
 import { prepareSpendCallData } from "@base-org/account/spend-permission";
@@ -97,6 +108,15 @@ await Promise.all(
   )
 );
 ```
+
+<Note>
+**About the `spendCalls` array**
+
+This array has 2 calls when submitting the permission onchain for *the first time*.
+When the permission is already registered onchain, this array has only 1 call (the `spend` call).
+
+For most use cases, you don't need to worry about this.
+</Note>
 
 ### Revoke a Spend Permission
 
@@ -170,6 +190,15 @@ import {
   prepareRevokeCallData,
 } from "@base-org/account/spend-permission";
 
+import { createBaseAccountSDK } from "@base-org/account";
+import { base } from "viem/chains";
+
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+});
+
 const spender = "0xAppSpenderAddress";
 
 // 1) Fetch available permissions
@@ -177,6 +206,7 @@ const permissions = await fetchPermissions({
   account: "0xUserBaseAccountAddress",
   chainId: 84532,
   spender,
+  provider: sdk.getProvider(),
 });
 
 // ========================================
@@ -230,6 +260,7 @@ const newPermission = await requestSpendPermission({
   chainId: 84532,
   allowance: 1_000_000n,
   periodInDays: 30,
+  provider: sdk.getProvider(),
 });
 
 // 3. prepare the calls
