@@ -1,15 +1,15 @@
 ---
 title: Feature Tour
-description: What the scaffold includes out of the box and where to extend it
+description: What the MiniKit includes out of the box and where to extend it
 ---
 
-The template wires up core MiniKit pieces so you can ship v0 fast.
+The MiniKit template provides you with key features to get started quickly, which we highlight below. There are additional features which you can find in the [MiniKit technical reference](/mini-apps/technical-reference/minikit/overview).
 
-## Providers and initialization
+### Providers 
 
-The scaffold includes complete MiniKit setup:
+The MiniKitProvider wraps your app and provides MiniKit context to all child components. It configures wagmi, react-query, and the Farcaster connector automatically.
 
-```tsx
+```tsx providers/Providers.tsx
 // MiniKitProvider configuration
 <MiniKitProvider
   apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
@@ -27,7 +27,12 @@ The scaffold includes complete MiniKit setup:
 </MiniKitProvider>
 ```
 
-```tsx
+### Mini App initialization
+When a user first opens your mini app, the MiniKitProvider will initialize the mini app context. This is done by calling the `useMiniKit` hook.
+
+`context` provides you with details about the user and the client (e.g. Base app).
+
+```tsx app/App.tsx
 // Frame initialization
 const { setFrameReady, isFrameReady, context } = useMiniKit();
 
@@ -37,29 +42,15 @@ useEffect(() => {
   }
 }, [setFrameReady, isFrameReady]);
 
-// Context provides:
-// context.user.fid - Farcaster ID
-// context.client.added - User added app  
-// context.location - Launch location
 ```
 
-## Buttons and actions
-
-### Save Frame Functionality
-```tsx
-const addFrame = useAddFrame();
-
-const handleAddFrame = async () => {
-  const result = await addFrame();
-  if (result) {
-    console.log('Frame added:', result.url, result.token);
-    // Save url and token to database for notifications
-  }
-};
-```
 
 ### External Links and Navigation
-```tsx
+To leverage the native browser of the Base app, you can use the `useOpenUrl` hook.
+
+Do not use raw links as it can cause breaks or force the user to leave the app.
+
+```tsx components/ExternalLink.tsx
 const openUrl = useOpenUrl();
 
 const handleExternalLink = () => {
@@ -67,8 +58,10 @@ const handleExternalLink = () => {
 };
 ```
 
-### Close Frame
-```tsx
+### Close Mini App
+Allows you to add native functionality to close the mini app.
+
+```tsx components/CloseButton.tsx
 const close = useClose();
 
 const handleClose = () => {
@@ -81,11 +74,11 @@ const handleClose = () => {
 Add features based on your goals. Start here:
 
 <CardGroup cols={2}>
-  <Card title="Launch Guide" icon="rocket" href="/mini-apps/quickstart/launch-guide">
-    Value, acceptance criteria, and where to implement
+  <Card title="Launch Checklist" icon="rocket" href="/mini-apps/quickstart/launch-guide">
+    To get the most out of mini apps, follow the launch checklist.
   </Card>
   <Card title="Mini App Features" icon="puzzle-piece" href="/mini-apps/features/overview">
-    Bite‑size guides with copy‑paste snippets
+    Comprehensive guides on all mini app features.
   </Card>
 </CardGroup>
 
