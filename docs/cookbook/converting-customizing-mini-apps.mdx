@@ -1,0 +1,160 @@
+---
+title: Make Your Web App a Mini App
+description: Convert your downloaded frontend into a Mini App by integrating MiniKit, Smart Wallet, and Paymaster
+---
+
+# Add MiniKit to Your App
+
+You have a clean frontend. Now turn it into a Mini App. Vibe coding tools are great for UI, but they do not yet handle onchain pieces perfectly. Download your code, open it in Cursor or Claude Code, and add MiniKit to enable Smart Wallet, gasless transactions, and Base App integration.
+
+<Tip>
+  Before you prompt your AI IDE, list where you want onchain interactions to
+  happen. Examples: mint a collectible from the Create screen, tip from the
+  Feed, swap on the Trade screen. This helps the AI place MiniKit components in
+  the right files.
+</Tip>
+
+<Steps>
+  <Step title='Open your project in an AI IDE'>
+    Launch Cursor or Claude Code and open your Next.js project. Ensure it runs
+    locally first with <code>npm run dev</code> so the AI can follow a working
+    baseline.
+  </Step>
+  <Step title='Provide docs context to the AI'>
+    Use the MiniKit existing-app integration page. Use the site dropdown to
+    “Copy page as Markdown for LLMs”, then paste that markdown into your AI IDE
+    as context.
+  </Step>
+  <Step title='Ask the AI to analyze your app'>
+    Have the AI map your routes, layout, and component structure. Ask it to
+    propose exact integration points for MiniKit provider and hooks.
+  </Step>
+  <Step title='Integrate MiniKit provider and Smart Wallet'>
+    Add the MiniKit provider in <code>app/layout.tsx</code> (or your top-level
+    layout), wire basic hooks, and confirm no “login” button is added. Mini Apps
+    should feel native and sessionless.
+  </Step>
+  <Step title='Add Paymaster for gasless UX'>
+    Configure Coinbase Developer Platform Paymaster with environment variables.
+    Update your action flows to sponsor transactions, then test locally.
+  </Step>
+  <Step title='Verify and commit'>
+    Run your app, test every onchain touchpoint, and commit changes with clear
+    messages. You are ready to deploy.
+  </Step>
+</Steps>
+
+## Helpful Prompts:
+
+<Tip>
+  **Shortcut:** On any of the Base docs pages, use the dropdown to “Copy page as
+  Markdown for LLMs” and paste it directly into your AI chat. This gives the
+  model precise instructions and reduces hallucinations.
+</Tip>
+
+<Accordion title="Prompt: Converting Existing Applications to Mini Apps">
+
+```
+Guide me through converting my existing web application into a Mini App:
+
+EXISTING APP ANALYSIS:
+
+My app is built with [DESCRIBE YOUR TECH STACK]
+
+Current features include: [LIST MAIN FEATURES]
+
+User authentication currently uses: [DESCRIBE AUTH METHOD]
+
+Data is stored using: [DESCRIBE DATA STORAGE]
+
+INTEGRATION REQUIREMENTS:
+
+Add MiniKit provider and Smart Wallet in app/layout.tsx
+
+Integrate Coinbase Paymaster for gasless transactions
+
+Place onchain actions on these screens: [LIST SCREENS]
+
+Configure env vars for Base and CDP
+
+Avoid adding any login button
+
+DEPLOYMENT CONFIGURATION:
+
+Prepare .env.local for local and Vercel for production
+
+Deploy with Vercel CLI
+
+Test Base App integration flows
+
+TROUBLESHOOTING SETUP:
+
+Log wallet and sponsorship states
+
+Add clear error toasts
+
+Provide rollbacks for provider or env misconfig
+
+Provide step-by-step instructions with exact code changes and file paths. Include troubleshooting tips for common conversion issues.
+```
+
+</Accordion>
+
+<Accordion title="Prompt: AI Analysis Prompt (for Cursor or Claude Code)">
+Paste this into your AI IDE. Replace bracketed parts with your details. Include the MiniKit “existing app integration” markdown from docs.base.org as an additional message.
+
+```
+You are assisting me in converting a downloaded Next.js app into a Mini App for the Base App (TBA).
+
+ANALYZE THE PROJECT
+
+Inspect my Next.js structure (app/, components/, utils/) and identify the best integration points for:
+
+MiniKit provider in app/layout.tsx
+
+Smart Wallet setup
+
+Any hooks needed to access Base App context
+
+List every file you plan to modify and why.
+
+INTEGRATION REQUIREMENTS
+
+Use MiniKit as per the docs I will paste.
+
+Use Coinbase Developer Platform (CDP) Paymaster for gasless transactions.
+
+Use Smart Wallet.
+
+Do NOT create a login button.
+
+Keep the current routing and UI intact.
+
+ONCHAIN TOUCHPOINTS IN MY APP
+
+I want onchain interactions in these places:
+[Describe screens and actions, e.g., Create screen: mint item; Feed: tip creator; Trade: swap token]
+
+IMPLEMENTATION PLAN
+
+Propose exact code changes with file paths and code blocks.
+
+- Add required env vars and tell me where to put them (.env.local).
+- Update any server actions or API routes needed to call Paymaster safely.
+
+VALIDATION
+
+Provide a test checklist to verify:
+- Provider mounts without errors
+- Smart Wallet available
+
+Paymaster sponsoring a sample transaction
+
+No login button rendered
+
+Include troubleshooting tips for common issues (env vars, build errors, missing providers).
+
+Now request any files you need to see to proceed, and confirm assumptions before editing.
+```
+
+</Accordion>
