@@ -1,0 +1,130 @@
+# https://docs.base.org/base-app/llms-full.txt
+
+## Base App — Deep Guide for LLMs
+
+> Base App (formerly Coinbase Wallet) is a social, onchain everything app. Builders can create Mini Apps and chat‑based agents that interact with users and safely execute onchain actions.
+
+### What you can build
+- XMTP messaging agents with safe onchain actions (transaction trays)
+- Mini Apps discoverable in Base App (via MiniKit and manifests)
+  - For full context of mini apps, review the [mini apps llms.txt file](../mini-apps/llms.txt)
+
+## Minimal Critical Code (agents)
+```ts
+// XMTP client skeleton used across examples
+import { Client, type XmtpEnv, type Signer } from '@xmtp/node-sdk'
+
+const encryptionKey: Uint8Array = /* stable key for history */
+const signer: Signer = /* your wallet signer */
+const env: XmtpEnv = 'dev'
+
+const client = await Client.create(signer, { encryptionKey, env })
+await client.conversations.sync()
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  await convo.send('gm')
+}
+```
+
+## Navigation (with brief descriptions)
+
+### Introduction
+- [Beta FAQ](./introduction/beta-faq) — Beta scope, access, smart wallet notes
+
+### Chat Agents
+- [Why Agents](./agents/why-agents) — Rationale and examples
+- [Getting Started](./agents/getting-started) — Setup and first agent
+- [Content Types](./agents/content-types) — Messaging schemas
+- [Transaction Trays](./agents/transaction-trays) — Onchain UX in chat
+- [Best Practices](./agents/best-practices) — Implementation guidance
+- [Getting Featured](./agents/getting-featured) — Distribution checklist
+
+
+## Quickstart (excerpts)
+
+Source: `https://docs.base.org/base-app/agents/getting-started`
+
+Create an XMTP agent that can receive messages and reply, then evolve it to surface transaction trays for safe onchain actions.
+
+Skeleton:
+
+```ts
+import { Client, type XmtpEnv, type Signer } from '@xmtp/node-sdk'
+
+const signer: Signer = /* your signer */
+const encryptionKey: Uint8Array = /* stable key for history */
+const env: XmtpEnv = 'dev'
+
+const client = await Client.create(signer, { encryptionKey, env })
+await client.conversations.sync()
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  await convo.send('gm')
+}
+```
+
+Source: `https://docs.base.org/base-app/agents/transaction-trays`
+
+Transaction trays let you surface predefined, safe actions. Users approve in‑app; your agent never holds keys.
+
+
+## Key Concepts (excerpts)
+
+Source: `https://docs.base.org/base-app/agents/why-agents`
+
+- Safety: Agents propose actions; users approve in Base App with a smart wallet. No private keys leave the client.
+- UX: Transaction trays standardize onchain actions, reduce phishing, and help users understand intent.
+- Content types: Structured messages ensure predictable parsing and rendering across clients.
+  - Source: `https://docs.base.org/base-app/agents/content-types`
+- Distribution: Follow the featuring checklist to maximize discovery.
+  - Source: `https://docs.base.org/base-app/agents/getting-featured`
+
+
+## API and Schemas (pruned)
+
+Message content types (subset):
+- Text, Button, Form, Transaction Tray
+  - Source: `https://docs.base.org/base-app/agents/content-types`
+
+Transaction tray schema (conceptual):
+
+```json
+{
+  "type": "transaction_tray",
+  "title": "Buy",
+  "actions": [
+    { "label": "Confirm purchase", "calls": [{ "to": "0x...", "data": "0x..." }] }
+  ]
+}
+```
+
+
+## Examples (common flows)
+
+Example: Simple echo agent with guardrails
+
+Source: `https://docs.base.org/base-app/agents/best-practices`
+
+```ts
+if (!isSupportedContentType(msg)) return
+const text = parseText(msg)
+if (text.length > MAX_LEN) return convo.send('Message too long')
+await convo.send(text)
+```
+
+Example: Surface a checkout action as a transaction tray
+
+Source: `https://docs.base.org/base-app/agents/transaction-trays`
+
+```ts
+await convo.send({
+  type: 'transaction_tray',
+  title: 'Checkout',
+  actions: [
+    { label: 'Pay', calls: [{ to: USDC, data: erc20.transfer(MERCHANT, AMOUNT) }] }
+  ]
+})
+```
+
