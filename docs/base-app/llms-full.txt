@@ -1,0 +1,43 @@
+# https://docs.base.org/base-app/llms-full.txt
+
+## Base App — Deep Guide for LLMs
+
+> Base App (formerly Coinbase Wallet) is a social, onchain everything app. Builders can create Mini Apps and chat‑based agents that interact with users and safely execute onchain actions.
+
+### What you can build
+- XMTP messaging agents with safe onchain actions (transaction trays)
+- Mini Apps discoverable in Base App (via MiniKit and manifests)
+  - For full context of mini apps, review the [mini apps llms.txt file](../mini-apps/llms.txt)
+
+## Minimal Critical Code (agents)
+```ts
+// XMTP client skeleton used across examples
+import { Client, type XmtpEnv, type Signer } from '@xmtp/node-sdk'
+
+const encryptionKey: Uint8Array = /* stable key for history */
+const signer: Signer = /* your wallet signer */
+const env: XmtpEnv = 'dev'
+
+const client = await Client.create(signer, { encryptionKey, env })
+await client.conversations.sync()
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  await convo.send('gm')
+}
+```
+
+## Navigation (with brief descriptions)
+
+### Introduction
+- [Beta FAQ](./introduction/beta-faq) — Beta scope, access, smart wallet notes
+
+### Chat Agents
+- [Why Agents](./agents/why-agents) — Rationale and examples
+- [Getting Started](./agents/getting-started) — Setup and first agent
+- [Content Types](./agents/content-types) — Messaging schemas
+- [Transaction Trays](./agents/transaction-trays) — Onchain UX in chat
+- [Best Practices](./agents/best-practices) — Implementation guidance
+- [Getting Featured](./agents/getting-featured) — Distribution checklist
+
+
