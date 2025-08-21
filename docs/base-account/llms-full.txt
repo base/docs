@@ -1,0 +1,779 @@
+Base Account — Comprehensive LLM-Friendly Reference (Plain Text)
+================================================================
+
+Source: Collated and normalized from Base Account docs. This file contains API methods & signatures, type/interface definitions, configuration options, code examples, provider RPC methods, capabilities, SDK utilities, UI components, integration guides, error handling, troubleshooting tips, and best practices. Use for training or retrieval contexts.
+
+Table of contents (quick)
+-------------------------
+- High-level overview
+- SDK entrypoint: createBaseAccountSDK
+- Types & interfaces (core)
+- Provider (EIP-1193) interface & behavior
+- Core SDK utilities
+- Payments (Base Pay): pay, getPaymentStatus, BasePayButton
+- Authentication: wallet_connect, signInWithEthereum (SIWE), SignInWithBaseButton
+- Provider RPC methods (complete list summary + request/response shapes)
+- Capabilities (atomic, auxiliaryFunds, paymasterService, dataCallback, flowControl, signInWithEthereum)
+- Batch transactions (wallet_sendCalls) + atomic vs non-atomic details
+- Spend Permissions (requestSpendPermission, prepareSpendCallData, prepareRevokeCallData, requestRevoke, fetchPermissions, getPermissionStatus)
+- Sub Accounts APIs (wallet_addSubAccount, wallet_getSubAccounts) and SDK helpers
+- Basenames / resolver integration (OnchainKit / wagmi examples)
+- Integrations: Wagmi, Viem, OnchainKit, Privy, Mobile Wallet Protocol (React Native), Dynamic
+- Paymasters & ERC20 paymaster specifics
+- UI components: BasePayButton, SignInWithBaseButton (props, usage)
+- Telemetry and configuration options
+- Error codes and troubleshooting tips
+- Examples (mini quickstarts): Web (HTML+JS), React, Next.js + wagmi, Mobile
+- Complete method references (selected request/response examples)
+- Best practices & security notes
+
+High-level overview
+-------------------
+- Base Account: smart-wallet-backed account layer (ERC-4337 smart wallets) that provides universal sign-in, Base Pay (one-tap USDC), profile/data callback support, sub-accounts, spend permissions, sponsor/gas paymaster support, batch transactions, cross-chain support.
+- Primary integration point: Base Account SDK (createBaseAccountSDK) which exposes an EIP-1193 compliant provider plus SDK helpers (subAccount manager, utilities).
+- Provider.request handles calls in three ways:
+  1. Sent to Wallet UI / Popup / Mobile app (for interactive actions).
+  2. Handled locally by SDK (some read-only or stateful methods).
+  3. Forwarded to configured RPC transport for blockchain queries.
+
+SDK: createBaseAccountSDK (entrypoint)
+-------------------------------------
+Signature:
+```ts
+function createBaseAccountSDK(options?: CreateProviderOptions): BaseAccountSDK
+```
+
+CreateProviderOptions (shape)
+- appName?: string
+- appLogoUrl?: string
+- appChainIds?: number[]             // list of chain IDs your app supports
+- preference?: Preference
+  - walletUrl?: string               // override default wallet URL (advanced)
+  - attribution?: { auto?: boolean; dataSuffix?: `0x${string}` }
+  - telemetry?: boolean
+- subAccounts?: Omit<SubAccountOptions, 'enableAutoSubAccounts'>
+  - toOwnerAccount?: ToOwnerAccountFn
+- paymasterUrls?: Record<number, string> // chainId -> paymaster URL
+- telemetry default: true
+
+Return: BaseAccountSDK
+- getProvider(): ProviderInterface (EIP-1193 provider)
+- subAccount: {
+    create(account: AddSubAccountAccount): Promise<SubAccount>;
+    get(): Promise<SubAccount | null>;
+    addOwner(params: { address?: `0x${string}`; publicKey?: `0x${string}`; chainId: number }): Promise<string>;
+    setToOwnerAccount(fn: ToOwnerAccountFn): void;
+  }
+- Other helpers exposed by SDK: generateKeyPair, getKeypair, getCryptoKeyAccount, pay helpers (pay, getPaymentStatus), spend-permission helpers, etc.
+
+Core types & interfaces (concise)
+---------------------------------
+(TypeScript-like pseudotypes for LLM consumption.)
+
+ProviderInterface (EIP-1193)
+```ts
+interface RequestArguments {
+  method: string;
+  params?: unknown[] | object;
+}
+
+interface ProviderRpcError extends Error {
+  message: string;
+  code: number;
+  data?: unknown;
+}
+
+interface ProviderInterface {
+  request(args: RequestArguments): Promise<unknown>;
+  disconnect(): Promise<void>;
+  on(event: 'connect' | 'disconnect' | 'accountsChanged' | 'chainChanged', listener: (payload:any)=>void): this;
+  emit(event: string, payload?: any): boolean;
+}
+```
+
+CreateProviderOptions (expanded)
+```ts
+type CreateProviderOptions = {
+  appName?: string;
+  appLogoUrl?: string;
+  appChainIds?: number[];
+  preference?: {
+    walletUrl?: string;
+    attribution?: { auto?: boolean; dataSuffix?: `0x${string}` };
+    telemetry?: boolean;
+  };
+  subAccounts?: {
+    toOwnerAccount?: () => Promise<{ account: OwnerAccount | null }>;
+  };
+  paymasterUrls?: Record<number, string>;
+};
+```
+
+OwnerAccount union used by subAccounts:
+- LocalAccount (viem)
+- WebAuthnAccount (webauthn-based account)
+- Any viem-compatible account representation
+
+SubAccount shape
+```ts
+type SubAccount = {
+  address: `0x${string}`;
+  factory?: `0x${string}`;
+  factoryData?: `0x${string}`;
+}
+```
+
+SpendPermission (SDK representation)
+```ts
+type SpendPermission = {
+  permissionHash: string; // EIP-712 hash
+  signature: string;
+  chainId: number;
+  permission: {
+    account: string;
+    spender: string;
+    token: string;
+    allowance: bigint;
+    period: number; // seconds
+    start: number; // unix seconds
+    end: number;   // unix seconds
+    salt: string;  // hex
+    extraData: string; // hex bytes
+  }
+}
+```
+
+Payment / Base Pay types
+```ts
+type PayOptions = {
+  amount: string; // USD string like "10.50"
+  to: string; // 0x address or ENS
+  testnet?: boolean; // default false
+  payerInfo?: {
+    requests: Array<{ type: 'email'|'name'|'phoneNumber'|'physicalAddress'|'onchainAddress'; optional?: boolean }>;
+    callbackURL?: string;
+  }
+}
+type PayResult = {
+  id: string; // tx id / payment id
+  amount: string;
+  to: string;
+  payerInfoResponses?: any;
+}
+type PaymentStatus = { status: 'completed'|'pending'|'failed'|'not_found'; id: string; message?: string; sender?: string; amount?: string; recipient?: string; error?: string }
+```
+
+Key utilities
+- generateKeyPair(): Promise<P256KeyPair>
+- getKeypair(): Promise<P256KeyPair | null>
+- getCryptoKeyAccount(): Promise<{ account: WebAuthnAccount | LocalAccount | null }>
+
+Core SDK utilities signatures
+-----------------------------
+- createBaseAccountSDK(options?: CreateProviderOptions): BaseAccountSDK
+- generateKeyPair(): Promise<{ publicKey: string; privateKey: string }>
+- getKeypair(): Promise<{ publicKey: string; privateKey: string } | null>
+- getCryptoKeyAccount(): Promise<{ account: WebAuthnAccount | LocalAccount | null }>
+
+Provider: getProvider() usage
+-----------------------------
+- provider.request({ method: 'eth_requestAccounts' }) -> Promise<string[]>
+- provider.request({ method: 'wallet_connect', params: [options] }) -> Promise<{ accounts: AccountResult[], chainId: string, isConnected: boolean }>
+- provider.request({ method: 'wallet_sendCalls', params: [callBundle] }) -> Promise<callsId | result>
+- provider.request({ method: 'wallet_getCapabilities', params: [address] }) -> Promise<CapabilitiesObject>
+- provider emits events: 'accountsChanged', 'chainChanged', 'connect', 'disconnect'
+
+Core flows: Sign In (SIWE) and wallet_connect
+--------------------------------------------
+- Use wallet_connect with capability signInWithEthereum to get an address and a signed SIWE message and signature.
+- Always generate a fresh nonce (crypto.randomUUID or server-supplied) for SIWE to prevent replay.
+- Verify on backend with viem verifyMessage or similar.
+
+Example (SIWE with provider):
+```ts
+const nonce = window.crypto.randomUUID().replace(/-/g,'');
+const res = await provider.request({
+  method: 'wallet_connect',
+  params: [{
+    version: '1',
+    capabilities: {
+      signInWithEthereum: { nonce, chainId: '0x2105' }
+    }
+  }]
+});
+const accounts = res.accounts;
+const address = accounts[0].address;
+const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+// send to backend for verification
+```
+
+Backend verification (viem)
+```ts
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+const client = createPublicClient({ chain: base, transport: http() });
+const valid = await client.verifyMessage({ address, message, signature });
+```
+
+Payments: pay() & getPaymentStatus()
+-----------------------------------
+SDK functions:
+- pay(options: PayOptions): Promise<PayResult>
+- getPaymentStatus({id: string, testnet?: boolean}): Promise<PaymentStatus>
+
+Behavior:
+- pay() triggers wallet popup, handles USDC conversion and gas/payer flow.
+- getPaymentStatus must be called with the same testnet flag used for pay().
+
+Examples:
+Basic:
+```ts
+import { pay, getPaymentStatus } from '@base-org/account';
+try {
+  const result = await pay({ amount: '5.00', to: '0xRecipient', testnet: true });
+  const status = await getPaymentStatus({ id: result.id, testnet: true });
+} catch (err) { console.error(err); }
+```
+
+Collecting payer info (dataCallback):
+- pass payerInfo.requests and optional callbackURL
+- If callbackURL provided, wallet POSTs collected data to that endpoint for validation. Your API must return either { request: { ...calls... } } (success) or { errors: { ... } } (validation errors) exactly per docs.
+
+DataCallback request body shape (sent to callbackURL)
+```json
+{
+  "calls": [{ "to": "...", "data": "0x..." }, ...],
+  "chainId": "0x14a34",
+  "capabilities": {
+    "dataCallback": {
+      "requestedInfo": {
+        "email": "user@example.com",
+        "phoneNumber": { "number": "+12...", "country": "US", "isPrimary": true },
+        "physicalAddress": { "address1":"...", "city":"...", "postalCode":"...", "countryCode":"US", "name":{ "firstName":"", "familyName":"" } },
+        "name": { "firstName":"", "familyName":"" }
+      }
+    }
+  }
+}
+```
+
+Expected callback success response:
+```json
+{ "request": { "calls": [...], "chainId": "...", "capabilities": { dataCallback: { ... } } } }
+```
+Or validation errors:
+```json
+{ "errors": { "email": "Invalid", "physicalAddress": { "postalCode":"Invalid" } } }
+```
+
+BasePayButton UI component
+--------------------------
+Package: @base-org/account-ui/react
+
+Props (summary):
+- paymentOptions: PayOptions (required)
+- colorScheme?: 'light'|'dark'|'system'
+- size?: 'small'|'medium'|'large'
+- variant?: 'solid'|'outline'
+- disabled?: boolean
+- onPaymentResult?: (result: { success: boolean; transactionHash?: string; error?: string; payerInfoResponses?: any }) => void
+- onClick?: () => boolean | void (return false to cancel payment)
+
+Example:
+```tsx
+<BasePayButton
+  paymentOptions={{ amount: '25.00', to: 'merchant.eth', payerInfo: { requests: [ {type:'email'} ], callbackURL: 'https://your-api.com/validate' } }}
+  colorScheme="light"
+  onPaymentResult={(res) => { if (res.success) console.log('done'); }}
+/>
+```
+
+Authentication UI: SignInWithBaseButton
+--------------------------------------
+Package: @base-org/account-ui/react
+
+Props:
+- align?: 'left'|'center'|'right'
+- variant?: 'solid'|'transparent'
+- colorScheme?: 'light'|'dark'|'system'
+- size?: 'small'|'medium'|'large'
+- disabled?: boolean
+- onClick?: () => void
+- onSignInResult?: (result) => void
+
+Example usage:
+```tsx
+<SignInWithBaseButton onClick={async () => { /* run wallet_connect SIWE flow */ }} />
+```
+
+Provider RPC methods (complete list & shapes)
+---------------------------------------------
+Provider.request expects { method: string, params?: any[] | object }.
+
+Categories:
+1. Sent to Wallet / interactive (handled by wallet app / popup)
+   - personal_sign
+   - eth_sendTransaction
+   - eth_sendRawTransaction
+   - eth_signTypedData_v4
+   - wallet_addEthereumChain
+   - wallet_watchAsset
+   - wallet_sendCalls
+   - wallet_getCallsStatus
+   - wallet_connect
+   - wallet_getCapabilities
+   - wallet_switchEthereumChain
+   - wallet_addSubAccount
+   - wallet_getSubAccounts
+   - coinbase_fetchPermissions
+
+2. Handled locally by SDK
+   - eth_requestAccounts
+   - eth_accounts
+   - eth_coinbase
+   - eth_chainId
+   - web3_clientVersion
+
+3. Passed to RPC provider
+   - eth_getBalance, eth_blockNumber, eth_gasPrice, eth_estimateGas, eth_feeHistory, eth_getBlockByNumber, eth_getBlockByHash, eth_getTransactionByHash, eth_getTransactionReceipt, eth_getTransactionCount, eth_getTransactionByBlockHashAndIndex, eth_getTransactionByBlockNumberAndIndex, eth_getBlockTransactionCountByHash, eth_getBlockTransactionCountByNumber, eth_getCode, eth_getStorageAt, eth_getLogs, eth_getProof, eth_getUncleCountByBlockHash, eth_getUncleCountByBlockNumber, eth_sendRawTransaction
+
+Selected request/response examples (representative)
+- eth_requestAccounts -> returns string[] of addresses or throws 4001 if user rejects.
+- wallet_connect -> format (see SIWE example above).
+- wallet_getCapabilities params: [accountAddress], returns mapping chainId -> capabilities object:
+  - capabilities keys: auxiliaryFunds, atomic, paymasterService, flowControl, datacallback
+- wallet_sendCalls params: [ { version: '2.0.0', id?: string, from: '0x..', chainId: '0x...', atomicRequired: boolean, calls: [ { to, value, data } ], capabilities?: {...} } ]
+  - returns batchId / callsId; caller can call wallet_getCallsStatus(callsId) to poll receipts/status
+- wallet_getCallsStatus params: [callsId] returns { version, chainId, id, status: number, atomic: boolean, receipts: [...] } (see docs for codes: 100 pending, 200 success, 4xx offchain failure, 5xx chain failure, 6xx partial failure)
+
+Capabilities (detailed)
+-----------------------
+
+Capabilities are discovered via wallet_getCapabilities(account). They are chain-specific.
+
+Common capability keys:
+- signInWithEthereum (used with wallet_connect)
+  - params: { nonce: string, chainId: string }
+  - returns message & signature
+- auxiliaryFunds
+  - indicates wallet may have access to off-chain/auxiliary funds (MagicSpend)
+  - properties: { supported: boolean }
+  - App behavioral impact: do not block actions solely because on-chain balance is zero when auxiliaryFunds.supported === true
+- atomic
+  - values: { supported: 'supported' | 'ready' | 'unsupported' }
+  - 'ready' means EOA can upgrade to atomic support with user approval
+- paymasterService
+  - used to request sponsorship from an ERC-7677 paymaster web service
+  - params: { url: 'https://..' }
+  - returns paymaster support boolean
+- dataCallback (data collection during payments)
+  - used for payerInfo collection (email, name, phoneNumber, physicalAddress, onchainAddress)
+  - app supplies callbackURL optionally; wallet posts to your URL for server-side validation
+- flowControl (ERC-7867 proposed)
+  - controls behavior on failure inside batched calls (onFailure: 'continue'|'stop'|'retry', fallbackCall etc.)
+
+Batch transactions: wallet_sendCalls (EIP-5792)
+-----------------------------------------------
+- Use wallet_sendCalls to submit multiple onchain calls in a single flow.
+- version: '2.0.0'
+- atomicRequired: true => request atomic execution (all succeed or all revert). Must check wallet_getCapabilities().atomic.
+- Non-atomic mode allowed: atomicRequired: false -> wallet might run in sequence and some calls could succeed even if some fail.
+- Use encodeFunctionData/ABI to construct data fields for contract calls (viem/ethers).
+
+Example: simple batch ETH transfers
+```ts
+const calls = [
+  { to: addr1, value: numberToHex(parseEther('0.001')), data: '0x' },
+  { to: addr2, value: numberToHex(parseEther('0.001')), data: '0x' }
+];
+const result = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '2.0.0',
+    from: fromAddress,
+    chainId: numberToHex(base.constants.CHAIN_IDS.base),
+    atomicRequired: true,
+    calls
+  }]
+});
+```
+
+Error handling for wallet_sendCalls (common codes):
+- 4001: user rejected
+- 5740: batch too large for wallet
+- -32602: invalid params
+- 5700: required capability not supported
+
+Spend Permissions (overview & SDK helpers)
+-----------------------------------------
+Spend Permissions let apps request user-signed EIP-712 spend permissions that a "spender" can later use to move tokens from the user's Base Account within configured limits. Useful for subscriptions, automated payouts, etc.
+
+Key SDK methods (signatures & behavior):
+- requestSpendPermission({ account, spender, token, chainId, allowance: bigint, periodInDays, start?: Date, end?: Date, salt?: string, extraData?: string, provider }): Promise<SpendPermission>
+  - prompts user to sign EIP-712 permission
+- fetchPermissions({ account, chainId, spender, provider }): Promise<SpendPermission[]>
+  - returns active, non-revoked permissions for spender
+- getPermissionStatus(permission): Promise<{ isActive: boolean; remainingSpend: bigint; nextPeriodStart: Date }>
+- prepareSpendCallData({ permission, amount?: bigint }): Promise<Call[]>
+  - returns one or two Call objects:
+    - If permission not yet registered: approveWithSignature call followed by spend call
+    - If already registered: only spend call
+- requestRevoke(permission): Promise<string> (tx hash)
+  - triggers wallet flow to revoke permission (user interaction)
+- prepareRevokeCallData(permission): Promise<Call>
+  - returns call data your spender can submit silently (on-chain revoke) without user interaction
+
+Spend permission flow example:
+1. requestSpendPermission(...) -> returns permission with signature.
+2. prepareSpendCallData({permission, amount}) -> returns calls.
+3. Spender account submits calls as batch (wallet_sendCalls) or sequential (eth_sendTransaction).
+
+Sub Accounts (overview)
+-----------------------
+Sub Accounts are child accounts created/managed under a Base Account to reduce passkey prompts and provide app-specific accounts.
+
+RPCs:
+- wallet_addSubAccount params: { account: { type: 'create'|'deployed', keys?: [], address?: '0x..', chainId?: number } } -> returns { address, factory?, factoryData? }
+- wallet_getSubAccounts params: { account: '0x..', domain: 'https://app.yourdomain' } -> returns { subAccounts: [ ... ] }
+
+SDK conveniences:
+- sdk.subAccount.create() // wraps wallet_addSubAccount
+- sdk.subAccount.get()
+- sdk.subAccount.addOwner({ address, publicKey, chainId })
+- sdk.subAccount.setToOwnerAccount(fn) // set owner account (embedded/local wallet) for signing sub-account transactions
+
+Typical sub-account steps (Privy example):
+1. Provide embedded wallet (Privy) as owner.
+2. Call wallet_addSubAccount to create or import sub account.
+3. Configure toOwnerAccount for signing.
+
+Sub Account transaction usage:
+- Once subaccount is created, use wallet_sendCalls or eth_sendTransaction where from == subAccount.address. The provider will route signing to the configured owner account (embedded wallet) and avoid passkey prompts.
+
+Basenames (ENS-based)
+---------------------
+- Basenames are ENS-like onchain names for Base network.
+- To resolve Basename for an address: call L2 resolver contract read name(reverseNode).
+- To fetch text records/avatar: use resolver ABI L2ResolverAbi and query text records by keys.
+- Implementation notes:
+  - convertReverseNodeToBytes(address, chainId) used to compute reverse node bytes for resolver.
+  - Basename metadata stored as text records.
+
+OnchainKit & Wagmi Basename resolver examples:
+- See code examples in docs: create ABI file abis/L2ResolverAbi.ts (use provided gist), query contract using viem public client or wagmi.
+
+Wagmi integration examples
+--------------------------
+Wagmi config examples (connectors, transports, chain config):
+
+Example wagmi.ts:
+```ts
+import { http, cookieStorage, createConfig, createStorage } from 'wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import { coinbaseWallet, injected } from 'wagmi/connectors';
+
+export function getConfig() {
+  return createConfig({
+    chains: [base, baseSepolia],
+    connectors: [
+      injected(),
+      coinbaseWallet({ appName: 'Create Wagmi', preference: 'smartWalletOnly' }),
+    ],
+    storage: createStorage({ storage: cookieStorage }),
+    ssr: true,
+    transports: {
+      [base.id]: http(),
+      [baseSepolia.id]: http(),
+    },
+  });
+}
+```
+
+Using Base Account connector in Wagmi:
+- Find connector connectors.find(c => c.id === 'baseAccountWallet') then connectAsync({ connector: baseAccountConnector })
+- Access provider via connector.provider for advanced RPC methods.
+
+Wagmi Sign-in with Base flow (summary):
+1. connectAsync({ connector: baseAccountConnector })
+2. provider = baseAccountConnector.provider
+3. provider.request({ method: 'wallet_connect', params: [{ version: '1', capabilities:{ signInWithEthereum: { nonce, chainId } } }] })
+4. Backend verify signature with viem
+
+Privy integration
+-----------------
+Privy + Base Account steps:
+- Install: @privy-io/react-auth @privy-io/wagmi-connector wagmi viem @base-org/account
+- Provide PrivyProvider wrapping WagmiProvider with wagmi config including baseAccount connector
+- Privy hooks provide embeddedWallet and baseAccountWallet references and baseAccountSdk via useBaseAccountSdk
+- Examples: wallet linking, creating Sub Accounts with embedded wallet as owner via baseAccountSdk.subAccount.setToOwnerAccount(toViemAccount)
+
+Mobile integration (React Native) — Mobile Wallet Protocol Client
+----------------------------------------------------------------
+- Use @mobile-wallet-protocol/client and polyfills (expo-standard-web-crypto, react-native-url-polyfill)
+- Create EIP1193Provider with metadata { name, customScheme: 'myapp://', chainIds: [8453], logoUrl }
+- Or use @mobile-wallet-protocol/wagmi-connectors to create a wagmi connector for CoinbaseSmartWallet / Base Account
+
+Paymasters and sponsor gas
+--------------------------
+- Base Account supports ERC-7677 paymaster-based sponsorship.
+- Setup:
+  1. Obtain paymaster service URL (Coinbase Developer Platform recommended).
+  2. Configure app/paymaster allowlist and optionally set policy (Coinbase Developer Platform supports).
+  3. In provider request wallet_sendCalls include capabilities: { paymasterService: { url: paymasterServiceUrl } }.
+- Also supports ERC20-based paymasters (special ERC20 paymaster flow). For ERC20 paymasters, app must ensure token approvals to paymaster address (allowance top-ups).
+- Paymaster RPC endpoints to implement (pm_getPaymasterStubData / pm_getPaymasterData) and pm_getAcceptedPaymentTokens as per ERC-7677.
+
+Paymaster example (sponsored transaction):
+```ts
+const result = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: numberToHex(baseSepoliaChainId),
+    from: user,
+    calls,
+    capabilities: {
+      paymasterService: { url: paymasterServiceUrl }
+    }
+  }]
+});
+```
+
+ERC20 PAYMASTERS specifics:
+- pm_getPaymasterData request includes context { erc20: address }
+- Response must include tokenPayment info: { tokenAddress, maxFee, decimals, name } on success or error with data.acceptedTokens on rejection.
+
+Atomic capability
+-----------------
+- Check wallet_getCapabilities(account)['0x2105'].atomic.supported === 'supported'
+- If supported and you set atomicRequired: true in wallet_sendCalls, wallet will execute batch atomically.
+- Error codes: 4100 (unsupported), 5700 (atomic required but not supported), 5750 (atomic upgrade rejected)
+
+AuxiliaryFunds (MagicSpend)
+---------------------------
+- capability auxiliaryFunds indicates wallet may access funds outside the on-chain balance (e.g., Coinbase balances).
+- If supported, apps must not disable actions solely because on-chain balances are insufficient.
+- Check via wallet_getCapabilities before deciding to disable UI.
+
+FlowControl (ERC-7867 proposed)
+-------------------------------
+- Allows specifying onFailure behavior per call in batch (continue|stop|retry) and fallbackCall.
+- Proposed behavior; not finalized. Use only with capability detection.
+
+Sign & Verify Typed Data (EIP-712)
+----------------------------------
+- Use eth_signTypedData_v4 via provider.request({ method: 'eth_signTypedData_v4', params: [address, JSON.stringify(typedData)] })
+- Verify server-side using viem.createPublicClient.verifyTypedData
+- Note: For smart contract wallets, verification will account for ERC-1271 validation and ERC-6492 undeployed account wrappers.
+
+Batch error handling (common)
+-----------------------------
+When calling wallet_sendCalls or batch APIs, handle:
+- error.code === 4001 => user rejected
+- error.code === 5740 => batch too large
+- error.code === -32602 => invalid params
+- Other codes are documented per method (5700, 5710, etc.)
+
+Key SDK utilities & usage examples
+---------------------------------
+generateKeyPair / getKeypair:
+```ts
+import { generateKeyPair, getKeypair } from '@base-org/account';
+let kp = await getKeypair();
+if (!kp) kp = await generateKeyPair();
+```
+
+getCryptoKeyAccount:
+```ts
+import { getCryptoKeyAccount } from '@base-org/account';
+const cryptoAccount = await getCryptoKeyAccount();
+if (cryptoAccount?.account) {
+  console.log(cryptoAccount.account.address);
+}
+```
+
+Sub-account creation:
+```ts
+const sdk = createBaseAccountSDK({ appName: 'Demo', appChainIds: [84532] });
+const provider = sdk.getProvider();
+await provider.request({
+  method: 'wallet_addSubAccount',
+  params: [{ account: { type: 'create', keys: [{ type: 'p256', publicKey: '0x...' }] } }]
+});
+```
+
+Spend permission flow:
+```ts
+import { requestSpendPermission, prepareSpendCallData } from '@base-org/account/spend-permission';
+const permission = await requestSpendPermission({ account, spender, token, chainId, allowance: 1_000_000n, periodInDays: 30, provider });
+
+const calls = await prepareSpendCallData({ permission, amount: 1000n });
+// submit as batch from your spender account
+await provider.request({ method: 'wallet_sendCalls', params: [{ version: '2.0', atomicRequired: true, from: spender, calls }] });
+```
+
+Basename resolution example (viem/minimal):
+```ts
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+import L2ResolverAbi from '@/abis/L2ResolverAbi';
+const client = createPublicClient({ chain: base, transport: http() });
+
+const addressReverseNode = convertReverseNodeToBytes(address, base.id);
+const basename = await client.readContract({ abi: L2ResolverAbi, address: BASENAME_L2_RESOLVER_ADDRESS, functionName: 'name', args: [addressReverseNode] });
+```
+
+Integration quickstarts (essentials)
+-----------------------------------
+Web (HTML + JS) minimal:
+- Use CDN: <script src="https://unpkg.com/@base-org/account/dist/base-account.min.js"></script>
+- Example: initialize provider: window.createBaseAccountSDK({ appName: 'Quickstart' }).getProvider();
+- Use provider.request to sign in or window.base.pay to pay (CDN global exposes window.base helpers).
+
+React Quickstart:
+- npm install @base-org/account @base-org/account-ui
+- createBaseAccountSDK in bundle or component and use getProvider() + UI components SignInWithBaseButton and BasePayButton.
+
+Wagmi Quickstart:
+- npm install wagmi viem @base-org/account
+- Create createConfig with baseAccount connector and custom(provider) transport for Wagmi.
+
+Privy Quickstart:
+- npm add @privy-io/react-auth @privy-io/wagmi-connector wagmi viem @base-org/account
+- Use PrivyProvider and WagmiProvider; configure embedded wallets, supported chains base, and add base_account in walletList.
+
+Mobile (React Native) Quickstart:
+- Install @mobile-wallet-protocol/client, polyfills expo-standard-web-crypto, react-native-url-polyfill, and set up EIP1193Provider with custom scheme myapp://
+
+Telemetry
+---------
+- Default telemetry: enabled (opt-out). Configure via createBaseAccountSDK({ preference: { telemetry: false } })
+- Telemetry events are anonymous, operational; do not include sensitive data or keys.
+
+Brand & UI Guidelines (short)
+-----------------------------
+- Use official components for consistency.
+- SignInWithBase button: Base blue square (always same shade), on dark backgrounds use white version. Text "Sign in with Base".
+- BasePayButton uses combination mark; do not write "Base Pay" as text instead of mark.
+- Follow brand assets and spacing requirements in docs.
+
+Error codes & troubleshooting
+-----------------------------
+Common RPC error codes:
+- 4001: user rejected request
+- 4100: method not supported by wallet/provider
+- 4200: wallet not available / disconnected
+- 4900: disconnected
+- 4902: unrecognized chain id (wallet_switchEthereumChain)
+- -32602: invalid params
+- -32601: method not found
+- -32000: server error / execution reverted
+- 5700: capability required but not supported
+- 5740: batch too large
+- 5750: capability upgrade rejected
+
+Popup tips:
+- Ensure popup opened by direct user click (avoid long synchronous logic between click and provider call).
+- Cross-Origin-Opener-Policy (COOP) header: use "same-origin-allow-popups" or "unsafe-none" to allow popup. "same-origin" will break popup flow.
+- Popup linger: after a popup responds, it remains open for ~200ms to accept follow-up requests. If follow-up request happens outside this window, browser may block subsequent popup.
+
+Gas usage & gasnotes
+--------------------
+- Smart contract wallet transactions cost more gas than EOA equivalents.
+- Estimates (rough):
+  - Native token transfer: EOA ~21k gas; Base Account ~100k gas
+  - ERC-20 transfer: EOA ~65k gas; Base Account ~150k gas
+  - First deployment of account: ~300k+ gas
+
+Unsupported calls or limitations
+--------------------------------
+- Self-calls (dapps calling user's own smart account address) are disallowed for security.
+- CREATE opcode: unsupported for smart account deployments in certain flows (use CREATE2 or factories).
+- Solidity transfer built-in may fail for Base Accounts (WETH9 unwrapping may use transfer -> failure); avoid relying on transfer to send ETH to smart wallets.
+
+Complete method reference highlights
+-----------------------------------
+(See provider methods listing above in "Provider RPC methods".) Each method has request param shape, return shape, and common error conditions noted earlier. For code examples, reference the "Selected request/response examples" section.
+
+Best practices & security
+-------------------------
+- Always verify signatures server-side (viem verifyMessage / verifyTypedData).
+- Generate fresh nonces for SIWE; track used nonces server-side to prevent replay.
+- Check wallet capabilities (wallet_getCapabilities) before relying on advanced features (atomic, paymaster, auxiliaryFunds, dataCallback).
+- Use HTTPS for callback URLs; ngrok for local dev.
+- Avoid relying solely on on-chain balance if auxiliaryFunds is supported.
+- Add robust server-side validation for dataCallback flows.
+- Handle popup blocking by keeping provider requests directly tied to user click handlers.
+
+Example: End-to-end Sign-in with Base using Wagmi + Backend:
+```ts
+// Client (React + Wagmi)
+const baseConnector = connectors.find(c => c.id === 'baseAccountWallet');
+await connectAsync({ connector: baseConnector }); // Wagmi connect
+const provider = baseConnector.provider;
+const nonce = await fetch('/auth/nonce').then(r => r.text());
+const authResult = await provider.request({ method: 'wallet_connect', params: [{ version: '1', capabilities: { signInWithEthereum: { nonce, chainId: '0x2105' } } }] });
+const { address } = authResult.accounts[0];
+const { message, signature } = authResult.accounts[0].capabilities.signInWithEthereum;
+await fetch('/auth/verify', { method: 'POST', body: JSON.stringify({ address, message, signature }) });
+
+// Server (Express + Viem)
+app.get('/auth/nonce', (req,res) => { const nonce = crypto.randomBytes(16).toString('hex'); nonces.add(nonce); res.send(nonce); });
+app.post('/auth/verify', async (req,res) => {
+  const { address, message, signature } = req.body;
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: 'Invalid signature' });
+  // create session
+  res.json({ ok: true });
+});
+```
+
+Examples & demos repository pointers
+-----------------------------------
+- Basenames resolver ABI gist: referenced in docs (L2ResolverAbi)
+- Complete code examples: various gists linked in the source docs (basenames.tsx etc.)
+- Demos: repos (coin-your-joke, onchain-vibes-store, sub-account-demo) exist in github.com/base/demos
+
+Troubleshooting checklist
+-------------------------
+- If wallet popup shows spinner/error: check COOP header (same-origin-allow-popups) and popup being opened by click.
+- If wallet methods return method_not_supported: fallback to eth_requestAccounts + personal_sign for older wallets.
+- If pay() fails: ensure testnet flag matches for both pay() and getPaymentStatus; confirm user has USDC on appropriate chain or paymaster supports sponsorship.
+- If batch fails: check batch size (5740), atomic capability, paymaster support if used.
+
+Appendix: Selected provider request examples (quick reference)
+--------------------------------------------------------------
+- eth_requestAccounts -> params: []
+- eth_accounts -> params: []
+- wallet_connect -> params: [ { version?: string, capabilities?: {...} } ]
+- wallet_getCapabilities -> params: [accountAddress]
+- wallet_sendCalls -> params: [ {version:'2.0.0', id?:string, from, chainId, atomicRequired:boolean, calls:[{to,value,data}], capabilities?:{ paymasterService?:{url}, dataCallback?:{requests,callbackURL}} } ]
+- wallet_getCallsStatus -> params: [callsId]
+- wallet_addSubAccount -> params: [ { account: { type:'create'|'deployed', keys?:[], address?:string, chainId?:number } } ]
+- wallet_getSubAccounts -> params: [ { account: address, domain: origin } ]
+- personal_sign -> params: [dataHex, address]
+- eth_signTypedData_v4 -> params: [address, JSON.stringify(typedData)]
+- eth_sendTransaction -> params: [ txObject ]
+- eth_sendRawTransaction -> params: [ signedTxHex ]
+- wallet_addEthereumChain -> params: [ chainData ]
+- wallet_switchEthereumChain -> params: [ { chainId: '0x...' } ]
+- wallet_watchAsset -> params: { type:'ERC20', options: { address, symbol, decimals, image? } }
+
+Final notes
+-----------
+This combined reference preserves code examples, signatures, type shapes, configurations, error handling guidance, integration recipes, and best practices across the Base Account documentation set. For implementation use the SDK packages:
+- @base-org/account (core SDK)
+- @base-org/account-ui/react (UI components)
+- wagmi + viem for advanced integrations
+- @privy-io/react-auth for Privy integration
+- @mobile-wallet-protocol/client for React Native
+
+For latest contract ABIs (basenames resolver, spend-permissions, smart-wallet), check the linked GitHub repos referenced in the original docs:
+- https://github.com/base/basenames
+- https://github.com/coinbase/smart-wallet
+- https://github.com/coinbase/spend-permissions
+
+If you want, I can:
+- Expand any individual method into a fully typed TypeScript .d.ts snippet.
+- Produce a compact Quickstart script (single-file) for React/Wagmi or basic HTML+JS.
+- Produce a JSON LLM-context friendly manifest of functions & signatures.
