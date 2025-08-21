@@ -13,8 +13,8 @@ The Base networks are currently configured in the following ways:
 
 | Network      | Current Configuration       | Upcoming Deployments   |
 |--------------|-----------------------------|------------------------|
-| Base Mainnet | [Flashblocks](#flashblocks) | None                   |
-| Base Sepolia | [Flashblocks](#flashblocks) | None                   |
+| Base Mainnet | [Flashblocks](#flashblocks) | Sep 10: [Flashblocks](#flashblocks) + [Per-Transaction Gas Max](#per-transaction-gas-maximum) |
+| Base Sepolia | [Flashblocks](#flashblocks) | Sep 3: [Flashblocks](#flashblocks) + [Per-Transaction Gas Max](#per-transaction-gas-maximum) |
 
 ## Configurations
 
@@ -38,10 +38,40 @@ And so on for subsequent Flashblocks
 
 Consequently, transactions with large gas requirements must wait for later Flashblocks with sufficient gas capacity. For example, a transaction exceeding 1/10 of the block's gas limit cannot be included in Flashblock 1 and must wait for Flashblock 2 or later.
 
+### Per-Transaction Gas Maximum
+
+<Warning>
+On **September 10**, we’ll begin enforcing a per‑transaction gas cap of 16,777,216 gas (2^24) on Base. This aligns Base with the [in‑flight L1 proposal](https://eips.ethereum.org/EIPS/eip-7825), improves network predictability, and has no effect on fees for typical users. We’ll activate it first on Base Sepolia on **September 3**, then activate it on Base mainnet temporarily for one day on **September 10** as a warning. This will be activated permanently on Base mainnet on **September 17**.
+
+#### What’s changing
+
+Today, a single transaction can request any gas up to the block gas limit. With this change, transactions that specify gas > 16,777,216 will be rejected by the mempool before inclusion.
+
+#### Why we’re doing this
+
+* Predictability & resilience. Bounding single‑tx execution reduces extreme outliers and makes block building more stable.
+* Consistency with Ethereum. The L1 community is converging on a 2^24 per‑tx cap; we’re aligning early so builders don’t have to juggle different rules across layers.
+* No practical impact for most builders. The overwhelming majority of Base transactions are far below this cap.
+
+#### Action items for developers
+
+* If you manually set large gas limits, update your code to stay ≤ 16,777,216.
+* For batch jobs or complex on‑chain work, split large jobs into smaller calls.
+* If you maintain custom tooling, surface a clear message when the cap hits.
+
+
+#### FAQ
+
+* **Does this change the block gas limit or fees?** No. This is a per‑transaction guardrail.
+* **Will contract deployments break?** Typical deployments are well below the cap. If yours isn’t, consider slimming bytecode or chunking initialization.
+</Warning>
+
+Base enforces a per-transaction gas maximum of **16,777,216 gas (2^24)**. Transactions that specify a gas limit above this value are **rejected by the mempool before inclusion**. `eth_sendTransaction` or `eth_sendRawTransaction` will return a JSON-RPC error (for example: `exceeds maximum per-transaction gas limit`). This cap does **not** change the block gas limit or the block validity conditions (that will come later with [EIP 7825](https://eips.ethereum.org/EIPS/eip-7825)).
+
 ### Vanilla
 
 Blocks are built every 2s by [op-geth](https://github.com/ethereum-optimism/op-geth). Transactions within those blocks are ordered by
-priority fee, see the ([code](https://github.com/ethereum-optimism/op-geth/blob/optimism/miner/worker.go#L627).
+priority fee, see the ([code](https://github.com/ethereum-optimism/op-geth/blob/optimism/miner/worker.go#L627)).
 
 ## Changelog
 
@@ -49,4 +79,3 @@ priority fee, see the ([code](https://github.com/ethereum-optimism/op-geth/blob/
 * 15th May: Ended testing Flashblocks on Base Mainnet
 * 15th May: Started testing Flashblocks on Base Mainnet
 * 25th Feb: Enabled Flashblocks on Base Sepolia
-
