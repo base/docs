@@ -6,40 +6,123 @@ description: "Connect wallet and request account access"
 Custom Coinbase Wallet method for establishing connection
 
 <Info>
-Requests that the wallet connects to the dApp and provides account access. This is similar to `eth_requestAccounts` but provides additional connection features.
+Requests that the wallet connects to the dApp and provides account access. This is similar to `eth_requestAccounts` but provides additional connection features and optional capabilities (e.g. Sign-In With Ethereum, spend permissions, sub account creation).
 </Info>
+
+Note: Calling `eth_requestAccounts` in the SDK is translated to a `wallet_connect` request under the hood. The provider will perform a handshake, initialize sub-account configuration (if enabled), and then send a `wallet_connect` request with capabilities derived from the SDK's stored sub-account configuration.
 
 ## Parameters
 
 <ParamField body="options" type="object">
-Optional configuration object for the connection.
+Optional configuration object for the connection. The request's params array should contain a single object with the properties below.
 
 <Expandable title="Options properties">
-<ParamField body="version" type="string">
-The wallet connect version to use.
-</ParamField>
-
-<ParamField body="jsonrpc" type="string">
-The JSON-RPC version (typically "2.0").
+<ParamField body="version" type="string" required>
+The wallet connect protocol version to use. The SDK typically uses "1".
 </ParamField>
 
 <ParamField body="capabilities" type="object">
-Optional capabilities to request during connection, such as signInWithEthereum for authentication.
-
+Optional capabilities to request during connection. Each capability is optional.
 <Expandable title="Available capabilities">
+
 <ParamField body="signInWithEthereum" type="object">
 Request SIWE (Sign-In With Ethereum) authentication during connection.
-
 <Expandable title="signInWithEthereum properties">
 <ParamField body="nonce" type="string" required>
 A unique random string to prevent replay attacks.
 </ParamField>
 
 <ParamField body="chainId" type="string" required>
-The chain ID as a hexadecimal string (e.g., "0x2105" for Base Mainnet).
+The chain ID as an EIP-155 hex-encoded string (e.g., "0x2105" for Base Mainnet).
+</ParamField>
+
+<ParamField body="version" type="string">
+Optional SIWE message version.
+</ParamField>
+
+<ParamField body="scheme" type="string">
+Optional URI scheme to include in SIWE message.
+</ParamField>
+
+<ParamField body="domain" type="string">
+Optional domain for the SIWE message.
+</ParamField>
+
+<ParamField body="uri" type="string">
+Optional URI to include in the SIWE message.
+</ParamField>
+
+<ParamField body="statement" type="string">
+Optional human-readable statement to include in the SIWE message.
+</ParamField>
+
+<ParamField body="issuedAt" type="string">
+Optional ISO 8601 timestamp for when the message was issued.
+</ParamField>
+
+<ParamField body="expirationTime" type="string">
+Optional ISO 8601 timestamp for when the message expires.
+</ParamField>
+
+<ParamField body="notBefore" type="string">
+Optional ISO 8601 timestamp for when the message becomes valid.
+</ParamField>
+
+<ParamField body="requestId" type="string">
+Optional request identifier.
+</ParamField>
+
+<ParamField body="resources" type="string[]">
+Optional array of resource URIs to include in the SIWE message.
 </ParamField>
 </Expandable>
 </ParamField>
+
+<ParamField body="spendPermissions" type="object">
+Request spend permissions. The request shape is a mapping from numeric chainId to an array of spend permission configs:
+<RecordExample>{
+  "<chainId_number>": [
+    {
+      "token": "0x...",      // token address
+      "allowance": "0x...",  // allowance as hex
+      "period": 86400,       // period in seconds
+      "salt": "0x...",       // optional
+      "extraData": "0x..."   // optional
+    }
+  ]
+}
+</RecordExample>
+
+<Expandable title="SpendPermissionConfig properties">
+<ParamField body="token" type="string" required>
+Token contract address (Ethereum address).
+</ParamField>
+
+<ParamField body="allowance" type="string" required>
+Allowance expressed as a hex string (e.g. "0x0...").
+</ParamField>
+
+<ParamField body="period" type="number" required>
+Permission period in seconds.
+</ParamField>
+
+<ParamField body="salt" type="string">
+Optional salt as a hex string.
+</ParamField>
+
+<ParamField body="extraData" type="string">
+Optional extra data as a hex string.
+</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField body="addSubAccount" type="object">
+Request creation of a sub-account. The request body is an object with an `account` property describing the sub-account creation request:
+<ParamField body="account" type="object" required>
+The account description object (see Add SubAccount reference for full shape). The provider will attempt to create or return a sub-account based on this data.
+</ParamField>
+</ParamField>
+
 </Expandable>
 </ParamField>
 </Expandable>
@@ -48,7 +131,7 @@ The chain ID as a hexadecimal string (e.g., "0x2105" for Base Mainnet).
 ## Returns
 
 <ResponseField name="result" type="object">
-Connection result object containing account information and capabilities results.
+Connection result object containing account information and capability results.
 
 <Expandable title="Result properties">
 <ResponseField name="accounts" type="array">
@@ -56,37 +139,62 @@ Array of connected account objects.
 
 <Expandable title="Account object properties">
 <ResponseField name="address" type="string">
-The account address.
+The connected account address ("0x..." string).
 </ResponseField>
 
-<ResponseField name="capabilities" type="object">
-Capabilities results if requested during connection.
+<ResponseField name="capabilities" type="object | error">
+Capabilities results if requested during connection. For each requested capability, the provider will return either a success result object or a serialized Ethereum RPC error object (with properties `code`, `message`, and optional `data`) if that capability failed or was rejected.
+<Expandable title="Possible capability result shapes">
 
-<Expandable title="Capabilities results">
-<ResponseField name="signInWithEthereum" type="object">
-SIWE authentication result if requested.
-
-<Expandable title="signInWithEthereum result">
-<ResponseField name="message" type="string">
+<ResponseField name="signInWithEthereum" type="object | error">
+On success:
+<ParamField body="message" type="string">
 The SIWE-formatted message that was signed.
+</ParamField>
+<ParamField body="signature" type="string">
+The cryptographic signature of the message (hex string prefixed with "0x").
+</ParamField>
+
+On failure:
+<ParamField body="error" type="object">
+A SerializedEthereumRpcError with keys `code`, `message`, and optional `data`.
+</ParamField>
 </ResponseField>
 
-<ResponseField name="signature" type="string">
-The cryptographic signature of the message.
+<ResponseField name="spendPermissions" type="object | error">
+On success:
+<ParamField body="permissions" type="array">
+Array of granted SpendPermission objects (see SpendPermission reference for the exact shape).
+</ParamField>
+
+On failure:
+<ParamField body="error" type="object">
+A SerializedEthereumRpcError.
+</ParamField>
 </ResponseField>
+
+<ResponseField name="subAccounts" type="array | error">
+On success:
+Each item is an object with optional properties returned from sub-account creation:
+<ParamField body="address" type="string">
+Optional newly created sub-account address ("0x..." string).
+</ParamField>
+<ParamField body="factory" type="string">
+Optional factory address used to create the sub-account ("0x..." string).
+</ParamField>
+<ParamField body="factoryData" type="string">
+Optional factory init/creation calldata as a hex string.
+</ParamField>
+
+On failure:
+<ParamField body="error" type="object">
+A SerializedEthereumRpcError.
+</ParamField>
+</ResponseField>
+
 </Expandable>
 </ResponseField>
 </Expandable>
-</ResponseField>
-</Expandable>
-</ResponseField>
-
-<ResponseField name="chainId" type="string">
-The current chain ID as a hexadecimal string.
-</ResponseField>
-
-<ResponseField name="isConnected" type="boolean">
-Whether the wallet is connected.
 </ResponseField>
 </Expandable>
 </ResponseField>
@@ -97,19 +205,22 @@ Whether the wallet is connected.
   "id": 1,
   "jsonrpc": "2.0",
   "method": "wallet_connect",
-  "params": [{}]
+  "params": [
+    {}
+  ]
 }
 ```
 
-```json With Options
+```json With Version
 {
   "id": 1,
   "jsonrpc": "2.0",
   "method": "wallet_connect",
-  "params": [{
-    "version": "1.0",
-    "jsonrpc": "2.0"
-  }]
+  "params": [
+    {
+      "version": "1"
+    }
+  ]
 }
 ```
 
@@ -118,15 +229,63 @@ Whether the wallet is connected.
   "id": 1,
   "jsonrpc": "2.0",
   "method": "wallet_connect",
-  "params": [{
-    "version": "1",
-    "capabilities": {
-      "signInWithEthereum": {
-        "nonce": "abc123def456",
-        "chainId": "0x2105"
+  "params": [
+    {
+      "version": "1",
+      "capabilities": {
+        "signInWithEthereum": {
+          "nonce": "abc123def456",
+          "chainId": "0x2105",
+          "statement": "Sign in with Ethereum to the app.",
+          "issuedAt": "2024-01-15T10:30:00Z"
+        }
       }
     }
-  }]
+  ]
+}
+```
+
+```json With spendPermissions Capability
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_connect",
+  "params": [
+    {
+      "version": "1",
+      "capabilities": {
+        "spendPermissions": {
+          "8453": [
+            {
+              "token": "0x0000000000000000000000000000000000000000",
+              "allowance": "0x2386f26fc10000",
+              "period": 86400
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+```json With addSubAccount Capability
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_connect",
+  "params": [
+    {
+      "version": "1",
+      "capabilities": {
+        "addSubAccount": {
+          "account": {
+            /* account creation payload - see AddSubAccount docs */
+          }
+        }
+      }
+    }
+  ]
 }
 ```
 </RequestExample>
@@ -137,11 +296,11 @@ Whether the wallet is connected.
   "id": 1,
   "jsonrpc": "2.0",
   "result": {
-    "accounts": [{
-      "address": "0x407d73d8a49eeb85d32cf465507dd71d507100c1"
-    }],
-    "chainId": "0x2105",
-    "isConnected": true
+    "accounts": [
+      {
+        "address": "0x407d73d8a49eeb85d32cf465507dd71d507100c1"
+      }
+    ]
   }
 }
 ```
@@ -151,17 +310,65 @@ Whether the wallet is connected.
   "id": 1,
   "jsonrpc": "2.0",
   "result": {
-    "accounts": [{
-      "address": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
-      "capabilities": {
-        "signInWithEthereum": {
-          "message": "localhost:3000 wants you to sign in with your Ethereum account:\n0x407d73d8a49eeb85d32cf465507dd71d507100c1\n\nSign in with Ethereum to the app.\n\nURI: http://localhost:3000\nVersion: 1\nChain ID: 8453\nNonce: abc123def456\nIssued At: 2024-01-15T10:30:00Z",
-          "signature": "0x1234567890abcdef..."
+    "accounts": [
+      {
+        "address": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "capabilities": {
+          "signInWithEthereum": {
+            "message": "example.com wants you to sign in with your Ethereum account:\n0x407d73d8a49eeb85d32cf465507dd71d507100c1\n\nSign in with Ethereum to the app.\n\nURI: https://example.com\nVersion: 1\nChain ID: 0x2105\nNonce: abc123def456\nIssued At: 2024-01-15T10:30:00Z",
+            "signature": "0x1234567890abcdef..."
+          }
         }
       }
-    }],
-    "chainId": "0x2105",
-    "isConnected": true
+    ]
+  }
+}
+```
+
+```json spendPermissions Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "accounts": [
+      {
+        "address": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "capabilities": {
+          "spendPermissions": {
+            "permissions": [
+              {
+                "token": "0x0000000000000000000000000000000000000000",
+                "allowance": "0x2386f26fc10000",
+                "period": 86400
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+```json addSubAccount Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "accounts": [
+      {
+        "address": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+        "capabilities": {
+          "subAccounts": [
+            {
+              "address": "0xabc...def",
+              "factory": "0xdef...abc",
+              "factoryData": "0x60006040..."
+            }
+          ]
+        }
+      }
+    ]
   }
 }
 ```
@@ -169,28 +376,28 @@ Whether the wallet is connected.
 
 ## Error Handling
 
-| Code | Message                        | Description |
-| ---- | ------------------------------ | ----------- |
-| 4001 | User rejected the request      | User denied the connection request |
-| 4100 | Requested method not supported | The method is not supported by the wallet |
-| 4200 | Wallet not available           | The wallet is not installed or available |
-| -32602 | Invalid params                 | Invalid nonce or chainId in signInWithEthereum capability |
+| Code   | Message                        | Description |
+| ------ | ------------------------------ | ----------- |
+| 4001   | User rejected the request      | User denied the connection or a capability request (e.g., SIWE or sub-account creation). The capability result will be a SerializedEthereumRpcError when rejected. |
+| 4100   | Requested method not supported | The method is not supported by the wallet |
+| 4200   | Wallet not available           | The wallet is not installed or available |
+| -32602 | Invalid params                 | Invalid parameters supplied (e.g., malformed nonce, invalid or non-hex chainId, or invalid spendPermissions shape) |
 
 <Warning>
-This is a Coinbase Wallet-specific method and may not be available in other wallets.
+Capability results returned for each account can be either a success object or a SerializedEthereumRpcError (object with `code`, `message`, and optional `data`). Always handle both cases when parsing capability results.
 </Warning>
 
 <Info>
-After successful connection, the wallet will emit connection events and provide access to account information.
+After successful connection, the provider will emit connection events (e.g. `connect`) and store account information. If the provider is not connected, calling methods other than `eth_requestAccounts` / `wallet_connect` may result in an unauthorized error until a connection is established.
 </Info>
 
 <Tip>
-When using the `signInWithEthereum` capability, always generate a fresh, unique nonce for each authentication attempt to prevent replay attacks. The signature can be verified on your backend using libraries like viem.
+When using the `signInWithEthereum` capability, always generate a fresh, unique nonce for each authentication attempt to prevent replay attacks. The signature can be verified on your backend using libraries like viem. Also be prepared to handle SerializedEthereumRpcError responses for capabilities that were denied or failed.
 </Tip>
 
 ## Usage with Capabilities
 
-You can use the `wallet_connect` with the [`signInWithEthereum`](/base-account/reference/core/capabilities/signInWithEthereum.mdx) capability to authenticate the user.
+You can use the `wallet_connect` with the [`signInWithEthereum`](/base-account/reference/core/capabilities/signInWithEthereum.mdx) capability to authenticate the user, or use `spendPermissions` and `addSubAccount` to request spend permissions and sub-account creation respectively.
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
