@@ -6,7 +6,7 @@ description: "Create a Base Account SDK instance with EIP-1193 compliant provide
 Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 
 <Info>
-Creates a Base Account SDK instance that provides an EIP-1193 compliant Ethereum provider and additional account management functionality. This is the primary entry point for integrating Base Account into your application.
+Creates a Base Account SDK instance that provides an EIP-1193 compliant Ethereum provider and additional account and sub-account management functionality. This is the primary entry point for integrating Base Account into your application.
 </Info>
 
 ## Parameters
@@ -19,12 +19,12 @@ Configuration options for creating the SDK instance.
 The name of your application. Defaults to "App" if not provided.
 </ParamField>
 
-<ParamField body="appLogoUrl" type="string">
-URL to your application's logo image. Used in wallet UI. Defaults to empty string if not provided.
+<ParamField body="appLogoUrl" type="string | null">
+URL to your application's logo image. Used in wallet UI. If not provided the favicon may be used. Defaults to empty string when omitted from the convenience options object, but AppMetadata allows null.
 </ParamField>
 
 <ParamField body="appChainIds" type="number[]">
-Array of chain IDs that your application supports. Defaults to empty array if not provided.
+Array of chain IDs that your application supports. Defaults to an empty array if not provided.
 </ParamField>
 
 <ParamField body="preference" type="Preference">
@@ -32,7 +32,7 @@ Optional preferences for SDK behavior.
 
 <Expandable title="Preference properties">
 <ParamField body="walletUrl" type="string">
-Custom wallet URL override. Only use when overriding the default wallet URL with a custom environment.
+Custom wallet URL override. The SDK automatically manages the default wallet URL; set this only when a custom environment is required.
 </ParamField>
 
 <ParamField body="attribution" type="Attribution">
@@ -40,17 +40,17 @@ Attribution configuration for Smart Wallet transactions.
 
 <Expandable title="Attribution properties">
 <ParamField body="auto" type="boolean">
-When true, Smart Wallet will generate a 16 byte hex string from the app's origin.
+When true, Smart Wallet will auto-generate a 16 byte hex string from the app's origin.
 </ParamField>
 
 <ParamField body="dataSuffix" type="`0x${string}`">
-Custom 16 byte hex string appended to initCode and executeBatch calldata. Cannot be used with `auto: true`.
+Custom 16 byte hex string appended to initCode and executeBatch calldata. Cannot be used in combination with `auto`.
 </ParamField>
 </Expandable>
 </ParamField>
 
 <ParamField body="telemetry" type="boolean">
-Whether to enable functional telemetry. Defaults to `true`.
+Whether to enable functional telemetry. Defaults to `true`. If explicitly set to `false`, the telemetry script will not be loaded.
 </ParamField>
 </Expandable>
 </ParamField>
@@ -60,17 +60,19 @@ Sub-account configuration options.
 
 <Expandable title="SubAccountOptions properties">
 <ParamField body="toOwnerAccount" type="ToOwnerAccountFn">
-Function that returns the owner account for signing sub-account transactions.
+Function that returns the owner account for signing sub-account transactions. This function is validated (must be a function) when provided.
 
 <Expandable title="ToOwnerAccountFn signature">
 ```typescript
 type ToOwnerAccountFn = () => Promise<{ account: OwnerAccount | null; }>
 ```
 
-Where `OwnerAccount` is a union type of:
-- `LocalAccount` (from viem) - A local account with private key
-- `WebAuthnAccount` (from viem) - A WebAuthn-based account for passkey authentication
+Where `OwnerAccount` is an owner account representation used by the SDK (for example a LocalAccount or WebAuthn-style account).
 </Expandable>
+</ParamField>
+
+<ParamField body="unstable_enableAutoSpendPermissions" type="boolean">
+Unstable feature flag to enable automatic spend permission requests and improved insufficient balance handling for sub-accounts. Defaults to `true` if omitted.
 </ParamField>
 </Expandable>
 </ParamField>
@@ -88,7 +90,7 @@ SDK instance with provider and sub-account management capabilities.
 
 <Expandable title="BaseAccountSDK properties">
 <ResponseField name="getProvider" type="() => ProviderInterface">
-Returns an EIP-1193 compliant Ethereum provider that can be used with web3 libraries like Viem, Wagmi, and Web3.js.
+Returns an EIP-1193 compliant Ethereum provider instance. The provider is either an injected provider (if available) or an instance of BaseAccountProvider created with the configured metadata and preferences.
 </ResponseField>
 
 <ResponseField name="subAccount" type="SubAccountManager">
@@ -96,19 +98,19 @@ Sub-account management methods.
 
 <Expandable title="SubAccountManager properties">
 <ResponseField name="create" type="(account: AddSubAccountAccount) => Promise<SubAccount>">
-Creates a new sub-account.
+Creates a new sub-account. Sends the RPC method `wallet_addSubAccount` to the wallet and returns the created SubAccount.
 </ResponseField>
 
 <ResponseField name="get" type="() => Promise<SubAccount | null>">
-Retrieves the current sub-account information.
+Retrieves the current sub-account information. If not present in the SDK store, this will call `wallet_connect` and attempt to obtain sub-account details from the wallet response (returns the first sub-account if available).
 </ResponseField>
 
-<ResponseField name="addOwner" type="(params: AddOwnerParams) => Promise<string>">
-Adds an owner to the sub-account.
+<ResponseField name="addOwner" type="(params: { address?: `0x${string}`; publicKey?: `0x${string}`; chainId: number }) => Promise<string>">
+Adds an owner (address and/or public key) to the currently active sub-account by preparing contract calls and sending them via `wallet_sendCalls`. Requires a connected owner account in the SDK store. Returns the transaction hash (string).
 </ResponseField>
 
 <ResponseField name="setToOwnerAccount" type="(fn: ToOwnerAccountFn) => void">
-Sets the function for determining the owner account. The function should return a Promise resolving to an object with an `account` property that is either a `LocalAccount`, `WebAuthnAccount`, or `null`.
+Sets or updates the function used to provide the owner account that will sign sub-account transactions. The function is validated to ensure it is a function before being accepted.
 </ResponseField>
 </Expandable>
 </ResponseField>
@@ -146,7 +148,8 @@ const sdk = createBaseAccountSDK({
   subAccounts: {
     toOwnerAccount: async () => ({ 
       account: cryptoAccount?.account || null 
-    })
+    }),
+    unstable_enableAutoSpendPermissions: true
   },
   paymasterUrls: {
     [base.id]: 'https://paymaster.base.org',
@@ -164,7 +167,7 @@ const sdk = createBaseAccountSDK({
   subAccounts: {
     toOwnerAccount: async () => {
       // Return the owner account that will sign sub-account transactions
-      // mainAccount should be a LocalAccount or WebAuthnAccount from viem
+      // mainAccount should be a LocalAccount or WebAuthnAccount representation accepted by the SDK
       return { account: mainAccount || null };
     }
   }
@@ -184,92 +187,38 @@ const existingSubAccount = await sdk.subAccount.get();
 ```
 </RequestExample>
 
-## Integration Examples
+## Provider behavior and lifecycle
 
-### With Viem
+- The provider returned from getProvider implements the ProviderInterface and emits standard provider events: connect, disconnect, chainChanged, accountsChanged.
+- The internal BaseAccountProvider logs request lifecycle telemetry and associates each request with a correlation id (generated with crypto.randomUUID) for telemetry events.
+- When the provider is not connected, certain methods are handled specially:
+  - eth_requestAccounts: triggers a handshake, initializes sub-account config, and sends a `wallet_connect` request to obtain accounts and capabilities (translates eth_requestAccounts to wallet_connect).
+  - wallet_connect: performs a handshake (session key exchange) and sends an encrypted request to the wallet.
+  - wallet_sendCalls, wallet_sign: perform a handshake, send the encrypted request, and then rotate / clean up ephemeral session keys.
+  - wallet_getCallsStatus: forwards the request to the wallet RPC URL (CB_WALLET_RPC_URL).
+  - eth_accounts: returns an empty array when not connected.
+  - net_version: returns 1 by default when not connected.
+  - eth_chainId: returns '0x1' (hex for 1) by default when not connected.
+  - Any other methods invoked before connection will result in an unauthorized provider error instructing callers to call eth_requestAccounts first.
+- On certain provider errors (unauthorized / provider disconnected), the provider will call disconnect(), which cleans up session keys, clears correlation IDs, and emits a 'disconnect' event with a standard disconnected error ("User initiated disconnection").
+- The provider instance includes a readonly flag isBaseAccount = true to identify it as the SDK's provider.
 
-```typescript
-import { createWalletClient, custom } from 'viem';
-import { base } from 'viem/chains';
-import { createBaseAccountSDK } from '@base-org/account';
+## Validation, storage, and initialization
 
-const sdk = createBaseAccountSDK({
-  appName: 'Viem Integration',
-  appChainIds: [base.id]
-});
-
-const provider = sdk.getProvider();
-
-const client = createWalletClient({
-  chain: base,
-  transport: custom(provider)
-});
-```
-
-### With Wagmi
-
-```typescript
-import { createConfig, custom } from 'wagmi';
-import { base } from 'wagmi/chains';
-import { createBaseAccountSDK } from '@base-org/account';
-
-const sdk = createBaseAccountSDK({
-  appName: 'Wagmi Integration',
-  appChainIds: [base.id]
-});
-
-const provider = sdk.getProvider();
-
-const config = createConfig({
-  chains: [base],
-  transports: {
-    [base.id]: custom(provider),
-  },
-});
-```
-
-## Configuration Options
-
-### Attribution
-
-Configure transaction attribution for analytics and tracking:
-
-```typescript
-// Auto-generate attribution from app origin
-const sdk = createBaseAccountSDK({
-  appName: 'My App',
-  preference: {
-    attribution: { auto: true }
-  }
-});
-
-// Custom attribution data
-const sdk = createBaseAccountSDK({
-  appName: 'My App',
-  preference: {
-    attribution: { dataSuffix: '0x1234567890123456789012345678901234567890' }
-  }
-});
-```
-
-### Paymaster Integration
-
-Enable gasless transactions with paymaster URLs:
-
-```typescript
-const sdk = createBaseAccountSDK({
-  appName: 'Gasless App',
-  appChainIds: [8453, 84532],
-  paymasterUrls: {
-    8453: 'https://paymaster.base.org/api/v1/sponsor',
-    84532: 'https://paymaster.base-sepolia.org/api/v1/sponsor'
-  }
-});
-```
+- createBaseAccountSDK persists SDK configuration into an internal store and rehydrates persisted store state from localStorage.
+- If a subAccounts.toOwnerAccount function is provided, it is validated to ensure it's a function. Supplying an invalid value will throw during SDK creation.
+- Preferences are validated:
+  - attribution cannot contain both auto and dataSuffix — supplying both will cause initialization to throw.
+  - telemetry, if provided, must be a boolean.
+- Cross-Origin-Opener-Policy (COOP) is checked as part of initialization. The SDK exposes a checkCrossOriginOpenerPolicy function and also exports getCrossOriginOpenerPolicy to read the last-checked value:
+  - In non-browser environments the policy is recorded as 'non-browser-env'.
+  - In browser environments the SDK performs a HEAD fetch to the page origin and reads the Cross-Origin-Opener-Policy response header. If the header value is 'same-origin' the SDK logs an error to the console explaining the requirement (it no longer throws during the check — it logs).
+  - You can use getCrossOriginOpenerPolicy() to inspect the last-checked value (returns 'undefined' if not checked yet).
+- Telemetry script is loaded unless preference.telemetry is explicitly set to false.
 
 ## Error Handling
 
-The SDK initialization is synchronous and will validate preferences during creation:
+The SDK initialization performs synchronous validation of preferences and sub-account configuration:
 
 ```typescript
 try {
@@ -277,13 +226,17 @@ try {
     appName: 'My App',
     appChainIds: [8453],
     subAccounts: {
-      toOwnerAccount: invalidFunction // Will throw validation error
+      // If this is not a function, SDK init will throw
+      toOwnerAccount: invalidFunction as any
     }
   });
 } catch (error) {
   console.error('SDK initialization failed:', error);
 }
 ```
+
+- validatePreferences will throw if attribution contains both auto and dataSuffix or if telemetry is present but not a boolean.
+- validateSubAccount will throw if provided toOwnerAccount is not a function.
 
 ## TypeScript Support
 
@@ -292,7 +245,6 @@ The SDK is fully typed for TypeScript development:
 ```typescript
 import type { 
   CreateProviderOptions, 
-  BaseAccountSDK,
   ProviderInterface,
   ToOwnerAccountFn 
 } from '@base-org/account';
@@ -312,16 +264,16 @@ const options: CreateProviderOptions = {
   }
 };
 
-const sdk: BaseAccountSDK = createBaseAccountSDK(options);
+const sdk = createBaseAccountSDK(options);
 const provider: ProviderInterface = sdk.getProvider();
 ```
 
 <Warning>
-The SDK automatically manages Cross-Origin-Opener-Policy validation and telemetry initialization. Make sure your application's headers allow popup windows if using the default wallet interface.
+The SDK automatically manages Cross-Origin-Opener-Policy validation and telemetry initialization. Ensure your application's headers allow popup windows if using the default wallet interface. If the COOP header is detected as 'same-origin' the SDK will log an explanatory error to the console.
 </Warning>
 
 <Info>
-The `createBaseAccountSDK` function is the primary entry point for Base Account integration. It provides both a standard EIP-1193 provider and advanced features like sub-account management and gasless transactions.
+The `createBaseAccountSDK` function is the primary entry point for Base Account integration. It provides both a standard EIP-1193 provider and advanced features like sub-account management, automatic sub-account configuration initialization, and support for gasless transactions via paymasters.
 </Info>
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
