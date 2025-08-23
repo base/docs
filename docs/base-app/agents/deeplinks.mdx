@@ -1,0 +1,436 @@
+---
+title: 'Deeplinks for Agent Interactions'
+description: 'Learn how to use deeplinks to create seamless agent experiences and direct user interactions within Base App.'
+sidebarTitle: 'Deeplinks'
+---
+
+> **What you'll learn**  
+> By the end of this guide, you'll be able to:
+> - Implement deeplinks for direct messaging with agents
+> - Create seamless user flows between group and private conversations
+> - Follow best practices for deeplink implementation
+> - Handle fallbacks and cross-client compatibility
+
+## Overview
+
+Deeplinks enable seamless navigation within Base App, allowing agents to create more engaging and intuitive user experiences. The most common use case is directing users to start a private conversation with an agent from a group chat context.
+
+## Direct Message Deeplinks
+
+### Use Case
+
+Your miniapp has an agent and you want to encourage people to chat with the agent directly. Or, your agent exists in a group chat context and wants users to interact with it privately. You could add a button like "Chat with me" and use this deeplink.
+
+### Syntax
+
+```
+cbwallet://messaging/address
+```
+
+### Parameters
+
+- **address** — The 0x address of the user you want to chat with (in hex format, e.g., `0xabc...1234`)
+
+### Implementation Examples
+
+**Basic Button Implementation:**
+
+```typescript
+<button 
+  onClick={() => openUrl("cbwallet://messaging/0x5993B8F560E17E438310c76BCac1Af3E6DA2A58A")} 
+  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+>
+  Chat with me privately
+</button>
+```
+
+**React Component with Error Handling:**
+
+```typescript
+import { useState } from 'react';
+
+interface DeeplinkButtonProps {
+  agentAddress: string;
+  label?: string;
+  className?: string;
+}
+
+export function DeeplinkButton({ 
+  agentAddress, 
+  label = "Direct Message",
+  className = "btn-primary" 
+}: DeeplinkButtonProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleDeeplink = async () => {
+    setIsLoading(true);
+    try {
+      const deeplink = `cbwallet://messaging/${agentAddress}`;
+      
+      // Check if running in supported environment
+      if (typeof window !== 'undefined') {
+        window.location.href = deeplink;
+      } else {
+        // Fallback for server-side rendering
+        console.warn('Deeplink not supported in this environment');
+      }
+    } catch (error) {
+      console.error('Failed to open deeplink:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <button 
+      onClick={handleDeeplink}
+      disabled={isLoading}
+      className={className}
+    >
+      {isLoading ? 'Opening...' : label}
+    </button>
+  );
+}
+```
+
+**Agent Message with Deeplink:**
+
+```typescript
+import { Client } from "@xmtp/node-sdk";
+
+async function sendDeeplinkMessage(conversation: any, agentAddress: string) {
+  const deeplink = `cbwallet://messaging/${agentAddress}`;
+  
+  await conversation.send(
+    `💬 Want to chat privately? Tap here to start a direct conversation:\n\n${deeplink}`
+  );
+}
+
+// Usage in agent logic
+if (message.content.includes("/private") || message.content.includes("/dm")) {
+  await sendDeeplinkMessage(conversation, process.env.AGENT_ADDRESS);
+}
+```
+
+## Advanced Implementation Patterns
+
+### Context-Aware Deeplinks
+
+Create deeplinks that carry context about the conversation or user intent:
+
+```typescript
+interface DeeplinkContext {
+  source: 'group' | 'miniapp' | 'direct';
+  action?: string;
+  gameId?: string;
+}
+
+function createContextualDeeplink(agentAddress: string, context: DeeplinkContext): string {
+  const baseUrl = `cbwallet://messaging/${agentAddress}`;
+  
+  // While the deeplink format doesn't support query params,
+  // you can encode context in the initial message the agent sends
+  return baseUrl;
+}
+
+// Agent can detect context and respond accordingly
+async function handlePrivateMessage(message: any, conversation: any) {
+  const senderAddress = message.senderAddress;
+  
+  // Check if this is a new conversation from a deeplink
+  const messageHistory = await conversation.getMessages();
+  
+  if (messageHistory.length <= 1) {
+    // This is likely from a deeplink - provide context-specific onboarding
+    await conversation.send(
+      "👋 Welcome to our private chat! I can help you with:\n\n" +
+      "• Personal game stats and progress\n" +
+      "• Custom strategy recommendations\n" +
+      "• Private trading insights\n\n" +
+      "What would you like to explore?"
+    );
+  }
+}
+```
+
+### Multi-Agent Coordination
+
+When working with multiple agents, create clear deeplinks for each:
+
+```typescript
+const agentDeeplinks = {
+  trading: "cbwallet://messaging/0x1234...trading",
+  gaming: "cbwallet://messaging/0x5678...gaming", 
+  social: "cbwallet://messaging/0x9abc...social"
+};
+
+function createAgentMenu() {
+  return `
+🤖 **Connect with our specialized agents:**
+
+🏦 [Trading Bot](${agentDeeplinks.trading}) - Portfolio management & market insights
+🎮 [Game Master](${agentDeeplinks.gaming}) - Competitions & leaderboards  
+👥 [Social Hub](${agentDeeplinks.social}) - Community events & networking
+
+Each agent specializes in their domain for the best experience!
+  `;
+}
+```
+
+## Best Practices
+
+### Validation and Error Handling
+
+Always validate content structures and provide robust error handling:
+
+```typescript
+function validateAgentAddress(address: string): boolean {
+  // Check if it's a valid Ethereum address
+  const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+  return ethAddressRegex.test(address);
+}
+
+function createSafeDeeplink(address: string): string | null {
+  if (!validateAgentAddress(address)) {
+    console.error('Invalid agent address:', address);
+    return null;
+  }
+  
+  return `cbwallet://messaging/${address}`;
+}
+
+// Usage with validation
+const deeplink = createSafeDeeplink(agentAddress);
+if (deeplink) {
+  window.location.href = deeplink;
+} else {
+  // Show error message or fallback
+  alert('Unable to open chat. Please try again.');
+}
+```
+
+### Fallbacks for Unsupported Clients
+
+Provide fallbacks for clients that don't support deeplinks:
+
+```typescript
+function openAgentChat(agentAddress: string) {
+  const deeplink = `cbwallet://messaging/${agentAddress}`;
+  
+  // Try deeplink first
+  try {
+    window.location.href = deeplink;
+    
+    // Set a timeout to check if deeplink worked
+    setTimeout(() => {
+      // If user is still on the page, deeplink likely failed
+      if (document.hasFocus()) {
+        showFallbackOptions(agentAddress);
+      }
+    }, 2000);
+    
+  } catch (error) {
+    showFallbackOptions(agentAddress);
+  }
+}
+
+function showFallbackOptions(agentAddress: string) {
+  // Show alternative options
+  const fallbackMessage = `
+    🔗 **Can't open direct chat?**
+    
+    Alternative ways to connect:
+    • Copy agent address: ${agentAddress}
+    • Search for the agent in your messaging app
+    • Join our community chat for support
+  `;
+  
+  // Display in modal or notification
+  showNotification(fallbackMessage);
+}
+```
+
+### Testing Across Client Versions
+
+Test your deeplinks across different client versions and environments:
+
+```typescript
+interface TestEnvironment {
+  userAgent: string;
+  isBaseApp: boolean;
+  supportsDeeplinks: boolean;
+}
+
+function detectEnvironment(): TestEnvironment {
+  const userAgent = navigator.userAgent;
+  
+  return {
+    userAgent,
+    isBaseApp: userAgent.includes('BaseApp') || userAgent.includes('cbwallet'),
+    supportsDeeplinks: 'protocol' in window.location || userAgent.includes('Mobile')
+  };
+}
+
+function adaptDeeplinkForEnvironment(agentAddress: string): string {
+  const env = detectEnvironment();
+  
+  if (env.isBaseApp) {
+    return `cbwallet://messaging/${agentAddress}`;
+  } else if (env.supportsDeeplinks) {
+    // Generic fallback
+    return `https://base.org/chat/${agentAddress}`;
+  } else {
+    // Web fallback
+    return `https://base.org/agents/${agentAddress}`;
+  }
+}
+```
+
+## Message and Metadata Limits
+
+### Size Limitations
+
+Keep your deeplink messages concise and within platform limits:
+
+```typescript
+const MAX_MESSAGE_LENGTH = 1000; // Adjust based on platform limits
+
+function createDeeplinkMessage(agentAddress: string, description: string): string {
+  const deeplink = `cbwallet://messaging/${agentAddress}`;
+  const message = `${description}\n\n${deeplink}`;
+  
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    // Truncate description to fit
+    const availableLength = MAX_MESSAGE_LENGTH - deeplink.length - 4; // 4 for "\n\n"
+    const truncatedDescription = description.slice(0, availableLength - 3) + '...';
+    return `${truncatedDescription}\n\n${deeplink}`;
+  }
+  
+  return message;
+}
+```
+
+### Metadata Best Practices
+
+When sending deeplinks, include appropriate metadata:
+
+```typescript
+async function sendDeeplinkWithMetadata(conversation: any, agentAddress: string) {
+  const message = createDeeplinkMessage(
+    agentAddress,
+    "💬 Continue our conversation privately for personalized assistance"
+  );
+  
+  // Include metadata if supported by the client
+  const metadata = {
+    type: 'deeplink',
+    target: 'private_chat',
+    agent: agentAddress,
+    timestamp: Date.now()
+  };
+  
+  await conversation.send(message, metadata);
+}
+```
+
+## XIP-67 Compliance
+
+Ensure your deeplink implementation follows [XIP-67](https://github.com/xmtp/XIPs/blob/main/XIPs/xip-67.md) standards:
+
+### Protocol Requirements
+
+- Use proper URL scheme formatting
+- Validate address formats before creating deeplinks
+- Handle protocol registration appropriately
+- Provide clear error messages for unsupported operations
+
+### Security Considerations
+
+```typescript
+function secureDeeplinkHandler(url: string): boolean {
+  // Validate the deeplink format
+  const deeplinkRegex = /^cbwallet:\/\/messaging\/0x[a-fA-F0-9]{40}$/;
+  
+  if (!deeplinkRegex.test(url)) {
+    console.warn('Invalid deeplink format:', url);
+    return false;
+  }
+  
+  // Additional security checks
+  const address = url.split('/').pop();
+  if (!validateAgentAddress(address!)) {
+    console.warn('Invalid agent address in deeplink:', address);
+    return false;
+  }
+  
+  return true;
+}
+```
+
+## Implementation Checklist
+
+<AccordionGroup>
+<Accordion title="Pre-Implementation">
+- [ ] Validate agent addresses before creating deeplinks
+- [ ] Plan fallback experiences for unsupported clients  
+- [ ] Design error handling for failed deeplink navigation
+- [ ] Test message length limits with your content
+</Accordion>
+
+<Accordion title="Development">
+- [ ] Implement proper URL validation
+- [ ] Add loading states for better UX
+- [ ] Create reusable components for consistency
+- [ ] Include appropriate metadata where supported
+</Accordion>
+
+<Accordion title="Testing">
+- [ ] Test across different client versions
+- [ ] Verify fallback behavior works correctly
+- [ ] Confirm message limits are respected
+- [ ] Validate XIP-67 compliance
+</Accordion>
+
+<Accordion title="Deployment">
+- [ ] Monitor deeplink success rates
+- [ ] Track user engagement through deeplinks
+- [ ] Gather feedback on user experience
+- [ ] Iterate based on usage patterns
+</Accordion>
+</AccordionGroup>
+
+## Common Patterns
+
+### Agent-to-User Private Invitation
+
+```typescript
+// In group chat, agent invites user to private conversation
+if (message.content.includes("@agentname help")) {
+  const userAddress = message.senderAddress;
+  await conversation.send(
+    `👋 Hi there! For personalized assistance, let's chat privately:\n\n` +
+    `cbwallet://messaging/${process.env.AGENT_ADDRESS}\n\n` +
+    `I can provide detailed guidance tailored to your needs!`
+  );
+}
+```
+
+### Mini App Integration
+
+```typescript
+// From Mini App, create deeplink to agent
+function createAgentSupportLink(agentAddress: string, gameId: string) {
+  const deeplink = `cbwallet://messaging/${agentAddress}`;
+  
+  return (
+    <div className="support-section">
+      <p>Need help with this game?</p>
+      <a href={deeplink} className="support-link">
+        💬 Chat with Game Master
+      </a>
+    </div>
+  );
+}
+```
+
+By following these patterns and best practices, you'll create seamless deeplink experiences that enhance user engagement and provide clear paths for continued interaction with your agents.

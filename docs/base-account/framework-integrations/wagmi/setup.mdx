@@ -1,0 +1,94 @@
+---
+title: "Setup"
+description: "Configure Wagmi with Base Account connector for your React application"
+---
+
+Learn how to set up Wagmi with Base Account to enable Base Account SDK functionality with familiar React hooks.
+
+## Overview
+
+[Wagmi](https://wagmi.sh/) is a collection of React hooks for Ethereum Virtual Machine (EVM) compatible networks that makes it easy to work with wallets, contracts, transactions, and signing. Base Account integrates perfectly with Wagmi, allowing you to use all your familiar hooks.
+
+## Installation
+
+If you start [a new wagmi project](https://wagmi.sh/react/getting-started), you can skip the installation step.
+
+If you already have a project, you can install the dependencies with your package manager of choice:
+
+<CodeGroup>
+```bash npm
+npm install wagmi viem @base-org/account
+```
+
+```bash pnpm
+pnpm add wagmi viem @base-org/account
+```
+
+```bash yarn
+yarn add wagmi viem @base-org/account
+```
+
+```bash bun
+bun add wagmi viem @base-org/account
+```
+</CodeGroup>
+
+<Tip>
+To create a new wagmi project, you can use the command line `npm create wagmi@latest`.
+</Tip>
+
+## Configuration
+
+### 1. Configure Wagmi with Base Account
+
+Create your Wagmi configuration with the Base Account connector configured for Base Account:
+
+```typescript
+// config/wagmi.ts
+import { http, createConfig } from 'wagmi'
+import { base } from 'wagmi/chains'
+import { baseAccount } from 'wagmi/connectors'
+
+
+export const config = createConfig({
+  chains: [base],
+  connectors: [
+    baseAccount({
+      appName: 'Base App',
+    })
+  ],
+  transports: {
+    [base.id]: http()
+  },
+})
+```
+
+### 2. Wrap Your App
+
+Wrap your application with the Wagmi provider:
+
+```tsx
+// app/layout.tsx or pages/_app.tsx
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { config } from './config/wagmi'
+
+const queryClient = new QueryClient()
+
+export default function App({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
+}
+```
+
+## Next Steps
+
+Now that you have Wagmi configured with Base Account, you can:
+
+- [Connect users with Sign in with Base](/base-account/framework-integrations/wagmi/sign-in-with-base)
+- [Access the Base Account provider](/base-account/framework-integrations/wagmi/other-use-cases)

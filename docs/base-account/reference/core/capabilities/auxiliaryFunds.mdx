@@ -1,0 +1,391 @@
+---
+title: "auxiliaryFunds"
+description: "Indicates wallet access to funds beyond on-chain balance verification"
+---
+
+Defined in [EIP-5792](https://eips.ethereum.org/EIPS/eip-5792)
+
+<Info>
+The auxiliaryFunds capability allows wallets to indicate they have access to funds beyond what can be directly verified on-chain by the wallet's address. This enables more flexible transaction execution and improved user experiences.
+</Info>
+
+<Warning>
+This capability is not yet finalized and may change in future iterations.
+</Warning>
+
+## Parameters
+
+This capability has no configuration parameters. It is either supported or not supported by the wallet.
+
+## Returns
+
+<ResponseField name="auxiliaryFunds" type="object">
+The auxiliary funds capability configuration for the specified chain.
+
+<Expandable title="AuxiliaryFunds capability properties">
+<ResponseField name="supported" type="boolean">
+Indicates whether the wallet has access to auxiliary funding sources beyond on-chain balance.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Example Usage
+
+<RequestExample>
+```typescript Check Auxiliary Funds Support
+const capabilities = await provider.request({
+  method: 'wallet_getCapabilities',
+  params: [userAddress]
+});
+
+const auxiliaryFunds = capabilities["0x2105"]?.auxiliaryFunds;
+```
+
+```typescript Balance Check with Auxiliary Funds
+if (auxiliaryFunds?.supported) {
+  // Don't block transactions based on visible balance alone
+  console.log("Wallet has access to auxiliary funds");
+} else {
+  // Check on-chain balance before allowing transactions
+  const balance = await provider.request({
+    method: 'eth_getBalance',
+    params: [userAddress, 'latest']
+  });
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Capability Response (Supported)
+{
+  "0x2105": {
+    "auxiliaryFunds": {
+      "supported": true
+    }
+  }
+}
+```
+
+```json Capability Response (Unsupported)
+{
+  "0x2105": {
+    "auxiliaryFunds": {
+      "supported": false
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message | Description |
+| ---- | ------- | ----------- |
+| 4100 | Auxiliary funds not supported | Wallet does not support auxiliary funding sources |
+| 4200 | Auxiliary funds unavailable | Auxiliary funding sources are temporarily unavailable |
+| 4300 | Insufficient auxiliary funds | Auxiliary funds exist but are insufficient for the transaction |
+
+## Wallet Implementation
+
+Wallets supporting auxiliary funds must include the capability in their response:
+
+```typescript
+// Wallet response to wallet_getCapabilities
+{
+  "0x2105": { // Base mainnet
+    "auxiliaryFunds": {
+      "supported": true
+    }
+  }
+}
+```
+
+## App Behavior
+
+Apps should modify their balance checking logic when auxiliary funds are supported:
+
+### Without Auxiliary Funds
+
+```typescript
+async function checkCanExecuteTransaction(amount: bigint) {
+  const balance = await provider.request({
+    method: 'eth_getBalance',
+    params: [userAddress, 'latest']
+  });
+  
+  if (BigInt(balance) < amount) {
+    throw new Error("Insufficient balance");
+  }
+  
+  return true;
+}
+```
+
+### With Auxiliary Funds Support
+
+```typescript
+async function checkCanExecuteTransaction(amount: bigint) {
+  const capabilities = await provider.request({
+    method: 'wallet_getCapabilities',
+    params: [userAddress]
+  });
+  
+  if (capabilities["0x2105"]?.auxiliaryFunds?.supported) {
+    // Wallet may have auxiliary funds, allow transaction
+    console.log("Auxiliary funds available, proceeding with transaction");
+    return true;
+  }
+  
+  // Check on-chain balance as fallback
+  const balance = await provider.request({
+    method: 'eth_getBalance', 
+    params: [userAddress, 'latest']
+  });
+  
+  if (BigInt(balance) < amount) {
+    throw new Error("Insufficient balance");
+  }
+  
+  return true;
+}
+```
+
+## Use Cases
+
+### DeFi Applications
+
+Enable DeFi operations even when wallet balance appears insufficient:
+
+```typescript
+class DeFiManager {
+  async executeSwap(fromToken: string, toToken: string, amount: string) {
+    const capabilities = await provider.request({
+      method: 'wallet_getCapabilities',
+      params: [userAddress]
+    });
+    
+    const hasAuxiliaryFunds = capabilities["0x2105"]?.auxiliaryFunds?.supported;
+    
+    if (!hasAuxiliaryFunds) {
+      // Check token balance for non-auxiliary wallets
+      const tokenBalance = await this.getTokenBalance(fromToken, userAddress);
+      if (BigInt(tokenBalance) < BigInt(amount)) {
+        throw new Error("Insufficient token balance");
+      }
+    }
+    
+    // Proceed with swap
+    return provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: "1.0",
+        chainId: "0x2105",
+        from: userAddress,
+        calls: [{
+          to: swapContractAddress,
+          value: "0x0",
+          data: this.encodeSwap(fromToken, toToken, amount)
+        }]
+      }]
+    });
+  }
+  
+  private async getTokenBalance(token: string, account: string): Promise<string> {
+    // Implementation to check ERC-20 token balance
+    return "0";
+  }
+  
+  private encodeSwap(from: string, to: string, amount: string): string {
+    // Implementation to encode swap call data
+    return "0x";
+  }
+}
+```
+
+### E-commerce Applications
+
+Allow purchases without blocking on visible balance:
+
+```typescript
+class PaymentProcessor {
+  async processPurchase(amount: bigint, currency: string) {
+    const capabilities = await provider.request({
+      method: 'wallet_getCapabilities',
+      params: [userAddress]
+    });
+    
+    if (capabilities["0x2105"]?.auxiliaryFunds?.supported) {
+      // Wallet may access funds through auxiliary sources
+      console.log("Processing payment with auxiliary funds support");
+      
+      return this.executePurchase(amount, currency);
+    } else {
+      // Check sufficient balance for regular wallets
+      const balance = await this.getCurrencyBalance(currency, userAddress);
+      
+      if (balance < amount) {
+        throw new Error(`Insufficient ${currency} balance`);
+      }
+      
+      return this.executePurchase(amount, currency);
+    }
+  }
+  
+  private async executePurchase(amount: bigint, currency: string) {
+    return provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: "1.0",
+        chainId: "0x2105",
+        from: userAddress,
+        calls: [{
+          to: paymentContractAddress,
+          value: currency === "ETH" ? `0x${amount.toString(16)}` : "0x0",
+          data: currency === "ETH" ? "0x" : this.encodeTokenTransfer(currency, amount)
+        }]
+      }]
+    });
+  }
+  
+  private async getCurrencyBalance(currency: string, account: string): Promise<bigint> {
+    if (currency === "ETH") {
+      const balance = await provider.request({
+        method: 'eth_getBalance',
+        params: [account, 'latest']
+      });
+      return BigInt(balance);
+    } else {
+      // Get ERC-20 token balance
+      const balance = await this.getTokenBalance(currency, account);
+      return BigInt(balance);
+    }
+  }
+  
+  private encodeTokenTransfer(token: string, amount: bigint): string {
+    // Implementation to encode token transfer
+    return "0x";
+  }
+  
+  private async getTokenBalance(token: string, account: string): Promise<string> {
+    // Implementation to check token balance
+    return "0";
+  }
+}
+```
+
+### Gaming Applications
+
+Enable in-game purchases without balance restrictions:
+
+```typescript
+class GamePurchaseManager {
+  async buyGameItem(itemId: string, price: bigint) {
+    const capabilities = await provider.request({
+      method: 'wallet_getCapabilities',
+      params: [userAddress]
+    });
+    
+    // Don't check balance if auxiliary funds are supported
+    if (!capabilities["0x2105"]?.auxiliaryFunds?.supported) {
+      await this.validateBalance(price);
+    }
+    
+    return provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: "1.0",
+        chainId: "0x2105",
+        from: userAddress,
+        calls: [{
+          to: gameContractAddress,
+          value: "0x0",
+          data: this.encodePurchaseItem(itemId, price)
+        }]
+      }]
+    });
+  }
+  
+  private async validateBalance(requiredAmount: bigint) {
+    const balance = await provider.request({
+      method: 'eth_getBalance',
+      params: [userAddress, 'latest']
+    });
+    
+    if (BigInt(balance) < requiredAmount) {
+      throw new Error("Insufficient balance for purchase");
+    }
+  }
+  
+  private encodePurchaseItem(itemId: string, price: bigint): string {
+    // Implementation to encode game item purchase
+    return "0x";
+  }
+}
+```
+
+## Error Handling
+
+Handle auxiliary funds-related scenarios:
+
+```typescript
+async function executeTransactionWithAuxiliarySupport(calls: any[]) {
+  try {
+    const result = await provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: "1.0",
+        chainId: "0x2105", 
+        from: userAddress,
+        calls
+      }]
+    });
+    
+    return result;
+    
+  } catch (error) {
+    if (error.message.includes("insufficient funds")) {
+      const capabilities = await provider.request({
+        method: 'wallet_getCapabilities',
+        params: [userAddress]
+      });
+      
+      if (capabilities["0x2105"]?.auxiliaryFunds?.supported) {
+        console.log("Transaction failed despite auxiliary funds support");
+        // May indicate auxiliary funds are temporarily unavailable
+        throw new Error("Payment method temporarily unavailable");
+      } else {
+        throw new Error("Insufficient balance");
+      }
+    }
+    
+    throw error;
+  }
+}
+```
+
+## Best Practices
+
+1. **Graceful Degradation**: Always provide fallback balance checking for non-auxiliary wallets
+2. **Clear Communication**: Inform users when auxiliary funding is being used
+3. **Error Handling**: Handle cases where auxiliary funds may be temporarily unavailable
+4. **Security**: Don't assume auxiliary funds are always available
+
+<Info>
+The auxiliary funds capability improves user experience by enabling transactions that might otherwise be blocked by insufficient visible balance.
+</Info>
+
+<Warning>
+Apps should still implement proper error handling as auxiliary funds may not always be available or sufficient.
+</Warning>
+
+## Related Capabilities
+
+Auxiliary funds works well with other capabilities:
+
+- **[Paymaster Service](/base-account/reference/core/capabilities/paymasterService)**: For sponsored transactions
+- **[Atomic](/base-account/reference/core/capabilities/atomic)**: For ensuring transaction success with auxiliary funds
+- **[Flow Control](/base-account/reference/core/capabilities/flowControl)**: For handling auxiliary fund failures
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

@@ -1,0 +1,110 @@
+---
+title: Base App Compatibility
+description: Which Mini App features are supported in Base App (TBA) today
+---
+
+Base App is working towards full compatibility with the Farcaster Mini App SDK. During beta, some features are not yet supported.
+
+## Currently Unsupported (examples)
+
+
+- Notifications: not yet supported
+- Mini App actions: `.addMiniApp()`, `.requestCameraAndMicrophoneAccess()` (ETA 8/28)
+
+## Base App Client Detection
+
+```tsx App.tsx
+import { useMiniKit } from '@coinbase/onchainkit/minikit';
+
+function MyComponent() {
+  const { context } = useMiniKit();
+  const isBaseApp = context.client.clientFid === 309857;
+
+  if (isBaseApp) {
+    // Use Base App-specific features
+    console.log('Running in Base App');
+  }
+  
+  return <div>{/* Your component */}</div>;
+}
+```
+
+## Wallet Interactions
+
+Base App provides multiple wallet integration methods:
+
+### Method 1: OnchainKit (Recommended)
+```tsx App.tsx
+import { ConnectWallet } from '@coinbase/onchainkit/wallet';
+
+// Base App provides EIP-1193 provider automatically
+function WalletConnection() {
+  return <ConnectWallet />;
+}
+```
+
+### Method 2: Wagmi Hooks  
+```tsx App.tsx
+import { useConnect } from 'wagmi';
+
+// Works with Base App's injected provider
+function WalletConnect() {
+  const { connect, connectors } = useConnect();
+  // Base App connector available automatically
+}
+```
+
+### Method 3: Browser Window Access
+```tsx App.tsx
+// Direct access to Base App's provider
+async function connectWallet() {
+  if (window.ethereum) {
+    await window.ethereum.request({
+      method: 'eth_requestAccounts'
+    });
+  }
+}
+```
+
+## Navigation & Links
+
+**Use MiniKit hooks** instead of manual Farcaster deeplinks:
+- ✅ `useOpenUrl()` instead of `farcaster://open-url`
+- ✅ `useComposeCast()` instead of manual cast composition
+- ✅ `useViewProfile()` instead of profile deeplinks
+
+```tsx App.tsx
+import { useOpenUrl, useComposeCast } from '@coinbase/onchainkit/minikit';
+
+function Navigation() {
+  const openUrl = useOpenUrl();
+  const composeCast = useComposeCast();
+  
+  const handleExternalLink = () => {
+    openUrl('https://example.com');
+  };
+  
+  const handleShare = () => {
+    composeCast({
+      text: "Check this out!",
+      embeds: [window.location.href]
+    });
+  };
+}
+
+## Supported Chains
+
+Base, Mainnet, Optimism, Arbitrum, Polygon, Zora, BNB, Avalanche C‑Chain
+
+## Development Notes
+
+- Use `openUrl()` for external navigation
+- Use `composeCast()` instead of composer URLs
+- Provide alternatives for haptic feedback
+- Avoid relying on location context for core flows
+- To detect Base App, check `context.client.clientFid` (Base App: `309857`)
+
+We are actively expanding compatibility and will update this page as support increases.
+
+
+

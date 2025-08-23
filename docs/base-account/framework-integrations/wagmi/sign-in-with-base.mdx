@@ -1,0 +1,199 @@
+---
+title: "Sign in with Base"
+description: "Implement Base Account authentication using the proper SIWE flow with Wagmi"
+---
+
+Learn how to implement Sign in with Base using Wagmi by accessing the Base Account provider and following the proper SIWE (Sign-In With Ethereum) authentication flow.
+
+## Prerequisites
+
+Make sure you have [set up Wagmi with Base Account](/base-account/framework-integrations/wagmi/setup) before following this guide.
+
+## Overview
+
+To implement Sign in with Base with Wagmi, you need to:
+
+1. Get the Base Account connector from Wagmi
+2. Access the underlying provider from the connector
+3. Use `wallet_connect` with `signInWithEthereum` capabilities
+4. Verify the signature on your backend
+
+This follows the same flow as shown in the [authenticate users guide](/base-account/guides/authenticate-users), but integrates with Wagmi's connector system.
+
+## Implementation
+
+### Code Snippets
+
+<CodeGroup>
+```ts Browser (Wagmi + SDK)
+import { useState } from 'react'
+import { useConnect, useAccount, useDisconnect } from 'wagmi'
+import { baseAccount } from 'wagmi/connectors'
+
+export function SignInWithBase() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { isConnected, address } = useAccount()
+  const { connectAsync, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  // Find the Base Account connector
+  const baseAccountConnector = connectors.find(
+    connector => connector.id === 'baseAccountWallet'
+  )
+
+  const handleSignIn = async () => {
+    if (!baseAccountConnector) {
+      setError('Base Account connector not found')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // 1 — get a fresh nonce (generate locally or prefetch from backend)
+      const nonce = window.crypto.randomUUID().replace(/-/g, '')
+      // OR prefetch from server
+      // const nonce = await fetch('/auth/nonce').then(r => r.text())
+
+      // 2 — connect and get the provider
+      await connectAsync({ connector: baseAccountConnector })
+      const provider = baseAccountConnector.provider
+
+      // 3 — authenticate with wallet_connect
+      const authResult = await provider.request({
+        method: 'wallet_connect',
+        params: [{
+          version: '1',
+          capabilities: {
+            signInWithEthereum: { 
+              nonce, 
+              chainId: '0x2105' // Base Mainnet - 8453
+            }
+          }
+        }]
+      })
+
+      const { accounts } = authResult
+      const { address, capabilities } = accounts[0]
+      const { message, signature } = capabilities.signInWithEthereum
+
+      // 4 — verify on backend
+      await fetch('/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, message, signature })
+      })
+    } catch (err: any) {
+      console.error(`err ${err}`)
+      setError(err.message || 'Sign in failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isConnected) {
+    return (
+      <div className="flex items-center gap-4">
+        <span className="font-mono text-sm">{address}</span>
+        <button onClick={() => disconnect()}>Sign Out</button>
+      </div>
+    )
+  }
+
+  return (
+    <button onClick={handleSignIn} disabled={isLoading}>
+      {isLoading ? 'Signing in...' : 'Sign in with Base'}
+    </button>
+  )
+}
+```
+```ts Backend (Viem)
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+export async function verifySig(req, res) {
+  const { address, message, signature } = req.body;
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: 'Invalid signature' });
+  // create session / JWT
+  res.json({ ok: true });
+}
+```
+</CodeGroup>
+
+### 3. Using the Pre-built Button Component
+
+You can also use the official [Sign In With Base](/base-account/reference/ui-elements/sign-in-with-base-button) button component:
+
+```tsx
+// components/SignInButton.tsx
+import { SignInWithBaseButton } from '@base-org/account-ui/react'
+import { useConnect } from 'wagmi'
+
+export function SignInButton() {
+  const { connectAsync, connectors } = useConnect()
+
+  const handleSignIn = async () => {
+    const baseAccountConnector = connectors.find(
+      connector => connector.id === 'baseAccountWallet'
+    )
+
+    if (!baseAccountConnector) return
+
+    try {
+      // Generate nonce
+      const nonce = window.crypto.randomUUID().replace(/-/g, '')
+
+      // Connect and get provider
+      await connectAsync({ connector: baseAccountConnector })
+      const provider = baseAccountConnector.provider
+
+      // Perform SIWE authentication
+      const authResult = await provider.request({
+        method: 'wallet_connect',
+        params: [{
+          version: '1',
+          capabilities: {
+            signInWithEthereum: { 
+              nonce, 
+              chainId: '0x2105'
+            }
+          }
+        }]
+      })
+
+      // Extract and verify signature
+      const { accounts } = authResult
+      const { address, capabilities } = accounts[0]
+      const { message, signature } = capabilities.signInWithEthereum
+
+      // Send to backend for verification
+      await fetch('/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, message, signature })
+      })
+    } catch (error) {
+      console.error('Authentication failed:', error)
+    }
+  }
+
+  return (
+    <SignInWithBaseButton
+      colorScheme="light"
+      onClick={handleSignIn}
+    />
+  )
+}
+```
+
+<Warning>
+**Please Follow the Brand Guidelines** 
+
+If you intend on using the `SignInWithBaseButton`, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
+
+</Warning>

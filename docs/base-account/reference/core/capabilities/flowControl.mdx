@@ -1,0 +1,294 @@
+---
+title: "flowControl"
+description: "Control transaction batch behavior after failed or reverted calls"
+---
+
+Defined in [ERC-7867](https://github.com/ethereum/ERCs/pull/7867) (Proposed)
+
+<Info>
+The flowControl capability allows dapps to specify how transaction batches should behave when individual calls fail or revert. This provides fine-grained control over transaction execution flow and enables more sophisticated error handling strategies.
+</Info>
+
+<Warning>
+This capability is currently proposed in ERC-7867 and is not yet finalized. Implementation details may change as the specification develops.
+</Warning>
+
+## Parameters
+
+<ParamField body="onFailure" type="string">
+Specifies the behavior when a transaction call fails or reverts.
+
+**Possible values:**
+- `"continue"`: Continue executing remaining calls
+- `"stop"`: Stop execution on failure
+- `"retry"`: Attempt to retry the failed call
+</ParamField>
+
+<ParamField body="fallbackCall" type="object">
+Optional fallback transaction to execute if the primary call fails.
+
+<Expandable title="FallbackCall properties">
+<ParamField body="to" type="string" required>
+The recipient address for the fallback call.
+</ParamField>
+
+<ParamField body="value" type="string">
+The value to send with the fallback call (in wei, hex format).
+</ParamField>
+
+<ParamField body="data" type="string">
+The call data for the fallback call (hex format).
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="flowControl" type="object">
+The flow control capability configuration for the specified chain.
+
+<Expandable title="FlowControl capability properties">
+<ResponseField name="supported" type="boolean">
+Indicates whether the wallet supports flow control functionality.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Example Usage
+
+<RequestExample>
+```typescript Check Flow Control Support
+const capabilities = await provider.request({
+  method: 'wallet_getCapabilities',
+  params: [userAddress]
+});
+
+const flowControlCapability = capabilities["0x2105"]?.flowControl;
+```
+
+```typescript Proposed Usage (Subject to Change)
+const result = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    calls: [
+      {
+        to: "0x1234567890123456789012345678901234567890",
+        value: "0x0",
+        data: "0xa9059cbb000000000000000000000000...",
+        flowControl: {
+          onFailure: "continue",
+          fallbackCall: {
+            to: "0x...",
+            data: "0x..."
+          }
+        }
+      }
+    ]
+  }]
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json Capability Response (Supported)
+{
+  "0x2105": {
+    "flowControl": {
+      "supported": true
+    }
+  }
+}
+```
+
+```json Capability Response (Unsupported)
+{
+  "0x2105": {
+    "flowControl": {
+      "supported": false
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message | Description |
+| ---- | ------- | ----------- |
+| 4100 | Flow control not supported | Wallet does not support flow control functionality |
+| 5700 | Flow control capability required | Transaction requires flow control but wallet doesn't support it |
+| 5800 | Invalid flow control parameters | The provided flow control configuration is invalid |
+
+## Potential Use Cases
+
+### E-commerce Transactions
+
+Handle scenarios where some purchases succeed while others fail:
+
+```typescript
+// Example: Multi-item purchase with flow control
+const purchaseResult = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    calls: [
+      // Primary item purchase
+      {
+        to: marketplaceContract,
+        value: "0x0",
+        data: purchaseItem1CallData,
+        flowControl: { onFailure: "continue" }
+      },
+      // Secondary item purchase  
+      {
+        to: marketplaceContract,
+        value: "0x0", 
+        data: purchaseItem2CallData,
+        flowControl: { onFailure: "continue" }
+      },
+      // Payment processing (critical)
+      {
+        to: paymentContract,
+        value: "0x16345785d8a0000",
+        data: "0x",
+        flowControl: { onFailure: "stop" }
+      }
+    ]
+  }]
+});
+```
+
+### DeFi Operations with Fallbacks
+
+Implement sophisticated DeFi strategies with backup options:
+
+```typescript
+// Example: Swap with fallback routing
+const swapWithFallback = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0",
+    chainId: "0x2105", 
+    from: userAddress,
+    calls: [
+      // Primary DEX swap
+      {
+        to: primaryDexAddress,
+        value: "0x0",
+        data: primarySwapCallData,
+        flowControl: {
+          onFailure: "fallback",
+          fallbackCall: {
+            to: secondaryDexAddress,
+            data: secondarySwapCallData
+          }
+        }
+      }
+    ]
+  }]
+});
+```
+
+### Batch Operations with Error Recovery
+
+Execute batch operations that can gracefully handle individual failures:
+
+```typescript
+// Example: Bulk token approvals with recovery
+const bulkApprovals = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    calls: tokenAddresses.map((token, index) => ({
+      to: token,
+      value: "0x0",
+      data: approveCallData,
+      flowControl: {
+        onFailure: "continue", // Don't stop batch if one approval fails
+        retryCount: 2 // Retry failed approvals
+      }
+    }))
+  }]
+});
+```
+
+## Checking Capability Support
+
+Once implemented, check for flow control support:
+
+```typescript
+async function checkFlowControlSupport() {
+  try {
+    const capabilities = await provider.request({
+      method: 'wallet_getCapabilities',
+      params: [userAddress]
+    });
+    
+    const flowControlCapability = capabilities["0x2105"]?.flowControl;
+    
+    if (flowControlCapability?.supported) {
+      console.log("Flow control capability supported");
+      return true;
+    } else {
+      console.log("Flow control capability not supported");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error checking flow control capability:", error);
+    return false;
+  }
+}
+```
+
+## Expected Benefits
+
+When implemented, flow control will provide:
+
+1. **Better User Experience**: Partial success instead of complete failure
+2. **Flexible Error Handling**: Apps can define custom failure responses
+3. **Reduced Gas Waste**: Avoid re-executing successful operations
+4. **Complex Workflows**: Enable sophisticated multi-step processes
+
+## Development Status
+
+This capability is actively being developed:
+
+- **ERC-7867**: Formal proposal for flow control capability
+- **Community Input**: Ongoing discussions about implementation details
+- **Wallet Integration**: Pending finalization of specification
+
+## Preparing for Flow Control
+
+While waiting for implementation, developers can:
+
+1. **Design Flexible Architecture**: Build apps that can adapt to different execution models
+2. **Implement Fallback Logic**: Create manual fallback strategies for critical operations
+3. **Monitor Specification**: Track ERC-7867 progress for implementation updates
+4. **Test Sequential Execution**: Use current capabilities to simulate flow control behavior
+
+<Info>
+Stay updated on ERC-7867 development to implement flow control as soon as it's available in production wallets.
+</Info>
+
+<Warning>
+The examples above are conceptual and may not reflect the final implementation. Always refer to the latest ERC-7867 specification for accurate details.
+</Warning>
+
+## Related Capabilities
+
+Flow control works alongside other capabilities:
+
+- **[Atomic](/base-account/reference/core/capabilities/atomic)**: For strict all-or-nothing execution
+- **[Paymaster Service](/base-account/reference/core/capabilities/paymasterService)**: For sponsored transaction flows
+- **[Auxiliary Funds](/base-account/reference/core/capabilities/auxiliaryFunds)**: For flexible funding sources
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

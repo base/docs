@@ -2,6 +2,8 @@
 title: "Accept Payments"
 description: "Add one-tap USDC payments to your app with the pay() helper and Base Pay Button."
 ---
+import {BasePayButton} from "/snippets/BasePayButton.mdx"
+import {SignInWithBaseButton} from "/snippets/SignInWithBaseButton.mdx"
 
 ## Why Base Pay?
 
@@ -10,32 +12,54 @@ USDC on Base is a fully-backed digital dollar that settles in seconds and costs 
 * **Any user can pay** – works with every Base Account (smart-wallet) out of the box.
 * **USDC, not gas** – you charge in dollars; gas sponsorship is handled automatically.
 * **Fast** – most payments confirm in &lt;2&nbsp;seconds on Base.
+* **Funded accounts** – users pay with USDC from their Base Account or Coinbase Account.
 * **No extra fees** – you receive the full amount.
 
+<Warning>
+**Please Follow the Brand Guidelines** 
+
+If you intend on using the BasePayButton, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
+
+</Warning>
 
 ## Client-side (Browser SDK)
+
+<Note>
+**Interactive Playground:** Try out the `pay()` and `getPaymentStatus()` functions in our [Base Pay SDK Playground](https://base.github.io/account-sdk/pay-playground) before integrating them into your app.
+</Note>
 
 ```ts Browser (SDK)
 
 import { pay, getPaymentStatus } from '@base-org/account';
 
 // Trigger a payment – user will see a popup from their wallet service
-const { id } = await pay({
-  amount: '1.00',           // USD amount (we quote USDC internally)
-  to:    '0xRecipient',     // your address
-  testnet: true            // set false for Mainnet
-});
-
-// Option 1: Poll until mined
-const { status } = await getPaymentStatus({ id });
-if (status === 'completed') console.log('🎉 payment settled');
+try {
+  const payment = await pay({
+    amount: '1.00',           // USD amount (USDC used internally)
+    to:    '0xRecipient',     // your address
+    testnet: true            // set false for Mainnet
+  });
+  
+  // Option 1: Poll until mined
+  const { status } = await getPaymentStatus({ 
+    id: payment.id,
+    testnet: true            // MUST match the testnet setting used in pay()
+  });
+  if (status === 'completed') console.log('🎉 payment settled');
+  
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 ```
 
+<Note>
+**Important:** The `testnet` parameter in `getPaymentStatus()` must match the value used in the original `pay()` call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
+</Note>
 
 This is what the user will see when prompted to pay:
 
 <div style={{ display: 'flex', justifyContent: 'center'}}>
-  <img src="/images/base-account/BasePayFlow.png" alt="Pay Popup" style={{ width: '300px', height: 'auto' }} />
+  <img src="/images/base-account/BasePayFinal.gif" alt="Pay Popup" style={{ width: '300px', height: 'auto' }} />
 </div>
 
 ### Collect user information (optional)
@@ -43,17 +67,39 @@ This is what the user will see when prompted to pay:
 Need an email, phone, or shipping address at checkout?  Pass a <code>payerInfo</code> object:
 
 ```ts
-await pay({
-  amount: '25.00',
-  to: '0xRecipient',
-  payerInfo: {
-    requests: [
-      { type: 'email' },
-      { type: 'phoneNumber', optional: true }
-    ],
-    callbackURL: 'https://your-api.com/validate' // Optional - for server-side validation
+try {
+  const payment = await pay({
+    amount: '25.00',
+    to: '0xRecipient',
+    payerInfo: {
+      requests: [
+        { type: 'email' },
+        { type: 'phoneNumber', optional: true },
+        { type: 'physicalAddress', optional: true }
+      ],
+      callbackURL: 'https://your-api.com/validate' // Optional - for server-side validation
+    }
+  });
+  
+  console.log(`Payment sent! Transaction ID: ${payment.id}`);
+  
+  // Log the collected user information
+  if (payment.payerInfoResponses) {
+    if (payment.payerInfoResponses.email) {
+      console.log(`Email: ${payment.payerInfoResponses.email}`);
+    }
+    if (payment.payerInfoResponses.phoneNumber) {
+      console.log(`Phone: ${payment.payerInfoResponses.phoneNumber.number}`);
+      console.log(`Country: ${payment.payerInfoResponses.phoneNumber.country}`);
+    }
+    if (payment.payerInfoResponses.physicalAddress) {
+      const address = payment.payerInfoResponses.physicalAddress;
+      console.log(`Shipping Address: ${address.name.firstName} ${address.name.familyName}, ${address.address1}, ${address.city}, ${address.state} ${address.postalCode}`);
+    }
   }
-});
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
 ```
 
 Supported request types:
@@ -63,7 +109,7 @@ Supported request types:
 | <code>email</code> | string |
 | <code>name</code> | &#123; firstName, familyName &#125; |
 | <code>phoneNumber</code> | &#123; number, country &#125; |
-| <code>physicalAddress</code> | full address object |
+| <code>physicalAddress</code> | [full address object](/base-account/reference/core/capabilities/datacallback#physical-address-object) |
 | <code>onchainAddress</code> | string |
 
 <Warning>Required by default — set <code>optional: true</code> to avoid aborting the payment if the user declines.</Warning>
@@ -73,7 +119,7 @@ Supported request types:
 
 You can use the `callbackURL` to validate the user's information on the server side.
 
-Learn more about this in the [callbackURL reference](/base-account/reference/base-pay/Datacallbackurl).
+Learn more about this in the [callbackURL reference](/base-account/reference/core/capabilities/datacallback).
 </Tip>
 
 ## Polling example
@@ -81,8 +127,11 @@ Learn more about this in the [callbackURL reference](/base-account/reference/bas
 ```ts Backend (SDK)
 import { getPaymentStatus } from '@base-org/account';
 
-export async function checkPayment(txId) {
-  const status = await getPaymentStatus({ id: txId });
+export async function checkPayment(txId, testnet = false) {
+  const status = await getPaymentStatus({ 
+    id: txId,
+    testnet  // Must match the testnet setting from the original pay() call
+  });
   if (status.status === 'completed') {
     // fulfil order
   }
@@ -98,25 +147,36 @@ import { BasePayButton } from '@base-org/account-ui/react';
 import { pay } from '@base-org/account';
 
 export function Checkout() {
+  const handlePayment = async () => {
+    try {
+      const payment = await pay({ amount: '5.00', to: '0xRecipient' });
+      console.log(`Payment sent! Transaction ID: ${payment.id}`);
+    } catch (error) {
+      console.error(`Payment failed: ${error.message}`);
+    }
+  };
+
   return (
     <BasePayButton
       colorScheme="light"
-      onClick={() => pay({ amount: '5.00', to: '0xRecipient' })}
+      onClick={handlePayment}
     />
   );
 }
 ```
 
-
 See full props and theming options in the [Button Reference](/base-account/reference/ui-elements/base-pay-button) and [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines).
+
+<Warning>
+**Please Follow the Brand Guidelines** 
+
+If you intend on using the BasePayButton, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
+</Warning>
 
 ## Test on Base Sepolia
 
-1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select “Base Sepolia”).  
-2. Pass <code>testnet: true</code> in your <code>pay()</code> call.  
+1. Get test USDC from the <a href="https://faucet.circle.com" target="_blank">Circle Faucet</a> (select "Base Sepolia").  
+2. Pass <code>testnet: true</code> in your <code>pay()</code> and <code>getPaymentStatus()</code> calls.  
 3. Use <a href="https://sepolia.basescan.org" target="_blank">Sepolia BaseScan</a> to watch the transaction.
 
-
-import PolicyBanner from "/snippets/PolicyBanner.mdx";
-
-<PolicyBanner /> 
+ 

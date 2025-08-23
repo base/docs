@@ -1,0 +1,448 @@
+---
+title: 'Building Autonomous Payment Agents with x402'
+description: Learn how to integrate x402 payment protocol with XMTP chat agents to enable autonomous economic transactions
+sidebarTitle: 'x402 & Agents'
+---
+
+x402 is a revolutionary open payment protocol developed by Coinbase that enables instant, automatic stablecoin payments directly over HTTP. It empowers AI agents to autonomously pay for services without subscriptions or API keys, unlocking truly autonomous, monetized chat agents capable of reasoning, transacting, and delivering value seamlessly.
+
+## What is x402?
+
+x402 transforms how agents interact with paid services by embedding payments directly into HTTP requests. Instead of managing API keys or subscriptions, your agents can pay for exactly what they use, when they use it.
+
+### Key Benefits
+
+- **Autonomous economic transactions** - Agents can transact without human intervention
+- **Pay-as-you-go monetization** - Only pay for the services you actually use
+- **Minimal setup** - Often requires just one middleware line
+- **Instant settlement** - Payments are verified on-chain in real-time
+
+## Protocol Flow
+
+Understanding the x402 payment flow is essential for building autonomous agents:
+
+<Steps>
+<Step title="Initial Request">
+  Client requests access to a protected resource.
+</Step>
+
+<Step title="Payment Required Response">
+  Server returns HTTP 402 status with payment details including:
+  - Payment amount
+  - Recipient address
+  - Payment reference
+</Step>
+
+<Step title="Payment Execution">
+  Client sends payment payload via HTTP header (e.g., `X-PAYMENT`).
+  
+  <Note>
+  The payment facilitator handles the on-chain settlement verification automatically.
+  </Note>
+</Step>
+
+<Step title="Content Delivery">
+  Client retries the original request, and server responds with:
+  - Requested content
+  - Payment confirmation header (e.g., `X-PAYMENT-RESPONSE`)
+</Step>
+</Steps>
+
+## Integrating x402 with XMTP Agents
+
+Combining x402 with XMTP chat agents creates powerful autonomous economic agents. Here's how to implement this integration:
+
+### Agent Architecture
+
+Your agent needs to handle three main scenarios:
+
+1. **Free requests** - Standard queries that don't require payment
+2. **Payment-gated requests** - Premium features that trigger x402 payments
+3. **Payment failures** - Graceful handling when payments fail
+
+### Basic Implementation
+
+Here's how your agent handles payment-gated requests:
+
+```typescript
+// Agent receives user request for premium feature
+async function handlePremiumRequest(message: string, conversation: any) {
+  try {
+    // Attempt to access premium service
+    const response = await fetch("/premium-api/nft-floor-price", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    // Check if payment is required
+    if (response.status === 402) {
+      const paymentDetails = await response.json();
+      
+      // Notify user about payment requirement
+      await conversation.send(`💰 This requires a payment of ${paymentDetails.amount} USDC. Processing...`);
+      
+      // Execute payment
+      const paymentPayload = await executePayment(paymentDetails);
+      
+      // Retry request with payment
+      const retryResponse = await fetch("/premium-api/nft-floor-price", {
+        headers: {
+          "X-PAYMENT": paymentPayload,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (retryResponse.ok) {
+        const data = await retryResponse.json();
+        await conversation.send(`📊 NFT floor price: ${data.floorPrice} ETH`);
+      } else {
+        await conversation.send("❌ Payment processed but service unavailable. Please try again.");
+      }
+    } else if (response.ok) {
+      // Handle free-tier response
+      const data = await response.json();
+      await conversation.send(`📊 NFT floor price: ${data.floorPrice} ETH`);
+    }
+  } catch (error) {
+    await conversation.send("❌ Unable to fetch data. Please try again later.");
+  }
+}
+```
+
+### Payment Execution Function
+
+Implement the payment logic using Coinbase's x402 SDK:
+
+```typescript
+import { PaymentFacilitator } from '@coinbase/x402-sdk';
+
+async function executePayment(paymentDetails: any): Promise<string> {
+  const facilitator = new PaymentFacilitator({
+    privateKey: process.env.AGENT_PRIVATE_KEY,
+    network: 'base' // or 'mainnet'
+  });
+
+  try {
+    const payment = await facilitator.createPayment({
+      amount: paymentDetails.amount,
+      recipient: paymentDetails.recipient,
+      reference: paymentDetails.reference,
+      currency: 'USDC'
+    });
+
+    return payment.payload;
+  } catch (error) {
+    throw new Error(`Payment failed: ${error.message}`);
+  }
+}
+```
+
+### Complete Agent Example
+
+Here's a full implementation combining XMTP with x402:
+
+<CodeGroup>
+```typescript Complete Agent
+import { Client } from "@xmtp/node-sdk";
+import { PaymentFacilitator } from '@coinbase/x402-sdk';
+
+class AutonomousPaymentAgent {
+  private client: Client;
+  private facilitator: PaymentFacilitator;
+
+  constructor(client: Client, privateKey: string) {
+    this.client = client;
+    this.facilitator = new PaymentFacilitator({
+      privateKey,
+      network: process.env.NETWORK || 'base'
+    });
+  }
+
+  async handleMessage(message: any) {
+    const conversation = await this.client.conversations.getConversationById(
+      message.conversationId
+    );
+
+    const content = message.content;
+
+    // Route messages based on content
+    if (content.includes('floor price')) {
+      await this.handleFloorPriceRequest(conversation, content);
+    } else if (content.includes('market data')) {
+      await this.handleMarketDataRequest(conversation, content);
+    } else {
+      await conversation.send("Hi! I can help with:\n• NFT floor prices\n• Market data\n\nJust ask!");
+    }
+  }
+
+  async handleFloorPriceRequest(conversation: any, content: string) {
+    // Extract collection name from message
+    const collection = this.extractCollection(content);
+    
+    if (!collection) {
+      await conversation.send("Please specify an NFT collection name.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/nft-floor/${collection}`);
+      
+      if (response.status === 402) {
+        await this.processPaymentAndRetry(
+          conversation,
+          `/api/nft-floor/${collection}`,
+          `📊 Floor price for ${collection}:`
+        );
+      } else if (response.ok) {
+        const data = await response.json();
+        await conversation.send(`📊 ${collection} floor price: ${data.floorPrice} ETH`);
+      }
+    } catch (error) {
+      await conversation.send("❌ Unable to fetch floor price data.");
+    }
+  }
+
+  async processPaymentAndRetry(conversation: any, endpoint: string, successPrefix: string) {
+    try {
+      // Initial request to get payment details
+      const response = await fetch(endpoint);
+      const paymentDetails = await response.json();
+      
+      // Notify user of payment
+      await conversation.send(`💰 Payment required: ${paymentDetails.amount} USDC. Processing...`);
+      
+      // Execute payment
+      const payment = await this.facilitator.createPayment({
+        amount: paymentDetails.amount,
+        recipient: paymentDetails.recipient,
+        reference: paymentDetails.reference,
+        currency: 'USDC'
+      });
+      
+      // Retry with payment
+      const retryResponse = await fetch(endpoint, {
+        headers: { "X-PAYMENT": payment.payload }
+      });
+      
+      if (retryResponse.ok) {
+        const data = await retryResponse.json();
+        await conversation.send(`${successPrefix} ${JSON.stringify(data, null, 2)}`);
+      } else {
+        await conversation.send("❌ Payment processed but service error occurred.");
+      }
+    } catch (error) {
+      await conversation.send(`❌ Payment failed: ${error.message}`);
+    }
+  }
+
+  private extractCollection(content: string): string | null {
+    // Simple extraction logic - enhance based on your needs
+    const words = content.toLowerCase().split(' ');
+    const collectionIndex = words.findIndex(word => 
+      ['cryptopunks', 'bayc', 'azuki', 'pudgypenguins'].includes(word)
+    );
+    return collectionIndex !== -1 ? words[collectionIndex] : null;
+  }
+}
+```
+
+```typescript Server Setup
+import express from 'express';
+import { paymentMiddleware } from '@coinbase/x402-middleware';
+
+const app = express();
+
+// Apply x402 middleware
+app.use(paymentMiddleware(process.env.PAYMENT_ADDRESS, {
+  "/api/nft-floor/*": "$0.01",
+  "/api/market-data/*": "$0.005"
+}));
+
+// Protected endpoints
+app.get('/api/nft-floor/:collection', (req, res) => {
+  // This endpoint is now payment-gated
+  const mockData = {
+    collection: req.params.collection,
+    floorPrice: (Math.random() * 10).toFixed(3),
+    currency: 'ETH',
+    timestamp: new Date().toISOString()
+  };
+  
+  res.json(mockData);
+});
+
+app.get('/api/market-data/:symbol', (req, res) => {
+  const mockData = {
+    symbol: req.params.symbol,
+    price: (Math.random() * 1000).toFixed(2),
+    change24h: ((Math.random() - 0.5) * 20).toFixed(2),
+    volume: Math.floor(Math.random() * 1000000)
+  };
+  
+  res.json(mockData);
+});
+
+app.listen(3000, () => {
+  console.log('x402-enabled API server running on port 3000');
+});
+```
+</CodeGroup>
+
+## Real-World Examples
+
+Several projects have successfully implemented x402 with XMTP agents:
+
+### Stableburn x402
+
+A live implementation showcasing:
+- XMTP v4 integration
+- AgentKit functionality  
+- x402-based micro-payments ($0.001–$0.005 per request)
+- Automatic revenue burning via on-chain token swaps
+
+<Card title="Stableburn x402" icon="fire" href="https://github.com/example/stableburn-x402">
+  Autonomous agent that monetizes premium endpoints with micro-payments
+</Card>
+
+### Crossmint Worldstore Agent
+
+An XMTP chat agent for shopping featuring:
+- x402 payment integration
+- EIP-3009 gasless USDC transactions
+- Base network integration
+- Interactive content types in chat
+
+<Card title="Worldstore Agent" icon="shopping-cart" href="https://github.com/Crossmint/worldstore-agent">
+  Shopping agent with embedded x402 payments and commerce functionality
+</Card>
+
+## Best Practices
+
+### Payment UX Guidelines
+
+<Tip>
+Always inform users about payment requirements before executing transactions. Transparency builds trust with your agent.
+</Tip>
+
+- **Clear pricing** - Display exact costs upfront
+- **Payment confirmation** - Confirm successful payments  
+- **Graceful failures** - Handle payment errors elegantly
+- **Value communication** - Explain what users get for their payment
+
+### Error Handling
+
+Implement comprehensive error handling for common scenarios:
+
+```typescript
+async function robustPaymentHandler(conversation: any, endpoint: string) {
+  try {
+    const response = await fetch(endpoint);
+    
+    if (response.status === 402) {
+      const paymentDetails = await response.json();
+      
+      // Validate payment details
+      if (!paymentDetails.amount || !paymentDetails.recipient) {
+        await conversation.send("❌ Invalid payment request from service.");
+        return;
+      }
+      
+      // Check if amount is reasonable
+      if (parseFloat(paymentDetails.amount) > 1.0) {
+        await conversation.send(`⚠️ High payment amount: ${paymentDetails.amount} USDC. Skipping for safety.`);
+        return;
+      }
+      
+      // Process payment with timeout
+      const paymentPromise = this.executePayment(paymentDetails);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Payment timeout')), 30000)
+      );
+      
+      const payment = await Promise.race([paymentPromise, timeoutPromise]);
+      
+      // Retry with payment
+      const retryResponse = await fetch(endpoint, {
+        headers: { "X-PAYMENT": payment }
+      });
+      
+      if (retryResponse.ok) {
+        const data = await retryResponse.json();
+        await conversation.send(`✅ Payment successful! ${JSON.stringify(data)}`);
+      } else {
+        await conversation.send("❌ Payment processed but service unavailable.");
+      }
+    }
+  } catch (error) {
+    if (error.message.includes('timeout')) {
+      await conversation.send("⏱️ Payment timed out. Please try again.");
+    } else if (error.message.includes('insufficient funds')) {
+      await conversation.send("💸 Insufficient funds for payment.");
+    } else {
+      await conversation.send(`❌ Payment error: ${error.message}`);
+    }
+  }
+}
+```
+
+### Security Considerations
+
+<Warning>
+Never expose private keys in your code. Always use environment variables and secure key management practices.
+</Warning>
+
+- **Key management** - Use secure environment variables
+- **Payment limits** - Set maximum payment thresholds
+- **Rate limiting** - Prevent payment spam attacks  
+- **Audit trails** - Log all payment activities
+- **Network validation** - Verify on-chain settlement
+
+## Resources
+
+<CardGroup cols={2}>
+<Card title="x402 Protocol Docs" icon="book" href="https://docs.cdp.coinbase.com/x402/welcome">
+  Complete x402 protocol specification and implementation guide
+</Card>
+
+<Card title="x402.org" icon="globe" href="https://www.x402.org">
+  Official x402 protocol website with examples and tools
+</Card>
+
+<Card title="Coinbase SDK" icon="code" href="https://github.com/coinbase/x402-sdk">
+  Official Coinbase x402 SDK for JavaScript/TypeScript
+</Card>
+
+<Card title="XMTP Documentation" icon="message-circle" href="https://docs.xmtp.org">
+  XMTP protocol documentation for messaging integration
+</Card>
+</CardGroup>
+
+## Next Steps
+
+Ready to build your autonomous payment agent? Here's your roadmap:
+
+<Steps>
+<Step title="Set up development environment">
+  Install the x402 SDK and XMTP client libraries in your project.
+</Step>
+
+<Step title="Implement basic agent">
+  Start with a simple XMTP agent following our [Chat Agents guide](/base-app/agents/chat-agents).
+</Step>
+
+<Step title="Add payment functionality">
+  Integrate x402 payment handling using the examples above.
+</Step>
+
+<Step title="Test thoroughly">
+  Test payment flows on testnet before deploying to production.
+</Step>
+
+<Step title="Deploy and monitor">
+  Deploy your agent and monitor payment transactions and user interactions.
+</Step>
+</Steps>
+
+The future of autonomous agents is here. With x402 and XMTP, you can build agents that truly operate independently in the digital economy.

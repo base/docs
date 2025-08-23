@@ -1,0 +1,85 @@
+---
+title: Feature Tour
+description: What the MiniKit includes out of the box and where to extend it
+---
+
+The MiniKit template provides you with key features to get started quickly, which we highlight below. There are additional features which you can find in the [MiniKit technical reference](/mini-apps/technical-reference/minikit/overview).
+
+### Providers 
+
+The MiniKitProvider wraps your app and provides MiniKit context to all child components. It configures wagmi, react-query, and the Farcaster connector automatically.
+
+```tsx providers/Providers.tsx
+// MiniKitProvider configuration
+<MiniKitProvider
+  apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+  chain={base}
+  config={{
+    appearance: {
+      mode: 'auto',
+      theme: 'snake',
+      name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
+      logo: process.env.NEXT_PUBLIC_ICON_URL,
+    },
+  }}
+>
+  {children}
+</MiniKitProvider>
+```
+
+### Mini App initialization
+When a user first opens your mini app, the MiniKitProvider will initialize the mini app context. This is done by calling the `useMiniKit` hook.
+
+`context` provides you with details about the user and the client (e.g. Base app).
+
+```tsx app/App.tsx
+// Frame initialization
+const { setFrameReady, isFrameReady, context } = useMiniKit();
+
+useEffect(() => {
+  if (!isFrameReady) {
+    setFrameReady();
+  }
+}, [setFrameReady, isFrameReady]);
+
+```
+
+
+### External Links and Navigation
+To leverage the native browser of the Base app, you can use the `useOpenUrl` hook.
+
+Do not use raw links as it can cause breaks or force the user to leave the app.
+
+```tsx components/ExternalLink.tsx
+const openUrl = useOpenUrl();
+
+const handleExternalLink = () => {
+  openUrl('https://example.com');
+};
+```
+
+### Close Mini App
+Allows you to add native functionality to close the mini app.
+
+```tsx components/CloseButton.tsx
+const close = useClose();
+
+const handleClose = () => {
+  close();
+};
+```
+
+## Next steps
+
+Add features based on your goals. Start here:
+
+<CardGroup cols={2}>
+  <Card title="Launch Checklist" icon="rocket" href="/mini-apps/quickstart/launch-guide">
+    To get the most out of mini apps, follow the launch checklist.
+  </Card>
+  <Card title="Mini App Features" icon="puzzle-piece" href="/mini-apps/features/overview">
+    Comprehensive guides on all mini app features.
+  </Card>
+</CardGroup>
+
+

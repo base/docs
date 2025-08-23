@@ -1,0 +1,114 @@
+---
+title: "Other Use Cases"
+description: "Access the Base Account provider from Wagmi for advanced functionality like Sub Accounts, Spend Permissions, and more"
+---
+
+Learn how to access the Base Account provider through Wagmi to unlock advanced Base Account features beyond basic authentication and payments.
+
+## Prerequisites
+
+Make sure you have [set up Wagmi with Base Account](/base-account/framework-integrations/wagmi/setup) before following this guide.
+
+## Getting the Provider
+
+The key to accessing advanced Base Account functionality is getting the provider from your Wagmi connector. Once you have the provider, you can use any Base Account RPC method.
+
+<CodeGroup>
+```tsx Hook
+// hooks/useBaseAccountProvider.ts
+import { useConnections } from 'wagmi'
+import { useEffect, useState } from 'react'
+import { EIP1193Provider } from 'viem'
+
+export function useBaseAccountProvider() {
+  const connections = useConnections()
+  const [provider, setProvider] = useState<EIP1193Provider | null>(null)
+
+  useEffect(() => {
+    const connection = connections[0]
+
+    if (!connection) {
+      setProvider(null)
+      return
+    }
+
+    connection.connector.getProvider().then((provider) => {
+      setProvider(provider as EIP1193Provider)
+    })
+  }, [connections])
+
+  return provider
+}
+```
+```tsx Component
+// components/BaseAccountFeatures.tsx
+import { useBaseAccountProvider } from '../hooks/useBaseAccountProvider'
+import { useAccount } from 'wagmi'
+
+export function BaseAccountFeatures() {
+  const { address, isConnected } = useAccount()
+  const provider = useBaseAccountProvider()
+
+  const callProviderMethod = async (method: string, params: any[]) => {
+    if (!provider) {
+      console.error('Provider not available')
+      return
+    }
+
+    try {
+      const result = await provider.request({
+        method,
+        params
+      })
+      console.log(`${method} result:`, result)
+      return result
+    } catch (error) {
+      console.error(`${method} error:`, error)
+      throw error
+    }
+  }
+
+  if (!isConnected) {
+    return <p>Please connect your wallet to access Base Account features</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Base Account Features</h2>
+      <p className="text-gray-600">
+        Connected with Base Account provider. You can now access advanced features.
+      </p>
+    </div>
+  )
+}
+```
+</CodeGroup>
+
+## Available Use Cases
+
+Once you have the provider, you can access all Base Account functionality:
+
+### Sub Accounts
+Create and manage child accounts for improved UX.
+
+**Learn more:** [Sub Accounts Guide](/base-account/improve-ux/sub-accounts) | [Sub Accounts RPC Method](/base-account/reference/core/provider-rpc-methods/wallet_addSubAccount)
+
+### Spend Permissions
+Allow apps to spend on behalf of users with predefined limits.
+
+**Learn more:** [Spend Permissions Guide](/base-account/improve-ux/spend-permissions) | [Spend Permissions Reference](/base-account/reference/spend-permission-utilities/requestSpendPermission)
+
+### Batch Transactions
+Execute multiple transactions in a single user confirmation.
+
+**Learn more:** [Batch Transactions Guide](/base-account/improve-ux/batch-transactions) | [`wallet_sendCalls` Reference](/base-account/reference/core/provider-rpc-methods/wallet_sendCalls)
+
+### Gasless Transactions
+Sponsor gas fees for your users.
+
+**Learn more:** [Gasless Transactions Guide](/base-account/improve-ux/sponsor-gas/paymaster) | [Coinbase Developer Platform Paymaster](https://docs.cdp.coinbase.com/paymaster/introduction/welcome)
+
+### Full list of provider methods and capabilities
+Access the full list of Base Account provider methods and capabilities.
+
+**Learn more:** [Provider RPC Methods](/base-account/reference/core/provider-rpc-methods/request-overview) | [Capabilities](/base-account/reference/core/capabilities/overview)

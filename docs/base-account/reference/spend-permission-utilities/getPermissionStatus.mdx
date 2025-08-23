@@ -1,0 +1,86 @@
+---
+title: "getPermissionStatus"
+description: "Compute remaining spend and active status for a Spend Permission"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  Validates a permission against current time and revocation state and returns
+  remaining spend and next period start.
+</Info>
+
+## Parameters
+
+<ParamField body="permission" type="SpendPermission" required>
+  Signed permission to evaluate. This should be a SpendPermission object returned from [`requestSpendPermission`](/base-account/reference/spend-permission-utilities/requestSpendPermission) or fetched via [`fetchPermissions`](/base-account/reference/spend-permission-utilities/fetchPermissions).
+
+<Expandable title="SpendPermission properties">
+<ParamField body="permissionHash" type="string">
+Deterministic EIP-712 hash of the permission.
+</ParamField>
+
+<ParamField body="signature" type="string">
+  Signature for the EIP-712 payload.
+</ParamField>
+
+<ParamField body="chainId" type="number">
+  Target chain ID.
+</ParamField>
+
+<ParamField body="permission" type="object">
+Underlying permission fields.
+
+<Expandable title="permission fields">
+<ParamField body="account" type="address" />
+<ParamField body="spender" type="address" />
+<ParamField body="token" type="address" />
+<ParamField body="allowance" type="bigint" />
+<ParamField body="period" type="number">Duration in seconds.</ParamField>
+<ParamField body="start" type="number">Unix timestamp (seconds).</ParamField>
+<ParamField body="end" type="number">Unix timestamp (seconds).</ParamField>
+<ParamField body="salt" type="string" />
+<ParamField body="extraData" type="string" />
+</Expandable>
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="status" type="GetPermissionStatusResponse">
+Status details for the permission.
+
+<Expandable title="GetPermissionStatusResponse properties">
+<ResponseField name="remainingSpend" type="bigint">Remaining allowance in wei for the current period.</ResponseField>
+<ResponseField name="nextPeriodStart" type="Date">When the next allowance period begins.</ResponseField>
+<ResponseField name="isActive" type="boolean">True if approved and not revoked or expired.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```typescript Check permission status
+import { getPermissionStatus } from "@base-org/account/spend-permission";
+
+const { isActive, remainingSpend } = await getPermissionStatus(permission);
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Example response
+{
+  remainingSpend: 1000000000000000000n,
+  nextPeriodStart: new Date("2024-01-31T00:00:00Z"),
+  isActive: true
+}
+```
+
+</ResponseExample>
+
+## Error Handling
+
+Always wrap the call in a try-catch block to handle these errors gracefully.
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
