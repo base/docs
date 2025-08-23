@@ -260,6 +260,49 @@ const ownerAccount = await sdk.subAccount.addOwner({
 console.log('Owner added to Sub Account');
 ```
 
+## Auto Spend Permissions
+
+Auto Spend Permissions allows Sub Accounts to access funds from their parent Base Account when transaction balances are insufficient. This feature can also establish ongoing spend permissions, enabling future transactions to execute without user approval prompts, reducing friction in your app's transaction flow.
+
+### Configuration
+
+Auto Spend Permissions is only available in SDK version `2.0.2-canary.20250822164845` or later. This feature is **enabled by default** when using Sub Accounts.
+
+To disable Auto Spend Permissions when using Sub Accounts, set `unstable_enableAutoSpendPermissions` to `false` in your SDK configuration:
+
+```tsx
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+  subAccounts: {
+    unstable_enableAutoSpendPermissions: false, // Disable auto spend permissions
+  }
+});
+```
+
+### How it works
+
+**First-time transaction flow:**
+When a Sub Account attempts its first transaction, Base Account displays a popup for user approval. During this approval process, Base Account:
+
+- Automatically detects any missing tokens (native or ERC-20) needed for the transaction
+- Requests a transfer of the required funds from the parent Base Account to the Sub Account to fulfill the current transaction
+- Allows the user to optionally grant ongoing spend permissions for future transactions in that token
+
+**Subsequent transactions:**
+If the user granted spend permissions, future transactions follow this priority:
+
+1. First, attempt using existing Sub Account balances and granted spend permissions
+2. If insufficient, prompt the user to authorize additional transfers and/or spend permissions from their Base Account
+
+<Warning>
+Spend permission requests are limited to the first token when multiple transfers are needed for a single transaction. Additional tokens require separate approvals.
+</Warning>
+
+
+
+
 ## Complete Integration Example
 
 Here's a full React component that demonstrates Sub Account creation and usage:
