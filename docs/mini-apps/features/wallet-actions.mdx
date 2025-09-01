@@ -3,36 +3,30 @@ title: "Wallet"
 description: "Learn the fundamental differences between Externally Owned Accounts (EOAs) and Smart Wallets, and how these differences affect your application development."
 ---
 
-> **What you’ll learn**  
-> By the end of this guide, you’ll understand:
+> **What you'll learn**  
+> By the end of this guide, you'll understand:
 > - How Smart Wallet signatures work differently from EOA signatures.  
 > - When and why certain operations fail with Smart Wallets.  
 > - How to implement universal signature verification. 
-> - What changes are needed in your smart contracts and applications 
+> - What changes are needed in your smart contracts and applications
 
 ## Authentication Differences
 
-<Tabs>
-<Tab title="EOA Authentication">
+### EOA Authentication
 ```javascript
 // EOA: Direct private key signing
 const signature = await wallet.signMessage("Hello World");
 // signature is always 65 bytes (130 hex chars + 0x prefix)
 ```
-</Tab>
 
-<Tab title="Smart Wallet Authentication">
+### Smart Wallet Authentication
 ```javascript
 // Smart Wallet: Contract-based validation
 const signature = await smartWallet.signMessage("Hello World");
 // signature format varies, validated via EIP-1271
 ```
-</Tab>
-</Tabs>
 
-<Note>
-EOAs use private keys directly. Smart Wallets use passkeys that are validated by the wallet contract through the `isValidSignature` function.
-</Note>
+**Key Difference**: EOAs use private keys directly. Smart Wallets use passkeys validated by the wallet contract through `isValidSignature`.
 
 ## Signature Verification
 
@@ -119,56 +113,54 @@ Smart Wallets can batch multiple operations into a single transaction, reducing 
 ## Smart Contract Incompatibilities
 
 ### Self-Calls Will Fail
-Smart Wallets have restrictions on certain operations to maintain security and compliance with the ERC-4337 standard.
+
+Smart Wallets block calls back to themselves for security and ERC-4337 compliance.
 
 ```solidity
 // This will fail with Smart Wallets
 function badExample() external {
   // msg.sender is the Smart Wallet contract
+  // This call back to the wallet will be blocked
   IWallet(msg.sender).transfer(amount);
 }
 
 // Pass data as parameters instead
 function goodExample(address recipient, uint256 amount) external {
-  // Process parameters directly
+  // Process parameters directly without calling back to msg.sender
   _transfer(recipient, amount);
 }
 ```
 
 ### CREATE Opcode Not Supported
 
-Smart Wallets cannot use the CREATE opcode to deploy new contracts directly. This is a limitation of the ERC-4337 standard and smart accounts, as confirmed by the Base Account documentation.
+ERC-4337 doesn't support CREATE opcode. Use CREATE2 with factory patterns instead.
 
 ```solidity
 // Smart Wallets cannot use CREATE
 function badDeploy() external {
-  new MyContract(); // Will fail
+  // This will fail - CREATE opcode not supported in ERC-4337
+  new MyContract();
 }
 
 // Use CREATE2 factory pattern
 function goodDeploy(bytes32 salt) external {
+  // CREATE2 is supported and creates deterministic addresses
   new MyContract{salt: salt}();
 }
 ```
 
 ### Transfer vs Call
 
-The Solidity `.transfer()` method forwards exactly **2300 gas** to the recipient. However, Smart Wallets often require more gas than this limit to execute their `receive` or `fallback` functions, which may include:
-
-- Updating internal balances or state
-- Emitting events for transaction tracking
-- Executing additional logic in their receive functions
-- Handling complex fallback scenarios
-
-Because Smart Wallets are contracts, these operations can easily exceed the 2300 gas limit imposed by `.transfer()`, causing transfers to fail.
+`.transfer()` forwards only 2300 gas, which is insufficient for Smart Wallet operations that may need more gas for state updates and event emissions.
 
 ```solidity
-// .transfer() can fail with Smart Wallets
+// .transfer() forwards only 2300 gas - may fail with Smart Wallets
 payable(user).transfer(amount);
 
-// Use .call() with explicit gas
+// Use .call() with adequate gas allowance  
 (bool success, ) = payable(user).call{value: amount, gas: 10000}("");
 require(success, "Transfer failed");
+// Provides enough gas for Smart Wallet operations
 ```
 
 <Warning>
@@ -177,136 +169,128 @@ Always use `.call()` instead of `.transfer()` when sending ETH to avoid failures
 
 ## Gas Payment Differences
 
-<Tabs>
-<Tab title="EOAs Must Hold ETH">
+**EOAs**: Must hold ETH for gas fees
 ```javascript
-// EOA: Must have ETH balance
 const balance = await provider.getBalance(eoaAddress);
-if (balance.eq(0)) {
-  throw new Error("Need ETH for gas");
-}
+if (balance.eq(0)) throw new Error("Need ETH for gas");
 ```
-</Tab>
 
-<Tab title="Smart Wallets Can Use Sponsored Gas">
+**Smart Wallets**: Can use sponsored gas via paymasters
 ```javascript
-// Smart Wallet: Can use paymasters for sponsored transactions
+// Check paymaster support
 const capabilities = await wallet.request({
-  method: 'wallet_getCapabilities'
+  method: 'wallet_getCapabilities',
+  params: [address]
 });
 
-if (capabilities.paymasterService) {
-  // Transaction can be sponsored
-  await sponsoredTransaction();
+if (capabilities[chainId]?.paymasterService?.supported) {
+  // Use sponsored transactions
+  await wallet.request({
+    method: 'wallet_sendCalls',
+    params: [{ /* transaction with paymaster capabilities */ }]
+  });
 }
 ```
-</Tab>
-</Tabs>
 
 ## Deployment Differences
 
-| Aspect | EOA | Smart Wallet |
-|--------|-----|-------------|
-| **Deployment** | No deployment needed | Contract must be deployed |
-| **Address Generation** | Derived from public key | Deterministic before deployment |
-| **Availability** | Immediately usable | Can use lazy deployment |
-| **Pre-deployment Signing** | Not applicable | Supported via ERC-6492 |
+**EOAs**: No deployment needed, immediately usable, address derived from public key
+
+**Smart Wallets**: Contract deployment required (can be lazy), deterministic addresses, supports pre-deployment signing via ERC-6492
 
 ## Implementation Checklist
 
 ### For Applications Supporting Both Wallet Types
 
-<AccordionGroup>
-<Accordion title="Signature Verification">
-- Implement universal signature verification
+<Steps>
+<Step title="Signature Verification">
+Implement universal signature verification that supports both ECDSA (EOA) and EIP-1271 (Smart Wallet).
+
 - Support ERC-6492 for undeployed Smart Wallets
+- Reference the [Sign and Verify Typed Data guide](https://docs.base.org/base-account/guides/sign-and-verify-typed-data)
 - Test with both wallet types
-</Accordion>
 
-<Accordion title="Transaction Handling">
-- Support both direct transactions and UserOperations
-- Implement batching where beneficial
-- Handle sponsored gas scenarios
-</Accordion>
+<Check>
+Verify your signature verification works with both deployed and undeployed Smart Wallets.
+</Check>
+</Step>
 
-<Accordion title="Gas Assumptions">
-- Do not assume users hold ETH
-- Check for paymaster capabilities
+<Step title="Capability Detection">
+Use `wallet_getCapabilities` to detect supported features.
+
+- Check the [Base Account Capabilities documentation](https://docs.base.org/base-account/reference/core/capabilities/overview) for available capabilities
+- Implement capability-specific features using `wallet_sendCalls` or `wallet_connect` as appropriate
+</Step>
+
+<Step title="Transaction Handling">
+Support both direct transactions (EOA) and UserOperations (Smart Wallet).
+
+- Implement batching with `wallet_sendCalls` or Wagmi's `useWriteContracts` where beneficial
+- Handle sponsored gas scenarios using paymaster capabilities
+</Step>
+
+<Step title="Gas Assumptions">
+Do not assume users hold ETH.
+
+- Check for paymaster capabilities before requiring ETH balance
 - Provide fallbacks for non-sponsored transactions
-</Accordion>
-</AccordionGroup>
+
+<Check>
+Test your application with Smart Wallets that have zero ETH balance.
+</Check>
+</Step>
+</Steps>
 
 ### For Smart Contracts
 
-<AccordionGroup>
-<Accordion title="Compatibility Audit">
-- Remove all self-calls to `msg.sender`
-- Replace CREATE with CREATE2 patterns
-- Replace `.transfer()` with `.call()`
-- Test with Smart Wallet accounts
-</Accordion>
-</AccordionGroup>
+<Steps>
+<Step title="Compatibility Audit">
+Remove all self-calls to `msg.sender`.
 
-## Testing Your Implementation
+<Warning>
+Self-calls to `msg.sender` will fail with Smart Wallets.
+</Warning>
+</Step>
 
-```javascript
-describe('Universal Wallet Support', () => {
-  it('verifies EOA signatures', async () => {
-    const message = "Test message";
-    const signature = await eoaWallet.signMessage(message);
-    const isValid = await verifyUniversalSignature(
-      message, 
-      signature, 
-      eoaAddress, 
-      provider
-    );
-    expect(isValid).toBe(true);
-  });
-  
-  it('verifies Smart Wallet signatures', async () => {
-    const message = "Test message";
-    const signature = await smartWallet.signMessage(message);
-    const isValid = await verifyUniversalSignature(
-      message, 
-      signature, 
-      smartWalletAddress, 
-      provider
-    );
-    expect(isValid).toBe(true);
-  });
-  
-  it('handles batched transactions', async () => {
-    const operations = [
-      { to: contract1.address, data: calldata1 },
-      { to: contract2.address, data: calldata2 }
-    ];
-    
-    const result = await smartWallet.executeBatch(operations);
-    expect(result.success).toBe(true);
-  });
-});
-```
+<Step title="Replace CREATE with CREATE2">
+Replace CREATE with CREATE2 patterns for deterministic addresses.
+</Step>
+
+<Step title="Update Transfer Patterns">
+Replace `.transfer()` with `.call()` for adequate gas forwarding.
+</Step>
+
+<Step title="Test with Smart Wallets">
+Test with Smart Wallet accounts to ensure compatibility.
+
+<Check>
+Run comprehensive tests with both EOA and Smart Wallet accounts.
+</Check>
+</Step>
+</Steps>
 
 ## Common Mistakes to Avoid
 
-<AccordionGroup>
-<Accordion title="Signature Assumptions">
-**Assuming 65-byte signatures**: Smart Wallet signatures have variable length
+1. **Assuming 65-byte signatures**: Smart Wallet signatures have variable length
+2. **Requiring ETH balance**: Smart Wallets may use sponsored gas
+3. **Using self-calls in contracts**: These will fail with Smart Wallets
+4. **Hardcoding ECDSA recovery**: Use universal verification instead
+5. **Using CREATE opcode**: Smart Wallets cannot use CREATE, only CREATE2
 
-**Hardcoding ECDSA recovery**: Use universal verification instead
-</Accordion>
+## Next Steps
 
-<Accordion title="Gas and Contract Patterns">
-**Requiring ETH balance**: Smart Wallets may use sponsored gas
+<CardGroup cols={2}>
+<Card title="Base Account Documentation" href="https://docs.base.org/base-account/reference/core/capabilities/overview">
+Complete Smart Wallet integration, capabilities, and implementation guides
+</Card>
 
-**Using self-calls in contracts**: These will fail with Smart Wallets
-
-**Using CREATE opcode**: Smart Wallets cannot use CREATE, only CREATE2
-</Accordion>
-</AccordionGroup>
+<Card title="Signature Verification Guide" href="https://docs.base.org/base-account/guides/sign-and-verify-typed-data">
+EIP-712 structured data signing and verification examples
+</Card>
+</CardGroup>
 
 ## Technical References
 
-- [**EIP-1271**: Standard Signature Validation Method for Contracts](https://eips.ethereum.org/EIPS/eip-1271)
-- [**ERC-4337**: Account Abstraction Using Alt Mempool](https://eips.ethereum.org/EIPS/eip-4337)
-- [**ERC-6492**: Signature Validation for Predeploy Contracts](https://eips.ethereum.org/EIPS/eip-6492)
+- [EIP-1271: Standard Signature Validation Method for Contracts](https://eips.ethereum.org/EIPS/eip-1271)
+- [ERC-4337: Account Abstraction Using Alt Mempool](https://eips.ethereum.org/EIPS/eip-4337)
+- [ERC-6492: Signature Validation for Predeploy Contracts](https://eips.ethereum.org/EIPS/eip-6492)
