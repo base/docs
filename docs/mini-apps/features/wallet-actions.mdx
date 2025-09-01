@@ -1,0 +1,312 @@
+---
+title: "Wallet"
+description: "Learn the fundamental differences between Externally Owned Accounts (EOAs) and Smart Wallets, and how these differences affect your application development."
+---
+
+> **What you’ll learn**  
+> By the end of this guide, you’ll understand:
+> - How Smart Wallet signatures work differently from EOA signatures.  
+> - When and why certain operations fail with Smart Wallets.  
+> - How to implement universal signature verification. 
+> - What changes are needed in your smart contracts and applications 
+
+## Authentication Differences
+
+<Tabs>
+<Tab title="EOA Authentication">
+```javascript
+// EOA: Direct private key signing
+const signature = await wallet.signMessage("Hello World");
+// signature is always 65 bytes (130 hex chars + 0x prefix)
+```
+</Tab>
+
+<Tab title="Smart Wallet Authentication">
+```javascript
+// Smart Wallet: Contract-based validation
+const signature = await smartWallet.signMessage("Hello World");
+// signature format varies, validated via EIP-1271
+```
+</Tab>
+</Tabs>
+
+<Note>
+EOAs use private keys directly. Smart Wallets use passkeys that are validated by the wallet contract through the `isValidSignature` function.
+</Note>
+
+## Signature Verification
+
+### The Problem
+EOA signatures can be verified by recovering the signer's address:
+
+```javascript
+// This only works for EOAs
+function verifyEOAOnly(message, signature) {
+  const recovered = ethers.utils.verifyMessage(message, signature);
+  return recovered === expectedAddress;
+}
+```
+
+Smart Wallets require contract interaction for verification:
+
+```javascript
+// Smart Wallet verification requires calling the contract
+async function verifySmartWallet(message, signature, address, provider) {
+  const contract = new ethers.Contract(
+    address,
+    ['function isValidSignature(bytes32, bytes) view returns (bytes4)'],
+    provider
+  );
+  
+  const messageHash = ethers.utils.hashMessage(message);
+  const result = await contract.isValidSignature(messageHash, signature);
+  return result === '0x1626ba7e'; // EIP-1271 magic value
+}
+```
+
+### Universal Solution
+```javascript
+async function verifyUniversalSignature(message, signature, address, provider) {
+  // Try EOA verification first (cheaper)
+  try {
+    const recovered = ethers.utils.verifyMessage(message, signature);
+    if (recovered.toLowerCase() === address.toLowerCase()) {
+      return true;
+    }
+  } catch {}
+  
+  // Try Smart Wallet verification
+  try {
+    return await verifySmartWallet(message, signature, address, provider);
+  } catch {}
+  
+  return false;
+}
+```
+
+## Transaction Differences
+
+<CodeGroup>
+```javascript EOA Transactions
+// Direct transaction
+const tx = await wallet.sendTransaction({
+  to: "0x...",
+  data: "0x...",
+  value: ethers.utils.parseEther("0.1")
+});
+```
+
+```javascript Smart Wallet Transactions
+// UserOperation via ERC-4337
+const userOp = await smartWallet.sendUserOperation({
+  target: "0x...",
+  data: "0x...",
+  value: ethers.utils.parseEther("0.1")
+});
+
+// Can batch multiple operations
+const batchOp = await smartWallet.executeBatch([
+  { target: contract1.address, data: calldata1 },
+  { target: contract2.address, data: calldata2 }
+]);
+```
+</CodeGroup>
+
+<Tip>
+Smart Wallets can batch multiple operations into a single transaction, reducing gas costs and improving user experience.
+</Tip>
+
+## Smart Contract Incompatibilities
+
+### Self-Calls Will Fail
+Smart Wallets have restrictions on certain operations to maintain security and compliance with the ERC-4337 standard.
+
+```solidity
+// This will fail with Smart Wallets
+function badExample() external {
+  // msg.sender is the Smart Wallet contract
+  IWallet(msg.sender).transfer(amount);
+}
+
+// Pass data as parameters instead
+function goodExample(address recipient, uint256 amount) external {
+  // Process parameters directly
+  _transfer(recipient, amount);
+}
+```
+
+### CREATE Opcode Not Supported
+
+Smart Wallets cannot use the CREATE opcode to deploy new contracts directly. This is a limitation of the ERC-4337 standard and smart accounts, as confirmed by the Base Account documentation.
+
+```solidity
+// Smart Wallets cannot use CREATE
+function badDeploy() external {
+  new MyContract(); // Will fail
+}
+
+// Use CREATE2 factory pattern
+function goodDeploy(bytes32 salt) external {
+  new MyContract{salt: salt}();
+}
+```
+
+### Transfer vs Call
+
+The Solidity `.transfer()` method forwards exactly **2300 gas** to the recipient. However, Smart Wallets often require more gas than this limit to execute their `receive` or `fallback` functions, which may include:
+
+- Updating internal balances or state
+- Emitting events for transaction tracking
+- Executing additional logic in their receive functions
+- Handling complex fallback scenarios
+
+Because Smart Wallets are contracts, these operations can easily exceed the 2300 gas limit imposed by `.transfer()`, causing transfers to fail.
+
+```solidity
+// .transfer() can fail with Smart Wallets
+payable(user).transfer(amount);
+
+// Use .call() with explicit gas
+(bool success, ) = payable(user).call{value: amount, gas: 10000}("");
+require(success, "Transfer failed");
+```
+
+<Warning>
+Always use `.call()` instead of `.transfer()` when sending ETH to avoid failures with Smart Wallets.
+</Warning>
+
+## Gas Payment Differences
+
+<Tabs>
+<Tab title="EOAs Must Hold ETH">
+```javascript
+// EOA: Must have ETH balance
+const balance = await provider.getBalance(eoaAddress);
+if (balance.eq(0)) {
+  throw new Error("Need ETH for gas");
+}
+```
+</Tab>
+
+<Tab title="Smart Wallets Can Use Sponsored Gas">
+```javascript
+// Smart Wallet: Can use paymasters for sponsored transactions
+const capabilities = await wallet.request({
+  method: 'wallet_getCapabilities'
+});
+
+if (capabilities.paymasterService) {
+  // Transaction can be sponsored
+  await sponsoredTransaction();
+}
+```
+</Tab>
+</Tabs>
+
+## Deployment Differences
+
+| Aspect | EOA | Smart Wallet |
+|--------|-----|-------------|
+| **Deployment** | No deployment needed | Contract must be deployed |
+| **Address Generation** | Derived from public key | Deterministic before deployment |
+| **Availability** | Immediately usable | Can use lazy deployment |
+| **Pre-deployment Signing** | Not applicable | Supported via ERC-6492 |
+
+## Implementation Checklist
+
+### For Applications Supporting Both Wallet Types
+
+<AccordionGroup>
+<Accordion title="Signature Verification">
+- Implement universal signature verification
+- Support ERC-6492 for undeployed Smart Wallets
+- Test with both wallet types
+</Accordion>
+
+<Accordion title="Transaction Handling">
+- Support both direct transactions and UserOperations
+- Implement batching where beneficial
+- Handle sponsored gas scenarios
+</Accordion>
+
+<Accordion title="Gas Assumptions">
+- Do not assume users hold ETH
+- Check for paymaster capabilities
+- Provide fallbacks for non-sponsored transactions
+</Accordion>
+</AccordionGroup>
+
+### For Smart Contracts
+
+<AccordionGroup>
+<Accordion title="Compatibility Audit">
+- Remove all self-calls to `msg.sender`
+- Replace CREATE with CREATE2 patterns
+- Replace `.transfer()` with `.call()`
+- Test with Smart Wallet accounts
+</Accordion>
+</AccordionGroup>
+
+## Testing Your Implementation
+
+```javascript
+describe('Universal Wallet Support', () => {
+  it('verifies EOA signatures', async () => {
+    const message = "Test message";
+    const signature = await eoaWallet.signMessage(message);
+    const isValid = await verifyUniversalSignature(
+      message, 
+      signature, 
+      eoaAddress, 
+      provider
+    );
+    expect(isValid).toBe(true);
+  });
+  
+  it('verifies Smart Wallet signatures', async () => {
+    const message = "Test message";
+    const signature = await smartWallet.signMessage(message);
+    const isValid = await verifyUniversalSignature(
+      message, 
+      signature, 
+      smartWalletAddress, 
+      provider
+    );
+    expect(isValid).toBe(true);
+  });
+  
+  it('handles batched transactions', async () => {
+    const operations = [
+      { to: contract1.address, data: calldata1 },
+      { to: contract2.address, data: calldata2 }
+    ];
+    
+    const result = await smartWallet.executeBatch(operations);
+    expect(result.success).toBe(true);
+  });
+});
+```
+
+## Common Mistakes to Avoid
+
+<AccordionGroup>
+<Accordion title="Signature Assumptions">
+**Assuming 65-byte signatures**: Smart Wallet signatures have variable length
+
+**Hardcoding ECDSA recovery**: Use universal verification instead
+</Accordion>
+
+<Accordion title="Gas and Contract Patterns">
+**Requiring ETH balance**: Smart Wallets may use sponsored gas
+
+**Using self-calls in contracts**: These will fail with Smart Wallets
+
+**Using CREATE opcode**: Smart Wallets cannot use CREATE, only CREATE2
+</Accordion>
+</AccordionGroup>
+
+## Technical References
+
+- [**EIP-1271**: Standard Signature Validation Method for Contracts](https://eips.ethereum.org/EIPS/eip-1271)
+- [**ERC-4337**: Account Abstraction Using Alt Mempool](https://eips.ethereum.org/EIPS/eip-4337)
+- [**ERC-6492**: Signature Validation for Predeploy Contracts](https://eips.ethereum.org/EIPS/eip-6492)
