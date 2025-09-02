@@ -1,296 +1,175 @@
 ---
 title: "Wallet"
-description: "Learn the fundamental differences between Externally Owned Accounts (EOAs) and Smart Wallets, and how these differences affect your application development."
+description: "Learn how Base Accounts enhance mini app user experience and what mini app developers need to know to implement Base Account capabilities."
 ---
 
 > **What you'll learn**  
 > By the end of this guide, you'll understand:
-> - How Smart Wallet signatures work differently from EOA signatures.  
-> - When and why certain operations fail with Smart Wallets.  
-> - How to implement universal signature verification. 
-> - What changes are needed in your smart contracts and applications
+> - How to handle wallet transactions effectively in mini apps, including leveraging enhanced Base Account capabilities when available.
 
-## Authentication Differences
+Mini apps need to handle wallet transactions efficiently to provide smooth user experiences. Modern wallets like Base Accounts offer capabilities that can significantly reduce transaction friction through batching and sponsored gas.
 
-### EOA Authentication
-```javascript
-// EOA: Direct private key signing
-const signature = await wallet.signMessage("Hello World");
-// signature is always 65 bytes (130 hex chars + 0x prefix)
-```
+## Base Account Implementation Checklist
 
-### Smart Wallet Authentication
-```javascript
-// Smart Wallet: Contract-based validation
-const signature = await smartWallet.signMessage("Hello World");
-// signature format varies, validated via EIP-1271
-```
+### For Mini App Frontend Development
 
-**Key Difference**: EOAs use private keys directly. Smart Wallets use passkeys validated by the wallet contract through `isValidSignature`.
+<Steps>
+<Step title="Detect Base Account Capabilities">
+Base Accounts offer enhanced features that traditional wallets don't support.
 
-## Signature Verification
+- Use `wallet_getCapabilities` to check for `atomicBatch`, `paymasterService`, and `auxiliaryFunds`
+- Adapt your UI to show streamlined workflows for Base Account users
+- Provide fallback experiences for traditional wallets
 
-### The Problem
-EOA signatures can be verified by recovering the signer's address:
+<Check>
+Test with both Base Accounts and traditional wallets to ensure your capability detection works correctly.
+</Check>
 
-```javascript
-// This only works for EOAs
-function verifyEOAOnly(message, signature) {
-  const recovered = ethers.utils.verifyMessage(message, signature);
-  return recovered === expectedAddress;
-}
-```
+Learn More: [Base Account Capabilities Overview](https://docs.base.org/base-account/reference/core/capabilities/overview)
+</Step>
 
-Smart Wallets require contract interaction for verification:
+<Step title="Implement Sponsored Gas Transactions">
+Enable sponsored gas transactions where your mini app pays gas fees for users.
 
-```javascript
-// Smart Wallet verification requires calling the contract
-async function verifySmartWallet(message, signature, address, provider) {
-  const contract = new ethers.Contract(
-    address,
-    ['function isValidSignature(bytes32, bytes) view returns (bytes4)'],
-    provider
-  );
-  
-  const messageHash = ethers.utils.hashMessage(message);
-  const result = await contract.isValidSignature(messageHash, signature);
-  return result === '0x1626ba7e'; // EIP-1271 magic value
-}
-```
+- Check for `paymasterService` capability before offering gas-free transactions
+- Use the `capabilities` parameter in `writeContracts` to enable sponsored gas
+- Handle cases where paymaster service is unavailable
 
-### Universal Solution
-```javascript
-async function verifyUniversalSignature(message, signature, address, provider) {
-  // Try EOA verification first (cheaper)
-  try {
-    const recovered = ethers.utils.verifyMessage(message, signature);
-    if (recovered.toLowerCase() === address.toLowerCase()) {
-      return true;
-    }
-  } catch {}
-  
-  // Try Smart Wallet verification
-  try {
-    return await verifySmartWallet(message, signature, address, provider);
-  } catch {}
-  
-  return false;
-}
-```
+<Check>
+Verify your mini app works with Base Accounts that have zero ETH balance.
+</Check>
 
-## Transaction Differences
+Learn More: [Paymaster Service Reference](https://docs.base.org/base-account/reference/core/capabilities/paymaster-service)
+</Step>
 
-<CodeGroup>
-```javascript EOA Transactions
-// Direct transaction
-const tx = await wallet.sendTransaction({
-  to: "0x...",
-  data: "0x...",
-  value: ethers.utils.parseEther("0.1")
-});
-```
+<Step title="Optimize Transaction Patterns">
+Base Accounts can batch multiple operations into single transactions.
 
-```javascript Smart Wallet Transactions
-// UserOperation via ERC-4337
-const userOp = await smartWallet.sendUserOperation({
-  target: "0x...",
-  data: "0x...",
-  value: ethers.utils.parseEther("0.1")
-});
-
-// Can batch multiple operations
-const batchOp = await smartWallet.executeBatch([
-  { target: contract1.address, data: calldata1 },
-  { target: contract2.address, data: calldata2 }
-]);
-```
-</CodeGroup>
+- Use `atomicBatch` capability to group related transactions
+- Implement `wallet_sendCalls` for complex workflows
+- Show one confirmation instead of multiple prompts
 
 <Tip>
-Smart Wallets can batch multiple operations into a single transaction, reducing gas costs and improving user experience.
+Consider transaction batching for multi-step operations like approve + transfer + mint.
 </Tip>
 
-## Smart Contract Incompatibilities
-
-### Self-Calls Will Fail
-
-Smart Wallets block calls back to themselves for security and ERC-4337 compliance.
-
-```solidity
-// This will fail with Smart Wallets
-function badExample() external {
-  // msg.sender is the Smart Wallet contract
-  // This call back to the wallet will be blocked
-  IWallet(msg.sender).transfer(amount);
-}
-
-// Pass data as parameters instead
-function goodExample(address recipient, uint256 amount) external {
-  // Process parameters directly without calling back to msg.sender
-  _transfer(recipient, amount);
-}
-```
-
-### CREATE Opcode Not Supported
-
-ERC-4337 doesn't support CREATE opcode. Use CREATE2 with factory patterns instead.
-
-```solidity
-// Smart Wallets cannot use CREATE
-function badDeploy() external {
-  // This will fail - CREATE opcode not supported in ERC-4337
-  new MyContract();
-}
-
-// Use CREATE2 factory pattern
-function goodDeploy(bytes32 salt) external {
-  // CREATE2 is supported and creates deterministic addresses
-  new MyContract{salt: salt}();
-}
-```
-
-### Transfer vs Call
-
-`.transfer()` forwards only 2300 gas, which is insufficient for Smart Wallet operations that may need more gas for state updates and event emissions.
-
-```solidity
-// .transfer() forwards only 2300 gas - may fail with Smart Wallets
-payable(user).transfer(amount);
-
-// Use .call() with adequate gas allowance  
-(bool success, ) = payable(user).call{value: amount, gas: 10000}("");
-require(success, "Transfer failed");
-// Provides enough gas for Smart Wallet operations
-```
-
-<Warning>
-Always use `.call()` instead of `.transfer()` when sending ETH to avoid failures with Smart Wallets.
-</Warning>
-
-## Gas Payment Differences
-
-**EOAs**: Must hold ETH for gas fees
-```javascript
-const balance = await provider.getBalance(eoaAddress);
-if (balance.eq(0)) throw new Error("Need ETH for gas");
-```
-
-**Smart Wallets**: Can use sponsored gas via paymasters
-```javascript
-// Check paymaster support
-const capabilities = await wallet.request({
-  method: 'wallet_getCapabilities',
-  params: [address]
-});
-
-if (capabilities[chainId]?.paymasterService?.supported) {
-  // Use sponsored transactions
-  await wallet.request({
-    method: 'wallet_sendCalls',
-    params: [{ /* transaction with paymaster capabilities */ }]
-  });
-}
-```
-
-## Deployment Differences
-
-**EOAs**: No deployment needed, immediately usable, address derived from public key
-
-**Smart Wallets**: Contract deployment required (can be lazy), deterministic addresses, supports pre-deployment signing via ERC-6492
-
-## Implementation Checklist
-
-### For Applications Supporting Both Wallet Types
-
-<Steps>
-<Step title="Signature Verification">
-Implement universal signature verification that supports both ECDSA (EOA) and EIP-1271 (Smart Wallet).
-
-- Support ERC-6492 for undeployed Smart Wallets
-- Reference the [Sign and Verify Typed Data guide](https://docs.base.org/base-account/guides/sign-and-verify-typed-data)
-- Test with both wallet types
-
-<Check>
-Verify your signature verification works with both deployed and undeployed Smart Wallets.
-</Check>
-</Step>
-
-<Step title="Capability Detection">
-Use `wallet_getCapabilities` to detect supported features.
-
-- Check the [Base Account Capabilities documentation](https://docs.base.org/base-account/reference/core/capabilities/overview) for available capabilities
-- Implement capability-specific features using `wallet_sendCalls` or `wallet_connect` as appropriate
-</Step>
-
-<Step title="Transaction Handling">
-Support both direct transactions (EOA) and UserOperations (Smart Wallet).
-
-- Implement batching with `wallet_sendCalls` or Wagmi's `useWriteContracts` where beneficial
-- Handle sponsored gas scenarios using paymaster capabilities
-</Step>
-
-<Step title="Gas Assumptions">
-Do not assume users hold ETH.
-
-- Check for paymaster capabilities before requiring ETH balance
-- Provide fallbacks for non-sponsored transactions
-
-<Check>
-Test your application with Smart Wallets that have zero ETH balance.
-</Check>
+Learn More: [Batch Transactions Guide](https://docs.base.org/base-account/guides/batch-transactions)
 </Step>
 </Steps>
 
-### For Smart Contracts
+## Base Account Benefits for Mini Apps
 
-<Steps>
-<Step title="Compatibility Audit">
-Remove all self-calls to `msg.sender`.
+| Feature | What It Does | Mini App Benefit |
+|---------|-------------|------------------|
+| Atomic Batch | Combines multiple transactions into one | Multi-step workflows require only one user confirmation |
+| Paymaster Service | App pays gas fees, not user | Users can transact without owning ETH |
+| Auxiliary Funds | Users spend Coinbase balance directly | Access to funds beyond on-chain wallet balance |
+| Passkey Authentication | Uses device biometrics instead of private keys | Faster, more secure user authentication |
 
-<Warning>
-Self-calls to `msg.sender` will fail with Smart Wallets.
-</Warning>
-</Step>
+## Implementation Examples
 
-<Step title="Replace CREATE with CREATE2">
-Replace CREATE with CREATE2 patterns for deterministic addresses.
-</Step>
+### Capability Detection
 
-<Step title="Update Transfer Patterns">
-Replace `.transfer()` with `.call()` for adequate gas forwarding.
-</Step>
+```javascript
+function useBaseAccountCapabilities(address) {
+  const [capabilities, setCapabilities] = useState({});
+  
+  useEffect(() => {
+    async function detect() {
+      const caps = await publicClient.request({
+        method: 'wallet_getCapabilities',
+        params: [address]
+      });
+      
+      setCapabilities({
+        atomicBatch: caps['0x2105']?.atomicBatch?.supported,
+        paymasterService: caps['0x2105']?.paymasterService?.supported,
+        auxiliaryFunds: caps['0x2105']?.auxiliaryFunds?.supported
+      });
+    }
+    
+    if (address) detect();
+  }, [address]);
+  
+  return capabilities;
+}
+```
 
-<Step title="Test with Smart Wallets">
-Test with Smart Wallet accounts to ensure compatibility.
+### Sponsored Gas Implementation
 
-<Check>
-Run comprehensive tests with both EOA and Smart Wallet accounts.
-</Check>
-</Step>
-</Steps>
+```javascript
+import { useCapabilities, useWriteContracts } from 'wagmi/experimental'
 
-## Common Mistakes to Avoid
+function SponsoredTransactionButton() {
+  const account = useAccount()
+  const { writeContracts } = useWriteContracts()
+  const { data: availableCapabilities } = useCapabilities({
+    account: account.address,
+  })
+  
+  const capabilities = useMemo(() => {
+    if (!availableCapabilities || !account.chainId) return {}
+    const capabilitiesForChain = availableCapabilities[account.chainId]
+    if (
+      capabilitiesForChain['paymasterService'] &&
+      capabilitiesForChain['paymasterService'].supported
+    ) {
+      return {
+        paymasterService: {
+          url: `https://api.developer.coinbase.com/rpc/v1/base/v7HqDLjJY4e28qgIDAAN4JNYXnz88mJZ`,
+        },
+      }
+    }
+    return {}
+  }, [availableCapabilities, account.chainId])
 
-1. **Assuming 65-byte signatures**: Smart Wallet signatures have variable length
-2. **Requiring ETH balance**: Smart Wallets may use sponsored gas
-3. **Using self-calls in contracts**: These will fail with Smart Wallets
-4. **Hardcoding ECDSA recovery**: Use universal verification instead
-5. **Using CREATE opcode**: Smart Wallets cannot use CREATE, only CREATE2
+  const handleSponsoredMint = () => {
+    writeContracts({
+      contracts: [{
+        address: '0x...',
+        abi: contractAbi,
+        functionName: 'mint',
+        args: [account.address],
+      }],
+      capabilities,
+    })
+  }
 
-## Next Steps
+  return <button onClick={handleSponsoredMint}>Mint NFT (Gas Free)</button>
+}
+```
 
-<CardGroup cols={2}>
-<Card title="Base Account Documentation" href="https://docs.base.org/base-account/reference/core/capabilities/overview">
-Complete Smart Wallet integration, capabilities, and implementation guides
+### Capability-Based UI
+
+```javascript
+function MiniAppWorkflow() {
+  const { address } = useAccount();
+  const { atomicBatch } = useBaseAccountCapabilities(address);
+  
+  if (atomicBatch) {
+    // Base Account: One-click workflow
+    return <OneClickPurchaseFlow />;
+  } else {
+    // Traditional wallet: Multi-step workflow  
+    return <MultiStepPurchaseFlow />;
+  }
+}
+```
+
+## Additional Resources
+
+For detailed implementation of Base Account features:
+
+<CardGroup cols={3}>
+<Card title="User Authentication" href="https://docs.base.org/base-account/guides/authenticate-users">
+Authenticate Users Guide
 </Card>
 
-<Card title="Signature Verification Guide" href="https://docs.base.org/base-account/guides/sign-and-verify-typed-data">
-EIP-712 structured data signing and verification examples
+<Card title="Accept Payments Without ETH" href="https://docs.base.org/base-account/guides/accept-payments">
+Accept Payments Guide
+</Card>
+
+<Card title="Sign and Verify Signatures" href="https://docs.base.org/base-account/guides/sign-and-verify-typed-data">
+Sign and Verify Typed Data Guide
 </Card>
 </CardGroup>
-
-## Technical References
-
-- [EIP-1271: Standard Signature Validation Method for Contracts](https://eips.ethereum.org/EIPS/eip-1271)
-- [ERC-4337: Account Abstraction Using Alt Mempool](https://eips.ethereum.org/EIPS/eip-4337)
-- [ERC-6492: Signature Validation for Predeploy Contracts](https://eips.ethereum.org/EIPS/eip-6492)
