@@ -68,9 +68,17 @@ const provider = createBaseAccountSDK().getProvider();
 // 1 — get a fresh nonce (generate locally or prefetch from backend)
 const nonce = window.crypto.randomUUID().replace(/-/g, '');
 // OR prefetch from server
-// const nonce = await fetch('/auth/nonce').then(r => r.text()); 
+// const nonce = await fetch('/auth/nonce').then(r => r.text());
 
-// 2 — connect and authenticate
+// 2 — switch to Base Chain
+const switchChainResponse = await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: '0x2105' }],
+      })
+
+      console.log('Switch chain response:', switchChainResponse);
+
+// 3 — connect and authenticate
 try {
   const { accounts } = await provider.request({
     method: 'wallet_connect',
