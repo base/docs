@@ -1,0 +1,389 @@
+---
+title: "Accept Recurring Payments"
+description: "Implement subscription billing with USDC using spend permissions on Base"
+---
+
+import {BasePayButton} from "/snippets/BasePayButton.mdx"
+import {SignInWithBaseButton} from "/snippets/SignInWithBaseButton.mdx"
+
+## Why Base Subscriptions?
+
+Base Subscriptions let you charge customers automatically using USDC on Base, powered by spend permissions. Once approved, you can charge up to the agreed amount each period without requiring manual approvals.
+
+* **Automatic charging** – Process payments without user interaction after initial approval
+* **User control** – Customers can cancel anytime through their wallet
+* **No chargebacks** – Blockchain transactions are final once confirmed
+* **No merchant fees** – Receive the full subscription amount
+* **Flexible billing** – Support any period and charge up to the limit
+
+<Warning>
+**Security Note**
+
+Subscription charges must be executed from your backend with the subscription owner wallet. Never expose private keys in client code.
+</Warning>
+
+## Client-Side: Create Subscriptions
+
+Users create subscriptions from your frontend application:
+
+```typescript Client (Browser)
+import { base } from '@base-org/account';
+
+// User creates a monthly subscription
+async function createSubscription() {
+  try {
+    const subscription = await base.subscription.subscribe({
+      recurringCharge: "19.99",           // Monthly charge in USDC
+      subscriptionOwner: "0xYourAppWallet", // Your backend wallet address
+      periodInDays: 30,                   // 30-day billing period
+      testnet: false                      // Use mainnet
+    });
+    
+    // Save subscription ID to your backend
+    await saveSubscriptionToBackend({
+      subscriptionId: subscription.id,
+      payer: subscription.subscriptionPayer,
+      amount: subscription.recurringCharge,
+      period: subscription.periodInDays
+    });
+    
+    console.log('Subscription created:', subscription.id);
+    return subscription;
+    
+  } catch (error) {
+    console.error('Subscription failed:', error.message);
+    throw error;
+  }
+}
+```
+
+## Server-Side: Charge Subscriptions
+
+Execute charges from your backend service that controls the subscription owner wallet:
+
+```typescript Backend (Node.js)
+import { base } from '@base-org/account';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain } from 'viem/chains';
+
+// Initialize wallet client with subscription owner account
+const account = privateKeyToAccount('0x...'); // Your app's private key
+const walletClient = createWalletClient({
+  account,
+  chain: baseChain,
+  transport: http()
+});
+
+async function chargeSubscription(subscriptionId: string) {
+  try {
+    // 1. Check subscription status
+    const status = await base.subscription.getStatus({
+      id: subscriptionId,
+      testnet: false
+    });
+    
+    if (!status.isSubscribed) {
+      console.log('Subscription cancelled');
+      return { success: false, reason: 'cancelled' };
+    }
+    
+    const availableCharge = parseFloat(status.remainingChargeInPeriod || '0');
+    
+    if (availableCharge === 0) {
+      console.log(`No charge available until ${status.nextPeriodStart}`);
+      return { success: false, reason: 'no_charge_available' };
+    }
+    
+    // 2. Prepare charge transaction for max available amount
+    const chargeCalls = await base.subscription.prepareCharge({
+      id: subscriptionId,
+      amount: 'max-remaining-charge', // Always charge the maximum available
+      testnet: false
+    });
+    
+    // 3. Execute charge using sendCalls to handle all charge calls
+    const hash = await walletClient.sendCalls({
+      version: '2.0.0',
+      chainId: '8453',
+      atomicRequired: false,
+      calls: chargeCalls
+    });
+    
+    console.log(`Charged ${availableCharge.toFixed(2)} USDC: ${hash}`);
+    
+    return {
+      success: true,
+      transactionHash: hash,
+      amount: availableCharge.toFixed(2)
+    };
+    
+  } catch (error) {
+    console.error('Charge failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+```
+
+## Complete Implementation Example
+
+<Tabs>
+<Tab title="React Component">
+```tsx SubscriptionButton.tsx
+import React, { useState } from 'react';
+import { base } from '@base-org/account';
+
+interface SubscriptionPlan {
+  name: string;
+  amount: string;
+  period: number;
+  description: string;
+}
+
+export function SubscriptionButton({ plan }: { plan: SubscriptionPlan }) {
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  
+  const handleSubscribe = async () => {
+    setLoading(true);
+    
+    try {
+      // Create subscription
+      const subscription = await base.subscription.subscribe({
+        recurringCharge: plan.amount,
+        subscriptionOwner: process.env.NEXT_PUBLIC_APP_WALLET!,
+        periodInDays: plan.period,
+        testnet: false
+      });
+      
+      // Save to backend
+      const response = await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: subscription.id,
+          planName: plan.name,
+          payer: subscription.subscriptionPayer
+        })
+      });
+      
+      if (response.ok) {
+        setSubscribed(true);
+        alert(`Successfully subscribed to ${plan.name}!`);
+      }
+      
+    } catch (error) {
+      console.error('Subscription failed:', error);
+      alert('Failed to create subscription');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (subscribed) {
+    return (
+      <div className="success-message">
+        ✅ Subscribed to {plan.name}
+      </div>
+    );
+  }
+  
+  return (
+    <button
+      onClick={handleSubscribe}
+      disabled={loading}
+      className="subscription-button"
+    >
+      {loading ? 'Processing...' : `Subscribe - $${plan.amount}/${plan.period}d`}
+    </button>
+  );
+}
+```
+</Tab>
+
+<Tab title="Node">
+```typescript chargingService.ts
+import { CronJob } from 'cron';
+import { base } from '@base-org/account';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain, baseSepolia } from 'viem/chains';
+import { db } from './database';
+
+class SubscriptionChargingService {
+  private walletClient: any;
+  private account: any;
+  
+  constructor() {
+    // Initialize wallet client with your app's subscription owner account
+    this.account = privateKeyToAccount(process.env.APP_PRIVATE_KEY!);
+    this.walletClient = createWalletClient({
+      account: this.account,
+      chain: process.env.USE_TESTNET === 'true' ? baseSepolia : baseChain,
+      transport: http()
+    });
+    this.startDailyChargeJob();
+  }
+  
+  private startDailyChargeJob() {
+    // Run every day at 2 AM
+    new CronJob('0 2 * * *', async () => {
+      await this.processAllSubscriptions();
+    }).start();
+  }
+  
+  async processAllSubscriptions() {
+    const subscriptions = await db.getActiveSubscriptions();
+    
+    for (const sub of subscriptions) {
+      try {
+        await this.processSubscription(sub);
+      } catch (error) {
+        console.error(`Failed to process ${sub.id}:`, error);
+        await this.handleChargeFailure(sub, error);
+      }
+    }
+  }
+  
+  async processSubscription(subscription: any) {
+    // Check subscription status from the chain
+    const status = await base.subscription.getStatus({
+      id: subscription.subscriptionId,
+      testnet: false
+    });
+    
+    if (!status.isSubscribed) {
+      await db.markSubscriptionCancelled(subscription.id);
+      return;
+    }
+    
+    // Check if there's any remaining amount available
+    const remainingAmount = parseFloat(status.remainingChargeInPeriod || '0');
+    
+    if (remainingAmount === 0) {
+      console.log(`No charge available for ${subscription.id} until ${status.nextPeriodStart}`);
+      return; // No amount available to charge
+    }
+    
+    // Prepare and execute charge for max remaining amount
+    const chargeCalls = await base.subscription.prepareCharge({
+      id: subscription.subscriptionId,
+      amount: 'max-remaining-charge', // Always charge the maximum available
+      testnet: false
+    });
+    
+    // Execute the charge using the wallet client
+    const hash = await this.walletClient.sendCalls({
+      version: '2.0.0',
+      chainId: '8453',
+      atomicRequired: false,
+      calls: chargeCalls
+    });
+    
+    console.log(`Successfully charged subscription ${subscription.id}: ${hash}`);
+    
+  }
+  
+  async handleChargeFailure(subscription: any, error: Error) {
+    const failureCount = subscription.failureCount || 0;
+    
+    if (failureCount >= 3) {
+      // Cancel after 3 failures
+      await db.markSubscriptionFailed(subscription.id);
+      await this.notifyCustomer(subscription.userId, 'subscription_failed');
+    } else {
+      // Retry tomorrow
+      await db.incrementFailureCount(subscription.id);
+    }
+  }
+}
+
+// Start the service
+export const chargingService = new SubscriptionChargingService();
+```
+</Tab>
+</Tabs>
+
+## Billing Models
+
+<AccordionGroup>
+<Accordion title="Fixed Recurring">
+Charge the same amount each period:
+
+```typescript
+const subscription = await base.subscription.subscribe({
+  recurringCharge: "29.99",
+  subscriptionOwner: appWallet,
+  periodInDays: 30
+});
+
+// Charge full amount each period
+const calls = await base.subscription.prepareCharge({
+  id: subscription.id,
+  amount: "29.99"
+});
+```
+</Accordion>
+
+<Accordion title="Usage-Based">
+Charge based on actual usage up to a limit:
+
+```typescript
+// Set maximum spend per period
+const subscription = await base.subscription.subscribe({
+  recurringCharge: "100.00", // Max per period
+  subscriptionOwner: appWallet,
+  periodInDays: 30
+});
+
+// Charge based on usage
+const usage = await calculateMonthlyUsage(userId);
+const calls = await base.subscription.prepareCharge({
+  id: subscription.id,
+  amount: Math.min(usage, 100).toFixed(2)
+});
+```
+</Accordion>
+
+
+</AccordionGroup>
+
+## Testing on Testnet
+
+Test your subscription implementation on Base Sepolia before going live:
+
+```typescript
+// Use testnet for development
+const subscription = await base.subscription.subscribe({
+  recurringCharge: "10.00",
+  subscriptionOwner: "0xTestWallet",
+  periodInDays: 1, // Daily for faster testing
+  testnet: true     // Use Base Sepolia
+});
+
+// Check status on testnet
+const status = await base.subscription.getStatus({
+  id: subscription.id,
+  testnet: true
+});
+
+// Prepare charge on testnet
+const calls = await base.subscription.prepareCharge({
+  id: subscription.id,
+  amount: "10.00",
+  testnet: true
+});
+```
+
+## Learn More
+
+For more details on the subscription functions, see:
+
+- [subscribe() Reference](/base-account/reference/base-pay/subscribe)
+- [getSubscriptionStatus() Reference](/base-account/reference/base-pay/getSubscriptionStatus)
+- [prepareSubscriptionCharge() Reference](/base-account/reference/base-pay/prepareSubscriptionCharge)
+- [Subscriptions Overview](/base-account/reference/base-pay/subscriptions-overview)
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
