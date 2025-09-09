@@ -1,0 +1,162 @@
+---
+title: "coinbase_fetchPermission"
+description: "Retrieve a single permission by its hash"
+---
+
+Coinbase-specific RPC method
+
+<Info>
+Retrieves a single spend permission by its unique hash identifier. This method allows direct lookup of a specific permission without needing to know the account, chain, or spender details.
+</Info>
+
+## Parameters
+
+<ParamField body="permissionHash" type="string" required>
+The unique hash identifier of the permission to retrieve.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+The permission response object.
+
+<Expandable title="FetchPermissionResult properties">
+<ResponseField name="permission" type="object">
+The permission object containing all details of the requested permission.
+
+<Expandable title="Permission properties">
+<ResponseField name="createdAt" type="number">
+Unix timestamp when the permission was created.
+</ResponseField>
+
+<ResponseField name="permissionHash" type="string">
+The unique hash identifier of the permission.
+</ResponseField>
+
+<ResponseField name="signature" type="string">
+The cryptographic signature authorizing this permission.
+</ResponseField>
+
+<ResponseField name="spendPermission" type="object">
+The detailed spend permission parameters.
+
+<Expandable title="SpendPermission properties">
+<ResponseField name="account" type="string">
+The address of the account granting the permission.
+</ResponseField>
+
+<ResponseField name="spender" type="string">
+The address authorized to spend from the account.
+</ResponseField>
+
+<ResponseField name="token" type="string">
+The token contract address for which spending is authorized.
+</ResponseField>
+
+<ResponseField name="allowance" type="string">
+The maximum amount that can be spent (in smallest unit).
+</ResponseField>
+
+<ResponseField name="period" type="number">
+The duration in seconds for which the permission is valid within each period.
+</ResponseField>
+
+<ResponseField name="start" type="number">
+Unix timestamp when the permission becomes active.
+</ResponseField>
+
+<ResponseField name="end" type="number">
+Unix timestamp when the permission expires.
+</ResponseField>
+
+<ResponseField name="salt" type="string">
+A unique value used to generate the permission hash.
+</ResponseField>
+
+<ResponseField name="extraData" type="string">
+Additional data associated with the permission (hex encoded).
+</ResponseField>
+</Expandable>
+</ResponseField>
+</Expandable>
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "coinbase_fetchPermission",
+  "params": [{
+    "permissionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  }]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "permission": {
+      "createdAt": 1640995200,
+      "permissionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "signature": "0xdef456...",
+      "spendPermission": {
+        "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
+        "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d",
+        "token": "0xA0b86a33E6441b97B7cd5C4F5B42a6e2F8a38923",
+        "allowance": "1000000000000000000",
+        "period": 86400,
+        "start": 1640995200,
+        "end": 1672531200,
+        "salt": "12345678901234567890",
+        "extraData": "0x"
+      }
+    }
+  }
+}
+```
+
+```json Error Response - Permission Not Found
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32602,
+    "message": "Permission not found"
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message | Description |
+| ---- | ------- | ----------- |
+| -32602 | Invalid params | The permissionHash parameter is invalid or missing |
+| -32603 | Internal error | Permission not found or internal server error |
+| -32001 | Failed precondition | The method is currently disabled via kill switch |
+
+<Warning>
+The `permissionHash` must be a valid hex-encoded hash string. The method will return an error if the permission doesn't exist or has been deleted.
+</Warning>
+
+## Usage Notes
+
+<Note>
+This method is particularly useful when:
+- You have a permission hash from a previous operation and need to retrieve its details
+- You want to verify the current state of a specific permission
+- You need to look up permission details without knowing the account or spender information
+</Note>
+
+Unlike `coinbase_fetchPermissions`, this method:
+- Returns a single permission instead of a list
+- Does not require account, chain, or spender parameters
+- Does not support pagination
+- Provides direct access via the permission's unique identifier
