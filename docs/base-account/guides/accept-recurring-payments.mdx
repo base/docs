@@ -39,15 +39,12 @@ async function createSubscription() {
       testnet: false                      // Use mainnet
     });
     
-    // Save subscription ID to your backend
-    await saveSubscriptionToBackend({
-      subscriptionId: subscription.id,
-      payer: subscription.subscriptionPayer,
-      amount: subscription.recurringCharge,
-      period: subscription.periodInDays
-    });
-    
     console.log('Subscription created:', subscription.id);
+    console.log('Payer:', subscription.subscriptionPayer);
+    console.log('Amount:', subscription.recurringCharge);
+    console.log('Period:', subscription.periodInDays, 'days');
+    
+    // Store subscription.id however you need for charging later
     return subscription;
     
   } catch (error) {
@@ -133,14 +130,7 @@ async function chargeSubscription(subscriptionId: string) {
 import React, { useState } from 'react';
 import { base } from '@base-org/account';
 
-interface SubscriptionPlan {
-  name: string;
-  amount: string;
-  period: number;
-  description: string;
-}
-
-export function SubscriptionButton({ plan }: { plan: SubscriptionPlan }) {
+export function SubscriptionButton() {
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   
@@ -150,156 +140,97 @@ export function SubscriptionButton({ plan }: { plan: SubscriptionPlan }) {
     try {
       // Create subscription
       const subscription = await base.subscription.subscribe({
-        recurringCharge: plan.amount,
-        subscriptionOwner: process.env.NEXT_PUBLIC_APP_WALLET!,
-        periodInDays: plan.period,
+        recurringCharge: "29.99",
+        subscriptionOwner: "0xYourAppWallet", // Replace with your wallet address
+        periodInDays: 30,
         testnet: false
       });
       
-      // Save to backend
-      const response = await fetch('/api/subscriptions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscriptionId: subscription.id,
-          planName: plan.name,
-          payer: subscription.subscriptionPayer
-        })
-      });
+      // Store subscription.id however you need
+      console.log('Subscription created:', subscription.id);
+      console.log('Payer:', subscription.subscriptionPayer);
       
-      if (response.ok) {
-        setSubscribed(true);
-        alert(`Successfully subscribed to ${plan.name}!`);
-      }
+      setSubscribed(true);
       
     } catch (error) {
       console.error('Subscription failed:', error);
-      alert('Failed to create subscription');
     } finally {
       setLoading(false);
     }
   };
   
   if (subscribed) {
-    return (
-      <div className="success-message">
-        ✅ Subscribed to {plan.name}
-      </div>
-    );
+    return <div>✅ Subscription active</div>;
   }
   
   return (
-    <button
-      onClick={handleSubscribe}
-      disabled={loading}
-      className="subscription-button"
-    >
-      {loading ? 'Processing...' : `Subscribe - $${plan.amount}/${plan.period}d`}
+    <button onClick={handleSubscribe} disabled={loading}>
+      {loading ? 'Processing...' : 'Subscribe - $29.99/month'}
     </button>
   );
 }
 ```
 </Tab>
 
-<Tab title="Node">
-```typescript chargingService.ts
-import { CronJob } from 'cron';
+<Tab title="Node.js Backend">
+```typescript chargeSubscriptions.ts
 import { base } from '@base-org/account';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base as baseChain, baseSepolia } from 'viem/chains';
-import { db } from './database';
+import { base as baseChain } from 'viem/chains';
 
-class SubscriptionChargingService {
-  private walletClient: any;
-  private account: any;
+// Example of charging a subscription from your backend
+async function chargeSubscription(subscriptionId: string) {
+  // Initialize wallet client with your subscription owner account
+  const account = privateKeyToAccount('0x...'); // Your app's private key
+  const walletClient = createWalletClient({
+    account,
+    chain: baseChain,
+    transport: http()
+  });
   
-  constructor() {
-    // Initialize wallet client with your app's subscription owner account
-    this.account = privateKeyToAccount(process.env.APP_PRIVATE_KEY!);
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: process.env.USE_TESTNET === 'true' ? baseSepolia : baseChain,
-      transport: http()
-    });
-    this.startDailyChargeJob();
-  }
-  
-  private startDailyChargeJob() {
-    // Run every day at 2 AM
-    new CronJob('0 2 * * *', async () => {
-      await this.processAllSubscriptions();
-    }).start();
-  }
-  
-  async processAllSubscriptions() {
-    const subscriptions = await db.getActiveSubscriptions();
-    
-    for (const sub of subscriptions) {
-      try {
-        await this.processSubscription(sub);
-      } catch (error) {
-        console.error(`Failed to process ${sub.id}:`, error);
-        await this.handleChargeFailure(sub, error);
-      }
-    }
-  }
-  
-  async processSubscription(subscription: any) {
-    // Check subscription status from the chain
+  try {
+    // Check subscription status
     const status = await base.subscription.getStatus({
-      id: subscription.subscriptionId,
+      id: subscriptionId,
       testnet: false
     });
     
     if (!status.isSubscribed) {
-      await db.markSubscriptionCancelled(subscription.id);
+      console.log('Subscription cancelled');
       return;
     }
     
-    // Check if there's any remaining amount available
     const remainingAmount = parseFloat(status.remainingChargeInPeriod || '0');
     
     if (remainingAmount === 0) {
-      console.log(`No charge available for ${subscription.id} until ${status.nextPeriodStart}`);
-      return; // No amount available to charge
+      console.log(`No charge available until ${status.nextPeriodStart}`);
+      return;
     }
     
-    // Prepare and execute charge for max remaining amount
+    // Prepare charge transaction
     const chargeCalls = await base.subscription.prepareCharge({
-      id: subscription.subscriptionId,
-      amount: 'max-remaining-charge', // Always charge the maximum available
+      id: subscriptionId,
+      amount: 'max-remaining-charge',
       testnet: false
     });
     
-    // Execute the charge using the wallet client
-    const hash = await this.walletClient.sendCalls({
+    // Execute charge
+    const hash = await walletClient.sendCalls({
       version: '2.0.0',
       chainId: '8453',
       atomicRequired: false,
       calls: chargeCalls
     });
     
-    console.log(`Successfully charged subscription ${subscription.id}: ${hash}`);
+    console.log(`Charged ${remainingAmount} USDC: ${hash}`);
+    return hash;
     
-  }
-  
-  async handleChargeFailure(subscription: any, error: Error) {
-    const failureCount = subscription.failureCount || 0;
-    
-    if (failureCount >= 3) {
-      // Cancel after 3 failures
-      await db.markSubscriptionFailed(subscription.id);
-      await this.notifyCustomer(subscription.userId, 'subscription_failed');
-    } else {
-      // Retry tomorrow
-      await db.incrementFailureCount(subscription.id);
-    }
+  } catch (error) {
+    console.error('Charge failed:', error);
+    throw error;
   }
 }
-
-// Start the service
-export const chargingService = new SubscriptionChargingService();
 ```
 </Tab>
 </Tabs>
@@ -313,7 +244,7 @@ Charge the same amount each period:
 ```typescript
 const subscription = await base.subscription.subscribe({
   recurringCharge: "29.99",
-  subscriptionOwner: appWallet,
+  subscriptionOwner: "0xYourAppWallet",
   periodInDays: 30
 });
 
@@ -332,15 +263,15 @@ Charge based on actual usage up to a limit:
 // Set maximum spend per period
 const subscription = await base.subscription.subscribe({
   recurringCharge: "100.00", // Max per period
-  subscriptionOwner: appWallet,
+  subscriptionOwner: "0xYourAppWallet",
   periodInDays: 30
 });
 
-// Charge based on usage
-const usage = await calculateMonthlyUsage(userId);
+// Charge based on actual usage (example: $45.50)
+const usageAmount = "45.50"; // Your calculated usage amount
 const calls = await base.subscription.prepareCharge({
   id: subscription.id,
-  amount: Math.min(usage, 100).toFixed(2)
+  amount: usageAmount
 });
 ```
 </Accordion>
