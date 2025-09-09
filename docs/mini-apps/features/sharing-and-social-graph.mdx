@@ -33,6 +33,48 @@ export default function ComposeCastButton() {
 }
 ```
 
+### Handling Async Responses
+
+If you need to know whether a cast was successfully created or want to handle the response data, use the async version of the hook:
+
+```ts AsyncComposeCastButton.tsx
+import { useComposeCast } from '@coinbase/onchainkit/minikit';
+
+export default function AsyncComposeCastButton() {
+ const { composeCastAsync } = useComposeCast();
+
+ const handleAsyncCompose = () => {
+    composeCast({ text: 'Just completed a challenge!' });
+  };
+
+
+ const handleAsyncComposeWithEmbed = async () => {
+   try {
+     const castData = await composeCastAsync({
+       text: 'Just completed a challenge!',
+       embeds: [window.location.href],
+     });
+     
+     // Handle successful cast creation
+     console.log('Cast created successfully:', castData);
+     // You can now update UI, track analytics, etc.
+     
+   } catch (error) {
+     console.error('Failed to create cast:', error);
+     // Handle error case
+   }
+ };
+
+ return (
+   <button onClick={handleAsyncCompose}>
+     Share with Response Handling
+   </button>
+ );
+}
+```
+
+
+
 <Tip>
 Strategic sharing moments include: post‑achievement, post‑mint, after beating a challenge, or reaching milestones.
 </Tip>
