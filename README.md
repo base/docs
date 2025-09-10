@@ -1,5 +1,5 @@
 <p align="center">
-<img src="./Basemark.png" alt="Base logo" width="360" />
+<img src="./Basemark.png" alt="Base logo" width="480" />
 </p>
 
 <!-- Badge row 1 - status -->
@@ -25,7 +25,7 @@
 
 Base Docs are community-managed. We welcome and encourage contributions from everyone to keep these docs accurate, helpful, and up to date.
 
-> Note: This repository powers the public Base documentation site. Content lives under `docs/`. Do not edit `/_pages`.
+> Note: This repository powers the public Base documentation site. Content lives under `docs/`.
 
 ## Local development
 
@@ -159,7 +159,7 @@ If your goal is to increase discoverability of your product, please request incl
 
 ## Publishing changes
 
-Install the GitHub App in your organization to auto-deploy changes from this repo. Merges to the default branch deploy to production automatically.
+The core team will review opened PRs. The SLA is 2 weeks, generally on a first come first serve basis outside of urgent changes. 
 
 ## Storybook for UI components
 
