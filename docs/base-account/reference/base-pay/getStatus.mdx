@@ -96,43 +96,6 @@ if (remainingAmount >= chargeAmount) {
   // Wait for next period
 }
 ```
-
-```typescript Monitor Subscription Lifecycle
-import { base } from '@base-org/account';
-
-async function monitorSubscription(subscriptionId: string) {
-  try {
-    const status = await base.subscription.getStatus({
-      id: subscriptionId,
-      testnet: false
-    });
-    
-    if (!status.isSubscribed) {
-      console.log("❌ Subscription cancelled");
-      return { active: false };
-    }
-    
-    const now = new Date();
-    const nextPeriod = new Date(status.nextPeriodStart!);
-    const daysUntilRenewal = Math.ceil((nextPeriod.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    console.log("✅ Subscription active");
-    console.log(`📅 Period: ${status.periodInDays} days`);
-    console.log(`💰 Charge: $${status.recurringCharge}`);
-    console.log(`💳 Available to charge: $${status.remainingChargeInPeriod}`);
-    console.log(`⏰ Days until renewal: ${daysUntilRenewal}`);
-    
-    return {
-      active: true,
-      canCharge: parseFloat(status.remainingChargeInPeriod || '0') > 0,
-      daysUntilRenewal
-    };
-  } catch (error) {
-    console.error(`Failed to check subscription: ${error.message}`);
-    throw error;
-  }
-}
-```
 </RequestExample>
 
 <ResponseExample>
@@ -191,7 +154,6 @@ Always check subscription status before attempting to charge:
 const status = await base.subscription.getStatus({ id, testnet });
 
 if (status.isSubscribed && parseFloat(status.remainingChargeInPeriod!) > 0) {
-  // Safe to charge
   const chargeCalls = await base.subscription.prepareCharge({
     id,
     amount: status.remainingChargeInPeriod!,
