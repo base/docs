@@ -44,204 +44,6 @@ Prepare transaction calls to charge a subscription
 </Card>
 </CardGroup>
 
-## Complete Implementation Example
-
-### Client-Side: Create Subscriptions
-
-Users create subscriptions from your frontend application:
-```tsx SubscriptionButton.tsx
-import React, { useState } from 'react';
-import { base } from '@base-org/account';
-
-export function SubscriptionButton() {
-  const [loading, setLoading] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
-  const [subscriptionId, setSubscriptionId] = useState('');
-  
-  const handleSubscribe = async () => {
-    setLoading(true);
-    
-    try {
-      // Create subscription
-      const subscription = await base.subscription.subscribe({
-        recurringCharge: "29.99",
-        subscriptionOwner: "0xYourAppWallet", // Replace with your wallet address
-        periodInDays: 30,
-        testnet: false
-      });
-      
-      // Store subscription ID for future reference
-      setSubscriptionId(subscription.id);
-      console.log('Subscription created:', subscription.id);
-      console.log('Payer:', subscription.subscriptionPayer);
-      console.log('Amount:', subscription.recurringCharge);
-      console.log('Period:', subscription.periodInDays, 'days');
-      
-      // Send subscription ID to your backend
-      await saveSubscriptionToBackend(subscription.id, subscription.subscriptionPayer);
-      
-      setSubscribed(true);
-      
-    } catch (error) {
-      console.error('Subscription failed:', error);
-      alert('Failed to create subscription: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const saveSubscriptionToBackend = async (id: string, payer: string) => {
-    // Example API call to store subscription in your database
-    const response = await fetch('/api/subscriptions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscriptionId: id, payerAddress: payer })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to save subscription');
-    }
-  };
-  
-  if (subscribed) {
-    return (
-      <div className="subscription-status">
-        <Check>✅ Subscription active</Check>
-        <p>Subscription ID: {subscriptionId.slice(0, 10)}...</p>
-      </div>
-    );
-  }
-  
-  return (
-    <button 
-      onClick={handleSubscribe} 
-      disabled={loading}
-      className="subscribe-button"
-    >
-      {loading ? 'Processing...' : 'Subscribe - $29.99/month'}
-    </button>
-  );
-}
-```
-
-### Server-Side: Charge Subscriptions
-
-<Warning>
-Never expose your subscription owner private key
-</Warning>
-
-Execute charges from your backend service that controls the subscription owner wallet:
-```typescript chargeSubscriptions.ts
-import { base } from '@base-org/account';
-import { createWalletClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { base as baseChain } from 'viem/chains';
-
-// Initialize wallet client with your subscription owner account
-const account = privateKeyToAccount('0x...'); // Your app's private key
-const walletClient = createWalletClient({
-  account,
-  chain: baseChain,
-  transport: http()
-});
-
-async function chargeSubscription(subscriptionId: string) {
-  try {
-    // 1. Check subscription status
-const status = await base.subscription.getStatus({
-      id: subscriptionId,
-      testnet: false
-    });
-    
-    if (!status.isSubscribed) {
-      console.log('Subscription cancelled by user');
-      return { success: false, reason: 'cancelled' };
-    }
-    
-    const availableCharge = parseFloat(status.remainingChargeInPeriod || '0');
-    
-    if (availableCharge === 0) {
-      console.log(`No charge available until ${status.nextPeriodStart}`);
-      return { success: false, reason: 'no_charge_available' };
-    }
-    
-    // 2. Prepare charge transaction for max available amount
-    const chargeCalls = await base.subscription.prepareCharge({
-      id: subscriptionId,
-      amount: 'max-remaining-charge',
-      testnet: false
-    });
-    
-    // 3. Execute each charge call using standard sendTransaction
-    // Note: prepareCharge may return multiple calls (e.g., approval + transfer)
-    // We execute them sequentially to ensure proper ordering
-    const transactionHashes = [];
-    
-    for (const call of chargeCalls) {
-      const hash = await walletClient.sendTransaction({
-        to: call.to,
-        data: call.data,
-        value: call.value || 0n
-      });
-      
-      transactionHashes.push(hash);
-      
-      // Wait for transaction confirmation before next call
-      await walletClient.waitForTransactionReceipt({ hash });
-    }
-    
-    
-    console.log(`Charged ${availableCharge} USDC`);
-    console.log(`Transactions: ${transactionHashes.join(', ')}`);
-    
-    return {
-      success: true,
-      transactionHashes,
-      amount: availableCharge
-    };
-    
-  } catch (error) {
-    console.error('Charge failed:', error);
-    return { success: false, error: error.message };
-  }
-}
-```
-
-
-## Testing on Testnet
-
-Test your subscription implementation on Base Sepolia before going live:
-
-```typescript
-// Use testnet for development
-const subscription = await base.subscription.subscribe({
-  recurringCharge: "10.00",
-  subscriptionOwner: "0xTestWallet",
-  periodInDays: 1, // Daily for faster testing
-  testnet: true     // Use Base Sepolia
-});
-
-// Check status on testnet
-const status = await base.subscription.getStatus({
-  id: subscription.id,
-  testnet: true
-});
-
-// Prepare charge on testnet
-const calls = await base.subscription.prepareCharge({
-  id: subscription.id,
-  amount: "10.00",
-  testnet: true
-});
-```
-
-## Network Support
-
-| Network | Chain ID | Status |
-|---------|----------|--------|
-| Base Mainnet | 8453 | ✅ Production Ready |
-| Base Sepolia | 84532 | ✅ Testing Available |
-
 ## Type Definitions
 
 ```typescript
@@ -289,13 +91,17 @@ type PrepareChargeResult = Array<{
 
 ## Next Steps
 
-<CardGroup cols={2}>
-<Card title="Accept Payments Guide" icon="book" href="/base-account/guides/accept-payments">
-Learn about one-time payments with Base Pay
+<CardGroup cols={3}>
+<Card title="Accept Recurring Payments Guide" icon="book" href="/base-account/guides/accept-recurring-payments">
+Learn how to implement recurring payments with Base Pay
+</Card>
+
+<Card title="One-Time Payments Guide" icon="book" href="/base-account/guides/accept-payments">
+Learn how to implement one-time payments with Base Pay
 </Card>
 
 <Card title="Spend Permissions" icon="shield" href="/base-account/improve-ux/spend-permissions">
-Deep dive into spend permissions architecture
+Deep dive into Spend Permissions
 </Card>
 </CardGroup>
 
