@@ -1,12 +1,12 @@
 ---
 title: "coinbase_fetchPermissions"
-description: "Retrieve permissions associated with a specific account, chain, and spender"
+description: "Retrieve permissions associated with a specific account and chain, optionally filtered by spender"
 ---
 
 Coinbase-specific RPC method
 
 <Info>
-Retrieves permissions associated with a specific account, chain, and spender. This method excludes permissions that have expired or been revoked, returning only active spend permissions.
+Retrieves permissions associated with a specific account and chain. If a spender is provided, returns only permissions for that spender. Otherwise, returns all permissions for the account. This method excludes permissions that have expired or been revoked, returning only active spend permissions.
 </Info>
 
 ## Parameters
@@ -19,8 +19,8 @@ The address of the account whose permissions are being queried.
 The ID of the blockchain, in hexadecimal format.
 </ParamField>
 
-<ParamField body="spender" type="string" required>
-The entity granted with the permission to spend the account's funds.
+<ParamField body="spender" type="string">
+Optional. The entity granted with the permission to spend the account's funds. If not provided, returns all permissions for the account.
 </ParamField>
 
 <ParamField body="pageOptions" type="object">
@@ -54,7 +54,7 @@ Pagination information for the response.
 </ResponseField>
 
 <RequestExample>
-```json Request
+```json Request with spender
 {
   "id": 1,
   "jsonrpc": "2.0",
@@ -63,6 +63,18 @@ Pagination information for the response.
     "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
     "chainId": "0x14A34",
     "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d"
+  }]
+}
+```
+
+```json Request without spender (all permissions)
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "coinbase_fetchPermissions",
+  "params": [{
+    "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
+    "chainId": "0x14A34"
   }]
 }
 ```
@@ -110,5 +122,5 @@ Pagination information for the response.
 | -32602 | Invalid params                 | Invalid account, chainId, or spender parameters |
 
 <Warning>
-Ensure the `chainId`, `account`, and `spender` parameters are correctly formatted and valid for the blockchain you are querying.
+Ensure the `chainId` and `account` parameters are correctly formatted and valid for the blockchain you are querying. If provided, the `spender` parameter must also be a valid address.
 </Warning>
