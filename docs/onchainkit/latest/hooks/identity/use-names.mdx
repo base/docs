@@ -2,7 +2,6 @@
 title: useNames
 ---
 
-
 The `useNames` hook is used to get multiple names from an onchain identity provider
 for an array of addresses in a single batch request.
 
@@ -17,18 +16,20 @@ Get ENS names from multiple addresses:
 import { useNames } from '@coinbase/onchainkit/identity';
 
 const addresses = [
-  '0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF',
-  '0x838aD0EAE54F99F1926dA7C3b6bFbF617389B4D9'
+'0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF',
+'0x838aD0EAE54F99F1926dA7C3b6bFbF617389B4D9'
 ];
 const { data: names, isLoading } = useNames({ addresses });
-```
+
+````
 
 ```ts return value
-{ 
-  data: ['paulcramer.eth', 'vitalik.eth'], 
-  isLoading: false 
+{
+  data: ['paulcramer.eth', 'vitalik.eth'],
+  isLoading: false
 }
-```
+````
+
 </CodeGroup>
 
 Get Basenames from multiple addresses:
@@ -39,30 +40,48 @@ import { useNames } from '@coinbase/onchainkit/identity';
 import { base } from 'viem/chains';
 
 const addresses = [
-  '0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF',
-  '0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF'
+'0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF',
+'0x4bEf0221d6F7Dd0C969fe46a4e9b339a84F52FDF'
 ];
 const { data: names, isLoading } = useNames({ addresses, chain: base });
-```
+
+````
 
 ```ts return value
-{ 
-  data: ['paul.base.eth', 'coinbase.base.eth'], 
-  isLoading: false 
+{
+  data: ['paul.base.eth', 'coinbase.base.eth'],
+  isLoading: false
 }
-```
+````
+
 </CodeGroup>
 
 ## Returns
 
-[`useQuery<Promise<GetNameReturnType[]>>`](/onchainkit/identity/types#getnamereturntype)
+```ts
+useQuery<Promise<GetNameReturnType[]>>
+
+type GetNameReturnType = string | Basename | null;
+```
 
 ## Parameters
 
-### UseNamesOptions
+### UseNamesParams
 
-[`UseNamesOptions`](/onchainkit/identity/types#usenamesoptions)
+```ts
+type UseNamesParams = {
+  /** Array of addresses to resolve ENS or Basenames for */
+  addresses: Address[];
+  /** Optional chain for domain resolution */
+  chain?: Chain;
+};
+```
 
 ### UseQueryOptions
 
-[`UseQueryOptions`](/onchainkit/identity/types#usequeryoptions) 
+```ts
+type UseQueryOptions<TData = unknown> = Omit<
+  TanstackUseQueryOptions<TData>,
+  'queryKey' | 'queryFn'
+>;
+```
