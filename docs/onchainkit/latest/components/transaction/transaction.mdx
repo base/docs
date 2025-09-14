@@ -28,7 +28,7 @@ const calls = [...];
 
 ### Props
 
-```ts
+```tsx
 type TransactionProps = {
   calls?: Calls | Contracts | Array<Call | ContractFunctionParameters>; // An array of calls to be made in the transaction
   capabilities?: WalletCapabilities; // @deprecated Use `isSponsored` instead
@@ -86,34 +86,36 @@ type TransactionProps = {
   // ---cut-end---
 
   export default function TransactionComponents() {
-    const { address } = useAccount();
+  const { address } = useAccount();
 
-    const handleOnStatus = useCallback((status: LifecycleStatus) => {
-      console.log('LifecycleStatus', status);
-    }, []);
+      const handleOnStatus = useCallback((status: LifecycleStatus) => {
+        console.log('LifecycleStatus', status);
+      }, []);
 
-    return address ? (
-      <Transaction // [!code focus]
-        chainId={BASE_SEPOLIA_CHAIN_ID} // [!code focus]
-        calls={calls} // [!code focus]
-        onStatus={handleOnStatus} // [!code focus]
-      >
-        <TransactionButton />
-        <TransactionSponsor />
-        <TransactionStatus>
-          <TransactionStatusLabel />
-          <TransactionStatusAction />
-        </TransactionStatus>
-      </Transaction> // [!code focus]
-    ) : (
-      <Wallet>
-        <ConnectWallet>
-          <Avatar className='h-6 w-6' />
-          <Name />
-        </ConnectWallet>
-      </Wallet>
-    );
+      return address ? (
+        <Transaction // [!code focus]
+          chainId={BASE_SEPOLIA_CHAIN_ID} // [!code focus]
+          calls={calls} // [!code focus]
+          onStatus={handleOnStatus} // [!code focus]
+        >
+          <TransactionButton />
+          <TransactionSponsor />
+          <TransactionStatus>
+            <TransactionStatusLabel />
+            <TransactionStatusAction />
+          </TransactionStatus>
+        </Transaction> // [!code focus]
+      ) : (
+        <Wallet>
+          <ConnectWallet>
+            <Avatar className='h-6 w-6' />
+            <Name />
+          </ConnectWallet>
+        </Wallet>
+      );
+
   };
+
   ```
 
   ```ts calls.ts
@@ -144,39 +146,6 @@ type TransactionProps = {
     width="100%"
     height="auto"
   />
-  {/* <App>
-    <TransactionWrapper>
-      {({ address, contracts, onStatus }) => {
-        if (address) {
-          return (
-            <Transaction
-              isSponsored={true}
-              chainId={BASE_SEPOLIA_CHAIN_ID}
-              contracts={contracts}
-              onStatus={onStatus}
-            >
-              <TransactionButton />
-              <TransactionSponsor />
-              <TransactionStatus>
-                <TransactionStatusLabel />
-                <TransactionStatusAction />
-              </TransactionStatus>
-            </Transaction>
-          )
-        } else {
-          return (
-            <Wallet>
-              <ConnectWallet>
-                <Avatar className="h-6 w-6" />
-                <Name />
-              </ConnectWallet>
-            </Wallet>
-          )
-        }
-      }}
-
-    </TransactionWrapper>
-  </App> */}
 
   </Step>
   <Step title="Listen to LifecycleStatus">
@@ -263,6 +232,7 @@ type TransactionProps = {
         };
       };
   ```
+
   </Step>
   <Step title="Sponsor with Paymaster capabilities">
   To sponsor your transactions with Paymaster capabilities, configure your [`OnchainKitProvider`](/onchainkit/config/onchainkit-provider) with the appropriate `config.paymaster` URL, then pass `isSponsored={true}` to the `Transaction` component.
@@ -303,7 +273,6 @@ type TransactionProps = {
   ```
   </Step>
 </Steps>
-
 
 ### Using `calls` with Promises
 
