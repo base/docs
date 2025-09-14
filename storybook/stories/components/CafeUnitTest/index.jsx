@@ -451,7 +451,7 @@ export function CafeUnitTest({ nftNum }) {
           <div style={pinTitleStyle}>
             {nft.title} NFT Badge Earned on {chain?.name}!
           </div>
-          <img src={nft.img} style={pinStyle} alt={`${nft.title} NFT Badge`} />
+          <img src={nft.img.src} style={pinStyle} alt={`${nft.title} NFT Badge`} />
         </div>
       );
     }
