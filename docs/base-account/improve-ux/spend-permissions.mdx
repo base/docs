@@ -180,6 +180,7 @@ await provider.request({
 - [requestRevoke](/base-account/reference/spend-permission-utilities/requestRevoke)
 - [prepareRevokeCallData](/base-account/reference/spend-permission-utilities/prepareRevokeCallData)
 - [fetchPermissions](/base-account/reference/spend-permission-utilities/fetchPermissions)
+- [fetchPermission](/base-account/reference/spend-permission-utilities/fetchPermission)
 - [getPermissionStatus](/base-account/reference/spend-permission-utilities/getPermissionStatus)
 
 ## Complete Integration Example
@@ -187,6 +188,7 @@ await provider.request({
 ```typescript
 import {
   fetchPermissions,
+  fetchPermission,
   getPermissionStatus,
   prepareSpendCallData,
   requestSpendPermission,
@@ -205,22 +207,30 @@ const sdk = createBaseAccountSDK({
 
 const spender = "0xAppSpenderAddress";
 
-// 1) Fetch available permissions
-const permissions = await fetchPermissions({
-  account: "0xUserBaseAccountAddress",
-  chainId: 84532,
-  spender,
+// 1) Fetch a specific permission by its hash
+// Use fetchPermission when you already know the permission hash
+// (e.g., stored from a previous session or passed as a parameter)
+const permission = await fetchPermission({
+  permissionHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
   provider: sdk.getProvider(),
 });
+
+// Alternative: Fetch all permissions for a spender
+// Use fetchPermissions when you need to see all available permissions
+// and want to choose which one to use
+// const permissions = await fetchPermissions({
+//   account: "0xUserBaseAccountAddress",
+//   chainId: 84532,
+//   spender,
+//   provider: sdk.getProvider(),
+// });
+// const permission = permissions.at(0);
 
 // ========================================
 // When there IS an existing permission
 // ========================================
 
-// 2. find the permission to use, potentially filtering by token
-const permission = permissions.at(0);
-
-// 3. check the status of permission
+// 2. check the status of permission
 try {
   const { isActive, remainingSpend } = await getPermissionStatus(permission);
   const amount = 1000n;
@@ -232,13 +242,13 @@ try {
   throw new Error("No spend permission available");
 }
 
-// 4. prepare the calls
+// 3. prepare the calls
 const [approveCall, spendCall] = await prepareSpendCallData({
   permission,
   amount,
 });
 
-// 5. execute the calls using your app's spender account
+// 4. execute the calls using your app's spender account
 // this is an example using wallet_sendCalls, in production it could be using eth_sendTransaction.
 await provider.request({
   method: "wallet_sendCalls",
