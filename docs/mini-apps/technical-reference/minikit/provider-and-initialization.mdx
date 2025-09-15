@@ -1,33 +1,36 @@
 ---
 title: Provider & Initialization
-description: Configure MiniKitProvider and initialize frame context
+description: Configure OnchainKitProvider and initialize frame context
 ---
 
-## MiniKitProvider Setup
+## OnchainKitProvider Setup
 
-The MiniKitProvider wraps your app and provides MiniKit context to all child components. It configures wagmi, react-query, and the Farcaster connector automatically.
+The OnchainKitProvider wraps your app and provides MiniKit context to all child components. It configures wagmi, react-query, and the Farcaster connector automatically.
 
 ```tsx app/providers.tsx
-import { MiniKitProvider } from '@coinbase/onchainkit/minikit';
+import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { ReactNode } from 'react';
 import { base } from 'wagmi/chains';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <MiniKitProvider
+    <OnchainKitProvider
       apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
       chain={base}
       config={{
         appearance: {
           mode: 'auto',
-          theme: 'snake', 
+          theme: 'default',
           name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
           logo: process.env.NEXT_PUBLIC_ICON_URL,
         },
       }}
+      miniKit={{
+        enabled: true
+      }}
     >
       {children}
-    </MiniKitProvider>
+    </OnchainKitProvider>
   );
 }
 ```
