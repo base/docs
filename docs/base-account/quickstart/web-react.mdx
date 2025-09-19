@@ -1,27 +1,39 @@
 ---
-title: "Web (React)"
-description: "This quick-start shows the minimum code required to add Sign in with Base and Base Pay to any React app using the Base Account SDK."
+title: "Web (Next.js)"
+description: "Quickly add Sign in with Base and Base Pay to any Next.js app"
 ---
 
 import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
 
-This quick-start shows the **minimum** code required to add Sign in with Base and Base Pay to any React app using the Base Account SDK.
+This quick-start shows the **minimum** code required to add Sign in with Base (SIWB) and Base Pay to any Next.js app using the Base Account SDK.
 
-## 1. Create a new React app
+## 1. Create a new Next.js app
 
-If you're starting fresh, create a new React app:
+If you're starting fresh, create a new Next.js app:
 
 <CodeGroup>
 ```bash npm
-npx create-react-app base-account-quickstart
+npx create-next-app@latest base-account-quickstart
 cd base-account-quickstart
 ```
 
 ```bash yarn
-yarn create react-app base-account-quickstart
+yarn create next-app base-account-quickstart
+cd base-account-quickstart
+```
+
+```bash pnpm
+pnpm create next-app base-account-quickstart
+cd base-account-quickstart
+```
+
+```bash bun
+bunx create-next-app base-account-quickstart
 cd base-account-quickstart
 ```
 </CodeGroup>
+
+When prompted during setup, you can choose the default options or customize as needed. For this quickstart, the default settings work perfectly.
 
 ## 2. Install the SDK
 
@@ -49,14 +61,18 @@ bun add @base-org/account @base-org/account-ui
 Use `--legacy-peer-deps` flag if you get a peer dependency error.
 </Tip>
 
-## 3. Replace src/App.js with this component
+## 3. Create the main component
 
-```jsx title="src/App.js" lineNumbers
+Replace the contents of `app/page.tsx` (or `app/page.js` if not using TypeScript) with this component:
+
+```jsx title="app/page.tsx" lineNumbers
+'use client';
+
 import React, { useState } from 'react';
 import { createBaseAccountSDK, pay, getPaymentStatus } from '@base-org/account';
 import { SignInWithBaseButton, BasePayButton } from '@base-org/account-ui/react';
 
-function App() {
+export default function Home() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
   const [paymentId, setPaymentId] = useState('');
@@ -186,8 +202,6 @@ function App() {
     </div>
   );
 }
-
-export default App;
 ```
 
 <Note>
@@ -196,18 +210,32 @@ export default App;
 Make sure to replace `0xRecipientAddress` with your recipient address.
 </Note>
 
+<Tip>
+**Base Pay and SIWB are independent**
+
+You DO NOT need to use SIWB to use Base Pay. You can just call the `pay()` function without any additional setup.
+</Tip>
+
 ## 4. Start your app
 
 ```bash
-npm start
+npm run dev
 ```
 
 Open http://localhost:3000, click **Sign in with Base** (optional) and then **Pay**, approve the transaction, and you've sent 5 USDC on Base Sepolia—done! 🎉
 
-**Note:** If you have an existing React app, just install the SDK (`npm install @base-org/account`) and add the component above to your project.
+**Note:** If you have an existing Next.js app, just install the SDK (`npm install @base-org/account @base-org/account-ui`) and add the component above to your project. For other React frameworks, you can adapt this component as needed.
 
 ## Next steps
 
-* **[Request profile data](/base-account/guides/accept-payments#collect-user-information-optional)** – ask the user for email, shipping address, etc. during `pay()`
-* **[Sub Accounts guide](/base-account/improve-ux/sub-accounts)** – embed gas-less child wallets inside your app
-* **[Mobile quick-start](/base-account/quickstart/mobile-integration)** – the same flow for React Native
+* **[Authenticate Users](/base-account/guides/authenticate-users)** strong authentication by setting up Sign in with Base with backend verification
+* **[Accept Payments](/base-account/guides/accept-payments)** explore all the features of Base Pay
+* **[Sign in with Base Button](/base-account/reference/ui-elements/sign-in-with-base-button)** – implement full SIWE authentication with backend verification
+* **[Base Pay Button](/base-account/reference/ui-elements/base-pay-button)** – collect user information during payment flow
+
+<Warning>
+**Please Follow the Brand Guidelines** 
+
+If you intend on using the `SignInWithBaseButton` or `BasePayButton`, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
+
+</Warning>
