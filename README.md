@@ -31,7 +31,7 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 Prerequisite: Node.js v19+.
 
-1. Clonde the repository.
+1. Clone the repository.
 2. Install the Mint CLI to preview documentation changes locally:
 
 ```bash
@@ -53,7 +53,7 @@ npx mint dev
 
 ### Troubleshooting
 
-- Ensure Node.js v19+ and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
+- Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
 - Local preview differs from production: run `mint update` to update the CLI.
 
 ## How to contribute
@@ -87,7 +87,7 @@ The Base documentation is organized into established sections (for example: `get
 
 #### Cookbook scope
 
-- The `cookbook/` section hosts use case–focused guides and patterns, not product-specific documentation.
+- The `cookbook/` section hosts use case-focused guides and patterns, not product-specific documentation.
 - Prefer cross-cutting solutions that illustrate how to build on Base across tools and scenarios.
 
 > Warning: Avoid subsection proliferation:
@@ -159,7 +159,7 @@ If your goal is to increase discoverability of your product, please request incl
 
 ## Publishing changes
 
-The core team will review opened PRs. The SLA is 2 weeks, generally on a first come first serve basis outside of urgent changes. 
+The core team will review opened PRs. The SLA is 2 weeks, generally on a first-come, first-served basis outside of urgent changes. 
 
 ## Storybook for UI components
 
