@@ -90,10 +90,13 @@ For details on each field, see the [field reference](/mini-apps/features/manifes
 ### Example Manifest
 ```json /.well-known/farcaster.json
 {
-  "accountAssociation": {
-    "header": "eyJmaWQiOjkxNTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMmVmNzkwRGQ3OTkzQTM1ZkQ4NDdDMDUzRURkQUU5NDBEMDU1NTk2In0",
-    "payload": "eyJkb21haW4iOiJhcHAuZXhhbXBsZS5jb20ifQ",
-    "signature": "MHgxMGQwZGU4ZGYwZDUwZTdmMGIxN2YxMTU2NDI1MjRmZTY0MTUyZGU4ZGU1MWU0MThiYjU4ZjVmZmQxYjRjNDBiNGVlZTRhNDcwNmVmNjhlMzQ0ZGQ5MDBkYmQyMmNlMmVlZGY5ZGQ0N2JlNWRmNzMwYzUxNjE4OWVjZDJjY2Y0MDFj"
+  "accountAssociation": {  // these will be added in step 5
+    "header": "",
+    "payload": "",
+    "signature": ""
+  },
+  "baseBuilder": {
+    "allowedAddresses": [""] // add your Base Account address here
   },
   "miniapp": {
     "version": "1",
@@ -124,44 +127,28 @@ For details on each field, see the [field reference](/mini-apps/features/manifes
 </Step>
 
 <Step title="Create accountAssociation Credentials">
-The `accountAssociation` fields in the manifest are used to verify ownership of your app. You can generate these fields using the `create-onchain` CLI or via the farcaster dashboard.
+The `accountAssociation` fields in the manifest are used to verify ownership of your app. You can generate these fields on Base Build.
 
-<Tabs>
-    <Tab title="CLI">
-    Run the `create-onchain` CLI to generate the `accountAssociation` fields.
-    ```bash Terminal
-    npx create-onchain --manifest
-    ```
-    This adds the `Farcaster_HEADER`, `Farcaster_PAYLOAD`, and `Farcaster_SIGNATURE` fields to your `.env` file. 
 
-    Replace the `accountAssociation` fields in the manifest file with the values from your `.env` file.
-    
-    ```json /.well-known/farcaster.json
-    {
-      "accountAssociation": {
-        "header": "Farcaster_HEADER",
-        "payload": "Farcaster_PAYLOAD",
-        "signature": "Farcaster_SIGNATURE"
-      }
-    }
-    ```
-    </Tab>
-    <Tab title="Farcaster Dashboard">
-    1. Navigate to the [farcaster dashboard](https://farcaster.xyz/~/developers/hosted-manifests) and add all of the required fields. 
-    2. Click "Submit" to generate the `accountAssociation` fields.
-    3. Copy the `accountAssociation` fields and paste them into the manifest file you added in the previous step.
+    1. Ensure all changes are live so that the Manifest file is available at your app's url.
+    2. Navigate to the Base Build [Account association tool](https://www.base.dev/preview?tab=account). 
+    3. Add your app's url and click "Submit"
+    4. Click on the "Verify" button that appears and follow the instructions to generate the `accountAssociation` fields.
+    5. Copy the `accountAssociation` fields and paste them into the manifest file you added in the previous step.
     ```json /.well-known/farcaster.json
     {
       "accountAssociation": {
         "header": "eyJmaWQiOjkxNTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMmVmNzkwRGQ3OTkzQTM1ZkQ4NDdDMDUzRURkQUU5NDBEMDU1NTk2In0",
         "payload": "eyJkb21haW4iOiJhcHAuZXhhbXBsZS5jb20ifQ",
-        "signature": "MHgxMGQwZGU4ZGYwZDUwZTdmMGIxN2YxMTU2NDI1MjRmZTY0MTUyZGU4ZGU1MWU0MThiYjU4ZjVmZmQxYjRjNDBiNGVlZTRhNDcwNmVmNjhlMzQ0ZGQ5MDBkYmQyMmNlMmVlZGY5ZGQ0N2JlNWRmNzMwYzUxNjE4OWVjZDJjY2Y0MDFj"
+        "signature": "MHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAyMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwYzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxNzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEyNDdhNDhlZGJmMTMwZDU0MmIzMWQzZTg1ZDUyOTAwMmEwNDNkMjM5NjZiNWVjNTNmYjhlNzUzZmIyYzc1MWFmNTI4MWFiYTgxY2I5ZDE3NDAyY2YxMzQxOGI2MTcwYzFiODY3OTExZDkxN2UxMzU3MmVkMWIwYzNkYzEyM2Q1ODAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMjVmMTk4MDg2YjJkYjE3MjU2NzMxYmM0NTY2NzNiOTZiY2VmMjNmNTFkMWZiYWNkZDdjNDM3OWVmNjU0NjU1NzJmMWQwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwOGE3YjIyNzQ3OTcwNjUyMjNhMjI3NzY1NjI2MTc1NzQ2ODZlMmU2NzY1NzQyMjJjMjI2MzY4NjE2YzZjNjU2ZTY3NjUyMjNhMjI2NDJkMzQ0YjMzMzMzNjUyNDY3MDc0MzE0NTYxNjQ2Yjc1NTE0ODU3NDg2ZDc5Mzc1Mzc1Njk2YjQ0MzI0ZjM1NGE2MzRhNjM2YjVhNGM3NDUzMzczODIyMmMyMjZmNzI2OTY3Njk2ZTIyM2EyMjY4NzQ3NDcwNzMzYTJmMmY2YjY1Nzk3MzJlNjM2ZjY5NmU2MjYxNzM2NTJlNjM2ZjZkMjIyYzIyNjM3MjZmNzM3MzRmNzI2OTY3Njk2ZTIyM2E2NjYxNmM3MzY1N2QwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMA"
       },
       "miniapp": {...} // these fields remain the same
     }
     ```
-    </Tab>
-</Tabs>
+    <Info>
+    Note: Because you are signing with your Base Account, the `signature` field will be significantly longer than if you were to sign directly with your Farcaster custody wallet. 
+    </Info>
+
 </Step>
 
 <Step title="Add Embed Metadata">
@@ -217,7 +204,7 @@ The `accountAssociation` fields in the manifest are used to verify ownership of 
 </Step>
 
 <Step title="Preview Your App">
-  Go to base.dev/preview to validate your app.
+  Use the Base Build [Preview tool](https://www.base.dev/preview) to validate your app.
   1. Add your app URL to view the embeds and click the launch button to verify the app launches as expected. 
   2. Use the "Account association" tab to verify the association credentials were created correctly.
   3. Use the "Metadata" to see the metadata added from the manifest and identify any missing fields.
