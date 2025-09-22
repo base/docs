@@ -1,19 +1,24 @@
 ---
 title: "getPermissionStatus"
-description: "Compute remaining spend and active status for a Spend Permission"
+description: "Gets the current status of a Spend Permission"
 ---
 
 Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 
 <Info>
-  Validates a permission against current time and revocation state and returns
-  remaining spend and next period start.
+  This helper method queries the blockchain to retrieve real-time information
+  about a spend permission, including how much can still be spent in the current
+  period, when the next period starts, and whether the permission is still active.
+  
+  The function automatically uses the appropriate blockchain client based on the
+  permission's chain ID and calls multiple view functions on the SpendPermissionManager
+  contract to gather comprehensive status information.
 </Info>
 
 ## Parameters
 
 <ParamField body="permission" type="SpendPermission" required>
-  Signed permission to evaluate. This should be a SpendPermission object returned from [`requestSpendPermission`](/base-account/reference/spend-permission-utilities/requestSpendPermission) or fetched via [`fetchPermissions`](/base-account/reference/spend-permission-utilities/fetchPermissions).
+  The spend permission object to check status for. This should be a SpendPermission object returned from [`requestSpendPermission`](/base-account/reference/spend-permission-utilities/requestSpendPermission) or fetched via [`fetchPermissions`](/base-account/reference/spend-permission-utilities/fetchPermissions).
 
 <Expandable title="SpendPermission properties">
 <ParamField body="permissionHash" type="string">
@@ -48,13 +53,34 @@ Underlying permission fields.
 
 ## Returns
 
-<ResponseField name="status" type="GetPermissionStatusResponse">
-Status details for the permission.
+<ResponseField name="status" type="GetPermissionStatusResponseType">
+A promise that resolves to an object containing permission status details.
 
-<Expandable title="GetPermissionStatusResponse properties">
-<ResponseField name="remainingSpend" type="bigint">Remaining allowance in wei for the current period.</ResponseField>
-<ResponseField name="nextPeriodStart" type="Date">When the next allowance period begins.</ResponseField>
-<ResponseField name="isActive" type="boolean">True if approved and not revoked or expired.</ResponseField>
+<Expandable title="GetPermissionStatusResponseType properties">
+<ResponseField name="remainingSpend" type="bigint">
+  Remaining allowance in wei for the current period. Calculated as the difference between the allowance and the amount already spent in the current period.
+</ResponseField>
+<ResponseField name="nextPeriodStart" type="Date">
+  When the next allowance period begins. This is calculated as one second after the current period ends.
+</ResponseField>
+<ResponseField name="isRevoked" type="boolean">
+  True if the permission has been revoked on-chain.
+</ResponseField>
+<ResponseField name="isExpired" type="boolean">
+  True if the current timestamp is past the permission's end time.
+</ResponseField>
+<ResponseField name="isActive" type="boolean">
+  True if the permission is not revoked and not expired. A permission is active when it can still be used for spending.
+</ResponseField>
+<ResponseField name="currentPeriod" type="object">
+  Information about the current spending period.
+  
+  <Expandable title="currentPeriod properties">
+    <ResponseField name="start" type="number">Unix timestamp (seconds) when the current period started.</ResponseField>
+    <ResponseField name="end" type="number">Unix timestamp (seconds) when the current period ends.</ResponseField>
+    <ResponseField name="spend" type="bigint">Amount already spent in the current period (in wei).</ResponseField>
+  </Expandable>
+</ResponseField>
 </Expandable>
 </ResponseField>
 
@@ -62,7 +88,18 @@ Status details for the permission.
 ```typescript Check permission status
 import { getPermissionStatus } from "@base-org/account/spend-permission";
 
-const { isActive, remainingSpend } = await getPermissionStatus(permission);
+// Check the status of a permission (no client needed)
+const status = await getPermissionStatus(permission);
+
+console.log(`Remaining spend: ${status.remainingSpend} wei`);
+console.log(`Next period starts: ${status.nextPeriodStart}`);
+console.log(`Is revoked: ${status.isRevoked}`);
+console.log(`Is expired: ${status.isExpired}`);
+console.log(`Is active: ${status.isActive}`);
+
+if (status.isActive && status.remainingSpend > BigInt(0)) {
+  console.log('Permission can be used for spending');
+}
 ```
 </RequestExample>
 
@@ -70,8 +107,15 @@ const { isActive, remainingSpend } = await getPermissionStatus(permission);
 ```typescript Example response
 {
   remainingSpend: 1000000000000000000n,
-  nextPeriodStart: new Date("2024-01-31T00:00:00Z"),
-  isActive: true
+  nextPeriodStart: new Date("2024-01-31T00:00:01Z"),
+  isRevoked: false,
+  isExpired: false,
+  isActive: true,
+  currentPeriod: {
+    start: 1704067200,
+    end: 1706659200,
+    spend: 0n
+  }
 }
 ```
 
