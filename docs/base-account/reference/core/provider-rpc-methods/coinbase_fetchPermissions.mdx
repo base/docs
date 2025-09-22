@@ -1,6 +1,6 @@
 ---
 title: "coinbase_fetchPermissions"
-description: "Retrieve permissions associated with a specific account and chain, optionally filtered by spender"
+description: "Retrieve permissions for a specific spender and chain, optionally filtered by account"
 ---
 
 Coinbase-specific RPC method
@@ -11,16 +11,16 @@ Retrieves permissions associated with a specific account and chain. If a spender
 
 ## Parameters
 
-<ParamField body="account" type="string" required>
-The address of the account whose permissions are being queried.
+<ParamField body="spender" type="string" required>
+The entity granted with the permission to spend funds. This is the address whose permissions are being queried.
 </ParamField>
 
 <ParamField body="chainId" type="string" required>
 The ID of the blockchain, in hexadecimal format.
 </ParamField>
 
-<ParamField body="spender" type="string">
-Optional. The entity granted with the permission to spend the account's funds. If not provided, returns all permissions for the account.
+<ParamField body="account" type="string">
+Optional. The address of the account whose permissions are being queried. If not provided, returns all permissions for the spender.
 </ParamField>
 
 <ParamField body="pageOptions" type="object">
@@ -44,7 +44,7 @@ The permissions response object.
 
 <Expandable title="FetchPermissionsResult properties">
 <ResponseField name="permissions" type="array">
-An array of permission objects.
+An array of permission objects, ordered from oldest to newest (older permissions appear first).
 </ResponseField>
 
 <ResponseField name="pageDescription" type="object">
@@ -54,26 +54,26 @@ Pagination information for the response.
 </ResponseField>
 
 <RequestExample>
-```json Request with spender
+```json Request with account (filtered permissions)
 {
   "id": 1,
   "jsonrpc": "2.0",
   "method": "coinbase_fetchPermissions",
   "params": [{
-    "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
+    "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d",
     "chainId": "0x14A34",
-    "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d"
+    "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C"
   }]
 }
 ```
 
-```json Request without spender (all permissions)
+```json Request without account (all permissions for spender)
 {
   "id": 1,
   "jsonrpc": "2.0",
   "method": "coinbase_fetchPermissions",
   "params": [{
-    "account": "0xfB2adc8629FC9F54e243377ffcECEb437a42934C",
+    "spender": "0x2a83b0e4462449660b6e7567b2c81ac6d04d877d",
     "chainId": "0x14A34"
   }]
 }
@@ -122,5 +122,5 @@ Pagination information for the response.
 | -32602 | Invalid params                 | Invalid account, chainId, or spender parameters |
 
 <Warning>
-Ensure the `chainId` and `account` parameters are correctly formatted and valid for the blockchain you are querying. If provided, the `spender` parameter must also be a valid address.
+Ensure the `chainId` and `spender` parameters are correctly formatted and valid for the blockchain you are querying. If provided, the `account` parameter must also be a valid address.
 </Warning>
