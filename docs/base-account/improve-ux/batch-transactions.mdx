@@ -107,15 +107,15 @@ async function sendBatchTransfers() {
 
 ## Contract Interactions
 
-### ERC-20 Approve and Transfer
+### ERC-20 Approve and Stake
 
-A common pattern is to approve and then transfer ERC-20 tokens:
+A common pattern is to approve and then stake ERC-20 tokens:
 
 ```tsx
 import { createBaseAccountSDK, getCryptoKeyAccount, base } from '@base-org/account';
 import { numberToHex, parseUnits, encodeFunctionData } from 'viem';
 
-// ERC-20 ABI for approve and transfer functions
+// ERC-20 ABI for approve function
 const erc20Abi = [
   {
     name: 'approve',
@@ -126,20 +126,23 @@ const erc20Abi = [
       { name: 'amount', type: 'uint256' }
     ],
     outputs: [{ name: '', type: 'bool' }]
-  },
-  {
-    name: 'transfer',
-    type: 'function', 
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' }
-    ],
-    outputs: [{ name: '', type: 'bool' }]
   }
 ] as const;
 
-async function approveAndTransfer() {
+// Staking contract ABI for stake function
+const stakingAbi = [
+  {
+    name: 'stake',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: []
+  }
+] as const;
+
+async function approveAndStake() {
   const sdk = createBaseAccountSDK({
     appName: 'ERC-20 Batch Demo',
     appLogoUrl: 'https://base.org/logo.png',
@@ -151,8 +154,7 @@ async function approveAndTransfer() {
   const fromAddress = cryptoAccount?.account?.address;
 
   const tokenAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
-  const spenderAddress = '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad'; // Example spender
-  const recipientAddress = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
+  const stakingContractAddress = '0x1111111111111111111111111111111111111111'; // Example staking contract
   const amount = parseUnits('10', 6); // 10 USDC (6 decimals)
 
   const calls = [
@@ -162,16 +164,16 @@ async function approveAndTransfer() {
       data: encodeFunctionData({
         abi: erc20Abi,
         functionName: 'approve',
-        args: [spenderAddress, amount]
+        args: [stakingContractAddress, amount]
       })
     },
     {
-      to: tokenAddress,
-      value: '0x0', 
+      to: stakingContractAddress,
+      value: '0x0',
       data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [recipientAddress, amount]
+        abi: stakingAbi,
+        functionName: 'stake',
+        args: [amount]
       })
     }
   ];
