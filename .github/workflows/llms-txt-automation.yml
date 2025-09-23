@@ -160,7 +160,7 @@ jobs:
           
           COMMIT_MSG="docs: update llms summaries for subdirectories (${{ steps.detect-changes.outputs.changed_subdirs }})"
           git commit -m "$COMMIT_MSG"
-          git push origin ${{ github.head_ref }}
+          git push origin ${{ steps.pr-info.outputs.head_ref }}
           
           echo "changes_committed=true" >> "$GITHUB_OUTPUT"
           echo "=== Changes committed successfully ==="
@@ -169,7 +169,7 @@ jobs:
         if: steps.commit_changes.outputs.changes_committed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
         run: |
           echo "=== Posting PR comment about updates ==="
           
