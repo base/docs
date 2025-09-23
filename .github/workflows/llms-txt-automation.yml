@@ -1,8 +1,12 @@
 name: Update llms.txt and llms-full.txt in subdirectories
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to update LLM files for'
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -10,15 +14,39 @@ permissions:
 
 jobs:
   auto-docs:
-    if: ${{ !startsWith(github.head_ref, 'docs/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Get PR information
+        id: pr-info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: |
+          echo "=== Getting PR information ==="
+          pr_data=$(gh pr view $PR_NUMBER --json headRefName,baseRefName,state)
+          head_ref=$(echo "$pr_data" | jq -r '.headRefName')
+          base_ref=$(echo "$pr_data" | jq -r '.baseRefName')
+          state=$(echo "$pr_data" | jq -r '.state')
+          
+          echo "PR #$PR_NUMBER:"
+          echo "  Head: $head_ref"
+          echo "  Base: $base_ref"
+          echo "  State: $state"
+          
+          if [ "$state" != "OPEN" ]; then
+            echo "Error: PR #$PR_NUMBER is not open"
+            exit 1
+          fi
+          
+          echo "head_ref=$head_ref" >> $GITHUB_OUTPUT
+          echo "base_ref=$base_ref" >> $GITHUB_OUTPUT
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
+          ref: ${{ steps.pr-info.outputs.head_ref }}
 
       - name: Install Cursor CLI
         run: |
