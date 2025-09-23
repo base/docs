@@ -1,6 +1,8 @@
 name: Update llms.txt and llms-full.txt in subdirectories
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -17,30 +19,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Get PR information
+      - name: Determine trigger type and get PR info
         id: pr-info
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.inputs.pr_number }}
         run: |
-          echo "=== Getting PR information ==="
-          pr_data=$(gh pr view $PR_NUMBER --json headRefName,baseRefName,state)
-          head_ref=$(echo "$pr_data" | jq -r '.headRefName')
-          base_ref=$(echo "$pr_data" | jq -r '.baseRefName')
-          state=$(echo "$pr_data" | jq -r '.state')
-          
-          echo "PR #$PR_NUMBER:"
-          echo "  Head: $head_ref"
-          echo "  Base: $base_ref"
-          echo "  State: $state"
-          
-          if [ "$state" != "OPEN" ]; then
-            echo "Error: PR #$PR_NUMBER is not open"
-            exit 1
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "=== Manual trigger - getting PR information ==="
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+            pr_data=$(gh pr view $PR_NUMBER --json headRefName,baseRefName,state)
+            head_ref=$(echo "$pr_data" | jq -r '.headRefName')
+            base_ref=$(echo "$pr_data" | jq -r '.baseRefName')
+            state=$(echo "$pr_data" | jq -r '.state')
+            
+            echo "PR #$PR_NUMBER:"
+            echo "  Head: $head_ref"
+            echo "  Base: $base_ref"
+            echo "  State: $state"
+            
+            if [ "$state" != "OPEN" ]; then
+              echo "Error: PR #$PR_NUMBER is not open"
+              exit 1
+            fi
+            
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "head_ref=$head_ref" >> $GITHUB_OUTPUT
+            echo "base_ref=$base_ref" >> $GITHUB_OUTPUT
+            echo "is_manual=true" >> $GITHUB_OUTPUT
+          else
+            echo "=== PR trigger - using event data ==="
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "head_ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+            echo "base_ref=${{ github.base_ref }}" >> $GITHUB_OUTPUT
+            echo "is_manual=false" >> $GITHUB_OUTPUT
           fi
-          
-          echo "head_ref=$head_ref" >> $GITHUB_OUTPUT
-          echo "base_ref=$base_ref" >> $GITHUB_OUTPUT
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,10 +70,34 @@ jobs:
           git config user.name "Cursor Agent"
           git config user.email "cursoragent@cursor.com"
 
-      - name: Detect changed subdirectories
+      - name: Check if should run and detect changes
         id: detect-changes
         run: |
-          echo "=== Detecting changed subdirectories ==="
+          echo "=== Checking if should run ==="
+          
+          # For PR triggers, only run if not a docs/ branch and user opts in
+          if [ "${{ steps.pr-info.outputs.is_manual }}" = "false" ]; then
+            if [[ "${{ steps.pr-info.outputs.head_ref }}" == docs/* ]]; then
+              echo "Skipping: PR branch starts with 'docs/'"
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "skip_reason=docs_branch" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            echo "⏭️ **LLM Summary Files Update Available**" > /tmp/instruction.md
+            echo "" >> /tmp/instruction.md
+            echo "This PR can automatically update \`llms.txt\` and \`llms-full.txt\` files." >> /tmp/instruction.md
+            echo "" >> /tmp/instruction.md
+            echo "**To update:** Go to [Actions tab](https://github.com/${{ github.repository }}/actions/workflows/llms-txt-automation.yml) → 'Run workflow' → Enter PR #${{ steps.pr-info.outputs.pr_number }}" >> /tmp/instruction.md
+            echo "" >> /tmp/instruction.md
+            echo "_This is optional and doesn't block PR approval._" >> /tmp/instruction.md
+            
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "skip_reason=instruction_only" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "=== Manual trigger - detecting changed subdirectories ==="
           
           changed_files=$(git diff --name-only origin/${{ steps.pr-info.outputs.base_ref }}...HEAD -- docs/)
           echo "Changed files in docs/:"
@@ -81,10 +117,21 @@ jobs:
           changed_subdirs=$(echo "$changed_subdirs" | xargs)
           
           echo "changed_subdirs=$changed_subdirs" >> $GITHUB_OUTPUT
+          echo "should_run=true" >> $GITHUB_OUTPUT
           echo "=== Final changed subdirectories: $changed_subdirs ==="
 
+      - name: Post instruction comment
+        if: steps.detect-changes.outputs.skip_reason == 'instruction_only'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+        run: |
+          echo "=== Posting instruction comment ==="
+          gh pr comment "$PR_NUMBER" --body-file /tmp/instruction.md
+          echo "=== Instruction comment posted ==="
+
       - name: Update LLM summary files
-        if: steps.detect-changes.outputs.changed_subdirs != ''
+        if: steps.detect-changes.outputs.should_run == 'true' && steps.detect-changes.outputs.changed_subdirs != ''
         env:
           MODEL: gpt-5
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
@@ -100,7 +147,7 @@ jobs:
 
           # Context:
           - Repo: ${{ github.repository }}
-          - PR Number: ${{ github.event.inputs.pr_number }}
+          - PR Number: ${{ steps.pr-info.outputs.pr_number }}
           - Base Ref: ${{ steps.pr-info.outputs.base_ref }}
           - Head Ref: ${{ steps.pr-info.outputs.head_ref }}
           - Changed Subdirectories: $CHANGED_SUBDIRS
@@ -110,7 +157,7 @@ jobs:
 
           # Step-by-Step Process (print each step):
           1. Print 'STEP 1: Getting PR diff'
-          2. Get PR changes: \`gh pr diff ${{ github.event.inputs.pr_number }}\`
+          2. Get PR changes: \`gh pr diff ${{ steps.pr-info.outputs.pr_number }}\`
           3. Print 'STEP 2: Processing subdirectories: $CHANGED_SUBDIRS'
           4. For each subdirectory in CHANGED_SUBDIRS:
              a. Print 'STEP 3a: Reading docs/[subdirectory]/llms.txt'
@@ -142,7 +189,7 @@ jobs:
           echo "=== Cursor agent completed ==="
 
       - name: Commit changes to PR branch
-        if: steps.detect-changes.outputs.changed_subdirs != ''
+        if: steps.detect-changes.outputs.should_run == 'true' && steps.detect-changes.outputs.changed_subdirs != ''
         id: commit_changes
         run: |
           echo "=== Checking for changes ==="
@@ -169,7 +216,7 @@ jobs:
         if: steps.commit_changes.outputs.changes_committed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
         run: |
           echo "=== Posting PR comment about updates ==="
           
