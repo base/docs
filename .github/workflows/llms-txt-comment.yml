@@ -1,0 +1,56 @@
+name: LLM Files Update Available
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  post-instruction:
+    if: ${{ !startsWith(github.head_ref, 'docs/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post instruction comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Check if instruction comment already exists
+          existing_comment=$(gh pr view $PR_NUMBER --json comments --jq '.comments[] | select(.body | contains("<!-- llms-instruction -->")) | .id' || echo "")
+          
+          INSTRUCTION_FILE="${RUNNER_TEMP}/instruction-comment.md"
+          {
+            echo "⏭️ **LLM Summary Files Update Available**"
+            echo ""
+            echo "This PR can automatically update \`llms.txt\` and \`llms-full.txt\` files in subdirectories based on your documentation changes."
+            echo ""
+            echo "**To trigger the automation:**"
+            echo ""
+            echo "**Option 1: From PR checks below** ⬇️"
+            echo "- Find \"Update llms.txt and llms-full.txt\" in the checks list below"
+            echo "- Click \"Details\" → \"Re-run jobs\" → \"Run workflow\""
+            echo ""
+            echo "**Option 2: From Actions tab**"
+            echo "- Go to [Actions tab](https://github.com/${{ github.repository }}/actions/workflows/llms-txt-automation.yml)"
+            echo "- Click \"Run workflow\" → Enter PR #$PR_NUMBER"
+            echo ""
+            echo "**What it does:**"
+            echo "- Detects which subdirectories have documentation changes"
+            echo "- Updates the corresponding \`llms.txt\` and \`llms-full.txt\` summary files"
+            echo "- Commits the changes directly to this PR branch"
+            echo ""
+            echo "_This automation is optional and not required for PR approval._"
+            echo ""
+            echo "<!-- llms-instruction -->"
+          } > "$INSTRUCTION_FILE"
+          
+          if [ -n "$existing_comment" ]; then
+            echo "Updating existing instruction comment"
+            gh api repos/${{ github.repository }}/issues/comments/$existing_comment \
+              -X PATCH -f body="$(cat $INSTRUCTION_FILE)"
+          else
+            echo "Posting new instruction comment"
+            gh pr comment $PR_NUMBER --body-file "$INSTRUCTION_FILE"
+          fi
