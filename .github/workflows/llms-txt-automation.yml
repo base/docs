@@ -3,121 +3,22 @@ name: Update llms.txt and llms-full.txt in subdirectories
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  check-trigger:
+  auto-docs:
+    if: ${{ !startsWith(github.head_ref, 'docs/') }}
     runs-on: ubuntu-latest
-    if: >
-      (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'docs/')) ||
-      (github.event_name == 'issue_comment' && 
-       github.event.issue.pull_request && 
-       contains(github.event.comment.body, '/update-llms'))
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-      pr_number: ${{ steps.check.outputs.pr_number }}
-      head_ref: ${{ steps.check.outputs.head_ref }}
+    timeout-minutes: 20
     steps:
-      - name: Check trigger conditions
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "=== PR event detected - posting instruction comment ==="
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-            echo "head_ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
-            echo "=== Comment trigger detected - checking permissions ==="
-            
-            # Check if user has write permissions
-            user="${{ github.event.comment.user.login }}"
-            repo="${{ github.repository }}"
-            
-            permission=$(gh api repos/$repo/collaborators/$user/permission --jq '.permission' || echo "none")
-            echo "User $user has permission: $permission"
-            
-            if [[ "$permission" == "admin" || "$permission" == "write" ]]; then
-              echo "User has sufficient permissions"
-              echo "should_run=true" >> $GITHUB_OUTPUT
-              echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-              
-              # Get PR head ref
-              head_ref=$(gh pr view ${{ github.event.issue.number }} --json headRefName --jq '.headRefName')
-              echo "head_ref=$head_ref" >> $GITHUB_OUTPUT
-            else
-              echo "User does not have sufficient permissions"
-              echo "should_run=false" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-  post-instruction:
-    needs: check-trigger
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && needs.check-trigger.outputs.should_run == 'false'
-    steps:
-      - name: Post instruction comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ needs.check-trigger.outputs.pr_number }}
-        run: |
-          # Check if instruction comment already exists
-          existing_comment=$(gh pr view $PR_NUMBER --json comments --jq '.comments[] | select(.body | contains("<!-- llms-instruction -->")) | .id' || echo "")
-          
-          INSTRUCTION_FILE="${RUNNER_TEMP}/instruction-comment.md"
-          {
-            echo "🤖 **LLM Summary Files Automation Available**"
-            echo ""
-            echo "This PR can automatically update \`llms.txt\` and \`llms-full.txt\` files in subdirectories based on your documentation changes."
-            echo ""
-            echo "**To trigger the automation:**"
-            echo "Comment \`/update-llms\` on this PR"
-            echo ""
-            echo "**What it does:**"
-            echo "- Detects which subdirectories have documentation changes"
-            echo "- Updates the corresponding \`llms.txt\` and \`llms-full.txt\` summary files"
-            echo "- Commits the changes directly to this PR branch"
-            echo ""
-            echo "**Note:** Only users with write permissions can trigger this automation."
-            echo ""
-            echo "_This automation is optional and not required for PR approval._"
-            echo ""
-            echo "<!-- llms-instruction -->"
-          } > "$INSTRUCTION_FILE"
-          
-          if [ -n "$existing_comment" ]; then
-            echo "Updating existing instruction comment"
-            gh api repos/${{ github.repository }}/issues/comments/$existing_comment \
-              -X PATCH -f body="$(cat $INSTRUCTION_FILE)"
-          else
-            echo "Posting new instruction comment"
-            gh pr comment $PR_NUMBER --body-file "$INSTRUCTION_FILE"
-          fi
-
-  update-llms:
-    needs: check-trigger
-    runs-on: ubuntu-latest
-    if: needs.check-trigger.outputs.should_run == 'true'
-    steps:
-      - name: Acknowledge trigger
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ needs.check-trigger.outputs.pr_number }}
-        run: |
-          echo "🚀 Starting LLM summary files update..." | \
-          gh pr comment $PR_NUMBER --body-file -
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.check-trigger.outputs.head_ref }}
+          ref: ${{ github.head_ref }}
 
       - name: Install Cursor CLI
         run: |
@@ -134,7 +35,7 @@ jobs:
         run: |
           echo "=== Detecting changed subdirectories ==="
           
-          changed_files=$(git diff --name-only origin/main...HEAD -- docs/)
+          changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- docs/)
           echo "Changed files in docs/:"
           echo "$changed_files"
           
@@ -161,116 +62,58 @@ jobs:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANGED_SUBDIRS: ${{ steps.detect-changes.outputs.changed_subdirs }}
-          PR_NUMBER: ${{ needs.check-trigger.outputs.pr_number }}
         run: |
           echo "=== Starting LLM summary files update ==="
           echo "Processing subdirectories: $CHANGED_SUBDIRS"
           
-          cursor-agent -p "You are a documentation expert updating LLM summary files in a GitHub Actions runner.
+          cursor-agent -p "You are updating documentation summary files in a GitHub Actions runner.
 
-          CRITICAL: Do NOT create branches, commit, push, or post PR comments. Only modify files in the working directory.
+          IMPORTANT: Do NOT create branches, commit, push, or post PR comments. Only modify files in the working directory as needed.
 
           # Context:
           - Repo: ${{ github.repository }}
-          - PR Number: $PR_NUMBER
+          - PR Number: ${{ github.event.pull_request.number }}
+          - Base Ref: ${{ github.base_ref }}
+          - Head Ref: ${{ github.head_ref }}
           - Changed Subdirectories: $CHANGED_SUBDIRS
 
-          # Your Mission:
-          Create exceptional LLM summary files that serve as the definitive reference for AI assistants working with this documentation.
+          # Your Task:
+          Update llms.txt and llms-full.txt files in the changed subdirectories based on documentation changes in this PR.
 
-          # Deep Analysis Process:
-
-          ## STEP 1: Understanding the Changes
-          Print 'STEP 1: Getting PR diff and analyzing changes'
-          - Run: \`gh pr diff $PR_NUMBER\`
-          - Identify what type of changes occurred (new features, API changes, examples, guides, etc.)
-          - Understand the scope and significance of each change
-          - Note any new concepts, workflows, or code patterns introduced
-
-          ## STEP 2: Comprehensive Documentation Scan
-          Print 'STEP 2: Scanning documentation structure for each subdirectory'
-          For each subdirectory in CHANGED_SUBDIRS:
-          - Read ALL .mdx files in the subdirectory to understand the complete picture
-          - Map out the documentation hierarchy and relationships
-          - Identify key concepts, workflows, APIs, and code examples
-          - Note the target audience and use cases for each section
-
-          ## STEP 3: Current Summary Analysis
-          Print 'STEP 3: Analyzing existing llms.txt and llms-full.txt files'
-          For each subdirectory:
-          - Read current docs/[subdirectory]/llms.txt
-          - Read current docs/[subdirectory]/llms-full.txt
-          - Identify gaps, outdated information, or missing content
-          - Assess if the current structure and organization is optimal
-
-          ## STEP 4: Intelligent Update Strategy
-          Print 'STEP 4: Determining update strategy for each subdirectory'
-          For each subdirectory, decide:
-          - Does the content warrant updates to the summary files?
-          - What new information needs to be added?
-          - What existing content needs to be modified or reorganized?
-          - How can the summaries better serve AI assistants and developers?
-
-          ## STEP 5: Creating Exceptional Summary Files
-          Print 'STEP 5: Updating summary files with comprehensive improvements'
-
-          ### For llms.txt (Concise Navigation Guide):
-          - Create a clean, scannable index that helps AI quickly understand what's available
-          - Use consistent formatting with clear hierarchical structure
-          - Include brief but informative descriptions for each section
-          - Highlight key workflows and entry points
-          - Add practical context about when to use each resource
-          - Ensure links are accurate and follow consistent patterns
-          - Keep it concise but comprehensive enough to serve as a roadmap
-
-          ### For llms-full.txt (Comprehensive AI Assistant Guide):
-          - Provide rich context that helps AI assistants give better answers
-          - Include essential code patterns and examples that demonstrate key concepts
-          - Explain the 'why' behind different approaches, not just the 'how'
-          - Cover common use cases, gotchas, and best practices
-          - Include relevant configuration examples and typical workflows
-          - Provide context about how different features work together
-          - Add troubleshooting guidance for common issues
-          - Structure information logically for easy AI parsing and retrieval
-          - Include cross-references to related concepts and external resources
-
-          ### Quality Standards:
-          - Maintain consistent voice and style with existing documentation
-          - Use clear, precise language that both humans and AI can understand
-          - Ensure all code examples are accurate and follow current best practices
-          - Keep information current and remove outdated references
-          - Structure content for both sequential reading and random access
-          - Include enough context so each section can stand alone when needed
-
-          ## STEP 6: Validation and Completion
-          Print 'STEP 6: Validating updates and completing task'
-          - Verify all links and references are correct
-          - Ensure consistency in formatting and style
-          - Check that new content integrates well with existing structure
-          - Confirm that the summaries accurately reflect the current state of documentation
-
-          Print 'TASK_FINISHED'
+          # Step-by-Step Process (print each step):
+          1. Print 'STEP 1: Getting PR diff'
+          2. Get PR changes: \`gh pr diff ${{ github.event.pull_request.number }}\`
+          3. Print 'STEP 2: Processing subdirectories: $CHANGED_SUBDIRS'
+          4. For each subdirectory in CHANGED_SUBDIRS:
+             a. Print 'STEP 3a: Reading docs/[subdirectory]/llms.txt'
+             b. Print 'STEP 3b: Reading docs/[subdirectory]/llms-full.txt'
+             c. Print 'STEP 3c: Analyzing changes for [subdirectory]'
+             d. If updates needed: Print 'STEP 3d: Updating files for [subdirectory]' and modify files
+             e. If no updates needed: Print 'STEP 3e: No updates needed for [subdirectory]'
+          5. Print 'STEP 4: File modifications complete'
+          6. Print 'TASK_FINISHED'
 
           # File Requirements:
           - Only modify docs/[subdirectory]/llms.txt and docs/[subdirectory]/llms-full.txt files
-          - Do NOT modify root-level llms files
-          - Maintain existing URL patterns and formatting conventions
-          - Ensure summaries are valuable for both AI assistants and human developers
-          - Focus on clarity, accuracy, and comprehensive coverage
+          - Do NOT modify root-level llms.txt or llms-full.txt files
+          - llms.txt should be a concise summary/index of subdirectory documentation  
+          - llms-full.txt should be a comprehensive guide with code examples
+          - Maintain existing format and style
+          - Only update files that need changes based on PR content
 
-          # Success Criteria:
-          - An AI assistant reading these files can provide excellent guidance on the subdirectory's content
-          - Developers can quickly understand what's available and how to get started
-          - The summaries accurately reflect the current state and capabilities
-          - Information is well-organized and easy to navigate
-          - Code examples are current and demonstrate best practices
+          # Restrictions:
+          - NO git operations (no commit, push, branch creation)
+          - NO PR comments or API calls except gh pr diff
+          - Only file modifications in working directory
+          - Print progress steps as you go
+          - End with 'TASK_FINISHED'
 
-          Begin your comprehensive analysis now. Take the time needed to create truly exceptional summary files.
+          Begin now and print each step clearly.
           " --force --model "$MODEL" --output-format=text
 
           echo "=== Cursor agent completed ==="
 
-      - name: Commit and push changes
+      - name: Commit changes to PR branch
         if: steps.detect-changes.outputs.changed_subdirs != ''
         id: commit_changes
         run: |
@@ -289,63 +132,36 @@ jobs:
           
           COMMIT_MSG="docs: update llms summaries for subdirectories (${{ steps.detect-changes.outputs.changed_subdirs }})"
           git commit -m "$COMMIT_MSG"
-          git push origin ${{ needs.check-trigger.outputs.head_ref }}
+          git push origin ${{ github.head_ref }}
           
           echo "changes_committed=true" >> "$GITHUB_OUTPUT"
           echo "=== Changes committed successfully ==="
 
-      - name: Report results
+      - name: Post PR comment about updates
+        if: steps.commit_changes.outputs.changes_committed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ needs.check-trigger.outputs.pr_number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [ "${{ steps.commit_changes.outputs.changes_committed }}" = "true" ]; then
-            changed_files=$(git diff HEAD~1 --name-only | grep -E "llms(-full)?\.txt$" | head -10)
-            
-            RESULT_FILE="${RUNNER_TEMP}/result-comment.md"
-            {
-              echo "✅ **LLM summary files updated successfully!**"
-              echo ""
-              echo "I've thoroughly analyzed the documentation changes and updated the LLM summary files to provide comprehensive, up-to-date guidance for AI assistants and developers."
-              echo ""
-              echo "**Subdirectories processed:** \`${{ steps.detect-changes.outputs.changed_subdirs }}\`"
-              echo ""
-              echo "**Files modified:**"
-              for file in $changed_files; do
-                echo "- \`$file\`"
-              done
-              echo ""
-              echo "**What was updated:**"
-              echo "- 📋 **llms.txt files**: Refreshed navigation guides with current content structure"
-              echo "- 📚 **llms-full.txt files**: Enhanced comprehensive guides with latest code examples and best practices"
-              echo "- 🔗 **Cross-references**: Updated links and relationships between concepts"
-              echo "- ⚡ **AI optimization**: Improved structure for better AI assistant responses"
-              echo ""
-              echo "The summary files now accurately reflect your documentation changes and will help AI assistants provide better guidance to developers."
-            } > "$RESULT_FILE"
-            
-            gh pr comment $PR_NUMBER --body-file "$RESULT_FILE"
-          elif [ "${{ steps.detect-changes.outputs.changed_subdirs }}" != "" ]; then
-            echo "📝 After thorough analysis, no updates were needed for the LLM summary files. The existing summaries already accurately reflect the documentation changes." | \
-            gh pr comment $PR_NUMBER --body-file -
-          else
-            echo "ℹ️ No subdirectories with LLM summary files were changed in this PR." | \
-            gh pr comment $PR_NUMBER --body-file -
-          fi
-
-  permission-denied:
-    needs: check-trigger
-    runs-on: ubuntu-latest
-    if: github.event_name == 'issue_comment' && contains(github.event.comment.body, '/update-llms') && needs.check-trigger.outputs.should_run == 'false'
-    steps:
-      - name: Reply with permission error
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          echo "❌ **Permission denied**
-
-          Only users with write permissions to this repository can trigger the LLM summary files automation.
+          echo "=== Posting PR comment about updates ==="
           
-          Please ask a maintainer to run \`/update-llms\` if you need the summary files updated." | \
-          gh pr comment $PR_NUMBER --body-file -
+          changed_files=$(git diff HEAD~1 --name-only | grep -E "llms(-full)?\.txt$" | head -10)
+          
+          COMMENT_FILE="${RUNNER_TEMP}/llms-update-comment.md"
+          {
+            echo "🤖 **LLM summary files updated**"
+            echo ""
+            echo "Updated documentation summary files based on changes in subdirectories: \`${{ steps.detect-changes.outputs.changed_subdirs }}\`"
+            echo ""
+            echo "**Files updated:**"
+            for file in $changed_files; do
+              echo "- \`$file\`"
+            done
+            echo ""
+            echo "_These files help AI assistants provide better guidance about your documentation._"
+            echo ""
+            echo "<!-- auto-update-llms -->"
+          } > "$COMMENT_FILE"
+          
+          gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
+          echo "=== PR comment posted successfully ==="
