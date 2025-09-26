@@ -1,0 +1,305 @@
+---
+title: "Accept Recurring Payments"
+description: "Enable subscription-based revenue models with automatic USDC payments"
+---
+
+import {BasePayButton} from "/snippets/BasePayButton.mdx"
+import {SignInWithBaseButton} from "/snippets/SignInWithBaseButton.mdx"
+
+## Start accepting recurring payments with Base Pay Subscriptions
+
+Base Subscriptions enable you to build predictable, recurring revenue streams by accepting automatic USDC payments. Whether you're running a SaaS platform, content subscription service, or any business model requiring regular payments, Base Subscriptions provide a seamless solution with no merchant fees.
+
+**Key Capabilities:**
+
+<AccordionGroup>
+<Accordion title="Flexible Billing Periods">
+Support any billing cycle that fits your business model:
+- Daily subscriptions for short-term services
+- Weekly for regular deliveries or services  
+- Monthly for standard SaaS subscriptions
+- Annual for discounted long-term commitments
+- Custom periods (e.g., 14 days, 90 days) for unique models
+</Accordion>
+
+<Accordion title="Partial and Usage-Based Charging">
+Charge any amount up to the permitted limit:
+- Fixed recurring amounts for predictable billing
+- Variable usage-based charges within a cap
+- Tiered pricing with different charge amounts
+- Prorated charges for mid-cycle changes
+</Accordion>
+
+<Accordion title="Subscription Management">
+Full control over the subscription lifecycle:
+- Real-time status checking to verify active subscriptions
+- Remaining charge amount for the current period
+- Next period start date for planning
+- Cancellation detection for immediate updates
+</Accordion>
+
+<Accordion title="Enterprise-Ready Features">
+Built for production use cases:
+- No transaction fees or platform cuts
+- Instant settlement in USDC stablecoin
+- Testnet support for development and testing
+- Detailed transaction history for accounting
+- Programmatic access via SDK
+</Accordion>
+</AccordionGroup>
+
+## How It Works
+
+Base Subscriptions leverage **Spend Permissions** – a powerful onchain primitive that allows users to grant revocable spending rights to applications. Here's the complete flow:
+
+<Steps>
+<Step title="User Approves Subscription">
+Your customer grants your application permission to charge their wallet up to a specified amount each billing period. This is a one-time approval that remains active until cancelled.
+</Step>
+
+<Step title="Automatic Periodic Charging">
+Your backend service charges the subscription when payment is due, without requiring any user interaction. You can charge up to the approved amount per period.
+</Step>
+
+<Step title="Smart Period Management">
+The spending limit automatically resets at the start of each new period. If you don't charge the full amount in one period, it doesn't roll over.
+</Step>
+
+<Step title="User Maintains Control">
+Customers can view and cancel their subscriptions anytime through their wallet, ensuring transparency and trust.
+</Step>
+</Steps>
+
+## Implementation Guide
+
+### Architecture Overview
+
+A complete subscription implementation requires both client and server components:
+
+**Client-Side (Frontend):**
+- User interface for subscription creation
+- Create wallet requests and handle user responses
+
+**Server-Side (Backend):**
+- Wallet for executing charges
+- Scheduled jobs for periodic billing
+- Database for subscription tracking
+- Handlers for status updates
+- Retry logic for failed charges
+
+<Warning>
+**Security Requirements**
+
+To accept recurring payments, you need:
+1. A dedicated wallet address to act as the subscription owner (spender)
+2. Backend infrastructure to execute charges securely
+3. Database to store and manage subscription IDs
+4. Never expose private keys in client-side code
+</Warning>
+
+### Client-Side: Create Subscriptions
+
+Users create subscriptions from your frontend application:
+
+```tsx SubscriptionButton.tsx expandable
+import React, { useState } from 'react';
+import { base } from '@base-org/account';
+
+export function SubscriptionButton() {
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [subscriptionId, setSubscriptionId] = useState('');
+  
+  const handleSubscribe = async () => {
+    setLoading(true);
+    
+    try {
+      // Create subscription
+      const subscription = await base.subscription.subscribe({
+        recurringCharge: "29.99",
+        subscriptionOwner: "0xYourAppWallet", // Replace with your wallet address
+        periodInDays: 30,
+        testnet: false
+      });
+      
+      // Store subscription ID for future reference
+      setSubscriptionId(subscription.id);
+      console.log('Subscription created:', subscription.id);
+      console.log('Payer:', subscription.subscriptionPayer);
+      console.log('Amount:', subscription.recurringCharge);
+      console.log('Period:', subscription.periodInDays, 'days');
+      
+      // Send subscription ID to your backend
+      await saveSubscriptionToBackend(subscription.id, subscription.subscriptionPayer);
+      
+      setSubscribed(true);
+      
+    } catch (error) {
+      console.error('Subscription failed:', error);
+      alert('Failed to create subscription: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const saveSubscriptionToBackend = async (id: string, payer: string) => {
+    // Example API call to store subscription in your database
+    const response = await fetch('/api/subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscriptionId: id, payerAddress: payer })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save subscription');
+    }
+  };
+  
+  if (subscribed) {
+    return (
+      <div className="subscription-status">
+        <Check>✅ Subscription active</Check>
+        <p>Subscription ID: {subscriptionId.slice(0, 10)}...</p>
+      </div>
+    );
+  }
+  
+  return (
+    <button 
+      onClick={handleSubscribe} 
+      disabled={loading}
+      className="subscribe-button"
+    >
+      {loading ? 'Processing...' : 'Subscribe - $29.99/month'}
+    </button>
+  );
+}
+```
+
+### Server-Side: Charge Subscriptions
+
+Execute charges from your backend service that controls the subscription owner wallet:
+```typescript chargeSubscriptions.ts expandable
+import { base } from '@base-org/account';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain } from 'viem/chains';
+
+// Initialize wallet client with your subscription owner account
+const account = privateKeyToAccount('0x...'); // Your app's private key
+const walletClient = createWalletClient({
+  account,
+  chain: baseChain,
+  transport: http()
+});
+
+async function chargeSubscription(subscriptionId: string) {
+  try {
+    // 1. Check subscription status
+const status = await base.subscription.getStatus({
+      id: subscriptionId,
+      testnet: false
+    });
+    
+    if (!status.isSubscribed) {
+      console.log('Subscription cancelled by user');
+      return { success: false, reason: 'cancelled' };
+    }
+    
+    const availableCharge = parseFloat(status.remainingChargeInPeriod || '0');
+    
+    if (availableCharge === 0) {
+      console.log(`No charge available until ${status.nextPeriodStart}`);
+      return { success: false, reason: 'no_charge_available' };
+    }
+    
+    // 2. Prepare charge transaction for max available amount
+    const chargeCalls = await base.subscription.prepareCharge({
+      id: subscriptionId,
+      amount: 'max-remaining-charge',
+      testnet: false
+    });
+    
+    // 3. Execute each charge call using standard sendTransaction
+    // Note: prepareCharge may return multiple calls (e.g., approval + transfer)
+    // We execute them sequentially to ensure proper ordering
+    const transactionHashes = [];
+    
+    for (const call of chargeCalls) {
+      const hash = await walletClient.sendTransaction({
+        to: call.to,
+        data: call.data,
+        value: call.value || 0n
+      });
+      
+      transactionHashes.push(hash);
+      
+      // Wait for transaction confirmation before next call
+      await walletClient.waitForTransactionReceipt({ hash });
+    }
+    
+    
+    console.log(`Charged ${availableCharge} USDC`);
+    console.log(`Transactions: ${transactionHashes.join(', ')}`);
+    
+    return {
+      success: true,
+      transactionHashes,
+      amount: availableCharge
+    };
+    
+  } catch (error) {
+    console.error('Charge failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+```
+<Warning>
+**Private Key Security**
+
+Never expose your subscription owner private key
+</Warning>
+
+### Testing on Testnet
+
+Test your subscription implementation on Base Sepolia before going live:
+
+```typescript testnet.ts expandable
+// Use testnet for development
+const subscription = await base.subscription.subscribe({
+  recurringCharge: "10.00",
+  subscriptionOwner: "0xTestWallet",
+  periodInDays: 1, // Daily for faster testing
+  testnet: true     // Use Base Sepolia
+});
+
+// Check status on testnet
+const status = await base.subscription.getStatus({
+  id: subscription.id,
+  testnet: true
+});
+
+// Prepare charge on testnet
+const calls = await base.subscription.prepareCharge({
+  id: subscription.id,
+  amount: "10.00",
+  testnet: true
+});
+```
+
+## Network Support
+
+| Network | Chain ID | Status |
+|---------|----------|--------|
+| Base Mainnet | 8453 | ✅ Production Ready |
+| Base Sepolia | 84532 | ✅ Testing Available |
+
+
+## Additional Resources
+- [Subscriptions Reference](/base-account/reference/base-pay/subscriptions-overview)
+- [Spend Permissions](/base-account/improve-ux/spend-permissions)
+
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

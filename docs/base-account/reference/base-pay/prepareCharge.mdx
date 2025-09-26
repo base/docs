@@ -1,0 +1,188 @@
+---
+title: "subscription.prepareCharge"
+description: "Prepare transaction calls to charge a subscription"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+The `subscription.prepareCharge` function prepares the necessary transaction calls to charge a subscription. It returns the array of call data objects to execute the charge through `wallet_sendCalls` or `eth_sendTransaction`. This gives you programmatic control over when and how to execute subscription charges.
+</Info>
+
+## Parameters
+
+<ParamField body="id" type="string" required>
+The subscription ID (permission hash) returned from subscribe().
+
+**Pattern:** `^0x[0-9a-fA-F]{64}$`
+</ParamField>
+
+<ParamField body="amount" type="string | 'max-remaining-charge'" required>
+Amount to charge (e.g., "10.50") or 'max-remaining-charge' for the full remaining amount in the current period.
+</ParamField>
+
+<ParamField body="testnet" type="boolean">
+Must match the testnet setting used in the original subscribe call. Default: false
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="PrepareChargeResult">
+Array of transaction calls to execute the charge.
+
+<Expandable title="PrepareChargeResult properties">
+<ResponseField name="to" type="Address">
+The address to call (smart contract address).
+</ResponseField>
+
+<ResponseField name="data" type="Hex">
+The encoded call data for the transaction.
+</ResponseField>
+
+<ResponseField name="value" type="'0x0'">
+The value to send (always 0x0 for spend permissions).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+The returned array contains:
+- An approval call (if the permission is not yet active)
+- A spend call to charge the subscription
+
+<RequestExample>
+```typescript EOA Owner Wallet
+import { base } from '@base-org/account';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain } from 'viem/chains';
+
+// Initialize wallet client with your subscription owner account
+const account = privateKeyToAccount('0x...'); // Your app's private key
+const walletClient = createWalletClient({
+  account,
+  chain: baseChain,
+  transport: http()
+});
+
+// Prepare to charge a specific amount
+const chargeCalls = await base.subscription.prepareCharge({
+  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
+  amount: '9.99',
+  testnet: false
+});
+
+// Execute each charge call
+const transactionHashes = [];
+
+for (const call of chargeCalls) {
+  const hash = await walletClient.sendTransaction({
+    to: call.to,
+    data: call.data,
+    value: call.value || 0n
+  });
+  
+  transactionHashes.push(hash);
+  
+  // Wait for transaction confirmation before next call
+  await walletClient.waitForTransactionReceipt({ hash });
+}
+
+console.log(`Charge transactions: ${transactionHashes.join(', ')}`);
+```
+
+```typescript Smart Owner Wallet
+import { base } from '@base-org/account';
+import { createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain } from 'viem/chains';
+import { toCoinbaseSmartAccount, createBundlerClient } from 'viem/account-abstraction';
+
+// Create public client
+const publicClient = createPublicClient({
+  chain: baseChain,
+  transport: http()
+});
+
+// Convert private key to owner account
+const owner = privateKeyToAccount('0x...'); // Your app's private key
+
+// Create a Coinbase Smart Wallet account from the owner
+const smartAccount = await toCoinbaseSmartAccount({
+  client: publicClient,
+  owners: [owner],
+  version: '1'
+});
+
+// Create bundler client for sending UserOperations
+const bundlerClient = createBundlerClient({
+  account: smartAccount,
+  chain: baseChain,
+  client: publicClient,
+  transport: http('your-bundler-url') // Your bundler URL
+});
+
+// Prepare to charge the maximum available amount
+const chargeCalls = await base.subscription.prepareCharge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  testnet: false
+});
+
+// Send UserOperation through bundler
+const userOpHash = await bundlerClient.sendUserOperation({
+  calls: chargeCalls
+});
+
+// Wait for the UserOperation to be included
+const receipt = await bundlerClient.waitForUserOperationReceipt({
+  hash: userOpHash
+});
+
+console.log(`Charge bundled in transaction: ${receipt.receipt.transactionHash}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Two Calls (Approval + Spend)
+[
+  {
+    to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    data: "0x095ea7b3...",
+    value: "0x0"
+  },
+  {
+    to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    data: "0xa9059cbb...",
+    value: "0x0"
+  }
+]
+```
+```typescript Single Call (Spend Only)
+[
+  {
+    to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    data: "0xa9059cbb...",
+    value: "0x0"
+  }
+]
+```
+</ResponseExample>
+
+## Error Handling
+
+```typescript
+try {
+  const chargeCalls = await base.subscription.prepareCharge({
+    id: subscriptionId,
+    amount: chargeAmount,
+    testnet: false
+  });
+  // Execute charge
+} catch (error) {
+  console.error(`Failed to prepare charge: ${error.message}`);
+}
+```
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

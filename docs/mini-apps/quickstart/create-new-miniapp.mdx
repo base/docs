@@ -1,0 +1,136 @@
+---
+title: Create a Mini App
+description: Quickly create a mini app, sign a manifest, and publish to the Base app.
+---
+
+**Prerequisites** 
+
+* Base app account
+* [Vercel](https://vercel.com/) account for hosting the application
+
+
+<Steps>
+<Step title="Deploy Template">
+Click the button below and follow the prompts to deploy the quickstart template to Vercel.
+<Card title="Deploy to Vercel" icon="rocket" href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbase%2Fdemos%2Ftree%2Fmaster%2Fminikit%2Fwaitlist-mini-app-qs&project-name=waitlist-mini-app&repository-name=waitlist-mini-app&env=NEXT_PUBLIC_PROJECT_NAME&demo-title=Waitlist%20Mini%20App&demo-description=Quickstart%20waitlist%20mini%20app%20with%20MiniKit%20on%20Base" horizontal>
+  Rapidly deploy the quickstart template to Vercel to get started.
+</Card>
+</Step>
+<Step title="Clone your repository">
+Clone the repo created by Vercel to make local edits.
+
+Replace `<your-username>` with your github username.
+```bash Terminal
+git clone https://github.com/<your-username>/waitlist-mini-app
+cd waitlist-mini-app
+npm install
+```
+</Step>
+<Step title="Update Manifest configuration">
+The `minikit.config.ts` file is responsible for configuring your manifest located at `app/.well-known/farcaster.json` and creating embed metadata. 
+
+<Tip> You can customize the manifest by updating the `miniapp` object.</Tip>
+
+For details on each field, see the [field reference](/mini-apps/features/manifest#field-reference).
+```ts minikit.config.ts
+export const minikitConfig = {
+  accountAssociation: { // this will be added in step 5
+    "header": "",
+    "payload": "",
+    "signature": ""
+  },
+  miniapp: {
+    version: "1",
+    name: "Cubey", 
+    subtitle: "Your AI Ad Companion", 
+    description: "Ads",
+    screenshotUrls: [`${ROOT_URL}/screenshot-portrait.png`],
+    iconUrl: `${ROOT_URL}/blue-icon.png`,
+    splashImageUrl: `${ROOT_URL}/blue-hero.png`,
+    splashBackgroundColor: "#000000",
+    homeUrl: ROOT_URL,
+    webhookUrl: `${ROOT_URL}/api/webhook`,
+    primaryCategory: "social",
+    tags: ["marketing", "ads", "quickstart", "waitlist"],
+    heroImageUrl: `${ROOT_URL}/blue-hero.png`, 
+    tagline: "",
+    ogTitle: "",
+    ogDescription: "",
+    ogImageUrl: `${ROOT_URL}/blue-hero.png`,
+  },
+} as const;
+```
+
+</Step>
+
+<Step title="Create accountAssociation Credentials">
+
+Now that you have a public domain for your application, you are ready to associate your mini app with your Farcaster account.
+
+
+    1. Ensure all changes are live by pushing changes to the `main` branch.
+    <Tip>Ensure that Vercel's **Deployment Protection** is off by going to the Vercel dashboard for your project and navigating to Settings -> Deployment Protection and toggling "Vercel Authentication" to off and click save. </Tip>
+
+    2. Navigate to the Base Build [Account association tool](https://www.base.dev/preview?tab=account). 
+    3. Paste your domain in the `App URL` field (ex: sample-url.vercel.app) and click "Submit"
+
+    <img 
+      src="/images/base-build/sign-manifest.png" 
+      alt="Sign manifest"
+      height="300"
+      className="rounded-lg"  
+    /> 
+
+    4. Click on the "Verify" button that appears and follow the instructions to generate the `accountAssociation` fields.
+    5. Copy the `accountAssociation` object
+
+</Step>
+
+<Step title="Update `minikit.config.ts`">
+Update your `minikit.config.ts` file to include the `accountAssociation` object you copied in the previous step.
+
+```ts minikit.config.ts
+export const minikitConfig = {
+    accountAssociation: {
+        "header": "eyJmaBBiOjE3MzE4LCJ0eXBlIjoiY3VzdG9keSIsImtleSI6IjB4NzYwQjA0NDc5NjM4MTExNzNmRjg3YDPBYzA5OEJBQ0YxNzNCYkU0OCJ9",
+        "payload": "eyJkb21haW4iOiJ4BWl0bGlzdC1xcy52ZXJjZWwuYXBwIn7",
+        "signature": "MHhmNGQzN2M2OTk4NDIwZDNjZWVjYTNiODllYzJkMjAwOTkyMDEwOGVhNTFlYWI3NjAyN2QyMmM1MDVhNzIyMWY2NTRiYmRlZmQ0NGQwOWNiY2M2NmI2B7VmNGZiMmZiOGYzNDVjODVmNmQ3ZTVjNzI3OWNmMGY4ZTA2ODYzM2FjZjFi"
+    },
+    miniapp: {
+        ...
+    },
+  }
+```
+</Step>
+<Step title="Push updates to production">
+Push all changes to the `main` branch. Vercel will automatically deploy the changes to your production environment.
+</Step>
+
+<Step title="Preview Your App">
+  Go to [base.dev/preview](https://base.dev/preview) to validate your app.
+  1. Add your app URL to view the embeds and click the launch button to verify the app launches as expected. 
+  2. Use the "Account association" tab to verify the association credentials were created correctly.
+  3. Use the "Metadata" tab to see the metadata added from the manifest and identify any missing fields.
+
+<video
+  autoPlay
+  muted
+  loop
+  playsInline
+  src="/videos/mini-apps/basebuildpreview.mp4"
+></video>
+
+</Step>
+
+<Step title="Post to Publish">
+    To publish your app, create a post in the Base app with your app's URL.
+
+
+    <img 
+  src="/images/minikit/publish-app-base.png" 
+  alt="Posting an app to Base app"
+  height="300"
+  className="rounded-lg"
+    />
+</Step>
+</Steps>

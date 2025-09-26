@@ -1,0 +1,212 @@
+---
+title: "Capabilities Overview"
+description: "Understand how to use Base Account capabilities with wallet_connect and wallet_sendCalls"
+---
+
+Base Account supports various capabilities that extend functionality beyond standard wallet operations. Capabilities are feature flags that indicate what additional functionality a wallet supports for specific chains and accounts.
+
+## Core Concepts
+
+Capabilities are discovered using `wallet_getCapabilities` and utilized through `wallet_connect` and `wallet_sendCalls` methods. Each capability is chain-specific and may have different availability depending on the account type.
+
+### Discovery Pattern
+
+```typescript
+// Check what capabilities are available
+const capabilities = await provider.request({
+  method: 'wallet_getCapabilities',
+  params: [userAddress]
+});
+
+// Check specific capability for Base mainnet
+const baseCapabilities = capabilities["0x2105"]; // Base mainnet chain ID
+```
+
+## Available Capabilities
+
+| Capability | Method | Description |
+|-----------|---------|-------------|
+| [signInWithEthereum](/base-account/reference/core/capabilities/signInWithEthereum) | `wallet_connect` | SIWE authentication |
+| [auxiliaryFunds](/base-account/reference/core/capabilities/auxiliaryFunds) | `wallet_sendCalls` | MagicSpend - use Coinbase balances onchain |
+| [atomic](/base-account/reference/core/capabilities/atomic) | `wallet_sendCalls` | Atomic batch transactions |
+| [paymasterService](/base-account/reference/core/capabilities/paymasterService) | `wallet_sendCalls` | Gasless transactions |
+| [flowControl](/base-account/reference/core/capabilities/flowControl) | `wallet_sendCalls` | Flow control |
+| [datacallback](/base-account/reference/core/capabilities/datacallback) | `wallet_sendCalls` | Data callback |
+
+## Using with wallet_connect
+
+The `wallet_connect` method supports capabilities for connection and authentication:
+
+### Basic Connection
+
+```typescript
+// Simple connection without capabilities
+const result = await provider.request({
+  method: 'wallet_connect',
+  params: [{
+    version: '1'
+  }]
+});
+```
+
+### Authentication with signInWithEthereum
+
+```typescript
+// Generate nonce for security
+const nonce = window.crypto.randomUUID().replace(/-/g, '');
+
+const { accounts } = await provider.request({
+  method: 'wallet_connect',
+  params: [{
+    version: '1',
+    capabilities: {
+      signInWithEthereum: { 
+        nonce, 
+        chainId: '0x2105' // Base Mainnet
+      }
+    }
+  }]
+});
+
+// Extract authentication data
+const { address } = accounts[0];
+const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+
+// Verify signature on your backend
+await fetch('/auth/verify', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ address, message, signature })
+});
+```
+
+## Using with wallet_sendCalls
+
+The `wallet_sendCalls` method supports transaction-related capabilities:
+
+### Basic Transaction
+
+```typescript
+// Simple transaction without capabilities
+const result = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105',
+    from: userAddress,
+    calls: [{
+      to: '0x...',
+      value: '0x0',
+      data: '0x...'
+    }]
+  }]
+});
+```
+
+### Gasless Transactions with Paymaster
+
+```typescript
+await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105',
+    from: userAddress,
+    calls: [{
+      to: contractAddress,
+      value: '0x0',
+      data: encodedFunctionCall
+    }],
+    capabilities: {
+      paymasterService: {
+        url: "https://paymaster.base.org/api/v1/sponsor"
+      }
+    }
+  }]
+});
+```
+
+### Atomic Batch Transactions
+
+```typescript
+await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105',
+    from: userAddress,
+    atomicRequired: true, // Require atomic execution
+    calls: [
+      {
+        to: tokenAddress,
+        value: '0x0',
+        data: approveCallData
+      },
+      {
+        to: dexAddress,
+        value: '0x0',
+        data: swapCallData
+      }
+    ]
+  }]
+});
+```
+
+## Capability Detection Patterns
+
+### Check Single Capability
+
+```typescript
+async function checkAuxiliaryFunds(address: string): Promise<boolean> {
+  try {
+    const capabilities = await provider.request({
+      method: 'wallet_getCapabilities',
+      params: [address]
+    });
+
+    return capabilities["0x2105"]?.auxiliaryFunds?.supported || false;
+  } catch (error) {
+    console.error('Failed to check capabilities:', error);
+    return false;
+  }
+}
+```
+
+### Check Multiple Capabilities
+
+```typescript
+async function getWalletCapabilities(address: string) {
+  const capabilities = await provider.request({
+    method: 'wallet_getCapabilities',
+    params: [address]
+  });
+
+  const baseCapabilities = capabilities["0x2105"] || {};
+
+  return {
+    hasAuxiliaryFunds: baseCapabilities.auxiliaryFunds?.supported || false,
+    hasAtomicBatch: baseCapabilities.atomic?.supported === "supported",
+    hasPaymaster: !!baseCapabilities.paymasterService?.supported,
+    canAuthenticate: true // signInWithEthereum is always available with wallet_connect
+  };
+}
+```
+
+## Capability-Specific Guides
+
+For detailed information on each capability:
+
+- [signInWithEthereum](/base-account/reference/core/capabilities/signInWithEthereum) - SIWE authentication
+- [auxiliaryFunds](/base-account/reference/core/capabilities/auxiliaryFunds) - MagicSpend integration
+- [atomic](/base-account/reference/core/capabilities/atomic) - Atomic batch transactions
+- [paymasterService](/base-account/reference/core/capabilities/paymasterService) - Gasless transactions
+
+## Related Methods
+
+- [`wallet_getCapabilities`](/base-account/reference/core/provider-rpc-methods/wallet_getCapabilities) - Discover available capabilities
+- [`wallet_connect`](/base-account/reference/core/provider-rpc-methods/wallet_connect) - Connect with capabilities
+- [`wallet_sendCalls`](/base-account/reference/core/provider-rpc-methods/wallet_sendCalls) - Execute transactions with capabilities
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

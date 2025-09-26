@@ -1,0 +1,110 @@
+---
+title: "Subscriptions Overview"
+description: "Accept recurring USDC payments using spend permissions on Base"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+Base Subscriptions enable recurring USDC payments. Users grant your application permission to charge their account periodically, eliminating the need for manual approvals on each payment. **No fees for merchants or users.**
+</Info>
+
+## How Subscriptions Work
+<Steps>
+<Step title="User Creates Subscription">
+User approves a spend permission for your application to charge a specific amount periodically.
+</Step>
+
+<Step title="Application Charges Periodically">
+Your backend charges the subscription when payment is due, up to the permitted amount per period.
+</Step>
+
+<Step title="Automatic Period Reset">
+The spending limit resets automatically at the start of each new period.
+</Step>
+
+<Step title="User Can Cancel Anytime">
+Users maintain full control and can revoke the permission at any time.
+</Step>
+</Steps>
+
+## Core Functions
+
+<CardGroup cols={3}>
+<Card title="subscribe" icon="credit-card" href="/base-account/reference/base-pay/subscribe">
+Create a new subscription with spend permissions
+</Card>
+
+<Card title="getSubscriptionStatus" icon="chart-line" href="/base-account/reference/base-pay/getSubscriptionStatus">
+Check subscription status and remaining charges
+</Card>
+
+<Card title="prepareCharge" icon="receipt" href="/base-account/reference/base-pay/prepareCharge">
+Prepare transaction calls to charge a subscription
+</Card>
+</CardGroup>
+
+## Type Definitions
+
+```typescript
+// Subscription creation options
+interface SubscriptionOptions {
+  recurringCharge: string;
+  subscriptionOwner: string;
+  periodInDays?: number;
+  testnet?: boolean;
+  telemetry?: boolean;
+}
+
+// Subscription result
+interface SubscriptionResult {
+  id: string;
+  subscriptionOwner: Address;
+  subscriptionPayer: Address;
+  recurringCharge: string;
+  periodInDays: number;
+}
+
+// Subscription status
+interface SubscriptionStatus {
+  isSubscribed: boolean;
+  recurringCharge: string;
+  remainingChargeInPeriod?: string;
+  currentPeriodStart?: Date;
+  nextPeriodStart?: Date;
+  periodInDays?: number;
+}
+
+// Charge preparation
+interface PrepareChargeOptions {
+  id: string;
+  amount: string | 'max-remaining-charge';
+  testnet?: boolean;
+}
+
+type PrepareChargeResult = Array<{
+  to: Address;
+  data: Hex;
+  value: '0x0';
+}>;
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+<Card title="Accept Recurring Payments Guide" icon="book" href="/base-account/guides/accept-recurring-payments">
+Learn how to implement recurring payments with Base Pay
+</Card>
+
+<Card title="One-Time Payments Guide" icon="book" href="/base-account/guides/accept-payments">
+Learn how to implement one-time payments with Base Pay
+</Card>
+
+<Card title="Spend Permissions" icon="shield" href="/base-account/improve-ux/spend-permissions">
+Deep dive into Spend Permissions
+</Card>
+</CardGroup>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
