@@ -1,12 +1,617 @@
 ---
 title: "Coinbase Developer Platform"
-description: "Integrate Base Account with CDP Embedded Wallets"
+description: "Build onchain apps supporting both Base Account and CDP Embedded Wallets"
 ---
 
+# Integrate Base Account with CDP Embedded Wallets
 
-We are working to integrate Base Account with [CDP Embedded Wallets](https://docs.cdp.coinbase.com/embedded-wallets/welcome), and will publish guidance soon.
+Learn how to build an onchain app that seamlessly supports both **existing Base Account users** and **new users** through CDP Embedded Wallets, providing unified authentication and wallet management.
 
-In the meantime, you can use the connector from the Base Account [Wagmi guide](/base-account/framework-integrations/wagmi/setup)
-with CDP Embedded Wallets [Wagmi integration](https://docs.cdp.coinbase.com/embedded-wallets/wagmi).
+## Overview
+
+This integration enables your app to serve two distinct user types:
+- **Existing Base users**: Connect with their Base Account for a familiar experience
+- **New onchain users**: Create CDP Embedded Wallets via email, mobile, or social authentication
+
+Both user types get the same app functionality while using their preferred wallet type.
+
+## What you'll build
+
+- **Unified authentication flow**: Single sign-in supporting both wallet types
+- **Automatic wallet detection**: Smart routing based on user's existing wallet status  
+- **Consistent user experience**: Both wallet types access the same app features
+
+## Prerequisites
+
+- Node.js 18+ installed
+- React application (Next.js recommended)
+- [CDP Portal account](https://portal.cdp.coinbase.com/) with Project ID
+- Basic familiarity with Wagmi and React hooks
+
+## Installation
+
+Install the required packages for both CDP Embedded Wallets and Base Account support:
+
+```bash
+npm install @coinbase/cdp-core @coinbase/cdp-hooks @base-org/account @tanstack/react-query viem wagmi
+```
+
+## Step-by-step implementation
+
+Since native CDP + Base Account integration is under development, this guide uses a **dual connector approach** where both wallet types are supported through separate, coordinated connectors.
+
+You can use the Base Account Wagmi connector alongside CDP's React provider system to create a unified experience that properly handles wallet persistence for both wallet types.
+
+### Step 1: Environment configuration
+
+Create environment variables for your CDP project:
+
+```bash
+# .env.local
+NEXT_PUBLIC_CDP_PROJECT_ID=your_cdp_project_id
+NEXT_PUBLIC_APP_NAME="Your App Name"
+```
+
+Get your CDP Project ID from the [CDP Portal](https://portal.cdp.coinbase.com/).
+
+⚠️ **Critical**: Without a valid `NEXT_PUBLIC_CDP_PROJECT_ID`, the app will fail to load with "Project ID is required" errors. Also configure your domain in CDP Portal → Wallets → Embedded Wallet settings for CORS.
+
+### Step 2: Configure Wagmi for Base Account support
+
+Set up Wagmi with the Base Account connector (embedded wallets will be handled separately via CDP React providers):
+
+```typescript
+// config/wagmi.ts
+import { createConfig, http } from 'wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import { baseAccount } from 'wagmi/connectors';
+
+// Base Account connector
+const baseAccountConnector = baseAccount({
+  appName: process.env.NEXT_PUBLIC_APP_NAME || 'Your App',
+});
+
+// Wagmi config (only for Base Account - embedded wallets handled by CDP React providers)
+export const wagmiConfig = createConfig({
+  connectors: [baseAccountConnector],
+  chains: [baseSepolia, base], // Put baseSepolia first for testing
+  transports: {
+    [base.id]: http(),
+    [baseSepolia.id]: http(),
+  },
+});
+```
+
+### Step 3: Set up application providers
+
+Wrap your application with the necessary providers. **Important**: Use `CDPHooksProvider` to properly manage embedded wallet authentication state:
+
+```typescript
+// app/layout.tsx
+'use client';
+
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { CDPHooksProvider } from '@coinbase/cdp-hooks';
+import { wagmiConfig } from '../config/wagmi';
+
+const queryClient = new QueryClient();
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <CDPHooksProvider 
+          config={{
+            projectId: process.env.NEXT_PUBLIC_CDP_PROJECT_ID!,
+          }}
+        >
+          <WagmiProvider config={wagmiConfig}>
+            <QueryClientProvider client={queryClient}>
+              {children}
+            </QueryClientProvider>
+          </WagmiProvider>
+        </CDPHooksProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Step 4: Create unified authentication hook
+
+Build a custom hook to manage both wallet types. Using `CDPHooksProvider` ensures users get their existing embedded wallets when they sign in again, rather than creating new ones each time.
 
 
+```typescript
+// hooks/useUnifiedAuth.ts
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useSignInWithEmail, useVerifyEmailOTP, useIsSignedIn, useEvmAddress, useSignOut } from '@coinbase/cdp-hooks';
+import { useState, useEffect } from 'react';
+
+export type WalletType = 'base_account' | 'embedded' | 'none';
+
+export function useUnifiedAuth() {
+  // Wagmi hooks for Base Account
+  const { address: wagmiAddress, isConnected: wagmiConnected, connector } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+
+  // CDP hooks for embedded wallet - these work with CDPHooksProvider
+  const { signInWithEmail, isLoading: isSigningIn } = useSignInWithEmail();
+  const { verifyEmailOTP, isLoading: isVerifying } = useVerifyEmailOTP();
+  const { isSignedIn: cdpSignedIn } = useIsSignedIn();
+  const { evmAddress: cdpAddress } = useEvmAddress();
+  const { signOut } = useSignOut();
+
+  const [walletType, setWalletType] = useState<WalletType>('none');
+  const [flowId, setFlowId] = useState<string>('');
+
+  // Determine which wallet is active and prioritize the active one
+  const address = wagmiConnected ? wagmiAddress : cdpAddress;
+  const isConnected = wagmiConnected || cdpSignedIn;
+
+  useEffect(() => {
+    if (wagmiConnected && connector?.name === 'Base Account') {
+      setWalletType('base_account');
+    } else if (cdpSignedIn && cdpAddress) {
+      setWalletType('embedded');
+    } else {
+      setWalletType('none');
+    }
+  }, [wagmiConnected, cdpSignedIn, connector, cdpAddress]);
+
+  const connectBaseAccount = () => {
+    const baseConnector = connectors.find(c => c.name === 'Base Account');
+    if (baseConnector) {
+      connect({ connector: baseConnector });
+    }
+  };
+
+  const signInWithEmbeddedWallet = async (email: string) => {
+    try {
+      const response = await signInWithEmail({ email });
+
+      // Capture flowId for OTP verification
+      if (response && typeof response === 'object' && 'flowId' in response) {
+        setFlowId(response.flowId as string);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to sign in with email:', error);
+      return false;
+    }
+  };
+
+  const verifyOtpAndConnect = async (otp: string) => {
+    try {
+      // With CDPReactProvider, verifyEmailOTP automatically signs the user in
+      await verifyEmailOTP({ flowId, otp });
+      return true;
+    } catch (error) {
+      console.error('Failed to verify OTP:', error);
+      return false;
+    }
+  };
+
+  const disconnect = async () => {
+    if (wagmiConnected) {
+      wagmiDisconnect();
+    }
+
+    if (cdpSignedIn || walletType === 'embedded') {
+      try {
+        await signOut();
+      } catch (error) {
+        console.error('CDP sign out failed:', error);
+      }
+    }
+  };
+
+  return {
+    address,
+    isConnected,
+    walletType,
+    connectBaseAccount,
+    signInWithEmbeddedWallet,
+    verifyOtpAndConnect,
+    disconnect,
+    isSigningIn,
+    isVerifying,
+  };
+}
+```
+
+### Step 5: Build authentication component
+
+Create a component that presents both authentication options:
+
+```typescript
+// components/WalletAuthButton.tsx
+'use client';
+
+import { useState } from 'react';
+import { useUnifiedAuth } from '../hooks/useUnifiedAuth';
+
+export function WalletAuthButton() {
+  const {
+    address,
+    isConnected,
+    walletType,
+    connectBaseAccount,
+    signInWithEmbeddedWallet,
+    verifyOtpAndConnect,
+    disconnect,
+    isSigningIn,
+    isVerifying,
+  } = useUnifiedAuth();
+
+  const [authStep, setAuthStep] = useState<'select' | 'email' | 'otp'>('select');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+
+  // Connected state
+  if (isConnected && address) {
+    const walletDisplay = {
+      base_account: { name: 'Base Account', icon: '🟦' },
+      embedded: { name: 'Embedded Wallet', icon: '📱' },
+    }[walletType] || { name: 'Connected', icon: '✅' };
+
+    return (
+      <div className="flex items-center space-x-3 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+        <span>{walletDisplay.icon}</span>
+        <div>
+          <div className="font-medium text-green-800">{walletDisplay.name}</div>
+          <div className="text-xs text-green-600 font-mono">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </div>
+        </div>
+        <button onClick={() => disconnect()} className="text-sm text-red-600">
+          Disconnect
+        </button>
+      </div>
+    );
+  }
+
+  // OTP verification
+  if (authStep === 'otp') {
+    return (
+      <div className="space-y-4 p-4 border rounded-lg">
+        <div className="text-center">
+          <h3 className="font-semibold">Check your email</h3>
+          <p className="text-sm text-gray-600">Enter the code sent to {email}</p>
+        </div>
+
+        <input
+          type="text"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          placeholder="000000"
+          maxLength={6}
+          className="w-full px-3 py-2 border rounded text-center font-mono"
+        />
+
+        <div className="space-y-2">
+          <button
+            onClick={() => verifyOtpAndConnect(otp)}
+            disabled={otp.length !== 6 || isVerifying}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          >
+            {isVerifying ? 'Creating account...' : 'Verify & create account'}
+          </button>
+
+          <button
+            onClick={() => setAuthStep('email')}
+            className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Email input
+  if (authStep === 'email') {
+    return (
+      <div className="space-y-4 p-4 border rounded-lg">
+        <h3 className="font-semibold text-center">Create account</h3>
+
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="your@email.com"
+          className="w-full px-3 py-2 border rounded"
+        />
+
+        <div className="space-y-2">
+          <button
+            onClick={async () => {
+              const success = await signInWithEmbeddedWallet(email);
+              if (success) setAuthStep('otp');
+            }}
+            disabled={!email || isSigningIn}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          >
+            {isSigningIn ? 'Sending Code...' : 'Send Verification Code'}
+          </button>
+
+          <button
+            onClick={() => setAuthStep('select')}
+            className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Initial selection
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-bold text-center mb-4">Connect Your Wallet</h2>
+
+      <button
+        onClick={connectBaseAccount}
+        className="w-full p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50"
+      >
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">🟦</span>
+          <div className="text-left">
+            <div className="font-semibold">Sign in with Base</div>
+            <div className="text-sm text-gray-600">I have a Base Account</div>
+          </div>
+        </div>
+      </button>
+
+      <button
+        onClick={() => setAuthStep('email')}
+        className="w-full p-4 border-2 border-gray-200 rounded-lg hover:bg-gray-50"
+      >
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">📱</span>
+          <div className="text-left">
+            <div className="font-semibold">Create new account</div>
+            <div className="text-sm text-gray-600">Use email to get started</div>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+```
+
+### Step 6: Handle transactions for each wallet type
+
+Create a transaction component that adapts to each wallet type:
+
+```typescript
+// components/SendTransaction.tsx
+import { useState } from 'react';
+import { parseEther } from 'viem';
+import { useSendTransaction, useWaitForTransactionReceipt, useAccount, useSwitchChain } from 'wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import { useUnifiedAuth } from '../hooks/useUnifiedAuth';
+
+export function SendTransaction() {
+  const { address, walletType } = useUnifiedAuth();
+  const { chain } = useAccount();
+  const { switchChain } = useSwitchChain();
+  const [amount, setAmount] = useState('');
+  const [recipient, setRecipient] = useState('');
+
+  const { data: hash, sendTransaction, isPending, error } = useSendTransaction();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const handleTransaction = async () => {
+    if (!address || !amount || !recipient) return;
+
+    try {
+      sendTransaction({
+        to: recipient as `0x${string}`,
+        value: parseEther(amount),
+      });
+    } catch (error) {
+      console.error('Transaction failed:', error);
+    }
+  };
+
+  // Show different guidance based on wallet type
+  const getTransactionGuidance = () => {
+    switch (walletType) {
+      case 'base_account':
+        return {
+          title: 'Base Account Transaction',
+          description: 'You\'ll be prompted to confirm with your passkey',
+          icon: '🔐'
+        };
+      case 'embedded':
+        return {
+          title: 'Embedded Wallet Transaction',
+          description: 'Transaction will be signed automatically',
+          icon: '⚡'
+        };
+      default:
+        return { title: 'Send Transaction', description: '', icon: '💸' };
+    }
+  };
+
+  const guidance = getTransactionGuidance();
+
+  if (!address) return null;
+
+  return (
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
+      <div className="text-center mb-6">
+        <div className="text-3xl mb-2">{guidance.icon}</div>
+        <h3 className="text-lg font-bold">{guidance.title}</h3>
+        <p className="text-sm text-gray-600">{guidance.description}</p>
+
+        {/* Network indicator and switch */}
+        <div className="mt-3 p-2 bg-gray-50 rounded border">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">
+              Network: <strong>{chain?.name || 'Unknown'}</strong>
+            </span>
+            <div className="space-x-1">
+              {chain?.id !== baseSepolia.id && (
+                <button
+                  onClick={() => switchChain({ chainId: baseSepolia.id })}
+                  className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  → Sepolia
+                </button>
+              )}
+              {chain?.id !== base.id && (
+                <button
+                  onClick={() => switchChain({ chainId: base.id })}
+                  className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
+                >
+                  → Mainnet
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Amount (ETH)</label>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.001"
+            step="0.001"
+            className="w-full px-3 py-2 border border-gray-300 rounded"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">To Address</label>
+          <input
+            type="text"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder="0x..."
+            className="w-full px-3 py-2 border border-gray-300 rounded font-mono text-sm"
+          />
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded">
+            <p className="text-sm text-red-800">Error: {error.message}</p>
+          </div>
+        )}
+
+        <button
+          onClick={handleTransaction}
+          disabled={!amount || !recipient || isPending || isConfirming}
+          className="w-full px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isPending || isConfirming ? 'Processing...' : 'Send Transaction'}
+        </button>
+
+        {isSuccess && hash && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded text-center">
+            <p className="text-green-800 font-medium mb-2">✅ Transaction Confirmed!</p>
+            <a
+              href={`https://${chain?.id === baseSepolia.id ? 'sepolia.' : ''}basescan.org/tx/${hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 text-sm underline"
+            >
+              View on {chain?.id === baseSepolia.id ? 'Sepolia ' : ''}Basescan →
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### Step 7: Complete your app
+
+Put everything together in your main application:
+
+```typescript
+// app/page.tsx
+'use client';
+
+import { WalletAuthButton } from '../components/WalletAuthButton';
+import { SendTransaction } from '../components/SendTransaction';
+import { useAccount } from 'wagmi';
+
+export default function HomePage() {
+  const { isConnected } = useAccount();
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2">CDP + Base Account Demo</h1>
+          <p className="text-gray-600">
+            One app supporting both Base Account and embedded wallet users
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          <WalletAuthButton />
+          {isConnected && <SendTransaction />}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Base Account connector not appearing**
+- Verify the Base Account SDK, `@base-org/account`, is installed and up-to-date
+- Check wagmi configuration includes Base Account connector
+- Ensure app is running on Base or Base Sepolia network
+
+**CDP Embedded Wallet authentication failing**
+- Verify CDP Project ID is correct in environment variables
+- **Critical**: Add your domains (e.g., `http://localhost:3000`, `http://localhost:3001`) to CDP Portal → Wallets → Embedded Wallet settings → Allowed domains
+- Ensure all required CDP packages (see above) are installed
+
+**New wallet created each time instead of signing into existing wallet**
+- Ensure you're using `CDPHooksProvider` with proper config in your layout
+- Verify CDP Project ID is correctly configured
+- Check that hooks are imported from `@coinbase/cdp-hooks` consistently
+
+**Users can't switch between wallet types**
+- Implement proper disconnect flow before connecting different type
+- Clear any cached authentication state when switching
+- Provide clear UI guidance for wallet type selection
+
+## Enhanced integration coming soon
+
+We are actively working on native Base Account integration with CDP Embedded Wallets that will enable:
+
+- **Unified connector**: Single CDP connector to handle both wallet types seamlessly
+- **Spend permissions**: Sub Accounts will be able to access parent Base Account balance with limits
+- **Sub Account creation**: Base Account users will be able to create app-specific Sub Accounts
+
+## Resources
+
+- [CDP Embedded Wallets Documentation](https://docs.cdp.coinbase.com/embedded-wallets/)
+- [CDP React Components Documentation](https://docs.cdp.coinbase.com/embedded-wallets/components)
+- [Base Account Wagmi Setup](/base-account/framework-integrations/wagmi/setup)
+- [CDP Portal](https://portal.cdp.coinbase.com/)
+- [Wagmi Documentation](https://wagmi.sh/)
+
+Monitor the [CDP documentation](https://docs.cdp.coinbase.com/) for updates on enhanced Embedded Wallet Base Account integration features.
