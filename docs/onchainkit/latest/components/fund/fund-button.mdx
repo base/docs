@@ -43,11 +43,19 @@ Coinbase account.
   </OnchainKitProvider>
   ```
   </Step>
+
+  <Step title="Get sessionToken">
+ [Getting session token](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication)
+  </Step>
+
   <Step title="Drop in the<FundButton /> component">
   ```tsx
   import { FundButton } from '@coinbase/onchainkit/fund';
 
-  <FundButton />
+
+  const sessionToken = "YOUR_SESSION_TOKEN";
+
+  <FundButton sessionToken={sessionToken} />
   ```
 
   <App>
@@ -55,7 +63,7 @@ Coinbase account.
       {({ address }) => {
         if (address) {
           return (
-            <FundButton />
+            <FundButton sessionToken={sessionToken} />
           )
         }
         return <>
@@ -72,20 +80,6 @@ Coinbase account.
   </Step>
 </Steps>
 
-
-<Tip>
-**Troubleshooting**
-
-If you see a "something went wrong" error message when navigating to pay.coinbase.com, make sure you have "enforce 
-secure initialization" disabled on the [Onramp config page in Coinbase Developer Platform Dashboard](https://portal.cdp.coinbase.com/products/onramp).
-
-<Frame>
-<img alt="OnchainKit require secure init" src="/images/onchainkit/onramp-secure-init.png" />
-</Frame>
-
-</Tip>
-
-
 ## Customizing the funding experience
 
 You can customize the Coinbase Onramp experience by bringing your own Onramp URL and passing it to the ```<FundButton />```
@@ -100,9 +94,7 @@ const projectId = 'YOUR_CDP_PROJECT_ID';
 const { address } = useAccount();
 
 const onrampBuyUrl = getOnrampBuyUrl({
-  projectId,
-  addresses: { [address]: ['base'] },
-  assets: ['USDC'],
+  sessionToken: "YOUR_SESSION_TOKEN"
   presetFiatAmount: 20,
   fiatCurrency: 'USD'
 });
@@ -120,9 +112,7 @@ const onrampBuyUrl = getOnrampBuyUrl({
     {({ address, projectId }) => {
       if (address && projectId) {
         const onrampBuyUrl = getOnrampBuyUrl({
-          projectId,
-          addresses: { [address]: ['base'] },
-          assets: ['USDC'],
+          sessionToken: "YOUR_SESSION_TOKEN"
           presetFiatAmount: 20,
           fiatCurrency: 'USD'
         });
@@ -145,7 +135,7 @@ const onrampBuyUrl = getOnrampBuyUrl({
 You can choose to have the funding URL open in a popup or a new tab using the `openIn` prop.
 
 ```tsx
-<FundButton openIn={"tab"} />
+<FundButton openIn={"tab"} sessionToken={sessionToken} />
 ```
 
 <iframe
@@ -158,7 +148,7 @@ You can choose to have the funding URL open in a popup or a new tab using the `o
     {({ address }) => {
       if (address) {
         return (
-          <FundButton openIn={"tab"} />
+          <FundButton openIn={"tab"} sessionToken={sessionToken} />
         )
       }
       return <>
@@ -178,7 +168,7 @@ You can choose to have the funding URL open in a popup or a new tab using the `o
 You can override the text on the fund button using the `text` prop, and hide the icon with the `hideIcon` prop.
 
 ```tsx
-<FundButton text={"Onramp"} hideIcon={true} />
+<FundButton text={"Onramp"} hideIcon={true} sessionToken={sessionToken} />
 ```
 
 <iframe
@@ -191,7 +181,7 @@ You can override the text on the fund button using the `text` prop, and hide the
     {({ address }) => {
       if (address) {
         return (
-          <FundButton text={"Onramp"} hideIcon={true} />
+          <FundButton text={"Onramp"} hideIcon={true} sessionToken={sessionToken} />
         )
       }
       return <>
@@ -209,7 +199,7 @@ You can override the text on the fund button using the `text` prop, and hide the
 You can hide the text with the `hideText` prop.
 
 ```tsx
-<FundButton hideText={true} />
+<FundButton hideText={true} sessionToken={sessionToken} />
 ```
 
 <iframe
@@ -223,7 +213,7 @@ You can hide the text with the `hideText` prop.
       if (address) {
         return (
           <>
-            <FundButton hideText={true} />
+            <FundButton hideText={true} sessionToken={sessionToken} />
           </>
         )
       }
@@ -279,6 +269,8 @@ type FundButtonBaseProps = {
   onPopupClose?: () => void;
   /** A callback function that will be called when the button is clicked */
   onClick?: () => void;
+  /** An optional prop to provide a session token. Required if no fundingUrl is provided */
+  sessionToken?: string;
 };
 ```
 

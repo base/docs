@@ -29,6 +29,10 @@ To use the `FundCard` component, you'll need to provide a Client API Key in `Onc
 This component requires a `projectId` to be set in the `OnchainKitProvider`. You can find your `projectId` on [Coinbase Developer Platform](https://portal.cdp.coinbase.com/products/onchainkit).
 </Note>
 
+<Note>
+You'll need a session token for authentication. Learn how to obtain one in the [session token documentation](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication).
+</Note>
+
 
 ## Usage
 
@@ -37,7 +41,10 @@ This component requires a `projectId` to be set in the `OnchainKitProvider`. You
 ```tsx
 import { FundCard } from '@coinbase/onchainkit/fund';
 
+const sessionToken = "YOUR_SESSION_TOKEN";
+
 <FundCard
+  sessionToken={sessionToken}
   assetSymbol="ETH"
   country="US"
   currency="USD"
@@ -53,7 +60,7 @@ import { FundCard } from '@coinbase/onchainkit/fund';
   <FundWrapper>
     {({ address }) => {
       if (address) {
-        return <FundCard assetSymbol="ETH" country="US" currency="USD" />;
+        return <FundCard sessionToken={sessionToken} assetSymbol="ETH" country="US" currency="USD" />;
       }
       return (
         <>
@@ -77,6 +84,7 @@ You can customize the header and button text:
 
 ```tsx
 <FundCard
+  sessionToken={sessionToken}
   assetSymbol="ETH"
   country="US"
   currency="USD"
@@ -96,6 +104,7 @@ You can customize the header and button text:
       if (address) {
         return (
           <FundCard
+            sessionToken={sessionToken}
             assetSymbol="ETH"
             country="US"
             currency="USD"
@@ -124,6 +133,7 @@ You can specify which fiat currency to use:
 
 ```tsx
 <FundCard
+  sessionToken={sessionToken}
   assetSymbol="ETH"
   country="GB"
   currency="GBP"
@@ -138,6 +148,7 @@ You can specify preset amount buttons:
 const presetAmountInputs = ['10', '20', '50'] as const;
 
 <FundCard
+  sessionToken={sessionToken}
   assetSymbol="ETH"
   country="US"
   currency="USD"
@@ -156,6 +167,7 @@ You can provide custom children to completely customize the card content while k
 
 ```tsx
 <FundCard
+  sessionToken={sessionToken}
   assetSymbol="ETH"
   country="US"
   currency="USD"
@@ -184,6 +196,7 @@ import {
  } from '@coinbase/onchainkit/fund';
 
 <FundCard
+  sessionToken={sessionToken}
   assetSymbol="ETH"
   country="US"
   currency="USD"
@@ -253,6 +266,8 @@ type FundCardProps = {
   currency?: string;
   className?: string;
   presetAmountInputs?: PresetAmountInputs;
+  /** An optional prop to provide a session token. Required if no fundingUrl is provided */
+  sessionToken?: string;
 } & LifecycleEvents;
 ```
 
