@@ -96,20 +96,23 @@ export function DeeplinkButton({
 **Agent Message with Deeplink:**
 
 ```typescript
-import { Client } from "@xmtp/node-sdk";
-
-async function sendDeeplinkMessage(conversation: any, agentAddress: string) {
+async function sendDeeplinkMessage(ctx: MessageContext, agentAddress: string) {
   const deeplink = `cbwallet://messaging/${agentAddress}`;
-  
-  await conversation.send(
-    `💬 Want to chat privately? Tap here to start a direct conversation:\n\n${deeplink}`
+
+  await ctx.sendText(
+    `💬 Want to chat privately? Tap here to start a direct conversation:\n\n${deeplink}`,
   );
 }
 
-// Usage in agent logic
-if (message.content.includes("/private") || message.content.includes("/dm")) {
-  await sendDeeplinkMessage(conversation, process.env.AGENT_ADDRESS);
-}
+agent.on("text", async (ctx) => {
+  // Usage in agent logic
+  if (
+    ctx.message.content?.includes("/private") ||
+    ctx.message.content?.includes("/dm")
+  ) {
+    await sendDeeplinkMessage(ctx, ctx.getClientAddress() || "");
+  }
+});
 ```
 
 ## Advanced Implementation Patterns
