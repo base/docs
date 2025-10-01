@@ -1,0 +1,215 @@
+---
+title: "Manifest"
+description: "Define how your mini app appears and behaves within the Base app, enabling search, discovery, and rich embed features in the Base app."
+---
+
+<Panel>
+
+```json farcaster.json
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjkxNTIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMmVmNzkwRGQ3OTkzQTM1ZkQ4NDdDMDUzRURkQUU5NDBEMDU1NTk2In0",
+    "payload": "eyJkb21haW4iOiJhcHAuZXhhbXBsZS5jb20ifQ",
+    "signature": "MHgxMGQwZGU4ZGYwZDUwZTdmMGIxN2YxMTU2NDI1MjRmZTY0MTUyZGU4ZGU1MWU0MThiYjU4ZjVmZmQxYjRjNDBiNGVlZTRhNDcwNmVmNjhlMzQ0ZGQ5MDBkYmQyMmNlMmVlZGY5ZGQ0N2JlNWRmNzMwYzUxNjE4OWVjZDJjY2Y0MDFj"
+  },
+  "baseBuilder": {
+    "allowedAddresses": ["0x..."]
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Crypto Portfolio Tracker",
+    "homeUrl": "https://ex.co",
+    "iconUrl": "https://ex.co/i.png",
+    "splashImageUrl": "https://ex.co/l.png",
+    "splashBackgroundColor": "#000000",
+    "webhookUrl": "https://ex.co/api/webhook",
+    "subtitle": "Easy to manage",
+    "description": "Track and manage your cryptocurrency portfolio.",
+    "screenshotUrls": [
+      "https://ex.co/s1.png",
+      "https://ex.co/s2.png",
+      "https://ex.co/s3.png"
+    ],
+    "primaryCategory": "finance",
+    "tags": ["finance"],
+    "heroImageUrl": "https://ex.co/og.png",
+    "tagline": "Save instantly",
+    "ogTitle": "Example Mini App",
+    "ogDescription": "Easy to manage portfolio.",
+    "ogImageUrl": "https://ex.co/og.png",
+    "noindex": true
+  }
+}
+```
+
+<Tip>
+Set `"noindex": true` for development or staging environments to prevent search indexing.  
+</Tip>
+</Panel>
+
+## Implementation
+
+1. Create the manifest file in your project at `/public/.well-known/farcaster.json`. It needs to be accessible at `https://your-domain.com/.well-known/farcaster.json`
+2. Update the [required](#accountassociation) and [optional](#display-information) fields in the `miniapp` object
+3. Ensure all changes are live so that the Manifest file is available at your app's url
+4. Navigate to the Base Build [Account association tool](https://www.base.dev/preview?tab=account)
+5. Paste your domain in the App URL field (ex: sample-url.vercel.app) and click "Submit"
+6. Click on the "Verify" button that appears and sign the manifest with your wallet to generate the `accountAssociation` fields
+7. Copy the generated `accountAssociation` fields (header, payload, and signature) and paste them into your manifest file, replacing the empty values in the `accountAssociation` object
+
+<Warning>
+Changes to the manifest take effect when you redeploy your Mini App and repost it. The platform re-indexes the updated configuration and applies changes to search, discovery, and embed rendering.
+</Warning>
+
+
+
+
+## Schema
+
+### accountAssociation
+
+Proves domain ownership for your Mini App.
+<Card>
+<ParamField path="header" type="string" required>
+Encoded header for the association payload.
+</ParamField>
+
+<ParamField path="payload" type="string" required>
+Encoded payload containing your domain.
+</ParamField>
+
+<ParamField path="signature" type="string" required>
+Signature over the payload.
+</ParamField>
+</Card>
+
+### baseBuilder
+
+This verifies ownership and connects your Base Build account.This address should be the address of the wallet used when importing your mini app to Base Build.
+<Card>
+<ParamField path="allowedAddresses" type="string" required>
+This verifies ownership and connects your Base Build account.
+</ParamField>
+</Card>
+
+
+#### Identity & Launch
+
+Defines your Mini App's core identity and the URL users land on when they open it.
+
+<Card>
+<ParamField path="version" type="string" required>
+Manifest version. Must be `"1"`.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+Mini App name. Max 32 chars.
+</ParamField>
+
+<ParamField path="homeUrl" type="string" required>
+Default launch URL. HTTPS URL, max 1024 chars.
+</ParamField>
+
+<ParamField path="iconUrl" type="string" required>
+Icon image URL. HTTPS URL, PNG 1024×1024; transparent background discouraged.
+</ParamField>
+</Card>
+
+#### Loading Experience
+
+Controls the splash screen visuals and colors shown while your Mini App loads.
+
+<Card>
+<ParamField path="splashImageUrl" type="string" required>
+Loading image. HTTPS URL, recommended 200×200px.
+</ParamField>
+
+<ParamField path="splashBackgroundColor" type="string" required>
+Loading background color. Hex code (e.g., `#000000`).
+</ParamField>
+</Card>
+
+#### Discovery & Search
+
+Determines how your Mini App is indexed, categorized, and surfaced across Base App discovery features.
+
+<Card>
+<ParamField path="primaryCategory" type="string" required>
+Controls where your app appears in category browsing. One of: `games`, `social`, `finance`, `utility`, `productivity`, `health-fitness`, `news-media`, `music`, `shopping`, `education`, `developer-tools`, `entertainment`, `art-creativity`.
+</ParamField>
+
+<ParamField path="tags" type="string[]" required>
+Search/filter tags. Up to 5; ≤ 20 chars each; lowercase; no spaces/emojis/special chars.
+</ParamField>
+
+<ParamField path="noindex" type="boolean">
+Exclude from search results. `true` = exclude, default = include.
+</ParamField>
+</Card>
+
+#### Display Information
+
+Provides the descriptive text, screenshots, and promotional images shown on your Mini App's profile.
+
+<Card>
+<ParamField path="subtitle" type="string">
+Short description under name. Max 30 chars; avoid emojis/special chars.
+</ParamField>
+
+<ParamField path="description" type="string">
+Promo text for app page. Max 170 chars; avoid emojis/special chars.
+</ParamField>
+
+<ParamField path="tagline" type="string">
+Marketing tagline. Max 30 chars.
+</ParamField>
+
+<ParamField path="heroImageUrl" type="string">
+Large promo image. 1200×630px (1.91:1), PNG/JPG.
+</ParamField>
+
+<ParamField path="screenshotUrls" type="string[]">
+Visual previews. Max 3; portrait 1284×2778px recommended.
+</ParamField>
+</Card>
+
+#### Notifications
+
+Notification endpoint.
+<Card>
+<ParamField path="webhookUrl" type="string">
+POST events endpoint. HTTPS URL, max 1024 chars. Required if using notifications.
+</ParamField>
+</Card>
+
+#### Embeds & Social Sharing
+
+Configures how your Mini App appears when shared in feeds or on social platforms.
+
+<Card>
+<ParamField path="ogTitle" type="string">
+Open Graph title. Max 30 chars.
+</ParamField>
+
+<ParamField path="ogDescription" type="string">
+Open Graph description. Max 100 chars.
+</ParamField>
+
+<ParamField path="ogImageUrl" type="string">
+Open Graph image. 1200×630px (1.91:1), PNG/JPG.
+</ParamField>
+</Card>
+
+
+
+## Related Concepts
+
+<CardGroup cols={2}>
+<Card title="Search and Discovery" href="/mini-apps/technical-guides/search-and-discovery">
+  Learn how your manifest powers search indexing and category placement in the Base app discovery features.
+</Card>
+
+<Card title="Embeds and Previews" href="/mini-apps/core-concepts/embeds-and-previews">
+  Understand how your manifest creates rich embeds when your Mini App is shared in feeds and social platforms.
+</Card>
+</CardGroup>
