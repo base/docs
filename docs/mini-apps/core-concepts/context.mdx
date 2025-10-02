@@ -13,8 +13,6 @@ When your app is opened it can access information about the session from `sdk.co
 - `client`: Host platform and device data
 - `features`: Availability and state of features in the current client
 
-
-
 <Panel>
 Context Types
 ```ts  MiniAppContextTypes.ts
@@ -120,22 +118,47 @@ export default function Profile() {
 
 The `sdk.context` object contains four main components that provide information about the app session:
 
-<AccordionGroup>
-<Accordion title="User Object">
+## User Object
+
 Contains the user's profile information. This data shouldn't be used for authentication or sensitive actions because its passed by the application.
 
-**Properties:**
-- **fid** `number`: Unique Farcaster identifier for the user
-- **username** `string?`: Handle without @ symbol  
-- **displayName** `string?`: User's chosen display name
-- **pfpUrl** `string?`: Profile picture URL
-- **bio** `string?`: User's biography text
-- **location** `object?`: User's location information
-  - **placeId** `string`: Google Places ID
-  - **description** `string`: Human-readable location description
+<Card>
+<ParamField path="fid" type="number" required>
+Unique Farcaster identifier for the user.
+</ParamField>
 
-**Example:**
-```typescript
+<ParamField path="username" type="string">
+Handle without @ symbol.
+</ParamField>
+
+<ParamField path="displayName" type="string">
+User's chosen display name.
+</ParamField>
+
+<ParamField path="pfpUrl" type="string">
+Profile picture URL.
+</ParamField>
+
+<ParamField path="bio" type="string">
+User's biography text.
+</ParamField>
+
+<ParamField path="location" type="object">
+User's location information.
+</ParamField>
+
+<ParamField path="location.placeId" type="string">
+Google Places ID.
+</ParamField>
+
+<ParamField path="location.description" type="string">
+Human-readable location description.
+</ParamField>
+
+
+</Card>
+
+```json user.json
 {
   "fid": 6841,
   "username": "deodad",
@@ -148,21 +171,87 @@ Contains the user's profile information. This data shouldn't be used for authent
   }
 }
 ```
-</Accordion>
+## Location Object
 
-<Accordion title="Location Object">
 Contains information about the context from which the Mini App was launched. This helps you understand how users discovered and accessed your app.
 
-**Location Types:**
-- **cast_embed**: Launched from a cast where your app is embedded
-- **cast_share**: Launched when a user shared a cast to your app
-- **notification**: Launched from a notification triggered by your app
-- **launcher**: Launched directly from the client app catalog
-- **channel**: Launched from within a specific Farcaster channel
-- **open_miniapp**: Launched from another Mini App
+#### MiniAppUser
 
-**Cast Embed Example:**
-```typescript
+<Card>
+<ParamField path="fid" type="number" required>
+Unique Farcaster identifier for the user.
+</ParamField>
+
+<ParamField path="username" type="string">
+User's handle without @ symbol.
+</ParamField>
+
+<ParamField path="displayName" type="string">
+User's chosen display name.
+</ParamField>
+
+<ParamField path="pfpUrl" type="string">
+Profile picture URL.
+</ParamField>
+</Card>
+
+#### MiniAppCast
+
+<Card>
+<ParamField path="author" type="MiniAppUser" required>
+Information about the cast author.
+</ParamField>
+
+<ParamField path="hash" type="string" required>
+Cast hash identifier.
+</ParamField>
+
+<ParamField path="parentHash" type="string">
+If this is a reply, the hash of the parent cast.
+</ParamField>
+
+<ParamField path="parentFid" type="number">
+If this is a reply, the FID of the parent cast author.
+</ParamField>
+
+<ParamField path="timestamp" type="number">
+Unix timestamp in milliseconds when the cast was created.
+</ParamField>
+
+<ParamField path="mentions" type="MiniAppUser[]">
+Array of users mentioned in the cast.
+</ParamField>
+
+<ParamField path="text" type="string" required>
+Cast text content.
+</ParamField>
+
+<ParamField path="embeds" type="string[]">
+Array of embed URLs in the cast.
+</ParamField>
+
+<ParamField path="channelKey" type="string">
+Channel where the cast was posted.
+</ParamField>
+</Card>
+
+#### CastEmbedLocationContext
+
+<Card>
+<ParamField path="type" type="'cast_embed'" required>
+Indicates the Mini App was launched from a cast where it is an embed.
+</ParamField>
+
+<ParamField path="embed" type="string" required>
+The embed URL.
+</ParamField>
+
+<ParamField path="cast" type="MiniAppCast" required>
+Cast information containing the embed.
+</ParamField>
+</Card>
+
+```json cast_embed.json
 {
   "type": "cast_embed",
   "embed": "https://myapp.example.com",
@@ -182,8 +271,42 @@ Contains information about the context from which the Mini App was launched. Thi
 }
 ```
 
-**Notification Example:**
-```typescript
+#### CastShareLocationContext
+
+<Card>
+<ParamField path="type" type="'cast_share'" required>
+Indicates the Mini App was launched when a user shared a cast to your app.
+</ParamField>
+
+<ParamField path="cast" type="MiniAppCast" required>
+The cast that was shared to your app.
+</ParamField>
+</Card>
+
+#### NotificationLocationContext
+
+<Card>
+<ParamField path="type" type="'notification'" required>
+Indicates the Mini App was launched from a notification.
+</ParamField>
+
+<ParamField path="notification" type="object" required>
+Notification details.
+<ParamField path="notification.notificationId" type="string" required>
+Unique notification identifier.
+</ParamField>
+<ParamField path="notification.title" type="string" required>
+Notification title.
+</ParamField>
+<ParamField path="notification.body" type="string" required>
+Notification body text.
+</ParamField>
+</ParamField>
+</Card>
+
+
+
+```json notification.json
 {
   "type": "notification",
   "notification": {
@@ -193,26 +316,121 @@ Contains information about the context from which the Mini App was launched. Thi
   }
 }
 ```
-</Accordion>
 
-<Accordion title="Client Object">
+#### LauncherLocationContext
+
+<Card>
+<ParamField path="type" type="'launcher'" required>
+Indicates the Mini App was launched directly by the client app outside of a context.
+</ParamField>
+</Card>
+
+#### ChannelLocationContext
+
+<Card>
+<ParamField path="type" type="'channel'" required>
+Indicates the Mini App was launched from within a specific Farcaster channel.
+</ParamField>
+
+<ParamField path="channel" type="object" required>
+Channel details.
+</ParamField>
+
+<ParamField path="channel.key" type="string" required>
+Channel key identifier.
+</ParamField>
+
+<ParamField path="channel.name" type="string" required>
+Channel name.
+</ParamField>
+
+<ParamField path="channel.imageUrl" type="string">
+Channel profile image URL.
+</ParamField>
+
+</Card>
+
+#### OpenMiniAppLocationContext
+
+<Card>
+<ParamField path="type" type="'open_miniapp'" required>
+Indicates the Mini App was launched from another Mini App.
+</ParamField>
+
+<ParamField path="referrerDomain" type="string" required>
+The domain of the Mini App that opened the current app.
+</ParamField>
+</Card>
+
+**Location Types:**
+- **`cast_embed`**: Launched from a cast where your app is embedded
+- **`cast_share`**: Launched when a user shared a cast to your app
+- **`notification`**: Launched from a notification triggered by your app
+- **`launcher`**: Launched directly from the client app catalog
+- **`channel`**: Launched from within a specific Farcaster channel
+- **`open_miniapp`**: Launched from another Mini App
+
+## Client Object
+
 Contains details about the Farcaster client running your Mini App. This data should be considered untrusted.
 
-**Properties:**
-- **platformType** `'web' | 'mobile'?`: Platform where the app is running
-- **clientFid** `number`: Self-reported FID of the client (e.g., 9152 for Warpcast)
-- **added** `boolean`: Whether the user has added your Mini App to their client
-- **safeAreaInsets** `object?`: Screen insets to avoid navigation elements
-  - **top** `number`: Top safe area inset in pixels
-  - **bottom** `number`: Bottom safe area inset in pixels
-  - **left** `number`: Left safe area inset in pixels
-  - **right** `number`: Right safe area inset in pixels
-- **notificationDetails** `object?`: Notification configuration if enabled
-  - **url** `string`: Endpoint for sending notifications
-  - **token** `string`: Authentication token for notifications
+#### SafeAreaInsets
 
-**Example:**
-```typescript
+<Card>
+<ParamField path="top" type="number" required>
+Top safe area inset in pixels.
+</ParamField>
+
+<ParamField path="bottom" type="number" required>
+Bottom safe area inset in pixels.
+</ParamField>
+
+<ParamField path="left" type="number" required>
+Left safe area inset in pixels.
+</ParamField>
+
+<ParamField path="right" type="number" required>
+Right safe area inset in pixels.
+</ParamField>
+</Card>
+
+#### MiniAppNotificationDetails
+
+<Card>
+<ParamField path="url" type="string" required>
+Endpoint for sending notifications.
+</ParamField>
+
+<ParamField path="token" type="string" required>
+Authentication token for notifications.
+</ParamField>
+</Card>
+
+#### ClientContext
+
+<Card>
+<ParamField path="platformType" type="'web' | 'mobile'">
+Platform where the app is running.
+</ParamField>
+
+<ParamField path="clientFid" type="number" required>
+Self-reported FID of the client (e.g., 9152 for Farcaster).
+</ParamField>
+
+<ParamField path="added" type="boolean" required>
+Whether the user has added your Mini App to their client.
+</ParamField>
+
+<ParamField path="safeAreaInsets" type="SafeAreaInsets">
+Screen insets to avoid navigation elements that obscure the view.
+</ParamField>
+
+<ParamField path="notificationDetails" type="MiniAppNotificationDetails">
+Notification configuration if enabled.
+</ParamField>
+</Card>
+
+```json client.json
 {
   "platformType": "mobile",
   "clientFid": 9152,
@@ -229,23 +447,28 @@ Contains details about the Farcaster client running your Mini App. This data sho
   }
 }
 ```
-</Accordion>
 
-<Accordion title="Features Object">
+## Features Object
+
 Indicates which platform features are available and their current state in the client.
 
-**Properties:**
-- **haptics** `boolean`: Whether haptic feedback is supported on the current platform
-- **cameraAndMicrophoneAccess** `boolean?`: Whether camera and microphone permissions have been granted and stored for this mini app
+#### ClientFeatures
 
-**Example:**
-```typescript
+<Card>
+<ParamField path="haptics" type="boolean" required>
+Whether haptic feedback is supported on the current platform.
+</ParamField>
+
+<ParamField path="cameraAndMicrophoneAccess" type="boolean">
+Whether camera and microphone permissions have been granted and stored for this mini app.
+</ParamField>
+</Card>
+
+```json features.json
 {
   "haptics": true,
   "cameraAndMicrophoneAccess": true
 }
 ```
 
-**Usage Note:** For more detailed capability detection, use the `sdk.getCapabilities()` method which returns specific SDK methods supported by the host.
-</Accordion>
-</AccordionGroup>
+<Note>For more detailed capability detection, use the `sdk.getCapabilities()` method which returns specific SDK methods supported by the host.</Note>
