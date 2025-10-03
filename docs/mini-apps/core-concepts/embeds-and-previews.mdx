@@ -1,6 +1,6 @@
 ---
 title: Embeds & Previews
-description: Mini apps use metadata to create embeds when users share links. The embed shows a preview image and launch button..
+description: Mini apps use metadata to create embeds when users share links. The embed shows a preview image and launch button.
 ---
 
 <Panel>
@@ -11,23 +11,69 @@ description: Mini apps use metadata to create embeds when users share links. The
 ## Implementation
 Add this meta tag to the `<head>` section of any page you want to make shareable:
 
-```html metadata
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <title>My Mini App</title>
-    <meta name="fc:frame" content='{"version":"next","imageUrl":"https://example.com/preview.png","button":{"title":"Open App","action":{"type":"launch_frame","url":"https://example.com"}}}' />
-  </head>
-  <body>
-    <!-- Your app content -->
-  </body>
-</html>
-```
-Each page can have different metadata to create unique embeds.
+<CodeGroup>
+  ```html html metadata
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <title>My Mini App</title>
+      <meta
+        name="fc:miniapp"
+        content='{
+          "version": "next",
+          "imageUrl": "https://example.com/preview.png",
+          "button": {
+            "title": "Open App",
+            "action": {
+              "type": "launch_frame",
+              "url": "https://example.com"
+            }
+          }
+        }'
+      />
+    </head>
+    <body>
+      <!-- Your app content -->
+    </body>
+  </html>
+  ```
+  
+  ```jsx next.js metadata
+  // app/layout.tsx or app/page.tsx (Next.js App Router)
+  import type { Metadata } from "next";
+  
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: miniapp.name,
+    description: miniapp.description,
+    other: {
+      "fc:miniapp": JSON.stringify({
+        version: miniapp.version,
+        imageUrl: miniapp.heroImageUrl,
+        button: {
+          title: `Join the ${miniapp.name}`,
+          action: {
+            name: `Launch ${miniapp.name}`,
+            url: `${miniapp.homeUrl}`
+          },
+        },
+      }),
+    },
+  };
+}
+  
+  export default function RootLayout({ children }: { children: React.ReactNode }) {
+    return (
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    );
+  }
+  ```
+</CodeGroup>
+<Tip>The `homeUrl` used in the `manifest` *must* have embed metadata defined, in order for the mini app to render correctly in the Base app.</Tip>
 
-<Tip>
-For Next.js projects, use the [Metadata API](https://nextjs.org/docs/app/building-your-application/optimizing/metadata) to generate the `fc:frame` meta tag dynamically.  
-</Tip>
+
 
 ## Schema
 
