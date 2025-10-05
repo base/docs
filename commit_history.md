@@ -16,3 +16,8 @@
 - Detailed bridging concepts between Ethereum L1 and Base L2.
 - Wrote step-by-step guides for custom bridge contract implementations.
 - Documented cross-chain message passing mechanisms and security practices.
+
+### Q4 2025 - Smart Contract Security Best Practices
+- Created comprehensive secure coding checklists for Solidity on Base.
+- Outlined risk vectors like reentrancy and integer underflow/overflow.
+- Documented testing best practices using static analyzers (Slither, Mythril).
