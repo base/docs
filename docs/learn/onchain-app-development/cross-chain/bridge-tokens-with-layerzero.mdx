@@ -1,6 +1,6 @@
 ---
 title: Sending messages from Base to other chains using LayerZero V2
-description: A tutorial that teaches how to use LayerZero V2 to perform cross-chain messaging from Base Goerli testnet to Optimism Goerli testnet.
+description: A tutorial that teaches how to use LayerZero V2 to perform cross-chain messaging from Base Sepolia testnet to Optimism Sepolia testnet.
 authors:
   - taycaldwell
 ---
@@ -37,18 +37,18 @@ In order to deploy a smart contract, you will first need a wallet. You can creat
 
 ### Wallet funds
 
-To complete this tutorial, you will need to fund a wallet with ETH on Base Goerli and Optimism Goerli.
+To complete this tutorial, you will need to fund a wallet with ETH on Base Sepolia and Optimism Sepolia.
 
 The ETH is required for covering gas fees associated with deploying smart contracts to each network.
 
-- To fund your wallet with ETH on Base Goerli, visit a faucet listed on the [Base Faucets](/base-chain/tools/network-faucets) page.
-- To fund your wallet with ETH on Optimism Goerli, visit a faucet listed on the [Optimism Faucets](https://docs.optimism.io/builders/tools/faucets) page.
+- To fund your wallet with ETH on Base Sepolia, visit a faucet listed on the [Base Faucets](/base-chain/tools/network-faucets) page.
+- To fund your wallet with ETH on Optimism Sepolia, visit a faucet listed on the [Optimism Faucets](https://docs.optimism.io/builders/tools/faucets) page.
 
 ## What is LayerZero?
 
 LayerZero is an interoperability protocol that allows developers to build applications (and tokens) that can connect to multiple blockchains. LayerZero defines these types of applications as "omnichain" applications.
 
-The LayerZero protocol is made up of immutable on-chain [Endpoints](https://docs.layerzero.network/explore/layerzero-endpoint), a configurable [Security Stack](https://docs.layerzero.network/explore/decentralized-verifier-networks), and a permissionless set of [Executors](https://docs.layerzero.network/explore/executors) that transfer messages between chains.
+The LayerZero protocol is made up of immutable on-chain [Endpoints](https://docs.layerzero.network/v2/concepts/protocol/layerzero-endpoint), a configurable [Security Stack](https://docs.layerzero.network/explore/decentralized-verifier-networks), and a permissionless set of [Executors](https://docs.layerzero.network/v2/concepts/permissionless-execution/executors) that transfer messages between chains.
 
 ### High-level concepts
 
@@ -62,7 +62,7 @@ The [Security Stack](https://docs.layerzero.network/explore/decentralized-verifi
 
 #### Executors
 
-[Executors](https://docs.layerzero.network/explore/executors) are responsible for initiating message delivery. They will automatically execute the `lzReceive` function of the endpoint on the destination chain once a message has been verified by the Security Stack.
+[Executors](https://docs.layerzero.network/v2/concepts/permissionless-execution/executors) are responsible for initiating message delivery. They will automatically execute the `lzReceive` function of the endpoint on the destination chain once a message has been verified by the Security Stack.
 
 ## Creating a project
 
@@ -180,11 +180,11 @@ The code snippet above defines a new smart contract named `ExampleContract` that
 
 The contract's constructor expects two arguments:
 
-- `_endpoint`: The [LayerZero Endpoint](https://docs.layerzero.network/explore/layerzero-endpoint) `address` for the chain the smart contract is deployed to.
+- `_endpoint`: The [LayerZero Endpoint](https://docs.layerzero.network/v2/deployments/deployed-contracts) `address` for the chain the smart contract is deployed to.
 - `_owner`: The `address` of the owner of the smart contract.
 
 <Info>
-[LayerZero Endpoints](https://docs.layerzero.network/explore/layerzero-endpoint) are smart contracts that expose an interface for OApp contracts to manage security configurations and send and receive messages via the LayerZero protocol.
+[LayerZero Endpoints](https://docs.layerzero.network/v2/deployments/deployed-contracts) are smart contracts that expose an interface for OApp contracts to manage security configurations and send and receive messages via the LayerZero protocol.
 </Info>
 
 ### Implementing message sending (`_lzSend`)
@@ -214,9 +214,9 @@ The `sendMessage` function above calls the inherited `_lzSend` function, while p
 
 | Name             | Type                                                                                                                                                                      | Description                                                                                                                                                      |
 | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `_dstEid`        | `uint32`                                                                                                                                                                  | The [endpoint ID](https://docs.layerzero.network/contracts/endpoint-addresses) of the destination chain to send the message to.                                  |
+| `_dstEid`        | `uint32`                                                                                                                                                                  | The [endpoint ID](https://docs.layerzero.network/v2/deployments/deployed-contracts?stages=mainnet&chains=base) of the destination chain to send the message to.                                  |
 | `_payload`       | `bytes`                                                                                                                                                                   | The message (encoded) to send.                                                                                                                                   |
-| `_options`       | `bytes`                                                                                                                                                                   | [Additional options](https://docs.layerzero.network/contracts/options) when sending the message, such as how much gas should be used when receiving the message. |
+| `_options`       | `bytes`                                                                                                                                                                   | [Additional options](https://docs.layerzero.network/v2/concepts/message-options#why-do-options-matter) when sending the message, such as how much gas should be used when receiving the message. |
 | `_fee`           | [`MessagingFee`](https://github.com/LayerZero-Labs/LayerZero-v2/blob/c3213200dfe8fabbf7d92c685590d34e6e70da43/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol#L24) | The calculated fee for sending the message.                                                                                                                      |
 | `_refundAddress` | `address`                                                                                                                                                                 | The `address` that will receive any excess fee values sent to the endpoint in case the `_lzSend` execution reverts.                                              |
 
@@ -252,9 +252,9 @@ The `estimateFee` function above calls the inherited `_quote` function, while pa
 
 | Name            | Type     | Description                                                                                                                                                      |
 | :-------------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `_dstEid`       | `uint32` | The [endpoint ID](https://docs.layerzero.network/contracts/endpoint-addresses) of the destination chain the message will be sent to.                             |
+| `_dstEid`       | `uint32` | The [endpoint ID](https://docs.layerzero.network/v2/deployments/deployed-contracts?stages=mainnet&chains=base) of the destination chain the message will be sent to.                             |
 | `_payload`      | `bytes`  | The message (encoded) that will be sent.                                                                                                                         |
-| `_options`      | `bytes`  | [Additional options](https://docs.layerzero.network/contracts/options) when sending the message, such as how much gas should be used when receiving the message. |
+| `_options`      | `bytes`  | [Additional options](https://docs.layerzero.network/v2/concepts/message-options#why-do-options-matter) when sending the message, such as how much gas should be used when receiving the message. |
 | `_payInLzToken` | `bool`   | Boolean flag for which token to use when returning the fee (native or ZRO token).                                                                                |
 
 <Info>
@@ -296,8 +296,8 @@ The overridden `_lzReceive` function receives the following arguments when recei
 | `_origin`     | `Origin`  | The origin information containing the source endpoint and sender address.                                             |
 | `_guid`       | `bytes32` | The unique identifier for the received LayerZero message.                                                             |
 | `payload`     | `bytes`   | The payload of the received message (encoded).                                                                        |
-| `_executor`   | `address` | The `address` of the [Executor](https://docs.layerzero.network/explore/executors) for the received message.           |
-| `_extraData ` | `bytes`   | Additional arbitrary data provided by the corresponding [Executor](https://docs.layerzero.network/explore/executors). |
+| `_executor`   | `address` | The `address` of the [Executor](https://docs.layerzero.network/v2/concepts/permissionless-execution/executors) for the received message.           |
+| `_extraData ` | `bytes`   | Additional arbitrary data provided by the corresponding [Executor](https://docs.layerzero.network/v2/concepts/permissionless-execution/executors). |
 
 Note that the overridden method decodes the message payload, and stores the string into a variable named `data` that you can read from later to fetch the latest message.
 
@@ -314,7 +314,7 @@ contract ExampleContract is OApp {
 ```
 
 <Info>
-Overriding the `_lzReceive` function allows you to provide any custom logic you wish when receiving messages, including making a call back to the source chain by invoking `_lzSend`. Visit the LayerZero [Message Design Patterns](https://docs.layerzero.network/contracts/message-design-patterns) for common messaging flows.
+Overriding the `_lzReceive` function allows you to provide any custom logic you wish when receiving messages, including making a call back to the source chain by invoking `_lzSend`. Visit the LayerZero [Message Design Patterns](https://docs.layerzero.network/v2/developers/evm/oapp/message-design-patterns) for common messaging flows.
 </Info>
 
 ### Final code
@@ -401,7 +401,7 @@ forge build
 
 Before you can deploy your smart contract to various chains you will need to set up a wallet to be used as the deployer.
 
-To do so, you can use the [`cast wallet import`](https://book.getfoundry.sh/reference/cast/cast-wallet-import) command to import the private key of the wallet into Foundry's securely encrypted keystore:
+To do so, you can use the [`cast wallet import`](https://getfoundry.sh/cast/reference/wallet/import#cast-wallet-import) command to import the private key of the wallet into Foundry's securely encrypted keystore:
 
 ```bash
 cast wallet import deployer --interactive
@@ -421,16 +421,16 @@ cast wallet list
 
 ### Setting up environment variables
 
-To setup your environment, create an `.env` file in the home directory of your project, and add the RPC URLs and [LayerZero Endpoint](https://docs.layerzero.network/contracts/endpoint-addresses) information for both Base Goerli and Optimism Goerli testnets:
+To setup your environment, create an `.env` file in the home directory of your project, and add the RPC URLs and [LayerZero Endpoint](https://docs.layerzero.network/v2/deployments/deployed-contracts?chains=base-sepolia%2Coptimism-sepolia) information for both Base Sepolia and Optimism Sepolia testnets:
 
 ```bash
-BASE_GOERLI_RPC="https://goerli.base.org"
-BASE_GOERLI_LZ_ENDPOINT=0x464570adA09869d8741132183721B4f0769a0287
-BASE_GOERLI_LZ_ENDPOINT_ID=40184
+BASE_SEPOLIA_RPC="https://sepolia.base.org"
+BASE_SEPOLIA_LZ_ENDPOINT=0x6EDCE65403992e310A62460808c4b910D972f10f
+BASE_SEPOLIA_LZ_ENDPOINT_ID=40245
 
-OPTIMISM_GOERLI_RPC="https://goerli.optimism.io"
-OPTIMISM_GOERLI_LZ_ENDPOINT=0x464570adA09869d8741132183721B4f0769a0287
-OPTIMISM_GOERLI_LZ_ENDPOINT_ID=40132
+OPTIMISM_SEPOLIA_RPC="https://sepolia.optimism.io"
+OPTIMISM_SEPOLIA_LZ_ENDPOINT=0x6EDCE65403992e310A62460808c4b910D972f10f
+OPTIMISM_SEPOLIA_LZ_ENDPOINT_ID=40232
 ```
 
 Once the `.env` file has been created, run the following command to load the environment variables in the current command line session:
@@ -441,73 +441,73 @@ source .env
 
 With your contract compiled and environment setup, you are now ready to deploy the smart contract to different networks.
 
-### Deploying the smart contract to Base Goerli
+### Deploying the smart contract to Base Sepolia
 
 To deploy a smart contract using Foundry, you can use the `forge create` command. The command requires you to specify the smart contract you want to deploy, an RPC URL of the network you want to deploy to, and the account you want to deploy with.
 
 <Info>
-Your wallet must be funded with ETH on the Base Goerli and Optimism Goerli to cover the gas fees associated with the smart contract deployment. Otherwise, the deployment will fail.
+Your wallet must be funded with ETH on the Base Sepolia and Optimism Sepolia to cover the gas fees associated with the smart contract deployment. Otherwise, the deployment will fail.
 
 To get testnet ETH, see the [prerequisites](#prerequisites).
 </Info>
 
-To deploy the `ExampleContract` smart contract to the Base Goerli testnet, run the following command:
+To deploy the `ExampleContract` smart contract to the Base Sepolia testnet, run the following command:
 
 ```bash
-forge create ./src/ExampleContract.sol:ExampleContract --rpc-url $BASE_GOERLI_RPC --constructor-args $BASE_GOERLI_LZ_ENDPOINT --account deployer
+forge create ./src/ExampleContract.sol:ExampleContract --rpc-url $BASE_SEPOLIA_RPC --constructor-args $BASE_SEPOLIA_LZ_ENDPOINT --account deployer
 ```
 
 When prompted, enter the password that you set earlier, when you imported your wallet's private key.
 
-After running the command above, the contract will be deployed on the Base Goerli test network. You can view the deployment status and contract by using a [block explorer](/base-chain/tools/block-explorers).
+After running the command above, the contract will be deployed on the Base Sepolia test network. You can view the deployment status and contract by using a [block explorer](/base-chain/tools/block-explorers).
 
-### Deploying the smart contract to Optimism Goerli
+### Deploying the smart contract to Optimism Sepolia
 
-To deploy the `ExampleContract` smart contract to the Optimism Goerli testnet, run the following command:
+To deploy the `ExampleContract` smart contract to the Optimism Sepolia testnet, run the following command:
 
 ```bash
-forge create ./src/ExampleContract.sol:ExampleContract --rpc-url $OPTIMISM_GOERLI_RPC --constructor-args $OPTIMISM_GOERLI_LZ_ENDPOINT --account deployer
+forge create ./src/ExampleContract.sol:ExampleContract --rpc-url $OPTIMISM_SEPOLIA_RPC --constructor-args $OPTIMISM_SEPOLIA_LZ_ENDPOINT --account deployer
 ```
 
 When prompted, enter the password that you set earlier, when you imported your wallet's private key.
 
-After running the command above, the contract will be deployed on the Optimism Goerli test network. You can view the deployment status and contract by using the [OP Goerli block explorer](https://goerli-optimism.etherscan.io/).
+After running the command above, the contract will be deployed on the Optimism Sepolia test network. You can view the deployment status and contract by using the [OP Sepolia block explorer](https://sepolia-optimism.etherscan.io/).
 
 ## Opening the messaging channels
 
-Once your contract has been deployed to Base Goerli and Optimism Goerli, you will need to open the messaging channels between the two contracts so that they can send and receive messages from one another. This is done by calling the `setPeer` function on the contract.
+Once your contract has been deployed to Base Sepolia and Optimism Sepolia, you will need to open the messaging channels between the two contracts so that they can send and receive messages from one another. This is done by calling the `setPeer` function on the contract.
 
 The `setPeer` function expects the following arguments:
 
 | Name    | Type      | Description                                                                                              |
 | :------ | :-------- | :------------------------------------------------------------------------------------------------------- |
-| `_eid`  | `uint32`  | The [endpoint ID](https://docs.layerzero.network/contracts/endpoint-addresses) of the destination chain. |
+| `_eid`  | `uint32`  | The [endpoint ID](https://docs.layerzero.network/v2/deployments/deployed-contracts) of the destination chain. |
 | `_peer` | `bytes32` | The contract address of the OApp contract on the destination chain.                                      |
 
 ### Setting the peers
 
 Foundry provides the `cast` command-line tool that can be used to interact with deployed smart contracts and call their functions.
 
-To set the peer of your `ExampleContract` contracts, you can use `cast` to call the `setPeer` function while providing the [endpoint ID](https://docs.layerzero.network/contracts/endpoint-addresses) and address (in bytes) of the deployed contract on the respective destination chain.
+To set the peer of your `ExampleContract` contracts, you can use `cast` to call the `setPeer` function while providing the [endpoint ID](https://docs.layerzero.network/v2/deployments/deployed-contracts) and address (in bytes) of the deployed contract on the respective destination chain.
 
-To set the peer of the Base Goerli contract to the Optimism Goerli contract, run the following command:
+To set the peer of the Base Sepolia contract to the Optimism Sepolia contract, run the following command:
 
 ```bash
-cast send <BASE_GOERLI_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC "setPeer(uint32, bytes32)" $OPTIMISM_GOERLI_LZ_ENDPOINT_ID <OPTIMISM_GOERLI_CONTRACT_ADDRESS> --account deployer
+cast send <BASE_SEPOLIA_CONTRACT_ADDRESS> --rpc-url $BASE_SEPOLIA_RPC "setPeer(uint32, bytes32)" $OPTIMISM_SEPOLIA_LZ_ENDPOINT_ID <OPTIMISM_SEPOLIA_CONTRACT_ADDRESS> --account deployer
 ```
 
 <Info>
-Replace `<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Goerli, and`<OPTIMISM_GOERLI_CONTRACT_ADDRESS>` with the contract address (as bytes) of your deployed `ExampleContract` contract on Optimism Goerli before running the provided `cast` command.
+Replace `<BASE_SEPOLIA_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Sepolia, and`<OPTIMISM_SEPOLIA_CONTRACT_ADDRESS>` with the contract address (as bytes) of your deployed `ExampleContract` contract on Optimism Sepolia before running the provided `cast` command.
 </Info>
 
-To set the peer of the Optimism Goerli contract to the Base Goerli contract, run the following command:
+To set the peer of the Optimism Sepolia contract to the Base Sepolia contract, run the following command:
 
 ```bash
-cast send <OPTIMISM_GOERLI_CONTRACT_ADDRESS> --rpc-url $OPTIMISM_GOERLI_RPC "setPeer(uint32, bytes32)" $BASE_GOERLI_LZ_ENDPOINT_ID <BASE_GOERLI_CONTRACT_ADDRESS> --account deployer
+cast send <OPTIMISM_SEPOLIA_CONTRACT_ADDRESS> --rpc-url $OPTIMISM_SEPOLIA_RPC "setPeer(uint32, bytes32)" $BASE_SEPOLIA_LZ_ENDPOINT_ID <BASE_SEPOLIA_CONTRACT_ADDRESS> --account deployer
 ```
 
 <Info>
-Replace `<OPTIMISM_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Optimism Goerli, and`<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address (as bytes) of your deployed `ExampleContract` contract on Base Goerli before running the provided `cast` command.
+Replace `<OPTIMISM_SEPOLIA_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Optimism Sepolia, and`<BASE_SEPOLIA_CONTRACT_ADDRESS>` with the contract address (as bytes) of your deployed `ExampleContract` contract on Base Sepolia before running the provided `cast` command.
 </Info>
 
 ## Sending messages
@@ -516,17 +516,17 @@ Once peers have been set on each contract, they are now able to send and receive
 
 Sending a message using the newly created `ExampleContract` contract can be done in three steps:
 
-1. Build [message options](https://docs.layerzero.network/contracts/options) to specify logic associated with the message transaction
+1. Build [message options](https://docs.layerzero.network/v2/developers/evm/toolbox#building-message-options) to specify logic associated with the message transaction
 2. Call the `estimateFee` function to estimate the gas fee for sending a message
 3. Call the `sendMessage` function to send a message
 
 ### Building message options
 
-The `estimateFee` and `sendMessage` custom functions of the `ExampleContract` contract both require a [message options](https://docs.layerzero.network/contracts/options) (`_options`) argument to be provided.
+The `estimateFee` and `sendMessage` custom functions of the `ExampleContract` contract both require a [message options](https://docs.layerzero.network/v2/developers/evm/toolbox#building-message-options) (`_options`) argument to be provided.
 
-Message options allow you to specify arbitrary logic as part of the message transaction, such as the gas amount the [Executor](https://docs.layerzero.network/explore/executors) pays for message delivery, the order of message execution, or dropping an amount of gas to a destination address.
+Message options allow you to specify arbitrary logic as part of the message transaction, such as the gas amount the [Executor](https://docs.layerzero.network/v2/concepts/permissionless-execution/executors) pays for message delivery, the order of message execution, or dropping an amount of gas to a destination address.
 
-LayerZero provides a [Solidity](https://github.com/LayerZero-Labs/LayerZero-v2/blob/ccfd0d38f83ca8103b14ab9ca77f32e0419510ff/oapp/contracts/oapp/libs/OptionsBuilder.sol#L12) library and [TypeScript SDK](https://docs.layerzero.network/contracts/options) for building these message options.
+LayerZero provides a [Solidity](https://github.com/LayerZero-Labs/LayerZero-v2/blob/ccfd0d38f83ca8103b14ab9ca77f32e0419510ff/oapp/contracts/oapp/libs/OptionsBuilder.sol#L12) library and [TypeScript SDK](https://docs.layerzero.network/plugins#layerzerolabssg-sdk) for building these message options.
 
 As an example, below is a Foundry script that uses OptionsBuilder from the Solidity library to generate message options (as `bytes`) that set the gas amount that the Executor will pay upon message delivery to `200000` wei:
 
@@ -557,21 +557,21 @@ The output of this script results in:
 For this tutorial, rather than building and generating your own message options, you can use the bytes output provided above.
 
 <Info>
-Covering all of the different message options in detail is out of scope for this tutorial. If you are interested in learning more about the different message options and how to build them, visit the [LayerZero developer documentation](https://docs.layerzero.network/contracts/options).
+Covering all of the different message options in detail is out of scope for this tutorial. If you are interested in learning more about the different message options and how to build them, visit the [LayerZero developer documentation](https://docs.layerzero.network/v2/developers/evm/overview).
 </Info>
 
 ### Estimating the gas fee
 
-Before you can send a message from your contract on Base Goerli, you need to estimate the fee associated with sending the message. You can use the `cast` command to call the `estimateFee()` function of the `ExampleContract` contract.
+Before you can send a message from your contract on Base Sepolia, you need to estimate the fee associated with sending the message. You can use the `cast` command to call the `estimateFee()` function of the `ExampleContract` contract.
 
-To estimate the gas fee for sending a message from Base Goerli to Optimism Goerli, run the following command:
+To estimate the gas fee for sending a message from Base Sepolia to Optimism Sepolia, run the following command:
 
 ```bash
-cast send <BASE_GOERLI_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC "estimateFee(uint32, string, bytes)" $OPTIMISM_GOERLI_LZ_ENDPOINT_ID "Hello World" 0x00030100110100000000000000000000000000030d40 --account deployer
+cast send <BASE_SEPOLIA_CONTRACT_ADDRESS> --rpc-url $BASE_SEPOLIA_RPC "estimateFee(uint32, string, bytes)" $OPTIMISM_SEPOLIA_LZ_ENDPOINT_ID "Hello World" 0x00030100110100000000000000000000000000030d40 --account deployer
 ```
 
 <Info>
-Replace `<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Goerli before running the provided `cast` command.
+Replace `<BASE_SEPOLIA_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Sepolia before running the provided `cast` command.
 </Info>
 
 The command above calls `estimateFee(uint32, string, bytes, bool)`, while providing the required arguments, including: the endpoint ID of the destination chain, the text to send, and the message options (generated in the last section).
@@ -580,14 +580,14 @@ The command above calls `estimateFee(uint32, string, bytes, bool)`, while provid
 
 Once you have fetched the estimated gas for sending your message, you can now call `sendMessage` and provide the value returned as the `msg.value`.
 
-For example, to send a message from Base Goerli to Optimism Goerli with an estimated gas fee, run the following command:
+For example, to send a message from Base Sepolia to Optimism Sepolia with an estimated gas fee, run the following command:
 
 ```bash
-cast send <BASE_GOERLI_CONTRACT_ADDRESS> --rpc-url $BASE_GOERLI_RPC --value <GAS_ESTIMATE_IN_WEI> "sendMessage(uint32, string, bytes)" $OPTIMISM_GOERLI_LZ_ENDPOINT_ID "Hello World" 0x00030100110100000000000000000000000000030d40 --account deployer
+cast send <BASE_SEPOLIA_CONTRACT_ADDRESS> --rpc-url $BASE_SEPOLIA_RPC --value <GAS_ESTIMATE_IN_WEI> "sendMessage(uint32, string, bytes)" $OPTIMISM_SEPOLIA_LZ_ENDPOINT_ID "Hello World" 0x00030100110100000000000000000000000000030d40 --account deployer
 ```
 
 <Info>
-Replace `<BASE_GOERLI_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Goerli, and `<GAS_ESTIMATE_IN_WEI>` with the gas estimate (in wei) returned by the call to estimateFee, before running the provided `cast` command.
+Replace `<BASE_SEPOLIA_CONTRACT_ADDRESS>` with the contract address of your deployed `ExampleContract` contract on Base Sepolia, and `<GAS_ESTIMATE_IN_WEI>` with the gas estimate (in wei) returned by the call to estimateFee, before running the provided `cast` command.
 </Info>
 
 You can view the status of your cross-chain transaction on [LayerZero Scan](https://layerzeroscan.com/).
