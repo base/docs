@@ -17,7 +17,7 @@ By the end of this guide, you will:
 
 - Sign messages for EVM wallets
 - Sign typed data (EIP-712) for structured data
-- Sign and send transactions on EVM networks
+- Send transactions on EVM networks
 
 The code snippets in this guide are based on the following example project:
 
@@ -39,13 +39,11 @@ import {
   useWallets,
   useSendTransaction,
   useSignMessage,
-  useSignTransaction,
   useSignTypedData,
 } from "@privy-io/react-auth";
 
 const WalletActions = () => {
   const { signMessage } = useSignMessage();
-  const { signTransaction } = useSignTransaction();
   const { sendTransaction } = useSendTransaction();
   const { signTypedData } = useSignTypedData();
   const { wallets } = useWallets();
@@ -86,22 +84,6 @@ const [selectedWallet, setSelectedWallet] = useState<{
     }
   };
 
-  const handleSignTransaction = async () => {
-    if (!selectedWallet) return;
-    
-    try {
-      const transaction = await signTransaction(
-        { 
-          to: "0xE3070d3e4309afA3bC9a6b057685743CF42da77C", 
-          value: 10000 
-        },
-        { address: selectedWallet.address }
-      );
-      console.log("Transaction signed:", transaction);
-    } catch (error) {
-      console.error("Failed to sign transaction:", error);
-    }
-  };
 
   const handleSendTransaction = async () => {
     if (!selectedWallet) return;
@@ -117,6 +99,51 @@ const [selectedWallet, setSelectedWallet] = useState<{
       console.log("Transaction sent:", transaction);
     } catch (error) {
       console.error("Failed to send transaction:", error);
+    }
+  };
+
+  const handleSignTypedData = async () => {
+    if (!selectedWallet) return;
+    
+    try {
+      const typedData = {
+        domain: {
+          name: "Example App",
+          version: "1",
+          chainId: 1,
+          verifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+        },
+        types: {
+          Person: [
+            { name: "name", type: "string" },
+            { name: "wallet", type: "address" },
+          ],
+          Mail: [
+            { name: "from", type: "Person" },
+            { name: "to", type: "Person" },
+            { name: "contents", type: "string" },
+          ],
+        },
+        primaryType: "Mail",
+        message: {
+          from: {
+            name: "Alice",
+            wallet: "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+          },
+          to: {
+            name: "Bob",
+            wallet: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+          },
+          contents: "Hello, Bob!",
+        },
+      };
+
+      const { signature } = await signTypedData(typedData, {
+        address: selectedWallet.address,
+      });
+      console.log("Typed data signature:", signature);
+    } catch (error) {
+      console.error("Failed to sign typed data:", error);
     }
   };
 
@@ -143,7 +170,7 @@ const [selectedWallet, setSelectedWallet] = useState<{
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <button 
           onClick={handleSignMessage}
           disabled={!selectedWallet}
@@ -157,13 +184,6 @@ const [selectedWallet, setSelectedWallet] = useState<{
           className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
         >
           Sign Typed Data
-        </button>
-        <button 
-          onClick={handleSignTransaction}
-          disabled={!selectedWallet}
-          className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        >
-          Sign Transaction
         </button>
         <button 
           onClick={handleSendTransaction}
@@ -248,29 +268,6 @@ const handleSignTypedData = async () => {
     console.log("Typed data signature:", signature);
   } catch (error) {
     console.error("Failed to sign typed data:", error);
-  }
-};
-```
-</CodeGroup>
-
-#### Sign Transaction
-
-<CodeGroup>
-```tsx Sign Transaction expandable
-const handleSignTransaction = async () => {
-  if (!selectedWallet) return;
-  
-  try {
-    const transaction = await signTransaction(
-      { 
-        to: "0xE3070d3e4309afA3bC9a6b057685743CF42da77C", 
-        value: 10000 // Wei
-      },
-      { address: selectedWallet.address }
-    );
-    console.log("Signed transaction:", transaction);
-  } catch (error) {
-    console.error("Failed to sign transaction:", error);
   }
 };
 ```
