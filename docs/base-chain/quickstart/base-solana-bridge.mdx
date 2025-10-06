@@ -7,64 +7,20 @@ icon: "bridge"
 import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
 
 <Warning>
-The Base-Solana bridge is currently in **testnet only** (Base Sepolia ↔ Solana Devnet). The code is a work in progress and has not been audited. **Do not use in production!**
+  The Base-Solana bridge is currently in **testnet only** (Base Sepolia ↔ Solana Devnet). The code is a work in progress and has not been audited. **Do not use in production!**
 </Warning>
 
-The Base-Solana bridge enables bidirectional token transfers and message passing between Base and Solana networks.
+The Base-Solana bridge enables bidirectional token transfers and message passing between Base and Solana networks. This bridge allows you to:
 
-This guide is based on the following repository:
+* **Transfer tokens** between Base and Solana
+* **Send arbitrary cross-chain messages**
+* **Deploy wrapped tokens** on either chain
 
-<GithubRepoCard
-  title="Base-Solana Bridge Repository"
-  githubUrl="https://github.com/base/bridge"
-/>
+This guide covers the bridge architecture and provides practical examples for implementation.
 
-## Getting Started
+## How it works
 
-First, clone the bridge repository to get access to the contracts, scripts, and CLI tools:
-
-```bash Terminal
-git clone https://github.com/base/bridge.git
-cd bridge
-```
-
-The repository contains:
-- **`base/`**: Solidity contracts and Foundry scripts for Base-side operations
-- **`solana/`**: Rust programs for Solana-side operations  
-- **`scripts/`**: TypeScript CLI tools for interacting with both chains
-- **`clients/ts/`**: TypeScript SDK for developers
-
-In the following sections, we'll cover how to bridge tokens and messages between Base and Solana.
-You can jump to a specific section using the links below:
-
-<CardGroup cols={2}>
-  <Card title="Base to Solana" icon="arrow-right" href="#base-to-solana">
-    Send tokens from Base to Solana
-  </Card>
-  <Card title="Solana to Base" icon="arrow-left" href="#solana-to-base">
-    Send tokens from Solana to Base
-  </Card>
-</CardGroup>
-
-## Base to Solana
-
-Bridge tokens from Base to Solana using the bridge contracts and CLI tools.
-
-### Prerequisites
-
-- [Foundry](https://getfoundry.sh/getting-started/installation) installed
-- A funded Base Sepolia wallet (Get [faucets](/base-chain/tools/network-faucets))
-
-<Tip>
-**Create or import a wallet using Foundry**
-
-To create a wallet using [Foundry](https://getfoundry.sh/), you can use [`cast wallet new`](https://getfoundry.sh/cast/reference/wallet/new).
-To import a wallet, you can use [`cast wallet import`](https://getfoundry.sh/cast/reference/wallet/import).
-
-</Tip>
-
-### How it works
-
+### On Base
 The Base bridge contract locks or burns your tokens and emits a message. Validators collect these messages into Merkle trees and post roots to Solana every ~15 minutes. You then prove your message exists in the tree to complete the transfer on Solana.
 
 **Smart contracts:**
@@ -72,212 +28,381 @@ The Base bridge contract locks or burns your tokens and emits a message. Validat
 - **CrossChainERC20**: Mintable/burnable tokens for cross-chain transfers
 - **BridgeValidator**: Validates messages with oracle signatures
 
-### Bridge tokens
-
-<Tabs>
-  <Tab title="Using Make Commands">
-    The simplest way to bridge tokens using predefined configurations:
-
-    ```bash Terminal
-    cd base
-    
-    # Bridge wrapped SOL to native SOL on Solana
-    make bridge-sol-to-solana
-    
-    # Bridge wrapped SPL tokens to Solana
-    make bridge-spl-to-solana
-    
-    # Bridge ERC20 tokens to wrapped SPL on Solana
-    make bridge-erc20-to-solana
-    
-    # Bridge ETH to wrapped ETH on Solana
-    make bridge-eth-to-solana
-    ```
-
-    Configure recipients and amounts in the Makefile before running.
-  </Tab>
-  
-  <Tab title="Custom Forge Script">
-    For custom token bridging:
-
-    ```bash Terminal
-    cd base
-    
-    BRIDGE_ENVIRONMENT=alpha \
-    LOCAL_TOKEN=0x123... \
-    REMOTE_TOKEN=0x456... \
-    TO=0x789... \
-    AMOUNT=1000000 \
-    forge script BridgeTokensToSolanaScript \
-    --account testnet-admin \
-    --rpc-url $BASE_RPC \
-    --broadcast -vvvv
-    ```
-
-    **Parameters:**
-    - `LOCAL_TOKEN`: ERC20 token address on Base
-    - `REMOTE_TOKEN`: bytes32 representation of SPL mint on Solana
-    - `TO`: bytes32 representation of Solana recipient address
-    - `AMOUNT`: Amount in wei (smallest unit)
-
-    <Tip>
-    **Convert Solana addresses to bytes32**
-
-    You can convert Solana addresses to bytes32 using the following command:
-
-    ```bash Terminal
-    bun cli utils pubkey-to-bytes32 <SOLANA_PUBKEY>
-    ```
-    </Tip>
-
-    Convert Solana addresses to bytes32: `bun cli utils pubkey-to-bytes32 <SOLANA_PUBKEY>`
-  </Tab>
-</Tabs>
-
-### Complete the transfer
-
-After initiating on Base, wait ~15 minutes for the Merkle root update, then complete on Solana:
-
-```bash Terminal
-cd scripts
-bun install
-
-# Prove your message exists in the Merkle tree
-bun cli sol onchain bridge prove-message
-
-# Execute the proven message
-bun cli sol onchain bridge relay-message
-```
-
-### Create wrapped tokens
-
-Deploy wrapped versions of Solana tokens on Base:
-
-```bash Terminal
-cd base
-
-BRIDGE_ENVIRONMENT=alpha \
-TOKEN_NAME="MyToken" \
-TOKEN_SYMBOL="MTK" \
-REMOTE_TOKEN=0x1234... \
-forge script CreateTokenScript \
---account testnet-admin \
---rpc-url $BASE_RPC \
---broadcast -vvvv
-```
-
-## Solana to Base
-
-Bridge tokens from Solana to Base using the bridge program and CLI tools.
-
-### Prerequisites
-
-- [Solana CLI](https://docs.solana.com/cli/install-solana-cli-tools) installed
-- [Bun](https://bun.sh/docs/installation) for running scripts
-- Funded Solana keypair at `~/.config/solana/id.json`
-- Solana devnet SOL for transaction fees (get from [Solana Faucet](https://faucet.solana.com/))
-
-### How it works
-
+### On Solana
 The Solana bridge program locks or burns your tokens and emits events. Validators relay these messages to Base where they're executed through your personal Twin contract - a smart contract that acts as your execution context on Base.
-
 **Programs:**
 - **Bridge Program** (`HSvNvzehozUpYhRBuCKq3Fq8udpRocTmGMUYXmCSiCCc`): Handles outgoing transfers
 - **Base Relayer Program** (`ExS1gcALmaA983oiVpvFSVohi1zCtAUTgsLj5xiFPPgL`): Coordinates message relay
 - **Twin Contracts**: Your personal smart contract on Base for receiving tokens
 
-### Bridge tokens
+**Key Contracts:**
+- **Base**: Bridge (`0xB2068ECCDb908902C76E3f965c1712a9cF64171E`), Factory (`0x58207331CBF8Af87BB6453b610E6579D9878e4EA`)
+- **Solana**: Bridge (`HSvNvzehozUpYhRBuCKq3Fq8udpRocTmGMUYXmCSiCCc`), Relayer (`ExS1gcALmaA983oiVpvFSVohi1zCtAUTgsLj5xiFPPgL`)
 
-<Tabs>
-  <Tab title="Bridge SOL">
-    Bridge native SOL to wrapped SOL on Base:
+You can access the full repository from the link below:
+<GithubRepoCard title="Base Bridge - Official Repository" githubUrl="https://github.com/base/bridge" />
 
-    ```bash Terminal
-    cd scripts
-    bun install
-    bun cli sol onchain bridge bridge-sol
-    ```
+## Bridging Flows
 
-    The CLI will prompt for:
-    - Amount to bridge
-    - Base recipient address
-    - Confirmation of transaction details
-  </Tab>
-  
-  <Tab title="Bridge SPL Tokens">
-    Bridge SPL tokens to wrapped ERC20 on Base:
+<CardGroup cols={3}>
+  <Card title="Solana to Base" icon="arrow-right" href="#solana-to-base">
+    Automatic relay system for seamless transfers
+  </Card>
 
-    ```bash Terminal
-    bun cli sol onchain bridge bridge-spl
-    ```
+  <Card title="Base to Solana" icon="arrow-left" href="#base-to-solana">
+    Manual proof-based transfers with full control
+  </Card>
 
-    The CLI will:
-    - Show your SPL token balances
-    - Let you select which token to bridge
-    - Prompt for amount and Base recipient
-  </Tab>
-  
-  <Tab title="Bridge Wrapped Tokens">
-    Bridge wrapped Base tokens back to their native form:
+  <Card title="Full Stack Example" icon="code" href="#sol2base-full-stack-example">
+    Complete application with frontend integration
+  </Card>
+</CardGroup>
 
-    ```bash Terminal
-    bun cli sol onchain bridge bridge-wrapped-token
-    ```
+## Solana to Base
 
-    This burns wrapped tokens on Solana and unlocks the original tokens on Base.
-  </Tab>
-</Tabs>
+**Flow:** Lock SOL → Auto-Relay → Mint wSOL on Base
 
-### Create wrapped tokens
+The Solana to Base flow in this example uses automatic relay for seamless transfers. Your SOL is locked in a Solana vault, and the relayer automatically executes the message on Base to mint wrapped SOL.
 
-Create wrapped versions of Base tokens on Solana:
+<GithubRepoCard title="Solana to Base Example" githubUrl="https://github.com/jackchuma/base-bridge-examples/tree/main/solToBaseWithAutoRelay" />
 
-```bash Terminal
-cd scripts
-bun cli sol onchain bridge wrap-token
+```typescript solToBaseWithAutoRelay/index.ts expandable
+// Configure
+const TO = "0x8c1a617bdb47342f9c17ac8750e0b070c372c721"; // Base address
+const AMOUNT = 0.001; // SOL amount
+
+// Bridge SOL with auto-relay
+const ixs = [
+  getBridgeSolInstruction({
+    payer,
+    from: payer,
+    solVault: solVaultAddress,
+    bridge: bridgeAccountAddress,
+    outgoingMessage,
+    to: toBytes(TO),
+    remoteToken: toBytes("0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD"), // wSOL
+    amount: BigInt(AMOUNT * 10**9),
+  }),
+  await buildPayForRelayIx(RELAYER_PROGRAM_ID, outgoingMessage, payer)
+];
+
+await buildAndSendTransaction(SOLANA_RPC_URL, ixs, payer);
 ```
 
-The CLI will prompt for:
-- Base token contract address
-- Token name and symbol
-- Number of decimals
+### Wrap Custom SPL Tokens
 
-### Manage SPL tokens
+The example above shows how to bridge native SOL to Base.
+To bridge custom SPL tokens,
+you need to create wrapped ERC20 representations on Base using the CrossChainERC20Factory.
 
-<Tabs>
-  <Tab title="Create Token Mint">
-    ```bash Terminal
-    bun cli sol onchain spl create-mint
-    ```
-  </Tab>
-  
-  <Tab title="Create Associated Token Account">
-    ```bash Terminal
-    bun cli sol onchain spl create-ata
-    ```
-  </Tab>
-  
-  <Tab title="Mint Tokens">
-    ```bash Terminal
-    bun cli sol onchain spl mint
-    ```
-  </Tab>
-</Tabs>
+<GithubRepoCard title="Token Wrapping Example" githubUrl="https://github.com/jackchuma/base-bridge-examples/tree/main/wrapSolTokenOnBase" />
+
+```typescript wrapSolTokenOnBase/index.ts expandable
+// Deploy wrapped token on Base
+const mintBytes32 = getBase58Codec().encode(SOLANA_SPL_MINT_ADDRESS).toHex();
+
+await client.writeContract({
+  address: "0x58207331CBF8Af87BB6453b610E6579D9878e4EA", // Factory
+  abi: TokenFactory,
+  functionName: "deploy",
+  args: [`0x${mintBytes32}`, "Token Name", "SYMBOL", 9],
+});
+```
+
+## Base to Solana
+
+**Flow:** Burn wSOL → Wait 15min → Generate Proof → Execute on Solana
+
+The Base to Solana flow requires manual proof generation. You burn wrapped SOL on Base, wait for finalization (~15 minutes), then generate a cryptographic proof to execute on Solana and receive native SOL.
+
+<GithubRepoCard title="Base to Solana Example" githubUrl="https://github.com/jackchuma/base-bridge-examples/tree/main/bridgeSolFromBaseToSolana" />
+
+```typescript bridgeSolFromBaseToSolana/index.ts expandable
+// Step 1: Burn wSOL on Base
+const transfer = {
+  localToken: "0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD", // wSOL
+  remoteToken: pubkeyToBytes32(SOL_ADDRESS),
+  to: pubkeyToBytes32(solanaAddress),
+  remoteAmount: BigInt(AMOUNT * 10**9),
+};
+
+const txHash = await client.writeContract({
+  address: "0xB2068ECCDb908902C76E3f965c1712a9cF64171E", // Bridge
+  abi: Bridge,
+  functionName: "bridgeToken",
+  args: [transfer, []],
+});
+
+// Step 2: Wait for finalization
+const isProvable = await isBridgeMessageProvable(txHash);
+
+// Step 3: Generate proof
+const { event, rawProof } = await generateProof(txHash, baseBlockNumber);
+
+// Step 4: Execute on Solana
+const proveIx = getProveMessageInstruction({
+  nonce: event.message.nonce,
+  sender: toBytes(event.message.sender),
+  data: toBytes(event.message.data),
+  proof: rawProof.map(e => toBytes(e)),
+  messageHash: toBytes(event.messageHash),
+});
+
+const relayIx = getRelayMessageInstruction({ message: messagePda });
+await buildAndSendTransaction(SOLANA_RPC_URL, [proveIx, relayIx], payer);
+```
+
+## Sol2Base: Full Stack Example
+
+<GithubRepoCard title="Sol2Base - Full Stack Bridge App" githubUrl="https://github.com/base/sol2base" />
+
+Sol2Base is a production-ready Next.js application that demonstrates how to build a complete frontend for the Base-Solana bridge. It features a "hacker" aesthetic with Matrix-style animations and includes wallet integration, CDP faucet, ENS/Basename resolution, and real-time transaction monitoring.
+
+### Bridge Service Implementation
+
+The core bridge service handles SOL transfers with automatic relay and address resolution:
+
+```typescript src/lib/bridge.ts expandable
+export class SolanaBridge {
+  private connection: Connection;
+
+  constructor() {
+    this.connection = new Connection(SOLANA_DEVNET_CONFIG.rpcUrl, 'confirmed');
+  }
+
+  async createBridgeTransaction(
+    walletAddress: PublicKey,
+    amount: number,
+    destinationAddress: string,
+    signTransaction: (transaction: Transaction) => Promise<Transaction>
+  ): Promise<string> {
+    // Import address resolver and real bridge
+    const { addressResolver } = await import('./addressResolver');
+    const { realBridgeImplementation } = await import('./realBridgeImplementation');
+    
+    // Resolve destination address (handles ENS/basename)
+    const resolvedAddress = await addressResolver.resolveAddress(destinationAddress);
+
+    // Validate amount
+    if (amount < BRIDGE_CONFIG.minBridgeAmount / Math.pow(10, 9)) {
+      throw new Error(`Minimum bridge amount is ${BRIDGE_CONFIG.minBridgeAmount / Math.pow(10, 9)} SOL`);
+    }
+
+    // Create the real bridge transaction
+    const transaction = await realBridgeImplementation.createBridgeTransaction(
+      walletAddress,
+      amount,
+      resolvedAddress
+    );
+
+    // Submit the transaction
+    const signature = await realBridgeImplementation.submitBridgeTransaction(
+      transaction,
+      walletAddress,
+      signTransaction
+    );
+
+    return signature;
+  }
+}
+```
+### Address Resolution Service
+
+Supports ENS names and Basenames for user-friendly addressing:
+
+```typescript src/lib/addressResolver.ts expandable
+export class AddressResolver {
+  async resolveAddress(input: string): Promise<string> {
+    const trimmedInput = input.trim();
+
+    // If it's already a valid Ethereum address, return as-is
+    if (this.isValidEthereumAddress(trimmedInput)) {
+      return trimmedInput;
+    }
+
+    // Handle ENS names (.eth)
+    if (trimmedInput.endsWith('.eth') && !trimmedInput.endsWith('.base.eth')) {
+      return await this.resolveEns(trimmedInput);
+    }
+
+    // Handle basenames (.base.eth or .base)
+    if (trimmedInput.endsWith('.base.eth') || trimmedInput.endsWith('.base')) {
+      return await this.resolveBasename(trimmedInput);
+    }
+
+    throw new Error('Invalid address format');
+  }
+
+  private async resolveEns(ensName: string): Promise<string> {
+    const response = await fetch(`https://api.ensdata.net/${ensName}`);
+    const data = await response.json();
+    
+    if (!data.address) {
+      throw new Error(`ENS name ${ensName} does not resolve to an address`);
+    }
+
+    return data.address;
+  }
+}
+```
+
+### React Bridge Interface
+
+Complete UI component with wallet integration and form validation:
+
+```typescript src/components/BridgeInterface.tsx expandable
+export const BridgeInterface: React.FC = () => {
+  const { publicKey, connected, signTransaction } = useWallet();
+  const [solBalance, setSolBalance] = useState<number>(0);
+  const [transactions, setTransactions] = useState<BridgeTransaction[]>([]);
+
+  // Handle bridge transaction
+  const handleBridge = async (amount: number, destinationAddress: string) => {
+    if (!publicKey || !signTransaction) {
+      setError('Wallet not connected');
+      return;
+    }
+
+    try {
+      const txHash = await solanaBridge.createBridgeTransaction(
+        publicKey, 
+        amount, 
+        destinationAddress,
+        signTransaction
+      );
+
+      // Add to transaction history
+      const newTransaction: BridgeTransaction = {
+        txHash,
+        amount,
+        destinationAddress,
+        status: 'confirmed',
+        timestamp: Date.now(),
+        type: 'bridge'
+      };
+
+      setTransactions(prev => [newTransaction, ...prev]);
+      await loadBalances();
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bridge transaction failed');
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8">
+      <BalanceDisplay solBalance={solBalance} />
+      <FaucetButton onFaucet={handleSolFaucet} />
+      <BridgeForm onBridge={handleBridge} maxAmount={solBalance} />
+      <TransactionStatus transactions={transactions} />
+    </div>
+  );
+};
+```
+
+### Bridge Form with Address Resolution
+
+Smart form component with ENS/Basename support and validation:
+
+```typescript src/components/BridgeForm.tsx expandable
+export const BridgeForm: React.FC<BridgeFormProps> = ({ onBridge, maxAmount }) => {
+  const [amount, setAmount] = useState<string>('');
+  const [destinationAddress, setDestinationAddress] = useState<string>('');
+  const [resolvedAddress, setResolvedAddress] = useState<string>('');
+  const [isResolvingAddress, setIsResolvingAddress] = useState<boolean>(false);
+
+  // Debounced address resolution
+  const resolveAddress = useCallback(async (address: string) => {
+    if (!address.trim()) return;
+
+    setIsResolvingAddress(true);
+    try {
+      const type = addressResolver.getInputType(address);
+      
+      if (type === 'Ethereum Address') {
+        setResolvedAddress(address);
+      } else {
+        const resolved = await addressResolver.resolveAddress(address);
+        setResolvedAddress(resolved);
+      }
+    } catch (error) {
+      setErrors(prev => ({ 
+        ...prev, 
+        address: error instanceof Error ? error.message : 'Failed to resolve address'
+      }));
+    } finally {
+      setIsResolvingAddress(false);
+    }
+  }, []);
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Enter SOL amount"
+      />
+      
+      <input
+        type="text"
+        value={destinationAddress}
+        onChange={(e) => setDestinationAddress(e.target.value)}
+        placeholder="0x..., Basename, or ENS"
+      />
+      
+      {resolvedAddress && resolvedAddress !== destinationAddress && (
+        <div className="resolved-address">
+          ✓ Resolved to: {resolvedAddress}
+        </div>
+      )}
+      
+      <button type="submit" disabled={!amount || !resolvedAddress}>
+        Bridge to Base
+      </button>
+    </form>
+  );
+};
+```
+
+### Setup and Development
+
+```bash Terminal expandable
+# Clone and setup
+git clone https://github.com/base/sol2base.git
+cd sol2base
+npm install --legacy-peer-deps
+
+# Environment setup
+cp env.template .env.local
+# Add Coinbase Developer Platform (CDP) API credentials for faucet (optional)
+
+# Start development server
+npm run dev
+# Open http://localhost:3000
+```
+
+<Tip>
+**Get your Coinbase Developer Platform (CDP) API credentials from the [the portal](https://portal.cdp.coinbase.com/projects/api-keys/client-key).**
+
+The example above uses the Coinbase Developer Platform faucet for SOL.
+To get access to the faucet API, you can follow the instructions [here](https://docs.cdp.coinbase.com/faucets/introduction/welcome).
+</Tip>
 
 ## Contract Addresses
 
 ### Base Sepolia
+
 ```json
 {
   "Bridge": "0xB2068ECCDb908902C76E3f965c1712a9cF64171E",
-  "BridgeValidator": "0x8D2cD165360ACF5f0145661a8FB0Ff5D3729Ef9A",
   "CrossChainERC20Factory": "0x58207331CBF8Af87BB6453b610E6579D9878e4EA",
-  "WrappedSOL": "0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD",
-  "WrappedSPL": "0x955C7356776F9304feD38ed5AeC5699436C7C614"
+  "WrappedSOL": "0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD"
 }
 ```
 
 ### Solana Devnet
+
 ```json
 {
   "BridgeProgram": "HSvNvzehozUpYhRBuCKq3Fq8udpRocTmGMUYXmCSiCCc",
@@ -287,69 +412,96 @@ The CLI will prompt for:
 
 ## Utilities
 
-### Address conversion
-Convert Solana pubkeys to bytes32 format for Base contracts:
+### Address Conversion
 
-```bash Terminal
-cd scripts
-bun cli utils pubkey-to-bytes32 <SOLANA_PUBKEY>
+The repository includes utilities for converting between Solana and Base address formats:
+
+```typescript
+// Convert Solana pubkey to bytes32 for Base contracts
+import { pubkeyToBytes32 } from "./utils/pubkeyToBytes32";
+
+const bytes32Address = pubkeyToBytes32(solanaAddress);
 ```
 
-### Generate Solana keypair
-```bash Terminal
-bun cli sol generate-keypair
+### Keypair Management
+
+Get your Solana CLI keypair for signing transactions:
+
+```typescript
+import { getSolanaCliConfigKeypairSigner } from "./utils/keypair";
+
+const payer = await getSolanaCliConfigKeypairSigner();
 ```
 
-### Check bridge status
-```bash Terminal
-cd base
-make check-root  # Check current Merkle root on Base
+### Transaction Building
+
+Build and send Solana transactions:
+
+```typescript
+import { buildAndSendTransaction } from "./utils/buildAndSendTransaction";
+
+const signature = await buildAndSendTransaction(SOLANA_RPC_URL, ixs, payer);
 ```
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion title="Transaction failed on Base">
-    - Ensure sufficient ETH for gas fees
-    - For ERC20 tokens, approve the bridge contract first
-    - Verify token addresses are correct
+    * Ensure sufficient ETH for gas fees
+    * For ERC20 tokens, approve the bridge contract first using `approve()`
+    * Verify token addresses are correct and match the expected format
+    * Check that your private key is correctly set in the `.env` file
   </Accordion>
-  
+
   <Accordion title="Message not appearing on Solana">
-    - Wait at least 15 minutes for Merkle root update
-    - Check transaction was successful on Base
-    - Verify you're using the correct network (testnet)
+    * Wait at least 15 minutes for Base block finalization
+    * Check that your Base transaction was successful and included a `MessageRegistered` event
+    * Verify you're using the correct network (testnet/devnet)
+    * Ensure the Solana bridge has processed the Base block number
   </Accordion>
-  
+
   <Accordion title="Proof verification failed">
-    - Ensure you're using the latest Merkle root
-    - Verify message hash matches the original transaction
-    - Check validator signatures are valid
+    * Ensure you're using the latest Base block number from the Solana bridge
+    * Verify the message hash matches the original transaction
+    * Check that the proof was generated at the correct block height
+    * Make sure all account addresses are correctly derived
+  </Accordion>
+
+  <Accordion title="Auto-relay not working">
+    * Verify you have sufficient SOL to pay for relay fees
+    * Check that the Base Relayer program is properly configured
+    * Ensure the outgoing message was created successfully
+    * Monitor both Solana and Base explorers for transaction status
   </Accordion>
 </AccordionGroup>
 
 ## Security
 
 <Warning>
-**Important Security Notes:**
-- Bridge is in active development and unaudited
-- Only use testnet funds
-- Validate all addresses before bridging
-- Monitor transactions on both chains
+  **Important Security Notes:**
+
+  * Bridge is in active development and unaudited
+  * Only use testnet funds (Solana devnet SOL and Base Sepolia ETH)
+  * Validate all addresses before bridging
+  * Monitor transactions on both chains
+  * Keep your private keys secure and never share them
 </Warning>
 
 ## Resources
 
 <CardGroup cols={2}>
-  <Card title="GitHub Repository" icon="github" href="https://github.com/base/bridge">
-    View source code and contribute
+  <Card title="GitHub Repository" icon="github" href="https://github.com/jackchuma/base-bridge-examples">
+    View source code and examples
   </Card>
-  <Card title="Foundry Documentation" icon="book" href="https://getfoundry.sh/">
-    Official Foundry documentation
+
+  <Card title="Solana Explorer" icon="search" href="https://explorer.solana.com/?cluster=devnet">
+    Monitor Solana devnet transactions
   </Card>
-  <Card title="Anchor Documentation" icon="book" href="https://book.anchor-lang.com/">
-    Official Solana Anchor documentation  
+
+  <Card title="Base Sepolia Explorer" icon="search" href="https://sepolia.basescan.org/">
+    Monitor Base Sepolia transactions
   </Card>
+
   <Card title="Discord Support" icon="discord" href="https://base.org/discord">
     Get help from the community
   </Card>
