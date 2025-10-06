@@ -23,17 +23,23 @@ This guide covers the bridge architecture and provides practical examples for im
 ### On Base
 The Base bridge contract locks or burns your tokens and emits a message. Validators collect these messages into Merkle trees and post roots to Solana every ~15 minutes. You then prove your message exists in the tree to complete the transfer on Solana.
 
-**Smart contracts:**
-- **Bridge Contract** (`0xB2068ECCDb908902C76E3f965c1712a9cF64171E`): Handles outgoing transfers
-- **CrossChainERC20**: Mintable/burnable tokens for cross-chain transfers
-- **BridgeValidator**: Validates messages with oracle signatures
+**Key Smart contracts:**
+- [**Bridge Contract**](https://github.com/base/bridge/blob/main/base/src/Bridge.sol): Handles outgoing transfers
+- [**CrossChainERC20**](https://github.com/base/bridge/blob/main/base/src/CrossChainERC20.sol): Mintable/burnable tokens for cross-chain transfers
+- [**BridgeValidator**](https://github.com/base/bridge/blob/main/base/src/BridgeValidator.sol): Validates messages with oracle signatures
+- [**Twin Contract**](https://github.com/base/bridge/blob/main/base/src/Twin.sol): Your personal smart contract on Base for executing calls from Solana
+
+<Tip>
+**What is the Twin Contract?**
+The Twin Contract is a smart contract that acts as your execution context on Base.
+It represents the `msg.sender` on Base when you send an arbitrary contract call from Solana.
+</Tip>
 
 ### On Solana
 The Solana bridge program locks or burns your tokens and emits events. Validators relay these messages to Base where they're executed through your personal Twin contract - a smart contract that acts as your execution context on Base.
-**Programs:**
-- **Bridge Program** (`HSvNvzehozUpYhRBuCKq3Fq8udpRocTmGMUYXmCSiCCc`): Handles outgoing transfers
-- **Base Relayer Program** (`ExS1gcALmaA983oiVpvFSVohi1zCtAUTgsLj5xiFPPgL`): Coordinates message relay
-- **Twin Contracts**: Your personal smart contract on Base for receiving tokens
+**Key Programs:**
+- [**Bridge Program**](https://github.com/base/bridge/blob/main/solana/programs/bridge): Handles outgoing transfers
+- [**Base Relayer Program**](https://github.com/base/bridge/blob/main/solana/programs/base_relayer): Coordinates message relay
 
 You can access the full repository from the link below:
 <GithubRepoCard title="Base Bridge - Official Repository" githubUrl="https://github.com/base/bridge" />
@@ -146,6 +152,44 @@ const proveIx = getProveMessageInstruction({
 
 const relayIx = getRelayMessageInstruction({ message: messagePda });
 await buildAndSendTransaction(SOLANA_RPC_URL, [proveIx, relayIx], payer);
+```
+
+## Utilities
+
+The repository includes utilities for converting between Solana and Base address formats,
+getting your Solana CLI keypair for signing transactions,
+and building and sending Solana transactions.
+
+<GithubRepoCard title="Base Bridge Examples - Utilities" githubUrl="https://github.com/jackchuma/base-bridge-examples/tree/main/bridgeSolFromBaseToSolana/utils" />
+
+### Address Conversion
+
+Convert Solana pubkey to bytes32 for Base contracts:
+```typescript example.ts
+// Convert Solana pubkey to bytes32 for Base contracts
+import { pubkeyToBytes32 } from "./utils/pubkeyToBytes32";
+
+const bytes32Address = pubkeyToBytes32(solanaAddress);
+```
+
+### Keypair Management
+
+Get your Solana CLI keypair for signing transactions:
+
+```typescript example.ts
+import { getSolanaCliConfigKeypairSigner } from "./utils/keypair";
+
+const payer = await getSolanaCliConfigKeypairSigner();
+```
+
+### Transaction Building
+
+Build and send Solana transactions:
+
+```typescript example.ts
+import { buildAndSendTransaction } from "./utils/buildAndSendTransaction";
+
+const signature = await buildAndSendTransaction(SOLANA_RPC_URL, ixs, payer);
 ```
 
 ## Sol2Base: Full Stack Example
@@ -404,39 +448,6 @@ To get access to the faucet API, you can follow the instructions [here](https://
   "BridgeProgram": "HSvNvzehozUpYhRBuCKq3Fq8udpRocTmGMUYXmCSiCCc",
   "BaseRelayerProgram": "ExS1gcALmaA983oiVpvFSVohi1zCtAUTgsLj5xiFPPgL"
 }
-```
-
-## Utilities
-
-### Address Conversion
-
-The repository includes utilities for converting between Solana and Base address formats:
-
-```typescript
-// Convert Solana pubkey to bytes32 for Base contracts
-import { pubkeyToBytes32 } from "./utils/pubkeyToBytes32";
-
-const bytes32Address = pubkeyToBytes32(solanaAddress);
-```
-
-### Keypair Management
-
-Get your Solana CLI keypair for signing transactions:
-
-```typescript
-import { getSolanaCliConfigKeypairSigner } from "./utils/keypair";
-
-const payer = await getSolanaCliConfigKeypairSigner();
-```
-
-### Transaction Building
-
-Build and send Solana transactions:
-
-```typescript
-import { buildAndSendTransaction } from "./utils/buildAndSendTransaction";
-
-const signature = await buildAndSendTransaction(SOLANA_RPC_URL, ixs, payer);
 ```
 
 ## Troubleshooting
