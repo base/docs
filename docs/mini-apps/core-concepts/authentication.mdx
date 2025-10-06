@@ -1,79 +1,172 @@
 ---
 title: Authentication
-description: Let users start fast and ask for a wallet only when needed
+description: Authentication in mini apps is handled through Quick Auth, which provides a secure way to verify user identity using their Farcaster account.
 ---
 
-## Authentication guidance from Base App
+## Implementation
 
-<Warning>
-Save authentication that requires an interaction for interactions that require it (e.g., buying something, viewing personalized pages).
-</Warning>
+### Step 1: Frontend Authentication
 
-Supported approaches:
+ ```jsx frontend
+import { useState } from "react";
+import { sdk } from "@farcaster/frame-sdk";
 
-<Tabs>
-<Tab title="Sign In with Farcaster / Quick Auth">
-Base App natively supports SIWF in-app, enabling social identity without leaving the app. Quick Auth can issue a JWT to persist session state.
+export function App() {
+  const [token, setToken] = useState<string | null>(null);
+  const [userData, setUserData] = useState<{ fid: number; address: string } | null>(null);
 
-**User Experience in Base App:**
-- **Create Account Users** (new Farcaster accounts created during Base App onboarding): Users see a "Login request" tray with the SIWF message and can sign it directly with their passkey
-- **Connect Account Users** (existing Farcaster accounts connected during onboarding): Users are prompted to deeplink to Farcaster one-time only to register their wallet as an auth address, then enjoy seamless in-app sign-in thereafter
-</Tab>
+  async function signIn() {
+    try {
+      const { token } = await sdk.experimental.quickAuth();
+      setToken(token);
+      
+      // Use the token to fetch user data
+      const response = await fetch('/api/me', {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      setUserData(data);
+    } catch (error) {
+      console.error("Authentication failed:", error);
+    }
+  }
 
-<Tab title="Wallet Auth">
-Base App provides an in‑app smart wallet that doesn't require app switching. Use wallet auth for a persisted session when necessary, but avoid gating initial exploration behind connect.
-</Tab>
+  function signOut() {
+    setToken(null);
+    setUserData(null);
+  }
 
-<Tab title="Context Data">
-All hosts return context data (including user). Use it for analytics or lightweight session hints, but **do not treat as primary auth** since context data can be spoofed by developers who create their own mini app hosts.
-</Tab>
-</Tabs>
+  if (!token) {
+    return <button onClick={signIn}>Sign In</button>;
+  }
 
-
-## Implementation Example
-
-```tsx App.tsx
-import { useMiniKit, useAuthenticate } from '@coinbase/onchainkit/minikit';
-
-function MyComponent() {
-  const { context } = useMiniKit();
-  const { user } = useAuthenticate();
-
-  // ✅ Safe: Use context for analytics only
-  const userFid = context.user.fid; // For analytics tracking
-  
-  // ✅ Safe: Use cryptographic verification for auth
-  const verifiedUser = user; // From SIWF or wallet auth
-  
-  // ❌ Unsafe: Don't rely on context for primary auth
-  // const isAuthenticated = !!context.user.fid; // Can be spoofed!
-  
   return (
     <div>
-      {/* Use verified user data for secure operations */}
+      <p>Authenticated as FID: {userData?.fid}</p>
+      <button onClick={signOut}>Sign Out</button>
     </div>
   );
 }
 ```
 
-<Info>
-For a complete example of using Quick Auth with MiniKit, see [here](https://github.com/coinbase/onchainkit/blob/main/examples/minikit-example/app/components/UserInfo.tsx).
-</Info>
+Use the token in API requests:
 
-## Best practices
 
-- Gate wallet only at the point of onchain action
-- Prefer SIWF/Quick Auth for low‑friction identity
-- Use context for analytics; avoid using it as primary auth
-- Handle Base App's different authentication flows gracefully
-- Always use cryptographic verification for security-critical operations
+```jsx
+const response = await fetch('/api/me', {
+  headers: { "Authorization": `Bearer ${token}` }
+});
+```
 
-Further reading:
+
+### Step 2: Backend Verification
+
+Install the Quick Auth client:
+
+
+```bash
+npm install @farcaster/quick-auth
+```
+
+
+Create an API route to verify JWTs:
+
+
+```jsx route.ts
+// app/api/me/route.ts
+import { createClient, Errors } from '@farcaster/quick-auth';
+import { NextRequest, NextResponse } from 'next/server';
+
+const domain = 'your-domain.com'; // Must match your mini app's deployment domain
+const client = createClient();
+
+// This endpoint returns the authenticated user's FID and address
+// Use this pattern for all authenticated endpoints in your app
+export async function GET(request: NextRequest) {
+  const authorization = request.headers.get('Authorization');
+  if (!authorization?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const token = authorization.split(' ')[1];
+
+  try {
+    const payload = await client.verifyJwt({ token, domain });
+    
+    return NextResponse.json({
+      fid: payload.sub,
+      address: payload.address
+    });
+  } catch (e) {
+    if (e instanceof Errors.InvalidTokenError) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    throw e;
+  }
+}
+```
+
+
+The `verifyJwt method verifies the JWT signature locally using the public key from the Quick Auth Server. No additional network calls are made.
+
+## Schema
+
+### JWT Payload
+
+
+```json
+{
+  "sub": 6841,
+  "address": "0xf9D3D372D0097BF26cbf2444B34F5B9522AfaA4b",
+  "iss": "https://auth.farcaster.xyz",
+  "aud": "your-domain.com",
+  "iat": 1747764819,
+  "exp": 1747768419
+}
+```
+Payload fields:
+
+<Card>
+<ParamField path="sub" type="number" required>
+User's Farcaster ID (FID)
+</ParamField>
+
+<ParamField path="address" type="string" required>
+Ethereum address used to sign in
+</ParamField>
+
+<ParamField path="iss" type="string" required>
+Quick Auth Server that issued the JWT
+</ParamField>
+
+<ParamField path="aud" type="string" required>
+Your mini app's domain
+</ParamField>
+
+<ParamField path="iat" type="number" required>
+Issued at timestamp
+</ParamField>
+
+<ParamField path="exp" type="number" required>
+Expiration timestamp (1 hour from issuance)
+</ParamField>
+</Card>
+
+### Self-Hosting
+
+Specify a custom Quick Auth Server:
+
+```tsx
+const { token } = await sdk.experimental.quickAuth({
+  quickAuthServerOrigin: 'https://auth.example.com'
+});
+```
+
+The default server (https://auth.farcaster.xyz) is deployed globally on the edge for optimal performance.
 
 <CardGroup cols={2}>
   <Card title="useAuthenticate" icon="book-open" href="/mini-apps/technical-reference/minikit/hooks/useAuthenticate" />
   <Card title="Provider & Initialization" icon="cog" href="/mini-apps/technical-reference/minikit/provider-and-initialization" />
 </CardGroup>
-
-
 
