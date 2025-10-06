@@ -71,7 +71,7 @@ export const Authentication = () => {
       });
 
       // Connect and authenticate with SIWE
-      const response = await provider.request({
+      const response = (await provider.request({
         method: "wallet_connect",
         params: [{
           version: "1",
@@ -82,7 +82,14 @@ export const Authentication = () => {
             },
           },
         }],
-      });
+      })) as {
+        accounts: {
+          address: string;
+          capabilities: {
+            signInWithEthereum: { signature: string; message: string };
+          };
+        }[];
+      };
 
       const { address } = response.accounts[0];
       const { message, signature } = response.accounts[0].capabilities.signInWithEthereum;
@@ -112,6 +119,65 @@ export const Authentication = () => {
     </div>
   );
 };
+
+export default Authentication;
+```
+</CodeGroup>
+
+### Using the Authentication Component
+
+Add the Authentication component to your page to enable Sign In with Base functionality:
+
+<CodeGroup>
+```tsx Page Implementation (app/page.tsx)
+import Authentication from "@/components/sections/authentication";
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm">
+        <h1 className="text-4xl font-bold text-center mb-8">
+          Base Account with Privy
+        </h1>
+        
+        <div className="flex flex-col items-center space-y-4">
+          <Authentication />
+        </div>
+      </div>
+    </main>
+  );
+}
+```
+
+```tsx Alternative: Protected Page (app/dashboard/page.tsx)
+"use client";
+
+import { usePrivy } from "@privy-io/react-auth";
+import Authentication from "@/components/sections/authentication";
+
+export default function Dashboard() {
+  const { authenticated } = usePrivy();
+
+  if (!authenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Required</h1>
+          <p className="mb-6">Please authenticate to access the dashboard.</p>
+          <Authentication />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen p-8">
+      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <p>Welcome to your authenticated dashboard!</p>
+      {/* Your protected content here */}
+    </div>
+  );
+}
 ```
 </CodeGroup>
 
