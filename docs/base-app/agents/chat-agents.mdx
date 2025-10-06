@@ -24,6 +24,7 @@ Real Examples:
 
 • Base App & XMTP are combining AI, crypto, and mini apps with secure messaging – to unlock use-cases never before possible. Secure group chats & DMs are the new surface area for developers.
 
+
 ## Getting started
 
 This guide will walk you through creating, testing, and deploying your first XMTP messaging agent. By the end, you'll have a fully functional agent that can send and receive messages on the XMTP messaging network.
@@ -38,8 +39,8 @@ This guide will walk you through creating, testing, and deploying your first XMT
 
 - [Getting Started with XMTP (Video)](https://www.youtube.com/watch?v=djRLnWUvwIA)
 - [Building Agents on XMTP](https://github.com/ephemeraHQ/xmtp-agent-examples)
-- [Cursor Rules](https://github.com/ephemeraHQ/xmtp-agent-examples/blob/main/.cursor/rules/xmtp.md)
-- [XMTP Documentation](https://docs.xmtp.org/)
+- [Cursor Rules](https://github.com/ephemeraHQ/xmtp-agent-examples/blob/main/.cursor/rules/xmtp.mdc)
+- [XMTP Documentation](https://docs.xmtp.org/agents)
 - [Faucets](https://portal.cdp.coinbase.com/products/faucet)
 
 **STEP 1: SET UP YOUR DEVELOPMENT ENVIRONMENT**
@@ -70,8 +71,8 @@ npm run gen:keys
 This creates a .env file with:
 
 ```bash
-WALLET_KEY=0x... # Your agent's private key
-ENCRYPTION_KEY=... # Encryption key for local database
+XMTP_WALLET_KEY=0x... # Your agent's private key
+XMTP_DB_ENCRYPTION_KEY=... # Encryption key for local database
 XMTP_ENV=dev # Environment (local, dev, production)
 ```
 
@@ -80,29 +81,24 @@ XMTP_ENV=dev # Environment (local, dev, production)
 Create a basic agent that responds to messages:
 
 ```javascript
-// import the xmtp sdk
-import { Client, type XmtpEnv, type Signer } from "@xmtp/node-sdk";
+import { Agent, getTestUrl } from "@xmtp/agent-sdk";
 
-// encryption key, must be consistent across runs
-const encryptionKey: Uint8Array = ...;
-const signer: Signer = ...;
-const env: XmtpEnv = "dev";
+// 2. Spin up the agent
+const agent = await Agent.createFromEnv({
+  env: "dev", // or 'production' for base app
+});
 
-// create the client
-const client = await Client.create(signer, {encryptionKey, env });
-// sync the client to get the latest messages
-await client.conversations.sync();
+// 3. Respond to text messages
+agent.on("text", async (ctx) => {
+  await ctx.sendText("Hello from my XMTP Agent! 👋");
+});
 
-// listen to all messages
-const stream = await client.conversations.streamAllMessages();
-for await (const message of  stream) {
-  // ignore messages from the agent
-  if (message?.senderInboxId === client.inboxId ) continue;
-  // get the conversation by id
-  const conversation = await client.conversations.getConversationById(message.conversationId);
-  // send a message from the agent
-  await conversation.send("gm");
-}
+// 4. Log when we're ready
+agent.on("start", () => {
+  console.log(`We are online: ${getTestUrl(agent)}`);
+});
+
+await agent.start();
 ```
 
 Then run your agent:
@@ -116,20 +112,26 @@ npm run dev
 Each user has a unique inboxId for retrieving their associated addresses (identifiers). One inboxId can have multiple identifiers like passkeys or EVM wallet addresses.
 
 ```tsx
-const inboxState = await client.preferences.inboxStateFromInboxIds([
-  message.senderInboxId,
-]);
-const addressFromInboxId = inboxState[0].identifiers[0].identifier;
+agent.on("text", async (ctx) => {
+  const message = ctx.message.content;
+  const senderAddress = ctx.getSenderAddress();
+});
 ```
 
 You can also explore example implementations in the `/examples` folder, including:
 
-- [xmtp-gm](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gm): A simple agent that replies to all text messages with "gm".
-- [xmtp-gpt](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gpt): An example using GPT API's to answer messages.
-- [xmtp-nft-gated-group](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-nft-gated-group): Add members to a group based on an NFT
-- [xmtp-coinbase-agentkit](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-coinbase-agentkit): Agent that uses a CDP for gassless USDC on base
-- [xmtp-transactions](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-transactions): Use XMTP content types to send transactions
+- [xmtp-gm](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gm): A simple agent that replies to all text messages with "gm"
+- [xmtp-gpt](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gpt): An example using GPT API's to answer messages
+- [xmtp-gated-group](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gated-group): Add members to a group based on arbitrary criteria
+- [xmtp-coinbase-agentkit](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-coinbase-agentkit): Agent that uses a CDP for gasless USDC on base
+- [xmtp-transactions](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-transactions): Allow transactions between users and agents
+- [xmtp-gaia](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gaia): Agent that uses a CDP for gasless USDC on base
 - [xmtp-smart-wallet](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-smart-wallet): Agent that uses a smart wallet to send messages
+- [xmtp-attachments](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-attachments): Agent that sends and receives images
+- [xmtp-inline-actions](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-inline-actions): An example using inline actions (dynamic buttons)
+- [xmtp-thinking-reaction](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-thinking-reaction): Agent that reacts to messages with a thinking emoji
+- [xmtp-queue-dual-client](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-queue-dual-client): Agent that uses two clients to send and receive messages
+- [xmtp-welcome-message](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-welcome-message): Agent that sends a welcome message when its added and to new members
 
 **STEP 5: TEST YOUR AGENT**
 
@@ -153,7 +155,7 @@ npm run dev
 1. Update environment:
 
 ```javascript
-XMTP_ENV = production;
+XMTP_ENV = production; // for base app
 ```
 
 2. Test on Base App:  
@@ -188,8 +190,8 @@ Give your agent a human-readable name:
 • Connect your GitHub repository  
 • Add environment variables in Railway dashboard:  
  \- XMTP_ENV=production  
- \- WALLET_KEY=your_agent_private_key  
- \- ENCRYPTION_KEY=your_agent_encryption_key
+ \- XMTP_WALLET_KEY=your_agent_private_key  
+ \- XMTP_DB_ENCRYPTION_KEY=your_agent_encryption_key
 • Deploy and monitor logs
 
 **Option 2: Other Platforms**  
@@ -206,32 +208,6 @@ Heroku, Vercel, or any Node.js hosting platform:
 2. Error Handling: Implement try-catch blocks for network issues
 3. Rate Limiting: Respect XMTP rate limits in your agent logic
 4. Security: Never expose private keys; use environment variables
-
-**Monitoring**
-
-Add to your agent for basic monitoring:
-
-```javascript
-const inboxState = await client.preferences.inboxState();
-const address = inboxState.identifiers[0].identifier;
-const inboxId = client.inboxId;
-const installationId = client.installationId;
-const conversations = await client.conversations.list();
-
-console.log(`
-✓ XMTP Client:
-• InboxId: ${inboxId}
-• Address: ${address}
-• Conversations: ${conversations.length}
-• Installations: ${inboxState.installations.length}
-• InstallationId: ${installationId}
-• Network: ${process.env.XMTP_ENV}`);
-
-* console.log(\`Agent started. Address: ${xmtp.address}\`)
-* console.log(\`Environment: ${process.env.XMTP\_ENV}\`)
-* console.log(\`Listening for messages...\`)
-
-```
 
 ## Content types
 
