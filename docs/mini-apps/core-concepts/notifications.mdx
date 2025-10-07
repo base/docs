@@ -35,13 +35,64 @@ description: Regularly re-engage users by sending push notifications through the
     ```
   </Step>
   <Step title="Prompt users to add your Mini App">
-    Use the `useMiniApp()` hook to prompt users to add your Mini App
+    Use the `addMiniApp()` hook to prompt users to add your Mini App
   </Step>
   <Step title="Save notification details">
     Save the `token` and `url` from the webhook event to a database for later use
   </Step>
   <Step title="Send notifications">
     Send notifications by sending a `POST` request to the `url` associated with the user's `token`
+
+    ```ts sendNotification.ts
+    export async function sendFrameNotification({
+      fid,
+      title,
+      body,
+    }: {
+      fid: number;
+      title: string;
+      body: string;
+    }): Promise<SendFrameNotificationResult> {
+      const notificationDetails = await getUserNotificationDetails(fid);
+      if (!notificationDetails) {
+        return { state: "no_token" };
+      }
+
+      const response = await fetch(notificationDetails.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          notificationId: crypto.randomUUID(),
+          title,
+          body,
+          targetUrl: appUrl,
+          tokens: [notificationDetails.token],
+        } satisfies SendNotificationRequest),
+      });
+
+      const responseJson = await response.json();
+
+      if (response.status === 200) {
+        const responseBody = sendNotificationResponseSchema.safeParse(responseJson);
+        if (responseBody.success === false) {
+          // Malformed response
+          return { state: "error", error: responseBody.error.errors };
+        }
+
+        if (responseBody.data.result.rateLimitedTokens.length) {
+          // Rate limited
+          return { state: "rate_limit" };
+        }
+
+        return { state: "success" };
+      } else {
+        // Error response
+        return { state: "error", error: responseJson };
+      }
+    }
+    ```
   </Step>
 </Steps>
 
@@ -102,7 +153,7 @@ export async function POST(request: NextRequest) {
 ```
 </Panel>
 
-###  Notification Schema
+## Schema
 
 #### Send Notification Request Schema 
 | Property       | Type     | Required | Description                                                                                                                                                                  | Constraints                                                                  |
