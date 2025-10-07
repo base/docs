@@ -25,7 +25,7 @@ export function App() {
       setToken(token);
       
       // Use the token to fetch user data
-      const response = await fetch('/api/me', {
+      const response = await sdk.quickAuth.fetch(`${BACKEND_ORIGIN}/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       
@@ -109,12 +109,11 @@ export async function GET(request: NextRequest) {
 
 ```json
 {
-  "sub": 6841,
-  "address": "0xf9D3D372D0097BF26cbf2444B34F5B9522AfaA4b",
-  "iss": "https://auth.farcaster.xyz",
-  "aud": "your-domain.com",
   "iat": 1747764819,
-  "exp": 1747768419
+  "iss": "https://auth.farcaster.xyz",
+  "exp": 1747768419,
+  "sub": 6841,
+  "aud": "your-domain.com" 
 }
 ```
 Payload fields:
@@ -141,18 +140,6 @@ Your mini app's domain
 </ParamField>
 </Card>
 
-
-### Self-Hosting
-
-Specify a custom Quick Auth Server:
-
-```tsx
-const { token } = await sdk.actions.quickAuth({
-  quickAuthServerOrigin: 'https://auth.example.com'
-});
-```
-
-The default server (https://auth.farcaster.xyz) is deployed globally on the edge for optimal performance.
 
 <CardGroup cols={2}>
 <Card title="useAuthenticate" href="/mini-apps/technical-reference/minikit/hooks/useAuthenticate">
