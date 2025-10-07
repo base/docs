@@ -4,17 +4,15 @@ description: "Improve user experience by instantly displaying user profile data 
 sidebarTitle: "Context"
 ---
 
-When your app is opened it can access information about the session from `sdk.context`. 
+When your app is opened as a mini app, `sdk.context` provides 4 data objects:
 
-`sdk.context` provides 4 data objects:
-
-- `user`: User's profile data
+- `user`: User profile data
 - `location`: Where the mini app was opened
-- `client`: Host platform and device data
+- `client`: Host platform (e.g. the Base app or another Farcaster client) and device data
 - `features`: Availability and state of features in the current client
 
 <Panel>
-Context Types
+
 ```ts  MiniAppContextTypes.ts
 export type MiniAppPlatformType = 'web' | 'mobile';
  
@@ -43,11 +41,9 @@ export type MiniAppContext = {
 
 ## Implementation
 
-1. Install and Import `@farcaster/miniapp-sdk`
+1. Install and import `@farcaster/miniapp-sdk`
 2. Check if opened as a mini app using `sdk.isInMiniApp();`
 3. If in a mini app, load the context object using `sdk.context`
-
-<Tip>Context is only rendered in Farcaster clients like the Base app and Farcaster. We highly encourage you to use `isInMiniApp()` hooks to handle different states.</Tip>
 
 
 In the example below we detect if the app was opened as a mini app, and if so, we return the user's username, fid, display name, and profile image.
@@ -116,9 +112,8 @@ export default function Profile() {
 
 ## Schema
 
-The `sdk.context` object contains four main components that provide information about the app session:
 
-## User Object
+### User Object
 
 Contains the user's profile information. This data shouldn't be used for authentication or sensitive actions because its passed by the application.
 
@@ -171,69 +166,17 @@ Human-readable location description.
   }
 }
 ```
-## Location Object
+### Location Object
 
 Contains information about the context from which the Mini App was launched. This helps you understand how users discovered and accessed your app.
 
-#### MiniAppUser
-
-<Card>
-<ParamField path="fid" type="number" required>
-Unique Farcaster identifier for the user.
-</ParamField>
-
-<ParamField path="username" type="string">
-User's handle without @ symbol.
-</ParamField>
-
-<ParamField path="displayName" type="string">
-User's chosen display name.
-</ParamField>
-
-<ParamField path="pfpUrl" type="string">
-Profile picture URL.
-</ParamField>
-</Card>
-
-#### MiniAppCast
-
-<Card>
-<ParamField path="author" type="MiniAppUser" required>
-Information about the cast author.
-</ParamField>
-
-<ParamField path="hash" type="string" required>
-Cast hash identifier.
-</ParamField>
-
-<ParamField path="parentHash" type="string">
-If this is a reply, the hash of the parent cast.
-</ParamField>
-
-<ParamField path="parentFid" type="number">
-If this is a reply, the FID of the parent cast author.
-</ParamField>
-
-<ParamField path="timestamp" type="number">
-Unix timestamp in milliseconds when the cast was created.
-</ParamField>
-
-<ParamField path="mentions" type="MiniAppUser[]">
-Array of users mentioned in the cast.
-</ParamField>
-
-<ParamField path="text" type="string" required>
-Cast text content.
-</ParamField>
-
-<ParamField path="embeds" type="string[]">
-Array of embed URLs in the cast.
-</ParamField>
-
-<ParamField path="channelKey" type="string">
-Channel where the cast was posted.
-</ParamField>
-</Card>
+**Location Types:**
+- **`cast_embed`**: Launched from a cast where your app is embedded
+- **`cast_share`**: Launched when a user shared a cast to your app
+- **`notification`**: Launched from a notification triggered by your app
+- **`launcher`**: Launched directly from the client app catalog
+- **`channel`**: Launched from within a specific Farcaster channel
+- **`open_miniapp`**: Launched from another Mini App
 
 #### CastEmbedLocationContext
 
@@ -362,49 +305,10 @@ The domain of the Mini App that opened the current app.
 </ParamField>
 </Card>
 
-**Location Types:**
-- **`cast_embed`**: Launched from a cast where your app is embedded
-- **`cast_share`**: Launched when a user shared a cast to your app
-- **`notification`**: Launched from a notification triggered by your app
-- **`launcher`**: Launched directly from the client app catalog
-- **`channel`**: Launched from within a specific Farcaster channel
-- **`open_miniapp`**: Launched from another Mini App
-
-## Client Object
+### Client Object
 
 Contains details about the Farcaster client running your Mini App. This data should be considered untrusted.
 
-#### SafeAreaInsets
-
-<Card>
-<ParamField path="top" type="number" required>
-Top safe area inset in pixels.
-</ParamField>
-
-<ParamField path="bottom" type="number" required>
-Bottom safe area inset in pixels.
-</ParamField>
-
-<ParamField path="left" type="number" required>
-Left safe area inset in pixels.
-</ParamField>
-
-<ParamField path="right" type="number" required>
-Right safe area inset in pixels.
-</ParamField>
-</Card>
-
-#### MiniAppNotificationDetails
-
-<Card>
-<ParamField path="url" type="string" required>
-Endpoint for sending notifications.
-</ParamField>
-
-<ParamField path="token" type="string" required>
-Authentication token for notifications.
-</ParamField>
-</Card>
 
 #### ClientContext
 
@@ -421,12 +325,34 @@ Self-reported FID of the client (e.g., 9152 for Farcaster).
 Whether the user has added your Mini App to their client.
 </ParamField>
 
-<ParamField path="safeAreaInsets" type="SafeAreaInsets">
+<ParamField path="safeAreaInsets" type="object">
 Screen insets to avoid navigation elements that obscure the view.
+<Expandable title="properties">
+<ParamField path="top" type="number" required>
+Top safe area inset in pixels.
+</ParamField>
+<ParamField path="bottom" type="number" required>
+Bottom safe area inset in pixels.
+</ParamField>
+<ParamField path="left" type="number" required>
+Left safe area inset in pixels.
+</ParamField>
+<ParamField path="right" type="number" required>
+Right safe area inset in pixels.
+</ParamField>
+</Expandable>
 </ParamField>
 
-<ParamField path="notificationDetails" type="MiniAppNotificationDetails">
+<ParamField path="notificationDetails" type="object">
 Notification configuration if enabled.
+<Expandable title="properties">
+<ParamField path="url" type="string" required>
+Endpoint for sending notifications.
+</ParamField>
+<ParamField path="token" type="string" required>
+Authentication token for notifications.
+</ParamField>
+</Expandable>
 </ParamField>
 </Card>
 
@@ -448,11 +374,10 @@ Notification configuration if enabled.
 }
 ```
 
-## Features Object
+
+### Features Object
 
 Indicates which platform features are available and their current state in the client.
-
-#### ClientFeatures
 
 <Card>
 <ParamField path="haptics" type="boolean" required>
