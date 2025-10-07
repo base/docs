@@ -3,255 +3,153 @@ title: Notifications
 description: Send push notifications to users who saved your Mini App
 ---
 
-Base app enables developers to send notifications to users who have added the mini app and enabled notifications.
+
+## Implementation
+
+1. Create a webhook server to handle webhook events. This can be done at `app/api/webhook/route.ts`
+2. Add the Webhook URL to your manifest file
+3. Use the `useMiniApp()` hook to prompt users to add your Mini App
+4. Save the `token` and `url` from the webhook event to a database for later use
+5. Send notifications by sending a `POST` request to the `url` associated with the user's `token`
 
 
-## Overview
+<Panel>
+```ts app/api/webhook/route.ts
+export async function POST(request: NextRequest) {
+  const requestJson = await request.json();
 
-[**Neynar**](https://neynar.com/) is the easiest infrastructure platform for building Farcaster mini apps on Base and provides a simple way to:
+  // Parse and verify the webhook event
+  let data;
+  try {
+    data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
+  } catch (e: unknown) {
+    // Handle verification errors (invalid data, invalid app key, etc.)
+    // Return appropriate error responses with status codes 400, 401, or 500
+  }
 
-- manage approved notification tokens, no need to store on developer side  
-- send notifications in a single API call, no need to batch  
-- automate handling of notification permission revokes, and mini app "remove" events  
-- target notifications to specific user cohorts  
-- send notifications using the dev portal without having to write code  
-- track notification analytics including open rates
+  const fid = data.fid;
+  const event = data.event;
 
-Mini app analytics will automatically populate in the Dev Portal dashboard once you use Neynar for notifications.
-
-## Set up Notifications
-
-<Steps>
-  <Step title="Set up Neynar Developer Account">
-    If you don't have a Neynar developer account yet, sign up for free [here](https://neynar.com).
-
-    This tutorial uses these two APIs:
-    - [Send notifications](https://docs.neynar.com/reference/publish-frame-notifications)
-    - [List of frame notification tokens](https://docs.neynar.com/reference/fetch-notification-tokens)
-  </Step>
-
-  <Step title="Locate the Neynar Frame Events Webhook URL">
-    The Neynar mini app events webhook URL is on the Neynar app page. Navigate to [dev.neynar.com/app](https://dev.neynar.com/app) and then click on the app.
-
-    It should be in this format: `https://api.neynar.com/f/app/<your_client_id>/event`
-
-    See the highlighted URL in the image below.
-
-        **NEED IMAGE**
-
-  </Step>
-
-  <Step title="Set the Webhook URL in Your Mini App Manifest">
-    Frame servers must provide a JSON manifest file on their domain at the well-known URI, for example `https://your-frame-domain.com/.well-known/farcaster.json`.
-
-    Set the Neynar frame events URL as the `webhookUrl` in the Frame Config object inside the manifest. Here's an example manifest:
-
-    ```json
-    {
-      "accountAssociation": {
-        "header": "eyJmaWQiOjE5MSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDNhNmRkNTY5ZEU4NEM5MTgyOEZjNDJEQ0UyMGY1QjgyN0UwRUY1QzUifQ",
-        "payload": "eyJkb21haW4iOiIxYmNlLTczLTcwLTE2OC0yMDUubmdyb2stZnJlZS5hcHAifQ",
-        "signature": "MHg1ZDU1MzFiZWQwNGZjYTc5NjllNDIzNmY1OTY0ZGU1NDMwNjE1YTdkOTE3OWNhZjE1YjQ5M2MxYWQyNWUzMTIyM2NkMmViNWQyMjFhZjkxYTYzM2NkNWU3NDczNmQzYmE4NjI4MmFiMTU4Y2JhNGY0ZWRkOTQ3ODlkNmM2OTJlNDFi"
-      },
-      "frame": {
-        "version": "4.2.0",
-        "name": "Your Frame Name",
-        "iconUrl": "https://your-frame-domain.com/icon.png",
-        "splashImageUrl": "https://your-frame-domain.com/splash.png",
-        "splashBackgroundColor": "#f7f7f7",
-        "homeUrl": "https://your-frame-domain.com",
-        "webhookUrl": "https://api.neynar.com/f/app//event"
+  // Handle different event types
+  switch (event.event) {
+    case "miniapp_added":
+      // Save notification details and send welcome notification
+      if (event.notificationDetails) {
+        await setUserNotificationDetails(fid, event.notificationDetails);
+        await sendFrameNotification({
+          fid,
+          title: "Welcome to Frames v2",
+          body: "Mini app is now added to your client",
+        });
       }
-    }
-    ```
+      break;
 
-    <Warning>
-    Frame manifest caching: Farcaster clients might have your mini app manifest cached and would only get updated on a periodic basis.
-    </Warning>
+    case "miniapp_removed":
+      // Delete notification details
+      await deleteUserNotificationDetails(fid);
+      break;
 
-    <Tip>
-    If you're using Farcaster to test, you can go to their Settings > Developer Tools > Domains, put in your Frame URL and hit the Check domain status to force a refresh.
-    </Tip>
-  </Step>
-</Steps>
+    case "notifications_enabled":
+      // Save new notification details and send confirmation
+      await setUserNotificationDetails(fid, event.notificationDetails);
+      await sendFrameNotification({
+        fid,
+        title: "Ding ding ding",
+        body: "Notifications are now enabled",
+      });
+      break;
 
-## Prompt Users to Add Your Mini App
+    case "notifications_disabled":
+      // Delete notification details
+      await deleteUserNotificationDetails(fid);
+      break;
+  }
 
-<Steps>
-  <Step title="Install @neynar/react">
-    Install the Neynar React package to access the Mini App components:
+  return Response.json({ success: true });
+}
+```
+</Panel>
 
-    ```shell
-    npm install @neynar/react
-    ```
-  </Step>
+###  Notification Schema
 
-  <Step title="Set up the MiniAppProvider Context Provider">
-    Wrap your app with the `MiniAppProvider` component to enable Mini App functionality:
+#### Send Notification Request Schema 
+| Property       | Type     | Required | Description                                                                                                                                                                  | Constraints                                                                  |
+|----------------|----------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| notificationId | string   | Yes      | Identifier that is combined with the FID to form an idempotency key. When the user opens the Mini App from the notification this ID will be included in the context object.  | Maximum length of 128 characters                                             |
+| title          | string   | Yes      | Title of the notification.                                                                                                                                                   | Max length 32 characters                                                     |
+| body           | string   | Yes      | Body of the notification.                                                                                                                                                    | Max length 128 characters.                                                   |
+| targetUrl      | string   | Yes      | URL to open when the user clicks the notification.                                                                                                                           | Max length 1024 characters.<br />Must be on the same domain as the Mini App. |
+| tokens         | string[] | Yes      | Array of notification tokens to send to.                                                                                                                                     | Max 100 tokens.                                                              |
 
-    ```javascript
-    import { MiniAppProvider } from '@neynar/react';
 
-    export default function App() {
-      return (
-        <MiniAppProvider>
-          {/* Your app components */}
-        </MiniAppProvider>
-      );
-    }
-    ```
-  </Step>
+#### Send Notification Response Schema 
 
-  <Step title="Prompt the User to Add Your Mini App">
-    Use the `useMiniApp` hook to prompt users to add your Mini App:
 
-    ```javascript
-    import { useMiniApp } from '@neynar/react';
+| Property          | Type     | Required | Description                                                                                                                                                                        |
+|-------------------|----------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| successfulTokens  | string[] | Yes      | Tokens for which the notification succeeded.                                                                                                                                       |
+| invalidTokens     | string[] | Yes      | Tokens which are no longer valid and should never be used again. This could happen if the user disabled notifications but for some reason the Mini App server has no record of it. |
+| rateLimitedTokens | string[] | Yes      | Tokens for which the rate limit was exceeded. The Mini App server can try later.                                                                                                       |
 
-    export default function HomePage() {
-      const { isSDKLoaded, addMiniApp } = useMiniApp();
 
-      const handleAddMiniApp = async () => {
-        if (!isSDKLoaded) return;
-        
-        const result = await addMiniApp();
-        if (result.added && result.notificationDetails) {
-          // Mini app was added and notifications were enabled
-          console.log('Notification token:', result.notificationDetails.token);
-        }
-      };
 
-      return (
-        <button onClick={handleAddMiniApp}>
-          Add Mini App
-        </button>
-      );
-    }
-    ```
+## Events
 
-    The result type is:
+Mini App events use the following object structure:
 
-    ```ts
-    export type FrameNotificationDetails = {
-      url: string;
-      token: string;
-    };
+* **`type`**: notification event type
+* **`notificationDetails.url`**: URL that the app should call to send a notification.
+* **`notificationDetails.token`**: A secret token generated by the Farcaster App and shared with the Notification Server. A token is unique for each (Farcaster Client, Mini App, user Fid) tuple.
 
-    export type AddFrameResult =
-      | {
-          added: true;
-          notificationDetails?: FrameNotificationDetails;
-        }
-      | {
-          added: false;
-          reason: 'invalid_domain_manifest' | 'rejected_by_user';
-        };
-    ```
-  </Step>
-</Steps>
+The optional `notificationDetails` object provides the `token` and `url` if the client equates adding to enabling notifications.
 
-If `added` is **true** and `notificationDetails` is a valid object, then the client should have called POST to the Neynar frame events webhook URL with the same details.
+### `miniapp_added`
 
-Neynar will manage all mini app add/remove & notifications enabled/disabled events delivered on this events webhook.
+Sent when the user adds the Mini App to their Farcaster client (whether or not it was triggered by an `addMiniApp()` prompt).
 
-#### Alternative: Using the Mini App SDK directly
 
-If you prefer to use the Mini App SDK directly instead of the Neynar React components:
 
-```shell
-yarn add @farcaster/frame-sdk
+```json miniapp_added_payload.json
+{
+  "event": "miniapp_added",
+  "notificationDetails": {
+    "url": "https://api.farcaster.xyz/v1/frame-notifications",
+    "token": "a05059ef2415c67b08ecceb539201cbc6"
+  }
+}
 ```
 
-Then prompt the user:
+### `miniapp_removed`
 
-```ts
-import sdk from "@farcaster/frame-sdk";
+Sent when a user removes the Mini App, which means that any notification tokens for that FID and client app (based on signer requester) should be considered invalid:
 
-const result = await sdk.actions.addFrame();
+
+```json miniapp_removed_payload
+{
+  "event": "miniapp_removed"
+}
 ```
 
-## Send Notifications to Users
+### `notifications_enabled`
 
-Notifications can be broadcast to all your mini app users with notifications enabled or to a limited set of FIDs. Notifications can also be filtered so that only users meeting certain criteria receive the notification.
+Sent when a user enables notifications (e.g. after disabling them). The payload includes a new `token` and `url`:
 
-The `target_fids` parameter is the starting point for all filtering. Pass an empty array for `target_fids` to start with the set of all FIDs with notifications enabled for your app, or manually define `target_fids` to list specific FIDs.
+```json notifications_enabled_payload
+{
+  "event": "notifications_enabled",
+  "notificationDetails": {
+    "url": "https://api.farcaster.xyz/v1/frame-notifications",
+    "token": "a05059ef2415c67b08ecceb539201cbc6"
+  }
+}
+```
 
-<Steps>
-  <Step title="Target Users via the Neynar Dev Portal">
-    The [Neynar dev portal](https://dev.neynar.com) offers the same functionality as the API for broadcasting notifications. Navigate to your app and click the "Mini App" tab. Once your mini app is configured with your Neynar webhook URL and users have enabled notifications for your mini app, you'll see a "Broadcast Notification" section with an expandable filters section.
+### `notifications_disabled`
 
-    **Neynar mini app Broadcast Notification panel**
-  </Step>
+Sent when a user disables notifications from, e.g., a settings panel in the client app. Any notification tokens for that FID and client app (based on signer requester) should be considered invalid:
 
-  <Step title="Target Users via the API">
-    The following example uses the [@neynar/nodejs-sdk](https://github.com/neynarxyz/nodejs-sdk) to send notifications to users and includes a set of filtering criteria:
-
-    ```ts
-    const targetFids = []; // target all relevant users 
-    const filters = { 
-      exclude_fids: [420, 69], // do not send to these FIDs 
-      following_fid: 3, // only send to users following this FID 
-      minimum_user_score: 0.5, // only send to users with score >= this value 
-      near_location: { // only send to users near a certain point 
-        latitude: 34.052235, 
-        longitude: -118.243683, 
-        radius: 50000, // distance in meters from the lat/log point (optional, defaults to 50km) 
-      } 
-    };
-
-    const notification = { 
-      title: "🪐", 
-      body: "It's time to savor farcaster", 
-      target_url: "https://your-frame-domain.com/notification-destination", 
-    }; 
-    
-    client.publishFrameNotifications({ targetFids, filters, notification }).then((response) => { 
-      console.log("response:", response); 
-    });
-    ```
-
-    Additional documentation on the API and its body parameters can be found at [publish-frame-notifications](https://docs.neynar.com/reference/publish-frame-notifications).
-  </Step>
-</Steps>
-
-### Step 4: Check analytics
-
-Notification analytics will automatically show in your developer portal once you start using Neynar for frame notifications.
-
-<Frame>
-<img src="/images/docs/b963bd7c8e35263317ab6e0d1354dee4b854b471587c4ad827342ed7b83d2218-image.png" alt="Notification analytics" />
-</Frame>
-
-When using the `MiniAppProvider` context provider, you'll get additional analytics including notification open rates.
-<Frame>
-<img src="/images/docs/notification-campaigns.png" alt="Notification open analytics" />
-</Frame>
-
-## FAQ
-
-<AccordionGroup>
-<Accordion title="How do I determine if the user has already added my Frame?">
-
-When using the `MiniAppProvider` context provider, you can check the `context` object from the `useMiniApp()` hook which contains the `added` boolean and `notificationDetails` object. More details in [Frame Core Types](https://github.com/farcasterxyz/frames/blob/main/packages/frame-core/src/types.ts#L58-L62)
-</Accordion>
-
-<Accordion title="What happens if I send a notification via API to a user who has revoked notification permission?">
-
-To avoid getting rate-limited by mini app clients, Neynar will filter out sending notifications to disabled tokens.
-</Accordion>
-
-<Accordion title="How do I fetch the notification tokens, URLs, and their status?">
-
-The [fetch notification tokens API](/reference/fetch-notification-tokens) provides access to the underlying data.
-</Accordion>
-
-<Accordion title="How do I debug notifications?">
-  Check out this tutorial: [Debug Notifications](https://docs.neynar.com/docs/debug-notifications)
-</Accordion>
-
-<Accordion title="Who should I reach out to if I am experiencing additional issues or have questions?">
-  Reach out to the [Neynar Community Slack channel](https://neynar.com/slack)
-</Accordion>
-
-</AccordionGroup>
+```json notifications_disabled_json
+{
+  "event": "notifications_disabled"
+}
 ```
