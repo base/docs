@@ -1,9 +1,11 @@
 ---
 title: Authentication
-description: Authentication in mini apps is handled through Quick Auth, which provides a secure way to verify user identity using their Farcaster account.
+description: Quick Auth provides instant authentication by leveraging Farcaster's identity system no passwords, email verification, or complex OAuth flows required.
 ---
 
-Quick Auth provides instant authentication for mini apps by leveraging Farcaster's identity system. Users authenticate with a single signature, and your app receives a secure JWT for session management - no passwords, email verification, or complex OAuth flows required.
+When a user signs in with Quick Auth, they authenticate once with a signature. The SDK returns a JWT that your backend verifies to confirm the user's identity. Once verified, your backend returns trusted data (like the user's FID) that can be used for sensitive actions.
+
+This differs from the [Context API](/mini-apps/core-concepts/context), which provides instant access to user information without authentication but cannot be trusted for sensitive operations.
 
 ## Implementation
 
@@ -24,7 +26,7 @@ export function App() {
       const { token } = await sdk.actions.quickAuth();
       setToken(token);
       
-      // Use the token to fetch user data
+      // Use the token to authenticate the user and fetch authenticated user data
       const response = await sdk.quickAuth.fetch(`${BACKEND_ORIGIN}/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -54,11 +56,6 @@ export function App() {
 }
 ```
 
-
-<Note>
-Quick Auth returns a JWT that proves the user authenticated. Your backend then verifies this JWT to confirm the user's identity and returns their verified Farcaster data (FID and address). This two-step process ensures secure authentication.
-</Note>
-
 ### Step 2: Backend Verification
 
 Install the Quick Auth client:
@@ -66,7 +63,8 @@ Install the Quick Auth client:
 ```bash
 npm install @farcaster/quick-auth
 ```
-This API route verifies the JWT signature locally using the public key from the Quick Auth Server, proving the user is who they claim to be. No additional network calls are made.
+The Quick Auth client verifies `JWTs` issued by the Quick Auth Server. By default, it uses the public Quick Auth Server at https://auth.farcaster.xyz - no configuration required.
+This API route uses the client to verify the JWT signature locally with the server's public key, proving the user is who they claim to be.
 
 ```jsx route.tsx
 // app/api/me/route.ts
@@ -77,7 +75,6 @@ const domain = 'your-domain.com'; // Must match your mini app's deployment domai
 const client = createClient();
 
 // This endpoint returns the authenticated user's FID and address
-// Use this pattern for all authenticated endpoints in your app
 export async function GET(request: NextRequest) {
   const authorization = request.headers.get('Authorization');
   if (!authorization?.startsWith('Bearer ')) {
@@ -119,23 +116,23 @@ export async function GET(request: NextRequest) {
 Payload fields:
 
 <Card>
-<ParamField path="iat" type="number" required>
+<ParamField path="iat" type="number">
 Issued at timestamp
 </ParamField>
 
-<ParamField path="iss" type="string" required>
+<ParamField path="iss" type="string">
 Quick Auth Server that issued the JWT
 </ParamField>
 
-<ParamField path="exp" type="number" required>
+<ParamField path="exp" type="number">
 Expiration timestamp (1 hour from issuance)
 </ParamField>
 
-<ParamField path="sub" type="number" required>
+<ParamField path="sub" type="number">
 User's Farcaster ID (FID)
 </ParamField>
 
-<ParamField path="aud" type="string" required>
+<ParamField path="aud" type="string">
 Your mini app's domain
 </ParamField>
 </Card>
