@@ -5,13 +5,45 @@ description: Regularly re-engage users by sending push notifications through the
 
 
 ## Implementation
+<Steps>
+  <Step title="Create a webhook server">
+    Create a webhook server to handle webhook events. This can be done at `app/api/webhook/route.ts`
+  </Step>
+  <Step title="Add the Webhook URL to your manifest">
+    Add the Webhook URL to your manifest file
 
-1. Create a webhook server to handle webhook events. This can be done at `app/api/webhook/route.ts`
-2. Add the Webhook URL to your manifest file
-3. Use the `useMiniApp()` hook to prompt users to add your Mini App
-4. Save the `token` and `url` from the webhook event to a database for later use
-5. Send notifications by sending a `POST` request to the `url` associated with the user's `token`
+    ```json app/.well-known/farcaster.json highlight={16}
+    {
+      "accountAssociation": {
+        "header": "eyJmaWQiOjU0NDgsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg2MWQwMEFENzYwNjhGOEQ0NzQwYzM1OEM4QzAzYUFFYjUxMGI1OTBEIn0",
+        "payload": "eyJkb21haW4iOiJleGFtcGxlLmNvbSJ9",
+        "signature": "MHg3NmRkOWVlMjE4OGEyMjliNzExZjUzOTkxYTc1NmEzMGZjNTA3NmE5OTU5OWJmOWFmYjYyMzAyZWQxMWQ2MWFmNTExYzlhYWVjNjQ3OWMzODcyMTI5MzA2YmJhYjdhMTE0MmRhMjA4MmNjNTM5MTJiY2MyMDRhMWFjZTY2NjE5OTFj"
+      },
+      "miniapp": {
+        "version": "1",
+        "name": "Example App",
+        "iconUrl": "https://example.com/icon.png",
+        "homeUrl": "https://example.com",
+        "imageUrl": "https://example.com/image.png",
+        "buttonTitle": "Check this out",
+        "splashImageUrl": "https://example.com/splash.png",
+        "splashBackgroundColor": "#eeccff",
+        "webhookUrl": "https://example.com/api/webhook"
+      }
+    }
 
+    ```
+  </Step>
+  <Step title="Prompt users to add your Mini App">
+    Use the `useMiniApp()` hook to prompt users to add your Mini App
+  </Step>
+  <Step title="Save notification details">
+    Save the `token` and `url` from the webhook event to a database for later use
+  </Step>
+  <Step title="Send notifications">
+    Send notifications by sending a `POST` request to the `url` associated with the user's `token`
+  </Step>
+</Steps>
 
 <Panel>
 ```ts app/api/webhook/route.ts
