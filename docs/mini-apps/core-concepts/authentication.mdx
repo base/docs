@@ -63,8 +63,7 @@ Install the Quick Auth client:
 ```bash
 npm install @farcaster/quick-auth
 ```
-The Quick Auth client verifies `JWTs` issued by the Quick Auth Server. By default, it uses the public Quick Auth Server at https://auth.farcaster.xyz - no configuration required.
-This API route uses the client to verify the JWT signature locally with the server's public key, proving the user is who they claim to be.
+When a user authenticates, the Quick Auth Server verifies their signature and issues a JWT. The Quick Auth client then verifies this JWT (default server: `https://auth.farcaster.xyz`).
 
 ```jsx route.tsx
 // app/api/me/route.ts
@@ -74,7 +73,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const domain = 'your-domain.com'; // Must match your mini app's deployment domain
 const client = createClient();
 
-// This endpoint returns the authenticated user's FID and address
+// This endpoint returns the authenticated user's FID 
 export async function GET(request: NextRequest) {
   const authorization = request.headers.get('Authorization');
   if (!authorization?.startsWith('Bearer ')) {
@@ -88,7 +87,6 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       fid: payload.sub,
-      address: payload.address
     });
   } catch (e) {
     if (e instanceof Errors.InvalidTokenError) {
