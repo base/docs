@@ -28,6 +28,11 @@ The Bridge contract itself builds Merkle trees from outgoing messages.
 Validators verify the Merkle root every 300 finalized blocks and relay it to Solana.
 You then prove your message exists in the tree to complete the transfer on Solana.
 
+<Info>
+Tokens that are native to Base are locked and tokens that are native to Solana are burned when bridging to Solana.
+Tokens that are native to Solana are minted and tokens that are native to Base are unlocked when bridging to Base.
+</Info>
+
 **Key Smart contracts:**
 - [**Bridge Contract**](https://github.com/base/bridge/blob/main/base/src/Bridge.sol): Handles outgoing transfers
 - [**CrossChainERC20**](https://github.com/base/bridge/blob/main/base/src/CrossChainERC20.sol): Mintable/burnable tokens for cross-chain transfers
@@ -77,9 +82,14 @@ This is a convenience feature built on top of the bridge to reduce friction in t
 
 The Solana to Base bridge uses a pull-based model that requires 3 steps:
 
-1. **Initiate the bridge on Solana** - Lock your SOL in a Solana vault
+1. **Initiate the bridge on Solana** - Lock your SOL or native SPL token in a Solana vault
 2. **Wait for validators to pre-approve the message** - Validators verify and approve your bridge message
 3. **Execute the message on Base** - The approved message is executed on Base to mint SOL and execute any additional arbitrary calls
+
+<Info>
+Tokens that are native to Solana are locked and tokens that are native to Base are burned when bridging to Solana.
+Tokens that are native to Base are minted and tokens that are native to Solana are unlocked when bridging to Base.
+</Info>
 
 For convenience, a relayer service is available that automatically handles step 3 for users who only want to worry about the initial transaction on Solana. This provides a seamless bridging experience while maintaining the security of the pull-based model.
 
