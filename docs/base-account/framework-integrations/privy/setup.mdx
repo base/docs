@@ -3,19 +3,31 @@ title: "Setup"
 description: "Configure Privy with Base Account for your React application"
 ---
 
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx";
+
 Learn how to set up Privy with Base Account to enable seamless user authentication and wallet management.
 
 ## Overview
 
-[Privy](https://www.privy.io/) provides user authentication and wallet management solutions for web3 applications. By integrating Privy with Base Account, you can offer users a smooth onboarding experience with embedded wallets and Base Account functionality.
+[Privy](https://www.privy.io/) provides user authentication and wallet management solutions for onchain applications.
+By integrating Privy with Base Account,
+you can access all the Privy hooks and methods
+while having access to the users of Base Account.
 
 ### What you'll achieve
 
 By the end of this guide, you will:
 
 - Set up Privy with Base Account support
-- Configure embedded wallets for your users
-- Enable Base Account as a wallet option
+- Have Base Account set up as the main authentication option
+- Be able to access Base Account SDK from Privy's React SDK
+
+You can jump ahead and use the [Base Account Privy Template](https://github.com/base/base-account-privy) to get started.
+
+<GithubRepoCard
+  title="Base Account Privy Template"
+  githubUrl="https://github.com/base/base-account-privy"
+/>
 
 ## Installation
 
@@ -23,21 +35,83 @@ After [creating a new Next.js project](https://nextjs.org/docs/app/getting-start
 
 <CodeGroup>
 ```bash npm
-npm install @privy-io/react-auth @privy-io/wagmi-connector wagmi viem @base-org/account
+npm install @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
 ```
 
 ```bash pnpm
-pnpm add @privy-io/react-auth @privy-io/wagmi-connector wagmi viem @base-org/account
+pnpm add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
 ```
 
 ```bash yarn
-yarn add @privy-io/react-auth @privy-io/wagmi-connector wagmi viem @base-org/account
+yarn add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
 ```
 
 ```bash bun
-bun add @privy-io/react-auth @privy-io/wagmi-connector wagmi viem @base-org/account
+bun add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
 ```
+
 </CodeGroup>
+
+<Tip>
+**Access the latest version of the Base Account SDK (Recommended)**
+
+It is {<u>HIGHLY RECOMMENDED</u>} to access the latest version of the Base Account SDK in order to get the latest features and bug fixes.
+
+To do this, you can use the following command to override it:
+
+<CodeGroup>
+```bash npm
+npm pkg set overrides.@base-org/account="latest"
+# OR manually add to package.json:
+# "overrides": { "@base-org/account": "latest" }
+```
+
+```bash pnpm
+# pnpm requires manual addition to package.json:
+# "pnpm": { "overrides": { "@base-org/account": "latest" } }
+```
+
+```bash yarn
+# yarn uses resolutions - add manually to package.json:
+# "resolutions": { "@base-org/account": "latest" }
+```
+
+```bash bun
+# bun supports overrides - add manually to package.json:
+# "overrides": { "@base-org/account": "latest" }
+```
+
+</CodeGroup>
+
+Or you can use a specific version by adding the version to the overrides:
+
+<CodeGroup>
+```bash npm
+npm pkg set overrides.@base-org/account="2.2.0"
+# OR manually add to package.json:
+# "overrides": { "@base-org/account": "2.2.0" }
+```
+
+```bash pnpm
+# pnpm requires manual addition to package.json:
+# "pnpm": { "overrides": { "@base-org/account": "2.2.0" } }
+```
+
+```bash yarn
+# yarn uses resolutions - add manually to package.json:
+# "resolutions": { "@base-org/account": "2.2.0" }
+```
+
+```bash bun
+# bun supports overrides - add manually to package.json:
+# "overrides": { "@base-org/account": "2.2.0" }
+```
+
+</CodeGroup>
+
+Make sure to delete your `node_modules` and `package-lock.json` and run a new install to ensure the overrides are applied.
+
+</Tip>
 
 ## Configuration
 
@@ -53,279 +127,85 @@ Get your Privy App ID from the [Privy Dashboard](https://dashboard.privy.io/).
 
 ### 2. Configure Privy Provider
 
-Create your Privy configuration with Base Account support:
+Create your Privy configuration with Base Account and email as login methods:
 
-```tsx
-// app/layout.tsx or pages/_app.tsx
-'use client'
+<CodeGroup>
+```tsx Create Provider (providers/providers.tsx)
+"use client";
 
-import { PrivyProvider } from '@privy-io/react-auth'
-import { WagmiProvider } from '@privy-io/wagmi-connector'
-import { base } from 'viem/chains'
-import { http } from 'viem'
-import { baseAccount } from 'wagmi/connectors'
+import { PrivyProvider } from "@privy-io/react-auth";
+import { base } from "@privy-io/chains";
 
-const privyConfig = {
-  embeddedWallets: {
-    createOnLogin: 'users-without-wallets' as const,
-    requireUserPasswordOnCreate: false,
-  },
-  loginMethods: ['email', 'wallet', 'google'],
-  appearance: {
-    theme: 'light' as const,
-    accentColor: '#0052FF', // Base blue
-    logo: 'https://your-logo-url.com/logo.png',
-    walletList: [
-      'base_account', 
-      'coinbase_wallet', // It is recommended to support coinbase_wallet for any users still using the legacy EOA
-    ],
-  },
-  supportedChains: [base],
-}
-
-const wagmiConfig = {
-  chains: [base],
-  transports: {
-    [base.id]: http(),
-  },
-  connectors: [
-    baseAccount({
-      appName: 'Your App Name',
-    })
-  ],
-}
-
-export default function App({ children }: { children: React.ReactNode }) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-      config={privyConfig}
+      clientId={process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID!}
+      config={{
+        appearance: {
+          walletList: ['base_account'],
+          showWalletLoginFirst: true
+        },
+        defaultChain: base,
+      }}
     >
-      <WagmiProvider config={wagmiConfig}>
-        {children}
-      </WagmiProvider>
+      {children}
     </PrivyProvider>
-  )
+  );
 }
 ```
+```tsx Add to Layout (app/layout.tsx)
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Providers from "@/providers/providers";
 
-To have Sign in with Base as a top level sign in option in the login modal, modify your `privyConfig` to include `base_account` in the `loginMethodsAndOrder` field.
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
-```tsx
-const privyConfig = {
-  embeddedWallets: {
-    createOnLogin: 'users-without-wallets' as const,
-    requireUserPasswordOnCreate: false,
-  },
-  loginMethodsAndOrder: {
-    primary: ['base_account','email', 'wallet'],
-  },
-  appearance: {
-    theme: 'light' as const,
-    accentColor: '#0052FF' as const, // Base blue
-    walletList: ['base_account', 'coinbase_wallet'],
-  },
-  supportedChains: [base],
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Privy Next demo",
+  description: "Generated by create next app",
 };
-```
 
-### 3. Create Authentication Hook
-
-Create a custom hook to manage authentication state:
-
-```tsx
-// hooks/useAuth.ts
-import { usePrivy } from '@privy-io/react-auth'
-import { useWallets } from '@privy-io/react-auth'
-
-export function useAuth() {
-  const {
-    ready,
-    authenticated,
-    user,
-    login,
-    logout,
-    linkWallet,
-    unlinkWallet,
-  } = usePrivy()
-
-  const { wallets } = useWallets()
-
-  const embeddedWallet = wallets.find(
-    (wallet) => wallet.walletClientType === 'privy'
-  )
-  
-  const baseAccountWallet = wallets.find(
-    (wallet) => wallet.walletClientType === 'base_account'
-  )
-
-  return {
-    ready,
-    authenticated,
-    user,
-    login,
-    logout,
-    linkWallet,
-    unlinkWallet,
-    embeddedWallet,
-    baseAccountWallet,
-    wallets,
-  }
-}
-```
-
-### 4. Create Login Component
-
-Create a component to handle user authentication:
-
-```tsx
-// components/AuthButton.tsx
-import { useAuth } from '../hooks/useAuth'
-
-export function AuthButton() {
-  const { ready, authenticated, login, logout, user } = useAuth()
-
-  if (!ready) {
-    return (
-      <button disabled className="px-4 py-2 bg-gray-300 rounded">
-        Loading...
-      </button>
-    )
-  }
-
-  if (authenticated) {
-    return (
-      <div className="flex items-center gap-4">
-        <span>Welcome, {user?.email?.address || 'User'}!</span>
-        <button
-          onClick={logout}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Logout
-        </button>
-      </div>
-    )
-  }
-
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <button
-      onClick={login}
-      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-    >
-      Login with Privy
-    </button>
-  )
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
 }
 ```
+</CodeGroup>
 
-### 5. Wallet Connection Component
+### 3. Access Base Account SDK from Privy
 
-Create a component to manage wallet connections:
+You can access the Base Account SDK from Privy using the `useBaseAccount` hook.
 
-```tsx
-// components/WalletManager.tsx
-import { useAuth } from '../hooks/useAuth'
+```tsx Get the SDK instance
+import { useBaseAccountSdk } from '@privy-io/react-auth';
 
-export function WalletManager() {
-  const { 
-    authenticated, 
-    embeddedWallet, 
-    baseAccountWallet, 
-    linkWallet,
-    wallets 
-  } = useAuth()
+const { baseAccountSdk } = useBaseAccountSdk();
 
-  if (!authenticated) {
-    return <p>Please log in to manage wallets</p>
-  }
+const provider = baseAccountSdk.getProvider();
 
-  return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Your Wallets</h3>
-      
-      {embeddedWallet && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded">
-          <h4 className="font-medium">Embedded Wallet</h4>
-          <p className="text-sm text-gray-600">
-            Address: {embeddedWallet.address}
-          </p>
-        </div>
-      )}
+const addresses = await provider.request({method: 'wallet_connect'});
 
-      {baseAccountWallet && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-          <h4 className="font-medium">Base Account</h4>
-          <p className="text-sm text-gray-600">
-            Address: {baseAccountWallet.address}
-          </p>
-        </div>
-      )}
-
-      {!baseAccountWallet && (
-        <button
-          onClick={() => linkWallet()}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Connect Base Account
-        </button>
-      )}
-
-      <div className="text-sm text-gray-600">
-        Total wallets: {wallets.length}
-      </div>
-    </div>
-  )
-}
 ```
 
-## Testing Your Setup
 
-Create a simple page to test your Privy + Base Account integration:
-
-```tsx
-// app/page.tsx or pages/index.tsx
-import { AuthButton } from '../components/AuthButton'
-import { WalletManager } from '../components/WalletManager'
-
-export default function HomePage() {
-  return (
-    <div className="max-w-2xl mx-auto p-8 space-y-8">
-      <h1 className="text-2xl font-bold">Privy + Base Account Demo</h1>
-      
-      <AuthButton />
-      
-      <WalletManager />
-    </div>
-  )
-}
-```
-
-## Additional Configuration
-
-### Customizing Login Methods
-
-You can customize which login methods are available:
-
-```tsx
-const privyConfig = {
-  loginMethods: ['email', 'wallet', 'google', 'twitter', 'discord'],
-  // ... other config
-}
-```
-
-### Styling and Branding
-
-Customize the appearance to match your brand:
-
-```tsx
-const privyConfig = {
-  appearance: {
-    theme: 'light', // or 'dark'
-    accentColor: '#0052FF',
-    logo: 'https://your-logo.com/logo.png',
-    landingHeader: 'Welcome to Your App',
-    showWalletLoginFirst: true,
-  },
-  // ... other config
-}
-```
