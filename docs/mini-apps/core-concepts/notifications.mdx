@@ -15,7 +15,63 @@ You will receive webhook events when users enable or disable notifications for y
 ## Implementation
 <Steps>
   <Step title="Create a webhook server">
-    Create a webhook server to handle webhook events. This can be done at `app/api/webhook/route.ts`
+    Create a webhook server to handle webhook events. 
+
+    ```ts app/api/webhook/route.ts
+    export async function POST(request: NextRequest) {
+      const requestJson = await request.json();
+
+      // Parse and verify the webhook event
+      let data;
+      try {
+        data = await validateWebhookEventSignature(requestJson);
+        // Events are signed by the app key of a user with a JSON Farcaster Signature.
+      } catch (e: unknown) {
+        // Handle verification errors (invalid data, invalid app key, etc.)
+        // Return appropriate error responses with status codes 400, 401, or 500
+      }
+
+      const fid = data.fid;
+      const event = data.event;
+
+      // Handle different event types
+      switch (event.event) {
+        case "miniapp_added":
+          // Save notification details and send welcome notification
+          if (event.notificationDetails) {
+            await setUserNotificationDetails(fid, event.notificationDetails);
+            await sendMiniAppNotification({
+              fid,
+              title: "Welcome to Base Mini Apps",
+              body: "Mini app is now added to your client",
+            });
+          }
+          break;
+
+        case "miniapp_removed":
+          // Delete notification details
+          await deleteUserNotificationDetails(fid);
+          break;
+
+        case "notifications_enabled":
+          // Save new notification details and send confirmation
+          await setUserNotificationDetails(fid, event.notificationDetails);
+          await sendMiniAppNotification({
+            fid,
+            title: "Ding ding ding",
+            body: "Notifications are now enabled",
+          });
+          break;
+
+        case "notifications_disabled":
+          // Delete notification details
+          await deleteUserNotificationDetails(fid);
+          break;
+      }
+
+      return Response.json({ success: true });
+    }
+    ```
   </Step>
   <Step title="Add the Webhook URL to your manifest">
     Add the Webhook URL to your manifest file
@@ -44,15 +100,62 @@ You will receive webhook events when users enable or disable notifications for y
   </Step>
   <Step title="Prompt users to add your Mini App">
     Use the `addMiniApp()` hook to prompt users to add your Mini App
+
+    ```tsx page.tsx
+    "use client";
+
+    import { sdk } from "@farcaster/miniapp-sdk";
+    import { useCallback, useState } from "react";
+
+    export default function AddMiniApp() {
+      const [result, setResult] = useState("");
+
+      const handleAddMiniApp = useCallback(async () => {
+        try {
+          const response = await sdk.actions.addMiniApp();
+          
+          if (response.notificationDetails) {
+            setResult("Mini App added with notifications enabled!");
+          } else {
+            setResult("Mini App added without notifications");
+          }
+        } catch (error) {
+          setResult(`Error: ${error}`);
+        }
+      }, []);
+
+      return (
+        <div>
+          <button onClick={handleAddMiniApp}>
+            Add Mini App
+          </button>
+          {result && <p>{result}</p>}
+        </div>
+      );
+    }
+    ```
+
   </Step>
-  <Step title="Save notification details">
-    Save the `token` and `url` from the webhook event to a database for later use
+  <Step title="Save the token and URL from the webhook event">
+    The `token` and `url` need to be securely saved to a database so they can be looked up when you want to send a notification to a particular user.
+
+    ```json miniapp_added_payload.json highlight={4-5}
+    {
+      "event": "notifications_enabled",
+      "notificationDetails": {
+        "url": "https://api.farcaster.xyz/v1/frame-notifications",
+        "token": "a05059ef2415c67b08ecceb539201cbc6"
+      }
+    }
+    ```
+
+    
   </Step>
   <Step title="Send notifications">
     Send notifications by sending a `POST` request to the `url` associated with the user's `token`
 
     ```ts sendNotification.ts highlight={15-28}
-    export async function sendFrameNotification({
+    export async function sendMiniAppNotification({
       fid,
       title,
       body,
@@ -60,7 +163,7 @@ You will receive webhook events when users enable or disable notifications for y
       fid: number;
       title: string;
       body: string;
-    }): Promise<SendFrameNotificationResult> {
+    }): Promise<sendMiniAppNotificationResult> {
       const notificationDetails = await getUserNotificationDetails(fid);
       if (!notificationDetails) {
         return { state: "no_token" };
@@ -103,63 +206,6 @@ You will receive webhook events when users enable or disable notifications for y
     ```
   </Step>
 </Steps>
-
-<Panel>
-```ts app/api/webhook/route.ts
-export async function POST(request: NextRequest) {
-  const requestJson = await request.json();
-
-  // Parse and verify the webhook event
-  let data;
-  try {
-    data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
-  } catch (e: unknown) {
-    // Handle verification errors (invalid data, invalid app key, etc.)
-    // Return appropriate error responses with status codes 400, 401, or 500
-  }
-
-  const fid = data.fid;
-  const event = data.event;
-
-  // Handle different event types
-  switch (event.event) {
-    case "miniapp_added":
-      // Save notification details and send welcome notification
-      if (event.notificationDetails) {
-        await setUserNotificationDetails(fid, event.notificationDetails);
-        await sendFrameNotification({
-          fid,
-          title: "Welcome to Base Mini Apps",
-          body: "Mini app is now added to your client",
-        });
-      }
-      break;
-
-    case "miniapp_removed":
-      // Delete notification details
-      await deleteUserNotificationDetails(fid);
-      break;
-
-    case "notifications_enabled":
-      // Save new notification details and send confirmation
-      await setUserNotificationDetails(fid, event.notificationDetails);
-      await sendFrameNotification({
-        fid,
-        title: "Ding ding ding",
-        body: "Notifications are now enabled",
-      });
-      break;
-
-    case "notifications_disabled":
-      // Delete notification details
-      await deleteUserNotificationDetails(fid);
-      break;
-  }
-
-  return Response.json({ success: true });
-}
-```
-</Panel>
 
 ## Schema
 
