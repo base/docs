@@ -213,24 +213,45 @@ You will receive webhook events when users enable or disable notifications for y
 
 ## Schema
 
-#### Send Notification Request Schema 
-| Property       | Type     | Required | Description                                                                                                                                                                  | Constraints                                                                  |
-|----------------|----------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| notificationId | string   | Yes      | Identifier that is combined with the FID to form an idempotency key. When the user opens the Mini App from the notification this ID will be included in the context object.  | Maximum length of 128 characters                                             |
-| title          | string   | Yes      | Title of the notification.                                                                                                                                                   | Max length 32 characters                                                     |
-| body           | string   | Yes      | Body of the notification.                                                                                                                                                    | Max length 128 characters.                                                   |
-| targetUrl      | string   | Yes      | URL to open when the user clicks the notification.                                                                                                                           | Max length 1024 characters.<br />Must be on the same domain as the Mini App. |
-| tokens         | string[] | Yes      | Array of notification tokens to send to.                                                                                                                                     | Max 100 tokens.                                                              |
+### Send Notification Request Schema
 
+<Card>
+<ParamField path="notificationId" type="string" required>
+Identifier that is combined with the FID to form an idempotency key. When the user opens the Mini App from the notification this ID will be included in the context object. Maximum length of 128 characters.
+</ParamField>
 
-#### Send Notification Response Schema 
+<ParamField path="title" type="string" required>
+Title of the notification. Max length 32 characters.
+</ParamField>
 
+<ParamField path="body" type="string" required>
+Body of the notification. Max length 128 characters.
+</ParamField>
 
-| Property          | Type     | Required | Description                                                                                                                                                                        |
-|-------------------|----------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| successfulTokens  | string[] | Yes      | Tokens for which the notification succeeded.                                                                                                                                       |
-| invalidTokens     | string[] | Yes      | Tokens which are no longer valid and should never be used again. This could happen if the user disabled notifications but for some reason the Mini App server has no record of it. |
-| rateLimitedTokens | string[] | Yes      | Tokens for which the rate limit was exceeded. The Mini App server can try later.                                                                                                       |
+<ParamField path="targetUrl" type="string" required>
+URL to open when the user clicks the notification. Max length 1024 characters. Must be on the same domain as the Mini App.
+</ParamField>
+
+<ParamField path="tokens" type="string[]" required>
+Array of notification tokens to send to. Max 100 tokens.
+</ParamField>
+</Card>
+
+### Send Notification Response Schema
+
+<Card>
+<ParamField path="successfulTokens" type="string[]" required>
+Tokens for which the notification succeeded.
+</ParamField>
+
+<ParamField path="invalidTokens" type="string[]" required>
+Tokens which are no longer valid and should never be used again. This could happen if the user disabled notifications but for some reason the Mini App server has no record of it.
+</ParamField>
+
+<ParamField path="rateLimitedTokens" type="string[]" required>
+Tokens for which the rate limit was exceeded. The Mini App server can try later.
+</ParamField>
+</Card>
 
 
 
