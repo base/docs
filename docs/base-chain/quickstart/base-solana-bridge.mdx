@@ -22,7 +22,11 @@ This guide covers the bridge architecture and provides practical examples for im
 ## How it works
 
 ### On Base
-The Base bridge contract locks or burns your tokens and emits a message. Validators collect these messages into Merkle trees and post roots to Solana every ~15 minutes. You then prove your message exists in the tree to complete the transfer on Solana.
+The Base bridge contract locks or burns tokens when sending messages to Solana,
+and mints or unlocks tokens when receiving messages from Solana.
+The Bridge contract itself builds Merkle trees from outgoing messages.
+Validators verify the Merkle root every 300 finalized blocks and relay it to Solana.
+You then prove your message exists in the tree to complete the transfer on Solana.
 
 **Key Smart contracts:**
 - [**Bridge Contract**](https://github.com/base/bridge/blob/main/base/src/Bridge.sol): Handles outgoing transfers
@@ -37,7 +41,7 @@ It represents the `msg.sender` on Base when you send an arbitrary contract call 
 </Tip>
 
 ### On Solana
-The Solana bridge program locks or burns your tokens and emits events. Validators relay these messages to Base where they're executed through your personal Twin contract - a smart contract that acts as your execution context on Base.
+The Solana bridge program handles token transfers by locking or burning tokens and emitting events. For messaging, validators relay these messages to Base where they're executed through your personal Twin contract - a smart contract that acts as your execution context on Base.
 
 **Key Programs:**
 - [**Bridge Program**](https://github.com/base/bridge/blob/main/solana/programs/bridge): Handles outgoing transfers
@@ -84,7 +88,7 @@ const ixs = [
     bridge: bridgeAccountAddress,
     outgoingMessage,
     to: toBytes(TO),
-    remoteToken: toBytes("0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD"), // wSOL
+    remoteToken: toBytes("0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD"), // SOL on Base
     amount: BigInt(AMOUNT * 10**9),
   }),
   await buildPayForRelayIx(RELAYER_PROGRAM_ID, outgoingMessage, payer)
@@ -115,16 +119,16 @@ await client.writeContract({
 
 ## Base to Solana
 
-**Flow:** Burn wSOL → Wait 15min → Generate Proof → Execute on Solana
+**Flow:** Burn SOL (on Base) → Wait 15min → Generate Proof → Execute on Solana
 
 The Base to Solana flow requires manual proof generation. You burn wrapped SOL on Base, wait for finalization (~15 minutes), then generate a cryptographic proof to execute on Solana and receive native SOL.
 
 <GithubRepoCard title="Base to Solana Example" githubUrl="https://github.com/basebase-bridge-examples/tree/main/bridgeSolFromBaseToSolana" />
 
 ```typescript bridgeSolFromBaseToSolana/index.ts expandable
-// Step 1: Burn wSOL on Base
+// Step 1: Burn SOL on Base
 const transfer = {
-  localToken: "0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD", // wSOL
+  localToken: "0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD", // SOL (on Base)
   remoteToken: pubkeyToBytes32(SOL_ADDRESS),
   to: pubkeyToBytes32(solanaAddress),
   remoteAmount: BigInt(AMOUNT * 10**9),
