@@ -51,6 +51,32 @@ bun add @base-org/account
 ```
 </CodeGroup>
 
+## Quickstart
+
+The fastest way to adopt Sub Accounts is to set `creation` to `on-connect` and `defaultAccount` to `sub` in the SDK configuration.
+
+```tsx
+const sdk = createBaseAccountSDK({
+  // ...
+  subAccounts: {
+    creation: 'on-connect',
+    defaultAccount: 'sub',
+  }
+});
+```
+
+This will automatically create a Sub Account for the user when they connect their Base Account and transactions will automatically be sent from the Sub Account unless you specify the `from` parameter in your transaction request to be the universal account address. Spend Permissions will also be automatically requested for the Sub Account as your app needs them.
+
+This is what the user will see when they connect their Base Account and automatic Sub Accounts are enabled:
+
+<div style={{ display: 'flex', justifyContent: 'center'}}>
+  <img src="/images/base-account/SubAccountCreationConnect.png" alt="Sub Account Creation Flow" style={{ width: '300px', height: 'auto' }} />
+</div>
+
+<Tip>
+We recommend using a [Paymaster](/base-account/improve-ux/sponsor-gas/paymasters) to sponsor gas to ensure the best user experience when integrating Sub Accounts. You can set a paymaster to be used for all transactions by configuring the `paymasterUrls` parameter in the SDK configuration. See the [createBaseAccount](/base-account/reference/core/createBaseAccount#param-paymaster-urls) reference for more information.
+</Tip>
+
 ## Using Sub Accounts
 
 ### Initialize the SDK
@@ -270,22 +296,7 @@ Ensure you do not lose your app's Sub Account signer keys when using the SDK on 
 
 Auto Spend Permissions allows Sub Accounts to access funds from their parent Base Account when transaction balances are insufficient. This feature can also establish ongoing spend permissions, enabling future transactions to execute without user approval prompts, reducing friction in your app's transaction flow.
 
-### Configuration
-
-Auto Spend Permissions is only available in SDK version `2.1.0` or later. This feature is **enabled by default** when using Sub Accounts.
-
-To disable Auto Spend Permissions when using Sub Accounts, set `unstable_enableAutoSpendPermissions` to `false` in your SDK configuration:
-
-```tsx
-const sdk = createBaseAccountSDK({
-  appName: 'Base Account SDK Demo',
-  appLogoUrl: 'https://base.org/logo.png',
-  appChainIds: [base.id],
-  subAccounts: {
-    unstable_enableAutoSpendPermissions: false, // Disable auto spend permissions
-  }
-});
-```
+This feature is **enabled by default** when using Sub Accounts.
 
 ### How it works
 
@@ -305,6 +316,22 @@ If the user granted spend permissions, future transactions follow this priority:
 <Warning>
 Spend permission requests are limited to the first token when multiple transfers are needed for a single transaction. Additional tokens require separate approvals.
 </Warning>
+
+
+### Configuration
+
+If your users' Sub Accounts will be funded manually, you can disable Auto Spend Permissions by setting `funding` to `manual` in your SDK configuration:
+
+```tsx
+const sdk = createBaseAccountSDK({
+  appName: 'Base Account SDK Demo',
+  appLogoUrl: 'https://base.org/logo.png',
+  appChainIds: [base.id],
+  subAccounts: {
+    funding: 'manual', // Disable auto spend permissions
+  }
+});
+```
 
 
 ## Technical Details

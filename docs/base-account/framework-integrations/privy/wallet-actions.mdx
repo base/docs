@@ -1,0 +1,303 @@
+---
+title: "Wallet Actions"
+description: "Sign messages, transactions, and typed data with Privy wallets"
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx";
+
+Learn how to perform wallet actions including signing messages, typed data, and transactions for EVM wallets using Privy.
+
+## Overview
+
+Privy provides comprehensive [wallet action hooks](https://docs.privy.io/wallets/using-wallets/ethereum/send-a-transaction) that work seamlessly with EVM (Ethereum-compatible) wallets. You can sign messages, typed data, raw hashes, and transactions, as well as send transactions directly.
+
+### What you'll achieve
+
+By the end of this guide, you will:
+
+- Sign messages for EVM wallets
+- Sign typed data (EIP-712) for structured data
+- Send transactions on EVM networks
+
+The code snippets in this guide are based on the following example project:
+
+<GithubRepoCard
+  title="Base Account Privy Template"
+  githubUrl="https://github.com/base/base-account-privy"
+/>
+
+## Implementation
+
+### Component Setup
+
+<CodeGroup>
+```tsx Wallet Actions Component (components/sections/wallet-actions.tsx) expandable
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import {
+  useWallets,
+  useSendTransaction,
+  useSignMessage,
+  useSignTypedData,
+} from "@privy-io/react-auth";
+
+const WalletActions = () => {
+  const { signMessage } = useSignMessage();
+  const { sendTransaction } = useSendTransaction();
+  const { signTypedData } = useSignTypedData();
+  const { wallets } = useWallets();
+
+const [selectedWallet, setSelectedWallet] = useState<{
+    address: string;
+    type: string;
+    name: string;
+  } | null>(null);
+
+  // Map wallets for selection
+  const allWallets = useMemo(() => {
+    return wallets.map((wallet) => ({
+      address: wallet.address,
+      type: "ethereum",
+      name: wallet.address,
+    }));
+  }, [wallets]);
+
+  useEffect(() => {
+    if (allWallets.length > 0 && !selectedWallet) {
+      setSelectedWallet(allWallets[0]);
+    }
+  }, [allWallets, selectedWallet]);
+
+  const handleSignMessage = async () => {
+    if (!selectedWallet) return;
+    
+    try {
+      const message = "Hello, world!";
+      const { signature } = await signMessage(
+        { message },
+        { address: selectedWallet.address }
+      );
+      console.log("Message signed:", signature);
+    } catch (error) {
+      console.error("Failed to sign message:", error);
+    }
+  };
+
+
+  const handleSendTransaction = async () => {
+    if (!selectedWallet) return;
+    
+    try {
+      const transaction = await sendTransaction(
+        { 
+          to: "0xE3070d3e4309afA3bC9a6b057685743CF42da77C", 
+          value: 10000 
+        },
+        { address: selectedWallet.address }
+      );
+      console.log("Transaction sent:", transaction);
+    } catch (error) {
+      console.error("Failed to send transaction:", error);
+    }
+  };
+
+  const handleSignTypedData = async () => {
+    if (!selectedWallet) return;
+    
+    try {
+      const typedData = {
+        domain: {
+          name: "Example App",
+          version: "1",
+          chainId: 1,
+          verifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+        },
+        types: {
+          Person: [
+            { name: "name", type: "string" },
+            { name: "wallet", type: "address" },
+          ],
+          Mail: [
+            { name: "from", type: "Person" },
+            { name: "to", type: "Person" },
+            { name: "contents", type: "string" },
+          ],
+        },
+        primaryType: "Mail",
+        message: {
+          from: {
+            name: "Alice",
+            wallet: "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+          },
+          to: {
+            name: "Bob",
+            wallet: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+          },
+          contents: "Hello, Bob!",
+        },
+      };
+
+      const { signature } = await signTypedData(typedData, {
+        address: selectedWallet.address,
+      });
+      console.log("Typed data signature:", signature);
+    } catch (error) {
+      console.error("Failed to sign typed data:", error);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Wallet Selection */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Select wallet:</label>
+        <select
+          value={selectedWallet?.address || ""}
+          onChange={(e) => {
+            const wallet = allWallets.find((w) => w.address === e.target.value);
+            setSelectedWallet(wallet || null);
+          }}
+          className="w-full p-2 border rounded-md"
+        >
+          <option value="">Select a wallet</option>
+          {allWallets.map((wallet, index) => (
+            <option key={index} value={wallet.address}>
+              {wallet.address}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-3 gap-4">
+        <button 
+          onClick={handleSignMessage}
+          disabled={!selectedWallet}
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+        >
+          Sign Message
+        </button>
+        <button 
+          onClick={handleSignTypedData}
+          disabled={!selectedWallet}
+          className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+        >
+          Sign Typed Data
+        </button>
+        <button 
+          onClick={handleSendTransaction}
+          disabled={!selectedWallet}
+          className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-50"
+        >
+          Send Transaction
+        </button>
+      </div>
+    </div>
+  );
+};
+```
+</CodeGroup>
+
+### Wallet Actions
+
+#### Sign Message
+
+<CodeGroup>
+```tsx Sign Message
+const handleSignMessage = async () => {
+  if (!selectedWallet) return;
+  
+  try {
+    const message = "Hello, world!";
+    const { signature } = await signMessage(
+      { message },
+      { address: selectedWallet.address }
+    );
+    console.log("Signature:", signature);
+  } catch (error) {
+    console.error("Failed to sign message:", error);
+  }
+};
+```
+</CodeGroup>
+
+#### Sign Typed Data (EIP-712)
+
+<CodeGroup>
+```tsx Sign Typed Data expandable
+const handleSignTypedData = async () => {
+  if (!selectedWallet) return;
+  
+  try {
+    const typedData = {
+      domain: {
+        name: "Example App",
+        version: "1",
+        chainId: 1,
+        verifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+      },
+      types: {
+        Person: [
+          { name: "name", type: "string" },
+          { name: "wallet", type: "address" },
+        ],
+        Mail: [
+          { name: "from", type: "Person" },
+          { name: "to", type: "Person" },
+          { name: "contents", type: "string" },
+        ],
+      },
+      primaryType: "Mail",
+      message: {
+        from: {
+          name: "Alice",
+          wallet: "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+        },
+        to: {
+          name: "Bob",
+          wallet: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+        },
+        contents: "Hello, Bob!",
+      },
+    };
+
+    const { signature } = await signTypedData(typedData, {
+      address: selectedWallet.address,
+    });
+    console.log("Typed data signature:", signature);
+  } catch (error) {
+    console.error("Failed to sign typed data:", error);
+  }
+};
+```
+</CodeGroup>
+
+#### Send Transaction
+
+<CodeGroup>
+```tsx Send Transaction expandable
+const handleSendTransaction = async () => {
+  if (!selectedWallet) return;
+  
+  try {
+    const transaction = await sendTransaction(
+      { 
+        to: "0xE3070d3e4309afA3bC9a6b057685743CF42da77C", 
+        value: 10000 // Wei
+      },
+      { address: selectedWallet.address }
+    );
+    console.log("Transaction hash:", transaction);
+  } catch (error) {
+    console.error("Failed to send transaction:", error);
+  }
+};
+```
+</CodeGroup>
+
+## Explore further
+
+- [Privy docs](https://docs.privy.io/)
+- [Batch Transactions](/base-account/improve-ux/batch-transactions)
+- [Sponsor Gas](/base-account/improve-ux/sponsor-gas/paymasters)
