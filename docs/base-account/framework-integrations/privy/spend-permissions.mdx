@@ -1,0 +1,290 @@
+---
+title: "Spend Permissions"
+description: "Enable trusted spenders to move assets without additional signatures"
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx";
+
+Learn how to create and manage Spend Permissions that allow trusted spenders to move assets from Base Accounts without requiring additional user signatures.
+
+## Overview
+
+Spend Permissions enable users to grant timely allowances to trusted spenders, allowing them to move assets on behalf of the user within defined limits. This creates seamless user experiences for recurring payments, subscriptions, and automated transactions.
+
+### What you'll achieve
+
+By the end of this guide, you will:
+
+- Create Spend Permissions with specific allowances and time periods
+- Fetch and manage existing Spend Permissions
+- Use Spend Permissions to execute transactions
+- Implement Spend Permission functionality in your React application
+
+The code snippets in this guide are based on the following example project:
+
+<GithubRepoCard
+  title="Base Account Privy Template"
+  githubUrl="https://github.com/base/base-account-privy"
+/>
+
+## Setup
+
+Follow the [Setup](/base-account/framework-integrations/privy/setup) guide to set up Privy with Base Account.
+
+## Implementation
+
+### Component Setup
+
+<CodeGroup>
+```tsx Spend Permissions Component (components/sections/spend-permissions.tsx) expandable
+"use client";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useBaseAccountSdk, useWallets } from "@privy-io/react-auth";
+import {
+  requestSpendPermission,
+  prepareSpendCallData,
+  fetchPermissions,
+  getPermissionStatus,
+  type SpendPermission,
+} from "@base-org/account/spend-permission/browser";
+import { base } from "@privy-io/chains";
+
+export const SpendPermissions = () => {
+  const { baseAccountSdk } = useBaseAccountSdk();
+  const { wallets } = useWallets();
+  const [permissions, setPermissions] = useState<SpendPermission[]>([]);
+  const [selectedPermission, setSelectedPermission] = useState<SpendPermission | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Configuration
+  const spenderAddress = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
+  const tokenAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // USDC on Base
+
+  // Find the Base Account wallet
+  const baseAccount = useMemo(() => {
+    return wallets.find((wallet) => wallet.walletClientType === 'base_account');
+  }, [wallets]);
+
+  const provider = baseAccountSdk?.getProvider();
+  const account = baseAccount?.address;
+
+  const loadPermissions = useCallback(async () => {
+    if (!account || !provider || !spenderAddress) return;
+    
+    try {
+      setLoading(true);
+      const fetchedPermissions = await fetchPermissions({
+        account,
+        chainId: base.id,
+        spender: spenderAddress,
+        provider,
+      });
+      setPermissions(fetchedPermissions);
+    } catch (error) {
+      console.error("Failed to load permissions:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [account, provider, spenderAddress]);
+
+  const handleRequestSpendPermission = async () => {
+    if (!account || !provider || !spenderAddress || !tokenAddress) return;
+
+    try {
+      setLoading(true);
+      
+      const permission = await requestSpendPermission({
+        account,
+        spender: spenderAddress,
+        token: tokenAddress,
+        chainId: base.id,
+        allowance: BigInt(1) * BigInt(10 ** 6), // 1 USDC (6 decimals)
+        periodInDays: 1, // 1 day
+        provider,
+      });
+
+      setPermissions([...permissions, permission]);
+    } catch (error) {
+      console.error("Failed to create Spend Permission:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUseSpendPermission = async () => {
+    if (!selectedPermission || !provider || !spenderAddress) return;
+
+    try {
+      setLoading(true);
+      
+      // Check permission status
+      const { isActive, remainingSpend } = await getPermissionStatus(selectedPermission);
+      
+      if (!isActive) {
+        console.error("Selected permission is not active");
+        return;
+      }
+
+      const spendAmount = BigInt(100) * BigInt(10 ** 6); // 100 USDC
+      
+      if (remainingSpend < spendAmount) {
+        console.error("Insufficient remaining allowance");
+        return;
+      }
+
+      // Prepare spend calls
+      const spendCalls = await prepareSpendCallData(selectedPermission, spendAmount);
+      console.log("Spend calls prepared:", spendCalls);
+      
+    } catch (error) {
+      console.error("Failed to use Spend Permission:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <button 
+          onClick={handleRequestSpendPermission}
+          disabled={loading || !account}
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+        >
+          Create Spend Permission
+        </button>
+        <button 
+          onClick={loadPermissions}
+          disabled={loading || !account}
+          className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+        >
+          Load Permissions
+        </button>
+        <button 
+          onClick={handleUseSpendPermission}
+          disabled={loading || !selectedPermission}
+          className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
+        >
+          Use Permission
+        </button>
+      </div>
+
+      {/* Configuration display */}
+      <div className="p-4 rounded-lg">
+        <h4 className="font-semibold mb-3">Configuration</h4>
+        <div className="text-sm space-y-1">
+          <div><strong>Spender:</strong> {spenderAddress}</div>
+          <div><strong>Token:</strong> {tokenAddress} (USDC)</div>
+          <div><strong>Allowance:</strong> $1 USDC per day</div>
+        </div>
+      </div>
+
+      {/* Permissions list */}
+      {permissions.length > 0 && (
+        <div className="p-4 rounded-lg">
+          <h4 className="font-semibold mb-3">Existing Permissions</h4>
+          <div className="space-y-2">
+            {permissions.map((permission, index) => (
+              <div
+                key={index}
+                className={`p-3 border rounded-md cursor-pointer ${
+                  selectedPermission === permission
+                    ? "border-blue-500"
+                    : "border-gray-300"
+                }`}
+                onClick={() => setSelectedPermission(permission)}
+              >
+                <div className="text-sm">
+                  <div><strong>Spender:</strong> {permission.permission.spender?.slice(0, 10)}...</div>
+                  <div><strong>Token:</strong> {permission.permission.token?.slice(0, 10)}...</div>
+                  <div><strong>Allowance:</strong> {permission.permission.allowance?.toString()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+```
+</CodeGroup>
+
+### Key Methods
+
+#### Creating Spend Permissions
+
+Use `requestSpendPermission` to create new Spend Permissions:
+
+```tsx
+const permission = await requestSpendPermission({
+  account,
+  spender: spenderAddress,
+  token: tokenAddress,
+  chainId: base.id,
+  allowance: BigInt(1) * BigInt(10 ** 6), // 1 USDC
+  periodInDays: 1, // 1 day
+  provider,
+});
+```
+
+#### Fetching Permissions
+
+Use `fetchPermissions` to retrieve existing permissions:
+
+```tsx
+const permissions = await fetchPermissions({
+  account,
+  chainId: base.id,
+  spender: spenderAddress,
+  provider,
+});
+```
+
+#### Using Permissions
+
+Check permission status and prepare spend calls:
+
+```tsx
+// Check if permission is active
+const { isActive, remainingSpend } = await getPermissionStatus(permission);
+
+// Prepare spend transaction data
+const spendCalls = await prepareSpendCallData(permission, spendAmount);
+```
+
+### Configuration Options
+
+#### Allowance and Period
+
+Configure spending limits and time periods:
+
+```tsx
+{
+  allowance: BigInt(100) * BigInt(10 ** 6), // 100 USDC (6 decimals)
+  periodInDays: 7, // 7 days
+}
+```
+
+#### Token Addresses
+
+Common token addresses on Base:
+
+- **USDC**: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+- **ETH**: Native token `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`
+- **DAI**: `0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb`
+
+### Use Cases
+
+Spend permissions are ideal for:
+
+- **Subscriptions**: Recurring payments without user interaction
+- **DeFi protocols**: Automated trading and yield farming
+- **Gaming**: In-game purchases and rewards
+- **Commerce**: Streamlined checkout experiences
+
+<GithubRepoCard
+  title="Base Account Privy Template"
+  githubUrl="https://github.com/base/base-account-privy"
+/>
