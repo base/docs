@@ -1,146 +1,276 @@
 ---
 title: Embeds & Previews
-description: Mini apps use metadata to create embeds when users share links. The embed shows a preview image and launch button.
+description: Configure shareable embeds that display preview images and launch buttons when users share your Mini App links in social feeds.
 ---
 
-<Panel>
+When users share your Mini App in Base App, the shared link appears as a rich preview with an image and launch button. This guide shows you how to implement the required metadata.
+
 <Frame caption="Mini App embed in social feed">
   <img src="/images/minikit/feed_mini.jpg" alt="Mini app feed" className="h-[220px] w-auto"/>
 </Frame>
-</Panel>
-## Implementation
-Add this meta tag to the `<head>` section of any page you want to make shareable:
+
+## Step 1: Add embed metadata to your page
+
+Add the `fc:miniapp` meta tag to any page you want to make shareable. This metadata generates the preview embed when users share your Mini App.
+
+**Why it matters**: Without embed metadata, shared links display as plain URLs. The embed metadata transforms your link into an interactive preview that increases engagement and provides a clear call-to-action for users to launch your Mini App.
 
 <CodeGroup>
-  ```html html metadata
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <title>My Mini App</title>
-      <meta
-        name="fc:miniapp"
-        content='{
-          "version": "next",
-          "imageUrl": "https://example.com/preview.png",
-          "button": {
-            "title": "Open App",
-            "action": {
-              "type": "launch_frame",
-              "url": "https://example.com"
-            }
+```html html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>My Mini App</title>
+    <meta
+      name="fc:miniapp"
+      content='{
+        "version": "next",
+        "imageUrl": "https://example.com/preview.png",
+        "button": {
+          "title": "Open App",
+          "action": {
+            "type": "launch_frame",
+            "url": "https://example.com"
           }
-        }'
-      />
-    </head>
-    <body>
-      <!-- Your app content -->
-    </body>
-  </html>
-  ```
-  
-  ```jsx next.js metadata
-  // app/layout.tsx or app/page.tsx (Next.js App Router)
-  import type { Metadata } from "next";
-  
+        }
+      }'
+    />
+  </head>
+  <body>
+    <!-- Your app content -->
+  </body>
+</html>
+```
+
+```jsx next.js
+// app/layout.tsx or app/page.tsx
+import type { Metadata } from "next";
+
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: miniapp.name,
-    description: miniapp.description,
+    title: "My Mini App",
+    description: "Join and explore our Mini App",
     other: {
       "fc:miniapp": JSON.stringify({
-        version: miniapp.version,
-        imageUrl: miniapp.heroImageUrl,
+        version: "next",
+        imageUrl: "https://example.com/preview.png",
         button: {
-          title: `Join the ${miniapp.name}`,
+          title: "Open App",
           action: {
-            name: `Launch ${miniapp.name}`,
-            url: `${miniapp.homeUrl}`
+            type: "launch_frame",
+            name: "Launch My Mini App",
+            url: "https://example.com"
           },
         },
       }),
     },
   };
 }
-  
-  export default function RootLayout({ children }: { children: React.ReactNode }) {
-    return (
-      <html lang="en">
-        <body>{children}</body>
-      </html>
-    );
-  }
-  ```
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
 </CodeGroup>
-<Tip>The `homeUrl` used in the `manifest` *must* have embed metadata defined, in order for the mini app to render correctly in the Base app.</Tip>
 
+**Explanation**: The `fc:miniapp` meta tag contains JSON configuration that defines your embed appearance. The `imageUrl` displays as the preview image, while the `button` object configures the launch button text and destination URL.
 
+<Check>
+Your page now includes the required metadata. View your page source to verify the `fc:miniapp` meta tag appears in the `<head>` section.
+</Check>
 
-## Schema
+## Step 2: Configure your preview image
 
-<Card>
+Set your `imageUrl` to a high-quality image that represents your Mini App and captures user attention in social feeds.
+
+**Why it matters**: The preview image is the first thing users see when your Mini App is shared. A compelling image significantly increases click-through rates and user engagement.
+
+```json
+{
+  "imageUrl": "https://example.com/preview.png"
+}
+```
+
+**Image requirements**:
+- **Aspect ratio**: 3:2 (e.g., 1200x800 pixels)
+- **Maximum file size**: 10MB
+- **Maximum URL length**: 1024 characters
+- **Format**: PNG, JPG, or WebP
+
+<Tip>
+Use a visually distinctive image that clearly communicates your Mini App's purpose. Include your app name or logo for brand recognition.
+</Tip>
+
+<Check>
+Verify your image meets the 3:2 aspect ratio requirement and loads quickly. Test the URL in a browser to confirm it's publicly accessible.
+</Check>
+
+## Step 3: Customize the launch button
+
+Configure the button that appears on your embed to control what happens when users click it.
+
+**Why it matters**: The button action determines the user's first interaction with your Mini App. A clear, action-oriented button title increases conversion rates from embed views to actual app launches.
+
+```json
+{
+  "button": {
+    "title": "Open App",
+    "action": {
+      "type": "launch_frame",
+      "name": "My Mini App",
+      "url": "https://example.com",
+      "splashImageUrl": "https://example.com/splash.png",
+      "splashBackgroundColor": "#000000"
+    }
+  }
+}
+```
+
+**Button configuration**:
+- `title`: Button text displayed on the embed (max 32 characters)
+- `action.type`: Must be `"launch_frame"` to open your Mini App
+- `action.name`: Application name shown during launch (max 32 characters, defaults to manifest name)
+- `action.url`: Destination URL when button is clicked (max 1024 characters, defaults to current page URL)
+- `action.splashImageUrl`: Image shown on splash screen (200x200 pixels, optional)
+- `action.splashBackgroundColor`: Hex color for splash background (optional)
+
+<Tip>
+Use action-oriented button titles like "Play Now", "Join Game", or "Start Trading" instead of generic text like "Click Here".
+</Tip>
+
+<Check>
+Verify your button title is clear and under 32 characters. The action URL should point to the specific page or state you want users to launch.
+</Check>
+
+## Step 4: Ensure your homeUrl has embed metadata
+
+Your manifest's `homeUrl` must include the embed metadata for your Mini App to render correctly in Base App.
+
+**Why it matters**: Base App uses your manifest's `homeUrl` to fetch embed metadata. If the `homeUrl` doesn't have the `fc:miniapp` meta tag, your Mini App won't display properly in the app.
+
+<CodeGroup>
+```json manifest.json
+{
+  "homeUrl": "https://example.com",
+  "name": "My Mini App"
+}
+```
+
+```html index.html at homeUrl
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta
+      name="fc:miniapp"
+      content='{
+        "version": "next",
+        "imageUrl": "https://example.com/preview.png",
+        "button": {
+          "title": "Open App",
+          "action": {
+            "type": "launch_frame",
+            "url": "https://example.com"
+          }
+        }
+      }'
+    />
+  </head>
+</html>
+```
+</CodeGroup>
+
+**Explanation**: The `homeUrl` in your manifest must point to a page that contains the `fc:miniapp` metadata. This ensures Base App can retrieve and display your embed correctly.
+
+<Check>
+Visit your `homeUrl` and view the page source. Confirm the `fc:miniapp` meta tag is present in the `<head>` section.
+</Check>
+
+## Step 5: Test your embed
+
+Share your Mini App link in Base App to verify the embed displays correctly with your preview image and launch button.
+
+**Why it matters**: Testing ensures users see the intended preview when your Mini App is shared. Catching display issues before launch prevents poor user experience and lost engagement.
+
+1. Open Base App
+2. Share your Mini App URL in a conversation or post
+3. Verify the preview image appears correctly
+4. Verify the button text matches your configuration
+5. Click the button to confirm it launches your Mini App
+
+<Warning>
+Embeds are cached. If you update your metadata, you may need to wait a few minutes or share a URL with a unique query parameter (e.g., `?v=2`) to see changes.
+</Warning>
+
+<Check>
+Your embed displays with the correct preview image, button text, and successfully launches your Mini App when clicked.
+</Check>
+
+## Complete schema reference
+
 <ParamField path="version" type="string" required>
-Version of the embed. Must be `"1"` or `"next"`.
+Version of the embed specification. Use `"next"` for the latest features or `"1"` for legacy support.
 </ParamField>
 
 <ParamField path="imageUrl" type="string" required>
-Image URL for the embed. Must be 3:2 aspect ratio, maximum 10MB, maximum 1024 characters.
+URL to the preview image. Must be 3:2 aspect ratio, maximum 10MB, maximum 1024 characters.
 </ParamField>
 
 <ParamField path="button" type="object" required>
 Button configuration object.
-</ParamField>
-</Card>
 
-### Button Configuration
+<Expandable title="Button properties">
+  <ParamField path="button.title" type="string" required>
+  Text displayed on the button. Maximum 32 characters.
+  </ParamField>
 
-Defines the launch button that appears on the embed.
+  <ParamField path="button.action" type="object" required>
+  Action configuration that defines launch behavior. Maximum 1024 characters.
+  
+  <Expandable title="Action properties">
+    <ParamField path="button.action.type" type="string" required>
+    Action type. Must be `"launch_frame"`.
+    </ParamField>
 
-<Card>
-<ParamField path="button.title" type="string" required>
-Button text. Maximum 32 characters.
-</ParamField>
+    <ParamField path="button.action.url" type="string">
+    URL to open when button is clicked. Defaults to the full URL of the page including query parameters. Maximum 1024 characters.
+    </ParamField>
 
-<ParamField path="button.action" type="object" required>
-Action configuration object. Maximum 1024 characters.
-</ParamField>
-</Card>
+    <ParamField path="button.action.name" type="string">
+    Application name displayed during launch. Maximum 32 characters. Defaults to manifest name.
+    </ParamField>
 
-### Action Configuration
+    <ParamField path="button.action.splashImageUrl" type="string">
+    Image URL for the splash screen. Must be 200x200 pixels. Maximum 32 characters. Defaults to manifest splash image.
+    </ParamField>
 
-Specifies what happens when the embed button is clicked.
-
-<Card>
-<ParamField path="button.action.type" type="string" required>
-Action type. Must be `"launch_frame"`.
-</ParamField>
-
-<ParamField path="button.action.url" type="string">
-App URL to open. Defaults to the full URL of the page including query parameters. Maximum 1024 characters.
-</ParamField>
-
-<ParamField path="button.action.name" type="string">
-Application name. Maximum 32 characters. Defaults to manifest name.
-</ParamField>
-
-<ParamField path="button.action.splashImageUrl" type="string">
-Splash screen image URL. Must be 200x200 pixels. Maximum 32 characters. Defaults to manifest splash image.
+    <ParamField path="button.action.splashBackgroundColor" type="string">
+    Splash screen background color. Must be hex color code (e.g., `#000000`). Defaults to manifest splash background color.
+    </ParamField>
+  </Expandable>
+  </ParamField>
+</Expandable>
 </ParamField>
 
-<ParamField path="button.action.splashBackgroundColor" type="string">
-Splash screen background color. Must be hex color code. Defaults to manifest splash background color.
-</ParamField>
-</Card>
-
-
-## Related Concepts
+## Related documentation
 
 <CardGroup cols={2}>
-<Card title="Search and Discovery" href="/mini-apps/technical-guides/search-and-discovery">
-  Learn how your manifest powers search indexing and category placement in the Base app discovery features.
+<Card title="Search & Discovery" href="/mini-apps/technical-guides/search-discovery">
+  Configure your manifest for search indexing and category placement in Base App discovery features.
 </Card>
 
-<Card title="Sharing and Social Graph" href="/mini-apps/technical-guides/sharing-and-social-graph">
-  Learn how to maximize sharing, social engagement, and viral growth for your Mini App using Base's social graph features.
+<Card title="Sharing & Social Graph" href="/mini-apps/technical-guides/sharing-and-social-graph">
+  Implement sharing strategies to maximize viral growth using Base's social graph features.
+</Card>
+
+<Card title="Manifest Configuration" href="/mini-apps/core-concepts/manifest">
+  Complete guide to configuring your Mini App manifest with all available options.
+</Card>
+
+<Card title="Troubleshooting" href="/mini-apps/troubleshooting/common-issues">
+  Resolve common issues with embeds, indexing, and Mini App display.
 </Card>
 </CardGroup>
-
