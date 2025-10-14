@@ -9,21 +9,81 @@ description: Gracefully navigate users from your mini app through the Base app a
 
 All navigation and external interactions should use official SDK functions. This ensures your Mini App works reliably across different clients and provides consistent user experiences.
 
-<Warning>
-**Don't use these approaches:**
-- Direct HTML links: `<a href="">` or `<Link href="">`
-- Window navigation: `window.open()`
-- Static URLs or deeplinks
-- Client-specific URLs (like Warpcast URLs)
-</Warning>
-
-
 If your Mini App currently uses static URLs or direct links, update them using these patterns:
 
 | Use Case | <Icon icon="ban" iconType="solid" color="red" /> Incorrect Implementation  | <Icon icon="check" iconType="solid" color="green" /> Recommended SDK Action |
 |----------|----------------------|----------------------|
 | External Links | `<a href="https://external.com">` | `sdk.actions.openUrl('https://external.com')` |
 | Create a post | `window.open('https://farcaster.com/~/compose?text=...')` | `sdk.actions.composeCast({ text: '...', embeds: [...] })` |
+
+<Accordion title="Review your app using this prompt">
+
+# Mini App Navigation Pattern Migration
+
+## Context
+I'm building a Farcaster Mini App on Base. Mini Apps must use official SDK functions for all navigation and external interactions to ensure cross-client compatibility.
+
+## Your Task
+Review this file and refactor any incorrect navigation patterns to use the correct SDK actions.
+
+## Incorrect Patterns to Fix
+
+### Don't Use:
+- Direct HTML links: `<a href="">`, `<Link href="">`
+- Window navigation: `window.open()`
+- Static URLs or deeplinks to Farcaster
+- Client-specific URLs (like Warpcast URLs)
+- Composer intent URLs: `https://farcaster.com/~/compose?text=...`
+- Direct cast URLs for viewing
+
+## Correct SDK Actions
+
+### For Farcaster SDK (`@farcaster/miniapp-sdk`)
+1. **External Links:** Use `sdk.actions.openUrl(url)`
+2. **Create Posts:** Use `sdk.actions.composeCast({ text, embeds })`
+3. **View Casts:** Use `sdk.actions.viewCast(castUrl)`
+
+### For MiniKit (`@coinbase/onchainkit/minikit`)
+1. **External Links:** Use `useOpenUrl()` hook
+2. **Create Posts:** Use `useComposeCast()` hook
+3. **View Casts:** Use `useViewCast()` hook
+
+## Migration Examples
+
+```typescript
+// BEFORE (Incorrect)
+<a href="https://example.com">Visit Site</a>
+<button onClick={() => window.open('https://example.com')}>Open</button>
+
+// AFTER (Correct - Farcaster SDK)
+import { sdk } from '@farcaster/miniapp-sdk';
+<button onClick={() => sdk.actions.openUrl('https://example.com')}>Visit Site</button>
+
+// AFTER (Correct - MiniKit)
+import { useOpenUrl } from '@coinbase/onchainkit/minikit';
+const openUrl = useOpenUrl();
+<button onClick={() => openUrl('https://example.com')}>Visit Site</button>
+```
+
+```typescript
+// BEFORE (Incorrect)
+window.open('https://farcaster.com/~/compose?text=Check this out!')
+
+// AFTER (Correct - Farcaster SDK)
+sdk.actions.composeCast({
+  text: 'Check this out!',
+  embeds: [window.location.href]
+})
+
+// AFTER (Correct - MiniKit)
+const { composeCast } = useComposeCast();
+composeCast({
+  text: 'Check this out!',
+  embeds: [window.location.href]
+})
+```
+</Accordion>
+
 
 
 ## External Navigation
