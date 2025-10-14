@@ -1,13 +1,11 @@
 ---
 title: Links
-description: Handle external navigation and URL interactions safely across clients
+description: Gracefully navigate users from your mini app through the Base app and to external links.
 ---
-
-When building Mini Apps, proper link handling is crucial for providing a consistent user experience across different clients. This guide outlines best practices for external navigation and URL interactions.
 
 ## Overview
 
-### Use SDK Actions for Cross-Client Compatibility
+
 
 All navigation and external interactions should use official SDK functions. This ensures your Mini App works reliably across different clients and provides consistent user experiences.
 
@@ -22,22 +20,37 @@ All navigation and external interactions should use official SDK functions. This
 
 If your Mini App currently uses static URLs or direct links, update them using these patterns:
 
-| ❌ Current Implementation  | ✅ Recommended SDK Action |
-|----------------------|----------------------|
-| `<a href="https://external.com">` | `sdk.actions.openUrl('https://external.com')` |
-| `window.open('https://farcaster.com/~/compose?text=...')` | `sdk.actions.composeCast({ text: '...', embeds: [...] })` |
-| Farcaster-specific deeplinks | Use appropriate SDK action |
-| Direct profile links | Use SDK actions for profile navigation when available |
+| Use Case | <Icon icon="ban" iconType="solid" color="red" /> Incorrect Implementation  | <Icon icon="check" iconType="solid" color="green" /> Recommended SDK Action |
+|----------|----------------------|----------------------|
+| External Links | `<a href="https://external.com">` | `sdk.actions.openUrl('https://external.com')` |
+| Create a post | `window.open('https://farcaster.com/~/compose?text=...')` | `sdk.actions.composeCast({ text: '...', embeds: [...] })` |
 
 
 ## External Navigation
 
 ### Opening External URLs
 <Tabs>
-  <Tab title="With MiniKit">
+<Tab title="Farcaster SDK">
+
+  Use `sdk.actions.openUrl()` to safely open external websites in the client's in-app browser:
+
+  ```typescript App.tsx highlight={5}
+  import { sdk } from '@farcaster/miniapp-sdk';
+
+  // Correct: Use SDK action
+  const openExternalSite = () => {
+    sdk.actions.openUrl('https://example.com');
+  };
+
+  // Incorrect: Direct HTML link
+  // <a href="https://example.com">Visit Site</a>
+  ```
+  </Tab>
+  <Tab title="MiniKit">
 
   Use [`useOpenUrl()`](/mini-apps/technical-reference/minikit/hooks/useOpenUrl) to safely open external websites in the client's in-app browser:
-  ```tsx components/ExternalLinks.tsx
+
+  ```tsx components/ExternalLinks.tsx highlight={8 -10}
   import { useOpenUrl } from '@coinbase/onchainkit/minikit';
 
   export default function ExternalLinks() {
@@ -62,32 +75,33 @@ If your Mini App currently uses static URLs or direct links, update them using t
   // <a href="https://example.com">Visit Site</a>
   ```
   </Tab>
-
-  <Tab title="Without MiniKit">
-
-  Use `sdk.actions.openUrl()` to safely open external websites in the client's in-app browser:
-
-  ```typescript App.tsx
-  import { sdk } from '@farcaster/miniapp-sdk';
-
-  // Correct: Use SDK action
-  const openExternalSite = () => {
-    sdk.actions.openUrl('https://example.com');
-  };
-
-  // Incorrect: Direct HTML link
-  // <a href="https://example.com">Visit Site</a>
-  ```
-  </Tab>
 </Tabs>
 
 ### Composing Casts
 
 <Tabs>
-  <Tab title="With MiniKit">
+  <Tab title="Farcaster SDK">
 
+  Use `sdk.actions.composeCast()` instead of composer intent URLs:
+
+  ```typescript App.tsx highlight={5-8}
+  import { sdk } from '@farcaster/miniapp-sdk';
+
+  // Correct: Use SDK action
+  const shareContent = () => {
+    sdk.actions.composeCast({
+      text: 'Check out this Mini App!',
+      embeds: ['https://yourminiapp.com']
+    });
+  };
+
+  // Incorrect: Composer intent URLs
+  // window.open('https://farcaster.com/~/compose?text=...')
+  ```
+  </Tab>
+  <Tab title="MiniKit">
   Use [`useComposeCast()`](/mini-apps/technical-reference/minikit/hooks/useComposeCast) to open the native composer with prefilled content:
-  ```tsx components/ShareCast.tsx
+  ```tsx components/ShareCast.tsx highlight={8-13}
   import { useComposeCast } from '@coinbase/onchainkit/minikit';
 
   export default function ShareCast() {
@@ -111,35 +125,28 @@ If your Mini App currently uses static URLs or direct links, update them using t
   // window.open('https://farcaster.com/~/compose?text=...')
   ```
   </Tab>
-
-  <Tab title="Without MiniKit">
-
-  Use `sdk.actions.composeCast()` instead of composer intent URLs:
-
-  ```typescript App.tsx
-  import { sdk } from '@farcaster/miniapp-sdk';
-
-  // Correct: Use SDK action
-  const shareContent = () => {
-    sdk.actions.composeCast({
-      text: 'Check out this Mini App!',
-      embeds: ['https://yourminiapp.com']
-    });
-  };
-
-  // Incorrect: Composer intent URLs
-  // window.open('https://farcaster.com/~/compose?text=...')
-  ```
-  </Tab>
 </Tabs>
 
 ### Viewing Casts 
 
 <Tabs>
-  <Tab title="With MiniKit">
+  <Tab title="Farcaster SDK">
+
+  Use `sdk.actions.viewCast()` instead of cast intent URLs:
+
+  ```typescript App.tsx
+  import { sdk } from '@farcaster/miniapp-sdk';
+
+  // Correct: Use SDK action
+  const viewCast = () => {
+    sdk.actions.viewCast('https://farcaster.com/cast/1234567890');
+  };
+  ```
+  </Tab>
+  <Tab title="MiniKit">
 
   Use [`useViewCast()`](/mini-apps/technical-reference/minikit/hooks/useViewCast) to open a specific cast by its hash:
-  ```tsx components/ViewCastButton.tsx
+  ```tsx components/ViewCastButton.tsx highlight={4,7-9}
   import { useViewCast } from '@coinbase/onchainkit/minikit';
 
   export default function ViewCastButton() {
@@ -153,55 +160,13 @@ If your Mini App currently uses static URLs or direct links, update them using t
   }
   ```
   </Tab>
-
-  <Tab title="Without MiniKit">
-
-  Use `sdk.actions.viewCast()` instead of cast intent URLs:
-
-  ```typescript App.tsx
-  import { sdk } from '@farcaster/miniapp-sdk';
-
-  // Correct: Use SDK action
-  const viewCast = () => {
-    sdk.actions.viewCast('https://farcaster.com/cast/1234567890');
-  };
-  ```
-  </Tab>
 </Tabs>
-
-### Navigation Buttons
-
-```javascript NavigationComponent.tsx
-import { sdk } from 'farcaster/miniapp-sdk';
-
-const NavigationComponent = () => {
-  const handleExternalLink = () => {
-    sdk.actions.openUrl('https://docs.example.com');
-  };
-
-  const handleShare = () => {
-    sdk.actions.composeCast({
-      text: 'Just used this amazing Mini App!',
-      embeds: [window.location.href]
-    });
-  };
-
-  return (
-    <div>
-      <button onClick={handleExternalLink}>
-        View Documentation
-      </button>
-      <button onClick={handleShare}>
-        Share This App
-      </button>
-    </div>
-  );
-};
-```
 
 ### Conditional Navigation
 
-```javascript ConditionalNavigation.tsx
+If your mini app can be opened in the browser, implement conditional navigation to handle cases where mini app-specific functions (e.g., Compose Cast) are unavailable.
+
+```javascript ConditionalNavigation.tsx highlight={4, 8-13}
 import { sdk } from 'farcaster/miniapp-sdk';
 
 const ConditionalNavigation = () => {
@@ -224,3 +189,4 @@ const ConditionalNavigation = () => {
   );
 };
 ```
+
