@@ -55,10 +55,31 @@ Whether to enable functional telemetry. Defaults to `true`.
 </Expandable>
 </ParamField>
 
-<ParamField body="subAccounts" type="Omit<SubAccountOptions, 'enableAutoSubAccounts'>">
+<ParamField body="subAccounts" type="SubAccountOptions">
 Sub-account configuration options.
 
 <Expandable title="SubAccountOptions properties">
+<ParamField body="creation" type="'on-connect' | 'manual'">
+Controls when sub-accounts are created. Defaults to `'manual'`.
+
+- `'on-connect'`: Automatically creates a sub-account when connecting to the wallet (automatically injects `addSubAccount` capability to `wallet_connect`)
+- `'manual'`: Requires explicit `wallet_addSubAccount` call to create a sub-account
+</ParamField>
+
+<ParamField body="defaultAccount" type="'sub' | 'universal'">
+Controls which account is used by default when no account is specified. Defaults to `'universal'`.
+
+- `'sub'`: Sub-account is the default account (first in accounts array)
+- `'universal'`: Universal account is the default account (first in accounts array)
+</ParamField>
+
+<ParamField body="funding" type="'spend-permissions' | 'manual'">
+Controls how sub-accounts are funded. Defaults to `'spend-permissions'`.
+
+- `'spend-permissions'`: Routes through universal account if no spend permissions exist, handles insufficient balance errors automatically. Learn more in [Auto Spend Permissions](/base-account/improve-ux/sub-accounts#auto-spend-permissions)
+- `'manual'`: Direct execution from sub-account without automatic fallbacks
+</ParamField>
+
 <ParamField body="toOwnerAccount" type="ToOwnerAccountFn">
 Function that returns the owner account for signing sub-account transactions.
 
@@ -71,9 +92,6 @@ Where `OwnerAccount` is a union type of:
 - `LocalAccount` (from viem) - A local account with private key
 - `WebAuthnAccount` (from viem) - A WebAuthn-based account for passkey authentication
 </Expandable>
-</ParamField>
-<ParamField body="unstable_enableAutoSpendPermissions" type="boolean">
-When <code>true</code> (default), enables Auto Spend Permissions for sub-accounts. This allows automatic transfers from the user's Base Account to the sub-account when funds are missing and attempts background transactions using existing spend permissions. Set to <code>false</code> to disable this behavior. Learn more in [Auto Spend Permissions](/base-account/improve-ux/sub-accounts#auto-spend-permissions).
 </ParamField>
 </Expandable>
 </ParamField>
@@ -147,6 +165,9 @@ const sdk = createBaseAccountSDK({
     telemetry: true
   },
   subAccounts: {
+    creation: 'on-connect', // Auto-create sub-account on connection
+    defaultAccount: 'sub', // Use sub-account by default
+    funding: 'spend-permissions', // Auto-handle funding
     toOwnerAccount: async () => ({ 
       account: cryptoAccount?.account || null 
     })
@@ -158,13 +179,16 @@ const sdk = createBaseAccountSDK({
 });
 ```
 
-```typescript With Sub-Accounts
+```typescript With Sub-Accounts (Manual Creation)
 import { createBaseAccountSDK } from '@base-org/account';
 
 const sdk = createBaseAccountSDK({
   appName: 'Sub-Account App',
   appChainIds: [8453],
   subAccounts: {
+    creation: 'manual', // Explicitly create sub-accounts when needed
+    defaultAccount: 'universal', // Universal account is default
+    funding: 'spend-permissions', // Auto-handle insufficient balance
     toOwnerAccount: async () => {
       // Return the owner account that will sign sub-account transactions
       // mainAccount should be a LocalAccount or WebAuthnAccount from viem
@@ -173,7 +197,7 @@ const sdk = createBaseAccountSDK({
   }
 });
 
-// Create a sub-account
+// Manually create a sub-account when needed
 const subAccount = await sdk.subAccount.create({
   type: 'create',
   keys: [{
@@ -181,9 +205,30 @@ const subAccount = await sdk.subAccount.create({
     publicKey: '0x...'
   }]
 });
+```
 
-// Get existing sub-account
-const existingSubAccount = await sdk.subAccount.get();
+```typescript With Auto-Created Sub-Accounts
+import { createBaseAccountSDK } from '@base-org/account';
+
+const sdk = createBaseAccountSDK({
+  appName: 'Auto Sub-Account App',
+  appChainIds: [8453],
+  subAccounts: {
+    creation: 'on-connect', // Auto-create on wallet connection
+    defaultAccount: 'sub', // Sub-account is default
+    funding: 'spend-permissions', // Auto-handle insufficient balance
+    toOwnerAccount: async () => {
+      return { account: mainAccount || null };
+    }
+  }
+});
+
+// Sub-account is automatically created on connection
+const provider = sdk.getProvider();
+await provider.request({ method: 'eth_requestAccounts' });
+
+// Sub-account is automatically available
+const subAccount = await sdk.subAccount.get();
 ```
 </RequestExample>
 
@@ -232,6 +277,48 @@ const config = createConfig({
 ```
 
 ## Configuration Options
+
+### Sub-Account Configuration
+
+Configure sub-account behavior with three independent options:
+
+```typescript
+const sdk = createBaseAccountSDK({
+  appName: 'My App',
+  appChainIds: [8453],
+  subAccounts: {
+    creation: 'on-connect' | 'manual',              // When to create
+    defaultAccount: 'sub' | 'universal',             // Which is default
+    funding: 'spend-permissions' | 'manual',         // How to fund transactions
+    toOwnerAccount: async () => ({ account })        // Owner for signing
+  }
+});
+```
+
+**Common Configurations:**
+
+```typescript
+// Most seamless UX: Auto-create, use sub-account by default, auto-fund
+subAccounts: {
+  creation: 'on-connect',
+  defaultAccount: 'sub',
+  funding: 'spend-permissions'
+}
+
+// Manual control: Create when needed, universal default, auto-fund
+subAccounts: {
+  creation: 'manual',
+  defaultAccount: 'universal',
+  funding: 'spend-permissions'
+}
+
+// Full manual: Complete developer control
+subAccounts: {
+  creation: 'manual',
+  defaultAccount: 'universal',
+  funding: 'manual'
+}
+```
 
 ### Attribution
 

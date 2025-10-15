@@ -1,0 +1,164 @@
+---
+title: "subscription.subscribe"
+description: "Create USDC subscriptions with spend permissions on Base network"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+The `subscribe` function creates recurring USDC subscriptions using spend permissions on the Base network. This enables you to charge users periodically without requiring approval for each transaction. **No fees for merchants or users.**
+</Info>
+
+## Parameters
+
+<ParamField body="recurringCharge" type="string" required>
+Amount of USDC to charge per period (e.g., "10.50"). Maximum 6 decimal places.
+</ParamField>
+
+<ParamField body="subscriptionOwner" type="string" required>
+Ethereum address that will be the spender (your application's address).
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
+
+<ParamField body="periodInDays" type="number">
+The period in days for the subscription (e.g., 30 for monthly). Default: 30
+</ParamField>
+
+<ParamField body="testnet" type="boolean">
+Set to true to use Base Sepolia testnet instead of mainnet. Default: false
+</ParamField>
+
+<ParamField body="telemetry" type="boolean">
+Whether to enable telemetry logging. Default: true
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="SubscriptionResult">
+Subscription details on success. The function throws an error on failure.
+
+<Expandable title="SubscriptionResult properties">
+<ResponseField name="id" type="string">
+The subscription ID (permission hash) - use this to manage the subscription.
+</ResponseField>
+
+<ResponseField name="subscriptionOwner" type="Address">
+Address that controls the subscription (your application).
+</ResponseField>
+
+<ResponseField name="subscriptionPayer" type="Address">
+Address that will be charged (the user).
+</ResponseField>
+
+<ResponseField name="recurringCharge" type="string">
+Recurring charge amount in USD.
+</ResponseField>
+
+<ResponseField name="periodInDays" type="number">
+Period in days for the subscription.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Errors
+
+The `subscribe` function throws an error when subscription creation fails. The error object contains a message explaining what went wrong.
+
+<RequestExample>
+```typescript Basic Subscription
+import { base } from '@base-org/account';
+
+try {
+  const subscription = await base.subscription.subscribe({
+    recurringCharge: "9.99",
+    subscriptionOwner: "0xFe21034794A5a574B94fE4fDfD16e005F1C96e51",
+    periodInDays: 30,
+    testnet: false
+  });
+  
+  console.log(`Subscription ID: ${subscription.id}`);
+  console.log(`Payer: ${subscription.subscriptionPayer}`);
+  console.log(`Monthly charge: $${subscription.recurringCharge}`);
+} catch (error) {
+  console.error(`Subscription failed: ${error.message}`);
+}
+```
+
+```typescript Weekly Subscription on Testnet
+try {
+  const subscription = await base.subscription.subscribe({
+    recurringCharge: "2.99",
+    subscriptionOwner: "0xYourAppAddress",
+    periodInDays: 7,  // Weekly billing
+    testnet: true,     // Use Base Sepolia
+    telemetry: false   // Disable telemetry
+  });
+  
+  console.log(`Created weekly subscription: ${subscription.id}`);
+  console.log(`Charging ${subscription.recurringCharge} every ${subscription.periodInDays} days`);
+} catch (error) {
+  console.error(`Failed to create subscription: ${error.message}`);
+}
+```
+
+```typescript Annual Subscription
+try {
+  const subscription = await base.subscription.subscribe({
+    recurringCharge: "99.99",
+    subscriptionOwner: "0xYourAppAddress",
+    periodInDays: 365,  // Annual billing
+    testnet: false
+  });
+  
+  console.log(`Annual subscription created!`);
+  console.log(`ID: ${subscription.id}`);
+  console.log(`Annual charge: $${subscription.recurringCharge}`);
+} catch (error) {
+  console.error(`Subscription creation failed: ${error.message}`);
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Success Response
+{
+  id: "0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984",
+  subscriptionOwner: "0xFe21034794A5a574B94fE4fDfD16e005F1C96e51",
+  subscriptionPayer: "0x742d35Cc4Bf53E0e6C42E5d9F0A8D2F6D8A8B7C9",
+  recurringCharge: "9.99",
+  periodInDays: 30
+}
+```
+
+```typescript Error (thrown)
+{
+  "code": 4001,
+  "message": "User rejected the request",
+  "stack": "Error: User rejected the request\n    at getEthProviderError..."
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+Always wrap calls to `subscribe` in a try-catch block:
+
+```typescript
+try {
+  const subscription = await base.subscription.subscribe({
+    recurringCharge: "19.99",
+    subscriptionOwner: "0xYourAppAddress",
+    periodInDays: 30
+  });
+  // Subscription created successfully
+  saveSubscriptionId(subscription.id); // Save for future charges
+} catch (error) {
+  // Handle subscription failure
+  console.error(`Failed to create subscription: ${error.message}`);
+}
+```
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

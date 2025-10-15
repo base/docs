@@ -1,0 +1,291 @@
+---
+title: "Auth (Sign In With Base)"
+description: "Manage user authentication with Privy and Base Account"
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx";
+
+Learn how to handle authentication flows with Privy and Base Account, including both Privy-managed authentication and custom backend verification.
+
+## Overview
+
+Privy handles the initial authentication flow, managing user sessions and wallet connections. You can also implement additional authentication layers for enhanced security or custom requirements.
+
+The code snippets in this guide are based on the following example project:
+<GithubRepoCard
+  title="Base Account Privy Template"
+  githubUrl="https://github.com/base/base-account-privy"
+/>
+
+## Authentication Flow
+
+Privy manages the primary authentication before users enter your application:
+
+<div style={{ display: 'flex', justifyContent: 'center'}}>
+  <img src="/images/base-account/privy-base-auth.gif" alt="Privy Base Auth" style={{ width: '600px', height: 'auto' }} />
+</div>
+
+## Custom Authentication
+
+For additional security or custom authentication requirements, you can implement backend verification using Sign-In with Ethereum (SIWE)
+with the Base Account SDK.
+
+### Setup
+
+Follow the [Setup](/base-account/framework-integrations/privy/setup) guide to set up Privy with Base Account.
+
+### Frontend Component (Sign In With Base)
+
+We use the [`SignInWithBaseButton`](/base-account/reference/ui-elements/sign-in-with-base-button) component from the `@base-org/account-ui/react` package to make sure
+we are following the brand guidelines.
+
+<CodeGroup>
+```tsx Authentication Component (components/sections/authentication.tsx) expandable
+"use client";
+
+import { useState } from "react";
+import { useBaseAccountSdk } from "@privy-io/react-auth";
+import { SignInWithBaseButton } from "@base-org/account-ui/react";
+
+export const Authentication = () => {
+  const { baseAccountSdk } = useBaseAccountSdk();
+  const [loading, setLoading] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+
+  const provider = baseAccountSdk?.getProvider();
+
+  const handleSignInWithBase = async () => {
+    if (!provider) return;
+
+    try {
+      setLoading(true);
+
+      // Get a fresh nonce from backend
+      const nonceResponse = await fetch("/api/auth/nonce");
+      const { nonce } = await nonceResponse.json();
+
+      // Switch to Base Chain
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x2105" }],
+      });
+
+      // Connect and authenticate with SIWE
+      const response = (await provider.request({
+        method: "wallet_connect",
+        params: [{
+          version: "1",
+          capabilities: {
+            signInWithEthereum: {
+              nonce,
+              chainId: "0x2105",
+            },
+          },
+        }],
+      })) as {
+        accounts: {
+          address: string;
+          capabilities: {
+            signInWithEthereum: { signature: string; message: string };
+          };
+        }[];
+      };
+
+      const { address } = response.accounts[0];
+      const { message, signature } = response.accounts[0].capabilities.signInWithEthereum;
+
+      // Verify with backend
+      const verifyResponse = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, message, signature }),
+      });
+
+      const result = await verifyResponse.json();
+      setVerificationResult(result);
+    } catch (error) {
+      console.error("Sign in error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <SignInWithBaseButton onClick={handleSignInWithBase} />
+      {verificationResult && (
+        <div>✅ Backend Verified! Address: {verificationResult.address}</div>
+      )}
+    </div>
+  );
+};
+
+export default Authentication;
+```
+</CodeGroup>
+
+### Using the Authentication Component
+
+Add the Authentication component to your page to enable Sign In with Base functionality:
+
+<CodeGroup>
+```tsx Page Implementation (app/page.tsx)
+import Authentication from "@/components/sections/authentication";
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm">
+        <h1 className="text-4xl font-bold text-center mb-8">
+          Base Account with Privy
+        </h1>
+        
+        <div className="flex flex-col items-center space-y-4">
+          <Authentication />
+        </div>
+      </div>
+    </main>
+  );
+}
+```
+
+```tsx Alternative: Protected Page (app/dashboard/page.tsx)
+"use client";
+
+import { usePrivy } from "@privy-io/react-auth";
+import Authentication from "@/components/sections/authentication";
+
+export default function Dashboard() {
+  const { authenticated } = usePrivy();
+
+  if (!authenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Required</h1>
+          <p className="mb-6">Please authenticate to access the dashboard.</p>
+          <Authentication />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen p-8">
+      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <p>Welcome to your authenticated dashboard!</p>
+      {/* Your protected content here */}
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+### Backend Implementation
+
+<Warning>
+**Development Only**: This backend implementation is not production-ready. The nonce management system needs proper persistence and security enhancements for production use.
+</Warning>
+
+<CodeGroup>
+```ts Nonce Generation (app/api/auth/nonce/route.ts)
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { nonceStore } from '@/lib/nonce-store';
+
+export async function GET() {
+  try {
+    const nonce = crypto.randomBytes(16).toString('hex');
+    nonceStore.add(nonce);
+    
+    return NextResponse.json({ nonce });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to generate nonce' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+```ts Signature Verification (app/api/auth/verify/route.ts) expandable
+import { NextRequest, NextResponse } from 'next/server';
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+import { nonceStore } from '@/lib/nonce-store';
+
+const client = createPublicClient({ 
+  chain: base, 
+  transport: http() 
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const { address, message, signature } = await request.json();
+
+    // Extract nonce from SIWE message
+    const nonce = message.match(/Nonce: (\w+)/)?.[1];
+    
+    if (!nonce || !nonceStore.consume(nonce)) {
+      return NextResponse.json(
+        { error: 'Invalid or reused nonce' },
+        { status: 400 }
+      );
+    }
+
+    // Verify signature using viem
+    const valid = await client.verifyMessage({ 
+      address: address as `0x${string}`, 
+      message, 
+      signature: signature as `0x${string}` 
+    });
+
+    if (!valid) {
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      address,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+```ts Nonce Store (lib/nonce-store.ts) expandable
+// Simple in-memory nonce store
+// In production, use Redis or a database
+class NonceStore {
+  private nonces = new Set<string>();
+
+  add(nonce: string): void {
+    this.nonces.add(nonce);
+  }
+
+  consume(nonce: string): boolean {
+    return this.nonces.delete(nonce);
+  }
+}
+
+export const nonceStore = new NonceStore();
+```
+</CodeGroup>
+
+### Production Considerations
+
+For production deployments, enhance the backend implementation with:
+
+- **Persistent storage**: Use Redis or a database instead of in-memory storage
+- **Rate limiting**: Implement request rate limiting for nonce generation
+- **Session management**: Create proper JWT tokens or session cookies
+- **Nonce expiration**: Add timestamp-based nonce expiration
