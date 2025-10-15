@@ -1,8 +1,3 @@
----
-description: Any time "Mintlify" is referenced 
-alwaysApply: false
----
-
 ## Mintlify component reference
 Full mintlify reference docs can be found at https://www.mintlify.com/docs/llms.txt
 
