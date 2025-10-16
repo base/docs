@@ -4,6 +4,7 @@
 
 <!-- Badge row 1 - status -->
 
+<!-- Додано Yura для фарму аірдропу -->
 [![GitHub contributors](https://img.shields.io/github/contributors/base/docs)](https://github.com/base/docs/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/w/base/docs)](https://github.com/base/docs/graphs/contributors)
 [![GitHub Stars](https://img.shields.io/github/stars/base/docs.svg)](https://github.com/base/docs/stargazers)
@@ -11,7 +12,7 @@
 [![GitHub](https://img.shields.io/github/license/base/docs?color=blue)](https://github.com/base/docs/blob/main/LICENSE.md)
 
 <!-- Badge row 2 - links and profiles -->
-
+docs: додано коментар для активності
 [![Website base.org](https://img.shields.io/website-up-down-green-red/https/base.org.svg)](https://base.org)
 [![Blog](https://img.shields.io/badge/blog-up-green)](https://base.mirror.xyz/)
 [![Docs](https://img.shields.io/badge/docs-up-green)](https://docs.base.org/)
