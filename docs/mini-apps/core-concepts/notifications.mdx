@@ -12,6 +12,8 @@ This `token` grants your app permission to send in-app notifications to that spe
 To send a notification, make a `POST` request to the `url` with the user's notification `token` and your content.
 
 You will receive webhook events when users enable or disable notifications for your app. When disabled, the notification token becomes invalid and should no longer be used.
+
+
 <Panel>
 ![notification-image-iphone](/images/minikit/notifications-sample.png)
 
@@ -19,23 +21,41 @@ You will receive webhook events when users enable or disable notifications for y
 ## Implementation
 <Steps>
   <Step title="Create a webhook server">
-    Create a webhook server to handle webhook events. 
+    Create a webhook server to handle webhook events.
+
+    <Info>
+    The `data` object returned by `parseWebhookEvent` contains three key fields:
+    - **`fid`**: The user's FID
+    - **`appFid`**: The client's FID (e.g., 9152 for Warpcast, 8888 for Base)
+    - **`event`**: The event payload with type and notification details
+  
+    Always use both `fid` and `appFid` together to identify a unique user-client combination.
+    </Info> 
 
     ```ts app/api/webhook/route.ts expandable highlight={20-50}
+
+  import {
+      parseWebhookEvent,
+      verifyAppKeyWithNeynar,
+    } from "@farcaster/miniapp-node";
+
     export async function POST(request: NextRequest) {
       const requestJson = await request.json();
 
       // Parse and verify the webhook event
       let data;
       try {
-        data = await validateWebhookEventSignature(requestJson);
+        data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
         // Events are signed by the app key of a user with a JSON Farcaster Signature.
       } catch (e: unknown) {
         // Handle verification errors (invalid data, invalid app key, etc.)
         // Return appropriate error responses with status codes 400, 401, or 500
       }
 
+      // Extract webhook data
+
       const fid = data.fid;
+      const appFid = data.appFid; // The FID of the client app that the user added the Mini App to
       const event = data.event;
 
       // Handle different event types
@@ -43,9 +63,10 @@ You will receive webhook events when users enable or disable notifications for y
         case "miniapp_added":
           // Save notification details and send welcome notification
           if (event.notificationDetails) {
-            await setUserNotificationDetails(fid, event.notificationDetails);
+            await setUserNotificationDetails(fid, appFid, event.notificationDetails);
             await sendMiniAppNotification({
               fid,
+              appFid,
               title: "Welcome to Base Mini Apps",
               body: "Mini app is now added to your client",
             });
@@ -54,14 +75,15 @@ You will receive webhook events when users enable or disable notifications for y
 
         case "miniapp_removed":
           // Delete notification details
-          await deleteUserNotificationDetails(fid);
+          await deleteUserNotificationDetails(fid, appFid);
           break;
 
         case "notifications_enabled":
           // Save new notification details and send confirmation
-          await setUserNotificationDetails(fid, event.notificationDetails);
+          await setUserNotificationDetails(fid, appFid, event.notificationDetails);
           await sendMiniAppNotification({
             fid,
+            appFid,
             title: "Ding ding ding",
             body: "Notifications are now enabled",
           });
@@ -69,7 +91,7 @@ You will receive webhook events when users enable or disable notifications for y
 
         case "notifications_disabled":
           // Delete notification details
-          await deleteUserNotificationDetails(fid);
+          await deleteUserNotificationDetails(fid, appFid);
           break;
       }
 
@@ -161,14 +183,16 @@ You will receive webhook events when users enable or disable notifications for y
     ```ts sendNotification.ts highlight={15-28}
     export async function sendMiniAppNotification({
       fid,
+      appFid,
       title,
       body,
     }: {
       fid: number;
+      appFid: number;
       title: string;
       body: string;
     }): Promise<sendMiniAppNotificationResult> {
-      const notificationDetails = await getUserNotificationDetails(fid);
+      const notificationDetails = await getUserNotificationDetails(fid, appFid);
       if (!notificationDetails) {
         return { state: "no_token" };
       }
