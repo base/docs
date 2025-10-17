@@ -1,0 +1,254 @@
+---
+title: Send Notifications (Neynar)
+description: Learn how to engage users through in-app notifications using Neynar
+---
+
+
+## Overview
+
+
+If your app doesn't have a backend, if you're already using Neynar, or if you would rather use a hosted solution instead of [implementing notification logic](/mini-apps/core-concepts/notifications) in your backend, we recommend using Neynar for notifications. [**Neynar**](https://neynar.com/) is an infrastructure platform for building mini apps on Base.  
+
+Neynar's solution allows you to:
+
+- Manage notification infrastructure (tokens, permissions, batching) in a single UI
+- Send via API or Neynar developer portal UI—no code required
+- Track notification performance with built-in analytics
+- Target specific user cohorts with advanced segmentation
+
+
+## Prerequisites
+- A Base App account
+- A mini app with the [Farcaster SDK](https://miniapps.farcaster.xyz/docs/getting-started#manual-setup) implemented
+- Neynar developer account -- sign up for free [here](https://neynar.com)
+
+
+## Enable Notifications
+
+<Steps>
+<Step title="Set up Notifications on Neynar">
+The Neynar mini app events webhook URL is on the Neynar app page. 
+
+Navigate to [dev.neynar.com/app](https://dev.neynar.com/app) and then click on the app. 
+
+Copy the url under **Mini app Notifications**.
+
+![neynar webhook url](/images/miniapps/neynar-notification-webhook.png)
+
+
+</Step>
+<Step title="Add Webhook URL to Manifest">
+Paste the url you copied from the **Mini app Notifications** field in the step above into the `webhookUrl` field in the `miniapp` object inside your manifest. 
+
+Here's an example manifest with the updated `webhookUrl` field:
+```json highlight={14}
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjE5MSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDNhNmRkNTY5ZEU4NEM5MTgyOEZjNDJEQ0UyMGY1QjgyN0UwRUY1QzUifQ",
+    "payload": "eyJkb21haW4iOiIxYmNlLTczLTcwLTE2OC0yMDUubmdyb2stZnJlZS5hcHAifQ",
+    "signature": "MHg1ZDU1MzFiZWQwNGZjYTc5NjllNDIzNmY1OTY0ZGU1NDMwNjE1YTdkOTE3OWNhZjE1YjQ5M2MxYWQyNWUzMTIyM2NkMmViNWQyMjFhZjkxYTYzM2NkNWU3NDczNmQzYmE4NjI4MmFiMTU4Y2JhNGY0ZWRkOTQ3ODlkNmM2OTJlNDFi"
+  },
+  "miniapp": {
+    "version": "4.2.0",
+    "name": "Your Mini App Name",
+    "iconUrl": "https://your-miniapp-domain.com/icon.png",
+    "splashImageUrl": "https://your-miniapp-domain.com/splash.png",
+    "splashBackgroundColor": "#f7f7f7",
+    "homeUrl": "https://your-miniapp-domain.com",
+    "webhookUrl": "https://api.neynar.com/f/app/3c274018-6402-4a47-96bbg-1fea72afc408/event"
+  }
+}
+```
+
+<Warning>
+Caching: The Base App might have your mini app manifest cached. To make sure all changes have taken effect, repost your application to the Base App.
+</Warning>
+
+<Tip>
+Test your Mini App in [Base Build](https://base.dev/preview) using the Preview tool. Once signed in, paste your app's URL in the `App URL` field and click the `Submit` button.
+</Tip>
+
+</Step>
+</Steps>
+
+## Prompt Users to Add Your App
+To send notifications to users, they must first add your app.
+<Steps>
+<Step title="Install the Neynar React package">
+
+
+```shell terminal
+npm install @neynar/react
+```
+</Step>
+
+
+<Step title="Prompt users to add your Mini App">
+
+Use the `addMiniApp()` hook to prompt users to add your Mini App.
+
+Neynar will manage all [notification events](/mini-apps/core-concepts/notifications#events) which tell your app when a user has enabled or disabled notifications for your mini app.
+
+To confirm that the mini app was added and notifications were enabled, check `result.added` is true and `result.notificationDetails` is a valid object.
+
+```javascript app/page.tsx
+import { useMiniApp } from '@neynar/react';
+
+export default function HomePage() {
+  const { isSDKLoaded, addMiniApp } = useMiniApp();
+
+  const handleAddMiniApp = async () => {
+    if (!isSDKLoaded) return;
+    
+    const result = await addMiniApp();
+    if (result.added && result.notificationDetails) {
+      // Mini app was added and notifications were enabled
+      console.log('Notification token:', result.notificationDetails.token);
+    }
+  };
+
+  return (
+    <button onClick={handleAddMiniApp}>
+      Add Mini App
+    </button>
+  );
+}
+```
+
+</Step>
+</Steps>
+
+## Send Notifications to Users
+
+Neynar makes it easy to send notifications to all users who have enabled notifications or to a subset based on filter criteria you define.
+
+### Option 1: API
+
+You can programmatically send notifications using the Neynar API. This gives you full control over targeting and filtering users.
+
+<Steps>
+<Step title="Install the Neynar Node.js SDK">
+
+Install the [@neynar/nodejs-sdk](https://github.com/neynarxyz/nodejs-sdk) package:
+
+```shell
+npm install @neynar/nodejs-sdk
+```
+</Step>
+
+<Step title="Create a notification sending function">
+
+Create a reusable function to send notifications with targeting and filtering capabilities:
+
+```javascript lib/sendNotification.js
+import { NeynarAPIClient } from "@neynar/nodejs-sdk";
+
+const client = new NeynarAPIClient(process.env.NEYNAR_API_KEY);
+
+/**
+ * Send a notification to mini app users
+ * @param {number[]} targetFids - Array of FIDs to target (empty array = all users with notifications enabled)
+ * @param {Object} filters - Optional filters to narrow down recipients
+ * @param {Object} notification - Notification content and target URL
+ */
+export async function sendNotification(targetFids, filters, notification) {
+  try {
+    const response = await client.publishFrameNotifications({
+      targetFids,
+      filters,
+      notification,
+    });
+    
+    return {
+      success: true,
+      data: response,
+    };
+  } catch (error) {
+    console.error("Failed to send notification:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+```
+</Step>
+
+<Step title="Send notifications">
+
+Use the function to broadcast notifications with advanced filtering criteria:
+
+```javascript sendNotificationsAdvanced.ts
+import { sendNotification } from './lib/sendNotification';
+
+// Define target FIDs (empty array targets all users with notifications enabled)
+const targetFids = [];
+
+// Define filters to narrow down recipients
+const filters = {
+  exclude_fids: [420, 69], // Exclude specific FIDs
+  following_fid: 3, // Only send to users following this FID
+  minimum_user_score: 0.5, // Only send to users with score >= this value
+  near_location: { // Only send to users near a specific location
+    latitude: 34.052235,
+    longitude: -118.243683,
+    radius: 50000, // Distance in meters (optional, defaults to 50km)
+  }
+};
+
+// Define notification content
+const notification = {
+  title: "🪐",
+  body: "It's time to savor farcaster",
+  target_url: "https://your-miniapp-domain.com/notification-destination",
+};
+
+// Send the notification
+const result = await sendNotification(targetFids, filters, notification);
+
+if (result.success) {
+  console.log("Notification sent successfully:", result.data);
+} else {
+  console.error("Failed to send notification:", result.error);
+}
+```
+
+<Tip>
+The `target_fids` parameter is the starting point for all filtering. Pass an empty array to target all users with notifications enabled, or specify FIDs to target specific users.
+</Tip>
+</Step>
+</Steps>
+
+### Option 2: Neynar UI
+
+The [Neynar dev portal](https://dev.neynar.com) offers the same functionality as the API for broadcasting notifications. Navigate to your app and click the "Mini App" tab. Once your mini app is configured with your Neynar webhook URL and users have enabled notifications for your mini app, you'll see a "Broadcast Notification" section with an expandable filters section. 
+
+
+<Steps>
+<Step title="Log in to the Neynar Dev Portal">
+https://dev.neynar.com/home
+</Step>
+
+<Step title="Select your target App">
+![select app in neynar dev portal](/images/miniapps/neynar-select-app.png)
+
+</Step>
+<Step title="Navigate to Mini App tab">
+![select app in neynar dev portal](/images/miniapps/neynar-mini-app-tab.png)
+</Step>
+
+<Step title="Fill in Notification details">
+![select app in neynar dev portal](/images/miniapps/neynar-send-notification.png)
+<Tip>The `target_fids` parameter is the starting point for all filtering. Pass an empty array for `target_fids` to start with the set of all FIDs with notifications enabled for your app, or manually define `target_fids` to list specific FIDs.</Tip>
+
+</Step>
+
+<Step title="Click the Broadcast button">
+Once you have filled in the notification details and applied any filtering, broadcast your notification by clicking the broadcast button at the bottom of the page.
+</Step>
+</Steps>
+
+
+
+
+Additional documentation on the API and its body parameters can be found at [publish-miniapp-notifications](https://docs.neynar.com/reference/publish-frame-notifications).
