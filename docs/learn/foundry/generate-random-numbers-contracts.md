@@ -399,5 +399,5 @@ Congratulations! You have successfully deployed and interacted with a smart cont
 
 To learn more about VRF and using Supra dVRF to generate random numbers within your smart contracts on Base, check out the following resources:
 
-- [Oracles](https://docs.base.org/tools/oracles)
+- [Oracles](https://docs.base.org/base-chain/tools/oracles)
 - [Supra dVRF - Developer Guide V2](https://supraoracles.com/docs/vrf/v2-guide)
