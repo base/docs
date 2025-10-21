@@ -7,7 +7,7 @@ Full mintlify reference docs can be found at https://www.mintlify.com/docs/llms.
 - If any documents have been removed from the /docs folder, ensure that a redirect is implemented
 
 ### Callout components
-Use these sparingly, only when its important to highlight information which might otherwise be missed by someone scanning the page.
+Use these sparingly, only when it's important to highlight information which might otherwise be missed by someone scanning the page.
 
 #### Note - Additional helpful information
 
