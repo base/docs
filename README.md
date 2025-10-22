@@ -38,7 +38,7 @@ Prerequisite: Node.js v19+.
 npm i -g mint
 ```
 
-3. Preview locally (run from the `docs/` directory where `docs.json` lives):
+3. Preview locally (run from the `docs/` directory where `mint.json` lives):
 
 ```bash
 cd docs
@@ -53,7 +53,7 @@ npx mint dev
 
 ### Troubleshooting
 
-- Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
+- Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `mint.json` (usually `docs/`).
 - Local preview differs from production: run `mint update` to update the CLI.
 
 ## How to contribute
