@@ -54,16 +54,22 @@ Notification tokens are unique to each client app. This means a user can have se
         // Return appropriate error responses with status codes 400, 401, or 500
       }
 
+     //Return success immediately BEFORE processing
+     //This allows Neynar to mark the token as active
+     const response = Response.json({ success: true })
+     
+
       // Extract webhook data
 
       const fid = data.fid;
       const appFid = data.appFid; // The FID of the client app that the user added the Mini App to
       const event = data.event;
 
-      // Handle different event types
+  // Handle different event types
+  (async () => {
+    try {
       switch (event.event) {
         case "miniapp_added":
-          // Save notification details and send welcome notification
           if (event.notificationDetails) {
             await setUserNotificationDetails(fid, appFid, event.notificationDetails);
             await sendMiniAppNotification({
@@ -96,9 +102,14 @@ Notification tokens are unique to each client app. This means a user can have se
           await deleteUserNotificationDetails(fid, appFid);
           break;
       }
-
-      return Response.json({ success: true });
+    } catch (error) {
+      console.error("Error processing webhook:", error);
     }
+  })();
+
+  return response; // Neynar gets success immediately
+
+}
     ```
   </Step>
   <Step title="Add the Webhook URL to your manifest">
