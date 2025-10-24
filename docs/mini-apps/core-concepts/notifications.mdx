@@ -85,8 +85,8 @@ Notification tokens are unique to each client app. This means a user can have se
 
         case "notifications_enabled":
           // Save new notification details and send confirmation
-          await setUserNotificationDetails(fid, appFid, event.notificationDetails);
-          await sendMiniAppNotification({
+           setUserNotificationDetails(fid, appFid, event.notificationDetails);
+           sendMiniAppNotification({
             fid,
             appFid,
             title: "Ding ding ding",
@@ -137,16 +137,7 @@ Notification tokens are unique to each client app. This means a user can have se
 
   <Warning>
   **Important: Webhook Response Timing**
-
   Webhooks must respond within 10 seconds to avoid timeouts from the Base app. If you encounter a "Failed to add mini app" error, your webhook may be taking too long to respond.
-
- Different client apps handle webhook responses differently:
-
- **Farcaster app**: Does not wait for webhook responses and does not require a success response to activate notification tokens
- 
- **Base app**: Waits for the webhook to return a success response before activating the notification token.
-
-  This means if your webhook processes token saving and sends notifications synchronously before returning a response, tokens may work on Farcaster but fail to activate on Base app.
   </Warning>
 
     ```tsx page.tsx highlight={11, 25-27}
@@ -363,3 +354,12 @@ Sent when a user disables notifications from, e.g., a settings panel in the clie
   "event": "notifications_disabled"
 }
 ```
+## Client App Behavior
+
+Different client apps handle webhook responses differently:
+
+**Farcaster app**: Does not wait for webhook responses and does not require a success response to activate notification tokens
+ 
+**Base app**: Waits for the webhook to return a success response before activating the notification token.
+
+This means if your webhook processes token saving and sends notifications synchronously before returning a response, tokens may work on Farcaster but fail to activate on Base app.
