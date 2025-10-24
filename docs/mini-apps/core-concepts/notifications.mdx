@@ -13,12 +13,25 @@ To send a notification, make a `POST` request to the `url` with the user's notif
 
 You will receive webhook events when users enable or disable notifications for your app. When disabled, the notification token becomes invalid and should no longer be used.
 
+## Client App Behavior
+
+Different client apps handle webhook responses differently:
+
+**Farcaster app**: Activates notification tokens immediately without waiting for a webhook success response.
+ 
+**Base app**: Waits for a successful webhook response before activating tokens.
+
+<Note>
+If your webhook processes token saving and sends notifications synchronously before returning a response, tokens may work on Farcaster but fail to activate on Base app.
+</Note>
+
 
 <Panel>
 ![notification-image-iphone](/images/minikit/notifications-sample.png)
 <Info>
 Notification tokens are unique to each client app. This means a user can have separate notification preferences for your Mini App across different clients (e.g., Farcaster, the Base app). Removing your Mini App in one client does not affect its status in other clients.
 </Info>
+
 </Panel>
 ## Implementation
 <Steps>
@@ -54,19 +67,21 @@ Notification tokens are unique to each client app. This means a user can have se
         // Return appropriate error responses with status codes 400, 401, or 500
       }
 
+
       // Extract webhook data
 
       const fid = data.fid;
       const appFid = data.appFid; // The FID of the client app that the user added the Mini App to
       const event = data.event;
 
-      // Handle different event types
+  // Handle different event types
+  
+    try {
       switch (event.event) {
         case "miniapp_added":
-          // Save notification details and send welcome notification
           if (event.notificationDetails) {
-            await setUserNotificationDetails(fid, appFid, event.notificationDetails);
-            await sendMiniAppNotification({
+           setUserNotificationDetails(fid, appFid, event.notificationDetails);
+           sendMiniAppNotification(fid, appFid, "Welcome to Base Mini Apps", "Mini app is now added to your client");
               fid,
               appFid,
               title: "Welcome to Base Mini Apps",
@@ -76,14 +91,14 @@ Notification tokens are unique to each client app. This means a user can have se
           break;
 
         case "miniapp_removed":
-          // Delete notification details
+         // Delete notification details
           await deleteUserNotificationDetails(fid, appFid);
           break;
 
         case "notifications_enabled":
           // Save new notification details and send confirmation
-          await setUserNotificationDetails(fid, appFid, event.notificationDetails);
-          await sendMiniAppNotification({
+           setUserNotificationDetails(fid, appFid, event.notificationDetails);
+           sendMiniAppNotification({
             fid,
             appFid,
             title: "Ding ding ding",
@@ -92,13 +107,16 @@ Notification tokens are unique to each client app. This means a user can have se
           break;
 
         case "notifications_disabled":
-          // Delete notification details
+             // Delete notification details
           await deleteUserNotificationDetails(fid, appFid);
           break;
       }
-
-      return Response.json({ success: true });
+    } catch (error) {
+      console.error("Error processing webhook:", error);
     }
+
+        return response; 
+      
     ```
   </Step>
   <Step title="Add the Webhook URL to your manifest">
@@ -128,6 +146,11 @@ Notification tokens are unique to each client app. This means a user can have se
   </Step>
   <Step title="Prompt users to add your Mini App">
     Use the `addMiniApp()` hook to prompt users to add your Mini App
+
+  <Warning>
+  **Important: Webhook Response Timing**
+  Webhooks must respond within 10 seconds to avoid timeouts from the Base app. If you encounter a "Failed to add mini app" error, your webhook may be taking too long to respond.
+  </Warning>
 
     ```tsx page.tsx highlight={11, 25-27}
     "use client";
@@ -343,3 +366,4 @@ Sent when a user disables notifications from, e.g., a settings panel in the clie
   "event": "notifications_disabled"
 }
 ```
+
