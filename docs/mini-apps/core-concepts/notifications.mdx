@@ -13,6 +13,18 @@ To send a notification, make a `POST` request to the `url` with the user's notif
 
 You will receive webhook events when users enable or disable notifications for your app. When disabled, the notification token becomes invalid and should no longer be used.
 
+## Client App Behavior
+
+Different client apps handle webhook responses differently:
+
+Farcaster app: Activates notification tokens immediately without waiting for a webhook success response.
+ 
+Base app: Waits for a successful webhook response before activating tokens.
+
+<Note>
+If your webhook processes token saving and sends notifications synchronously before returning a response, tokens may work on Farcaster but fail to activate on Base app.
+</Note>
+
 
 <Panel>
 ![notification-image-iphone](/images/minikit/notifications-sample.png)
@@ -354,12 +366,4 @@ Sent when a user disables notifications from, e.g., a settings panel in the clie
   "event": "notifications_disabled"
 }
 ```
-## Client App Behavior
 
-Different client apps handle webhook responses differently:
-
-**Farcaster app**: Does not wait for webhook responses and does not require a success response to activate notification tokens
- 
-**Base app**: Waits for the webhook to return a success response before activating the notification token.
-
-This means if your webhook processes token saving and sends notifications synchronously before returning a response, tokens may work on Farcaster but fail to activate on Base app.
