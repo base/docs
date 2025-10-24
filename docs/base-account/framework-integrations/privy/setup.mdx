@@ -31,31 +31,22 @@ You can jump ahead and use the [Base Account Privy Template](https://github.com/
 
 ## Installation
 
-After [creating a new Next.js project](https://nextjs.org/docs/app/getting-started/installation), install the required dependencies:
-
+### 1. Create a new Next.js project
 <CodeGroup>
 ```bash npm
-npm install @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
-```
-
-```bash pnpm
-pnpm add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
+npx create-next-app@latest base-account-privy
+cd base-account-privy
 ```
 
 ```bash yarn
-yarn add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
+yarn create next-app base-account-privy
+cd base-account-privy
 ```
-
-```bash bun
-bun add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account @base-org/account-ui
-```
-
 </CodeGroup>
 
-<Tip>
-**Access the latest version of the Base Account SDK (Recommended)**
+### 2. Override the Base Account SDK version
 
-It is {<u>HIGHLY RECOMMENDED</u>} to access the latest version of the Base Account SDK in order to get the latest features and bug fixes.
+In order to access the latest version of the Base Account SDK, you need to override the Privy pinned version in your package.json file.
 
 To do this, you can use the following command to override it:
 
@@ -109,9 +100,34 @@ npm pkg set overrides.@base-org/account="2.2.0"
 
 </CodeGroup>
 
-Make sure to delete your `node_modules` and `package-lock.json` and run a new install to ensure the overrides are applied.
+<Tip>
+**If you're not starting a new projects**
 
+Make sure to delete your `node_modules` and `package-lock.json` and run a new install to ensure the overrides are applied.
 </Tip>
+
+### 3. Install the dependencies
+
+Install the dependencies with your package manager of choice:
+
+<CodeGroup>
+```bash npm
+npm install @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account-ui react-toastify
+```
+
+```bash pnpm
+pnpm add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account-ui react-toastify
+```
+
+```bash yarn
+yarn add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account-ui react-toastify
+```
+
+```bash bun
+bun add @privy-io/react-auth @privy-io/chains @privy-io/wagmi-connector wagmi viem @base-org/account-ui react-toastify
+```
+
+</CodeGroup>
 
 ## Configuration
 
@@ -127,10 +143,10 @@ Get your Privy App ID from the [Privy Dashboard](https://dashboard.privy.io/).
 
 ### 2. Configure Privy Provider
 
-Create your Privy configuration with Base Account and email as login methods:
+Create your Privy configuration with Base Account as the default login method and update the layout to include the `PrivyProvider`.
 
 <CodeGroup>
-```tsx Create Provider (providers/providers.tsx)
+```tsx Create Provider (app/providers.tsx) expandable
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
@@ -140,7 +156,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-      clientId={process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID!}
       config={{
         appearance: {
           walletList: ['base_account'],
@@ -154,11 +169,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
 }
 ```
-```tsx Add to Layout (app/layout.tsx)
+```tsx Add to Layout (app/layout.tsx) expandable
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Providers from "@/providers/providers";
+import Providers from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -193,7 +208,106 @@ export default function RootLayout({
 ```
 </CodeGroup>
 
-### 3. Access Base Account SDK from Privy
+## Usage
+
+### 1. Update the App Page
+
+Update the `app/page.tsx` file to show the authentication flow:
+
+```tsx app/page.tsx expandable
+"use client";
+
+import { usePrivy } from "@privy-io/react-auth";
+import { ToastContainer } from "react-toastify";
+
+function Home() {
+  const { ready, authenticated, logout, login } = usePrivy();
+  if (!ready) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="bg-white md:max-h-[100vh] md:overflow-hidden">
+      {authenticated ? (
+        <section className="w-full flex flex-col md:flex-row md:h-[calc(100vh-60px)]">
+          <div className="flex-grow overflow-y-auto h-full p-4 pl-8">
+            <button className="button" onClick={logout}>Logout</button>
+          </div>
+        </section>
+      ) : (
+        <section className="w-full flex flex-row justify-center items-center h-[calc(100vh-60px)] relative bg-gradient-to-b from-blue-600 to-blue-700">
+          <div className="z-10 flex flex-col items-center justify-center w-full h-full px-4">
+          <div className="flex h-10 items-center justify-center rounded-[20px] border border-white/20 bg-white/10 backdrop-blur-sm px-6 text-lg text-white font-abc-favorit">
+            Base × Privy Demo
+          </div>
+        <div className="text-center mt-4 text-white text-7xl font-medium font-abc-favorit leading-[81.60px]">
+          Build on Base
+        </div>
+            <div className="text-center text-white/90 text-xl font-normal leading-loose mt-8 max-w-2xl">
+              Get started building on Base with Privy&apos;s authentication and native Base Account support
+            </div>
+            <button
+              className="bg-white text-black mt-15 w-full max-w-md rounded-full px-4 py-2 font-medium hover:bg-gray-50 transition-colors lg:px-8 lg:py-4 lg:text-xl"
+              onClick={() => {
+                login();
+                setTimeout(() => {
+                  (document.querySelector('input[type="email"]') as HTMLInputElement)?.focus();
+                }, 150);
+              }}
+            >
+              Get started
+            </button>
+          </div>
+        </section>
+      )}
+  
+      <ToastContainer
+        position="top-center"
+        autoClose={5000}
+        hideProgressBar
+        newestOnTop={false}
+        closeOnClick={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable={false}
+        pauseOnHover
+        limit={1}
+        aria-label="Toast notifications"
+        style={{ top: 58 }}
+      />
+    </div>
+  );
+}
+
+export default Home;
+```
+
+### 2. Run the project locally
+
+You're done! You can now run the project locally:
+
+<CodeGroup>
+```bash npm
+npm run dev
+```
+```bash pnpm
+pnpm dev
+```
+```bash yarn
+yarn dev
+```
+```bash bun
+bun dev
+```
+</CodeGroup>
+
+You should see a page that looks like this:
+
+<div style={{ display: 'flex', justifyContent: 'center'}}>
+  <img src="/images/base-account/Privy-Base-Account.png" alt="Base × Privy Demo" style={{ width: '600px', height: 'auto' }} />
+</div>
+
+### 3. Get the Base Account SDK instance (Optional)
 
 You can access the Base Account SDK from Privy using the `useBaseAccount` hook.
 
