@@ -55,10 +55,6 @@ Notification tokens are unique to each client app. This means a user can have se
         // Return appropriate error responses with status codes 400, 401, or 500
       }
 
-     //Return success immediately BEFORE processing
-     //This allows Neynar to mark the token as active
-     const response = Response.json({ success: true })
-     
 
       // Extract webhook data
 
@@ -67,13 +63,13 @@ Notification tokens are unique to each client app. This means a user can have se
       const event = data.event;
 
   // Handle different event types
-  (async () => {
+  
     try {
       switch (event.event) {
         case "miniapp_added":
           if (event.notificationDetails) {
-            await setUserNotificationDetails(fid, appFid, event.notificationDetails);
-            await sendMiniAppNotification({
+           setUserNotificationDetails(fid, appFid, event.notificationDetails);
+           sendMiniAppNotification(fid, appFid, "Welcome to Base Mini Apps", "Mini app is now added to your client");
               fid,
               appFid,
               title: "Welcome to Base Mini Apps",
@@ -106,11 +102,9 @@ Notification tokens are unique to each client app. This means a user can have se
     } catch (error) {
       console.error("Error processing webhook:", error);
     }
-     })();
 
-        return response; // Neynar gets success immediately
+        return response; 
       
-    }
     ```
   </Step>
   <Step title="Add the Webhook URL to your manifest">
@@ -147,7 +141,7 @@ Notification tokens are unique to each client app. This means a user can have se
   Webhooks must respond within 10 seconds to avoid timeouts from the Base app. If you encounter a "Failed to add mini app" error, your webhook may be taking too long to respond.
 
  Different client apps handle webhook responses differently:
- 
+
  **Farcaster app**: Does not wait for webhook responses and does not require a success response to activate notification tokens
  
  **Base app**: Waits for the webhook to return a success response before activating the notification token.
