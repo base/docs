@@ -60,34 +60,74 @@ XMTP_ENV=dev # Environment (local, dev, production)
 
 **STEP 4: WRITE YOUR AGENT LOGIC**
 
-Create a basic agent that responds to messages:
+Create a basic agent that responds to messages.
+
+**1. Create your agent file in the project root:**
+
+```bash
+touch index.ts
+```
+
+**2. Add the following code to `index.ts`:**
 
 ```javascript
-import { Agent, getTestUrl } from "@xmtp/agent-sdk";
+// Import dotenv to load environment variables from .env file
+import "dotenv/config";
+import { Agent } from "@xmtp/agent-sdk";
 
-// 2. Spin up the agent
+// Create the agent using environment variables from .env file
 const agent = await Agent.createFromEnv({
-  env: "dev", // or 'production' for base app
+  env: "dev", // Use "production" when deploying to Base App
 });
 
-// 3. Respond to text messages
+// Listen for incoming text messages and respond automatically
+// ctx.sendText() sends a message back to the user who messaged the agent
 agent.on("text", async (ctx) => {
   await ctx.sendText("Hello from my XMTP Agent! 👋");
 });
 
-// 4. Log when we're ready
+// Log when the agent starts successfully
+// The agent.address is where users can message your agent
+
 agent.on("start", () => {
-  console.log(`We are online: ${getTestUrl(agent)}`);
+  console.log(`Agent is online at address: ${agent.address}`);
 });
 
+// Start the agent and begin listening for messages
 await agent.start();
 ```
 
-Then run your agent:
+<Tip>
+The `import "dotenv/config"` line at the top is **critical** - without it, you'll get an error: `XMTP_WALLET_KEY env is not in hex (0x) format`. This import loads your `.env` file so the agent can access your wallet key.
+</Tip>
+
+**3. Run your agent:**
 
 ```bash
-npm run dev
+npx tsx --watch index.ts
 ```
+
+After running successfully, you'll see output like:
+
+```
+Agent is online at address: 0x4a86dfa0ad31801256dd5f8bdf95b3ea5bbe2ba9
+```
+
+**4. Test your agent:**
+
+Since the agent doesn't output a direct chat link, you need to manually test it:
+
+1. Copy the agent address from your terminal output
+2. Go to [xmtp.chat](https://xmtp.chat)
+3. Connect your wallet (MetaMask, Coinbase Wallet, etc.)
+4. Switch to **Dev environment** in xmtp.chat settings (top right)
+5. Click "Create a new direct message"
+6. Paste your agent's address
+7. Send any message - your agent should respond with "Hello from my XMTP Agent! 👋"
+
+<Tip>
+Make sure the environment in xmtp.chat matches your agent's environment. If your agent uses `env: "dev"`, you must be in Dev mode on xmtp.chat. For production agents, use Production mode.
+</Tip>
 
 ### Getting the address of a user
 
@@ -100,7 +140,9 @@ agent.on("text", async (ctx) => {
 });
 ```
 
-You can also explore example implementations in the `/examples` folder, including:
+### Exploring Example Agents
+
+You can explore pre-built example implementations in the `/examples` folder:
 
 - [xmtp-gm](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gm): A simple agent that replies to all text messages with "gm"
 - [xmtp-gpt](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gpt): An example using GPT API's to answer messages
