@@ -7,7 +7,7 @@ Dynamic images are the first thing users see when they encounter your mini app i
 
 <Panel>
 <Frame caption="How metadata transforms into embeds">
-  <img src="/images/minikit/Diagram.png" alt="How embed data is rendered" />
+  <img src="/images/minikit/Diagram.png" alt="Diagram showing the flow from mini app URL to metadata reading to image generation and final embed rendering in the Base app" />
 </Frame>
 When users share your mini app `URL`, the Base app requests your page, reads the fc:miniapp metadata, and fetches the `imageUrl`. You can serve either a static file (same image for everyone) or a dynamic endpoint that generates unique images on-demand based on URL parameters.
 </Panel>
@@ -24,7 +24,7 @@ This guide shows how to create shareable links with dynamic embed images. Users 
 <Step title="Create the image generation API endpoint">
 Build an API route that generates images based on the username parameter.
 
-```tsx app/api/og/[username]/route.tsx
+```tsx lines expandable wrap app/api/og/[username]/route.tsx
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +73,7 @@ This endpoint generates a unique image for each username: `/api/og/alice`, `/api
 <Step title="Create shareable page with dynamic metadata">
 Build a page route that uses the username to generate `fc:miniapp` metadata pointing to your image endpoint.
 
-```tsx app/share/[username]/page.tsx
+```tsx lines expandable wrap app/share/[username]/page.tsx
 import { minikitConfig } from "../../../minikit.config";
 import { Metadata } from "next";
 
@@ -135,7 +135,7 @@ When someone visits `/share/alice`, the metadata points to `/api/og/alice` for t
 <Step title="Add share button with composeCast">
 Create a button that opens Farcaster's compose window with the user's personalized share link.
 
-```tsx app/page.tsx
+```tsx lines expandable wrap app/page.tsx
 import { useMiniKit, useComposeCast } from "@coinbase/onchainkit/minikit";
 import { minikitConfig } from "./minikit.config";
 
@@ -161,13 +161,13 @@ export default function HomePage() {
 }
 ```
 
-When clicked the button opens the compose window with `/share/alice` as the embed. The embed displays the dynamic image from `/api/og/alice`.
+When you click the button, it opens the compose window with `/share/alice` as the embed. The embed displays the dynamic image from `/api/og/alice`.
 </Step>
 
 <Step title="Test the flow">
 Verify the complete sharing flow works.
 
-```bash
+```bash lines wrap
 # Start your app
 npm run dev
 
@@ -176,10 +176,10 @@ curl http://localhost:3000/api/og/testuser > test.png
 open test.png
 
 # Visit the share page to verify metadata
-curl http://localhost:3000/share/testuser | grep "fc:frame"
+curl http://localhost:3000/share/testuser | grep "fc:miniapp"
 ```
 
-Click the share button in your app to test the full experience.
+Click the share button in your app to test the full experience. You should see the compose window open with your personalized share link, and the embed should display your custom generated image.
 </Step>
 </Steps>
 
