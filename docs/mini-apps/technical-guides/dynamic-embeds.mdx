@@ -1,0 +1,153 @@
+---
+title: Dynamic OG Image Generation
+description: Generate real-time preview images for Base mini app embeds
+---
+
+Dynamic images are the first thing users see when they encounter your mini app in their feed. Each share can display unique, contextual content tailored to drive engagement.
+
+<Panel>
+<Frame caption="How metadata transforms into embeds">
+  <img src="/images/minikit/Diagram.png" alt="How embed data is rendered" />
+</Frame>
+When users share your mini app `URL`, the Base app requests your page, reads the fc:miniapp metadata, and fetches the `OGImageUrl`. You can serve either a static file (same image for everyone) or a dynamic endpoint that generates unique images on-demand based on URL parameters.
+</Panel>
+
+<Note>
+This guide uses Next.js App Router with ImageResponse for implementation. The patterns apply to any framework with server-side rendering.
+</Note>
+
+## Implementation
+
+<Steps>
+<Step title="Add fc:miniapp metadata with dynamic image URL">
+Pass the user's FID to your image endpoint via URL parameters.
+
+```tsx app/dynamic-image-example/[id]/page.tsx
+import { Metadata } from "next";
+
+const appUrl = process.env.NEXT_PUBLIC_URL;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const imageUrl = `${appUrl}/api/og/example/${id}`;
+
+  const frame = {
+    version: "next",
+    imageUrl: imageUrl,
+    button: {
+      title: "Launch App",
+      action: {
+        type: "launch_frame",
+        name: "Mini App",
+        url: appUrl,
+        splashImageUrl: `${appUrl}/images/splash.png`,
+        splashBackgroundColor: "#f7f7f7",
+      },
+    },
+  };
+
+  return {
+    title: "Mini App",
+    other: {
+      "fc:frame": JSON.stringify(frame),
+    },
+  };
+}
+
+export default function DynamicImagePage() {
+  return <div>Your app content</div>;
+}
+```
+
+The `id` parameter becomes part of the image URL: `/api/og/example/123`
+</Step>
+
+<Step title="Generate image using the FID">
+Create an API route that reads the FID and generates a unique image.
+
+```tsx app/api/og/example/[id]/route.tsx
+import { ImageResponse } from "next/og";
+
+export const dynamic = "force-dynamic";
+
+const size = {
+  width: 600,
+  height: 400,
+};
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          height: "100%",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#0052FF",
+          color: "white",
+        }}
+      >
+        <div style={{ fontSize: 48, fontWeight: 700 }}>
+          User FID: {id}
+        </div>
+      </div>
+    ),
+    {
+      ...size,
+    }
+  );
+}
+```
+
+Each unique FID generates a different image.
+</Step>
+
+<Step title="Test the endpoint">
+Verify your dynamic image generates correctly.
+
+```bash
+curl http://localhost:3000/api/og/example/123 > test.png
+open test.png
+```
+
+Each different FID produces a unique image.
+</Step>
+</Steps>
+
+## Troubleshooting
+
+**Gray images in embeds**
+- Generation takes >2s. Use cached data sources instead of database queries.
+- Verify image dimensions are 3:2 ratio (1200x800px).
+
+**Stale data showing**
+- Decrease `max-age` to match your data update frequency.
+- Add version parameter to URL: `?v=2` to force refresh.
+
+**High function costs**
+- Increase `max-age` to reduce regeneration frequency.
+- Verify `Cache-Control` header includes `public` directive.
+
+**Embed not displaying**
+- Check metadata exists: `curl https://your-domain.com/page | grep "fc:miniapp"`
+- Validate with debugger: https://warpcast.com/~/developers/frames/debug
+
+
+- [Search and Discovery](/mini-apps/troubleshooting/how-search-works)
+- [Manifest](/mini-apps/core-concepts/manifest)
+
+
+
