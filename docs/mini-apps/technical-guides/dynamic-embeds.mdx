@@ -9,7 +9,7 @@ Dynamic images are the first thing users see when they encounter your mini app i
 <Frame caption="How metadata transforms into embeds">
   <img src="/images/minikit/Diagram.png" alt="How embed data is rendered" />
 </Frame>
-When users share your mini app `URL`, the Base app requests your page, reads the fc:miniapp metadata, and fetches the `OGImageUrl`. You can serve either a static file (same image for everyone) or a dynamic endpoint that generates unique images on-demand based on URL parameters.
+When users share your mini app `URL`, the Base app requests your page, reads the fc:miniapp metadata, and fetches the `imageUrl`. You can serve either a static file (same image for everyone) or a dynamic endpoint that generates unique images on-demand based on URL parameters.
 </Panel>
 
 <Note>
@@ -18,136 +18,175 @@ This guide uses Next.js App Router with ImageResponse for implementation. The pa
 
 ## Implementation
 
+This guide shows how to create shareable links with dynamic embed images. Users click a share button, which opens a compose window with their personalized link. When shared, the embed displays a unique image with their username.
+
 <Steps>
-<Step title="Create shareable page with user's FID">
-Create a page that passes the user's FID to your image endpoint via URL parameters.
+<Step title="Create the image generation API endpoint">
+Build an API route that generates images based on the username parameter.
 
-```tsx app/dynamic-image-example/[id]/page.tsx
-import { Metadata } from "next";
-
-const appUrl = process.env.NEXT_PUBLIC_URL;
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
-
-  const imageUrl = `${appUrl}/api/og/example/${id}`;
-
-  const miniapp = {
-    version: "next",
-    imageUrl: imageUrl,
-    button: {
-      title: "Launch App",
-      action: {
-        type: "launch_frame",
-        name: "Mini App",
-        url: appUrl,
-        splashImageUrl: `${appUrl}/images/splash.png`,
-        splashBackgroundColor: "#f7f7f7",
-      },
-    },
-  };
-
-  return {
-    title: "Mini App",
-    other: {
-      "fc:frame": JSON.stringify(frame),
-    },
-  };
-}
-
-export default function DynamicImagePage() {
-  return <div>Your app content</div>;
-}
-```
-
-The `id` parameter becomes part of the image URL: `/api/og/example/123`
-</Step>
-
-<Step title="Generate image using the FID">
-Create an API route that reads the FID and generates a unique image.
-
-```tsx app/api/og/example/[id]/route.tsx
+```tsx app/api/og/[username]/route.tsx
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-dynamic";
 
-const size = {
-  width: 600,
-  height: 400,
-};
-
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ username: string }> }
 ) {
-  const { id } = await params;
+  const { username } = await params;
 
   return new ImageResponse(
     (
       <div
-        style={{
-          height: "100%",
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#0052FF",
-          color: "white",
-        }}
-      >
-        <div style={{ fontSize: 48, fontWeight: 700 }}>
-          User FID: {id}
+          style={{
+            backgroundColor: 'black',
+            backgroundSize: '150px 150px',
+            height: '100%',
+            width: '100%',
+            display: 'flex',
+            color: 'white',
+            textAlign: 'center',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            flexWrap: 'nowrap',
+          }}
+        >
+            Hello {username}        
         </div>
-      </div>
     ),
     {
-      ...size,
+      width: 1200,
+      height: 630,
     }
   );
 }
 ```
 
-Each unique FID generates a different image.
+This endpoint generates a unique image for each username: `/api/og/alice`, `/api/og/bob`, etc.
+
+<Warning>
+ `<div>` elements must have `display: "flex"` or `display: "none"`. If you see a 500 error when accessing `/share/[username]`, check your ImageResponse JSX structure.
+</Warning>
 </Step>
 
-<Step title="Test the endpoint">
-Verify your dynamic image generates correctly.
+<Step title="Create shareable page with dynamic metadata">
+Build a page route that uses the username to generate `fc:miniapp` metadata pointing to your image endpoint.
 
-```bash
-curl http://localhost:3000/api/og/example/123 > test.png
-open test.png
+```tsx app/share/[username]/page.tsx
+import { minikitConfig } from "../../../minikit.config";
+import { Metadata } from "next";
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ username: string }> }
+): Promise<Metadata> {
+  try {
+    const { username } = await params;
+    
+    return {
+      title: minikitConfig.miniapp.name,
+      description: minikitConfig.miniapp.description,
+      other: {
+        "fc:miniapp": JSON.stringify({
+          version: minikitConfig.miniapp.version,
+          imageUrl: `${minikitConfig.miniapp.homeUrl}/api/og/${username}`,
+          button: {
+            title: `Join the ${minikitConfig.miniapp.name} Waitlist`,
+            action: {
+              name: `Launch ${minikitConfig.miniapp.name}`,
+              type: "launch_frame",
+              url: `${minikitConfig.miniapp.homeUrl}`,
+            },
+          },
+        }),
+      },
+    };
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+    console.log(JSON.stringify({ 
+      timestamp: new Date().toISOString(), 
+      level: 'error', 
+      message: 'Failed to generate metadata', 
+      error: errorMessage 
+    }));
+    
+    return {
+      title: minikitConfig.miniapp.name,
+      description: minikitConfig.miniapp.description,
+    };
+  }
+}
+
+export default async function SharePage(
+  { params }: { params: Promise<{ username: string }> }
+) {
+  const { username } = await params;
+
+  return (
+    <div>
+      <h1>Share Page - {username}</h1>
+    </div>
+  );
+}
+```
+When someone visits `/share/alice`, the metadata points to `/api/og/alice` for the embed image.
+</Step>
+
+<Step title="Add share button with composeCast">
+Create a button that opens Farcaster's compose window with the user's personalized share link.
+
+```tsx app/page.tsx
+import { useMiniKit, useComposeCast } from "@coinbase/onchainkit/minikit";
+import { minikitConfig } from "./minikit.config";
+
+export default function HomePage() {
+  const { context } = useMiniKit();
+  const { composeCast } = useComposeCast();
+
+  const handleShareApp = () => {
+    const userName = context?.user?.displayName || 'anonymous';
+    composeCast({
+      text: `Check out ${minikitConfig.miniapp.name}!`,
+      embeds: [`${window.location.origin}/share/${userName}`]
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={handleShareApp}>
+        Share Mini App
+      </button>
+    </div>
+  );
+}
 ```
 
-Each different FID produces a unique image.
+When clicked the button opens the compose window with `/share/alice` as the embed. The embed displays the dynamic image from `/api/og/alice`.
+</Step>
+
+<Step title="Test the flow">
+Verify the complete sharing flow works.
+
+```bash
+# Start your app
+npm run dev
+
+# Test the image endpoint directly
+curl http://localhost:3000/api/og/testuser > test.png
+open test.png
+
+# Visit the share page to verify metadata
+curl http://localhost:3000/share/testuser | grep "fc:frame"
+```
+
+Click the share button in your app to test the full experience.
 </Step>
 </Steps>
 
-## Troubleshooting
+## Related Concepts
 
-**Gray images in embeds**
-- Generation takes >2s. Use cached data sources instead of database queries.
-- Verify image dimensions are 3:2 ratio (1200x800px).
-
-**Stale data showing**
-- Decrease `max-age` to match your data update frequency.
-- Add version parameter to URL: `?v=2` to force refresh.
-
-**High function costs**
-- Increase `max-age` to reduce regeneration frequency.
-- Verify `Cache-Control` header includes `public` directive.
-
-**Embed not displaying**
-- Check metadata exists: `curl https://your-domain.com/page | grep "fc:miniapp"`
-- Validate with debugger: https://warpcast.com/~/developers/frames/debug
-
-
-- [Search and Discovery](/mini-apps/troubleshooting/how-search-works)
-- [Manifest](/mini-apps/core-concepts/manifest)
-
-
-
+<CardGroup cols={1}>
+<Card title="Troubleshooting" href="/mini-apps/troubleshooting/how-search-works">
+  Troubleshooting tips for embeds not displaying.
+</Card>
+</CardGroup>
