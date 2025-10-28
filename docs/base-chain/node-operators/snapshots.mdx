@@ -17,24 +17,26 @@ These steps assume you are in the cloned `node` directory (the one containing `d
 
 1. **Prepare Data Directory**:
     - **Before running Docker for the first time**, create the data directory on your host machine that will be mapped into the Docker container. This directory must match the `volumes` mapping in the `docker-compose.yml` file for the client you intend to use.  
+      - For Reth (recommended):  
+        ```bash
+        mkdir ./reth-data
+        ```  
       - For Geth:  
         ```bash
         mkdir ./geth-data
         ```  
-      - For Reth:  
-        ```bash
-        mkdir ./reth-data
-        ```  
-    - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./geth-data/*`), and proceed.
+    - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./reth-data/*`), and proceed.
 
 2. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below. Use `wget` (or similar) to download it into the `node` directory.
 
     | Network  | Client | Snapshot Type | Download Command (`wget …`)                                                                                       |
     | -------- | ------ | ------------- | ----------------------------------------------------------------------------------------------------------------- |
-    | Testnet  | Geth   | Full          | `wget https://sepolia-full-snapshots.base.org/$(curl https://sepolia-full-snapshots.base.org/latest)`             |
-    | Testnet  | Reth   | Archive       | `wget https://sepolia-reth-archive-snapshots.base.org/$(curl https://sepolia-reth-archive-snapshots.base.org/latest)` |
-    | Mainnet  | Geth   | Full          | `wget https://mainnet-full-snapshots.base.org/$(curl https://mainnet-full-snapshots.base.org/latest)`             |
-    | Mainnet  | Reth   | Archive       | `wget https://mainnet-reth-archive-snapshots.base.org/$(curl https://mainnet-reth-archive-snapshots.base.org/latest)` |
+    | Testnet  | Reth   | Archive (recommended)| `wget https://sepolia-reth-archive-snapshots.base.org/$(curl https://sepolia-reth-archive-snapshots.base.org/latest)` |
+    | Testnet  | Reth   | Full                 | Coming Soon                 |
+    | Testnet  | Geth   | Full                 | `wget https://sepolia-full-snapshots.base.org/$(curl https://sepolia-full-snapshots.base.org/latest)`             |
+    | Mainnet  | Reth   | Archive (recommended)| `wget https://mainnet-reth-archive-snapshots.base.org/$(curl https://mainnet-reth-archive-snapshots.base.org/latest)` |
+    | Testnet  | Reth   | Full                 | Coming Soon                 |
+    | Mainnet  | Geth   | Full                 | `wget https://mainnet-full-snapshots.base.org/$(curl https://mainnet-full-snapshots.base.org/latest)`             |
 
     <Note>
     Ensure you have enough free disk space to download the snapshot archive (`.tar.gz` file) _and_ extract its contents. The extracted data will be significantly larger than the archive.
@@ -46,9 +48,16 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     tar -xzvf <snapshot-filename.tar.gz>
     ```
 
-4. **Move Data**: The extraction process will likely create a directory (e.g., `geth` or `reth`). 
+4. **Move Data**: The extraction process will likely create a directory (e.g., `reth` or `geth`). 
 
     * Move the *contents* of that directory into the data directory you created in Step 1.
+        * Example (if archive extracted to a reth folder - **verify actual folder name**):
+
+          ```bash
+          # For Reth
+          mv ./reth/* ./reth-data/
+          rm -rf ./reth    # Clean up empty extracted folder
+          ```
 
         * Example (if archive extracted to a geth folder):
 
@@ -58,22 +67,15 @@ These steps assume you are in the cloned `node` directory (the one containing `d
           rm -rf ./geth    # Clean up empty extracted folder
           ```
 
-        * Example (if archive extracted to a reth folder - **verify actual folder name**):
+    * The goal is to have the chain data directories (e.g., `chaindata`, `nodes`, `segments`, etc.) directly inside `./reth-data` or `./geth-data`, not nested within another subfolder.
 
-          ```bash
-          # For Reth
-          mv ./reth/* ./reth-data/
-          rm -rf ./reth    # Clean up empty extracted folder
-          ```
-
-    * The goal is to have the chain data directories (e.g., `chaindata`, `nodes`, `segments`, etc.) directly inside `./geth-data` or `./reth-data`, not nested within another subfolder.
-
-5. **Start the Node**: Now that the snapshot data is in place, start the node using the appropriate command (see the [Running a Base Node](/base-chain/node-operators/run-a-base-node#setting-up-and-running-the-node) guide):
+5. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
 
     ```bash
-    # Example for Mainnet Geth
-    docker compose up --build -d
+    cd ..
+    docker compose up --build
     ```
 
-6. **Verify and Clean Up**: Monitor the node logs (`docker compose logs -f <service_name>`) or use the [sync monitoring](/base-chain/node-operators/run-a-base-node#monitoring-sync-progress) command to ensure the node starts syncing from the snapshot's block height. Once confirmed, you can safely delete the downloaded snapshot archive (`.tar.gz` file) to free up disk space.
+  Your node should begin syncing from the last block in the snapshot.
 
+6. **Verify and Clean Up**: Monitor the node logs (`docker compose logs -f <service_name>`) or use the [sync monitoring](/base-chain/node-operators/run-a-base-node#syncing) command to ensure the node starts syncing from the snapshot's block height. Once confirmed, you can safely delete the downloaded snapshot archive (`.tar.gz` file) to free up disk space.
