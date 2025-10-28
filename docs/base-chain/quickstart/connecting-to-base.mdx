@@ -27,6 +27,45 @@ description: Documentation about Base Mainnet and Base Testnet. This page covers
 | Currency Symbol             | ETH                                                                                                                       |
 | Block Explorer              | [https://sepolia-explorer.base.org](https://sepolia-explorer.base.org)                                                    |
 
+## WebSocket connections
+
+For real-time data streaming and event subscriptions, you can use WebSocket endpoints:
+
+### Base Mainnet
+
+| Name | Value |
+|------|-------|
+| WebSocket Endpoint | `wss://mainnet.base.org` <br/>Rate limited and not for production systems. |
+
+### Base Testnet (Sepolia)
+
+| Name | Value |
+|------|-------|
+| WebSocket Endpoint | `wss://sepolia.base.org` <br/>Rate limited and not for production systems. |
+
+:::info
+WebSocket connections are useful when you need:
+- Real-time block updates
+- Event subscriptions (e.g., contract events, new transactions)
+- Pending transaction monitoring
+- Low-latency data feeds
+
+For production systems, consider using a [node provider](/base-chain/tools/node-providers) with dedicated WebSocket support.
+:::
+
+## Block explorers
+
+### Flashblocks
+
+[Flashblocks](https://www.flashblocks.xyz/) provides real-time visualization and analysis for Base blocks and transactions. It offers:
+
+- Live block and transaction streaming
+- Detailed transaction traces
+- MEV analysis and detection
+- Advanced filtering and search capabilities
+
+Flashblocks is particularly useful for developers building MEV-aware applications or analyzing on-chain activity in real-time.
+
 <Note>
 L1 & L2 protocol and network-related smart contract deployments can be found on the [Base Contracts](/base-chain/network-information/base-contracts) page.
 </Note>
@@ -35,44 +74,6 @@ L1 & L2 protocol and network-related smart contract deployments can be found on 
 <Note>
 For production systems, we recommend using a node from one of our [node partners](/base-chain/tools/node-providers), or [running your own Base node](/base-chain/node-operators/run-a-base-node).
 </Note>
-
-## Real-time access: WebSockets & Flashblocks
-
-To interact with Base in **real time** (subscribe to new blocks, logs, or pending transactions), you can use a WebSocket connection from your RPC provider.  
-For **ultra-fast UX** with ~200 ms pre-confirmations, Base supports **Flashblocks**.
-
-### WebSocket example (using viem)
-
-```ts filename="ws-client.ts"
-import { createPublicClient, webSocket } from 'viem'
-import { base } from 'viem/chains'
-
-const client = createPublicClient({
-  chain: base,
-  transport: webSocket('<YOUR_PROVIDER_WSS_URL>') // get WSS URL from your RPC provider
-})
-
-client.watchBlocks({
-  onBlock: (block) => console.log('new block', block.number)
-})
-Most RPC providers — for example Alchemy, Infura, QuickNode, Chainstack, or dRPC — supply private WSS endpoints along with their HTTPS RPC URLs.
-Use those WebSocket endpoints for live subscriptions.
-
-Flashblocks pre-confirmations
-
-Flashblocks offer ~200 ms pre-confirmations that allow applications to show near-instant feedback while awaiting final inclusion in a block.
-
-| Network     | Flashblocks HTTP RPC               | Flashblocks WebSocket                   |
-| :---------- | :--------------------------------- | :-------------------------------------- |
-| **Mainnet** | `https://mainnet-preconf.base.org` | `wss://mainnet.flashblocks.base.org/ws` |
-| **Sepolia** | `https://sepolia-preconf.base.org` | `wss://sepolia.flashblocks.base.org/ws` |
-
-<Note>
-Public preconfirmation endpoints are rate-limited and intended for testing or prototypes.  
-For production workloads, use a **dedicated Flashblocks-aware RPC** from your node provider.
-</Note>
-
-For more details, see [Flashblocks overview & RPC](https://docs.base.org/flashblocks/rpc) and [Flashblocks for node providers](https://docs.base.org/flashblocks/node-providers).
 
 # Using Base with your wallet
 
