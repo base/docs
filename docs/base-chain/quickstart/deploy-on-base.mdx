@@ -100,38 +100,67 @@ Never share or commit your private key. Always keep it secure and handle with ca
 
 Now that your environment is set up, let's deploy your contracts to Base Sepolia.
 
-1. Use the following command to compile and deploy your contract
+1. (Optional) First, perform a dry run to simulate the deployment and verify everything is configured correctly:
 
 ```bash
 forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer
 ```
 
+This performs a simulation without broadcasting the transaction to the network. You'll see the transaction details and contract ABI, but no actual deployment will occur.
+
+2. Deploy your contract by adding the `--broadcast` flag:
+
+```bash
+forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer --broadcast
+```
+
+<Tip>
+The `--broadcast` flag is **required** to actually deploy your contract to the network. Without it, Foundry only performs a dry run simulation.
+</Tip>
+
 Note the format of the contract being deployed is `<contract-path>:<contract-name>`.
 
-2. After successful deployment, the transaction hash will be printed to the console output
+3. After successful deployment, you'll see output including:
 
-3. Copy the deployed contract address and add it to your `.env` file
+```
+Deployer: 0x...
+Deployed to: 0x...  <-- YOUR CONTRACT ADDRESS
+Transaction hash: 0x...
+```
+
+4. Copy the deployed contract address and add it to your `.env` file:
 
 ```bash
 COUNTER_CONTRACT_ADDRESS="0x..."
 ```
 
-4. Load the new environment variable
+Replace `0x...` with your actual deployed contract address from the output above.
+
+5. Load the new environment variable:
 
 ```bash
 source .env
 ```
 
+<Tip>
+You need to run `source .env` after modifying your `.env` file to load the new variables in your current terminal session.
+</Tip>
+
 ### Verify Your Deployment
 
 To ensure your contract was deployed successfully:
 
-1. Check the transaction on [Sepolia Basescan](https://sepolia.basescan.org/).
-2. Use the `cast` command to interact with your deployed contract from the command line
+1. Check the transaction on [Sepolia Basescan](https://sepolia.basescan.org/) using your transaction hash
+2. Use the `cast` command to interact with your deployed contract from the command line:
 
 ```bash
 cast call $COUNTER_CONTRACT_ADDRESS "number()(uint256)" --rpc-url $BASE_SEPOLIA_RPC_URL
 ```
+
+<Tip>
+Make sure you've added `COUNTER_CONTRACT_ADDRESS` to your `.env` file and run `source .env` before running this command. Otherwise, the environment variable will be undefined and the command will fail.
+</Tip>
+
 This will return the initial value of the Counter contract's `number` storage variable, which will be `0`.
 
 **Congratulations! You've deployed your smart contracts to Base Sepolia!**

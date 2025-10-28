@@ -1,45 +1,13 @@
-# Mintlify technical writing rule
-
-You are an AI writing assistant specialized in creating exceptional technical documentation using Mintlify components and following industry-leading technical writing practices.
-
-## Core writing principles
-
-### Language and style requirements
-
-- Use clear, direct language appropriate for technical audiences
-- Write in second person ("you") for instructions and procedures
-- Use active voice over passive voice
-- Employ present tense for current states, future tense for outcomes
-- Avoid jargon unless necessary and define terms when first used
-- Maintain consistent terminology throughout all documentation
-- Keep sentences concise while providing necessary context
-- Use parallel structure in lists, headings, and procedures
-
-### Content organization standards
-
-- Lead with the most important information (inverted pyramid structure)
-- Use progressive disclosure: basic concepts before advanced ones
-- Break complex procedures into numbered steps
-- Include prerequisites and context before instructions
-- Provide expected outcomes for each major step
-- Use descriptive, keyword-rich headings for navigation and SEO
-- Group related information logically with clear section breaks
-
-### User-centered approach
-
-- Focus on user goals and outcomes rather than system features
-- Anticipate common questions and address them proactively
-- Include troubleshooting for likely failure points
-- Write for scannability with clear headings, lists, and white space
-- Include verification steps to confirm success
-
 ## Mintlify component reference
+Full mintlify reference docs can be found at https://www.mintlify.com/docs/llms.txt
 
 ### docs.json
 
 - Refer to the [docs.json schema](https://mintlify.com/docs.json) when building the docs.json file and site navigation
+- If any documents have been removed from the /docs folder, ensure that a redirect is implemented
 
 ### Callout components
+Use these sparingly, only when it's important to highlight information which might otherwise be missed by someone scanning the page.
 
 #### Note - Additional helpful information
 
@@ -73,20 +41,6 @@ Positive confirmations, successful completions, or achievement indicators
 
 ### Code components
 
-#### Single code block
-
-Example of a single code block:
-
-```javascript config.js
-const apiConfig = {
-  baseURL: 'https://api.example.com',
-  timeout: 5000,
-  headers: {
-    'Authorization': `Bearer ${process.env.API_TOKEN}`
-  }
-};
-```
-
 #### Code group with multiple languages
 
 Example of a code group:
@@ -110,28 +64,6 @@ curl -X GET '/api/endpoint' \
 ```
 </CodeGroup>
 
-#### Request/response examples
-
-Example of request/response documentation:
-
-<RequestExample>
-```bash cURL
-curl -X POST 'https://api.example.com/users' \
-  -H 'Content-Type: application/json' \
-  -d '{"name": "John Doe", "email": "john@example.com"}'
-```
-</RequestExample>
-
-<ResponseExample>
-```json Success
-{
-  "id": "user_123",
-  "name": "John Doe", 
-  "email": "john@example.com",
-  "created_at": "2024-01-15T10:30:00Z"
-}
-```
-</ResponseExample>
 
 ### Structural components
 
@@ -142,22 +74,10 @@ Example of step-by-step instructions:
 <Steps>
 <Step title="Install dependencies">
   Run `npm install` to install required packages.
-  
-  <Check>
-  Verify installation by running `npm list`.
-  </Check>
 </Step>
 
 <Step title="Configure environment">
   Create a `.env` file with your API credentials.
-  
-  ```bash
-  API_KEY=your_api_key_here
-  ```
-  
-  <Warning>
-  Never commit API keys to version control.
-  </Warning>
 </Step>
 </Steps>
 
@@ -166,26 +86,12 @@ Example of step-by-step instructions:
 Example of tabbed content:
 
 <Tabs>
-<Tab title="macOS">
-  ```bash
-  brew install node
-  npm install -g package-name
-  ```
-</Tab>
-
-<Tab title="Windows">
-  ```powershell
-  choco install nodejs
-  npm install -g package-name
-  ```
-</Tab>
-
-<Tab title="Linux">
-  ```bash
-  sudo apt install nodejs npm
-  npm install -g package-name
-  ```
-</Tab>
+  <Tab title="macOS">
+    ```bash
+    brew install node
+    npm install -g package-name
+    ```
+  </Tab>
 </Tabs>
 
 #### Accordions for collapsible content
@@ -346,54 +252,3 @@ Use updates for changelogs:
 - Resolved authentication timeout problems
 </Update>
 
-## Required page structure
-
-Every documentation page must begin with YAML frontmatter:
-
-```yaml
----
-title: "Clear, specific, keyword-rich title"
-description: "Concise description explaining page purpose and value"
----
-```
-
-## Content quality standards
-
-### Code examples requirements
-
-- Always include complete, runnable examples that users can copy and execute
-- Show proper error handling and edge case management
-- Use realistic data instead of placeholder values
-- Include expected outputs and results for verification
-- Test all code examples thoroughly before publishing
-- Specify language and include filename when relevant
-- Add explanatory comments for complex logic
-- Never include real API keys or secrets in code examples
-
-### API documentation requirements
-
-- Document all parameters including optional ones with clear descriptions
-- Show both success and error response examples with realistic data
-- Include rate limiting information with specific limits
-- Provide authentication examples showing proper format
-- Explain all HTTP status codes and error handling
-- Cover complete request/response cycles
-
-### Accessibility requirements
-
-- Include descriptive alt text for all images and diagrams
-- Use specific, actionable link text instead of "click here"
-- Ensure proper heading hierarchy starting with H2
-- Provide keyboard navigation considerations
-- Use sufficient color contrast in examples and visuals
-- Structure content for easy scanning with headers and lists
-
-## Component selection logic
-
-- Use **Steps** for procedures and sequential instructions
-- Use **Tabs** for platform-specific content or alternative approaches
-- Use **CodeGroup** when showing the same concept in multiple programming languages
-- Use **Accordions** for progressive disclosure of information
-- Use **RequestExample/ResponseExample** specifically for API endpoint documentation
-- Use **ParamField** for API parameters, **ResponseField** for API responses
-- Use **Expandable** for nested object properties or hierarchical information

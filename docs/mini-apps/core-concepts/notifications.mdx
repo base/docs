@@ -5,47 +5,85 @@ description: Regularly re-engage users by sending in-app notifications through t
 
 ## Overview
 
-When a user enables notifications for your Mini App, the Base App generates a unique notification `token` and `url` which is sent to your server via webhook.
+When a user enables notifications for your Mini App, the Base app generates a unique notification `token` and `url` which is sent to your server via webhook.
 
 This `token` grants your app permission to send in-app notifications to that specific user.
 
 To send a notification, make a `POST` request to the `url` with the user's notification `token` and your content.
 
 You will receive webhook events when users enable or disable notifications for your app. When disabled, the notification token becomes invalid and should no longer be used.
+
+## Client App Behavior
+
+Different client apps handle webhook responses differently:
+
+**Farcaster app**: Activates notification tokens immediately without waiting for a webhook success response.
+ 
+**Base app**: Waits for a successful webhook response before activating tokens.
+
+<Note>
+If your webhook processes token saving and sends notifications synchronously before returning a response, tokens may work on Farcaster but fail to activate on Base app.
+</Note>
+
+
 <Panel>
 ![notification-image-iphone](/images/minikit/notifications-sample.png)
+<Info>
+Notification tokens are unique to each client app. This means a user can have separate notification preferences for your Mini App across different clients (e.g., Farcaster, the Base app). Removing your Mini App in one client does not affect its status in other clients.
+</Info>
 
 </Panel>
 ## Implementation
 <Steps>
   <Step title="Create a webhook server">
-    Create a webhook server to handle webhook events. 
+    Create a webhook server to handle webhook events.
+
+    <Info>
+    The `data` object returned by `parseWebhookEvent` contains three key fields:
+    - **`fid`**: The user's FID
+    - **`appFid`**: The client's FID (the Base app is 309857)
+    - **`event`**: The event payload with type and notification details
+  
+    Always use both `fid` and `appFid` together to identify a unique user-client combination.
+    </Info> 
 
     ```ts app/api/webhook/route.ts expandable highlight={20-50}
+
+  import {
+      parseWebhookEvent,
+      verifyAppKeyWithNeynar,
+    } from "@farcaster/miniapp-node";
+
     export async function POST(request: NextRequest) {
       const requestJson = await request.json();
 
       // Parse and verify the webhook event
       let data;
       try {
-        data = await validateWebhookEventSignature(requestJson);
+        data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
         // Events are signed by the app key of a user with a JSON Farcaster Signature.
       } catch (e: unknown) {
         // Handle verification errors (invalid data, invalid app key, etc.)
         // Return appropriate error responses with status codes 400, 401, or 500
       }
 
+
+      // Extract webhook data
+
       const fid = data.fid;
+      const appFid = data.appFid; // The FID of the client app that the user added the Mini App to
       const event = data.event;
 
-      // Handle different event types
+  // Handle different event types
+  
+    try {
       switch (event.event) {
         case "miniapp_added":
-          // Save notification details and send welcome notification
           if (event.notificationDetails) {
-            await setUserNotificationDetails(fid, event.notificationDetails);
-            await sendMiniAppNotification({
+           setUserNotificationDetails(fid, appFid, event.notificationDetails);
+           sendMiniAppNotification(fid, appFid, "Welcome to Base Mini Apps", "Mini app is now added to your client");
               fid,
+              appFid,
               title: "Welcome to Base Mini Apps",
               body: "Mini app is now added to your client",
             });
@@ -53,28 +91,32 @@ You will receive webhook events when users enable or disable notifications for y
           break;
 
         case "miniapp_removed":
-          // Delete notification details
-          await deleteUserNotificationDetails(fid);
+         // Delete notification details
+          await deleteUserNotificationDetails(fid, appFid);
           break;
 
         case "notifications_enabled":
           // Save new notification details and send confirmation
-          await setUserNotificationDetails(fid, event.notificationDetails);
-          await sendMiniAppNotification({
+           setUserNotificationDetails(fid, appFid, event.notificationDetails);
+           sendMiniAppNotification({
             fid,
+            appFid,
             title: "Ding ding ding",
             body: "Notifications are now enabled",
           });
           break;
 
         case "notifications_disabled":
-          // Delete notification details
-          await deleteUserNotificationDetails(fid);
+             // Delete notification details
+          await deleteUserNotificationDetails(fid, appFid);
           break;
       }
-
-      return Response.json({ success: true });
+    } catch (error) {
+      console.error("Error processing webhook:", error);
     }
+
+        return response; 
+      
     ```
   </Step>
   <Step title="Add the Webhook URL to your manifest">
@@ -104,6 +146,11 @@ You will receive webhook events when users enable or disable notifications for y
   </Step>
   <Step title="Prompt users to add your Mini App">
     Use the `addMiniApp()` hook to prompt users to add your Mini App
+
+  <Warning>
+  **Important: Webhook Response Timing**
+  Webhooks must respond within 10 seconds to avoid timeouts from the Base app. If you encounter a "Failed to add mini app" error, your webhook may be taking too long to respond.
+  </Warning>
 
     ```tsx page.tsx highlight={11, 25-27}
     "use client";
@@ -161,14 +208,16 @@ You will receive webhook events when users enable or disable notifications for y
     ```ts sendNotification.ts highlight={15-28}
     export async function sendMiniAppNotification({
       fid,
+      appFid,
       title,
       body,
     }: {
       fid: number;
+      appFid: number;
       title: string;
       body: string;
     }): Promise<sendMiniAppNotificationResult> {
-      const notificationDetails = await getUserNotificationDetails(fid);
+      const notificationDetails = await getUserNotificationDetails(fid, appFid);
       if (!notificationDetails) {
         return { state: "no_token" };
       }
@@ -263,7 +312,7 @@ Mini App events use the following object structure:
 
 * **`type`**: notification event type
 * **`notificationDetails.url`**: URL that the app should call to send a notification.
-* **`notificationDetails.token`**: A secret token generated by the Base App and shared with the Notification Server. A token is unique for each (Farcaster Client, Mini App, user Fid) tuple.
+* **`notificationDetails.token`**: A secret token generated by the Base app and shared with the Notification Server. A token is unique for each (Farcaster Client, Mini App, user Fid) tuple.
 
 <Note>If users are not seeing the option to enable notifications when they call `addMiniApp()`, verify that your manifest file contains a valid `webhookUrl`.</Note>
 
@@ -317,3 +366,4 @@ Sent when a user disables notifications from, e.g., a settings panel in the clie
   "event": "notifications_disabled"
 }
 ```
+

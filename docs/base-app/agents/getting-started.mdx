@@ -4,189 +4,92 @@ description: 'Step-by-step guide to creating, testing, and deploying your first 
 sidebarTitle: 'Getting Started'
 ---
 
+Build powerful chat agents that integrate seamlessly with Base App using the XMTP messaging protocol.
 
-This guide will walk you through creating, testing, and deploying your first XMTP messaging agent. By the end, you'll have a fully functional agent that can send and receive messages on the XMTP messaging network.
+<Note>
+For the complete guide, visit [XMTP documentation](https://docs.xmtp.org/agents/get-started/build-an-agent)
+</Note>
 
-## Getting started
+## Installation
 
-This guide will walk you through creating, testing, and deploying your first XMTP messaging agent. By the end, you'll have a fully functional agent that can send and receive messages on the XMTP messaging network.
+<CodeGroup>
 
-**Prerequisites**  
-• Node.js (v20 or higher)  
-• Git  
-• A code editor  
-• Basic knowledge of JavaScript/TypeScript
-
-**Resources**
-
-- [Getting Started with XMTP (Video)](https://www.youtube.com/watch?v=djRLnWUvwIA)
-- [Building Agents on XMTP](https://github.com/ephemeraHQ/xmtp-agent-examples)
-- [Cursor Rules](https://github.com/ephemeraHQ/xmtp-agent-examples/blob/main/.cursor/rules/xmtp.mdc)
-- [XMTP Documentation](https://docs.xmtp.org/agents)
-- [Faucets](https://portal.cdp.coinbase.com/products/faucet)
-
-**STEP 1: SET UP YOUR DEVELOPMENT ENVIRONMENT**
-
-Clone the XMTP Agent Examples Repository:
-
-```bash
-git clone https://github.com/ephemeraHQ/xmtp-agent-examples.git
-cd xmtp-agent-examples
+```bash npm
+npm install @xmtp/agent-sdk
 ```
 
-**STEP 2: INSTALL DEPENDENCIES**
-
-Install all required packages:
-
-```bash
-npm install
+```bash pnpm
+pnpm add @xmtp/agent-sdk
 ```
 
-**STEP 3: GENERATE KEYS FOR YOUR AGENT**
-
-Run the key generation script to create your agent's wallet:
-
-```bash
-npm run gen:keys
+```bash yarn
+yarn add @xmtp/agent-sdk
 ```
 
-This creates a .env file with:
+</CodeGroup>
 
-```bash
-XMTP_WALLET_KEY=0x... # Your agent's private key
-XMTP_DB_ENCRYPTION_KEY=... # Encryption key for local database
-XMTP_ENV=dev # Environment (local, dev, production)
-```
+## Usage
 
-**STEP 4: WRITE YOUR AGENT LOGIC**
+This example shows how to create an agent that sends a message when it receives a text message.
 
-Create a basic agent that responds to messages:
-
-```javascript
-import { Agent, getTestUrl } from "@xmtp/agent-sdk";
+```ts [Node]
+import { Agent } from '@xmtp/agent-sdk';
 
 // 2. Spin up the agent
 const agent = await Agent.createFromEnv({
-  env: "dev", // or 'production' for base app
+  env: 'production', // base app works only on production
 });
 
 // 3. Respond to text messages
-agent.on("text", async (ctx) => {
-  await ctx.sendText("Hello from my XMTP Agent! 👋");
+agent.on('text', async (ctx) => {
+  await ctx.sendText('Hello from my Base App Agent! 👋');
 });
 
 // 4. Log when we're ready
-agent.on("start", () => {
-  console.log(`We are online: ${getTestUrl(agent)}`);
+agent.on('start', () => {
+  console.log(`Waiting for messages...`);
+  console.log(`Address: ${agent.address}`);
 });
 
 await agent.start();
 ```
 
-Then run your agent:
+### Set environment variables
+
+To run an example XMTP agent, you must create a `.env` file with the following variables:
 
 ```bash
-npm run dev
+XMTP_WALLET_KEY= # the private key of the wallet
+XMTP_DB_ENCRYPTION_KEY= # encryption key for the local database
+XMTP_ENV=production # local, dev, production
 ```
 
-### Getting the address of a user
+## Get a basename for your agent
 
-Each user has a unique inboxId for retrieving their associated addresses (identifiers). One inboxId can have multiple identifiers like passkeys or EVM wallet addresses.
+Give your agent a human-readable name:	
 
-```tsx
-agent.on("text", async (ctx) => {
-  const message = ctx.message.content;
-  const senderAddress = ctx.getSenderAddress();
-});
-```
+**1. Import agent wallet to Base App extension:**
 
-You can also explore example implementations in the `/examples` folder, including:
+  • Install Base App browser extension
 
-- [xmtp-gm](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gm): A simple agent that replies to all text messages with "gm"
-- [xmtp-gpt](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gpt): An example using GPT API's to answer messages
-- [xmtp-gated-group](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gated-group): Add members to a group based on arbitrary criteria
-- [xmtp-coinbase-agentkit](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-coinbase-agentkit): Agent that uses a CDP for gasless USDC on base
-- [xmtp-transactions](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-transactions): Allow transactions between users and agents
-- [xmtp-gaia](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-gaia): Agent that uses a CDP for gasless USDC on base
-- [xmtp-smart-wallet](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-smart-wallet): Agent that uses a smart wallet to send messages
-- [xmtp-attachments](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-attachments): Agent that sends and receives images
-- [xmtp-inline-actions](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-inline-actions): An example using inline actions (dynamic buttons)
-- [xmtp-thinking-reaction](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-thinking-reaction): Agent that reacts to messages with a thinking emoji
-- [xmtp-queue-dual-client](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-queue-dual-client): Agent that uses two clients to send and receive messages
-- [xmtp-welcome-message](https://github.com/ephemeraHQ/xmtp-agent-examples/tree/main/examples/xmtp-welcome-message): Agent that sends a welcome message when its added and to new members
+  • Import using your agent's private key
 
-**STEP 5: TEST YOUR AGENT**
+**2. Purchase a basename:**
 
-**Development Testing**
+• Visit https://base.org/names
 
-1. Start your agent:
+• Connect your agent's wallet
 
-```javascript
-npm run dev
-```
+• Search and purchase your desired basename (e.g., myagent.base.eth)
 
-2. Test on [xmtp.chat:](https://xmtp.chat/conversations)  
-   • Go to https://xmtp.chat  
-   • Connect your personal wallet  
-   • Switch to Dev environment in settings  
-   • Start a new conversation with your agent's public address (from .env)  
-   • Send a test message and verify the agent responds
-
-**Production Testing**
-
-1. Update environment:
-
-```javascript
-XMTP_ENV = production; // for base app
-```
-
-2. Test on Base App:  
-   • Open Base App mobile app  
-   • Go to messaging  
-   • Start conversation with your agent's address  
-   • Verify functionality
-
-**STEP 6: GET A BASENAME FOR YOUR AGENT**
-
-Give your agent a human-readable name:
-
-**1. Import agent wallet to Base App extension:**  
-• Install Base App browser extension  
-• Import using your agent's private key
-
-**2. Purchase a basename:**  
-• Visit https://base.org/names  
-• Connect your agent's wallet  
-• Search and purchase your desired basename (e.g., myagent.base.eth)  
 • Set as primary name
 
-**3. Verify setup:**  
-• Your agent can now be reached via the basename instead of the long address  
-• Users can message myagent.base.eth instead of 0x123...
+**3. Verify setup:**  	
 
-**STEP 7: DEPLOY YOUR AGENT**
+• Your agent can now be reached via the basename instead of the long address  	
 
-**Option 1: Railway (Recommended)**
+• Users can message myagent.base.eth instead of 0x123...	
 
-• Visit https://railway.app  
-• Connect your GitHub repository  
-• Add environment variables in Railway dashboard:  
- \- XMTP_ENV=production  
- \- XMTP_WALLET_KEY=your_agent_private_key  
- \- XMTP_DB_ENCRYPTION_KEY=your_agent_encryption_key
-• Deploy and monitor logs
-
-**Option 2: Other Platforms**  
-Heroku, Vercel, or any Node.js hosting platform:  
-• Ensure your package.json has the correct start script  
-• Set environment variables in your hosting platform  
-• Deploy your repository
-
-**STEP 8: MONITOR AND MAINTAIN**
-
-**Best Practices**
-
-1. Logging: Add comprehensive logging to track agent activity
-2. Error Handling: Implement try-catch blocks for network issues
-3. Rate Limiting: Respect XMTP rate limits in your agent logic
-4. Security: Never expose private keys; use environment variables
+<Note>
+For the complete guide, visit [XMTP documentation](https://docs.xmtp.org/agents/get-started/build-an-agent)
+</Note>
