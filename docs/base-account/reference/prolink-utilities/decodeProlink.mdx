@@ -1,0 +1,439 @@
+---
+title: "decodeProlink"
+description: "Decode a prolink payload back to a JSON-RPC request"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  This utility decodes a compressed prolink payload back into a JSON-RPC request object. Use it to validate, inspect, or execute prolinks received from URLs, QR codes, or other sources.
+</Info>
+
+## Import
+
+```typescript
+import { decodeProlink } from '@base-org/account';
+```
+
+## Parameters
+
+<ParamField body="payload" type="string" required>
+  Base64url-encoded prolink payload to decode. This is the string returned by [`encodeProlink`](/base-account/reference/prolink-utilities/encodeProlink).
+</ParamField>
+
+## Returns
+
+<ResponseField name="decoded" type="Promise<ProlinkDecoded>">
+  A promise that resolves to the decoded JSON-RPC request.
+
+<Expandable title="ProlinkDecoded properties">
+<ResponseField name="method" type="string">
+  The JSON-RPC method name (e.g., `wallet_sendCalls`, `wallet_sign`, `eth_sendTransaction`).
+</ResponseField>
+
+<ResponseField name="params" type="unknown">
+  The parameters for the JSON-RPC method. Structure depends on the method:
+  - For `wallet_sendCalls`: Array with sendCalls params object
+  - For `wallet_sign`: Array with sign params object  
+  - For generic methods: Original params structure
+</ResponseField>
+
+<ResponseField name="chainId" type="number | undefined">
+  The target chain ID. Always present for `wallet_sendCalls` and `wallet_sign`.
+</ResponseField>
+
+<ResponseField name="capabilities" type="Record<string, unknown> | undefined">
+  Wallet capabilities included in the request, if any.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Examples
+
+### Decode wallet_sendCalls
+
+```typescript
+import { decodeProlink } from '@base-org/account';
+
+// Receive a prolink from a URL parameter
+const urlParams = new URLSearchParams(window.location.search);
+const prolink = urlParams.get('prolink');
+
+if (prolink) {
+  const decoded = await decodeProlink(prolink);
+  
+  console.log('Method:', decoded.method); // 'wallet_sendCalls'
+  console.log('Chain ID:', decoded.chainId); // 8453
+  
+  const params = decoded.params[0];
+  console.log('Calls:', params.calls);
+  console.log('Version:', params.version);
+}
+```
+
+### Validate Before Execution
+
+```typescript
+async function validateAndExecuteProlink(
+  prolink: string,
+  provider: EIP1193Provider
+): Promise<void> {
+  try {
+    // Decode the prolink
+    const decoded = await decodeProlink(prolink);
+    
+    // Validate chain ID
+    const currentChainId = await provider.request({ 
+      method: 'eth_chainId' 
+    });
+    if (decoded.chainId !== Number.parseInt(currentChainId, 16)) {
+      throw new Error('Chain ID mismatch');
+    }
+    
+    // Validate method
+    if (decoded.method !== 'wallet_sendCalls') {
+      throw new Error('Unsupported method');
+    }
+    
+    // Validate call targets (example: whitelist)
+    const allowedContracts = [
+      '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
+      '0x4200000000000000000000000000000000000006'  // WETH
+    ];
+    
+    const params = decoded.params[0];
+    for (const call of params.calls) {
+      if (!allowedContracts.includes(call.to.toLowerCase())) {
+        throw new Error(`Unauthorized contract: ${call.to}`);
+      }
+    }
+    
+    // Execute the request
+    const result = await provider.request({
+      method: decoded.method,
+      params: decoded.params
+    });
+    
+    console.log('Transaction result:', result);
+  } catch (error) {
+    console.error('Prolink validation failed:', error);
+    throw error;
+  }
+}
+```
+
+### Inspect Spend Permission Request
+
+```typescript
+async function inspectSpendPermission(prolink: string) {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.method === 'wallet_sign') {
+    const params = decoded.params[0];
+    
+    if (params.data?.primaryType === 'SpendPermission') {
+      const permission = params.data.message;
+      
+      console.log('Spend Permission Details:');
+      console.log('  Account:', permission.account);
+      console.log('  Spender:', permission.spender);
+      console.log('  Token:', permission.token);
+      console.log('  Allowance:', permission.allowance);
+      console.log('  Period:', permission.period);
+      console.log('  Start:', new Date(permission.start * 1000));
+      console.log('  End:', new Date(permission.end * 1000));
+      
+      return permission;
+    }
+  }
+  
+  throw new Error('Not a spend permission request');
+}
+```
+
+### Extract Capabilities
+
+```typescript
+async function extractCallbacks(prolink: string) {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.capabilities?.dataCallback) {
+    const callback = decoded.capabilities.dataCallback;
+    console.log('Callback URL:', callback.callbackURL);
+    console.log('Events:', callback.events);
+    return callback;
+  }
+  
+  return null;
+}
+```
+
+### Process QR Code Prolink
+
+```typescript
+import { Html5Qrcode } from 'html5-qrcode';
+
+async function scanAndDecodeQR() {
+  const html5QrCode = new Html5Qrcode("reader");
+  
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    async (decodedText) => {
+      try {
+        // Decode the prolink from QR code
+        const decoded = await decodeProlink(decodedText);
+        
+        console.log('Scanned transaction:');
+        console.log('Method:', decoded.method);
+        console.log('Chain:', decoded.chainId);
+        
+        // Stop scanning
+        await html5QrCode.stop();
+        
+        // Process the transaction
+        await processTransaction(decoded);
+      } catch (error) {
+        console.error('Invalid prolink in QR code:', error);
+      }
+    },
+    (errorMessage) => {
+      // Handle scan errors
+    }
+  );
+}
+```
+
+### Decode and Display Transaction Details
+
+```typescript
+async function displayTransactionPreview(prolink: string): Promise<string> {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.method === 'wallet_sendCalls') {
+    const params = decoded.params[0];
+    const calls = params.calls;
+    
+    let preview = `Chain: ${decoded.chainId}\n`;
+    preview += `Total Calls: ${calls.length}\n\n`;
+    
+    for (let i = 0; i < calls.length; i++) {
+      const call = calls[i];
+      preview += `Call ${i + 1}:\n`;
+      preview += `  To: ${call.to}\n`;
+      preview += `  Value: ${call.value}\n`;
+      preview += `  Data: ${call.data.slice(0, 66)}...\n\n`;
+    }
+    
+    if (decoded.capabilities) {
+      preview += `Capabilities: ${Object.keys(decoded.capabilities).join(', ')}`;
+    }
+    
+    return preview;
+  }
+  
+  return 'Unknown transaction type';
+}
+```
+
+## Error Handling
+
+Always wrap decoding in try-catch to handle invalid prolinks:
+
+```typescript
+try {
+  const decoded = await decodeProlink(suspiciousProlink);
+  
+  // Validate the decoded content
+  if (decoded.method !== expectedMethod) {
+    throw new Error('Unexpected method');
+  }
+  
+  // Process the decoded request
+  await processRequest(decoded);
+  
+} catch (error) {
+  if (error instanceof Error) {
+    // Handle specific errors
+    if (error.message.includes('Invalid Base64url')) {
+      console.error('Malformed prolink payload');
+    } else if (error.message.includes('Unsupported protocol version')) {
+      console.error('Prolink version not supported');
+    } else if (error.message.includes('Invalid payload')) {
+      console.error('Corrupted prolink data');
+    } else {
+      console.error('Decoding failed:', error.message);
+    }
+  }
+}
+```
+
+### Common Errors
+
+<ResponseField name="Invalid Base64url string">
+  The prolink payload is not valid base64url encoding. It may be corrupted or truncated.
+</ResponseField>
+
+<ResponseField name="Unsupported protocol version">
+  The prolink was created with a newer protocol version that this SDK doesn't support.
+</ResponseField>
+
+<ResponseField name="Invalid payload: shortcut X requires Y body">
+  The prolink's internal structure is inconsistent. It may be corrupted.
+</ResponseField>
+
+<ResponseField name="wallet_sendCalls requires chainId">
+  The prolink is missing required chain ID information for a wallet_sendCalls request.
+</ResponseField>
+
+<ResponseField name="Unsupported shortcut ID">
+  The prolink uses an unknown shortcut encoding that this SDK doesn't support.
+</ResponseField>
+
+## Security Best Practices
+
+<Warning>
+  Always validate decoded prolinks before execution. Never blindly trust prolink contents.
+</Warning>
+
+### Validation Checklist
+
+1. **Verify chain ID** - Ensure it matches your expected network
+2. **Check addresses** - Validate target addresses are expected
+3. **Inspect amounts** - Verify token amounts are reasonable
+4. **Review data** - Check call data for unexpected operations
+5. **Validate capabilities** - Ensure capabilities align with intent
+
+### Example Security Check
+
+```typescript
+async function secureDecodeAndValidate(
+  prolink: string,
+  expectedChainId: number,
+  allowedMethods: string[]
+): Promise<ProlinkDecoded> {
+  // Decode
+  const decoded = await decodeProlink(prolink);
+  
+  // Validate chain ID
+  if (decoded.chainId !== expectedChainId) {
+    throw new Error(
+      `Chain ID mismatch: expected ${expectedChainId}, got ${decoded.chainId}`
+    );
+  }
+  
+  // Validate method
+  if (!allowedMethods.includes(decoded.method)) {
+    throw new Error(`Method not allowed: ${decoded.method}`);
+  }
+  
+  // Additional validations based on method
+  if (decoded.method === 'wallet_sendCalls') {
+    const params = decoded.params[0];
+    
+    // Check call count
+    if (params.calls.length > 10) {
+      throw new Error('Too many calls in batch');
+    }
+    
+    // Validate each call
+    for (const call of params.calls) {
+      // Check address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(call.to)) {
+        throw new Error(`Invalid address: ${call.to}`);
+      }
+      
+      // Check value is reasonable (< 100 ETH)
+      const value = BigInt(call.value);
+      if (value > BigInt('100000000000000000000')) {
+        throw new Error('Value too large');
+      }
+    }
+  }
+  
+  return decoded;
+}
+```
+
+## Use Cases
+
+### Deep Link Handler
+
+Process prolinks from app deep links:
+
+```typescript
+// In your app's deep link handler
+async function handleDeepLink(url: string) {
+  const urlObj = new URL(url);
+  const prolink = urlObj.searchParams.get('prolink');
+  
+  if (!prolink) {
+    console.error('No prolink found in deep link');
+    return;
+  }
+  
+  try {
+    const decoded = await decodeProlink(prolink);
+    
+    // Route to appropriate handler based on method
+    switch (decoded.method) {
+      case 'wallet_sendCalls':
+        await handleTransaction(decoded);
+        break;
+      case 'wallet_sign':
+        await handleSignature(decoded);
+        break;
+      default:
+        console.warn('Unsupported method:', decoded.method);
+    }
+  } catch (error) {
+    console.error('Failed to process prolink:', error);
+  }
+}
+```
+
+### Payment Verification
+
+Verify payment requests before displaying to users:
+
+```typescript
+async function verifyPaymentRequest(prolink: string) {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.method !== 'wallet_sendCalls') {
+    throw new Error('Not a payment request');
+  }
+  
+  const params = decoded.params[0];
+  const call = params.calls[0];
+  
+  // Extract payment details
+  const paymentDetails = {
+    chainId: decoded.chainId,
+    token: call.to,
+    recipient: extractRecipient(call.data),
+    amount: extractAmount(call.data),
+    verified: true
+  };
+  
+  return paymentDetails;
+}
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="encodeProlink" icon="compress" href="/base-account/reference/prolink-utilities/encodeProlink">
+    Create prolink payloads from JSON-RPC requests
+  </Card>
+  <Card title="Overview" icon="book" href="/base-account/reference/prolink-utilities/overview">
+    Learn more about prolinks and use cases
+  </Card>
+  <Card title="wallet_sendCalls" icon="paper-plane" href="/base-account/reference/core/provider-rpc-methods/wallet_sendCalls">
+    Execute decoded transaction batches
+  </Card>
+  <Card title="Security" icon="shield" href="/base-account/contribute/security-and-bug-bounty">
+    Report security issues
+  </Card>
+</CardGroup>
+

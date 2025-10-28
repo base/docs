@@ -1,0 +1,170 @@
+---
+title: "Prolink Utilities Overview"
+description: "Create compressed, URL-safe payloads for wallet interactions"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+## What are Prolinks?
+
+Prolinks are compressed, URL-safe encodings of JSON-RPC requests that enable apps to create shareable wallet interaction links. They implement the Compressed RPC Link Format specification and are ideal for:
+
+- **Deep links** - Launch your app with pre-filled transaction data
+- **QR codes** - Encode payment requests or transaction batches
+- **Shareable URLs** - Send transaction requests via messaging apps
+- **Cross-app communication** - Pass complex wallet operations between applications
+
+## How Prolinks Work
+
+Prolinks transform JSON-RPC requests through a multi-stage process:
+
+1. **Shortcut Detection** - Automatically identifies the request type and applies optimized encoding
+2. **Protobuf Serialization** - Converts the request to a compact binary format
+3. **Compression** - Uses gzip compression for large payloads
+4. **Base64url Encoding** - Creates a URL-safe string
+
+The result is a compact, shareable string that can be 50-80% smaller than raw JSON.
+
+## Supported Methods
+
+Prolinks support three categories of JSON-RPC methods:
+
+### wallet_sendCalls (EIP-5792)
+
+Optimized encoding for transaction batching:
+- ERC20 transfers
+- Native ETH transfers  
+- Generic contract calls
+
+### wallet_sign (EIP-7871)
+
+Optimized encoding for typed data signatures:
+- Spend Permissions (EIP-7715)
+- Receive With Authorization (USDC transfers)
+- Generic EIP-712 typed data
+
+### Generic JSON-RPC
+
+Fallback support for any JSON-RPC method including:
+- `eth_sendTransaction`
+- `personal_sign`
+- Custom methods
+
+## Capabilities Support
+
+Prolinks preserve [wallet capabilities](/base-account/reference/core/capabilities/overview) through encoding, including:
+- Data callbacks for transaction lifecycle events
+- Paymaster configurations
+- Atomic transaction batching
+- Flow control parameters
+
+## Available Utilities
+
+<CardGroup cols={2}>
+  <Card title="encodeProlink" icon="compress" href="/base-account/reference/prolink-utilities/encodeProlink">
+    Encode a JSON-RPC request into a compressed prolink payload
+  </Card>
+  <Card title="decodeProlink" icon="expand" href="/base-account/reference/prolink-utilities/decodeProlink">
+    Decode a prolink payload back to a JSON-RPC request
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+```typescript
+import { encodeProlink, decodeProlink } from '@base-org/account';
+
+// Encode a payment request
+const prolink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105', // Base mainnet
+    calls: [{
+      to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
+      data: '0xa9059cbb...', // transfer(recipient, amount)
+      value: '0x0'
+    }]
+  }]
+});
+
+// Share the prolink
+const shareUrl = `https://yourapp.com/pay?prolink=${prolink}`;
+
+// Later, decode the prolink
+const decoded = await decodeProlink(prolink);
+console.log(decoded.method); // 'wallet_sendCalls'
+console.log(decoded.chainId); // 8453
+```
+
+## Use Cases
+
+### Payment Links
+
+Create shareable payment requests that anyone can execute:
+
+```typescript
+const paymentLink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105',
+    calls: [{
+      to: merchantAddress,
+      data: encodeTransferData(amount),
+      value: '0x0'
+    }]
+  }]
+});
+```
+
+### Transaction QR Codes
+
+Encode complex transactions into QR codes for easy scanning:
+
+```typescript
+import QRCode from 'qrcode';
+
+const txProlink = await encodeProlink(transactionRequest);
+const qrCode = await QRCode.toDataURL(txProlink);
+```
+
+### Spend Permission Requests
+
+Share spend permission signature requests:
+
+```typescript
+const permissionLink = await encodeProlink({
+  method: 'wallet_sign',
+  params: [{
+    version: '1',
+    chainId: '0x14a34',
+    type: '0x01',
+    data: spendPermissionTypedData
+  }]
+});
+```
+
+## Security Considerations
+
+<Warning>
+Always validate decoded prolink contents before execution. Verify:
+- The target addresses are expected
+- Amounts are within acceptable ranges
+- The chain ID matches your application's network
+- Method calls align with user intent
+</Warning>
+
+Prolinks are **not encrypted** - they only compress and encode data. Never include sensitive information like private keys or passwords in prolinks.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Encode Prolinks" icon="code" href="/base-account/reference/prolink-utilities/encodeProlink">
+    Learn how to create prolinks from JSON-RPC requests
+  </Card>
+  <Card title="Decode Prolinks" icon="file-code" href="/base-account/reference/prolink-utilities/decodeProlink">
+    Learn how to parse and validate prolinks
+  </Card>
+</CardGroup>
+
