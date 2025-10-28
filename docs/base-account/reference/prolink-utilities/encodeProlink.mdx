@@ -201,118 +201,6 @@ const prolink = await encodeProlink({
 });
 ```
 
-## Use Cases
-
-### Payment Requests
-
-Create shareable payment links for your users:
-
-```typescript
-async function createPaymentLink(
-  recipientAddress: string,
-  tokenAddress: string,
-  amount: bigint
-): Promise<string> {
-  const transferData = encodeFunctionData({
-    abi: erc20Abi,
-    functionName: 'transfer',
-    args: [recipientAddress, amount]
-  });
-
-  const prolink = await encodeProlink({
-    method: 'wallet_sendCalls',
-    params: [{
-      version: '1.0',
-      chainId: '0x2105',
-      calls: [{
-        to: tokenAddress,
-        data: transferData,
-        value: '0x0'
-      }]
-    }]
-  });
-
-  return `https://pay.yourapp.com?prolink=${prolink}`;
-}
-```
-
-### QR Code Generation
-
-Encode transactions into QR codes:
-
-```typescript
-import QRCode from 'qrcode';
-
-async function generatePaymentQR(transaction: ProlinkRequest): Promise<string> {
-  const prolink = await encodeProlink(transaction);
-  const qrCodeDataUrl = await QRCode.toDataURL(prolink, {
-    errorCorrectionLevel: 'M',
-    width: 300
-  });
-  return qrCodeDataUrl;
-}
-```
-
-### Deep Link Creation
-
-Launch your app with pre-filled transaction data:
-
-```typescript
-async function createDeepLink(transaction: ProlinkRequest): Promise<string> {
-  const prolink = await encodeProlink(transaction);
-  return `yourapp://transaction?prolink=${prolink}`;
-}
-```
-
-## Error Handling
-
-The function throws errors for invalid inputs. Always wrap calls in try-catch:
-
-```typescript
-try {
-  const prolink = await encodeProlink({
-    method: 'wallet_sendCalls',
-    params: [{
-      version: '1.0',
-      chainId: '0x2105',
-      calls: [/* ... */]
-    }]
-  });
-} catch (error) {
-  if (error instanceof Error) {
-    // Handle specific errors
-    if (error.message.includes('requires chainId')) {
-      console.error('Chain ID is required for this method');
-    } else if (error.message.includes('requires params array')) {
-      console.error('Invalid params structure');
-    } else {
-      console.error('Encoding failed:', error.message);
-    }
-  }
-}
-```
-
-### Common Errors
-
-<ResponseField name="wallet_sendCalls requires params array with at least one element">
-  The params array is empty or not provided.
-</ResponseField>
-
-<ResponseField name="wallet_sendCalls params[0] must be an object">
-  The first element of params is not an object.
-</ResponseField>
-
-<ResponseField name="wallet_sendCalls requires chainId in params">
-  The chainId field is missing from params[0].
-</ResponseField>
-
-<ResponseField name="wallet_sign requires chainId in params">
-  The chainId field is missing from params[0].
-</ResponseField>
-
-<ResponseField name="Invalid capabilities JSON">
-  The capabilities object contains invalid JSON when serialized.
-</ResponseField>
 
 ## Performance
 
@@ -327,9 +215,6 @@ This results in 50-80% size reduction for typical transaction batches.
 <CardGroup cols={2}>
   <Card title="decodeProlink" icon="expand" href="/base-account/reference/prolink-utilities/decodeProlink">
     Decode a prolink payload back to a JSON-RPC request
-  </Card>
-  <Card title="Overview" icon="book" href="/base-account/reference/prolink-utilities/overview">
-    Learn more about prolinks and use cases
   </Card>
   <Card title="wallet_sendCalls" icon="paper-plane" href="/base-account/reference/core/provider-rpc-methods/wallet_sendCalls">
     Learn about transaction batching
