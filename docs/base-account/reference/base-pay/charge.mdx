@@ -52,7 +52,11 @@ CDP wallet secret. Falls back to `CDP_WALLET_SECRET` environment variable.
 </ParamField>
 
 <ParamField body="walletName" type="string">
-Custom wallet name for the CDP smart wallet. Default: "subscription owner"
+Optional custom wallet name for the CDP smart wallet. Default: "subscription owner"
+
+<Note>
+**Use Default**: Most applications should omit this parameter and use the default. Only specify if you used a custom name in `getOrCreateSubscriptionOwnerWallet()`.
+</Note>
 </ParamField>
 
 <ParamField body="paymasterUrl" type="string">
@@ -112,7 +116,7 @@ Or pass directly as parameters (see examples below).
 
 <RequestExample>
 ```typescript Basic Charge with Environment Variables
-import { base } from '@base-org/account/payment';
+import { base } from '@base-org/account/node';
 
 // Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
 const result = await base.subscription.charge({
@@ -125,7 +129,7 @@ console.log(`Amount: ${result.amount}`);
 ```
 
 ```typescript Charge with Explicit Credentials
-import { base } from '@base-org/account/payment';
+import { base } from '@base-org/account/node';
 
 const result = await base.subscription.charge({
   id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
@@ -140,7 +144,7 @@ console.log(`Charged subscription: ${result.id}`);
 ```
 
 ```typescript Charge Maximum Available
-import { base } from '@base-org/account/payment';
+import { base } from '@base-org/account/node';
 
 // Charge the full remaining amount in current period
 const result = await base.subscription.charge({
@@ -153,7 +157,7 @@ console.log(`Charged max remaining: ${result.amount}`);
 ```
 
 ```typescript Charge with Recipient
-import { base } from '@base-org/account/payment';
+import { base } from '@base-org/account/node';
 
 // Charge and transfer USDC to a specific recipient
 const result = await base.subscription.charge({
@@ -167,7 +171,7 @@ console.log(`Charged and sent to ${result.recipient}`);
 ```
 
 ```typescript Charge with Paymaster (Gasless)
-import { base } from '@base-org/account/payment';
+import { base } from '@base-org/account/node';
 
 // Use a paymaster to sponsor gas fees
 const result = await base.subscription.charge({
@@ -180,14 +184,14 @@ const result = await base.subscription.charge({
 console.log(`Gasless charge: ${result.id}`);
 ```
 
-```typescript Custom Wallet Name
-import { base } from '@base-org/account/payment';
+```typescript Advanced: Custom Wallet Name (If Needed)
+import { base } from '@base-org/account/node';
 
-// Use a custom wallet name for organization
+// Only needed if you used a custom name in getOrCreateSubscriptionOwnerWallet()
 const result = await base.subscription.charge({
   id: subscriptionId,
   amount: '5.00',
-  walletName: 'premium-subscriptions-wallet',
+  walletName: 'premium-subscriptions-wallet', // Must match wallet creation
   testnet: false
 });
 ```
@@ -289,7 +293,7 @@ Wallet "subscription owner" does not exist
 Typical implementation in a backend service:
 
 ```typescript Scheduled Charging Service
-import { base } from '@base-org/account/payment';
+import { base } from '@base-org/account/node';
 
 async function chargeActiveSubscriptions() {
   // Get all subscriptions due for charging from your database
