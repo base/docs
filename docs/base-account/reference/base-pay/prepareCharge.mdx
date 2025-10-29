@@ -1,13 +1,27 @@
 ---
 title: "subscription.prepareCharge"
-description: "Prepare transaction calls to charge a subscription"
+description: "Prepare transaction calls to charge a subscription (advanced)"
 ---
 
 Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 
+<Note>
+**Most developers should use [`charge()`](/base-account/reference/base-pay/charge) instead**, which handles execution automatically using CDP wallets. This function is for advanced use cases requiring custom transaction handling.
+</Note>
+
 <Info>
-The `subscription.prepareCharge` function prepares the necessary transaction calls to charge a subscription. It returns the array of call data objects to execute the charge through `wallet_sendCalls` or `eth_sendTransaction`. This gives you programmatic control over when and how to execute subscription charges.
+The `prepareCharge` function prepares the necessary transaction calls to charge a subscription. It returns the array of call data objects to execute the charge through `wallet_sendCalls` or `eth_sendTransaction`. This gives you programmatic control over when and how to execute subscription charges.
 </Info>
+
+## When to Use This
+
+Use `prepareCharge` only if you need:
+- **Custom wallet infrastructure** (not using CDP)
+- **Manual transaction control**
+- **Integration with existing wallet systems**
+- **Client-side charging** (though this is uncommon)
+
+For standard backend subscription management, use [`charge()`](/base-account/reference/base-pay/charge) instead.
 
 ## Parameters
 
@@ -182,6 +196,121 @@ try {
   console.error(`Failed to prepare charge: ${error.message}`);
 }
 ```
+
+## Comparison with charge()
+
+<Tabs>
+<Tab title="Using prepareCharge (Advanced)">
+```typescript
+// You manage everything manually
+const chargeCalls = await base.subscription.prepareCharge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  testnet: false
+});
+
+// Initialize wallet client
+const walletClient = createWalletClient({
+  account: privateKeyToAccount('0x...'),
+  chain: baseChain,
+  transport: http()
+});
+
+// Execute each call sequentially
+for (const call of chargeCalls) {
+  const hash = await walletClient.sendTransaction({
+    to: call.to,
+    data: call.data,
+    value: call.value || 0n
+  });
+  
+  await walletClient.waitForTransactionReceipt({ hash });
+}
+
+// Handle gas estimation, nonce management, retries, etc.
+```
+</Tab>
+
+<Tab title="Using charge() (Recommended)">
+```typescript
+// Everything handled automatically
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  testnet: false
+});
+
+// Done! CDP wallet handles:
+// - Wallet initialization
+// - Transaction signing
+// - Gas estimation
+// - Nonce management
+// - Call batching
+// - Transaction confirmation
+// - Optional paymaster support
+
+console.log(`Charged: ${result.id}`);
+```
+</Tab>
+</Tabs>
+
+## Migration to charge()
+
+If you're currently using `prepareCharge` in a Node.js backend, consider migrating to `charge()`:
+
+```typescript Before (prepareCharge)
+// Old approach - manual execution
+const chargeCalls = await base.subscription.prepareCharge({
+  id: subscriptionId,
+  amount: '9.99',
+  testnet: false
+});
+
+const walletClient = createWalletClient({
+  account: privateKeyToAccount(process.env.PRIVATE_KEY),
+  chain: baseChain,
+  transport: http()
+});
+
+const transactionHashes = [];
+for (const call of chargeCalls) {
+  const hash = await walletClient.sendTransaction({
+    to: call.to,
+    data: call.data,
+    value: call.value || 0n
+  });
+  
+  transactionHashes.push(hash);
+  await walletClient.waitForTransactionReceipt({ hash });
+}
+```
+
+```typescript After (charge)
+// New approach - automatic execution with CDP
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: '9.99',
+  testnet: false
+});
+
+console.log(`Charged: ${result.id}`);
+```
+
+## Related Functions
+
+<CardGroup cols={3}>
+<Card title="Charge" icon="bolt" href="/base-account/reference/base-pay/charge">
+Automatic charging with CDP
+</Card>
+
+<Card title="Check Status" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
+Verify subscription before charging
+</Card>
+
+<Card title="Custom Revoke" icon="code" href="/base-account/reference/base-pay/prepareRevoke">
+Advanced revoke execution
+</Card>
+</CardGroup>
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
