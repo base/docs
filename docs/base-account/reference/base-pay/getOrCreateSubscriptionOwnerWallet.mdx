@@ -1,0 +1,367 @@
+---
+title: "subscription.getOrCreateSubscriptionOwnerWallet"
+description: "Create or retrieve a CDP smart wallet to act as subscription owner"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Note>
+**Node.js Only**: This function uses CDP (Coinbase Developer Platform) and is only available in Node.js environments.
+</Note>
+
+<Info>
+The `getOrCreateSubscriptionOwnerWallet` function creates or retrieves a CDP smart wallet that acts as the subscription owner (spender). This wallet is used by [`charge()`](/base-account/reference/base-pay/charge) and [`revoke()`](/base-account/reference/base-pay/revoke) to manage subscriptions from your backend.
+</Info>
+
+## How It Works
+
+This function:
+1. Initializes a CDP client with your credentials
+2. Creates or retrieves an EOA (Externally Owned Account) with the specified name
+3. Creates or retrieves a smart wallet owned by that EOA
+4. Returns the smart wallet address (not the EOA address)
+
+**Architecture:**
+```
+CDP Account
+  └── EOA (wallet owner)
+       └── Smart Wallet (subscription owner) ← This address is returned
+```
+
+The smart wallet address is what you use as the `subscriptionOwner` parameter when calling `subscribe()`.
+
+## Parameters
+
+<ParamField body="cdpApiKeyId" type="string">
+CDP API key ID. Falls back to `CDP_API_KEY_ID` environment variable.
+</ParamField>
+
+<ParamField body="cdpApiKeySecret" type="string">
+CDP API key secret. Falls back to `CDP_API_KEY_SECRET` environment variable.
+</ParamField>
+
+<ParamField body="cdpWalletSecret" type="string">
+CDP wallet secret. Falls back to `CDP_WALLET_SECRET` environment variable.
+</ParamField>
+
+<ParamField body="walletName" type="string">
+Optional custom wallet name for organization. Default: "subscription owner"
+
+<Note>
+**Default Recommended**: Most applications should use the default wallet name. The default ensures consistency across all subscription operations automatically.
+</Note>
+
+<Warning>
+**Custom Wallet Names**: If you specify a custom `walletName`, you **must** use the exact same name in all subsequent `charge()` and `revoke()` calls. Mismatched names will cause operations to fail.
+</Warning>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="GetOrCreateSubscriptionOwnerWalletResult">
+Wallet creation result.
+
+<Expandable title="GetOrCreateSubscriptionOwnerWalletResult properties">
+<ResponseField name="address" type="Address">
+The smart wallet address. Use this as `subscriptionOwner` in `subscribe()`.
+</ResponseField>
+
+<ResponseField name="walletName" type="string">
+The name of the wallet.
+</ResponseField>
+
+<ResponseField name="eoaAddress" type="Address">
+The EOA address that owns the smart wallet (for reference only).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Setup
+
+Get CDP credentials from the [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys).
+
+Set as environment variables:
+```bash
+export CDP_API_KEY_ID="your-api-key-id"
+export CDP_API_KEY_SECRET="your-api-key-secret"
+export CDP_WALLET_SECRET="your-wallet-secret"
+```
+
+Or pass directly as parameters (see examples below).
+
+<RequestExample>
+```typescript Recommended: Basic Usage with Environment Variables
+import { base } from '@base-org/account/node';
+
+// Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
+// Uses default wallet name - no need to specify
+const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
+
+console.log(`Smart Wallet Address: ${wallet.address}`);
+console.log(`Wallet Name: ${wallet.walletName}`); // "subscription owner"
+console.log(`EOA Owner: ${wallet.eoaAddress}`);
+
+// Use this address in subscribe calls
+const subscription = await base.subscription.subscribe({
+  recurringCharge: "9.99",
+  subscriptionOwner: wallet.address, // ← Use smart wallet address
+  periodInDays: 30
+});
+```
+
+```typescript With Explicit Credentials
+import { base } from '@base-org/account/node';
+
+const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  cdpApiKeyId: 'your-api-key-id',
+  cdpApiKeySecret: 'your-api-key-secret',
+  cdpWalletSecret: 'your-wallet-secret'
+});
+
+console.log(`Created wallet: ${wallet.address}`);
+```
+
+```typescript Complete Setup Flow
+import { base } from '@base-org/account/node';
+
+async function setupSubscriptionService() {
+  // Step 1: Create or get the wallet (uses default name)
+  const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
+  
+  console.log('✅ Wallet ready:', wallet.address);
+  
+  // Step 2: Store wallet address in your config
+  process.env.SUBSCRIPTION_OWNER_ADDRESS = wallet.address;
+  
+  // Step 3: Now you can accept subscriptions
+  console.log('Ready to accept subscriptions!');
+  
+  return wallet;
+}
+
+setupSubscriptionService();
+```
+
+```typescript Advanced: Custom Wallet Names (Optional)
+import { base } from '@base-org/account/node';
+
+// Only use custom names if you need separate wallets for different purposes
+const premiumWallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'premium-subscriptions'
+});
+
+const basicWallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'basic-subscriptions'
+});
+
+// IMPORTANT: Remember to use these same names in charge() and revoke()
+console.log(`Premium wallet: ${premiumWallet.address}`);
+console.log(`Basic wallet: ${basicWallet.address}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Success Response
+{
+  address: "0xFe21034794A5a574B94fE4fDfD16e005F1C96e51",
+  walletName: "subscription owner",
+  eoaAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8"
+}
+```
+
+```typescript Custom Wallet Name
+{
+  address: "0x8A3d71B7F88F5C6D7E9B2C4A5F6E8D7C9A0B1E2F",
+  walletName: "premium-subscriptions",
+  eoaAddress: "0x1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C"
+}
+```
+</ResponseExample>
+
+## Idempotency
+
+This function is **idempotent**: Calling it multiple times with the same `walletName` returns the same wallet.
+
+```typescript
+// First call creates the wallet
+const wallet1 = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'my-wallet'
+});
+
+// Second call returns the same wallet
+const wallet2 = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'my-wallet'
+});
+
+console.log(wallet1.address === wallet2.address); // true
+```
+
+## Error Handling
+
+```typescript
+try {
+  const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
+  
+  console.log(`Wallet ready: ${wallet.address}`);
+  
+} catch (error) {
+  console.error(`Failed to create wallet: ${error.message}`);
+  
+  if (error.message.includes('CDP credentials')) {
+    console.log('Check your CDP_API_KEY_ID, CDP_API_KEY_SECRET, and CDP_WALLET_SECRET');
+  }
+}
+```
+
+## Common Errors
+
+<AccordionGroup>
+<Accordion title="Missing CDP Credentials">
+```
+Failed to initialize CDP client for subscription owner wallet
+```
+
+**Solution**: Ensure environment variables are set:
+- `CDP_API_KEY_ID`
+- `CDP_API_KEY_SECRET`
+- `CDP_WALLET_SECRET`
+
+Or pass them as parameters to the function.
+
+Get credentials from [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys).
+</Accordion>
+
+<Accordion title="Invalid Credentials">
+```
+Failed to get or create subscription owner smart wallet
+```
+
+**Solution**: Verify your CDP credentials are correct and active in the CDP Portal.
+</Accordion>
+</AccordionGroup>
+
+## Smart Wallet Benefits
+
+Using a CDP smart wallet as your subscription owner provides several advantages:
+
+<AccordionGroup>
+<Accordion title="Automatic Transaction Management">
+The smart wallet handles all transaction details including nonce management, gas estimation, and retries.
+</Accordion>
+
+<Accordion title="Gas Sponsorship">
+Smart wallets support paymasters, allowing you to sponsor gas fees for subscription charges and revocations.
+
+```typescript
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  paymasterUrl: 'https://api.developer.coinbase.com/rpc/v1/base/your-key'
+});
+```
+</Accordion>
+
+<Accordion title="Batched Transactions">
+Smart wallets can batch multiple operations into a single transaction, reducing gas costs and improving efficiency.
+</Accordion>
+
+<Accordion title="Secure Key Management">
+CDP manages the private keys securely, reducing the risk of key compromise in your application.
+</Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tabs>
+<Tab title="Use Environment Variables">
+Store CDP credentials as environment variables instead of hardcoding them:
+
+```bash .env
+CDP_API_KEY_ID=your-api-key-id
+CDP_API_KEY_SECRET=your-api-key-secret
+CDP_WALLET_SECRET=your-wallet-secret
+```
+
+Then use them:
+```typescript
+const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
+// Automatically uses environment variables
+```
+</Tab>
+
+<Tab title="One-Time Setup">
+Call this function once during your application initialization, not on every request:
+
+```typescript server.ts
+let subscriptionOwnerAddress: string;
+
+async function initialize() {
+  const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
+  subscriptionOwnerAddress = wallet.address;
+  console.log(`Subscription owner: ${subscriptionOwnerAddress}`);
+}
+
+// Initialize once at startup
+initialize().catch(console.error);
+```
+</Tab>
+
+<Tab title="Advanced: Multiple Wallets">
+Only if you need separate wallets for different subscription tiers:
+
+```typescript
+// ADVANCED: Most apps don't need this
+// Only use if you need to segregate funds by subscription type
+
+// Wallet for premium subscriptions
+const premiumWallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'premium-subscriptions'
+});
+
+// Wallet for basic subscriptions
+const basicWallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'basic-subscriptions'
+});
+
+// IMPORTANT: Remember to pass the same walletName to charge() and revoke()
+```
+</Tab>
+</Tabs>
+
+## Security Considerations
+
+<Warning>
+**Keep CDP Credentials Secure**
+
+- Never commit credentials to version control
+- Use environment variables or secret management systems
+- Rotate credentials periodically
+- Restrict CDP API key permissions to only what's needed
+</Warning>
+
+<Note>
+**Wallet Address is Public**
+
+The smart wallet address is public and will be visible on-chain. This is expected and safe - users need to know which address they're granting permissions to.
+</Note>
+
+## Related Functions
+
+<CardGroup cols={3}>
+<Card title="Charge" icon="bolt" href="/base-account/reference/base-pay/charge">
+Execute charges with this wallet
+</Card>
+
+<Card title="Revoke" icon="ban" href="/base-account/reference/base-pay/revoke">
+Cancel subscriptions with this wallet
+</Card>
+
+<Card title="Subscribe" icon="credit-card" href="/base-account/reference/base-pay/subscribe">
+Use wallet address when subscribing
+</Card>
+</CardGroup>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
+

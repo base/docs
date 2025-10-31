@@ -57,7 +57,7 @@ Base Subscriptions leverage **Spend Permissions** – a powerful onchain primiti
 Your customer grants your application permission to charge their wallet up to a specified amount each billing period. This is a one-time approval that remains active until cancelled.
 </Step>
 
-<Step title="Automatic Periodic Charging">
+<Step title="Application Charges Periodically">
 Your backend service charges the subscription when payment is due, without requiring any user interaction. You can charge up to the approved amount per period.
 </Step>
 
@@ -80,21 +80,87 @@ A complete subscription implementation requires both client and server component
 - User interface for subscription creation
 - Create wallet requests and handle user responses
 
-**Server-Side (Backend):**
-- Wallet for executing charges
+**Server-Side (Backend - Node.js):**
+- CDP smart wallet for executing charges and revocations
 - Scheduled jobs for periodic billing
 - Database for subscription tracking
 - Handlers for status updates
 - Retry logic for failed charges
 
+<Note>
+**CDP-Powered Backend**
+
+Base Subscriptions use **CDP (Coinbase Developer Platform) server wallets** for effortless backend management. The `charge()` and `revoke()` functions handle all transaction details automatically:
+
+- ✅ Automatic wallet management
+- ✅ Built-in transaction signing
+- ✅ Gas estimation and nonce handling
+- ✅ Optional paymaster support for gasless transactions
+
+Get CDP credentials from [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys).
+</Note>
+
 <Warning>
 **Security Requirements**
 
 To accept recurring payments, you need:
-1. A dedicated wallet address to act as the subscription owner (spender)
-2. Backend infrastructure to execute charges securely
+1. CDP credentials (API key ID, secret, and wallet secret)
+2. Backend infrastructure (Node.js) to execute charges securely
 3. Database to store and manage subscription IDs
-4. Never expose private keys in client-side code
+4. Never expose CDP credentials in client-side code
+</Warning>
+
+### Setup: Create Your Subscription Owner Wallet
+
+First, set up your CDP smart wallet that will act as the subscription owner:
+
+```typescript backend/setup.ts expandable
+import { base } from '@base-org/account/node';
+
+// Backend setup (Node.js only)
+// Set CDP credentials as environment variables:
+// CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET
+// PAYMASTER_URL (recommended for gasless transactions)
+
+async function setupSubscriptionWallet() {
+  try {
+    // Create or retrieve your subscription owner wallet (CDP smart wallet)
+    const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+      walletName: 'my-app-subscriptions' // Optional: customize wallet name
+    });
+    
+    console.log('✅ Subscription owner wallet ready!');
+    console.log(`Smart Wallet Address: ${wallet.address}`);
+    console.log(`Wallet Name: ${wallet.walletName}`);
+    
+    // Make this address available to your frontend
+    // Option 1: Store in database/config
+    // Option 2: Expose via API endpoint
+    // Option 3: Set as public environment variable (e.g., NEXT_PUBLIC_SUBSCRIPTION_OWNER)
+    
+    return wallet;
+  } catch (error) {
+    console.error('Failed to setup wallet:', error.message);
+    throw error;
+  }
+}
+
+// Run once at application startup
+setupSubscriptionWallet();
+
+// Optional: Provide an API endpoint for the frontend to fetch the address
+export async function getSubscriptionOwnerAddress() {
+  const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
+  return wallet.address;
+}
+```
+
+<Note>
+**Backend Only**: This setup runs in your Node.js backend with CDP credentials. The resulting wallet address is public and safe to share with your frontend for use in `subscribe()` calls.
+</Note>
+
+<Warning>
+**Keep CDP Credentials Private**: Never expose CDP credentials (API key, secrets) to the frontend. Only the subscription owner wallet address needs to be accessible to the frontend.
 </Warning>
 
 ### Client-Side: Create Subscriptions
@@ -104,6 +170,10 @@ Users create subscriptions from your frontend application:
 ```tsx SubscriptionButton.tsx expandable
 import React, { useState } from 'react';
 import { base } from '@base-org/account';
+
+// This address comes from your backend setup (see setup.ts example above)
+// You can fetch it from your backend or configure it as a public env var
+const SUBSCRIPTION_OWNER_ADDRESS = "0xYourCDPWalletAddress"; // Replace with your actual address
 
 export function SubscriptionButton() {
   const [loading, setLoading] = useState(false);
@@ -117,7 +187,7 @@ export function SubscriptionButton() {
       // Create subscription
       const subscription = await base.subscription.subscribe({
         recurringCharge: "29.99",
-        subscriptionOwner: "0xYourAppWallet", // Replace with your wallet address
+        subscriptionOwner: SUBSCRIPTION_OWNER_ADDRESS, // Address from your backend CDP wallet
         periodInDays: 30,
         testnet: false
       });
@@ -178,25 +248,18 @@ export function SubscriptionButton() {
 
 ### Server-Side: Charge Subscriptions
 
-Execute charges from your backend service that controls the subscription owner wallet:
+Execute charges effortlessly from your backend using CDP:
+
 ```typescript chargeSubscriptions.ts expandable
-import { base } from '@base-org/account';
-import { createWalletClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { base as baseChain } from 'viem/chains';
+import { base } from '@base-org/account/node';
 
-// Initialize wallet client with your subscription owner account
-const account = privateKeyToAccount('0x...'); // Your app's private key
-const walletClient = createWalletClient({
-  account,
-  chain: baseChain,
-  transport: http()
-});
+// Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
+// Recommended: PAYMASTER_URL for gasless transactions
 
-async function chargeSubscription(subscriptionId: string) {
+async function chargeSubscription(subscriptionId: string, recipientAddress?: string) {
   try {
     // 1. Check subscription status
-const status = await base.subscription.getStatus({
+    const status = await base.subscription.getStatus({
       id: subscriptionId,
       testnet: false
     });
@@ -213,39 +276,27 @@ const status = await base.subscription.getStatus({
       return { success: false, reason: 'no_charge_available' };
     }
     
-    // 2. Prepare charge transaction for max available amount
-    const chargeCalls = await base.subscription.prepareCharge({
+    // 2. Charge the subscription - CDP handles everything automatically
+    // Using paymaster for gasless transactions (recommended)
+    const result = await base.subscription.charge({
       id: subscriptionId,
       amount: 'max-remaining-charge',
+      paymasterUrl: process.env.PAYMASTER_URL, // Optional: for gasless transactions
+      recipient: recipientAddress, // Optional: send USDC to specific address
       testnet: false
     });
     
-    // 3. Execute each charge call using standard sendTransaction
-    // Note: prepareCharge may return multiple calls (e.g., approval + transfer)
-    // We execute them sequentially to ensure proper ordering
-    const transactionHashes = [];
-    
-    for (const call of chargeCalls) {
-      const hash = await walletClient.sendTransaction({
-        to: call.to,
-        data: call.data,
-        value: call.value || 0n
-      });
-      
-      transactionHashes.push(hash);
-      
-      // Wait for transaction confirmation before next call
-      await walletClient.waitForTransactionReceipt({ hash });
+    console.log(`✅ Charged ${result.amount} USDC (gasless)`);
+    console.log(`Transaction: ${result.id}`);
+    if (recipientAddress) {
+      console.log(`Sent to: ${recipientAddress}`);
     }
-    
-    
-    console.log(`Charged ${availableCharge} USDC`);
-    console.log(`Transactions: ${transactionHashes.join(', ')}`);
     
     return {
       success: true,
-      transactionHashes,
-      amount: availableCharge
+      transactionHash: result.id,
+      amount: result.amount,
+      recipient: result.recipient
     };
     
   } catch (error) {
@@ -254,51 +305,249 @@ const status = await base.subscription.getStatus({
   }
 }
 ```
-<Warning>
-**Private Key Security**
 
-Never expose your subscription owner private key
-</Warning>
+### Server-Side: Revoke Subscriptions
+
+Cancel subscriptions programmatically from your backend:
+
+```typescript revokeSubscription.ts expandable
+import { base } from '@base-org/account/node';
+
+async function revokeSubscription(subscriptionId: string, reason: string) {
+  try {
+    // Revoke the subscription with paymaster for gasless transactions
+    const result = await base.subscription.revoke({
+      id: subscriptionId,
+      paymasterUrl: process.env.PAYMASTER_URL, // Optional: for gasless transactions
+      testnet: false
+    });
+    
+    console.log(`✅ Revoked subscription: ${subscriptionId}`);
+    console.log(`Transaction: ${result.id}`);
+    console.log(`Reason: ${reason}`);
+    
+    return {
+      success: true,
+      transactionHash: result.id
+    };
+    
+  } catch (error) {
+    console.error('Revoke failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Usage examples
+async function handleUserCancellation(subscriptionId: string) {
+  return await revokeSubscription(subscriptionId, 'user_requested');
+}
+
+async function handlePolicyViolation(subscriptionId: string) {
+  return await revokeSubscription(subscriptionId, 'policy_violation');
+}
+```
+
+<Note>
+**Automatic Transaction Management**: The `charge()` and `revoke()` functions handle all transaction details including wallet management, gas estimation, nonce handling, and transaction confirmation. Use the `paymasterUrl` parameter to enable gasless transactions for your users.
+</Note>
+
+<Tip>
+**Gasless Transactions**: Set the `PAYMASTER_URL` environment variable to sponsor gas fees for your subscription charges and revocations. This creates a seamless experience where your backend covers all gas costs. Get your paymaster URL from the [CDP Portal](https://portal.cdp.coinbase.com/).
+</Tip>
+
+### Fund Management
+
+By default, charged USDC remains in your subscription owner wallet. You can optionally specify a `recipient` address to automatically transfer funds to a different address:
+
+<Tabs>
+<Tab title="Default (Keep in Owner Wallet)">
+```typescript
+// Funds stay in the subscription owner wallet
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  testnet: false
+});
+
+// USDC is now in your CDP smart wallet
+// Access it later or transfer as needed
+```
+</Tab>
+
+<Tab title="Send to Treasury Wallet">
+```typescript
+// Automatically send to your treasury wallet
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  recipient: '0xYourTreasuryAddress',
+  testnet: false
+});
+
+// USDC is sent directly to the recipient address
+console.log(`Sent ${result.amount} to ${result.recipient}`);
+```
+</Tab>
+
+<Tab title="Dynamic Recipients">
+```typescript
+// Send to different addresses based on subscription type
+async function chargeWithRecipient(subscriptionId: string, plan: string) {
+  const recipients = {
+    premium: '0xPremiumTreasuryAddress',
+    basic: '0xBasicTreasuryAddress',
+    enterprise: '0xEnterpriseTreasuryAddress'
+  };
+  
+  return await base.subscription.charge({
+    id: subscriptionId,
+    amount: 'max-remaining-charge',
+    recipient: recipients[plan],
+    testnet: false
+  });
+}
+```
+</Tab>
+</Tabs>
 
 ### Testing on Testnet
 
 Test your subscription implementation on Base Sepolia before going live:
 
-```typescript testnet.ts expandable
-// Use testnet for development
+```typescript testnet-frontend.ts expandable
+// Frontend: Create subscription on testnet
 const subscription = await base.subscription.subscribe({
   recurringCharge: "10.00",
-  subscriptionOwner: "0xTestWallet",
+  subscriptionOwner: SUBSCRIPTION_OWNER_ADDRESS,
   periodInDays: 1, // Daily for faster testing
   testnet: true     // Use Base Sepolia
+});
+```
+
+```typescript testnet-backend.ts expandable
+// Backend: Setup wallet on testnet (Node.js only)
+import { base } from '@base-org/account/node';
+
+const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
+  walletName: 'testnet-subscriptions'
 });
 
 // Check status on testnet
 const status = await base.subscription.getStatus({
-  id: subscription.id,
+  id: subscriptionId,
   testnet: true
 });
 
-// Prepare charge on testnet
-const calls = await base.subscription.prepareCharge({
-  id: subscription.id,
+// Charge on testnet with paymaster
+const result = await base.subscription.charge({
+  id: subscriptionId,
   amount: "10.00",
+  paymasterUrl: process.env.PAYMASTER_URL, // Gasless transactions
   testnet: true
 });
+
+console.log(`Testnet charge (gasless): ${result.id}`);
 ```
 
-## Network Support
+## Network and Token Support
 
-| Network | Chain ID | Status |
-|---------|----------|--------|
-| Base Mainnet | 8453 | ✅ Production Ready |
-| Base Sepolia | 84532 | ✅ Testing Available |
+**Base Subscriptions (USDC on Base):**
 
+| Network | Chain ID | Token | Status |
+|---------|----------|-------|--------|
+| Base Mainnet | 8453 | USDC | ✅ Production Ready |
+| Base Sepolia | 84532 | USDC | ✅ Testing Available |
 
-## Additional Resources
-- [Subscriptions Reference](/base-account/reference/base-pay/subscriptions-overview)
-- [Spend Permissions](/base-account/improve-ux/spend-permissions)
+<Note>
+**Custom Implementations Possible**: While Base Subscriptions are optimized for USDC on Base, you can use the underlying [Spend Permissions](/base-account/improve-ux/spend-permissions) primitive to build custom subscription implementations with any ERC-20 token or native ETH on any EVM-compatible chain.
+</Note>
 
+## Advanced Topics
+
+### Custom Transaction Handling
+
+For developers who need manual control over transaction execution or want to integrate with existing wallet infrastructure, use the lower-level utilities:
+
+<AccordionGroup>
+<Accordion title="prepareCharge - Manual Charge Execution">
+If you can't use CDP wallets, `prepareCharge()` gives you call data to execute manually:
+
+```typescript
+import { base } from '@base-org/account';
+
+// Prepare charge call data
+const chargeCalls = await base.subscription.prepareCharge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  testnet: false
+});
+
+// Execute with your own wallet infrastructure
+// (requires custom wallet client setup)
+```
+
+See [`prepareCharge` reference](/base-account/reference/base-pay/prepareCharge) for details.
+</Accordion>
+
+<Accordion title="prepareRevoke - Manual Revoke Execution">
+Similarly, `prepareRevoke()` provides revocation call data:
+
+```typescript
+import { base } from '@base-org/account';
+
+// Prepare revoke call data
+const revokeCall = await base.subscription.prepareRevoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+// Execute with your own wallet infrastructure
+```
+
+See [`prepareRevoke` reference](/base-account/reference/base-pay/prepareRevoke) for details.
+</Accordion>
+
+</AccordionGroup>
+
+## API Reference
+
+<CardGroup cols={3}>
+<Card title="subscribe()" icon="credit-card" href="/base-account/reference/base-pay/subscribe">
+Create subscriptions from frontend
+</Card>
+
+<Card title="getStatus()" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
+Check subscription status
+</Card>
+
+<Card title="charge()" icon="bolt" href="/base-account/reference/base-pay/charge">
+Charge subscriptions from backend
+</Card>
+
+<Card title="revoke()" icon="ban" href="/base-account/reference/base-pay/revoke">
+Cancel subscriptions from backend
+</Card>
+
+<Card title="Setup Owner Wallet" icon="wallet" href="/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet">
+Setup CDP owner wallet for subscription management
+</Card>
+
+<Card title="prepareCharge()" icon="code" href="/base-account/reference/base-pay/prepareCharge">
+Advanced: Custom charge execution
+</Card>
+
+<Card title="prepareRevoke()" icon="code" href="/base-account/reference/base-pay/prepareRevoke">
+Advanced: Custom revoke execution
+</Card>
+
+<Card title="Spend Permissions" icon="shield" href="/base-account/improve-ux/spend-permissions">
+Deep dive into the underlying primitive
+</Card>
+
+<Card title="One-Time Payments" icon="credit-card" href="/base-account/guides/accept-payments">
+Accept single payments
+</Card>
+</CardGroup>
 
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 

@@ -29,6 +29,10 @@ The period in days for the subscription (e.g., 30 for monthly). Default: 30
 Set to true to use Base Sepolia testnet instead of mainnet. Default: false
 </ParamField>
 
+<ParamField body="requireBalance" type="boolean">
+Check if the payer's wallet has sufficient USDC balance before creating the subscription. If true, subscription creation will fail if the payer doesn't have enough balance to cover the recurring charge. Default: true
+</ParamField>
+
 <ParamField body="telemetry" type="boolean">
 Whether to enable telemetry logging. Default: true
 </ParamField>
@@ -72,9 +76,8 @@ import { base } from '@base-org/account';
 try {
   const subscription = await base.subscription.subscribe({
     recurringCharge: "9.99",
-    subscriptionOwner: "0xFe21034794A5a574B94fE4fDfD16e005F1C96e51",
-    periodInDays: 30,
-    testnet: false
+    subscriptionOwner: "0xYourSubscriptionOwnerWallet",
+    periodInDays: 30
   });
   
   console.log(`Subscription ID: ${subscription.id}`);
@@ -89,10 +92,9 @@ try {
 try {
   const subscription = await base.subscription.subscribe({
     recurringCharge: "2.99",
-    subscriptionOwner: "0xYourAppAddress",
+    subscriptionOwner: "0xYourSubscriptionOwnerWallet",
     periodInDays: 7,  // Weekly billing
-    testnet: true,     // Use Base Sepolia
-    telemetry: false   // Disable telemetry
+    testnet: true     // Use Base Sepolia
   });
   
   console.log(`Created weekly subscription: ${subscription.id}`);
@@ -106,7 +108,7 @@ try {
 try {
   const subscription = await base.subscription.subscribe({
     recurringCharge: "99.99",
-    subscriptionOwner: "0xYourAppAddress",
+    subscriptionOwner: "0xYourSubscriptionOwnerWallet",
     periodInDays: 365,  // Annual billing
     testnet: false
   });
@@ -124,7 +126,7 @@ try {
 ```typescript Success Response
 {
   id: "0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984",
-  subscriptionOwner: "0xFe21034794A5a574B94fE4fDfD16e005F1C96e51",
+  subscriptionOwner: "0xYourSubscriptionOwnerWallet",
   subscriptionPayer: "0x742d35Cc4Bf53E0e6C42E5d9F0A8D2F6D8A8B7C9",
   recurringCharge: "9.99",
   periodInDays: 30
@@ -148,7 +150,7 @@ Always wrap calls to `subscribe` in a try-catch block:
 try {
   const subscription = await base.subscription.subscribe({
     recurringCharge: "19.99",
-    subscriptionOwner: "0xYourAppAddress",
+    subscriptionOwner: "0xYourSubscriptionOwnerWallet",
     periodInDays: 30
   });
   // Subscription created successfully

@@ -35,12 +35,28 @@ Users maintain full control and can revoke the permission at any time.
 Create a new subscription with spend permissions
 </Card>
 
-<Card title="getSubscriptionStatus" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
+<Card title="getStatus" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
 Check subscription status and remaining charges
 </Card>
 
+<Card title="charge" icon="bolt" href="/base-account/reference/base-pay/charge">
+Charge a subscription from your backend (Node.js only)
+</Card>
+
+<Card title="revoke" icon="ban" href="/base-account/reference/base-pay/revoke">
+Cancel a subscription from your backend (Node.js only)
+</Card>
+
+<Card title="getOrCreateSubscriptionOwnerWallet" icon="wallet" href="/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet">
+Setup CDP smart wallet for subscription management (Node.js only)
+</Card>
+
 <Card title="prepareCharge" icon="receipt" href="/base-account/reference/base-pay/prepareCharge">
-Prepare transaction calls to charge a subscription
+Advanced: Prepare transaction calls to charge a subscription
+</Card>
+
+<Card title="prepareRevoke" icon="code" href="/base-account/reference/base-pay/prepareRevoke">
+Advanced: Prepare transaction calls to revoke a subscription
 </Card>
 </CardGroup>
 
@@ -75,10 +91,49 @@ interface SubscriptionStatus {
   periodInDays?: number;
 }
 
-// Charge preparation
+// Charge options (Node.js backend only)
+interface ChargeOptions {
+  id: string;
+  amount: string | 'max-remaining-charge';
+  paymasterUrl?: string;
+  recipient?: Address;
+  testnet?: boolean;
+}
+
+// Charge result
+interface ChargeResult {
+  id: string;
+  amount: string;
+  recipient?: Address;
+}
+
+// Revoke options (Node.js backend only)
+interface RevokeOptions {
+  id: string;
+  paymasterUrl?: string;
+  testnet?: boolean;
+}
+
+// Revoke result
+interface RevokeResult {
+  id: string;
+}
+
+// Subscription owner wallet setup (Node.js backend only)
+interface GetOrCreateSubscriptionOwnerWalletOptions {
+  walletName?: string;
+}
+
+interface SubscriptionOwnerWallet {
+  address: Address;
+  walletName: string;
+}
+
+// Charge preparation (advanced)
 interface PrepareChargeOptions {
   id: string;
   amount: string | 'max-remaining-charge';
+  recipient?: Address;
   testnet?: boolean;
 }
 
@@ -87,6 +142,18 @@ type PrepareChargeResult = Array<{
   data: Hex;
   value: '0x0';
 }>;
+
+// Revoke preparation (advanced)
+interface PrepareRevokeOptions {
+  id: string;
+  testnet?: boolean;
+}
+
+type PrepareRevokeResult = {
+  to: Address;
+  data: Hex;
+  value: '0x0';
+};
 ```
 
 ## Next Steps
@@ -108,3 +175,4 @@ Deep dive into Spend Permissions
 import PolicyBanner from "/snippets/PolicyBanner.mdx";
 
 <PolicyBanner />
+
