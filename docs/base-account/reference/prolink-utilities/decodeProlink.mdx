@@ -1,0 +1,213 @@
+---
+title: "decodeProlink"
+description: "Decode a prolink payload back to a JSON-RPC request"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  This utility decodes a compressed prolink payload back into a JSON-RPC request object. Use it to validate, inspect, or execute prolinks received from URLs, QR codes, or other sources.
+</Info>
+
+## Import
+
+```typescript
+import { decodeProlink } from '@base-org/account';
+```
+
+## Parameters
+
+<ParamField body="payload" type="string" required>
+  Base64url-encoded prolink payload to decode. This is the string returned by [`encodeProlink`](/base-account/reference/prolink-utilities/encodeProlink).
+</ParamField>
+
+## Returns
+
+<ResponseField name="decoded" type="Promise<ProlinkDecoded>">
+  A promise that resolves to the decoded JSON-RPC request.
+
+<Expandable title="ProlinkDecoded properties">
+<ResponseField name="method" type="string">
+  The JSON-RPC method name (e.g., `wallet_sendCalls`, `wallet_sign`, `eth_sendTransaction`).
+</ResponseField>
+
+<ResponseField name="params" type="unknown">
+  The parameters for the JSON-RPC method. Structure depends on the method:
+  - For `wallet_sendCalls`: Array with sendCalls params object
+  - For `wallet_sign`: Array with sign params object  
+  - For generic methods: Original params structure
+</ResponseField>
+
+<ResponseField name="chainId" type="number | undefined">
+  The target chain ID. Always present for `wallet_sendCalls` and `wallet_sign`.
+</ResponseField>
+
+<ResponseField name="capabilities" type="Record<string, unknown> | undefined">
+  Wallet capabilities included in the request, if any.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Examples
+
+### Decode wallet_sendCalls
+
+```typescript
+import { decodeProlink } from '@base-org/account';
+
+// Receive a prolink from a URL parameter
+const urlParams = new URLSearchParams(window.location.search);
+const prolink = urlParams.get('prolink');
+
+if (prolink) {
+  const decoded = await decodeProlink(prolink);
+  
+  console.log('Method:', decoded.method); // 'wallet_sendCalls'
+  console.log('Chain ID:', decoded.chainId); // 8453
+  
+  const params = decoded.params[0];
+  console.log('Calls:', params.calls);
+  console.log('Version:', params.version);
+}
+```
+
+### Validate Before Execution
+
+```typescript
+async function validateAndExecuteProlink(
+  prolink: string,
+  provider: EIP1193Provider
+): Promise<void> {
+  try {
+    // Decode the prolink
+    const decoded = await decodeProlink(prolink);
+    
+    // Validate chain ID
+    const currentChainId = await provider.request({ 
+      method: 'eth_chainId' 
+    });
+    if (decoded.chainId !== Number.parseInt(currentChainId, 16)) {
+      throw new Error('Chain ID mismatch');
+    }
+    
+    // Validate method
+    if (decoded.method !== 'wallet_sendCalls') {
+      throw new Error('Unsupported method');
+    }
+    
+    // Validate call targets (example: whitelist)
+    const allowedContracts = [
+      '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
+      '0x4200000000000000000000000000000000000006'  // WETH
+    ];
+    
+    const params = decoded.params[0];
+    for (const call of params.calls) {
+      if (!allowedContracts.includes(call.to.toLowerCase())) {
+        throw new Error(`Unauthorized contract: ${call.to}`);
+      }
+    }
+    
+    // Execute the request
+    const result = await provider.request({
+      method: decoded.method,
+      params: decoded.params
+    });
+    
+    console.log('Transaction result:', result);
+  } catch (error) {
+    console.error('Prolink validation failed:', error);
+    throw error;
+  }
+}
+```
+
+### Inspect Spend Permission Request
+
+```typescript
+async function inspectSpendPermission(prolink: string) {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.method === 'wallet_sign') {
+    const params = decoded.params[0];
+    
+    if (params.data?.primaryType === 'SpendPermission') {
+      const permission = params.data.message;
+      
+      console.log('Spend Permission Details:');
+      console.log('  Account:', permission.account);
+      console.log('  Spender:', permission.spender);
+      console.log('  Token:', permission.token);
+      console.log('  Allowance:', permission.allowance);
+      console.log('  Period:', permission.period);
+      console.log('  Start:', new Date(permission.start * 1000));
+      console.log('  End:', new Date(permission.end * 1000));
+      
+      return permission;
+    }
+  }
+  
+  throw new Error('Not a spend permission request');
+}
+```
+
+### Extract Capabilities
+
+```typescript
+async function extractCallbacks(prolink: string) {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.capabilities?.dataCallback) {
+    const callback = decoded.capabilities.dataCallback;
+    console.log('Callback URL:', callback.callbackURL);
+    console.log('Events:', callback.events);
+    return callback;
+  }
+  
+  return null;
+}
+```
+
+### Decode and Display Transaction Details
+
+```typescript
+async function displayTransactionPreview(prolink: string): Promise<string> {
+  const decoded = await decodeProlink(prolink);
+  
+  if (decoded.method === 'wallet_sendCalls') {
+    const params = decoded.params[0];
+    const calls = params.calls;
+    
+    let preview = `Chain: ${decoded.chainId}\n`;
+    preview += `Total Calls: ${calls.length}\n\n`;
+    
+    for (let i = 0; i < calls.length; i++) {
+      const call = calls[i];
+      preview += `Call ${i + 1}:\n`;
+      preview += `  To: ${call.to}\n`;
+      preview += `  Value: ${call.value}\n`;
+      preview += `  Data: ${call.data.slice(0, 66)}...\n\n`;
+    }
+    
+    if (decoded.capabilities) {
+      preview += `Capabilities: ${Object.keys(decoded.capabilities).join(', ')}`;
+    }
+    
+    return preview;
+  }
+  
+  return 'Unknown transaction type';
+}
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="encodeProlink" icon="compress" href="/base-account/reference/prolink-utilities/encodeProlink">
+    Create prolink payloads from JSON-RPC requests
+  </Card>
+  <Card title="wallet_sendCalls" icon="paper-plane" href="/base-account/reference/core/provider-rpc-methods/wallet_sendCalls">
+    Execute decoded transaction batches
+  </Card>
+</CardGroup>
+

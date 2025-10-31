@@ -1,0 +1,226 @@
+---
+title: "encodeProlink"
+description: "Encode a JSON-RPC request into a compressed, URL-safe prolink payload"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  This utility automatically detects the JSON-RPC method type and applies optimized encoding for `wallet_sendCalls` (EIP-5792), `wallet_sign` (EIP-7871), or generic JSON-RPC requests. The result is a compressed, base64url-encoded string perfect for URLs, QR codes, and deep links.
+</Info>
+
+## Import
+
+```typescript
+import { encodeProlink } from '@base-org/account';
+```
+
+## Parameters
+
+<ParamField body="request" type="ProlinkRequest" required>
+  The JSON-RPC request to encode.
+
+<Expandable title="ProlinkRequest properties">
+<ParamField body="method" type="string" required>
+  JSON-RPC method name (e.g., `wallet_sendCalls`, `wallet_sign`, `eth_sendTransaction`).
+</ParamField>
+
+<ParamField body="params" type="unknown" required>
+  Parameters for the JSON-RPC method. Format depends on the method being called.
+</ParamField>
+
+<ParamField body="chainId" type="number">
+  Target chain ID. Required for generic JSON-RPC methods. For `wallet_sendCalls` and `wallet_sign`, the chain ID is extracted from params.
+</ParamField>
+
+<ParamField body="capabilities" type="Record<string, unknown>">
+  Optional wallet capabilities to include in the request. See [capabilities documentation](/base-account/reference/core/capabilities/overview).
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="prolink" type="Promise<string>">
+  A promise that resolves to a base64url-encoded prolink payload. This string is URL-safe and can be used in links, QR codes, or storage.
+</ResponseField>
+
+## Examples
+
+### Encode wallet_sendCalls (ERC20 Transfer)
+
+```typescript
+import { encodeProlink } from '@base-org/account';
+
+// Create a prolink for a USDC transfer on Base
+const prolink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105', // Base mainnet (8453)
+    calls: [{
+      to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+      data: '0xa9059cbb000000000000000000000000fe21034794a5a574b94fe4fdfd16e005f1c96e5100000000000000000000000000000000000000000000000000000000004c4b40',
+      value: '0x0'
+    }]
+  }]
+});
+
+// Use in a shareable URL
+const paymentUrl = `https://yourapp.com/pay?prolink=${prolink}`;
+console.log(paymentUrl);
+```
+
+### Encode wallet_sendCalls (Native Transfer)
+
+```typescript
+// Create a prolink for sending ETH
+const prolink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x1', // Ethereum mainnet
+    calls: [{
+      to: '0xfe21034794a5a574b94fe4fdfd16e005f1c96e51',
+      data: '0x',
+      value: '0xde0b6b3a7640000' // 1 ETH in wei
+    }]
+  }]
+});
+```
+
+### Encode wallet_sendCalls with Capabilities
+
+```typescript
+// Include data callback for transaction lifecycle events
+const prolink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105',
+    calls: [{
+      to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      data: '0xa9059cbb...',
+      value: '0x0'
+    }]
+  }],
+  capabilities: {
+    dataCallback: {
+      callbackURL: 'https://api.yourapp.com/webhook',
+      events: ['initiated', 'postSign', 'confirmed']
+    }
+  }
+});
+```
+
+### Encode wallet_sign (Spend Permission)
+
+```typescript
+// Create a prolink for a spend permission signature request
+const prolink = await encodeProlink({
+  method: 'wallet_sign',
+  params: [{
+    version: '1',
+    chainId: '0x14a34', // Base Sepolia (84532)
+    type: '0x01',
+    data: {
+      types: {
+        SpendPermission: [
+          { name: 'account', type: 'address' },
+          { name: 'spender', type: 'address' },
+          { name: 'token', type: 'address' },
+          { name: 'allowance', type: 'uint160' },
+          { name: 'period', type: 'uint48' },
+          { name: 'start', type: 'uint48' },
+          { name: 'end', type: 'uint48' },
+          { name: 'salt', type: 'uint256' },
+          { name: 'extraData', type: 'bytes' }
+        ]
+      },
+      domain: {
+        name: 'Spend Permission Manager',
+        version: '1',
+        chainId: 84532,
+        verifyingContract: '0xf85210b21cc50302f477ba56686d2019dc9b67ad'
+      },
+      primaryType: 'SpendPermission',
+      message: {
+        account: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        spender: '0x8d9F34934dc9619e5DC3Df27D0A40b4A744E7eAa',
+        token: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+        allowance: '0x2710',
+        period: 281474976710655,
+        start: 0,
+        end: 1914749767655,
+        salt: '0x2d6688aae9435fb91ab0a1fe7ea54ec3ffd86e8e18a0c17e1923c467dea4b75f',
+        extraData: '0x'
+      }
+    }
+  }]
+});
+```
+
+### Encode Generic JSON-RPC
+
+```typescript
+// Encode any JSON-RPC method
+const prolink = await encodeProlink({
+  method: 'eth_sendTransaction',
+  params: [{
+    from: '0x1111111111111111111111111111111111111111',
+    to: '0x2222222222222222222222222222222222222222',
+    value: '0x100',
+    data: '0x'
+  }],
+  chainId: 1
+});
+```
+
+### Batch Multiple Calls
+
+```typescript
+// Create a prolink for multiple transactions
+const prolink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105',
+    calls: [
+      {
+        to: '0x4200000000000000000000000000000000000006', // WETH
+        data: '0x095ea7b3...', // approve(spender, amount)
+        value: '0x0'
+      },
+      {
+        to: '0x8909dc15e40173ff4699343b6eb8132c65e18ec6', // DEX
+        data: '0x38ed1739...', // swapExactTokensForTokens
+        value: '0x0'
+      }
+    ]
+  }]
+});
+```
+
+
+## Performance
+
+Prolinks automatically apply compression for larger payloads:
+- Small payloads (< 1KB): Base64url encoding only
+- Large payloads (≥ 1KB): Gzip compression + base64url encoding
+
+This results in 50-80% size reduction for typical transaction batches.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="decodeProlink" icon="expand" href="/base-account/reference/prolink-utilities/decodeProlink">
+    Decode a prolink payload back to a JSON-RPC request
+  </Card>
+  <Card title="wallet_sendCalls" icon="paper-plane" href="/base-account/reference/core/provider-rpc-methods/wallet_sendCalls">
+    Learn about transaction batching
+  </Card>
+  <Card title="Capabilities" icon="sliders" href="/base-account/reference/core/capabilities/overview">
+    Configure wallet capabilities
+  </Card>
+</CardGroup>
+
