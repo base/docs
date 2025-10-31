@@ -31,21 +31,25 @@ If your webhook processes token saving and sends notifications synchronously bef
 <Info>
 Notification tokens are unique to each client app. This means a user can have separate notification preferences for your Mini App across different clients (e.g., Farcaster, the Base app). Removing your Mini App in one client does not affect its status in other clients.
 </Info>
-
+<Warning>
+Set the NEYNAR_API_KEY environment variable in your project to avoid webhook verificiation errors. You may apply for a free tier [here](https://dev.neynar.com/)"
+</Warning>
 </Panel>
+
+## Prerequisites
+
+Before implementing notifications, make sure you have a [Neynar API key](https://neynar.com) (free tier available) to verify webhook events from the Base app.
+
+Set the `NEYNAR_API_KEY` environment variable in your project:
+
+```bash .env.local
+NEYNAR_API_KEY=your_api_key_here
+```
+
 ## Implementation
 <Steps>
   <Step title="Create a webhook server">
     Create a webhook server to handle webhook events.
-
-    <Info>
-    The `data` object returned by `parseWebhookEvent` contains three key fields:
-    - **`fid`**: The user's FID
-    - **`appFid`**: The client's FID (the Base app is 309857)
-    - **`event`**: The event payload with type and notification details
-  
-    Always use both `fid` and `appFid` together to identify a unique user-client combination.
-    </Info> 
 
     ```ts app/api/webhook/route.ts expandable highlight={20-50}
 
