@@ -35,10 +35,21 @@ Notification tokens are unique to each client app. This means a user can have se
 </Panel>
 ## Implementation
 <Steps>
+  <Step title="Install @farcaster/miniapp-node">
+    Install the `@farcaster/miniapp-node` package in your project:
+  ```bash
+    npm install @farcaster/miniapp-node
+  ```
+    Get a free API key from [neynar](https://dev.neynar.com/) and set `NEYNAR_API_KEY` in your environment variables. 
+  </Step>
+
   <Step title="Create a webhook server">
     Create a webhook server to handle webhook events.
 
     <Info>
+    Use `parseWebhookEvent` with `verifyAppKeyWithNeynar` to verify the client signature and authenticate events signed by the app key.
+
+
     The `data` object returned by `parseWebhookEvent` contains three key fields:
     - **`fid`**: The user's FID
     - **`appFid`**: The client's FID (the Base app is 309857)
@@ -46,6 +57,7 @@ Notification tokens are unique to each client app. This means a user can have se
   
     Always use both `fid` and `appFid` together to identify a unique user-client combination.
     </Info> 
+   
 
     ```ts app/api/webhook/route.ts expandable highlight={20-50}
 
