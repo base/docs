@@ -243,13 +243,79 @@ const ConditionalNavigation = () => {
 };
 ```
 
-## Launching Mini Apps from External Sources
+## Deeplinks
 
-### Deeplink Protocol
-Use the `cbwallet://miniapp?url=[YOUR_MINI_APP]` to launch your mini app directly from external sources like websites, QR codes, or other applications.
+Provide your users with direct access to Mini Apps, group messages, and DMs using our deeplinking schema.
 
-```HTML
-<a href="cbwallet://miniapp?url=https://yourminiapp.com">
+### Mini Apps
+
+Launch your mini app directly from external sources like websites, QR codes, or other applications.
+
+```HTML index.html
+<a href="cbwallet://miniapp?url=${MINI_APP_URL}">
   Launch Mini App
 </a>
 ```
+
+### Group Messages
+
+Navigate users directly to a specific group chat conversation.
+
+<Note>
+  Users can only access group conversations they have been added to as members.
+</Note>
+
+Getting the `conversationID`:
+
+```typescript agent.ts highlight={3,6,9}
+agent.on('text', async (ctx) => {
+  // Get conversation ID
+  const conversationId = ctx.conversation.id;
+  
+  // Create deeplink to THIS conversation (not just the agent)
+  const groupDeeplink = `cbwallet://messaging/${conversationId}`;
+  
+  if (ctx.isGroup()) {
+    await ctx.sendText(`Share this group: ${groupDeeplink}`);
+  }
+});
+```
+
+Use the `conversationID` as a button:
+
+```typescript DeeplinkButton.tsx
+<button 
+  onClick={() => openUrl(`cbwallet://messaging/${conversationID}`)} 
+>
+  Join Members Only Chat
+</button>
+```
+
+### Direct Messages (Users or Agents)
+
+Start a private conversation with a specific user or agent.
+
+```typescript DeeplinkDM.tsx
+<button 
+  onClick={() => openUrl(`cbwallet://messaging/${address}`)} 
+>
+  Send Direct Message
+</button>
+```
+
+## Schema
+
+### Group Message Parameters
+
+<ResponseField name="conversationID" type="string" required>
+  The unique identifier for an XMTP group conversation.
+</ResponseField>
+
+### Direct Message Parameters
+
+<ResponseField name="address" type="string" required>
+  The 0x address of the user or agent you want to chat with (in hex format, e.g., `0xabc...1234`).
+</ResponseField>
+
+
+
