@@ -265,6 +265,24 @@ Navigate users directly to a specific group chat conversation.
   Users can only access group conversations they have been added to as members.
 </Note>
 
+Getting the `conversationID`:
+
+```typescript agent.ts highlight={3,6,9}
+agent.on('text', async (ctx) => {
+  // Get conversation ID
+  const conversationId = ctx.conversation.id;
+  
+  // Create deeplink to THIS conversation (not just the agent)
+  const groupDeeplink = `cbwallet://messaging/${conversationId}`;
+  
+  if (ctx.isGroup()) {
+    await ctx.sendText(`Share this group: ${groupDeeplink}`);
+  }
+});
+```
+
+Use the `conversationID` as a button:
+
 ```typescript DeeplinkButton.tsx
 <button 
   onClick={() => openUrl(`cbwallet://messaging/${conversationID}`)} 
