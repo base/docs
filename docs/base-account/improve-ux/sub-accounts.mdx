@@ -13,6 +13,13 @@ Sub Accounts allow you to provision app-specific wallet accounts for your users 
 Looking for a full implementation? Jump to the [Complete Integration Example](/base-account/improve-ux/sub-accounts#complete-integration-example).
 </Note>
 
+<Tip>
+**Do you prefer video content?**
+
+There is a video guide that covers the implementation in detail in the [last section of this page](#video-guide).
+
+</Tip>
+
 ## Key Benefits
 
 - **Frictionless transactions**: Eliminate repeated signing prompts for high frequency and agentic use cases or take full control of the transaction flow.
@@ -55,7 +62,7 @@ bun add @base-org/account
 
 The fastest way to adopt Sub Accounts is to set `creation` to `on-connect` and `defaultAccount` to `sub` in the SDK configuration.
 
-```tsx
+```tsx page.tsx
 const sdk = createBaseAccountSDK({
   // ...
   subAccounts: {
@@ -77,13 +84,20 @@ This is what the user will see when they connect their Base Account and automati
 We recommend using a [Paymaster](/base-account/improve-ux/sponsor-gas/paymasters) to sponsor gas to ensure the best user experience when integrating Sub Accounts. You can set a paymaster to be used for all transactions by configuring the `paymasterUrls` parameter in the SDK configuration. See the [createBaseAccount](/base-account/reference/core/createBaseAccount#param-paymaster-urls) reference for more information.
 </Tip>
 
+<Tip>
+**Do you prefer video content?**
+
+There is a video guide that covers this specific implementation in the [last section of this page](#video-guide).
+
+</Tip>
+
 ## Using Sub Accounts
 
 ### Initialize the SDK
 
 First, set up the Base Account SDK. Be sure to customize the `appName` and `appLogoUrl` to match your app as this will be displayed in the wallet connection popup and in the account.base.app dashboard. You can also customize the `appChainIds` to be the chains that your app supports.
 
-```tsx
+```tsx page.tsx
 import { createBaseAccountSDK, getCryptoKeyAccount } from '@base-org/account';
 import { base } from 'viem/chains';
 
@@ -109,7 +123,7 @@ For that, you can choose one of the following options:
 
 Create a Sub Account for your application using the provider's [wallet_addSubAccount](/base-account/reference/core/provider-rpc-methods/wallet_addSubAccount) RPC method. When no `publicKey` parameter is provided, a non-extractable browser CryptoKey is generated and used to sign on behalf of the Sub Account.
 
-```tsx
+```tsx page.tsx
 // Create sub account
 const subAccount = await provider.request({
   method: 'wallet_addSubAccount',
@@ -127,7 +141,7 @@ console.log('Sub Account created:', subAccount.address);
 
 Alternatively, you can use the SDK convenience method:
 
-```tsx
+```tsx page.tsx
 const subAccount = await sdk.subAccount.create();
 
 console.log('Sub Account created:', subAccount.address);
@@ -143,7 +157,7 @@ This is what the user will see when prompted to create a Sub Account:
 
 Retrieve an existing Sub Account using the provider's [wallet_getSubAccounts](/base-account/reference/core/provider-rpc-methods/wallet_getSubAccounts) RPC method. This will return the Sub Account associated with the app's domain and is useful to check if a Sub Account already exists for the user to determine if one needs to be created.
 
-```tsx
+```tsx page.tsx
 // Get the universal account
 const [universalAddress] = await provider.request({
   method: "eth_requestAccounts",
@@ -168,7 +182,7 @@ if (subAccount) {
 
 Alternatively, you can use the SDK convenience method:
 
-```tsx
+```tsx page.tsx
 const subAccount = await sdk.subAccount.get();
 
 console.log('Sub Account:', subAccount);
@@ -185,7 +199,7 @@ If you are using `mode: 'auto'`, the Sub Account will be the first account in th
 
 First, get all the accounts that are available, of which the sub account will be the second account:
 
-```tsx
+```tsx page.tsx
 const [universalAddress, subAccountAddress] = await provider.request({
   method: "eth_requestAccounts", // or "eth_accounts" if already connected
   params: []
@@ -196,7 +210,7 @@ Then, send the transaction from the sub account:
 
 **`wallet_sendCalls`**
 
-```tsx
+```tsx page.tsx
 const callsId = await provider.request({
   method: 'wallet_sendCalls',
   params: [{
@@ -220,7 +234,7 @@ console.log('Calls sent:', callsId);
 
 **`eth_sendTransaction`**
 
-```tsx
+```tsx page.tsx
 const tx = await provider.request({
   method: 'eth_sendTransaction',
   params: [{
@@ -242,7 +256,7 @@ We recommend using `wallet_sendCalls` in conjunction with a paymaster to ensure 
 
 If you already have a deployed Smart Contract Account and would like to turn it into a Sub Account of the connected Base Account, you can import it as a Sub Account using the provider RPC method:
 
-```tsx
+```tsx page.tsx
 const subAccount = await provider.request({
   method: 'wallet_addSubAccount',
   params: [
@@ -274,7 +288,7 @@ The Coinbase Smart Wallet contract ABI can be found on [GitHub](https://github.c
 
 Sub Accounts automatically detect when an ownership update is needed when a signature is required and will prompt the user to approve the update before signing. However, you can also add an owner to a Sub Account manually using the SDK convenience method:
 
-```tsx
+```tsx page.tsx
 const ownerAccount = await sdk.subAccount.addOwner({
   address: subAccount?.address,
   publicKey: cryptoAccount?.account?.publicKey,
@@ -322,7 +336,7 @@ Spend permission requests are limited to the first token when multiple transfers
 
 If your users' Sub Accounts will be funded manually, you can disable Auto Spend Permissions by setting `funding` to `manual` in your SDK configuration:
 
-```tsx
+```tsx page.tsx
 const sdk = createBaseAccountSDK({
   appName: 'Base Account SDK Demo',
   appLogoUrl: 'https://base.org/logo.png',
@@ -347,7 +361,7 @@ These Sub Accounts are linked to the end user's Base Account through an onchain 
 
 Here's a full React component that demonstrates Sub Account creation and usage:
 
-```tsx
+```tsx page.tsx expandable
 import { createBaseAccountSDK } from "@base-org/account";
 import { useCallback, useEffect, useState } from "react";
 import { baseSepolia } from "viem/chains";
@@ -670,3 +684,6 @@ export default function SubAccountDemo() {
   );
 }
 ```
+
+## Video Guide
+<iframe width="560" height="315" src="https://www.youtube.com/embed/M2WQ3astqQo?si=IUiHVmOrPFL-kVCL" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>

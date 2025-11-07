@@ -5,15 +5,26 @@ description: "Integrate Sign in with Base and Base Pay using nothing but HTML an
 
 This quick-start shows the **minimum** code required to add Sign in with Base and Base Pay to any web page using nothing but the Base Account SDK. No frameworks, no additional libraries.
 
-## 1. Install the SDK (Optional)
-
 <Note>
-**Interactive Playground:** Want to test the SDK functions before integrating? Try our [Base Pay SDK Playground](https://base.github.io/account-sdk/pay-playground) to experiment with `pay()` and `getPaymentStatus()` functions.
+  **Interactive Playground:** Want to test the SDK functions before integrating?
+  Try our [Base Pay SDK
+  Playground](https://base.github.io/account-sdk/pay-playground) to experiment
+  with `pay()` and `getPaymentStatus()` functions.
 </Note>
+
+<Tip>
+**Do you prefer video content?**
+
+There is a video guide that covers the implementation in detail in the [last section of this page](#video-guide).
+
+</Tip>
+
+## 1. Install the SDK (Optional)
 
 You can use the Base Account SDK in two ways:
 
 ### Option A: CDN (No installation required)
+
 Just include the script tag in your HTML - no build tools needed!
 
 ```html index.html
@@ -21,9 +32,11 @@ Just include the script tag in your HTML - no build tools needed!
 <script src="https://unpkg.com/@base-org/account/dist/base-account.min.js"></script>
 [...rest of your code]
 ```
+
 For a full example, see [example](#2-copy-paste-this-html-file) below.
 
 ### Option B: NPM Package
+
 If you prefer to install locally:
 
 <CodeGroup>
@@ -42,12 +55,18 @@ yarn add @base-org/account
 ```bash bun
 bun add @base-org/account
 ```
+
 </CodeGroup>
 
 Then use ES modules:
-```html
+
+```html index.html
 <script type="module">
-  import { createBaseAccountSDK, pay, getPaymentStatus } from "@base-org/account";
+  import {
+    createBaseAccountSDK,
+    pay,
+    getPaymentStatus,
+  } from "@base-org/account";
   // ... rest of your code
 </script>
 ```
@@ -56,8 +75,8 @@ This guide uses the CDN approach for simplicity.
 
 ## 2. Copy-paste this HTML file
 
-```html title="index.html" lineNumbers
-<!doctype html>
+```html index.html expandable
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -65,90 +84,99 @@ This guide uses the CDN approach for simplicity.
   </head>
   <body>
     <h1>Base Account Demo</h1>
-    
+
     <button id="signin">Sign in with Base</button>
     <button id="pay">Pay with Base</button>
-    
+
     <div id="status"></div>
 
     <!-- Load Base Account SDK via CDN -->
     <script src="https://unpkg.com/@base-org/account/dist/base-account.min.js"></script>
-    
+
     <script>
       // Initialize Base Account SDK with app configuration
-      const provider = window.createBaseAccountSDK({
-        appName: 'Base Account Quick-start',
-        appLogoUrl: 'https://base.org/logo.png',
-      }).getProvider();
+      const provider = window
+        .createBaseAccountSDK({
+          appName: "Base Account Quick-start",
+          appLogoUrl: "https://base.org/logo.png",
+        })
+        .getProvider();
       const statusDiv = document.getElementById("status");
       let userAddress = null;
 
-      function showStatus(message, type = 'success') {
+      function showStatus(message, type = "success") {
         statusDiv.innerHTML = message;
       }
 
       // Generate a fresh nonce for authentication
       function generateNonce() {
-        return window.crypto.randomUUID().replace(/-/g, '');
+        return window.crypto.randomUUID().replace(/-/g, "");
       }
 
       // Sign in with Base using wallet_connect method
       document.getElementById("signin").onclick = async () => {
         try {
-          showStatus("Connecting to Base Account...", 'success');
-          
+          showStatus("Connecting to Base Account...", "success");
+
           // Generate a fresh nonce
           const nonce = generateNonce();
-          
+
           // Connect and authenticate using the new wallet_connect method
           const { accounts } = await provider.request({
-            method: 'wallet_connect',
-            params: [{
-              version: '1',
-              capabilities: {
-                signInWithEthereum: { 
-                  nonce, 
-                  chainId: '0x2105' // Base Mainnet - 8453
-                }
-              }
-            }]
+            method: "wallet_connect",
+            params: [
+              {
+                version: "1",
+                capabilities: {
+                  signInWithEthereum: {
+                    nonce,
+                    chainId: "0x2105", // Base Mainnet - 8453
+                  },
+                },
+              },
+            ],
           });
-          
+
           const { address } = accounts[0];
-          const { message, signature } = accounts[0].capabilities.signInWithEthereum;
-          
+          const { message, signature } =
+            accounts[0].capabilities.signInWithEthereum;
+
           userAddress = address;
-          
-          showStatus(`✅ Successfully signed in! Address: ${address.slice(0, 6)}...${address.slice(-4)}`);
-          
+
+          showStatus(
+            `✅ Successfully signed in! Address: ${address.slice(
+              0,
+              6
+            )}...${address.slice(-4)}`
+          );
+
           // In a real app, you would send the message and signature to your backend for verification
-          console.log('Authentication data:', { address, message, signature });
-          
+          console.log("Authentication data:", { address, message, signature });
         } catch (error) {
-          console.error('Sign-in error:', error);
-          showStatus(`❌ Sign-in failed: ${error.message}`, 'error');
+          console.error("Sign-in error:", error);
+          showStatus(`❌ Sign-in failed: ${error.message}`, "error");
         }
       };
 
       // One-tap USDC payment using window.base API (works with or without sign-in)
       document.getElementById("pay").onclick = async () => {
         try {
-          showStatus("Processing payment...", 'success');
-          
+          showStatus("Processing payment...", "success");
+
           const result = await window.base.pay({
             amount: "5.00", // USD – SDK quotes equivalent USDC
             to: "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9",
-            testnet: true // set to false or omit for Mainnet
+            testnet: true, // set to false or omit for Mainnet
           });
 
           const status = await window.base.getPaymentStatus({
             id: result.id,
-            testnet: true
+            testnet: true,
           });
-          
+
           showStatus(`🎉 Payment completed! Status: ${status.status}`);
         } catch (error) {
-          showStatus(`❌ Payment failed: ${error.message}`, 'error');
+          showStatus(`❌ Payment failed: ${error.message}`, "error");
         }
       };
     </script>
@@ -168,15 +196,26 @@ python -m http.server
 
 Open http://localhost:3000, click **Sign in with Base** (optional) and then **Pay with Base**, approve the transaction, and you've sent 5 USDC on Base Sepolia—done! 🎉
 
-
 ## Next steps
 
-* **[Add Sign In With Base Button](/base-account/reference/ui-elements/sign-in-with-base-button)** – implement full SIWE authentication with backend verification
-* **[Add Base Pay Button](/base-account/reference/ui-elements/base-pay-button)** – collect user information during payment flow
+- **[Add Sign In With Base Button](/base-account/reference/ui-elements/sign-in-with-base-button)** – implement full SIWE authentication with backend verification
+- **[Add Base Pay Button](/base-account/reference/ui-elements/base-pay-button)** – collect user information during payment flow
 
 <Warning>
-**Please Follow the Brand Guidelines** 
+**Please Follow the Brand Guidelines**
 
 If you intend on using the `SignInWithBaseButton` or `BasePayButton`, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
 
 </Warning>
+
+## Video Guide
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/V8PQt-DmU5U?si=k7Kz5aWljnY8t8Ov"
+  title="YouTube video player"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allowfullscreen
+></iframe>

@@ -6,6 +6,14 @@ With Base Account, you can send multiple onchain calls in a single transaction. 
 
 You can submit batch transactions by using the `wallet_sendCalls` RPC method, defined in [EIP-5792](https://eips.ethereum.org/EIPS/eip-5792).
 
+
+<Tip>
+**Do you prefer video content?**
+
+There is a video guide that covers the implementation in detail in the [last section of this page](#video-guide).
+
+</Tip>
+
 ## Installation
 
 Install the Base Account SDK:
@@ -26,6 +34,7 @@ yarn add @base-org/account
 ```bash bun
 bun add @base-org/account
 ```
+
 </CodeGroup>
 
 ## Setup
@@ -34,13 +43,12 @@ bun add @base-org/account
 
 Import and create the Base Account SDK instance:
 
-```tsx
-import { createBaseAccountSDK, base } from '@base-org/account';
+```tsx batchTransactions.tsx
+import { createBaseAccountSDK } from "@base-org/account";
 
 const sdk = createBaseAccountSDK({
-  appName: 'Base Account SDK Demo',
-  appLogoUrl: 'https://base.org/logo.png',
-  appChainIds: [base.constants.CHAIN_IDS.base],
+  appName: "Base Account SDK Demo",
+  appLogoUrl: "https://base.org/logo.png",
 });
 
 const provider = sdk.getProvider();
@@ -52,14 +60,13 @@ const provider = sdk.getProvider();
 
 Send multiple ETH transfers in a single transaction:
 
-```tsx
-import { createBaseAccountSDK, getCryptoKeyAccount, base } from '@base-org/account';
-import { numberToHex, parseEther } from 'viem';
+```tsx batchTransactions.tsx expandable
+import { createBaseAccountSDK, getCryptoKeyAccount } from "@base-org/account";
+import { numberToHex, parseEther } from "viem";
 
 const sdk = createBaseAccountSDK({
-  appName: 'Batch Transaction Demo',
-  appLogoUrl: 'https://base.org/logo.png',
-  appChainIds: [base.constants.CHAIN_IDS.base],
+  appName: "Batch Transaction Demo",
+  appLogoUrl: "https://base.org/logo.png",
 });
 
 const provider = sdk.getProvider();
@@ -73,33 +80,35 @@ async function sendBatchTransfers() {
     // Prepare batch calls
     const calls = [
       {
-        to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-        value: numberToHex(parseEther('0.001')), // 0.001 ETH
-        data: '0x', // Empty data for simple transfer
+        to: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+        value: numberToHex(parseEther("0.001")), // 0.001 ETH
+        data: "0x", // Empty data for simple transfer
       },
       {
-        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f6E456',
-        value: numberToHex(parseEther('0.001')), // 0.001 ETH  
-        data: '0x', // Empty data for simple transfer
-      }
+        to: "0x742d35Cc6634C0532925a3b844Bc9e7595f6E456",
+        value: numberToHex(parseEther("0.001")), // 0.001 ETH
+        data: "0x", // Empty data for simple transfer
+      },
     ];
 
     // Send batch transaction
     const result = await provider.request({
-      method: 'wallet_sendCalls',
-      params: [{
-        version: '2.0.0',
-        from: fromAddress,
-        chainId: numberToHex(base.constants.CHAIN_IDS.base),
-        atomicRequired: true, // All calls must succeed or all fail
-        calls: calls
-      }]
+      method: "wallet_sendCalls",
+      params: [
+        {
+          version: "2.0.0",
+          from: fromAddress,
+          chainId: numberToHex(base.constants.CHAIN_IDS.base),
+          atomicRequired: true, // All calls must succeed or all fail
+          calls: calls,
+        },
+      ],
     });
 
-    console.log('Batch transaction sent:', result);
+    console.log("Batch transaction sent:", result);
     return result;
   } catch (error) {
-    console.error('Batch transaction failed:', error);
+    console.error("Batch transaction failed:", error);
     throw error;
   }
 }
@@ -107,84 +116,99 @@ async function sendBatchTransfers() {
 
 ## Contract Interactions
 
-### ERC-20 Approve and Transfer
+### ERC-20 Approve and Mint an NFT (ERC-721)
 
-A common pattern is to approve and then transfer ERC-20 tokens:
+A common pattern is to approve the NFT contract to move your ERC-20 and then mint an NFT (ERC-721):
 
-```tsx
-import { createBaseAccountSDK, getCryptoKeyAccount, base } from '@base-org/account';
-import { numberToHex, parseUnits, encodeFunctionData } from 'viem';
+```tsx batchTransactions.tsx expandable
+import {
+  createBaseAccountSDK,
+  getCryptoKeyAccount,
+  base,
+} from "@base-org/account";
+import { numberToHex, parseUnits, encodeFunctionData } from "viem";
 
-// ERC-20 ABI for approve and transfer functions
+// ERC-20 ABI for approve
 const erc20Abi = [
   {
-    name: 'approve',
-    type: 'function',
-    stateMutability: 'nonpayable',
     inputs: [
-      { name: 'spender', type: 'address' },
-      { name: 'amount', type: 'uint256' }
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
     ],
-    outputs: [{ name: '', type: 'bool' }]
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
   },
-  {
-    name: 'transfer',
-    type: 'function', 
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' }
-    ],
-    outputs: [{ name: '', type: 'bool' }]
-  }
 ] as const;
+
+// ERC721 ABI for the mint function
+const erc721Abi = [
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    name: "mint",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+// USDC contract address on Base Sepolia
+const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+
+// NFT contract address on Base Sepolia
+const NFT_CONTRACT_ADDRESS = "0x82039e7C37D7aAc98D0F4d0A762F4E0d8c8DC273";
 
 async function approveAndTransfer() {
   const sdk = createBaseAccountSDK({
-    appName: 'ERC-20 Batch Demo',
-    appLogoUrl: 'https://base.org/logo.png',
-    appChainIds: [base.constants.CHAIN_IDS.base],
+    appName: "ERC-20 Batch Demo",
+    appLogoUrl: "https://base.org/logo.png",
   });
 
   const provider = sdk.getProvider();
   const cryptoAccount = await getCryptoKeyAccount();
   const fromAddress = cryptoAccount?.account?.address;
 
-  const tokenAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
-  const spenderAddress = '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad'; // Example spender
-  const recipientAddress = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
-  const amount = parseUnits('10', 6); // 10 USDC (6 decimals)
+  // Encode the first approve call - approve USDC to NFT contract
+  const call1Data = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [
+      NFT_CONTRACT_ADDRESS,
+      parseUnits("1000", 6), // USDC has 6 decimals
+    ],
+  });
 
-  const calls = [
-    {
-      to: tokenAddress,
-      value: '0x0',
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [spenderAddress, amount]
-      })
-    },
-    {
-      to: tokenAddress,
-      value: '0x0', 
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [recipientAddress, amount]
-      })
-    }
-  ];
+  // Encode the second call - mint NFT to the user's address
+  const call2Data = encodeFunctionData({
+    abi: erc721Abi,
+    functionName: "mint",
+    args: [fromAddress as `0x${string}`, BigInt("1")],
+  });
 
   const result = await provider.request({
-    method: 'wallet_sendCalls',
-    params: [{
-      version: '2.0.0',
-      from: fromAddress,
-      chainId: numberToHex(base.constants.CHAIN_IDS.base),
-      atomicRequired: true,
-      calls: calls
-    }]
+    method: "wallet_sendCalls",
+    params: [
+      {
+        version: "2.0.0",
+        from: fromAddress,
+        chainId: numberToHex(base.constants.CHAIN_IDS.baseSepolia),
+        atomicRequired: true,
+        calls: [
+          {
+            to: USDC_ADDRESS,
+            data: call1Data,
+          },
+          {
+            to: NFT_CONTRACT_ADDRESS,
+            data: call2Data,
+          },
+        ],
+      },
+    ],
   });
 
   return result;
@@ -197,30 +221,30 @@ async function approveAndTransfer() {
 
 Before sending batch transactions, you can check if the wallet supports atomic batching:
 
-```tsx
+```tsx batchTransactions.tsx expandable
 async function checkCapabilities() {
   const provider = sdk.getProvider();
-  
+
   try {
     const cryptoAccount = await getCryptoKeyAccount();
     const address = cryptoAccount?.account?.address;
-    
+
     const capabilities = await provider.request({
-      method: 'wallet_getCapabilities',
-      params: [address]
+      method: "wallet_getCapabilities",
+      params: [address],
     });
-    
+
     const baseCapabilities = capabilities[base.constants.CHAIN_IDS.base];
-    
+
     if (baseCapabilities?.atomicBatch?.supported) {
-      console.log('Atomic batching is supported');
+      console.log("Atomic batching is supported");
       return true;
     } else {
-      console.log('Atomic batching is not supported');
+      console.log("Atomic batching is not supported");
       return false;
     }
   } catch (error) {
-    console.error('Failed to check capabilities:', error);
+    console.error("Failed to check capabilities:", error);
     return false;
   }
 }
@@ -230,53 +254,95 @@ async function checkCapabilities() {
 
 Sometimes you want calls to execute sequentially, even if some fail:
 
-```tsx
+```tsx batchTransactions.tsx expandable
 const result = await provider.request({
-  method: 'wallet_sendCalls',
-  params: [{
-    version: '2.0.0',
-    from: fromAddress,
-    chainId: numberToHex(base.constants.CHAIN_IDS.base),
-    atomicRequired: false, // Allow partial execution
-    calls: calls
-  }]
+  method: "wallet_sendCalls",
+  params: [
+    {
+      version: "2.0.0",
+      from: fromAddress,
+      chainId: numberToHex(base.constants.CHAIN_IDS.base),
+      atomicRequired: false, // Allow partial execution
+      calls: calls,
+    },
+  ],
 });
 ```
 
-## Error Handling
+## Getting the Batch Transaction Result
 
-Handle common batch transaction errors:
+`wallet_getCallsStatus` returns the execution status for a batch you previously submitted with `wallet_sendCalls`. Capture the `callsId` returned by `wallet_sendCalls`, then poll for the batch status until it is confirmed or fails.
 
-```tsx
-async function sendBatchWithErrorHandling(calls: any[]) {
-  try {
-    const cryptoAccount = await getCryptoKeyAccount();
-    const fromAddress = cryptoAccount?.account?.address;
-    
-    const result = await provider.request({
-      method: 'wallet_sendCalls',
-      params: [{
-        version: '2.0.0',
+```tsx batchTransactions.tsx lines wrap highlight={5-33} expandable
+async function trackBatchTransaction(
+  calls: Array<{
+    to: `0x${string}`;
+    data: `0x${string}`;
+    value?: `0x${string}`;
+  }>
+) {
+  const cryptoAccount = await getCryptoKeyAccount();
+  const fromAddress = cryptoAccount?.account?.address;
+
+  const callsId = await provider.request({
+    method: "wallet_sendCalls",
+    params: [
+      {
+        version: "2.0.0",
         from: fromAddress,
         chainId: numberToHex(base.constants.CHAIN_IDS.base),
         atomicRequired: true,
-        calls: calls
-      }]
+        calls,
+      },
+    ],
+  });
+
+  try {
+    const status = await provider.request({
+      method: "wallet_getCallsStatus",
+      params: [callsId],
     });
-    
-    return { success: true, data: result };
-  } catch (error: any) {
-    console.error('Batch transaction error:', error);
-    
-    if (error.code === 4001) {
-      return { success: false, error: 'User rejected the transaction' };
-    } else if (error.code === 5740) {
-      return { success: false, error: 'Batch too large for wallet to process' };
-    } else if (error.code === -32602) {
-      return { success: false, error: 'Invalid request format' };
+
+    if (status.status === 200) {
+      console.log("Batch completed successfully", status.receipts);
+    } else if (status.status === 100) {
+      console.log("Batch still pending", status.id);
     } else {
-      return { success: false, error: error.message || 'Unknown error' };
+      console.error("Batch failed", status.status);
     }
+
+    return status;
+  } catch (error: any) {
+    if (error.code === 4200) {
+      throw new Error("No batch found for the provided callsId.");
+    }
+
+    if (error.code === 4100) {
+      throw new Error(
+        "The connected wallet does not support wallet_getCallsStatus."
+      );
+    }
+
+    if (error.code === -32602) {
+      throw new Error("The callsId parameter is invalid.");
+    }
+
+    throw error;
   }
 }
 ```
+
+You can learn more about `wallet_getCallsStatus` in the [reference documentation](/base-account/reference/core/provider-rpc-methods/wallet_getCallsStatus).
+
+## Video Guide
+
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/UGB0j_eHsNU?si=vfxwKY63Y9vhQpgS"
+  title="YouTube video player"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allowfullscreen
+></iframe>
