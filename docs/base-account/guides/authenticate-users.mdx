@@ -92,52 +92,58 @@ bun add @base-org/account @base-org/account-ui
 ### Code Snippets
 
 <CodeGroup>
-```ts Browser (SDK)
+```ts Browser (SDK) expandable
 import { createBaseAccountSDK } from "@base-org/account";
-import crypto from 'crypto';
 
 // Initialize the SDK
-const provider = createBaseAccountSDK({appName: 'My App'}).getProvider();
+const provider = createBaseAccountSDK({
+  appName: "My App",
+}).getProvider();
 
 // 1 — get a fresh nonce (generate locally or prefetch from backend)
-const nonce = window.crypto.randomUUID().replace(/-/g, '');
+const nonce = window.crypto.randomUUID().replace(/-/g, "");
 // OR prefetch from server
-// const nonce = await fetch('/auth/nonce').then(r => r.text());
+// const nonce = await fetch("/auth/nonce").then((response) => response.text());
 
 // 2 — switch to Base Chain
 const switchChainResponse = await provider.request({
-method: "wallet_switchEthereumChain",
-params: [{ chainId: '0x2105' }],
-})
+  method: "wallet_switchEthereumChain",
+  params: [{ chainId: "0x2105" }],
+});
 
-      console.log('Switch chain response:', switchChainResponse);
+console.log("Switch chain response:", switchChainResponse);
 
 // 3 — connect and authenticate
 try {
-const { accounts } = await provider.request({
-method: 'wallet_connect',
-params: [{
-version: '1',
-capabilities: {
-signInWithEthereum: {
-nonce,
-chainId: '0x2105' // Base Mainnet - 8453
-}
-}
-}]
-});
-const { address } = accounts[0];
-const { message, signature } = accounts[0].capabilities.signInWithEthereum;
-await fetch('/auth/verify', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ address, message, signature })
-});
-} catch (err) {
-console.error(`err ${err}`);
+  const { accounts } = await provider.request({
+    method: "wallet_connect",
+    params: [
+      {
+        version: "1",
+        capabilities: {
+          signInWithEthereum: {
+            nonce,
+            chainId: "0x2105", // Base Mainnet - 8453
+          },
+        },
+      },
+    ],
+  });
+
+  const { address } = accounts[0];
+  const { message, signature } =
+    accounts[0].capabilities.signInWithEthereum;
+
+  await fetch("/auth/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, message, signature }),
+  });
+} catch (error) {
+  console.error("Failed to authenticate with Base Account:", error);
 }
 
-````
+```
 ```ts Backend (Viem)
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
@@ -174,7 +180,7 @@ export async function verifySig(req, res) {
 
 ### Example Express Server
 
-```ts title="server/auth.ts"
+```ts title="server/auth.ts" expandable
 import crypto from "crypto";
 import express from "express";
 import { createPublicClient, http } from "viem";
