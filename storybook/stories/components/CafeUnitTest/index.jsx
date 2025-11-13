@@ -121,7 +121,7 @@ const directionsStyle = {
   fontWeight: "500",
 };
 
-// Кастомная сеть
+// Custom network
 export const SANDBOX_CHAIN = defineChain({
   id: 8453200058,
   name: "Sandbox Network",
@@ -196,7 +196,7 @@ export function CafeUnitTest({ nftNum }) {
     }
   }, [hasNFT, nftError, address]);
 
-  // Ошибка при тестировании
+  // Error during contract testing
   useEffect(() => {
     if (isTestError) {
       setMessages([
@@ -208,7 +208,7 @@ export function CafeUnitTest({ nftNum }) {
     }
   }, [isTestError]);
 
-  // wagmi state → наш state
+  // wagmi state → local state
   useEffect(() => {
     if (isTestLoading) {
       setTestingState("testing");
@@ -221,7 +221,7 @@ export function CafeUnitTest({ nftNum }) {
     }
   }, [isTestReceiptLoading, transactionHash]);
 
-  // receipt → completed + refetch NFT
+  // Receipt → completed + refetch NFT
   useEffect(() => {
     if (transactionReceipt) {
       setTestingState("completed");
@@ -232,7 +232,7 @@ export function CafeUnitTest({ nftNum }) {
     }
   }, [transactionReceipt, address, refetchNFT]);
 
-  // Timeout на зависшую транзакцию (с защитой от unmount)
+  // Timeout for a stuck transaction (with unmount protection)
   useEffect(() => {
     if (!transactionHash) return;
 
@@ -256,7 +256,7 @@ export function CafeUnitTest({ nftNum }) {
     };
   }, [transactionHash]);
 
-  // Reset при смене сети / адреса
+  // Reset when network / address changes
   useEffect(() => {
     console.log("Connected to chain:", chain?.id, chain?.name);
     setTestingState("idle");
@@ -266,12 +266,12 @@ export function CafeUnitTest({ nftNum }) {
     setHasPin(false);
   }, [chain, address, submittedContract]);
 
-  // Парсинг событий TestSuiteResult (агрегация логов + защита от unmount + null-safe)
+  // Parsing TestSuiteResult events (log aggregation + unmount protection + null-safe)
   useEffect(() => {
     let isMounted = true;
 
     if (transactionReceipt) {
-      const allProcessed = [];
+      const allProcessed: string[] = [];
 
       for (const log of transactionReceipt.logs) {
         try {
@@ -282,7 +282,7 @@ export function CafeUnitTest({ nftNum }) {
           });
 
           if (parsed.eventName === "TestSuiteResult") {
-            const args = parsed.args || {};
+            const args: any = parsed.args || {};
             const testResults = args.testResults;
 
             if (testResults && Array.isArray(testResults)) {
@@ -363,7 +363,7 @@ export function CafeUnitTest({ nftNum }) {
     }
   }
 
-  // Ручной reset (пока не привязан к UI)
+  // Manual reset (not yet wired to UI)
   function handleManualReset() {
     console.log("Manual reset triggered");
     setTestingState("idle");
@@ -599,7 +599,7 @@ export function CafeUnitTest({ nftNum }) {
   return <div>{renderTestSubmission()}</div>;
 }
 
-// Обёртка с провайдерами
+// Wrapper with providers
 function CafeUnitTestWithProviders(props) {
   const [mounted, setMounted] = useState(false);
 
@@ -706,17 +706,20 @@ function CafeUnitTestWithProviders(props) {
 }
 
 // Error boundary
-class ErrorBoundary extends React.Component {
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: any) {
     console.error("Error in CafeUnitTest component:", error, errorInfo);
   }
 
@@ -742,3 +745,4 @@ class ErrorBoundary extends React.Component {
 }
 
 export default CafeUnitTestWithProviders;
+```
