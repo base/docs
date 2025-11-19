@@ -1,105 +1,111 @@
 ---
-title: "FundButton"
+title: <FundButton />
+sidebarTitle: <FundButton />
+description: The `<FundButton />` component provides a way for users to fund their wallet without leaving your app.
 ---
+
+# FundButton
 
 The `<FundButton />` component provides a way for users to fund their wallet without leaving your app. It automatically
 detects the user's wallet type (EOA vs Smart Wallet) and directs them to the appropriate funding URL.
 
-If your user connects a Coinbase Smart Wallet, it provides an easy way to access the Coinbase Smart Wallet 
-[Fund](https://keys.coinbase.com/fund) flow. Users will be able to buy and receive crypto, or use their Coinbase 
+If your user connects a Coinbase Smart Wallet, it provides an easy way to access the Coinbase Smart Wallet
+[Fund](https://keys.coinbase.com/fund) flow. Users will be able to buy and receive crypto, or use their Coinbase
 balances onchain with [Magic Spend](https://www.smartwallet.dev/guides/magic-spend).
 
 If your user connects any other EOA wallet, it provides an easy way to access [Coinbase Onramp](https://docs.cdp.coinbase.com/onramp/docs/welcome/)
 where your users will also be able to buy crypto using a fiat payment method, or transfer existing crypto from their
 Coinbase account.
 
- 
-
 ## Walkthrough
 
 <Steps>
   <Step title="Get your Project ID">
-  1. Get your Project ID from the [Coinbase Developer Platform Dashboard](https://portal.cdp.coinbase.com/).
+    1. Get your Project ID from the [Coinbase Developer Platform Dashboard](https://portal.cdp.coinbase.com/).
 
-<Frame>
-  <img alt="OnchainKit copy Project Id" src="/images/onchainkit/copy-project-id.png" />
-</Frame>
+    <Frame>
+      <img alt="OnchainKit copy Project Id" src="https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=a252ce9520dc3909df614eaa3739a09d" data-og-width="1247" width="1247" data-og-height="466" height="466" data-path="images/onchainkit/copy-project-id.png" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?w=280&fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=f5bed02ce1fa668ee0915e149fd208e2 280w, https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?w=560&fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=3353683c600c3d6406473bd9d96b6c3e 560w, https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?w=840&fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=fc1ea92d8d5ea02b932ed38b3c5f7933 840w, https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?w=1100&fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=4f1b3d6cdb5aecce2bfdef9c679286c1 1100w, https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?w=1650&fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=aab84604e4c4ea446cac4d5c93daa659 1650w, https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/copy-project-id.png?w=2500&fit=max&auto=format&n=-q4fo0uzIfxlH3Wn&q=85&s=8a9febaf3ca315cb4ffed4be7de2e2f3 2500w" />
+    </Frame>
 
-  2. Add your Project ID to your `.env` file.
+    2. Add your Project ID to your `.env` file.
 
-  ```tsx .env
-  NEXT_PUBLIC_ONCHAINKIT_API_KEY=YOUR_PUBLIC_API_KEY
-  NEXT_PUBLIC_CDP_PROJECT_ID=YOUR_CDP_PROJECT_ID // [!code ++]
-  ```
+    ```tsx .env theme={null}
+    NEXT_PUBLIC_ONCHAINKIT_API_KEY=YOUR_PUBLIC_API_KEY
+    NEXT_PUBLIC_CDP_PROJECT_ID=YOUR_CDP_PROJECT_ID // [!code ++]
+    ```
+
   </Step>
-  <Step title="Add Project ID to OnchainKitProvider">
-  ```tsx
+
+<Step title="Add Project ID to OnchainKitProvider">
+  ```tsx theme={null}
   <OnchainKitProvider
-    apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY} 
+    apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
     projectId={process.env.NEXT_PUBLIC_CDP_PROJECT_ID} // [!code ++]
     chain={base}
   >
     {props.children}
   </OnchainKitProvider>
   ```
-  </Step>
+</Step>
 
-  <Step title="Get sessionToken">
- [Getting session token](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication)
-  </Step>
+<Step title="Get a session token">
+  [Getting session
+  token](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication)
+</Step>
 
-  <Step title="Drop in the<FundButton /> component">
-  ```tsx
-  import { FundButton } from '@coinbase/onchainkit/fund';
+  <Step title="Drop in the <FundButton /> component">
+    ```tsx theme={null}
+    import { FundButton } from '@coinbase/onchainkit/fund';
 
+    const sessionToken = "YOUR_SESSION_TOKEN";
 
-  const sessionToken = "YOUR_SESSION_TOKEN";
+    // can use EITHER sessionToken or fundingUrl
+    <FundButton sessionToken={sessionToken} />
+    ```
 
-  <FundButton sessionToken={sessionToken} />
-  ```
+    {/* <App>
+      <FundWrapper>
+        {({ address }) => {
+          if (address) {
+            return (
+              <FundButton sessionToken={sessionToken} />
+            )
+          }
+          return <>
+            <Wallet>
+              <ConnectWallet>
+                <Avatar className="h-6 w-6" />
+                <Name />
+              </ConnectWallet>
+            </Wallet>
+          </>;
+        }}
+      </FundWrapper>
+    </App> */}
 
-  <App>
-    <FundWrapper>
-      {({ address }) => {
-        if (address) {
-          return (
-            <FundButton sessionToken={sessionToken} />
-          )
-        }
-        return <>
-          <Wallet>
-            <ConnectWallet>
-              <Avatar className="h-6 w-6" />
-              <Name />
-            </ConnectWallet>
-          </Wallet>
-        </>;
-      }}
-    </FundWrapper>
-  </App>
   </Step>
 </Steps>
 
 ## Customizing the funding experience
 
-You can customize the Coinbase Onramp experience by bringing your own Onramp URL and passing it to the ```<FundButton />```
+You can customize the Coinbase Onramp experience by bringing your own Onramp URL and passing it to the `<FundButton />`
 component. We provide the [`getOnrampBuyUrl`](/onchainkit/fund/get-onramp-buy-url) utility to help you generate a Coinbase Onramp
 URL tailored to your use case.
 
-```tsx
-import { FundButton, getOnrampBuyUrl } from '@coinbase/onchainkit/fund';
-import { useAccount } from 'wagmi';
+```tsx theme={null}
+import { FundButton, getOnrampBuyUrl } from "@coinbase/onchainkit/fund";
+import { useAccount } from "wagmi";
 
-const projectId = 'YOUR_CDP_PROJECT_ID';
+const projectId = "YOUR_CDP_PROJECT_ID";
 const { address } = useAccount();
 
 const onrampBuyUrl = getOnrampBuyUrl({
-  sessionToken: "YOUR_SESSION_TOKEN"
+  sessionToken: "YOUR_SESSION_TOKEN",
   presetFiatAmount: 20,
-  fiatCurrency: 'USD'
+  fiatCurrency: "USD",
 });
 
-<FundButton fundingUrl={onrampBuyUrl} />
+<FundButton fundingUrl={onrampBuyUrl} />;
 ```
 
 <iframe
@@ -107,34 +113,10 @@ const onrampBuyUrl = getOnrampBuyUrl({
   width="100%"
   height="auto"
 />
-{/* <App>
-  <FundWrapper>
-    {({ address, projectId }) => {
-      if (address && projectId) {
-        const onrampBuyUrl = getOnrampBuyUrl({
-          sessionToken: "YOUR_SESSION_TOKEN"
-          presetFiatAmount: 20,
-          fiatCurrency: 'USD'
-        });
-        return (
-          <FundButton fundingUrl={onrampBuyUrl} />
-        )
-      }
-      return <>
-        <Wallet>
-          <ConnectWallet>
-            <Avatar className="h-6 w-6" />
-            <Name />
-          </ConnectWallet>
-        </Wallet>
-      </>;
-    }}
-  </FundWrapper>
-</App> */}
 
 You can choose to have the funding URL open in a popup or a new tab using the `openIn` prop.
 
-```tsx
+```tsx theme={null}
 <FundButton openIn={"tab"} sessionToken={sessionToken} />
 ```
 
@@ -143,31 +125,12 @@ You can choose to have the funding URL open in a popup or a new tab using the `o
   width="100%"
   height="auto"
 />
-{/* <App>
-  <FundWrapper>
-    {({ address }) => {
-      if (address) {
-        return (
-          <FundButton openIn={"tab"} sessionToken={sessionToken} />
-        )
-      }
-      return <>
-        <Wallet>
-          <ConnectWallet>
-            <Avatar className="h-6 w-6" />
-            <Name />
-          </ConnectWallet>
-        </Wallet>
-      </>;
-    }}
-  </FundWrapper>
-</App> */}
 
 ## Customizing the fund button
 
 You can override the text on the fund button using the `text` prop, and hide the icon with the `hideIcon` prop.
 
-```tsx
+```tsx theme={null}
 <FundButton text={"Onramp"} hideIcon={true} sessionToken={sessionToken} />
 ```
 
@@ -176,29 +139,10 @@ You can override the text on the fund button using the `text` prop, and hide the
   width="100%"
   height="auto"
 />
-{/* <App>
-  <FundWrapper>
-    {({ address }) => {
-      if (address) {
-        return (
-          <FundButton text={"Onramp"} hideIcon={true} sessionToken={sessionToken} />
-        )
-      }
-      return <>
-        <Wallet>
-          <ConnectWallet>
-            <Avatar className="h-6 w-6" />
-            <Name />
-          </ConnectWallet>
-        </Wallet>
-      </>;
-    }}
-  </FundWrapper>
-</App> */}
 
 You can hide the text with the `hideText` prop.
 
-```tsx
+```tsx theme={null}
 <FundButton hideText={true} sessionToken={sessionToken} />
 ```
 
@@ -207,27 +151,6 @@ You can hide the text with the `hideText` prop.
   width="100%"
   height="auto"
 />
-{/* <App>
-  <FundWrapper>
-    {({ address }) => {
-      if (address) {
-        return (
-          <>
-            <FundButton hideText={true} sessionToken={sessionToken} />
-          </>
-        )
-      }
-      return <>
-        <Wallet>
-          <ConnectWallet>
-            <Avatar className="h-6 w-6" />
-            <Name />
-          </ConnectWallet>
-        </Wallet>
-      </>;
-    }}
-  </FundWrapper>
-</App> */}
 
 See [`FundButtonReact`](/onchainkit/fund/types#fundbuttonreact) for the full list of customization options.
 
@@ -235,42 +158,69 @@ See [`FundButtonReact`](/onchainkit/fund/types#fundbuttonreact) for the full lis
 
 [`FundButtonProps`](#fundbuttonprops)
 
-```ts
-type FundButtonProps =
+```ts theme={null}
+export type FundButtonProps = FundButtonBaseProps &
+  FundButtonSourceProps &
+  FundButtonRenderProps;
+
+type FundButtonBaseProps = {
+  /* An optional CSS class name for styling the button component */
+  className?: string;
+  /* A optional prop to disable the fund button */
+  disabled?: boolean;
+  /* The state of the button component */
+  state?: FundButtonState;
+  /* Whether to open the funding flow in a tab or a popup window */
+  openIn?: "popup" | "tab";
+  /**
+   * Size of the popup window if `openIn` is set to `popup`
+   * Note: popupSize will be ignored when using a Coinbase Onramp URL (i.e. https://pay.coinbase.com/*) as it requires
+   * a fixed popup size.
+   */
+  popupSize?: "sm" | "md" | "lg";
+  /* Where to open the target if `openIn` is set to tab */
+  target?: string;
+  /* The currency code of the fiat amount provided in the presetFiatAmount param e.g. USD, CAD, EUR. */
+  fiatCurrency?: string;
+  /* A callback function that will be called when the popup window is closed */
+  onPopupClose?: () => void;
+  /* A callback function that will be called when the button is clicked */
+  onClick?: () => void;
+};
+
+// Require exactly one funding source for FundButton (not both)
+type FundButtonSourceProps =
+  | { fundingUrl: string; sessionToken?: string }
+  | { sessionToken: string; fundingUrl?: string };
+
+type FundButtonRenderProps =
   | {
       render?: (props: FundButtonRenderParams) => React.ReactNode;
+      /* An optional React node to be displayed in the button component */
       children?: never;
     }
   | {
       render?: never;
+      /* An optional React node to be displayed in the button component */
       children?: ReactNode;
     };
 
-type FundButtonBaseProps = {
-  /** An optional CSS class name for styling the button component */
-  className?: string;
-  /** An optional React node to be displayed in the button component */
-  children?: ReactNode;
-  /** A optional prop to disable the fund button */
-  disabled?: boolean;
-  /** The state of the button component */
-  state?: FundButtonState;
-  /** An optional prop to provide a custom funding URL */
-  fundingUrl?: string;
-  /** Whether to open the funding flow in a tab or a popup window */
-  openIn?: 'popup' | 'tab';
-  /** Size of the popup window if `openIn` is set to `popup` */
-  popupSize?: 'sm' | 'md' | 'lg';
-  /** Where to open the target if `openIn` is set to tab */
-  target?: string;
-  /** The currency code of the fiat amount provided in the presetFiatAmount param e.g. USD, CAD, EUR. */
-  fiatCurrency?: string;
-  /** A callback function that will be called when the popup window is closed */
-  onPopupClose?: () => void;
-  /** A callback function that will be called when the button is clicked */
-  onClick?: () => void;
-  /** An optional prop to provide a session token. Required if no fundingUrl is provided */
-  sessionToken?: string;
+export type FundButtonRenderParams = {
+  /* The state of the button component, only relevant when using FundCardSubmitButton */
+  status: FundButtonState;
+  /* A callback function that will be called when the button is clicked */
+  onClick: (e: React.MouseEvent) => void;
+  /* Whether the button is disabled */
+  isDisabled: boolean;
 };
 ```
 
+<Note>
+  **Note:** `FundButton` requires either `sessionToken` or `fundingUrl` to be
+  provided. If neither is provided, the component will throw an error before
+  compiling.
+</Note>
+
+## Related Components
+
+- [`<FundCard />`](/onchainkit/fund/fund-card)
