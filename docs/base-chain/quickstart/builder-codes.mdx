@@ -10,13 +10,8 @@ Builder Codes allow you to attribute onchain activity to your app or wallet, unl
 Integrating Builder Codes requires appending a suffix—provided by Base—to your transaction data.
 
 <Steps>
-  <Step title="Get your Builder Code and Suffix">
-    When you register on **base.dev**, you will receive:
-    
-    *   **Builder Code**: A random string (e.g., `k3p9da`).
-    *   **ERC-8021 Suffix**: A hex-encoded string (e.g., `0x...`).
-
-    You will use the **suffix** to attribute transactions to your app.
+  <Step title="Get your Builder Code">
+    When you register on **base.dev**, you will receive a **Builder Code**. This is a random string (e.g., `k3p9da`) that you will use to generate your attribution suffix.
   </Step>
 
   <Step title="Append the Suffix to Transactions">
@@ -62,8 +57,13 @@ Integrating Builder Codes requires appending a suffix—provided by Base—to yo
 
         ```typescript lines highlight={11-13}
         import { walletClient } from './client'
-
-        const dataSuffix = "0x1234abcd..."
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
 
         await walletClient.sendCalls({
           calls: [
@@ -83,6 +83,13 @@ Integrating Builder Codes requires appending a suffix—provided by Base—to yo
 
         ```typescript lines highlight={15}
         import { encodeFunctionData } from 'viem'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
 
         // 1. Encode your function call
         const encoded = encodeFunctionData({
