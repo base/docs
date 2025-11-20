@@ -1,0 +1,189 @@
+---
+title: "Builder Codes"
+description: "Integrate Builder Codes to attribute onchain activity to your app or wallet."
+---
+
+Builder Codes allow you to attribute onchain activity to your app or wallet, unlocking analytics, rewards, and future incentives. This guide covers the implementation steps for both application developers and wallet providers.
+
+## For App Developers
+
+Integrating Builder Codes requires appending a suffix—provided by Base—to your transaction data.
+
+<Steps>
+  <Step title="Get your Builder Code">
+    When you register on **base.dev**, you will receive a **Builder Code**. This is a random string (e.g., `k3p9da`) that you will use to generate your attribution suffix.
+  </Step>
+
+  <Step title="Append the Suffix to Transactions">
+    The recommended way to attach your suffix is using `wallet_sendCalls` (ERC-5792). This passes the suffix through a capability, allowing the wallet to handle the attachment automatically for both EOA and Smart Account (ERC-4337) users.
+
+    <Tabs>
+      <Tab title="Wagmi (Recommended)">
+        Use the `useSendCalls` hook from Wagmi's experimental features to pass the `dataSuffix` capability.
+
+        ```typescript lines highlight={14-16}
+        import { useSendCalls } from 'wagmi/experimental'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
+
+        function SendTx() {
+          const { sendCalls } = useSendCalls()
+
+          async function submit() {
+            await sendCalls({
+              calls: [
+                {
+                  to: "0xYourContract",
+                  data: "0xYourCalldata"
+                }
+              ],
+              capabilities: {
+                dataSuffix: dataSuffix
+              }
+            })
+          }
+
+          return <button onClick={submit}>Send</button>
+        }
+        ```
+      </Tab>
+      <Tab title="Viem">
+        If you are using Viem directly, pass the `dataSuffix` in the `capabilities` object.
+
+        ```typescript lines highlight={11-13}
+        import { walletClient } from './client'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
+
+        await walletClient.sendCalls({
+          calls: [
+            {
+              to: "0xYourContract",
+              data: "0xYourCalldata"
+            }
+          ],
+          capabilities: {
+            dataSuffix: dataSuffix
+          }
+        })
+        ```
+      </Tab>
+      <Tab title="Legacy (writeContract)">
+        If you are restricted to `writeContract` (EOA only), you must manually append the suffix to the calldata. This is **not recommended** as it does not support Smart Accounts automatically.
+
+        ```typescript lines highlight={15}
+        import { encodeFunctionData } from 'viem'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
+
+        // 1. Encode your function call
+        const encoded = encodeFunctionData({
+          abi,
+          functionName: "yourFn",
+          args: [a, b, c],
+        })
+
+        // 2. Manually append the suffix (stripping the '0x' prefix from the suffix)
+        const dataWithSuffix = encoded + dataSuffix.slice(2)
+
+        // 3. Send the transaction
+        await sendTransaction({
+          to: "0xYourContract",
+          data: dataWithSuffix,
+        })
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+Once you have added the suffix, your app is fully ERC-8021 compliant.
+
+---
+
+## For Wallet Developers
+
+Wallet providers need to support the `dataSuffix` capability to enable attribution. This involves accepting the capability and appending the suffix to the calldata before signing.
+
+<Steps>
+  <Step title="Support the dataSuffix Capability">
+    Your wallet should accept a `dataSuffix` string in the `capabilities` object of `wallet_sendCalls`.
+
+    ```typescript lines
+    interface DataSuffixCapability {
+      dataSuffix: string; // hex-encoded bytes provided by the app
+    }
+    ```
+  </Step>
+
+  <Step title="Append Suffix to Calldata">
+    When constructing the transaction or User Operation, extract the `dataSuffix` and append it to the calldata.
+
+    <Tabs>
+      <Tab title="EOA Transactions">
+        Append to `tx.data`.
+
+        ```typescript lines
+        // Minimal example for EOA
+        function applySuffixToEOA(tx, capabilities) {
+          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          if (!suffix) return tx
+
+          return {
+            ...tx,
+            // Append suffix bytes (remove 0x prefix from suffix if tx.data has it)
+            data: tx.data + suffix.slice(2) 
+          }
+        }
+        ```
+      </Tab>
+      <Tab title="ERC-4337 User Operations">
+        Append to `userOp.callData` (not the transaction-level calldata).
+
+        ```typescript lines
+        // Minimal example for ERC-4337
+        function applySuffixToUserOp(userOp, capabilities) {
+          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          if (!suffix) return userOp
+
+          return {
+            ...userOp,
+            // Append suffix bytes to the UserOp callData
+            callData: userOp.callData + suffix.slice(2)
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="(Optional) Add Wallet Attribution">
+    Wallets may also include their own attribution code (their own ERC-8021 suffix) by simply prepending the wallet’s own suffix before the app’s.
+
+    *   **No interaction required with apps:** The wallet handles this independently.
+    *   **Multi-code support:** ERC-8021 natively supports multiple attribution codes.
+
+    **Example:**
+
+    ```typescript
+    finalSuffix = walletSuffix + appSuffix
+    ```
+
+    This ensures both the app and the wallet receive onchain attribution.
+  </Step>
+</Steps>
+
