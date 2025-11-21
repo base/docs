@@ -1,0 +1,342 @@
+# Builder Codes Implementation 
+
+# Implementation for Apps 
+## **1\. Get your Builder Code \+ Suffix**
+
+When you register on **base.dev**, we give you:
+
+* **Builder Code** → a random string (e.g., `"k3p9da"`)  
+* **ERC-8021 Suffix** → already fully encoded as a hex string (e.g., `"0x…"`)
+
+You do **not** build, validate, or encode anything — you just use the suffix we provide.
+
+## **2\. Append the suffix to all transactions**
+
+### **A. EOA Transactions**
+
+If your app sends a normal `eth_sendTransaction`:
+
+`tx.data = tx.data + dataSuffix;`
+
+### **B. Smart Account / ERC-4337 UserOps**
+
+If your app constructs User Operations:
+
+`userOp.callData = userOp.callData + dataSuffix;`
+
+Smart accounts require putting the suffix inside the `callData` of the userOp.
+
+### **C. Using `wallet_sendCalls` (ERC-5792) — Recommended**
+
+The simplest and most reliable way.
+
+Pass the suffix through the capability:
+
+`{`  
+  `"capabilities": [`  
+    `{ "dataSuffix": "0x..." }`  
+  `]`  
+`}`
+
+Wallets automatically attach it to the correct place (EOA or 4337).
+
+## **3\. No other changes needed**
+
+You **do not** need to:
+
+* Understand the random code  
+* Decode or encode suffix bytes  
+* Check schema IDs  
+* Interact with the registry  
+* Change your smart contracts  
+* Modify backend systems
+
+**Just attach the suffix. Everything else is standardized and handled by wallets \+ Base.dev.**
+
+## **🧪 Minimal Example**
+
+`const calls = [{`  
+  `to: contract,`  
+  `data: calldata`  
+`}];`
+
+`wallet_sendCalls({`  
+  `calls,`  
+  `capabilities: [`  
+    `{ dataSuffix } // provided by base.dev`  
+  `]`  
+`});`
+
+## **🎉 You’re Done**
+
+Once you add the suffix:
+
+* Your app is fully ERC-8021 compliant  
+* Your activity is attributed onchain  
+* You unlock analytics, rewards, rankings, and future incentives  
+* Wallets and chains can reliably recognize your app
+
+**We give you a random code.**  
+ **We give you the suffix.**  
+ **You attach it.**  
+ **That’s it.**
+
+## **⚡️ Simple Integration Guide (Wagmi \+ ERC-8021 Capability)**
+
+Below is a dead-simple example of how an app attaches the ERC-8021 suffix using wagmi.
+
+Assume:
+
+`const dataSuffix = "0x1234abcd..."; // provided by base.dev`
+
+## **1\. Using wagmi’s `sendCalls` (ERC-5792)**
+
+*(Recommended path — shortest, safest, wallet-native)*
+
+`import { useSendCalls } from 'wagmi/experimental'`
+
+`const dataSuffix = "0x1234abcd..." // provided by base.dev`
+
+`function SendTx() {`  
+  `const { sendCalls } = useSendCalls()`
+
+  `async function submit() {`  
+    `await sendCalls({`  
+      `calls: [`  
+        `{`  
+          `to: "0xYourContract",`  
+          `data: "0xYourCalldata"`  
+        `}`  
+      `],`  
+      `capabilities: [`  
+        `{`  
+          `dataSuffix // ERC-8021 capability`  
+        `}`  
+      `]`  
+    `})`  
+  `}`
+
+  `return <button onClick={submit}>Send</button>`  
+`}`
+
+That’s it. No suffix encoding, no registry lookups, no 4337 branching — wagmi \+ the wallet handle all of it.
+
+## **2\. If you’re using viem directly**
+
+`import { walletClient } from './client'`
+
+`const dataSuffix = "0x1234abcd..."`
+
+`await walletClient.sendCalls({`  
+  `calls: [`  
+    `{`  
+      `to: "0xYourContract",`  
+      `data: "0xYourCalldata"`  
+    `}`  
+  `],`  
+  `capabilities: [`  
+    `{ dataSuffix }`  
+  `]`  
+`})`
+
+## **3\. If you’re still using `writeContract` (EOA only)**
+
+*(Not recommended, but supported)*  
+ You can manually append to calldata:
+
+`await writeContract({`  
+  `address: "0xYourContract",`  
+  `abi,`  
+  `functionName: "yourFn",`  
+  `args: [a, b, c],`  
+  `// WAGMI builds calldata for you; we append the suffix`  
+  `dataSuffix,`  
+`})`
+
+If your wagmi version doesn’t expose a `dataSuffix` field, simply concatenate manually:
+
+`const encoded = encodeFunctionData({`  
+  `abi,`  
+  `functionName: "yourFn",`  
+  `args: [a, b, c],`  
+`})`
+
+`const dataWithSuffix = encoded + dataSuffix.slice(2)`
+
+`await sendTransaction({`  
+  `to: "0xYourContract",`  
+  `data: dataWithSuffix,`  
+`})`
+
+## **4\. ERC-4337 (UserOps) — only if you construct them manually**
+
+Almost no apps do this directly. But if they do:
+
+`userOp.callData = userOp.callData + dataSuffix.slice(2)`
+
+And send it through your bundler or wallet SDK.
+
+## **💡 Summary for builders**
+
+**You don’t need to understand ERC-8021.**  
+ **You only need your suffix.**
+
+Then:
+
+### **Using wagmi \+ 5792**
+
+`capabilities: [{ dataSuffix }]`
+
+### **Everything else happens automatically.**
+
+# Implementation for Wallets
+## **⚡️ ERC-8021 Integration Guide for Wallets**
+
+**Add support for attribution codes with minimal changes.**
+
+This guide shows exactly how to:
+
+1. Accept the `dataSuffix` capability from apps
+
+2. Append the suffix correctly to outgoing transactions
+
+3. Support both EOAs and ERC-4337 smart accounts
+
+4. Do all of the above with almost zero logic or schema awareness
+
+## **1\. Support the ERC-5792 `dataSuffix` capability**
+
+Wallets should accept:
+
+`interface DataSuffixCapability {`  
+  `dataSuffix: string; // hex-encoded bytes`  
+`}`
+
+This appears inside the `capabilities` array of `wallet_sendCalls`.
+
+**What you must do:**
+
+* Look for any capability object that includes `dataSuffix`
+
+* Extract the hex string
+
+* Store it for use when constructing the transaction or user operation
+
+**No decoding, no validation, no schema handling is required.**
+
+Wallets do *not* need to understand what the suffix means—just pass it through verbatim.
+
+## **2\. Append the suffix to calldata depending on account type**
+
+Wallets only need **one conditional branch**.
+
+## **A. If the user is sending an EOA transaction**
+
+Append the suffix to the transaction `data`:
+
+`tx.data = concat(tx.data, dataSuffix)`
+
+This is literally bytes concatenation.
+
+## **B. If the user is sending an ERC-4337 user operation**
+
+Append the suffix to the **userOp.callData**, not the transaction-level calldata:
+
+`userOp.callData = concat(userOp.callData, dataSuffix)`
+
+This ensures parsers see the suffix where the call is actually executed.
+
+## **C. When using `wallet_sendCalls` (ERC-5792)**
+
+If your wallet supports ERC-5792, this is the recommended path.
+
+Steps:
+
+1. Read `capabilities[]`
+
+2. Extract `dataSuffix`
+
+3. For each call in `calls[]`:
+
+   * If EOA → append to `tx.data`
+
+   * If 4337 → append to `userOp.callData`
+
+That’s the entire integration.
+
+## **3\. (Optional) Wallet attribution**
+
+Wallets **may** also include *their own attribution code* (their own ERC-8021 suffix):
+
+* Simply prepend the wallet’s own suffix before the app’s
+
+* No interaction is required with apps
+
+* Multi-code support is built into ERC-8021
+
+Example:
+
+`finalSuffix = walletSuffix + appSuffix`
+
+This is fully supported by the standard.
+
+## **4\. Error handling**
+
+Wallets **do not** need to:
+
+* Validate the encoding
+
+* Parse or interpret the suffix
+
+* Query registries
+
+* Reject malformed codes
+
+If the suffix is malformed, apps are the ones losing attribution—not the wallet.
+
+**Safe failure mode:** append whatever is provided.
+
+## **5\. Minimal example (EOA)**
+
+`function applySuffixToEOA(tx, capabilities) {`  
+  `const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix`  
+  `if (!suffix) return tx`
+
+  `return {`  
+    `...tx,`  
+    `data: tx.data + suffix.slice(2)`  
+  `}`  
+`}`
+
+## **6\. Minimal example (ERC-4337)**
+
+`function applySuffixToUserOp(userOp, capabilities) {`  
+  `const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix`  
+  `if (!suffix) return userOp`
+
+  `return {`  
+    `...userOp,`  
+    `callData: userOp.callData + suffix.slice(2)`  
+  `}`  
+`}`
+
+## **7\. Recap: The full wallet responsibility (very small)**
+
+### **✅ Accept the `dataSuffix` capability**
+
+### **✅ Append suffix to calldata**
+
+* EOAs → `tx.data`
+
+* 4337 → `userOp.callData`
+
+### **Optional: Add wallet attribution code**
+
+### **No: parsing, decoding, validation, or registry interaction**
+
+---
+
+## **📌 TL;DR for wallet engineers**
+
+**“If a call has a `dataSuffix`, append it to calldata before sending.**  
+ **Use transaction.data for EOAs, userOp.callData for 4337\. That’s all.”**
