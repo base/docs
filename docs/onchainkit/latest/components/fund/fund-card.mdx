@@ -1,80 +1,111 @@
 ---
-title: "FundCard"
+title: <FundCard />
+sidebarTitle: <FundCard />
+description: The `<FundCard />` component provides a complete fiat onramp experience with amount input, currency switching, and payment method selection.
 ---
 
 <Frame>
-<img alt="FundCard"
-  src="/images/onchainkit/fund-card.gif"
-  height="364"/>
+  <img
+    alt="FundCard"
+    src="https://mintcdn.com/base-a060aa97/-q4fo0uzIfxlH3Wn/images/onchainkit/fund-card.gif?s=bc5009881dd7bfa9554cb714f8c948fe"
+    height="364"
+    data-og-width="576"
+    data-og-height="360"
+    data-path="images/onchainkit/fund-card.gif"
+    data-optimize="true"
+    data-opv="3"
+  />
 </Frame>
 
 The `<FundCard />` component provides a complete fiat onramp experience within your app. It includes:
 
 - Amount input with fiat/crypto switching
 - Payment method selection (Coinbase, Apple Pay, Debit Card)
+  <Note>
+    The Apple Pay and Debit Card onramp options are only available for Coinbase
+    supported assets.
+  </Note>
 - Automatic exchange rate updates
 - Smart handling of payment method restrictions (based on country and subdivision)
 
-<Note>
-The Apple Pay and Debit Card onramp options are only available for Coinbase supported assets.  
-</Note>
+<Info>
+**Session Token Required:** This utility requires a session token generated on your backend server using your CDP API keys. The session token encapsulates user addresses, supported assets, and client IP.
 
+**Note:** Restricting assets and addresses are done during session token creation on your backend.
 
+See [Session Token Authentication](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication) for implementation details.
+
+</Info>
 <Tip>
-To use the `FundCard` component, you'll need to provide a Client API Key in `OnchainKitProvider`. You can get one following our [Getting Started](/onchainkit/getting-started#get-your-client-api-key) steps.
+  To use the `FundCard` component, you'll need to provide a Client API Key in
+  `OnchainKitProvider`. You can get one following our [Getting
+  Started](/onchainkit/getting-started#get-your-client-api-key) steps.
+
+This component requires a `projectId` to be set in the `OnchainKitProvider`.
+You can find your `projectId` on [Coinbase Developer
+Platform](https://portal.cdp.coinbase.com/products/onchainkit).
+
 </Tip>
 
+## Walkthrough
 
-<Note>
-This component requires a `projectId` to be set in the `OnchainKitProvider`. You can find your `projectId` on [Coinbase Developer Platform](https://portal.cdp.coinbase.com/products/onchainkit).
-</Note>
+<Steps>
+  <Step title="Get your Project ID">
+  1. Get your Project ID from the [Coinbase Developer Platform Dashboard](https://portal.cdp.coinbase.com/).
 
-<Note>
-You'll need a session token for authentication. Learn how to obtain one in the [session token documentation](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication).
-</Note>
+<Frame>
+  <img
+    alt="OnchainKit copy Project Id"
+    src="/images/onchainkit/copy-project-id.png"
+  />
+</Frame>
 
+2. Add your Project ID to your `.env` file.
 
-## Usage
+```tsx .env
+NEXT_PUBLIC_ONCHAINKIT_API_KEY = YOUR_PUBLIC_API_KEY;
+NEXT_PUBLIC_CDP_PROJECT_ID = YOUR_CDP_PROJECT_ID; // [!code ++]
+```
 
-### Drop in the `<FundCard />` component
+  </Step>
+  <Step title="Add Project ID to OnchainKitProvider">
+  ```tsx
+  <OnchainKitProvider
+    apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY} 
+    projectId={process.env.NEXT_PUBLIC_CDP_PROJECT_ID} // [!code ++]
+    chain={base}
+  >
+    {props.children}
+  </OnchainKitProvider>
+  ```
+  </Step>
 
-```tsx
-import { FundCard } from '@coinbase/onchainkit/fund';
+<Step title="Get a session token">
+  [Getting session
+  token](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication)
+</Step>
+
+  <Step title="Drop in the <FundCard /> component">
+  ```tsx
+  import { FundCard } from '@coinbase/onchainkit/fund';
 
 const sessionToken = "YOUR_SESSION_TOKEN";
 
-<FundCard
-  sessionToken={sessionToken}
-  assetSymbol="ETH"
-  country="US"
-  currency="USD"
-/>;
+  <FundCard
+    sessionToken={sessionToken}
+    assetSymbol="ETH"
+    country="US"
+    currency="USD"
+  />
 ```
+</Step>
+</Steps>
 
 <iframe
   src="https://684b5e62b1ff46bc5bf83966-aijszlfakk.chromatic.com/iframe.html?args=&id=onchainkit-fund-card--default&viewMode=story&dark=true&hero=true"
   width="100%"
   height="370px"
 />
-{/* <App>
-  <FundWrapper>
-    {({ address }) => {
-      if (address) {
-        return <FundCard sessionToken={sessionToken} assetSymbol="ETH" country="US" currency="USD" />;
-      }
-      return (
-        <>
-          <Wallet>
-            <ConnectWallet>
-              <Avatar className="h-6 w-6" />
-              <Name />
-            </ConnectWallet>
-          </Wallet>
-        </>
-      );
-    }}
-  </FundWrapper>
-</App> */}
 
 ## Customization
 
@@ -82,7 +113,7 @@ const sessionToken = "YOUR_SESSION_TOKEN";
 
 You can customize the header and button text:
 
-```tsx
+```tsx theme={null}
 <FundCard
   sessionToken={sessionToken}
   assetSymbol="ETH"
@@ -98,40 +129,12 @@ You can customize the header and button text:
   width="100%"
   height="370px"
 />
-{/* <App>
-  <FundWrapper>
-    {({ address }) => {
-      if (address) {
-        return (
-          <FundCard
-            sessionToken={sessionToken}
-            assetSymbol="ETH"
-            country="US"
-            currency="USD"
-            headerText="Purchase Ethereum"
-            buttonText="Purchase"
-          />
-        );
-      }
-      return (
-        <>
-          <Wallet>
-            <ConnectWallet>
-              <Avatar className="h-6 w-6" />
-              <Name />
-            </ConnectWallet>
-          </Wallet>
-        </>
-      );
-    }}
-  </FundWrapper>
-</App> */}
 
 ### Custom Currency
 
 You can specify which fiat currency to use:
 
-```tsx
+```tsx theme={null}
 <FundCard
   sessionToken={sessionToken}
   assetSymbol="ETH"
@@ -144,8 +147,8 @@ You can specify which fiat currency to use:
 
 You can specify preset amount buttons:
 
-```tsx
-const presetAmountInputs = ['10', '20', '50'] as const;
+```tsx theme={null}
+const presetAmountInputs = ["10", "20", "50"] as const;
 
 <FundCard
   sessionToken={sessionToken}
@@ -157,15 +160,15 @@ const presetAmountInputs = ['10', '20', '50'] as const;
 ```
 
 <Note>
-**Note: 3 preset amount inputs are required in order to show the preset amount buttons.**
+  **Note: 3 preset amount inputs are required in order to show the preset amount
+  buttons.**
 </Note>
-
 
 ### Custom Content
 
 You can provide custom children to completely customize the card content while keeping the fund button functionality:
 
-```tsx
+```tsx theme={null}
 <FundCard
   sessionToken={sessionToken}
   assetSymbol="ETH"
@@ -185,7 +188,7 @@ You can provide custom children to completely customize the card content while k
 
 You can also reuse the existing children from the default implementation and add your own custom content.
 
-```tsx
+```tsx theme={null}
 import {
   FundCardHeader,
   FundCardAmountInput,
@@ -193,7 +196,7 @@ import {
   FundCardPresetAmountInputList,
   FundCardPaymentMethodDropdown,
   FundCardSubmitButton,
- } from '@coinbase/onchainkit/fund';
+} from "@coinbase/onchainkit/fund";
 
 <FundCard
   sessionToken={sessionToken}
@@ -201,7 +204,6 @@ import {
   country="US"
   currency="USD"
 >
-
   <h2>Custom Header instead of the default "FundCardHeader" </h2>
   <FundCardAmountInput />
   <FundCardAmountInputTypeSwitch />
@@ -210,53 +212,57 @@ import {
   <FundCardPaymentMethodDropdown />
   <FundCardSubmitButton />
   <div>Any custom content</div>
-</FundCard>
+</FundCard>;
 ```
 
 <Note>
-**Note:** If you are using the custom components then you are going to need to access the state of the `FundCard` component. You can do this by using the `useFundContext` hook.
+  **Note:** If you are using the custom components then you are going to need to
+  access the state of the `FundCard` component. You can do this by using the
+  `useFundContext` hook.
 </Note>
 
-
-```tsx
+```tsx theme={null}
 const {
-    asset,
-    currency,
-    selectedPaymentMethod,
-    setSelectedPaymentMethod,
-    fundAmountFiat,
-    setFundAmountFiat,
-    fundAmountCrypto,
-    setFundAmountCrypto,
-    selectedInputType,
-    setSelectedInputType,
-    exchangeRate,
-    setExchangeRate,
-    exchangeRateLoading,
-    setExchangeRateLoading,
-    submitButtonState,
-    setSubmitButtonState,
-    paymentMethods,
-    setPaymentMethods,
-    paymentMethodsLoading,
-    setPaymentMethodsLoading,
-    headerText,
-    buttonText,
-    country,
-    subdivision,
-    lifecycleStatus,
-    updateLifecycleStatus,
-    presetAmountInputs,
- } = useFundContext();
+  asset,
+  currency,
+  selectedPaymentMethod,
+  setSelectedPaymentMethod,
+  fundAmountFiat,
+  setFundAmountFiat,
+  fundAmountCrypto,
+  setFundAmountCrypto,
+  selectedInputType,
+  setSelectedInputType,
+  exchangeRate,
+  setExchangeRate,
+  exchangeRateLoading,
+  setExchangeRateLoading,
+  submitButtonState,
+  setSubmitButtonState,
+  paymentMethods,
+  setPaymentMethods,
+  isPaymentMethodsLoading,
+  setIsPaymentMethodsLoading,
+  headerText,
+  buttonText,
+  country,
+  subdivision,
+  lifecycleStatus,
+  updateLifecycleStatus,
+  presetAmountInputs,
+  sessionToken,
+} = useFundContext();
 ```
 
 ## Props
 
 [`FundCardProps`](#fundcardprops)
 
-```ts
+```ts theme={null}
 type FundCardProps = {
   children?: ReactNode;
+  /** Required session token for authentication */
+  sessionToken: string;
   assetSymbol: string;
   placeholder?: string | React.ReactNode;
   headerText?: string;
@@ -266,18 +272,16 @@ type FundCardProps = {
   currency?: string;
   className?: string;
   presetAmountInputs?: PresetAmountInputs;
-  /** An optional prop to provide a session token. Required if no fundingUrl is provided */
-  sessionToken?: string;
 } & LifecycleEvents;
 ```
 
 ### FundCardSubmitButtonProps
 
-```ts
+```ts theme={null}
 type FundCardSubmitButtonProps =
   | {
       render?: (props: {
-        state: 'default' | 'success' | 'error' | 'loading';
+        state: "default" | "success" | "error" | "loading";
         onClick: () => void;
         disabled: boolean;
       }) => React.ReactNode; // Custom render function for complete control of submit button rendering
@@ -292,4 +296,3 @@ type FundCardSubmitButtonProps =
 ## Related Components
 
 - [`<FundButton />`](/onchainkit/fund/fund-button)
-
