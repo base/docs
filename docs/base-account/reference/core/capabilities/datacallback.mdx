@@ -25,15 +25,9 @@ type DataCallbackRequestType = {
   type: DataCallbackType;
 }
 
-type DataCallbackEvent = {
-  type: 'initiated' | 'preSign' | 'postSign';
-  context?: Record<string, unknown>;
-  requests?: DataCallbackRequestType[]; // Only for preSign events
-}
-
 type DataCallbackCapability = {
+  requests: DataCallbackRequestType[];
   callbackURL?: string;
-  events: DataCallbackEvent[];
 }
 ```
 
@@ -86,32 +80,18 @@ const response = await provider.request({
     ],
     capabilities: {
       dataCallback: {
+        requests: [
+          {
+            type: "email",
+            optional: false, // Whether this field is optional
+          },
+          {
+            type: "physicalAddress",
+            optional: true,
+          },
+          // Add more requests as needed
+        ],
         callbackURL: "https://your-api.com/validate", // Your validation endpoint
-        events: [
-          {
-            type: "initiated",
-            context: { orderId: "123" } // Optional context data
-          },
-          {
-            type: "preSign",
-            requests: [
-              {
-                type: "email",
-                optional: false, // Whether this field is optional
-              },
-              {
-                type: "physicalAddress",
-                optional: true,
-              },
-              // Add more requests as needed
-            ],
-            context: { shippingTier: "express" } // Optional context data
-          },
-          {
-            type: "postSign",
-            context: { webhookTag: "after" } // Optional context data
-          }
-        ]
       },
     },
   }],
@@ -132,16 +112,7 @@ Your callback API will receive a POST request with the following structure:
   chainId: string;
   capabilities: {
     dataCallback: {
-      callbackURL: string;
-      events: Array<{
-        type: 'initiated' | 'preSign' | 'postSign';
-        context?: Record<string, unknown>;
-        requests?: Array<{
-          type: 'email' | 'phoneNumber' | 'physicalAddress' | 'name';
-          optional?: boolean;
-        }>;
-      }>;
-      requestedInfo?: {
+      requestedInfo: {
         email?: string;
         phoneNumber?: {
           number: string;
