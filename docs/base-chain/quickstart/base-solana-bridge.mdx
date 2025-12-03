@@ -1,16 +1,9 @@
 ---
 title: "Base-Solana Bridge"
 description: "Bridge tokens and messages between Base and Solana Mainnet"
-icon: "bridge"
 ---
 
 import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
-
-<Warning>
-  The Base-Solana bridge is now live on **Base Mainnet ↔︎ Solana Mainnet-Beta**. A mirrored
-  deployment remains on **Base Sepolia ↔︎ Solana Devnet** for testing. Always double-check the
-  network you are targeting, RPC URLs, and contract addresses before sending real value.
-</Warning>
 
 The Base-Solana bridge enables bidirectional token transfers and message passing between Base and
 Solana networks. This bridge allows you to:
@@ -112,168 +105,14 @@ Solana to unlock the native asset. This path offers full custody and requires a 
 
 ## Builder Codes
 
-Builder codes allow developers to attribute bridge traffic and receive rewards when users bridge through their applications. This feature works with the Solana to Base bridge flow, enabling you to:
-
-* **Earn rewards** for driving bridge traffic
-* **Track attribution** for your application's bridge volume
-* **Chain additional calls** on Base while maintaining attribution
-
-<Info>
-Builder codes are currently available for **Solana → Base** bridge flows only.
-</Info>
-
-### Step 0: Register Your Builder Code
-
-For now, Builder Codes are manually assigned by the Base team. Once issued, you'll receive a `bytes32` code to use in your bridge operations.
-
-
-### Hook Data Schema
-
-`hookData` must be exactly the ABI encoding of:
-
-```solidity
-(address user, bytes32 code, uint16 feeBps)
-```
-
-- `user` → The (user) destination address on Base (NOT the Twin contract address)
-- `code` → Your builder code (as bytes32)
-- `feeBps` → Fee in basis points (e.g., 100 for 1%)
-
-**Example:**
-```
-address user   = 0xUSER;
-bytes32 builderCode = 0xBUILDER_CODE;  // Assigned code
-uint16 feeBps      = 100;              // 1%
-
-bytes memory hookData = abi.encode(user, builderCode, feeBps);
-```
-
-### Simple Bridge (No Extra Call)
-
-**Original (no attribution):** Bridge 100 SOL to `0xabc` on Base
-
-```
-outgoing_message_salt: <random>
-to:                  0xabc
-remote_token:        <wSOL on Base>
-amount:              100
-call:                None
-```
-
-**With builder code** (prepend `Flywheel.send`):
-
-```
-outgoing_message_salt: <random>
-to:                  <BRIDGE_CAMPAIGN_ADDRESS>
-remote_token:        <wSOL on Base>
-amount:              100
-call:                Some(call_to_send)
-
-call_to_send:
-  ty:    Call
-  to:    <FLYWHEEL_ADDRESS>
-  value: 0
-  data:  abi.encodeWithSelector(
-           Flywheel.send.selector,
-           <BRIDGE_CAMPAIGN_ADDRESS>,
-           <wSOL_ADDRESS>,
-           hookData // abi.encode(user, builderCode, feeBps)
-         )
-```
-
-<Note>
-**Why `to = BRIDGE_CAMPAIGN_ADDRESS`?**
-
-When using a Builder Code, the token transfer must send the tokens to `BRIDGE_CAMPAIGN_ADDRESS`. That contract will then forward the tokens to the intended user (recipient) on the base network.
-</Note>
-
-### Bridge with Existing Follow-Up Call
-
-**Original (no attribution):** Bridge 100 SOL to `0xabc` on Base, then call `Counter.increment()`
-
-```
-outgoing_message_salt: <random>
-to:                  0xabc
-remote_token:        <wSOL on Base>
-amount:              100
-call:                Some(call)
-
-call:
-  ty:    Call
-  to:    <COUNTER_ADDRESS>
-  value: 0
-  data:  abi.encodeWithSelector(Counter.increment.selector)
-```
-
-**With builder code** (prepend Flywheel + keep Counter call): Wrap both calls in a `Multicall` executed by `DelegateCall` from the Twin contract context.
-
-```
-outgoing_message_salt: <random>
-to:                  <BRIDGE_CAMPAIGN_ADDRESS>
-remote_token:        <wSOL on Base>
-amount:              100
-call:                Some(call_to_send)
-
-call_to_send:
-  ty:    DelegateCall
-  to:    <MULTICALL_ADDRESS>
-  value: 0
-  data:  abi.encodeWithSelector(
-           Multicall.multicall.selector,
-           calls
-         )
-```
-
-Where `calls` is the ABI-encoded array of `Call`:
-
-```solidity
-struct Call {
-  address to;
-  uint256 value;
-  bytes   data;
-}
-
-Call[] memory calls = new Call[](2);
-
-// 1) Flywheel attribution first
-calls[0] = Call({
-  to:    <FLYWHEEL_ADDRESS>,
-  value: 0,
-  data:  abi.encodeWithSelector(
-           Flywheel.send.selector,
-           <BRIDGE_CAMPAIGN_ADDRESS>,
-           <wSOL_ADDRESS>,
-           hookData // abi.encode(user, builderCode, feeBps)
-         )
-});
-
-// 2) Original follow-up
-calls[1] = Call({
-  to:    <COUNTER_ADDRESS>,
-  value: 0,
-  data:  abi.encodeWithSelector(Counter.increment.selector)
-});
-
-bytes memory data = abi.encodeWithSelector(Multicall.multicall.selector, calls);
-```
-
-<Warning>
-**Execution order matters!** `Flywheel.send` must be first so attribution is recorded before subsequent actions and the tokens are properly redistributed to the user.
-</Warning>
-
-### TL;DR
-
-1. Register a builder code and build `hookData = abi.encode(user, code, feeBps)`
-2. Set bridge `to = <BRIDGE_CAMPAIGN_ADDRESS>` and `remote_token = <WRAPPED_TOKEN_ADDRESS_ON_BASE>`
-3. **No extra call?** `call.ty = Call` to `Flywheel.send(...)`
-4. **With extra calls?** `call.ty = DelegateCall` to `Multicall.multicall([ Flywheel.send(...), yourCall(...) ])`
+Builder codes allow developers to attribute bridge traffic and receive rewards when users bridge through their applications. For detailed implementation instructions on integrating Builder Codes with the Solana → Base bridge flow, see the [Builder Codes guide](/base-chain/quickstart/builder-codes#for-base-solana-bridge-developers).
 
 ## Terminally Onchain Example
 
-<GithubRepoCard title="Sol2Base / Terminally Onchain" githubUrl="https://github.com/base/sol2base" />
+<GithubRepoCard title="Terminally Onchain" githubUrl="https://github.com/base/sol2base" />
 
-Terminally Onchain (formerly “sol2base”) is a production Next.js app that exposes the bridge via a
-command terminal UI. Users connect a Solana wallet, type commands such as:
+[Terminally Onchain](https://terminallyonchain.com/) is a production Next.js app that exposes the bridge via a
+command terminal UI. Users connect a Solana wallet, type commands such as to bridge and call a contract on Base:
 
 ```bash
 bridge 0.0001 sol 0xYourTwin --call-contract 0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82 \
@@ -310,13 +149,14 @@ npm run dev   # defaults to http://localhost:3000
 
 <Tip>
 The terminal exposes both Base Sepolia ↔ Solana Devnet and Base Mainnet ↔ Solana Mainnet. Use the
-network dropdown in the UI to switch. In production, set `NEXT_PUBLIC_SOLANA_MAINNET_GAS_RECEIVER`
-and `NEXT_PUBLIC_SOLANA_MAINNET_RPC` to the official addresses to avoid relayer rejections.
+network dropdown in the UI to switch.
+
+Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
 </Tip>
 
 ## Contract Addresses
 
-### Base Mainnet (chain 8453)
+### Base Mainnet
 
 ```json
 {
@@ -328,7 +168,7 @@ and `NEXT_PUBLIC_SOLANA_MAINNET_RPC` to the official addresses to avoid relayer 
 }
 ```
 
-### Solana Mainnet-Beta
+### Solana Mainnet
 
 ```json
 {
@@ -338,14 +178,20 @@ and `NEXT_PUBLIC_SOLANA_MAINNET_RPC` to the official addresses to avoid relayer 
 }
 ```
 
-### Base Sepolia / Solana Devnet (test deployment)
+### Base Sepolia
 
 ```json
 {
   "Bridge": "0x01824a90d32A69022DdAEcC6C5C14Ed08dB4EB9B",
   "BridgeValidator": "0xa80C07DF38fB1A5b3E6a4f4FAAB71E7a056a4EC7",
   "CrossChainERC20Factory": "0x488EB7F7cb2568e31595D48cb26F63963Cc7565D",
-  "WrappedSOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC",
+  "WrappedSOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC"
+}
+```
+
+### Solana Devnet
+```json
+{
   "BridgeProgram": "7c6mteAcTXaQ1MFBCrnuzoZVTTAEfZwa6wgy4bqX3KXC",
   "BaseRelayerProgram": "56MBBEYAtQAdjT4e1NzHD8XaoyRSTvfgbSVVcEcHj51H",
   "GasFeeReceiver": "AFs1LCbodhvwpgX3u3URLsud6R1XMSaMiQ5LtXw4GKYT"
