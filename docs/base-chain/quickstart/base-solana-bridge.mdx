@@ -88,7 +88,7 @@ The Solana to Base bridge uses a pull-based model that requires 3 steps:
 2. **Wait for validators to pre-approve the message** - Validators verify and approve your bridge message
 3. **Execute the message on Base** - The approved message is executed on Base to mint SOL and execute any additional arbitrary calls
 <Info>
-When bridging from Solana to Base, native SOL/SPL are locked and wrapped WSOL/ERC20 is minted on Base.
+When bridging from Solana to Base, native SOL/SPL are locked and ERC20 SOL is minted on Base.
 </Info>
 
 Reference scripts (auto-relay, token wrapping, CLI utilities) live in the `scripts/` directory of the official repository:
@@ -97,7 +97,7 @@ Reference scripts (auto-relay, token wrapping, CLI utilities) live in the `scrip
 
 ## Base to Solana
 
-**Flow:** Burn WSOL/ERC20 on Base → Wait for finalization → Generate Merkle proof → Execute on Solana
+**Flow:** Burn ERC20 SOL on Base → Wait for finalization → Generate Merkle proof → Execute on Solana
 
 Burn wrapped tokens on Base, wait for the message to become provable, then execute the proof on
 Solana to unlock the native asset. This path offers full custody and requires a prover.
@@ -121,7 +121,7 @@ The workflow:
 1. **Parse command:** The terminal parser resolves the asset, destination, and optional Base call (selector + args + value).
 2. **Stage bridge:** `queueBridge` validates SPL overrides, ABI-encodes the Base call via `encodeFunctionData`, and stages relay overrides.
 3. **Execute:** `solanaBridge.bridge()` resolves the destination (ENS/Basename), ensures balances, and calls `realBridgeImplementation` to sign and send the Solana transaction.
-4. **Relay + Call:** If relay gas is prepaid, the Base Relayer executes the attached call from the user’s Twin contract immediately after WSOL is minted.
+4. **Relay + Call:** If relay gas is prepaid, the Base Relayer executes the attached call from the user’s Twin contract immediately after ERC20 SOL is minted.
 
 Key implementation references:
 
@@ -159,7 +159,7 @@ Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
   "Bridge": "0x3eff766C76a1be2Ce1aCF2B69c78bCae257D5188",
   "BridgeValidator": "0xAF24c1c24Ff3BF1e6D882518120fC25442d6794B",
   "CrossChainERC20Factory": "0xDD56781d0509650f8C2981231B6C917f2d5d7dF2",
-  "WrappedSOL": "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82"
+  "SOL": "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82"
 }
 ```
 
@@ -179,7 +179,7 @@ Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
   "Bridge": "0x01824a90d32A69022DdAEcC6C5C14Ed08dB4EB9B",
   "BridgeValidator": "0xa80C07DF38fB1A5b3E6a4f4FAAB71E7a056a4EC7",
   "CrossChainERC20Factory": "0x488EB7F7cb2568e31595D48cb26F63963Cc7565D",
-  "WrappedSOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC"
+  "SOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC"
 }
 ```
 
