@@ -9,7 +9,8 @@ The Base-Solana bridge enables bidirectional token transfers and message passing
 Solana networks. This bridge allows you to:
 
 * **Transfer tokens** between Base and Solana
-* **Send arbitrary cross-chain messages** (optionally combined with a transfer of tokens)
+* **Send arbitrary cross-chain messages**
+* **Combine both flows (transfer with arbitrary calls)**
 * **Deploy wrapped tokens** on either chain
 
 This guide covers the bridge architecture, the production addresses, and practical implementation
@@ -88,21 +89,144 @@ The Solana to Base bridge uses a pull-based model that requires 3 steps:
 2. **Wait for validators to pre-approve the message** - Validators verify and approve your bridge message
 3. **Execute the message on Base** - The approved message is executed on Base to mint SOL and execute any additional arbitrary calls
 <Info>
-When bridging from Solana to Base, native SOL/SPL are locked and wrapped WSOL/ERC20 is minted on Base.
+When bridging from Solana to Base, native SOL/SPL are locked and ERC20 SOL is minted on Base.
 </Info>
 
 Reference scripts (auto-relay, token wrapping, CLI utilities) live in the `scripts/` directory of the official repository:
 
 <GithubRepoCard title="Solana → Base CLI Scripts" githubUrl="https://github.com/base/bridge/tree/main/scripts/src/commands/sol/onchain/bridge" />
 
+### Auto-Relay Example
+This is a sample script that shows how to bridge SOL with auto-relay
+
+```typescript solToBaseWithAutoRelay/index.ts expandable
+// Configure
+const TO = "0x8c1a617bdb47342f9c17ac8750e0b070c372c721"; // Base address
+const AMOUNT = 0.001; // SOL amount
+
+// Bridge SOL with auto-relay
+const ixs = [
+  getBridgeSolInstruction({
+    payer,
+    from: payer,
+    solVault: solVaultAddress,
+    bridge: bridgeAccountAddress,
+    outgoingMessage,
+    to: toBytes(TO),
+    remoteToken: toBytes("0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD"), // SOL on Base
+    amount: BigInt(AMOUNT * 10**9),
+  }),
+  await buildPayForRelayIx(RELAYER_PROGRAM_ID, outgoingMessage, payer)
+];
+
+await buildAndSendTransaction(SOLANA_RPC_URL, ixs, payer);
+```
+
+For more details, see the [Solana to Base Relay Script](https://github.com/base/bridge/blob/main/scripts/src/commands/sol/onchain/bridge/solana-to-base/bridge-sol.handler.ts).
+
+### Wrap Custom SPL Tokens
+
+The example above shows how to bridge native SOL to Base.
+To bridge custom SPL tokens,
+you need to create wrapped ERC20 representations on Base using the CrossChainERC20Factory.
+
+<GithubRepoCard title="Token Wrapping Example" githubUrl="https://github.com/base/bridge/blob/main/scripts/src/commands/sol/onchain/bridge/solana-to-base/wrap-token.handler.ts" />
+
+```typescript wrapSolTokenOnBase/index.ts expandable
+// Deploy wrapped token on Base
+const mintBytes32 = getBase58Codec().encode(SOLANA_SPL_MINT_ADDRESS).toHex();
+
+await client.writeContract({
+  address: "0x58207331CBF8Af87BB6453b610E6579D9878e4EA", // Factory
+  abi: TokenFactory,
+  functionName: "deploy",
+  args: [`0x${mintBytes32}`, "Token Name", "SYMBOL", 9],
+});
+```
+
 ## Base to Solana
 
-**Flow:** Burn WSOL/ERC20 on Base → Wait for finalization → Generate Merkle proof → Execute on Solana
+**Flow:** Burn ERC20 SOL on Base → Wait for finalization → Generate Merkle proof → Execute on Solana
 
 Burn wrapped tokens on Base, wait for the message to become provable, then execute the proof on
 Solana to unlock the native asset. This path offers full custody and requires a prover.
 
 <GithubRepoCard title="Base → Solana Example" githubUrl="https://github.com/base/bridge/blob/main/scripts/src/internal/sol/base.ts" />
+
+```typescript bridgeSolFromBaseToSolana/index.ts expandable
+// Step 1: Burn SOL on Base
+const transfer = {
+  localToken: "0xC5b9112382f3c87AFE8e1A28fa52452aF81085AD", // SOL (on Base)
+  remoteToken: pubkeyToBytes32(SOL_ADDRESS),
+  to: pubkeyToBytes32(solanaAddress),
+  remoteAmount: BigInt(AMOUNT * 10**9),
+};
+
+const txHash = await client.writeContract({
+  address: "0xB2068ECCDb908902C76E3f965c1712a9cF64171E", // Bridge
+  abi: Bridge,
+  functionName: "bridgeToken",
+  args: [transfer, []],
+});
+
+// Step 2: Wait for finalization
+const isProvable = await isBridgeMessageProvable(txHash);
+
+// Step 3: Generate proof
+const { event, rawProof } = await generateProof(txHash, baseBlockNumber);
+
+// Step 4: Execute on Solana
+const proveIx = getProveMessageInstruction({
+  nonce: event.message.nonce,
+  sender: toBytes(event.message.sender),
+  data: toBytes(event.message.data),
+  proof: rawProof.map(e => toBytes(e)),
+  messageHash: toBytes(event.messageHash),
+});
+
+const relayIx = getRelayMessageInstruction({ message: messagePda });
+await buildAndSendTransaction(SOLANA_RPC_URL, [proveIx, relayIx], payer);
+```
+
+## Utilities
+
+The repository includes utilities for converting between Solana and Base address formats,
+getting your Solana CLI keypair for signing transactions,
+and building and sending Solana transactions.
+
+<GithubRepoCard title="Base Bridge Examples - Utilities" githubUrl="https://github.com/base/bridge/tree/main/scripts/src/commands" />
+
+### Address Conversion
+
+Convert Solana pubkey to bytes32 for Base contracts:
+```typescript example.ts
+// Convert Solana pubkey to bytes32 for Base contracts
+import { pubkeyToBytes32 } from "./utils/pubkeyToBytes32";
+
+const bytes32Address = pubkeyToBytes32(solanaAddress);
+```
+
+### Keypair Management
+
+Get your Solana CLI keypair for signing transactions:
+
+```typescript example.ts
+import { getSolanaCliConfigKeypairSigner } from "./utils/keypair";
+
+const payer = await getSolanaCliConfigKeypairSigner();
+```
+
+### Transaction Building
+
+Build and send Solana transactions:
+
+```typescript example.ts
+import { buildAndSendTransaction } from "./utils/buildAndSendTransaction";
+
+const signature = await buildAndSendTransaction(SOLANA_RPC_URL, ixs, payer);
+```
+
+
 ## Terminally Onchain Example
 
 <GithubRepoCard title="Terminally Onchain" githubUrl="https://github.com/base/sol2base" />
@@ -121,7 +245,7 @@ The workflow:
 1. **Parse command:** The terminal parser resolves the asset, destination, and optional Base call (selector + args + value).
 2. **Stage bridge:** `queueBridge` validates SPL overrides, ABI-encodes the Base call via `encodeFunctionData`, and stages relay overrides.
 3. **Execute:** `solanaBridge.bridge()` resolves the destination (ENS/Basename), ensures balances, and calls `realBridgeImplementation` to sign and send the Solana transaction.
-4. **Relay + Call:** If relay gas is prepaid, the Base Relayer executes the attached call from the user’s Twin contract immediately after WSOL is minted.
+4. **Relay + Call:** If relay gas is prepaid, the Base Relayer executes the attached call from the user’s Twin contract immediately after ERC20 SOL is minted.
 
 Key implementation references:
 
@@ -159,7 +283,7 @@ Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
   "Bridge": "0x3eff766C76a1be2Ce1aCF2B69c78bCae257D5188",
   "BridgeValidator": "0xAF24c1c24Ff3BF1e6D882518120fC25442d6794B",
   "CrossChainERC20Factory": "0xDD56781d0509650f8C2981231B6C917f2d5d7dF2",
-  "WrappedSOL": "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82"
+  "SOL": "0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82"
 }
 ```
 
@@ -179,7 +303,7 @@ Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
   "Bridge": "0x01824a90d32A69022DdAEcC6C5C14Ed08dB4EB9B",
   "BridgeValidator": "0xa80C07DF38fB1A5b3E6a4f4FAAB71E7a056a4EC7",
   "CrossChainERC20Factory": "0x488EB7F7cb2568e31595D48cb26F63963Cc7565D",
-  "WrappedSOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC"
+  "SOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC"
 }
 ```
 
@@ -191,38 +315,6 @@ Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
   "GasFeeReceiver": "AFs1LCbodhvwpgX3u3URLsud6R1XMSaMiQ5LtXw4GKYT"
 }
 ```
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title="Incorrect gas fee receiver">
-    A mismatch triggers `Error Code: 12300`. Instead of hardcoding the receiver address, query it directly from the [bridge config](https://github.com/base/bridge/blob/main/solana/programs/bridge/src/common/state/bridge.rs#L170). See the [bridge script](https://github.com/base/bridge/blob/main/scripts/src/commands/sol/bridge/solana-to-base/bridge-sol.handler.ts#L92) for an example.
-  </Accordion>
-  <Accordion title="RPC 403 on mainnet">
-    Public Solana RPC endpoints throttle cross-origin requests. Set
-    `NEXT_PUBLIC_SOLANA_MAINNET_RPC` (or the equivalent in your client) to a dedicated provider such
-    as Helius, Triton, or QuickNode.
-  </Accordion>
-  <Accordion title="Message not appearing on Solana">
-    * Wait ~15 minutes for Base finality and relay.
-    * Confirm the Base tx emitted `MessageRegistered`.
-    * Verify you are using consistent network pairs (Mainnet/Mainnet or Sepolia/Devnet).
-  </Accordion>
-  <Accordion title="Proof verification failed">
-    * Use the latest provable block number.
-    * Confirm the message hash and Merkle proof correspond to the same transaction.
-    * Ensure all PDAs / account seeds are derived with the correct program IDs per environment.
-  </Accordion>
-</AccordionGroup>
-
-## Security
-
-<Warning>
-  * Never mix testnet and mainnet addresses or RPC endpoints.
-  * Validate all destination addresses before bridging.
-  * Monitor both Base and Solana explorers for your transactions.
-  * Keep private keys and API keys secure; never expose them in client bundles.
-</Warning>
 
 ## Resources
 
