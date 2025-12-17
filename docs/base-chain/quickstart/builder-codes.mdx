@@ -17,127 +17,13 @@ Once your app is registered on [Base.dev](http://base.dev/), the Base App will a
 **Builder Code analytics currently only support Smart Account (AA) transactions.** EOA support is coming soon. Your attribution data is preserved and will appear once EOA support is activated.
 </Warning>
 
-
-
 ## For App Developers
-
-<Note>
-Mini Apps in the Base app will have their builder codes auto-appended to their transactions. 
-Be sure to [register for Base.dev](https://base.dev/)
-</Note>
-
-Integrating Builder Codes requires appending a suffix—provided by Base—to your transaction data.
-
-<Steps>
-  <Step title="Get your Builder Code">
 
 When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `k3p9da`) that you'll use to generate your attribution suffix. 
 
 You can find your code anytime under **Settings** → **Builder Code**.
-  
-  </Step>
 
-  <Step title="Append the Suffix to Transactions">
-    The recommended way to attach your suffix is using `wallet_sendCalls` (ERC-5792). This passes the suffix through a capability, allowing the wallet to handle the attachment automatically for both EOA and Smart Account (ERC-4337) users.
-
-    <Tabs>
-      <Tab title="Wagmi (Recommended)">
-        Use the `useSendCalls` hook from Wagmi's features to pass the `dataSuffix` capability.
-
-        ```typescript lines highlight={14-16}
-        import { useSendCalls } from 'wagmi'
-        import { Attribution } from 'ox/erc8021'
-        
-        // Your builder code provided by base.dev
-        const builderCode = "abcd1234" 
-        const dataSuffix = Attribution.toDataSuffix({
-            codes: [builderCode]
-        })
-
-        function SendTx() {
-          const { sendCalls } = useSendCalls()
-
-          async function submit() {
-            await sendCalls({
-              calls: [
-                {
-                  to: "0xYourContract",
-                  data: "0xYourCalldata"
-                }
-              ],
-              capabilities: {
-                dataSuffix: dataSuffix
-              }
-            })
-          }
-
-          return <button onClick={submit}>Send</button>
-        }
-        ```
-      </Tab>
-      <Tab title="Viem">
-        If you are using Viem directly, pass the `dataSuffix` in the `capabilities` object.
-
-        ```typescript lines highlight={11-13}
-        import { walletClient } from './client'
-        import { Attribution } from 'ox/erc8021'
-        
-        // Your builder code provided by base.dev
-        const builderCode = "abcd1234" 
-        const dataSuffix = Attribution.toDataSuffix({
-            codes: [builderCode]
-        })
-
-        await walletClient.sendCalls({
-          calls: [
-            {
-              to: "0xYourContract",
-              data: "0xYourCalldata"
-            }
-          ],
-          capabilities: {
-            dataSuffix: dataSuffix
-          }
-        })
-        ```
-      </Tab>
-      <Tab title="Legacy (writeContract)">
-        If you are restricted to `writeContract` (EOA only), you must manually append the suffix to the calldata. This is **not recommended** as it does not support Smart Accounts automatically.
-
-        ```typescript lines highlight={15}
-        import { encodeFunctionData } from 'viem'
-        import { Attribution } from 'ox/erc8021'
-        
-        // Your builder code provided by base.dev
-        const builderCode = "abcd1234" 
-        const dataSuffix = Attribution.toDataSuffix({
-            codes: [builderCode]
-        })
-
-        // 1. Encode your function call
-        const encoded = encodeFunctionData({
-          abi,
-          functionName: "yourFn",
-          args: [a, b, c],
-        })
-
-        // 2. Manually append the suffix (stripping the '0x' prefix from the suffix)
-        const dataWithSuffix = encoded + dataSuffix.slice(2)
-
-        // 3. Send the transaction
-        await sendTransaction({
-          to: "0xYourContract",
-          data: dataWithSuffix,
-        })
-        ```
-      </Tab>
-    </Tabs>
-  </Step>
-</Steps>
-
-Once you have added the suffix, your app is fully ERC-8021 compliant.
-
----
+<Callout icon="clock" color="#3B82F6" iconType="regular">Manual appending outside of the Base app is coming soon.</Callout>
 
 ## For Wallet Developers
 
