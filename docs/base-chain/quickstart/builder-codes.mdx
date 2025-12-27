@@ -13,17 +13,123 @@ Each code has associated metadata. Onchain metadata primarily includes a “payo
 
 Once your app is registered on [Base.dev](http://base.dev/), the Base App will auto-append your Base Builder Code to transactions its users make in your app (e.g. via your mini app, or the Base App's browser). This powers your onchain analytics in [Base.dev](http://base.dev/) and qualifies you for potential future rewards.
 
-<Warning>
-**Builder Code analytics currently only support Smart Account (AA) transactions.** EOA support is coming soon. Your attribution data is preserved and will appear once EOA support is activated.
-</Warning>
+
 
 ## For App Developers
 
-When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `k3p9da`) that you'll use to generate your attribution suffix. 
+<Note>
+Mini Apps in the Base app will have their builder codes auto-appended to their transactions. 
+Be sure to [register for Base.dev](https://base.dev/)
+</Note>
 
-You can find your code anytime under **Settings** → **Builder Code**.
+Integrating Builder Codes requires appending a suffix—provided by Base—to your transaction data.
 
-<Callout icon="clock" color="#3B82F6" iconType="regular">Manual appending outside of the Base app is coming soon.</Callout>
+<Steps>
+  <Step title="Get your Builder Code">
+    When you register on **base.dev**, you will receive a **Builder Code**. This is a random string (e.g., `k3p9da`) that you will use to generate your attribution suffix.
+  </Step>
+
+  <Step title="Append the Suffix to Transactions">
+    The recommended way to attach your suffix is using `wallet_sendCalls` (ERC-5792). This passes the suffix through a capability, allowing the wallet to handle the attachment automatically for both EOA and Smart Account (ERC-4337) users.
+
+    <Tabs>
+      <Tab title="Wagmi (Recommended)">
+        Use the `useSendCalls` hook from Wagmi's features to pass the `dataSuffix` capability.
+
+        ```typescript lines highlight={14-16}
+        import { useSendCalls } from 'wagmi'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
+
+        function SendTx() {
+          const { sendCalls } = useSendCalls()
+
+          async function submit() {
+            await sendCalls({
+              calls: [
+                {
+                  to: "0xYourContract",
+                  data: "0xYourCalldata"
+                }
+              ],
+              capabilities: {
+                dataSuffix: dataSuffix
+              }
+            })
+          }
+
+          return <button onClick={submit}>Send</button>
+        }
+        ```
+      </Tab>
+      <Tab title="Viem">
+        If you are using Viem directly, pass the `dataSuffix` in the `capabilities` object.
+
+        ```typescript lines highlight={11-13}
+        import { walletClient } from './client'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
+
+        await walletClient.sendCalls({
+          calls: [
+            {
+              to: "0xYourContract",
+              data: "0xYourCalldata"
+            }
+          ],
+          capabilities: {
+            dataSuffix: dataSuffix
+          }
+        })
+        ```
+      </Tab>
+      <Tab title="Legacy (writeContract)">
+        If you are restricted to `writeContract` (EOA only), you must manually append the suffix to the calldata. This is **not recommended** as it does not support Smart Accounts automatically.
+
+        ```typescript lines highlight={15}
+        import { encodeFunctionData } from 'viem'
+        import { Attribution } from 'ox/erc8021'
+        
+        // Your builder code provided by base.dev
+        const builderCode = "abcd1234" 
+        const dataSuffix = Attribution.toDataSuffix({
+            codes: [builderCode]
+        })
+
+        // 1. Encode your function call
+        const encoded = encodeFunctionData({
+          abi,
+          functionName: "yourFn",
+          args: [a, b, c],
+        })
+
+        // 2. Manually append the suffix (stripping the '0x' prefix from the suffix)
+        const dataWithSuffix = encoded + dataSuffix.slice(2)
+
+        // 3. Send the transaction
+        await sendTransaction({
+          to: "0xYourContract",
+          data: dataWithSuffix,
+        })
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+Once you have added the suffix, your app is fully ERC-8021 compliant.
+
+---
 
 ## For Wallet Developers
 
@@ -102,7 +208,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
 Onchain Builder codes are currently still not live on mainnet.
 </Warning>
 
-Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-solana-bridge) via the [`hookData`](https://github.com/base/flywheel/blob/30266bba4649b0eb161e55bfa4755651049a5d1f/src/hooks/BridgeReferralFees.sol#L75) mechanism. Currently available for **Solana → Base** flows only.
+Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-solana-bridge) via the `hookData` mechanism. Currently available for **Solana → Base** flows only.
 
 <Steps>
   <Step title="Get your Builder Code">
@@ -115,7 +221,7 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
     ```solidity
     bytes memory hookData = abi.encode(
       0xUSER,           // destination address on Base (NOT the Twin)
-      0xBUILDER_CODE,   // your builder code in type string memory
+      0xBUILDER_CODE,   // your bytes32 code
       100               // feeBps (100 = 1%)
     );
     ```
@@ -156,7 +262,7 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
           data:  abi.encodeWithSelector(
                    Flywheel.send.selector,
                    <BRIDGE_CAMPAIGN_ADDRESS>,
-                   <SOL_ADDRESS>, // 0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82 on Base Mainnet
+                   <wSOL_ADDRESS>, // 0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82 on Base Mainnet
                    hookData
                  )
         });
@@ -187,7 +293,7 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
 ## Give feedback!
 
 <Note>
-Base is constantly working to improve the Builder Codes experience. If you have any feedback, please let the team know  [here](https://t.co/zwvtmXXzGz).
+We're constantly working to improve the Builder Codes experience. If you have any feedback, please let us know  [here](https://t.co/zwvtmXXzGz).
 </Note>
 
 
