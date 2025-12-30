@@ -4,7 +4,6 @@ description: Glossary of Types.
 sidebarTitle: Fund
 ---
 
-
 ## `FundCardPropsReact`
 
 ```ts
@@ -27,23 +26,23 @@ type FundCardPropsReact = {
 ```ts
 type LifecycleStatus =
   | {
-      statusName: 'init';
+      statusName: "init";
       statusData: null;
     }
   | {
-      statusName: 'exit';
+      statusName: "exit";
       statusData: null;
     }
   | {
-      statusName: 'error';
+      statusName: "error";
       statusData: OnrampError;
     }
   | {
-      statusName: 'transactionSuccess';
+      statusName: "transactionSuccess";
       statusData: SuccessEventData;
     }
   | {
-      statusName: 'transactionPending';
+      statusName: "transactionPending";
       statusData: null;
     };
 ```
@@ -51,7 +50,7 @@ type LifecycleStatus =
 ## `PresetAmountInputs`
 
 ```ts
- type PresetAmountInputItemPropsReact = {
+type PresetAmountInputItemPropsReact = {
   presetAmountInput: string;
   currency: string;
   onClick: (presetAmountInput: string) => void;
@@ -77,78 +76,31 @@ type FundButtonReact = {
   hideText?: boolean; // An optional prop to hide the text in the button component
   hideIcon?: boolean; // An optional prop to hide the icon in the button component
   fundingUrl?: string; // An optional prop to provide a custom funding URL
-  openIn?: 'popup' | 'tab'; // Whether to open the funding flow in a tab or a popup window
+  openIn?: "popup" | "tab"; // Whether to open the funding flow in a tab or a popup window
   /**
    * Note: popupSize will be ignored when using a Coinbase Onramp URL
    * (i.e. https://pay.coinbase.com/*) as it requires a fixed popup size.
    */
-  popupSize?: 'sm' | 'md' | 'lg'; // Size of the popup window if `openIn` is set to `popup`
+  popupSize?: "sm" | "md" | "lg"; // Size of the popup window if `openIn` is set to `popup`
   rel?: string; // Specifies the relationship between the current document and the linked document
   target?: string; // Where to open the target if `openIn` is set to tab
 };
 ```
 
-## `GetOnrampUrlWithProjectIdParams`
-
-Props used to get an Onramp buy URL by directly providing a CDP project ID.
-
-See https://docs.cdp.coinbase.com/onramp/docs/api-initializing#generating-the-coinbase-onramp-buysell-url
-
-```ts
-type GetOnrampUrlWithProjectIdParams = {
-  /**
-   * The Project ID of your CDP project created at {@link https://portal.cdp.coinbase.com/}
-   * This must be provided if you don't provide a sessionToken.
-   */
-  projectId: string;
-  sessionToken?: never; // You cannot provide sessionToken when using projectId
-  /**
-   * The addresses to which the customer's funds should be delivered.
-   *
-   * Each entry in the record represents a wallet address and the networks it is valid for. There should only be a
-   * single address for each network your app supports. Users will be able to buy/send any asset supported by any of
-   * the networks you specify. See the assets param if you want to restrict the available assets.
-   *
-   * Some common examples:
-   *
-   * Support all assets that are available for sending on the base network, only on the base network:
-   *
-   * `{ "0x1": ["base"] }`
-   */
-  addresses: Record<string, string[]>;
-  /**
-   * This optional parameter will restrict the assets available for the user to buy/send. It acts as a filter on the
-   * networks specified in the {addresses} param.
-   *
-   * Some common examples:
-   *
-   * Support only USDC on either the base network or the ethereum network:
-   *
-   * `addresses: { "0x1": ["base", "ethereum"] }, assets: ["USDC"]`
-   *
-   * The values in this list can either be asset symbols like BTC, ETH, or asset UUIDs that you can get from the Buy
-   * Options API {@link https://docs.cdp.coinbase.com/onramp/docs/api-configurations/#buy-options}.
-   */
-  assets?: string[];
-} & GetOnrampBuyUrlOptionalProps;
-```
-
-## `GetOnrampUrlWithSessionTokenParams`
+## `GetOnrampUrlParams`
 
 Props used to get an Onramp buy URL using a session token created using the Onramp session token API.
 
-See https://docs.cdp.coinbase.com/onramp/docs/api-initializing#getting-an-coinbase-onramp-buysell-session-token
+See [Session Token Authentication](https://docs.cdp.coinbase.com/onramp-&-offramp/session-token-authentication)
 
 ```ts
-type GetOnrampUrlWithSessionTokenParams = {
+type GetOnrampUrlParams = {
   /**
    * A session token created using the Onramp session token API. The token will
    * be linked to the project ID, addresses, and assets params provided in the
+   * create session token API request.
    */
   sessionToken: string;
-  projectId?: never; // You cannot provide projectId when using sessionToken
-  addresses?: never; // You cannot provide addresses when using sessionToken
-  assets?: never; // You cannot provide assets when using sessionToken
 } & GetOnrampBuyUrlOptionalProps;
 ```
 
@@ -189,6 +141,12 @@ type GetOnrampBuyUrlOptionalProps = {
    */
   presetFiatAmount?: number;
   /**
+   * The default payment method that will be selected for the user in the
+   * Onramp UI. Should be one of the payment methods supported for the user's
+   * location.
+   */
+  defaultPaymentMethod?: string;
+  /**
    * The currency code of the fiat amount provided in the presetFiatAmount
    * param e.g. USD, CAD, EUR.
    */
@@ -199,6 +157,11 @@ type GetOnrampBuyUrlOptionalProps = {
    * Coinbase Developer Platform (https://portal.cdp.coinbase.com/products/onramp).
    */
   redirectUrl?: string;
+  /**
+   * The name of the component that is calling the Onramp buy URL. This will
+   * be used for analytics.
+   */
+  originComponentName?: string;
 };
 ```
 
@@ -298,7 +261,6 @@ type OnrampTransaction = {
   paymentMethod: string;
   transactionId: string;
 };
-
 ```
 
 ## `SuccessEventData`
@@ -317,10 +279,10 @@ type SuccessEventData = {
 ```ts
 type OnrampError = {
   errorType:
-    | 'internal_error'
-    | 'handled_error'
-    | 'network_error'
-    | 'unknown_error';
+    | "internal_error"
+    | "handled_error"
+    | "network_error"
+    | "unknown_error";
   code?: string;
   debugMessage?: string;
 };
@@ -374,4 +336,3 @@ type OnrampQuoteResponseData = {
   quoteId: string;
 };
 ```
-

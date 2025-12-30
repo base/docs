@@ -1,13 +1,12 @@
 ---
 title: "fetchPermissions"
-description: "Retrieve available Spend Permissions for an account, chain, and spender"
+description: "Retrieve available Spend Permissions for an account and chain, optionally filtered by spender"
 ---
 
 Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 
 <Info>
-  Returns all permissions available to a given `spender` for a user's Base
-  Account on a specific chain.
+  Returns permissions for a user's Base Account on a specific chain. If a `spender` is provided, returns only permissions for that spender. Otherwise, returns all permissions for the account.
 </Info>
 
 ## Parameters
@@ -20,12 +19,12 @@ Defined in the [Base Account SDK](https://github.com/base/account-sdk)
   Target chain ID.
 </ParamField>
 
-<ParamField body="spender" type="address" required>
-  Spender address you intend to use for spending.
+<ParamField body="spender" type="address">
+  Optional. Spender address you intend to use for spending. If not provided, returns all permissions for the account.
 </ParamField>
 
-<ParamField body="provider" type="EIP1193Provider" required>
-  EIP-1193 compliant Ethereum provider instance. Get this from `sdk.getProvider()`.
+<ParamField body="provider" type="EIP1193Provider">
+  Optional. EIP-1193 compliant Ethereum provider instance. Get this from `sdk.getProvider()`. If not provided, uses the default SDK provider.
 </ParamField>
 
 ## Returns
@@ -65,7 +64,7 @@ Underlying permission fields.
 </ResponseField>
 
 <RequestExample>
-```typescript Fetch permissions
+```typescript Fetch permissions for specific spender
 import { fetchPermissions } from "@base-org/account/spend-permission";
 import { createBaseAccountSDK } from "@base-org/account";
 
@@ -75,11 +74,18 @@ const sdk = createBaseAccountSDK({
   appChainIds: [84532],
 });
 
+// Fetch permissions for a specific spender
 const permissions = await fetchPermissions({
   account: "0xUserBaseAccountAddress",
   chainId: 84532,
   spender: "0xAppSpenderAddress",
   provider: sdk.getProvider(),
+});
+
+// Fetch all permissions for the account (omitting spender)
+const allPermissions = await fetchPermissions({
+  account: "0xUserBaseAccountAddress",
+  chainId: 84532,
 });
 ```
 </RequestExample>

@@ -1,0 +1,194 @@
+---
+title: "Base Builder Codes" 
+description: "Integrate Builder Codes to attribute onchain activity to your app or wallet."
+---
+
+## What are Builder Codes
+
+Base Builder Codes are an ERC-721 NFT collection where unique codes (e.g. “abc123”) are minted to help identify builders onchain.
+
+Each code has associated metadata. Onchain metadata primarily includes a “payout address” where each code declares where potential rewards should be sent to. Offchain metadata includes more details about the app including its name and site.
+
+## Automatic Builder-Code Attribution on Base
+
+Once your app is registered on [Base.dev](http://base.dev/), the Base App will auto-append your Base Builder Code to transactions its users make in your app (e.g. via your mini app, or the Base App's browser). This powers your onchain analytics in [Base.dev](http://base.dev/) and qualifies you for potential future rewards.
+
+<Warning>
+**Builder Code analytics currently only support Smart Account (AA) transactions.** EOA support is coming soon. Your attribution data is preserved and will appear once EOA support is activated.
+</Warning>
+
+## For App Developers
+
+When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `k3p9da`) that you'll use to generate your attribution suffix. 
+
+You can find your code anytime under **Settings** → **Builder Code**.
+
+<Callout icon="clock" color="#3B82F6" iconType="regular">Manual appending outside of the Base app is coming soon.</Callout>
+
+## For Wallet Developers
+
+Wallet providers need to support the `dataSuffix` capability to enable attribution. This involves accepting the capability and appending the suffix to the calldata before signing.
+
+<Steps>
+  <Step title="Support the dataSuffix Capability">
+    Your wallet should accept a `dataSuffix` string in the `capabilities` object of `wallet_sendCalls`.
+
+    ```typescript lines
+    interface DataSuffixCapability {
+      dataSuffix: string; // hex-encoded bytes provided by the app
+    }
+    ```
+  </Step>
+
+  <Step title="Append Suffix to Calldata">
+    When constructing the transaction or User Operation, extract the `dataSuffix` and append it to the calldata.
+
+    <Tabs>
+      <Tab title="EOA Transactions">
+        Append to `tx.data`.
+
+        ```typescript lines
+        // Minimal example for EOA
+        function applySuffixToEOA(tx, capabilities) {
+          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          if (!suffix) return tx
+
+          return {
+            ...tx,
+            // Append suffix bytes (remove 0x prefix from suffix if tx.data has it)
+            data: tx.data + suffix.slice(2) 
+          }
+        }
+        ```
+      </Tab>
+      <Tab title="ERC-4337 User Operations">
+        Append to `userOp.callData` (not the transaction-level calldata).
+
+        ```typescript lines
+        // Minimal example for ERC-4337
+        function applySuffixToUserOp(userOp, capabilities) {
+          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          if (!suffix) return userOp
+
+          return {
+            ...userOp,
+            // Append suffix bytes to the UserOp callData
+            callData: userOp.callData + suffix.slice(2)
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="(Optional) Add Wallet Attribution">
+    Wallets may also include their own attribution code (their own ERC-8021 suffix) by simply prepending the wallet’s own suffix before the app’s.
+
+    *   **No interaction required with apps:** The wallet handles this independently.
+    *   **Multi-code support:** ERC-8021 natively supports multiple attribution codes.
+
+    **Example:**
+
+    ```typescript
+    finalSuffix = walletSuffix + appSuffix
+    ```
+
+    This ensures both the app and the wallet receive onchain attribution.
+  </Step>
+</Steps>
+
+## For Base-Solana Bridge Developers
+
+<Warning>
+Onchain Builder codes are currently still not live on mainnet.
+</Warning>
+
+Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-solana-bridge) via the [`hookData`](https://github.com/base/flywheel/blob/30266bba4649b0eb161e55bfa4755651049a5d1f/src/hooks/BridgeReferralFees.sol#L75) mechanism. Currently available for **Solana → Base** flows only.
+
+<Steps>
+  <Step title="Get your Builder Code">
+    When you register on base.dev, you will receive a Builder Code. This is a random string (e.g., k3p9da) that you will use to generate your attribution suffix.
+  </Step>
+
+  <Step title="Build hookData">
+    ABI-encode the user address, your code, and fee:
+
+    ```solidity
+    bytes memory hookData = abi.encode(
+      0xUSER,           // destination address on Base (NOT the Twin)
+      0xBUILDER_CODE,   // your builder code in type string memory
+      100               // feeBps (100 = 1%)
+    );
+    ```
+  </Step>
+
+  <Step title="Attach to Bridge Message">
+    Set `to = BRIDGE_CAMPAIGN_ADDRESS` and attach a call to `Flywheel.send`.
+
+    <Tabs>
+      <Tab title="Simple Bridge">
+        For a bridge with no follow-up call:
+
+        ```
+        to:     <BRIDGE_CAMPAIGN_ADDRESS>
+        amount: 100
+        call:
+          ty:    Call
+          to:    <FLYWHEEL_ADDRESS>
+          value: 0
+          data:  abi.encodeWithSelector(
+                   Flywheel.send.selector,
+                   <BRIDGE_CAMPAIGN_ADDRESS>,
+                   <wSOL_ADDRESS>,
+                   hookData
+                 )
+        ```
+      </Tab>
+      <Tab title="Bridge + Follow-Up Call">
+        To chain additional calls, use `DelegateCall` with `Multicall`:
+
+        ```solidity
+        Call[] memory calls = new Call[](2);
+
+        // 1) Flywheel attribution (must be first)
+        calls[0] = Call({
+          to:    <FLYWHEEL_ADDRESS>,
+          value: 0,
+          data:  abi.encodeWithSelector(
+                   Flywheel.send.selector,
+                   <BRIDGE_CAMPAIGN_ADDRESS>,
+                   <SOL_ADDRESS>, // 0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82 on Base Mainnet
+                   hookData
+                 )
+        });
+
+        // 2) Your follow-up call
+        calls[1] = Call({
+          to:    <YOUR_CONTRACT>,
+          value: 0,
+          data:  abi.encodeWithSelector(YourContract.yourFunction.selector)
+        });
+        ```
+
+        Then set the bridge call to:
+
+        ```
+        call:
+          ty:    DelegateCall
+          to:    <MULTICALL_ADDRESS> // 0xcA11bde05977b3631167028862bE2a173976CA11 on Base Mainnet
+          data:  abi.encodeWithSelector(Multicall.multicall.selector, calls)
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+---
+
+## Give feedback!
+
+<Note>
+Base is constantly working to improve the Builder Codes experience. If you have any feedback, please let the team know  [here](https://t.co/zwvtmXXzGz).
+</Note>
+
+
+

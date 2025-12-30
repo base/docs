@@ -1,0 +1,357 @@
+---
+title: "subscription.revoke"
+description: "Revoke subscriptions from your backend using CDP server wallets"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Note>
+**Node.js Only**: This function uses CDP (Coinbase Developer Platform) server wallets and is only available in Node.js environments. For browser/client-side applications, use [`prepareRevoke`](/base-account/reference/base-pay/prepareRevoke) instead.
+</Note>
+
+<Info>
+The `revoke` function cancels subscriptions automatically from your backend. It uses a CDP smart wallet as the subscription owner to execute the revocation transaction, handling all details including wallet management, transaction signing, and optional gas sponsorship.
+</Info>
+
+## How It Works
+
+When you call `revoke()`, the function:
+1. Initializes a CDP client with your credentials
+2. Retrieves the existing smart wallet (subscription owner)
+3. Prepares the revoke transaction call
+4. Executes the revocation using the smart wallet
+5. Optionally uses a paymaster for gas sponsorship
+6. Returns the transaction hash
+
+## Parameters
+
+<ParamField body="id" type="string" required>
+The subscription ID (permission hash) returned from `subscribe()`.
+
+**Pattern:** `^0x[0-9a-fA-F]{64}$`
+</ParamField>
+
+<ParamField body="testnet" type="boolean">
+Whether to use Base Sepolia testnet. Must match the network used in `subscribe()`. Default: false
+</ParamField>
+
+<ParamField body="cdpApiKeyId" type="string">
+CDP API key ID. Falls back to `CDP_API_KEY_ID` environment variable.
+</ParamField>
+
+<ParamField body="cdpApiKeySecret" type="string">
+CDP API key secret. Falls back to `CDP_API_KEY_SECRET` environment variable.
+</ParamField>
+
+<ParamField body="cdpWalletSecret" type="string">
+CDP wallet secret. Falls back to `CDP_WALLET_SECRET` environment variable.
+</ParamField>
+
+<ParamField body="walletName" type="string">
+Optional custom wallet name for the CDP smart wallet. Default: "subscription owner"
+
+<Note>
+**Use Default**: Most applications should omit this parameter and use the default. Only specify if you used a custom name in `getOrCreateSubscriptionOwnerWallet()`.
+</Note>
+</ParamField>
+
+<ParamField body="paymasterUrl" type="string">
+Paymaster URL for transaction sponsorship (gasless transactions). Falls back to `PAYMASTER_URL` environment variable.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="RevokeResult">
+Revoke execution result.
+
+<Expandable title="RevokeResult properties">
+<ResponseField name="success" type="true">
+Always true on successful revocation.
+</ResponseField>
+
+<ResponseField name="id" type="string">
+Transaction hash of the revocation.
+</ResponseField>
+
+<ResponseField name="subscriptionId" type="string">
+The subscription ID that was revoked.
+</ResponseField>
+
+<ResponseField name="subscriptionOwner" type="Address">
+Address of the wallet that executed the revocation.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Setup
+
+Before using `revoke()`, you need CDP credentials. Get them from the [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys).
+
+Set as environment variables:
+```bash
+export CDP_API_KEY_ID="your-api-key-id"
+export CDP_API_KEY_SECRET="your-api-key-secret"
+export CDP_WALLET_SECRET="your-wallet-secret"
+```
+
+Or pass directly as parameters (see examples below).
+
+<RequestExample>
+```typescript Basic Revoke with Environment Variables
+import { base } from '@base-org/account/node';
+
+// Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
+const result = await base.subscription.revoke({
+  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984'
+});
+
+console.log(`Revoked subscription: ${result.id}`);
+console.log(`Transaction: ${result.id}`);
+```
+
+```typescript Revoke with Explicit Credentials
+import { base } from '@base-org/account/node';
+
+const result = await base.subscription.revoke({
+  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
+  cdpApiKeyId: 'your-api-key-id',
+  cdpApiKeySecret: 'your-api-key-secret',
+  cdpWalletSecret: 'your-wallet-secret',
+  testnet: false
+});
+
+console.log(`Subscription revoked: ${result.subscriptionId}`);
+```
+
+```typescript Revoke with Paymaster (Gasless)
+import { base } from '@base-org/account/node';
+
+// Use a paymaster to sponsor gas fees
+const result = await base.subscription.revoke({
+  id: subscriptionId,
+  paymasterUrl: 'https://api.developer.coinbase.com/rpc/v1/base/your-key',
+  testnet: false
+});
+
+console.log(`Gasless revocation: ${result.id}`);
+```
+
+```typescript Advanced: Custom Wallet Name (If Needed)
+import { base } from '@base-org/account/node';
+
+// Only needed if you used a custom name in getOrCreateSubscriptionOwnerWallet()
+const result = await base.subscription.revoke({
+  id: subscriptionId,
+  walletName: 'premium-subscriptions-wallet', // Must match wallet creation
+  testnet: false
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Success Response
+{
+  success: true,
+  id: "0x8f3d9e2a1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e",
+  subscriptionId: "0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984",
+  subscriptionOwner: "0xYourSubscriptionOwnerWallet"
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+Always wrap `revoke()` calls in try-catch blocks:
+
+```typescript
+try {
+  const result = await base.subscription.revoke({
+    id: subscriptionId,
+    testnet: false
+  });
+  
+  console.log(`Successfully revoked: ${result.id}`);
+  
+  // Update your database
+  await updateSubscriptionRecord(subscriptionId, {
+    status: 'cancelled',
+    revokedAt: new Date(),
+    revocationTx: result.id
+  });
+  
+} catch (error) {
+  console.error(`Failed to revoke subscription: ${error.message}`);
+  
+  // Handle specific error cases
+  if (error.message.includes('not found')) {
+    console.log('Subscription already cancelled or not found');
+  } else if (error.message.includes('CDP')) {
+    console.log('CDP credentials issue');
+  }
+}
+```
+
+## Common Use Cases
+
+<Tabs>
+<Tab title="User Cancellation Request">
+```typescript
+async function handleUserCancellation(userId: string, subscriptionId: string) {
+  try {
+    // Revoke the subscription
+    const result = await base.subscription.revoke({
+      id: subscriptionId,
+      testnet: false
+    });
+    
+    // Update database
+    await db.updateSubscription(subscriptionId, {
+      status: 'cancelled',
+      cancelledBy: 'user',
+      cancelledAt: new Date(),
+      revocationTx: result.id
+    });
+    
+    // Notify user
+    await sendEmail(userId, {
+      subject: 'Subscription Cancelled',
+      body: `Your subscription has been successfully cancelled.`
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Cancellation failed:', error);
+    throw error;
+  }
+}
+```
+</Tab>
+
+<Tab title="Policy Violation">
+```typescript
+async function revokeForViolation(subscriptionId: string, reason: string) {
+  try {
+    // Revoke immediately
+    const result = await base.subscription.revoke({
+      id: subscriptionId,
+      testnet: false
+    });
+    
+    // Log violation
+    await db.logViolation({
+      subscriptionId,
+      reason,
+      action: 'revoked',
+      transactionHash: result.id,
+      timestamp: new Date()
+    });
+    
+    console.log(`Revoked subscription due to: ${reason}`);
+  } catch (error) {
+    console.error('Revocation failed:', error);
+  }
+}
+```
+</Tab>
+
+<Tab title="Administrative Action">
+```typescript
+async function bulkRevokeExpiredTrials() {
+  const expiredTrials = await db.getExpiredTrialSubscriptions();
+  
+  for (const trial of expiredTrials) {
+    try {
+      const result = await base.subscription.revoke({
+        id: trial.subscriptionId,
+        testnet: false
+      });
+      
+      await db.updateSubscription(trial.id, {
+        status: 'trial_expired',
+        revokedAt: new Date(),
+        revocationTx: result.id
+      });
+      
+      console.log(`✅ Revoked expired trial: ${trial.id}`);
+    } catch (error) {
+      console.error(`Failed to revoke trial ${trial.id}:`, error.message);
+    }
+  }
+}
+```
+</Tab>
+</Tabs>
+
+## Common Errors
+
+<AccordionGroup>
+<Accordion title="Missing CDP Credentials">
+```
+Failed to initialize CDP client for subscription revoke
+```
+
+**Solution**: Ensure `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are set as environment variables or passed as parameters.
+</Accordion>
+
+<Accordion title="Subscription Not Found">
+```
+Subscription with ID 0x... not found
+```
+
+**Solution**: Check that the subscription ID is correct. The subscription may have already been revoked or never existed.
+</Accordion>
+
+<Accordion title="Wallet Does Not Exist">
+```
+Wallet "subscription owner" does not exist
+```
+
+**Solution**: The CDP wallet hasn't been created yet. First call [`getOrCreateSubscriptionOwnerWallet`](/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet) to set up the wallet.
+</Accordion>
+
+<Accordion title="Already Revoked">
+If a subscription is already revoked, calling `revoke()` again may fail. Check status first using [`getSubscriptionStatus`](/base-account/reference/base-pay/getStatus).
+</Accordion>
+</AccordionGroup>
+
+## Important Notes
+
+<Warning>
+**Permanent Action**: Revoking a subscription is permanent and cannot be undone. The user would need to create a new subscription to re-enable charging.
+</Warning>
+
+<Note>
+**User-Initiated Revocation**: Users can also revoke subscriptions themselves from their wallet. Your backend should handle subscription status checks before attempting charges.
+</Note>
+
+## When to Use Revoke
+
+Use `revoke()` from your backend when you need to programmatically cancel subscriptions:
+
+- **User requests cancellation** through your application
+- **Policy violations** or terms of service breaches
+- **Failed payments** after multiple retry attempts
+- **Account closure** or service termination
+- **Trial period expiration** without conversion
+- **Administrative actions** or bulk operations
+
+## Related Functions
+
+<CardGroup cols={3}>
+<Card title="Setup Wallet" icon="wallet" href="/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet">
+Create CDP wallet before revoking
+</Card>
+
+<Card title="Check Status" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
+Verify subscription before revoking
+</Card>
+
+<Card title="Custom Revoke" icon="code" href="/base-account/reference/base-pay/prepareRevoke">
+Advanced manual execution
+</Card>
+</CardGroup>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
+

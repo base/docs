@@ -1,0 +1,226 @@
+# https://docs.base.org/base-account/llms-full.txt
+
+## Base Account — Deep Guide for LLMs
+
+> Base Account is a passkey‑secured, ERC‑4337 smart wallet with universal sign‑in, USDC payments, sponsored gas, batch transactions, spend permissions, and sub‑accounts.
+
+### What you can do here
+- Add Base Account to web and mobile apps
+- Authenticate users with SIWE + ERC‑6492
+- Accept USDC with Base Pay and sponsor gas with a paymaster
+- Use batch transactions and ERC‑20 gas payments
+- Grant revocable spend permissions and create app‑scoped sub‑accounts
+
+## Minimal Critical Code (provider + pay)
+```ts
+import { createBaseAccountSDK, pay, getPaymentStatus } from '@base-org/account'
+
+const provider = createBaseAccountSDK().getProvider()
+const { id } = await pay({ amount: '5.00', to: '0xRecipient', testnet: true })
+const { status } = await getPaymentStatus({ id })
+```
+
+## Navigation (with brief descriptions)
+
+### Introduction
+- [What is Base Account?](https://docs.base.org/base-account/overview/what-is-base-account.md) — Overview
+
+### Quickstart
+- [Web (Next.js)](https://docs.base.org/base-account/quickstart/web.md) — Web integration
+- [Web (React)](https://docs.base.org/base-account/quickstart/web-react.md) — React example
+- [React Native Integration](https://docs.base.org/base-account/quickstart/mobile-integration.md) — Mobile
+
+### Guides
+- [Authenticate Users](https://docs.base.org/base-account/guides/authenticate-users.md) — SIWE + ERC‑6492
+- [Accept Payments](https://docs.base.org/base-account/guides/accept-payments.md) — Base Pay
+- [Batch Transactions](https://docs.base.org/base-account/improve-ux/batch-transactions.md) — Multi‑call
+- [Paymasters](https://docs.base.org/base-account/improve-ux/sponsor-gas/paymasters.md) — Sponsor gas
+- [ERC‑20 Paymasters](https://docs.base.org/base-account/improve-ux/sponsor-gas/erc20-paymasters.md) — ERC‑20 gas
+- [Spend Permissions](https://docs.base.org/base-account/improve-ux/spend-permissions.md) — Spending
+- [Sub‑Accounts](https://docs.base.org/base-account/improve-ux/sub-accounts.md) — App‑scoped accounts
+- [MagicSpend](https://docs.base.org/base-account/improve-ux/magic-spend.md) — Coinbase balance spend
+- [Sign & Verify Data](https://docs.base.org/base-account/guides/sign-and-verify-typed-data.md) — Signatures
+
+### Framework Integrations
+- [Wagmi Setup](https://docs.base.org/base-account/framework-integrations/wagmi/setup.md) — Wagmi
+- [Wagmi Sign in with Base](https://docs.base.org/base-account/framework-integrations/wagmi/sign-in-with-base.md) — Auth
+- [Wagmi Base Pay](https://docs.base.org/base-account/framework-integrations/wagmi/base-pay.md) — Payments
+- [Wagmi Other Use Cases](https://docs.base.org/base-account/framework-integrations/wagmi/other-use-cases.md) — Patterns
+- [Privy Setup](https://docs.base.org/base-account/framework-integrations/privy/setup.md) — Privy
+- [Privy Sub‑Accounts](https://docs.base.org/base-account/framework-integrations/privy/sub-accounts.md) — Privy sub‑accounts
+- [Dynamic](https://docs.base.org/base-account/framework-integrations/nextjs-with-dynamic.md) — Dynamic integration
+
+### Reference (selected)
+- [SDK: createBaseAccount](https://docs.base.org/base-account/reference/core/createBaseAccount.md)
+- [SDK: getProvider](https://docs.base.org/base-account/reference/core/getProvider.md)
+- [Provider RPC Methods](https://docs.base.org/base-account/reference/core/provider-rpc-methods/request-overview.md)
+- [Capabilities](https://docs.base.org/base-account/reference/core/capabilities/overview.md)
+- [UI Elements](https://docs.base.org/base-account/reference/ui-elements/brand-guidelines.md)
+- [Onchain Contracts](https://docs.base.org/base-account/reference/onchain-contracts/smart-wallet.md)
+
+### More
+- [Troubleshooting](https://docs.base.org/base-account/more/troubleshooting/usage-details/popups.md)
+- [Base Gasless Campaign](https://docs.base.org/base-account/more/base-gasless-campaign.md)
+- [Telemetry](https://docs.base.org/base-account/more/telemetry.md)
+- [Migration Guide](https://docs.base.org/base-account/guides/migration-guide.md)
+
+### Basenames
+- [FAQ](https://docs.base.org/base-account/basenames/basenames-faq.md)
+- [Transfer](https://docs.base.org/base-account/basenames/basename-transfer.md)
+- [OnchainKit Tutorial](https://docs.base.org/base-account/basenames/basenames-onchainkit-tutorial.md)
+- [Wagmi Tutorial](https://docs.base.org/base-account/basenames/basenames-wagmi-tutorial.md)
+
+### Contribute
+- [Contribute](https://docs.base.org/base-account/contribute/contribute-to-base-account-docs.md)
+- [Security + Bug Bounty](https://docs.base.org/base-account/contribute/security-and-bug-bounty.md)
+
+
+## Quickstart (excerpts)
+
+Source: `https://docs.base.org/base-account/quickstart/web.md`
+
+Base Account lets you add a passkey‑secured ERC‑4337 smart account to your app, with sponsored gas, batch transactions, spend permissions, and sub‑accounts.
+
+Install and initialize:
+
+```bash
+npm install @base-org/account
+```
+
+```ts
+import { createBaseAccount } from '@base-org/account'
+
+const account = await createBaseAccount({
+  owner: '0xYourEOA',
+  chain: 'base-sepolia'
+})
+```
+
+Send a payment with Base Pay (testnet):
+
+```ts
+import { pay, getPaymentStatus } from '@base-org/account'
+
+const { id } = await pay({ amount: '5.00', to: '0xRecipient', testnet: true })
+const { status } = await getPaymentStatus({ id })
+```
+
+Batch two calls in one user operation:
+
+```ts
+const result = await account.provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    calls: [
+      { to: USDC, data: erc20.approve(SPENDER, AMOUNT) },
+      { to: MERCHANT, data: erc20.transfer(MERCHANT, AMOUNT) }
+    ]
+  }]
+})
+```
+
+Expected result: a single ERC‑4337 userOp executes both calls atomically. Combine with a paymaster to sponsor user gas.
+
+Additional sources:
+- `https://docs.base.org/base-account/quickstart/mobile-integration.md`
+- `https://docs.base.org/base-account/framework-integrations/wagmi/setup.md`
+
+
+## Key Concepts (excerpts)
+
+Source: `https://docs.base.org/base-account/overview/what-is-base-account.md`
+
+- Ownership model: A Base Account is owned by an EOA or another smart wallet. Ownership can be rotated via recovery flows, and sub‑accounts can be created for app‑scoped spend.
+- Recovery: Supports social/device delegates with threshold approval. Ownership only changes after quorum is met and verification passes.
+- Nonces and batching: User operations increment nonces. Use batching to execute multi‑step flows in one atomic op and improve UX.
+- Gas abstraction: Integrate a paymaster to sponsor gas, including ERC‑20‑denominated gas, for gasless user experiences.
+- Spend permissions: Grant revocable, scoped allowances for specific contracts, functions, or limits to reduce approve‑forever risk.
+- Sub‑accounts: Create scoped accounts for apps/contexts to contain risk and simplify accounting.
+- Security assumptions: Only configured owner(s) can authorize changes. Recovery requires meeting your policy’s threshold.
+
+Additional sources:
+- `https://docs.base.org/base-account/overview/architecture.md`
+- `https://docs.base.org/base-account/improve-ux/spend-permissions.md`
+- `https://docs.base.org/base-account/improve-ux/sponsor-gas/paymasters.md`
+- `https://docs.base.org/base-account/improve-ux/batch-transactions.md`
+
+
+## API Reference (selected, pruned)
+
+Provider RPC methods (subset)
+
+- `wallet_sendCalls(params)` — Execute one or more calls in a single ERC‑4337 user operation. Returns a user operation hash.
+  - Source: `https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_sendCalls.md`
+- `wallet_getCapabilities()` — Return wallet features and limits supported by the provider.
+  - Source: `https://docs.base.org/base-account/reference/core/provider-rpc-methods/request-overview.md`
+
+SDK helpers (subset)
+
+- `createBaseAccount(options)` — Initialize SDK and get a configured provider and helpers
+  - Source: `https://docs.base.org/base-account/reference/core/createBaseAccount.md`
+- `getProvider()` — Access the EIP‑1193 provider wired to Base Account
+  - Source: `https://docs.base.org/base-account/reference/core/getProvider.md`
+- `createSubAccount({ label })` — Create an app‑scoped sub‑account
+  - Source: `https://docs.base.org/base-account/reference/core/capabilities/overview.md`
+- `pay({ amount, to, testnet })` and `getPaymentStatus({ id })` — Base Pay helpers for USDC flows
+  - Source: `https://docs.base.org/base-account/guides/accept-payments.md`
+
+Minimal request example for `wallet_sendCalls`:
+
+```json
+{
+  "method": "wallet_sendCalls",
+  "params": [
+    {
+      "calls": [
+        { "to": "0xA0b8...USDC", "data": "0x095ea7b3..." },
+        { "to": "0xMerchant", "data": "0xa9059cbb..." }
+      ],
+      "sponsor": { "type": "paymaster" }
+    }
+  ]
+}
+```
+
+
+## Examples (common flows)
+
+Example: Authenticate user with SIWE + ERC‑6492
+
+Source: `https://docs.base.org/base-account/guides/authenticate-users.md`
+
+```ts
+// Sign‑in with Ethereum using a 6492‑compatible signature
+const message = createSiweMessage({ domain, address, statement, uri, version: '1', chainId })
+const signature = await provider.request({ method: 'personal_sign', params: [message, address] })
+// Verify server‑side with 6492 envelope support
+```
+
+Example: USDC checkout with paymaster sponsorship
+
+Sources:
+- `https://docs.base.org/base-account/guides/accept-payments.md`
+- `https://docs.base.org/base-account/improve-ux/sponsor-gas/paymasters.md`
+
+```ts
+await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    calls: [
+      { to: USDC, data: erc20.approve(MERCHANT, AMOUNT) },
+      { to: MERCHANT, data: erc20.transfer(MERCHANT, AMOUNT) }
+    ],
+    sponsor: { type: 'paymaster', token: 'USDC' }
+  }]
+})
+```
+
+Example: Create and use a sub‑account for scoped spend
+
+Source: `https://docs.base.org/base-account/improve-ux/sub-accounts.md`
+
+```ts
+const sub = await account.createSubAccount({ label: 'checkout' })
+await sub.provider.request({ method: 'wallet_sendCalls', params: [{ calls: [{ to: MERCHANT, data: data }] }] })
+```
+

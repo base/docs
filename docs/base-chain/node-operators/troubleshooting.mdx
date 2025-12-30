@@ -10,9 +10,8 @@ This guide covers common issues encountered when setting up and running a Base n
 Before diving into specific issues, here are some general steps that often help:
 
 1. **Check Container Logs**: This is usually the most informative step. Use `docker compose logs -f <service_name>` to view the real-time logs for a specific container.
-    - L2 Client (Geth): `docker compose logs -f op-geth`
-    - L2 Client (Reth): `docker compose logs -f op-reth`
-    - Rollup Node: `docker compose logs -f op-node`. Look for errors, warnings, or repeated messages.
+    - L2 Client (Reth/Geth): `docker compose logs -f execution`
+    - Rollup Node: `docker compose logs -f node`. Look for errors, warnings, or repeated messages.
 
 2. **Check Container Status**: Ensure the relevant Docker containers are running: `docker compose ps`. If a container is restarting frequently or exited, check its logs.
 
@@ -42,15 +41,15 @@ Before diving into specific issues, here are some general steps that often help:
 - **Issue**: Errors related to JWT secret or authentication between `op-node` and L2 client.  
     - **Check**: Ensure you haven't manually modified the `OP_NODE_L2_ENGINE_AUTH` variable or the JWT file path (`$OP_NODE_L2_ENGINE_AUTH`) unless you know what you're doing. The `docker-compose` setup usually handles this automatically.
 
-- **Issue**: Permission errors related to data volumes (`./geth-data`, `./reth-data`).  
-    - **Check**: Ensure the user running `docker compose` has write permissions to the directory where the `node` repository was cloned. Docker needs to be able to write to `./geth-data` or `./reth-data`. Sometimes running Docker commands with `sudo` can cause permission issues later; try running as a non-root user added to the `docker` group.
+- **Issue**: Permission errors related to data volumes (`./reth-data`, `./geth-data`).  
+    - **Check**: Ensure the user running `docker compose` has write permissions to the directory where the `node` repository was cloned. Docker needs to be able to write to `./reth-data` or `./geth-data`. Sometimes running Docker commands with `sudo` can cause permission issues later; try running as a non-root user added to the `docker` group.
 
 ### Syncing Problems
 
 - **Issue**: Node doesn't start syncing or appears stuck (block height not increasing).  
     - **Check**: `op-node` logs. Look for errors connecting to L1 endpoints or the L2 client.  
-    - **Check**: L2 client (`op-geth`/`op-reth`) logs. Look for errors connecting to `op-node` via the Engine API (port `8551`) or P2P issues.  
-    - **Check**: L1 node health and sync status. Is the L1 node accessible and fully synced?  
+    - **Check**: Look at logs for the execution client. Look for errors connecting to `op-node` via the Engine API (port `8551`) or P2P issues.
+    - **Check**: L1 node health and sync status. Is the L1 node accessible and fully synced?
     - **Check**: System time. Ensure the server’s clock is accurately synchronized (use `ntp` or `chrony`). Significant time drift can cause P2P issues.
 
 - **Issue**: Syncing is extremely slow.  
@@ -60,7 +59,7 @@ Before diving into specific issues, here are some general steps that often help:
     - **Check**: `op-node` and L2 client logs for any performance warnings or errors.
 
 - **Issue**: `optimism_syncStatus` (port `7545` on `op-node`) shows a large time difference or errors.  
-    - **Action**: Check the logs for both `op-node` and the L2 client (`op-geth`/`op-reth`) around the time the status was checked to identify the root cause (e.g., L1 connection issues, L2 client issues).
+    - **Action**: Check the logs for both the rollup node and the L2 execution client around the time the status was checked to identify the root cause (e.g., L1 connection issues, L2 client issues).
 
 - **Issue**: `Error: nonce has already been used` when trying to send transactions.  
     - **Cause**: The node is not yet fully synced to the head of the chain.  
@@ -69,10 +68,10 @@ Before diving into specific issues, here are some general steps that often help:
 ### Performance Issues
 
 - **Issue**: High CPU, RAM, or Disk I/O usage.  
+    - **Action**: If running Geth, we highly recommend migrating to Reth, as it’s the recommended client and generally more performant for Base.
     - **Check**: Hardware specifications against recommendations in the [Node Performance](/base-chain/node-operators/performance-tuning). Upgrade if necessary. Local NVMe SSDs are critical.  
     - **Check**: (Geth) Review Geth cache settings and LevelDB tuning options mentioned in [Node Performance – Geth Performance Tuning](/base-chain/node-operators/performance-tuning#geth-performance-tuning) and [Advanced Configuration](/base-chain/node-operators/run-a-base-node#geth-configuration-via-environment-variables).  
     - **Check**: Review client logs for specific errors or bottlenecks.  
-    - **Action**: Consider using Reth if running Geth, as it’s generally more performant for Base.
 
 ### Snapshot Restoration Problems
 
@@ -90,8 +89,8 @@ Refer to the [Snapshots](/base-chain/node-operators/snapshots) guide for the cor
 
 - **Issue**: Node fails to start after restoring snapshot; logs show database errors or missing files.  
     - **Check**: Did you stop the node (`docker compose down`) _before_ modifying the data directory?  
-    - **Check**: Did you remove the _contents_ of the old data directory (`./geth-data/*` or `./reth-data/*`) before extracting/moving the snapshot data?  
-    - **Check**: Was the snapshot data moved correctly? The chain data needs to be directly inside `./geth-data` or `./reth-data`, not in a nested subfolder (e.g., `./geth-data/geth/...`). Verify the folder structure.
+    - **Check**: Did you remove the _contents_ of the old data directory (`./reth-data/*` or `./geth-data/*`) before extracting/moving the snapshot data?  
+    - **Check**: Was the snapshot data moved correctly? The chain data needs to be directly inside `./reth-data` or `./geth-data`, not in a nested subfolder (e.g., `./reth-data/reth/...`). Verify the folder structure.
 
 - **Issue**: Ran out of disk space during download or extraction.  
     - **Action**: Free up disk space or provision a larger volume. Remember the storage formula:  
@@ -102,7 +101,7 @@ Refer to the [Snapshots](/base-chain/node-operators/snapshots) guide for the cor
 ### Networking / Connectivity Issues
 
 - **Issue**: RPC/WS connection refused (e.g., `curl` to `localhost:8545` fails).  
-    - **Check**: Is the L2 client container (`op-geth`/`op-reth`) running (`docker compose ps`)?  
+    - **Check**: Is the L2 client container running (`docker compose ps`)?
     - **Check**: Are you using the correct port (`8545` for HTTP, `8546` for WS by default)?  
     - **Check**: L2 client logs. Did it fail to start the RPC server?  
     - **Check**: Are the `--http.addr` and `--ws.addr` flags set to `0.0.0.0` in the client config/entrypoint to allow external connections (within the Docker network)?

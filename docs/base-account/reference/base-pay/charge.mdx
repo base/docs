@@ -1,0 +1,376 @@
+---
+title: "subscription.charge"
+description: "Execute subscription charges from your backend using CDP server wallets"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Note>
+**Node.js Only**: This function uses CDP (Coinbase Developer Platform) server wallets and is only available in Node.js environments. For browser/client-side applications, use [`prepareCharge`](/base-account/reference/base-pay/prepareCharge) instead.
+</Note>
+
+<Info>
+The `charge` function executes subscription charges automatically from your backend. It uses a CDP smart wallet as the subscription owner, handling all transaction details including wallet management, transaction signing, and optional gas sponsorship. **No manual transaction management required.**
+</Info>
+
+## How It Works
+
+When you call `charge()`, the function:
+1. Initializes a CDP client with your credentials
+2. Retrieves the existing smart wallet (subscription owner)
+3. Prepares the charge transaction calls
+4. Executes the charge using the smart wallet
+5. Optionally uses a paymaster for gas sponsorship
+6. Returns the transaction hash
+
+## Parameters
+
+<ParamField body="id" type="string" required>
+The subscription ID (permission hash) returned from `subscribe()`.
+
+**Pattern:** `^0x[0-9a-fA-F]{64}$`
+</ParamField>
+
+<ParamField body="amount" type="string | 'max-remaining-charge'" required>
+Amount to charge as a string (e.g., "10.50") or `'max-remaining-charge'` to charge the full remaining amount in the current period.
+</ParamField>
+
+<ParamField body="testnet" type="boolean">
+Whether to use Base Sepolia testnet. Must match the network used in `subscribe()`. Default: false
+</ParamField>
+
+<ParamField body="cdpApiKeyId" type="string">
+CDP API key ID. Falls back to `CDP_API_KEY_ID` environment variable.
+</ParamField>
+
+<ParamField body="cdpApiKeySecret" type="string">
+CDP API key secret. Falls back to `CDP_API_KEY_SECRET` environment variable.
+</ParamField>
+
+<ParamField body="cdpWalletSecret" type="string">
+CDP wallet secret. Falls back to `CDP_WALLET_SECRET` environment variable.
+</ParamField>
+
+<ParamField body="walletName" type="string">
+Optional custom wallet name for the CDP smart wallet. Default: "subscription owner"
+
+<Note>
+**Use Default**: Most applications should omit this parameter and use the default. Only specify if you used a custom name in `getOrCreateSubscriptionOwnerWallet()`.
+</Note>
+</ParamField>
+
+<ParamField body="paymasterUrl" type="string">
+Paymaster URL for transaction sponsorship (gasless transactions). Falls back to `PAYMASTER_URL` environment variable.
+</ParamField>
+
+<ParamField body="recipient" type="string">
+Optional recipient address to receive the charged USDC. If not provided, USDC stays in the subscription owner wallet.
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="ChargeResult">
+Charge execution result.
+
+<Expandable title="ChargeResult properties">
+<ResponseField name="success" type="true">
+Always true on successful charge.
+</ResponseField>
+
+<ResponseField name="id" type="string">
+Transaction hash of the charge.
+</ResponseField>
+
+<ResponseField name="subscriptionId" type="string">
+The subscription ID that was charged.
+</ResponseField>
+
+<ResponseField name="amount" type="string">
+Amount that was charged ("max" if using max-remaining-charge).
+</ResponseField>
+
+<ResponseField name="subscriptionOwner" type="Address">
+Address of the wallet that executed the charge.
+</ResponseField>
+
+<ResponseField name="recipient" type="Address">
+Recipient address (only present if specified in parameters).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Setup
+
+Before using `charge()`, you need CDP credentials. Get them from the [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys).
+
+Set as environment variables:
+```bash
+export CDP_API_KEY_ID="your-api-key-id"
+export CDP_API_KEY_SECRET="your-api-key-secret"
+export CDP_WALLET_SECRET="your-wallet-secret"
+```
+
+Or pass directly as parameters (see examples below).
+
+<RequestExample>
+```typescript Basic Charge with Environment Variables
+import { base } from '@base-org/account/node';
+
+// Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
+const result = await base.subscription.charge({
+  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
+  amount: '9.99'
+});
+
+console.log(`Charged subscription: ${result.id}`);
+console.log(`Amount: ${result.amount}`);
+```
+
+```typescript Charge with Explicit Credentials
+import { base } from '@base-org/account/node';
+
+const result = await base.subscription.charge({
+  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
+  amount: '9.99',
+  cdpApiKeyId: 'your-api-key-id',
+  cdpApiKeySecret: 'your-api-key-secret',
+  cdpWalletSecret: 'your-wallet-secret',
+  testnet: false
+});
+
+console.log(`Charged subscription: ${result.id}`);
+```
+
+```typescript Charge Maximum Available
+import { base } from '@base-org/account/node';
+
+// Charge the full remaining amount in current period
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: 'max-remaining-charge',
+  testnet: false
+});
+
+console.log(`Charged max remaining: ${result.amount}`);
+```
+
+```typescript Charge with Recipient
+import { base } from '@base-org/account/node';
+
+// Charge and transfer USDC to a specific recipient
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: '10.00',
+  recipient: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8',
+  testnet: false
+});
+
+console.log(`Charged and sent to ${result.recipient}`);
+```
+
+```typescript Charge with Paymaster (Gasless)
+import { base } from '@base-org/account/node';
+
+// Use a paymaster to sponsor gas fees
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: '15.00',
+  paymasterUrl: 'https://api.developer.coinbase.com/rpc/v1/base/your-key',
+  testnet: false
+});
+
+console.log(`Gasless charge: ${result.id}`);
+```
+
+```typescript Advanced: Custom Wallet Name (If Needed)
+import { base } from '@base-org/account/node';
+
+// Only needed if you used a custom name in getOrCreateSubscriptionOwnerWallet()
+const result = await base.subscription.charge({
+  id: subscriptionId,
+  amount: '5.00',
+  walletName: 'premium-subscriptions-wallet', // Must match wallet creation
+  testnet: false
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Success Response
+{
+  success: true,
+  id: "0x8f3d9e2a1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e",
+  subscriptionId: "0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984",
+  amount: "9.99",
+  subscriptionOwner: "0xYourSubscriptionOwnerWallet"
+}
+```
+
+```typescript Success with Recipient
+{
+  success: true,
+  id: "0x8f3d9e2a1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e",
+  subscriptionId: "0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984",
+  amount: "10.00",
+  subscriptionOwner: "0xYourSubscriptionOwnerWallet",
+  recipient: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb8"
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+Always wrap `charge()` calls in try-catch blocks:
+
+```typescript
+try {
+  const result = await base.subscription.charge({
+    id: subscriptionId,
+    amount: 'max-remaining-charge',
+    testnet: false
+  });
+  
+  console.log(`Successfully charged: ${result.id}`);
+  
+  // Update your database with the transaction hash
+  await updateSubscriptionRecord(subscriptionId, {
+    lastCharge: new Date(),
+    transactionHash: result.id
+  });
+  
+} catch (error) {
+  console.error(`Failed to charge subscription: ${error.message}`);
+  
+  // Handle specific error cases
+  if (error.message.includes('not found')) {
+    console.log('Subscription cancelled or not found');
+  } else if (error.message.includes('CDP')) {
+    console.log('CDP credentials issue');
+  }
+}
+```
+
+## Common Errors
+
+<AccordionGroup>
+<Accordion title="Missing CDP Credentials">
+```
+Failed to initialize CDP client for subscription charge
+```
+
+**Solution**: Ensure `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are set as environment variables or passed as parameters.
+</Accordion>
+
+<Accordion title="Subscription Not Found">
+```
+Subscription with ID 0x... not found
+```
+
+**Solution**: Check that the subscription ID is correct and the subscription hasn't been cancelled. Use [`getSubscriptionStatus`](/base-account/reference/base-pay/getStatus) to verify.
+</Accordion>
+
+<Accordion title="No Remaining Charge">
+```
+No charge available until [date]
+```
+
+**Solution**: The subscription has been fully charged for the current period. Wait until the next period starts.
+</Accordion>
+
+<Accordion title="Wallet Does Not Exist">
+```
+Wallet "subscription owner" does not exist
+```
+
+**Solution**: The CDP wallet hasn't been created yet. First call [`getOrCreateSubscriptionOwnerWallet`](/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet) to set up the wallet.
+</Accordion>
+</AccordionGroup>
+
+## Usage Pattern
+
+Typical implementation in a backend service:
+
+```typescript Scheduled Charging Service
+import { base } from '@base-org/account/node';
+
+async function chargeActiveSubscriptions() {
+  // Get all subscriptions due for charging from your database
+  const subscriptions = await db.getSubscriptionsDueForCharge();
+  
+  for (const subscription of subscriptions) {
+    try {
+      // Check status first
+      const status = await base.subscription.getStatus({
+        id: subscription.subscriptionId,
+        testnet: false
+      });
+      
+      if (!status.isSubscribed) {
+        console.log(`Subscription ${subscription.id} cancelled`);
+        await db.markSubscriptionCancelled(subscription.id);
+        continue;
+      }
+      
+      const remainingCharge = parseFloat(status.remainingChargeInPeriod || '0');
+      
+      if (remainingCharge === 0) {
+        console.log(`No charge available for ${subscription.id}`);
+        continue;
+      }
+      
+      // Execute charge
+      const result = await base.subscription.charge({
+        id: subscription.subscriptionId,
+        amount: 'max-remaining-charge',
+        testnet: false
+      });
+      
+      // Update database
+      await db.recordCharge({
+        subscriptionId: subscription.id,
+        transactionHash: result.id,
+        amount: result.amount,
+        chargedAt: new Date()
+      });
+      
+      console.log(`✅ Charged subscription ${subscription.id}: ${result.amount}`);
+      
+    } catch (error) {
+      console.error(`Failed to charge ${subscription.id}:`, error.message);
+      
+      // Log error for monitoring
+      await db.logChargeError({
+        subscriptionId: subscription.id,
+        error: error.message,
+        timestamp: new Date()
+      });
+    }
+  }
+}
+
+// Run every hour
+setInterval(chargeActiveSubscriptions, 60 * 60 * 1000);
+```
+
+## Related Functions
+
+<CardGroup cols={3}>
+<Card title="Setup Wallet" icon="wallet" href="/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet">
+Create CDP wallet before charging
+</Card>
+
+<Card title="Check Status" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
+Verify subscription before charging
+</Card>
+
+<Card title="Custom Charge" icon="code" href="/base-account/reference/base-pay/prepareCharge">
+Advanced manual execution
+</Card>
+</CardGroup>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
+

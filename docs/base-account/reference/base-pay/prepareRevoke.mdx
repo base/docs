@@ -1,0 +1,340 @@
+---
+title: "subscription.prepareRevoke"
+description: "Prepare transaction calls to revoke a subscription (advanced)"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Note>
+**Most developers should use [`revoke()`](/base-account/reference/base-pay/revoke) instead**, which handles execution automatically using CDP wallets. This function is for advanced use cases requiring custom transaction handling.
+</Note>
+
+<Info>
+The `prepareRevoke` function prepares the necessary transaction call to revoke a subscription. It returns call data that you can execute through your own wallet infrastructure using `wallet_sendCalls` or `eth_sendTransaction`.
+</Info>
+
+## When to Use This
+
+Use `prepareRevoke` only if you need:
+- **Custom wallet infrastructure** (not using CDP)
+- **Manual transaction control**
+- **Integration with existing wallet systems**
+
+For standard backend subscription management, use [`revoke()`](/base-account/reference/base-pay/revoke) instead.
+
+## Parameters
+
+<ParamField body="id" type="string" required>
+The subscription ID (permission hash) returned from `subscribe()`.
+
+**Pattern:** `^0x[0-9a-fA-F]{64}$`
+</ParamField>
+
+<ParamField body="testnet" type="boolean">
+Must match the testnet setting used in the original subscribe call. Default: false
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="PrepareRevokeResult">
+Single transaction call to execute the revocation.
+
+<Expandable title="PrepareRevokeResult properties">
+<ResponseField name="to" type="Address">
+The address to call (smart contract address).
+</ResponseField>
+
+<ResponseField name="data" type="Hex">
+The encoded call data for the transaction.
+</ResponseField>
+
+<ResponseField name="value" type="bigint">
+The value to send (always 0n for spend permissions).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```typescript EOA Wallet
+import { base } from '@base-org/account';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain } from 'viem/chains';
+
+// Initialize wallet client with your subscription owner account
+const account = privateKeyToAccount('0x...'); // Your app's private key
+const walletClient = createWalletClient({
+  account,
+  chain: baseChain,
+  transport: http()
+});
+
+// Prepare the revoke call
+const revokeCall = await base.subscription.prepareRevoke({
+  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
+  testnet: false
+});
+
+// Execute the revoke transaction
+const hash = await walletClient.sendTransaction({
+  to: revokeCall.to,
+  data: revokeCall.data,
+  value: revokeCall.value
+});
+
+// Wait for confirmation
+const receipt = await walletClient.waitForTransactionReceipt({ hash });
+
+console.log(`Revoked subscription: ${receipt.transactionHash}`);
+```
+
+```typescript Smart Wallet
+import { base } from '@base-org/account';
+import { createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base as baseChain } from 'viem/chains';
+import { toCoinbaseSmartAccount, createBundlerClient } from 'viem/account-abstraction';
+
+// Create public client
+const publicClient = createPublicClient({
+  chain: baseChain,
+  transport: http()
+});
+
+// Convert private key to owner account
+const owner = privateKeyToAccount('0x...'); // Your app's private key
+
+// Create a Coinbase Smart Wallet account from the owner
+const smartAccount = await toCoinbaseSmartAccount({
+  client: publicClient,
+  owners: [owner],
+  version: '1'
+});
+
+// Create bundler client for sending UserOperations
+const bundlerClient = createBundlerClient({
+  account: smartAccount,
+  chain: baseChain,
+  client: publicClient,
+  transport: http('your-bundler-url') // Your bundler URL
+});
+
+// Prepare the revoke call
+const revokeCall = await base.subscription.prepareRevoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+// Send UserOperation through bundler
+const userOpHash = await bundlerClient.sendUserOperation({
+  calls: [revokeCall] // Smart wallets can batch, but revoke only needs one call
+});
+
+// Wait for the UserOperation to be included
+const receipt = await bundlerClient.waitForUserOperationReceipt({
+  hash: userOpHash
+});
+
+console.log(`Revoked in transaction: ${receipt.receipt.transactionHash}`);
+```
+
+```typescript With wallet_sendCalls
+import { base } from '@base-org/account';
+
+// Prepare the revoke call
+const revokeCall = await base.subscription.prepareRevoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+// Execute using EIP-5792 wallet_sendCalls
+const callId = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '2.0.0',
+    from: subscriptionOwner, // Must be the subscription owner!
+    chainId: '0x2105', // Base mainnet
+    calls: [revokeCall]
+  }]
+});
+
+console.log(`Revoke call sent: ${callId}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```typescript Call Object
+{
+  to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  data: "0x9c4ae2d0...",
+  value: 0n
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+```typescript
+try {
+  const revokeCall = await base.subscription.prepareRevoke({
+    id: subscriptionId,
+    testnet: false
+  });
+  
+  // Execute revoke transaction
+  const hash = await walletClient.sendTransaction({
+    to: revokeCall.to,
+    data: revokeCall.data,
+    value: revokeCall.value
+  });
+  
+  console.log(`Revoke transaction: ${hash}`);
+  
+} catch (error) {
+  console.error(`Failed to prepare revoke: ${error.message}`);
+}
+```
+
+## Comparison with revoke()
+
+<Tabs>
+<Tab title="Using prepareRevoke (Advanced)">
+```typescript
+// You manage everything manually
+const revokeCall = await base.subscription.prepareRevoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+// Initialize wallet client
+const walletClient = createWalletClient({
+  account: privateKeyToAccount('0x...'),
+  chain: baseChain,
+  transport: http()
+});
+
+// Execute transaction
+const hash = await walletClient.sendTransaction({
+  to: revokeCall.to,
+  data: revokeCall.data,
+  value: revokeCall.value
+});
+
+// Wait for confirmation
+await walletClient.waitForTransactionReceipt({ hash });
+
+// Handle gas estimation, nonce management, retries, etc.
+```
+</Tab>
+
+<Tab title="Using revoke() (Recommended)">
+```typescript
+// Everything handled automatically
+const result = await base.subscription.revoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+// Done! CDP wallet handles:
+// - Wallet initialization
+// - Transaction signing
+// - Gas estimation
+// - Nonce management
+// - Transaction confirmation
+// - Optional paymaster support
+
+console.log(`Revoked: ${result.id}`);
+```
+</Tab>
+</Tabs>
+
+## Important Notes
+
+<Warning>
+**Security**: You must execute the revoke call from the subscription owner wallet. Executing from any other wallet will fail.
+</Warning>
+
+<Note>
+**Network Matching**: The `testnet` parameter must match the network used when creating the subscription with `subscribe()`.
+</Note>
+
+## Common Errors
+
+<AccordionGroup>
+<Accordion title="Subscription Not Found">
+```
+Subscription with ID 0x... not found
+```
+
+**Solution**: Verify the subscription ID is correct. The subscription may have already been revoked.
+</Accordion>
+
+<Accordion title="Wrong Signer">
+If you execute the transaction from a wallet that isn't the subscription owner, the transaction will revert.
+
+**Solution**: Ensure you're using the same wallet address that was specified as `subscriptionOwner` in the `subscribe()` call.
+</Accordion>
+
+<Accordion title="Network Mismatch">
+Using `testnet: false` for a subscription created on testnet (or vice versa) will cause errors.
+
+**Solution**: Match the `testnet` parameter to the network where the subscription was created.
+</Accordion>
+</AccordionGroup>
+
+## Migration to revoke()
+
+If you're currently using `prepareRevoke`, consider migrating to `revoke()`:
+
+```typescript Before (prepareRevoke)
+// Old approach - manual execution
+const revokeCall = await base.subscription.prepareRevoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+const walletClient = createWalletClient({
+  account: privateKeyToAccount(process.env.PRIVATE_KEY),
+  chain: baseChain,
+  transport: http()
+});
+
+const hash = await walletClient.sendTransaction({
+  to: revokeCall.to,
+  data: revokeCall.data,
+  value: revokeCall.value
+});
+
+await walletClient.waitForTransactionReceipt({ hash });
+```
+
+```typescript After (revoke)
+// New approach - automatic execution with CDP
+const result = await base.subscription.revoke({
+  id: subscriptionId,
+  testnet: false
+});
+
+console.log(`Revoked: ${result.id}`);
+```
+
+## Related Functions
+
+<CardGroup cols={3}>
+<Card title="Revoke" icon="bolt" href="/base-account/reference/base-pay/revoke">
+Automatic revocation with CDP
+</Card>
+
+<Card title="Check Status" icon="chart-line" href="/base-account/reference/base-pay/getStatus">
+Verify subscription before revoking
+</Card>
+
+<Card title="Custom Charge" icon="code" href="/base-account/reference/base-pay/prepareCharge">
+Advanced charge execution
+</Card>
+</CardGroup>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
+

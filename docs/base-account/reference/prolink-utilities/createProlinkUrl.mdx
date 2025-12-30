@@ -1,0 +1,74 @@
+---
+title: "createProlinkUrl"
+description: "Create a link with a prolink query parameter"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  This utility creates a link with a prolink query parameter. Supports standard, deeplink, and universal link formats.
+</Info>
+
+## Import
+
+```typescript
+import { createProlinkUrl } from '@base-org/account';
+```
+
+## Parameters
+
+<ParamField body="prolink" type="string" required>
+  The base64url-encoded prolink payload to create a link for.
+</ParamField>
+
+<ParamField body="url" type="string" required>
+  The URL to which the prolink will be appended as a query parameter. Defaults to `https://base.app/base-pay`.
+</ParamField>
+
+<ParamField body="additionalQueryParams" type="Record<string, string>">
+  Optional additional query parameters to append to the URL.
+</ParamField>
+
+
+## Returns
+
+<ResponseField name="url" type="string">
+  The complete URL with the prolink and any additional query parameters appended.
+</ResponseField>
+
+## Examples
+
+### Encode wallet_sendCalls (ERC20 Transfer)
+
+```typescript
+import { createProlinkUrl } from '@base-org/account';
+
+// Create a prolink for a USDC transfer on Base
+const prolink = await encodeProlink({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: '1.0',
+    chainId: '0x2105', // Base mainnet (8453)
+    calls: [{
+      to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+      data: '0xa9059cbb000000000000000000000000fe21034794a5a574b94fe4fdfd16e005f1c96e5100000000000000000000000000000000000000000000000000000000004c4b40',
+      value: '0x0'
+    }]
+  }]
+});
+
+// Use in a shareable URL
+const paymentUrl = createProlinkUrl(prolink, 'https://yourapp.com/pay');
+console.log(paymentUrl);
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="encodeProlink" icon="compress" href="/base-account/reference/prolink-utilities/encodeProlink">
+    Create prolink payloads from JSON-RPC requests
+  </Card>
+  <Card title="decodeProlink" icon="expand" href="/base-account/reference/prolink-utilities/decodeProlink">
+    Decode a prolink payload back to a JSON-RPC request
+  </Card>
+</CardGroup>

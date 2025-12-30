@@ -1,0 +1,110 @@
+---
+title: Troubleshooting Transactions
+slug: /troubleshooting-transactions
+description: Guide to diagnosing and resolving transaction issues on Base.
+---
+
+## Transaction Not Being Included
+
+If your transaction is pending for longer than expected, check the following:
+
+### Max Fee Too Low
+
+If your `maxFeePerGas` is lower than the current base fee, your transaction will remain pending until the base fee drops to your specified level.
+
+**Solution**: The `maxFeePerGas` must cover both the base fee and your priority fee. Since the base fee can change with each block, set `maxFeePerGas` high enough to remain valid even if the base fee rises while your transaction is pending. A common approach is:
+
+```
+maxFeePerGas = baseFee * 2 + maxPriorityFeePerGas
+```
+
+This formula (used by [ethers.js](https://github.com/ethers-io/ethers.js/blob/98c49d091eb84a9146dfba8476f18e4c3e3d1d31/src.ts/providers/abstract-provider.ts#L945-L950)) provides headroom for the base fee to double before your transaction becomes unexecutable. You only pay the actual base fee at inclusion time, not the maximum.
+
+<Note>
+Base has a [minimum base fee](/base-chain/network-information/network-fees#minimum-base-fee). Transactions with `maxFeePerGas` below this value will never be included, since the base fee cannot drop below the minimum.
+</Note>
+
+### Priority Fee Too Low
+
+During periods of high demand, transactions compete for block space through priority fees. If your priority fee is too low relative to other transactions, yours may be delayed.
+
+**Solution**: Most users simply wait for congestion to subside. For time-sensitive transactions, use `eth_maxPriorityFeePerGas` to get a priority fee estimate that can outbid enough recent transactions to be included.
+
+<Note>
+If [DA throttling](https://docs.optimism.io/chain-operators/guides/configuration/batcher#batcher-sequencer-throttling) is currently in effect, there's no RPC endpoint that calculates priority fee estimates with throttling in mind. During DA throttling, even transactions with high priority fees may be delayed as the sequencer limits L2 transactions to manage its L1 data availability throughput.
+</Note>
+
+### Nonce Gap
+
+If you have a pending transaction with nonce N, all transactions with nonce N+1 or higher will queue behind it, regardless of their fees.
+
+**Solution**: Either wait for the pending transaction to be included, or replace it by submitting a new transaction with the same nonce and a higher fee (at least 10% higher `maxPriorityFeePerGas` and `maxFeePerGas`).
+
+### Nonce Too Low
+
+If you submit a transaction with a nonce that has already been used, it will be rejected.
+
+**Solution**: Query your current nonce using `eth_getTransactionCount` with the `pending` tag to get the next available nonce.
+
+## Transaction Rejected
+
+### Gas Limit Exceeds Maximum
+
+Ethereum enforces a [transaction gas limit cap](https://eips.ethereum.org/EIPS/eip-7825) of **16,777,216 gas**. Base plans to match this limit in a future upgrade, but currently enforces a [per-transaction gas maximum](/base-chain/network-information/block-building#per-transaction-gas-maximum) of **25,000,000 gas**. Transactions specifying a higher gas limit are rejected by the mempool before inclusion.
+
+**Error**: `exceeds maximum per-transaction gas limit`
+
+**Solution**: Reduce the gas limit to 16,777,216 or below. If your transaction genuinely requires more gas, you'll need to break it into multiple transactions.
+
+## Transaction Included But Failed
+
+If your transaction was included in a block but shows a failed status:
+
+### Out of Gas
+
+The transaction ran out of gas during execution.
+
+**Solution**: Increase the gas limit. Use `eth_estimateGas` to get a gas estimate, then add a buffer (e.g., 20%) to account for variability.
+
+### Reverted by Contract
+
+The contract execution encountered a revert condition.
+
+**Solution**: Check the transaction on [Basescan](https://basescan.org) to see the revert reason. Common causes include failed require statements, arithmetic errors, or invalid state transitions.
+
+## Slow Confirmation
+
+### Understanding Confirmation Times
+
+Base produces blocks every 2 seconds, but [Flashblocks](/base-chain/flashblocks/apps) provide preconfirmations every 200ms.
+
+| Confirmation Level | Time | Description |
+|-------------------|------|-------------|
+| Flashblock preconfirmation | ~200ms | Transaction included in a preconfirmation |
+| L2 block inclusion | ~2s | Transaction included in a sealed L2 block |
+| L1 batch inclusion | ~2m | Transaction posted to Ethereum |
+| L1 finality | ~20m | Ethereum batch is finalized |
+
+See [Transaction Finality](/base-chain/network-information/transaction-finality) for more details.
+
+### Using Flashblocks for Faster Confirmations
+
+To get the fastest possible confirmation, use a Flashblocks-aware RPC endpoint:
+
+| Network | Flashblocks RPC |
+|---------|-----------------|
+| Mainnet | `https://mainnet-preconf.base.org` |
+| Sepolia | `https://sepolia-preconf.base.org` |
+
+These endpoints return transaction receipts as soon as a transaction is included in a Flashblock, rather than waiting for the full L2 block.
+
+## Debugging Tools
+
+- **[Basescan](https://basescan.org)**: View transaction status, logs, and revert reasons
+- **[Tenderly](https://tenderly.co)**: Simulate and debug transactions
+- **`eth_call`**: Test contract calls without submitting a transaction
+- **`eth_estimateGas`**: Estimate gas usage before submitting
+
+## Getting Help
+
+If you're still experiencing issues, reach out in the `#developer-chat` channel in the [Base Discord](https://base.org/discord).
