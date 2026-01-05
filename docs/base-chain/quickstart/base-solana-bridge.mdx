@@ -195,6 +195,16 @@ const relayIx = getRelayMessageInstruction({ message: messagePda });
 await buildAndSendTransaction(SOLANA_RPC_URL, [proveIx, relayIx], payer);
 ```
 
+<Warning>
+If you operate a relayer that signs and submits Solana transactions for users in the **Base → Solana**
+direction, do **not** sign transactions that require your relayer pubkey as a signer.
+
+A malicious user can encode a transaction that includes your relayer pubkey as a required signer; if
+you sign and submit it, you may unintentionally authorize arbitrary instructions (including ones
+that can steal relayer funds). As a baseline mitigation, ignore any transaction that specifies your
+pubkey as a signer.
+</Warning>
+
 ## Utilities
 
 The repository includes utilities for converting between Solana and Base address formats,
