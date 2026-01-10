@@ -1,0 +1,218 @@
+---
+title: Automating DevOps: The Base CI/CD Pipeline
+slug: /cookbook/automating-devops
+description: A complete guide to building a CI/CD pipeline for Base, including auto-funding scripts and secure key management.
+author: [Jadonamite]
+tags: [devops, ci-cd, github-actions, foundry, hardhat, automation]
+---
+
+#  Automating DevOps: The Base CI/CD Pipeline
+
+**Target Audience:** DevOps Engineers, Lead Solidity Developers
+**Goal:** Create a GitHub Actions workflow that automatically tests and deploys to Base Sepolia (and Mainnet) without manual intervention.
+
+In a production environment, you should never deploy from your local machine. Local deployments introduce "it works on my machine" errors and security risks. Instead, we use a **Continuous Integration/Continuous Deployment (CI/CD)** pipeline.
+
+---
+
+## Part 1: The Architecture
+
+We will build a pipeline with three stages:
+
+1. **Test:** Runs Foundry/Hardhat tests on every commit.
+2. **Fund (The "Secret Sauce"):** Checks the deployer wallet's balance on Base Sepolia. If it's low, it automatically bridges ETH from Sepolia (L1) to Base Sepolia (L2).
+3. **Deploy:** Deploys the contracts if tests pass and funds are sufficient.
+
+---
+
+## Part 2: Secure Key Management (GitHub Actions)
+
+Storing private keys in plain text is a critical vulnerability. We will use **GitHub Secrets** to inject them safely.
+
+### 1. The Strategy: "Disposable Deployers"
+
+Do **not** use your main personal wallet for CI/CD.
+
+* **Create a specific "Deployer Wallet"** for this repository.
+* **Grant it only enough ETH** to perform the deployment.
+* If the key is leaked, the damage is contained to this one project.
+
+### 2. Configuring GitHub Secrets
+
+1. Go to your GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**.
+2. Click **"New repository secret"**.
+3. Add the following:
+* `PRIVATE_KEY`: The raw private key (without `0x`) of your deployer wallet.
+* `ALCHEMY_API_KEY`: Your API key for connecting to Base.
+* `ETHERSCAN_API_KEY`: For verifying contracts on Basescan.
+
+
+
+### 3. Usage in Code
+
+In your deployment scripts, never hardcode keys. Use `process.env`:
+
+```javascript
+// Hardhat: hardhat.config.js
+const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
+
+```
+
+```bash
+# Foundry: In your pipeline (see Part 4)
+forge script script/Deploy.s.sol --private-key ${{ secrets.PRIVATE_KEY }}
+
+```
+
+---
+
+## Part 3: The Auto-Funding Script 
+
+Faucets are flaky and have captchas. For true automation, we use the **L1 Standard Bridge**. We keep our deployer wallet funded on **Sepolia L1** (easier to get ETH for) and programmatically bridge it to Base Sepolia L2 if needed.
+
+**Create a file:** `scripts/auto-fund.js`
+*Prerequisites:* `npm install @eth-optimism/sdk ethers@^5`
+
+```javascript
+const { CrossChainMessenger, MessageStatus } = require('@eth-optimism/sdk');
+const { ethers } = require('ethers');
+
+// Setup Providers
+const l1Provider = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/eth_sepolia');
+const l2Provider = new ethers.providers.JsonRpcProvider('https://sepolia.base.org');
+
+// Wallet setup (Uses the same key for L1 and L2)
+const privateKey = process.env.PRIVATE_KEY;
+const l1Wallet = new ethers.Wallet(privateKey, l1Provider);
+const l2Wallet = new ethers.Wallet(privateKey, l2Provider);
+
+// Config
+const LOW_BALANCE_THRESHOLD = ethers.utils.parseEther("0.05"); // If below 0.05 ETH
+const FUND_AMOUNT = ethers.utils.parseEther("0.1"); // Bridge 0.1 ETH
+
+async function main() {
+  const l2Balance = await l2Wallet.getBalance();
+  console.log(`Current Base Sepolia Balance: ${ethers.utils.formatEther(l2Balance)} ETH`);
+
+  if (l2Balance.gte(LOW_BALANCE_THRESHOLD)) {
+    console.log("Balance is sufficient. Skipping funding.");
+    return;
+  }
+
+  console.log("Balance low. Initiating L1 -> L2 Bridge...");
+
+  // Initialize the Optimism SDK CrossChainMessenger
+  // Base Sepolia Chain ID: 84532, Sepolia Chain ID: 11155111
+  const messenger = new CrossChainMessenger({
+    l1ChainId: 11155111,
+    l2ChainId: 84532,
+    l1SignerOrProvider: l1Wallet,
+    l2SignerOrProvider: l2Wallet,
+  });
+
+  // Deposit ETH
+  const tx = await messenger.depositETH(FUND_AMOUNT);
+  console.log(`Deposit transaction sent: ${tx.hash}`);
+  await tx.wait();
+
+  console.log("Funds bridged! Waiting for L2 inclusion (approx 2-5 mins)...");
+  // Note: In a real pipeline, we might not wait for finalization to save CI minutes, 
+  // ensuring the NEXT run has funds, or use a wait loop here.
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+
+```
+
+---
+
+## Part 4: The CI/CD Pipeline (`pipeline.yml`)
+
+Create `.github/workflows/deploy.yml`. This file orchestrates the entire process.
+
+```yaml
+name: Base Smart Contract CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  FOUNDRY_PROFILE: default
+
+jobs:
+  # JOB 1: Test the Code
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Run Tests
+        run: forge test -vv
+
+  # JOB 2: Auto-Fund & Deploy (Only on Main Branch push)
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Setup Node for the Auto-Fund Script
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      
+      - name: Install Dependencies
+        run: npm install @eth-optimism/sdk ethers dotenv
+
+      # Run the Auto-Fund Script
+      - name: Check Balance & Bridge Funds
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: node scripts/auto-fund.js
+
+      # Setup Foundry for Deployment
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      # Deploy to Base Sepolia
+      - name: Deploy to Base Sepolia
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+          BASE_SEPOLIA_RPC: "https://sepolia.base.org"
+        run: |
+          forge script script/Deploy.s.sol:DeployScript \
+          --rpc-url $BASE_SEPOLIA_RPC \
+          --broadcast \
+          --verify \
+          --etherscan-api-key $ETHERSCAN_API_KEY
+
+```
+
+---
+
+## Part 5: TL;DR Summary
+
+| Component | Strategy |
+| --- | --- |
+| **Key Storage** | Use **GitHub Repository Secrets**. Never commit `.env` files. |
+| **Funding** | Do not use manual faucets. Use a **Node.js script + Optimism SDK** to bridge L1 Sepolia ETH to Base L2 automatically when low. |
+| **Trigger** | Run **Tests** on every PR. Run **Deployments** only on merges to `main`. |
+| **Verification** | Add `--verify` to your Forge/Hardhat command to auto-verify source code on Basescan. |
+
+
+**3. Next Step:**
+Would you like me to write the **"Stuck Funds" recovery script** we discussed earlier to round out the "Mastering Cross-Chain State" topic, or move on to creating the PR for this DevOps guide?
