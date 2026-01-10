@@ -1,0 +1,197 @@
+---
+title: "Dual-Stack Deployment: Hardhat vs. Foundry"
+slug: /cookbook/dual-stack-deployment
+description: A reference guide for setting up a hybrid development environment, comparing deployment scripts, and fixing common configuration pitfalls.
+author: [YourGitHubUsername]
+tags: [smart-contracts, foundry, hardhat, deployment, configuration]
+---
+
+#  Dual-Stack Deployment: Hardhat vs. Foundry
+
+**Target Audience:** Senior Smart Contract Engineers
+**Goal:** Create a "Hybrid" repository that leverages the best of both worlds: Foundry's blazing fast tests and Hardhat's robust ecosystem.
+
+Why choose? A production-grade setup often requires both.
+
+* **Foundry:** Superior for Unit Testing, Fuzzing, and mainnet forking.
+* **Hardhat:** Superior for complex deployment scripts, task automation, and integration with frontend codebases (TypeChain).
+
+---
+
+## Part 1: The Hybrid Project Structure
+
+To make them play nicely together, you need to align their directory structures.
+
+**1. The Setup**
+Initialize both tools in the same root folder.
+
+```bash
+npm init -y
+npm install --save-dev hardhat
+npx hardhat init # Choose "TypeScript project"
+curl -L https://foundry.paradigm.xyz | bash
+forge init --force
+
+```
+
+**2. The Configuration Map**
+Foundry uses `src`, `test`, and `lib`. Hardhat uses `contracts`, `test`, and `node_modules`. Let's map them.
+
+**Update `foundry.toml**`:
+
+```toml
+[profile.default]
+src = "contracts"        # Point Foundry to Hardhat's folder
+out = "artifacts"        # Match Hardhat's compiled output
+libs = ["node_modules", "lib"] # Allow imports from npm AND git submodules
+
+```
+
+**Update `hardhat.config.ts**`:
+
+```typescript
+import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-foundry"; // <--CRITICAL PLUGIN
+
+const config: HardhatUserConfig = {
+  solidity: "0.8.20",
+  paths: {
+    sources: "./contracts", // Standard Hardhat
+    tests: "./test",        // Shared test folder
+    cache: "./cache_hardhat", // Keep caches separate to avoid conflicts
+  },
+};
+
+export default config;
+
+```
+
+---
+
+## Part 2: Side-by-Side Reference (Rosetta Stone)
+
+This reference table helps developers switch context without friction.
+
+| Action | **Foundry (Forge/Cast)** | **Hardhat (Nomic)** |
+| --- | --- | --- |
+| **Compile** | `forge build` | `npx hardhat compile` |
+| **Test** | `forge test` | `npx hardhat test` |
+| **Test Specific** | `forge test --match-test testName` | `npx hardhat test --grep "testName"` |
+| **Debug** | `console.log` (via `forge-std`) | `console.log` (via `hardhat/console.sol`) |
+| **Deploy** | `forge script script/Deploy.s.sol:Deploy --broadcast` | `npx hardhat run scripts/deploy.ts` |
+| **Verify** | `forge verify-contract ...` | `npx hardhat verify ...` |
+| **Fork Mainnet** | `anvil --fork-url <RPC>` | `npx hardhat node --fork <RPC>` |
+
+---
+
+## Part 3: Deployment Scripts (Identical Outcome)
+
+Here is how the exact same deployment looks in both frameworks.
+
+**Scenario:** Deploying a simple `Counter.sol`.
+
+###  Foundry (Solidity Scripting)
+
+*File: `script/Deploy.s.sol*`
+*Pros: Type-safe, no context switch from Solidity.*
+
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Script.sol";
+import "../contracts/Counter.sol";
+
+contract DeployScript is Script {
+    function run() external {
+        // 1. Load Private Key safely
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        
+        // 2. Start Broadcast (Record transactions)
+        vm.startBroadcast(deployerPrivateKey);
+
+        // 3. Deploy
+        Counter counter = new Counter();
+        console.log("Deployed Counter at:", address(counter));
+
+        vm.stopBroadcast();
+    }
+}
+
+```
+
+###  Hardhat (TypeScript w/ Ethers v6)
+
+*File: `scripts/deploy.ts*`
+*Pros: Access to npm packages, filesystem, and complex async logic.*
+
+```typescript
+import { ethers } from "hardhat";
+
+async function main() {
+  // 1. Get Signer (configured in hardhat.config.ts)
+  const [deployer] = await ethers.getSigners();
+  
+  console.log("Deploying with account:", deployer.address);
+
+  // 2. Deploy
+  const Counter = await ethers.getContractFactory("Counter");
+  const counter = await Counter.deploy();
+  await counter.waitForDeployment(); // Ethers v6 syntax
+
+  console.log("Deployed Counter at:", await counter.getAddress());
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+```
+
+---
+
+## Part 4: Configuration Pitfalls 
+
+Deployment on L2s like Base requires specific tuning.
+
+### 1. Error: "Nonce too low"
+
+* **Symptoms:** Your deployment script fails instantly, or transactions get "stuck" pending forever.
+* **Cause:** You are running local tests (Anvil/Hardhat Node) and your wallet's cached nonce is out of sync with the chain, OR you have pending transactions in the mempool.
+* **The Fix:**
+* **Foundry:** `cast nonce <ADDRESS>` (Check real nonce). Then use `--nonce <VALUE>` to force the correct one if needed.
+* **Hardhat:** Reset your local account in Metamask settings if using localhost. In scripts, you can manually override:
+```typescript
+await Counter.deploy({ nonce: await provider.getTransactionCount(deployer.address) });
+
+```
+
+
+
+
+
+### 2. Network-Specific Gas Settings (Legacy vs. EIP-1559)
+
+Base supports EIP-1559 (Type 2 transactions), but sometimes tools default to Legacy (Type 0) or calculate gas fees incorrectly during congestion.
+
+* **The Fix (Hardhat Config):** Explicitly enable EIP-1559 settings for Base.
+
+```typescript
+// hardhat.config.ts
+networks: {
+  base: {
+    url: "https://mainnet.base.org",
+    accounts: [process.env.PRIVATE_KEY],
+    // Force Type 2 Transactions
+    gasPrice: "auto", 
+    // If you get "replacement fee too low", bump the priority fee manually:
+    // maxPriorityFeePerGas: 1000000000, // 1 Gwei
+  }
+}
+
+```
+
+* **The Fix (Foundry):**
+Usually handles this automatically, but if deployments fail during high traffic, use the `--with-gas-price` flag to bid higher.
