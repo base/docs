@@ -161,6 +161,6 @@ If your goal is to increase discoverability of your product, please request incl
 
 The core team will review opened PRs. The SLA is 2 weeks, generally on a first-come, first-served basis outside of urgent changes. 
 
-## Storybook for UI components
+### Storybook for UI components
 
 See `storybook/README.md` for details on local Storybook and component docs.
