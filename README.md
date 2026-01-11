@@ -29,7 +29,7 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 ## Local development
 
-Prerequisite: Node.js v19+.
+Prerequisite: Node.js v19+
 
 1. Clone the repository.
 2. Install the Mint CLI to preview documentation changes locally:
