@@ -95,7 +95,7 @@ The Base documentation is organized into established sections (for example: `get
 > - Organize Reference by component/feature, not per use case.
 > - Use cross-links instead of adding new structural layers.
 
-## Style and formatting
+### Style and formatting
 
 ### Writing style
 
