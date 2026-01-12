@@ -1,0 +1,270 @@
+---
+title: Setting a Basename
+slug: /set-basename-with-hardhat
+description: "A tutorial that teaches how to set a Basename for a smart contract on the Base test network using Hardhat."
+author: abhi
+---
+
+This section will guide you through setting a Basename for an Ownable smart contract on the Base test network using [Hardhat](https://hardhat.org/) and the [hardhat-enscribe](https://github.com/enscribexyz/enscribe-hardhat) plugin.
+
+Hardhat is a developer tool that provides a simple way to deploy, test, and debug smart contracts. The hardhat-enscribe plugin allows you to set a Basename for your smart contract.
+
+
+
+## Objectives
+
+By the end of this tutorial, you should be able to do the following:
+
+- Setup Hardhat for Base
+- Create an Ownable smart contract for Base
+- Compile a smart contract for Base
+- Set a Basename for a smart contract on Base
+
+
+
+## Prerequisites
+
+### Node v18+
+
+This tutorial requires you have Node version 18+ installed.
+
+- Download [Node v18+](https://nodejs.org/en/download/)
+
+If you are using `nvm` to manage your node versions, you can just run `nvm install 18`.
+
+### Coinbase Wallet
+
+In order to deploy a smart contract, you will first need a web3 wallet. You can create a wallet by downloading the Coinbase Wallet browser extension.
+
+- Download [Coinbase Wallet](https://chrome.google.com/webstore/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad?hl=en)
+
+### Wallet funds
+
+Deploying contracts to the blockchain requires a gas fee. Therefore, you will need to fund your wallet with ETH to cover those gas fees.
+
+For this tutorial, you will be deploying a contract to the Base Sepolia test network. You can fund your wallet with Base Sepolia ETH using one of the faucets listed on the Base [Network Faucets](https://docs.base.org/base-chain/tools/network-faucets) page.
+
+
+
+## Creating a project
+
+Before you can begin deploying smart contracts to Base, you need to set up your development environment by creating a Node.js project.
+
+To create a new Node.js project, run:
+
+```bash
+npm init --y
+```
+
+Next, you will need to install Hardhat and create a new Hardhat project
+
+To install Hardhat, run:
+
+```bash
+npm install --save-dev hardhat
+```
+
+To create a new Hardhat project, run:
+
+```bash
+npx hardhat init
+```
+
+Select `Create a TypeScript project` then press _enter_ to confirm the project root.
+
+Select `y` for both adding a `.gitignore` and loading the sample project. It will take a moment for the project setup process to complete.
+
+
+
+## Configuring Hardhat with Base
+
+In order to deploy smart contracts to the Base network, you will need to configure your Hardhat project and add the Base network.
+
+To configure Hardhat to use Base, add Base as a network to your project's `hardhat.config.ts` file:
+
+```tsx
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+
+require('dotenv').config();
+
+const config: HardhatUserConfig = {
+  solidity: {
+    version: '0.8.23',
+  },
+  networks: {
+    // for mainnet
+    'base-mainnet': {
+      url: 'https://mainnet.base.org',
+      accounts: [process.env.WALLET_KEY as string],
+      gasPrice: 1000000000,
+    },
+    // for testnet
+    'base-sepolia': {
+      url: 'https://sepolia.base.org',
+      accounts: [process.env.WALLET_KEY as string],
+      gasPrice: 1000000000,
+    },
+    // for local dev environment
+    'base-local': {
+      url: 'http://localhost:8545',
+      accounts: [process.env.WALLET_KEY as string],
+      gasPrice: 1000000000,
+    },
+  },
+  defaultNetwork: 'hardhat',
+};
+
+export default config;
+```
+
+### Install Hardhat toolbox
+
+The above configuration uses the `@nomicfoundation/hardhat-toolbox` plugin to bundle all the commonly used packages and Hardhat plugins recommended to start developing with Hardhat.
+
+To install `@nomicfoundation/hardhat-toolbox`, run:
+
+```bash
+npm install --save-dev @nomicfoundation/hardhat-toolbox
+```
+
+### Install hardhat-enscribe
+
+To install `hardhat-enscribe`, run:
+
+```bash
+npm install --save-dev @enscribe/hardhat-enscribe
+```
+
+### Loading environment variables
+
+The above configuration also uses [dotenv](https://www.npmjs.com/package/dotenv) to load the `WALLET_KEY` environment variable from a `.env` file to `process.env.WALLET_KEY`. You should use a similar method to avoid hardcoding your private keys within your source code.
+
+To install `dotenv`, run:
+
+```bash
+npm install --save-dev dotenv
+```
+
+Once you have `dotenv` installed, you can create a `.env` file with the following content:
+
+```
+WALLET_KEY="<YOUR_PRIVATE_KEY>"
+```
+
+Substituting `<YOUR_PRIVATE_KEY>` with the private key for your wallet.
+
+<Info>
+
+`WALLET_KEY` is the private key of the wallet to use when deploying a contract. For instructions on how to get your private key from Coinbase Wallet, visit the [Coinbase Wallet documentation](https://docs.cloud.coinbase.com/wallet-sdk/docs/developer-settings#show-private-key). **It is critical that you do NOT commit this to a public repo**
+
+</Info>
+
+### Local Networks
+
+You can run the Base network locally, and deploy using it. If this is what you are looking to do, see the [repo containing the relevant Docker builds](https://github.com/base-org/node).
+
+It will take a **very** long time for your node to sync with the network. If you get errors that the `nonce has already been used` when trying to deploy, you aren't synced yet.
+
+For quick testing, such as if you want to add unit tests to the below HelloWorld contract, you may wish to leave the `defaultNetwork` as `'hardhat'`.
+
+
+
+## Compiling the smart contract
+
+Below is a simple Ownable smart contract  written in the Solidity programming language:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract HelloWorld is Ownable {
+    string public helloWorld;
+
+    constructor() Ownable(msg.sender) {
+        helloWorld = "Hello World!";
+    }
+
+    function setHelloWorld(string memory _helloWorld) public onlyOwner {
+        helloWorld = _helloWorld;
+    }
+}
+```
+
+The Solidity code above defines a smart contract named `HelloWorld`. The code uses the `Ownable` interface provided by the [OpenZeppelin Contracts library](https://docs.openzeppelin.com/contracts/5.x/) to create an Ownable smart contract.
+
+To add the OpenZeppelin Contracts library to your project, run:
+
+```bash
+npm install --save @openzeppelin/contracts
+```
+
+In your project, delete the `contracts/Lock.sol` contract that was generated with the project and add the above code in a new file called `contracts/HelloWorld.sol`. (You can also delete the `test/Lock.ts` test file, but you should add your own tests ASAP!).
+
+To compile the contract using Hardhat, run:
+
+```bash
+npx hardhat compile
+```
+
+
+
+## Deploying the smart contract
+
+Once your contract has been successfully compiled, you can deploy the contract to the Base Sepolia test network.
+
+To deploy the contract to the Base Sepolia test network, you'll need to modify the `scripts/deploy.ts` in your project:
+
+```tsx
+import { ethers } from 'hardhat';
+
+async function main() {
+  const helloWorld = await ethers.deployContract('HelloWorld');
+
+  await helloWorld.waitForDeployment();
+
+  console.log('HelloWorld Contract Deployed at ' + helloWorld.target);
+}
+
+// We recommend this pattern to be able to use async/await everywhere
+// and properly handle errors.
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+You'll also need testnet ETH in your wallet. See the [prerequisites](#prerequisites) if you haven't done that yet. Otherwise, the deployment attempt will fail.
+
+Finally, run:
+
+```bash
+npx hardhat run scripts/deploy.ts --network base-sepolia
+```
+
+The contract will be deployed on the Base Sepolia test network. You can view the deployment status and contract by using a [block explorer](/base-chain/tools/block-explorers) and searching for the address returned by your deploy script. If you've deployed an exact copy of the HelloWorld contract above, it will already be verified and you'll be able to read and write to the contract using the web interface.
+
+
+<Info>
+
+If you'd like to deploy to mainnet, you'll modify the command like so:
+
+```bash
+npx hardhat run scripts/deploy.ts --network base-mainnet
+```
+
+</Info>
+
+## Setting a Basename for the smart contract
+
+Once the contract is deployed, you can set the Basename for the contract using the `hardhat-enscribe` plugin.
+
+To set the Basename for the contract, grab the deployed address and run:
+
+```bash
+npx hardhat enscribe name <full ENS name> --contract <deployed address> --network base-sepolia
+```
+
+You can now view the Basename set at `https://www.enscribe.xyz/explore/84532/<your full ENS name>`.

@@ -147,6 +147,13 @@ Install OpenZeppelin contracts for secure, audited ERC-20 implementation:
 forge install OpenZeppelin/openzeppelin-contracts
 ```
 
+Install Enscribe contracts naming library for setting a Basename for your contracts:
+
+```bash Terminal
+# Install Enscribe contracts naming library
+forge install enscribexyz/enscribe
+```
+
 ### Smart Contract Development
 
 Create your token contract using OpenZeppelin's ERC-20 implementation:
@@ -157,6 +164,7 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "enscribe/Ens.sol";
 
 /**
  * @title MyToken
@@ -229,6 +237,9 @@ contract DeployToken is Script {
             initialSupply,
             deployerAddress
         );
+
+        // Set a Basename for the token contract assuming you have the mydomain.base.eth Basename registered on Base
+        Ens.setName(block.chainid, address(token), "myawesometoken.mydomain.base.eth");
         
         // Stop broadcasting transactions
         vm.stopBroadcast();
@@ -261,7 +272,7 @@ Update `foundry.toml` for Base network configuration:
 src = "src"
 out = "out"
 libs = ["lib"]
-remappings = ["@openzeppelin/=lib/openzeppelin-contracts/"]
+remappings = ["@openzeppelin/=lib/openzeppelin-contracts/", "enscribe/=lib/enscribe/src/"]
 
 [rpc_endpoints]
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
@@ -363,6 +374,10 @@ forge script script/DeployToken.s.sol:DeployToken \
     --broadcast \
     --verify
 ```
+
+<Tip>
+You can see your contract's Basename by visiting [Enscribe Explorer](https://app.enscribe.xyz/explore/84532/myawesometoken.mydomain.base.eth).
+</Tip>
 
 <Tip>
 The `--verify` flag automatically verifies your contract on BaseScan, making it easier for users to interact with your token.
