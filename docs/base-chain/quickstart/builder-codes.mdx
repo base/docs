@@ -33,11 +33,12 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
 
 <Steps>
   <Step title="Support the dataSuffix Capability">
-    Your wallet should accept a `dataSuffix` string in the `capabilities` object of `wallet_sendCalls`.
+    Your wallet should accept a `dataSuffix` object in the `capabilities` object of `wallet_sendCalls`.
 
     ```typescript lines
-    interface DataSuffixCapability {
-      dataSuffix: string; // hex-encoded bytes provided by the app
+    type DataSuffixCapability = {
+      value: `0x${string}`;  // hex-encoded bytes provided by the app
+      optional?: boolean;    // whether the capability is optional
     }
     ```
 
@@ -53,7 +54,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```typescript lines
         // Minimal example for EOA
         function applySuffixToEOA(tx, capabilities) {
-          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          const suffix = capabilities.dataSuffix?.value
           if (!suffix) return tx
 
           return {
@@ -70,7 +71,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```typescript lines
         // Minimal example for ERC-4337
         function applySuffixToUserOp(userOp, capabilities) {
-          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          const suffix = capabilities.dataSuffix?.value
           if (!suffix) return userOp
 
           return {
