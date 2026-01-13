@@ -21,11 +21,83 @@ Once your app is registered on [Base.dev](http://base.dev/), the Base App will a
 
 ## For App Developers
 
-When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `k3p9da`) that you'll use to generate your attribution suffix. 
+When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da` ) that you'll use to generate your attribution suffix. 
 
-You can find your code anytime under **Settings** → **Builder Code**.
+<Tip>
+  You can find your code anytime under **Settings** → **Builder Code**.
+</Tip>
 
-<Callout icon="clock" color="#3B82F6" iconType="regular">Manual appending outside of the Base app is coming soon.</Callout>
+<Steps>
+  <Step title="Install the Standard Library for Ethereum">
+
+This will allow you to append the encoded version of your builder code.
+
+    ```bash Terminal
+    npm i ox
+    ```
+  </Step>
+
+  <Step title="Copy Your Builder Code">
+    Navigate to **base.dev > Settings > Builder Codes** to find your unique builder code.
+  </Step>
+
+  <Step title="Create the Encoded Data Suffix">
+    Use the `Attribution.toDataSuffix` method from the `ox` library to encode your builder code:
+
+    ```ts App.tsx
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"], // obtained from base.dev > Settings > Builder Codes
+    });
+    ```
+  </Step>
+
+  <Step title="Send transaction using the dataSuffix capability">
+    Use Wagmi's `useSendCalls` hook with the `dataSuffix` capability to append attribution data to your transactions.
+
+    ```ts App.tsx
+    import { useSendCalls } from "wagmi";
+    import { parseEther } from "viem";
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"],
+    });
+
+    function App() {
+      const { sendCalls } = useSendCalls();
+
+      return (
+        <button
+          onClick={() =>
+            sendCalls({
+              calls: [
+                {
+                  to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+                  value: parseEther("1"),
+                },
+                {
+                  data: "0xdeadbeef",
+                  to: "0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC",
+                },
+              ],
+              capabilities: {
+                dataSuffix: {
+                  value: DATA_SUFFIX,
+                  optional: true,
+                },
+              },
+            })
+          }
+        >
+          Send calls
+        </button>
+      );
+    }
+    ```
+  </Step>
+</Steps>
 
 ## For Wallet Developers
 
