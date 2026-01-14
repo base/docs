@@ -3,7 +3,7 @@
 title: "Building Transactional Farcaster Frames"
 slug: /cookbook/farcaster/transactional-frames
 description: A comprehensive guide to building interactive Frames that execute on-chain transactions (Minting NFTs) directly from the Farcaster feed.
-authors: [your-github-username]
+authors: [jadonamite]
 tags: [farcaster, frames, onchainkit, nextjs, nft, minting]
 ---
 
