@@ -207,7 +207,7 @@ const sdk = createBaseAccountSDK({
 
 const spender = "0xAppSpenderAddress";
 
-// 1) Fetch a specific permission by its hash
+// 1. Fetch a specific permission by its hash
 // Use fetchPermission when you already know the permission hash
 // (e.g., stored from a previous session or passed as a parameter)
 const permission = await fetchPermission({
@@ -230,7 +230,7 @@ const permission = await fetchPermission({
 // When there IS an existing permission
 // ========================================
 
-// 2. check the status of permission
+// 2. Check the status of permission
 try {
   const { isActive, remainingSpend } = await getPermissionStatus(permission);
   const amount = 1000n;
@@ -242,13 +242,13 @@ try {
   throw new Error("No spend permission available");
 }
 
-// 3. prepare the calls
+// 3. Prepare the calls
 const [approveCall, spendCall] = await prepareSpendCallData({
   permission,
   amount,
 });
 
-// 4. execute the calls using your app's spender account
+// 4. Execute the calls using your app's spender account
 // this is an example using wallet_sendCalls, in production it could be using eth_sendTransaction.
 await provider.request({
   method: "wallet_sendCalls",
@@ -266,7 +266,7 @@ await provider.request({
 // When there is NOT an existing permission
 // ========================================
 
-// 2. request a spend permission to use
+// 2. Request a spend permission to use
 const newPermission = await requestSpendPermission({
   account: "0xUserBaseAccountAddress",
   spender,
@@ -277,13 +277,13 @@ const newPermission = await requestSpendPermission({
   provider: sdk.getProvider(),
 });
 
-// 3. prepare the calls
+// 3. Prepare the calls
 const spendCalls = await prepareSpendCallData({
   permission: newPermission,
   amount: 1_000n,
 });
 
-// 4. execute the calls using your app's spender account
+// 4. Execute the calls using your app's spender account
 // this is an example using eth_sendTransaction. If your app account supports wallet_sendCalls, use wallet_sendCalls to batch the calls instead.
 await Promise.all(
   spendCalls.map((call) =>
