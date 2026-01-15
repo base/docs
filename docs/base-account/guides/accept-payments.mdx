@@ -25,7 +25,7 @@ If you intend on using the BasePayButton, please follow the [Brand Guidelines](/
 ## Client-side (Browser SDK)
 
 <Note>
-**Interactive Playground:** Try out the `pay()` and `getPaymentStatus()` functions in our [Base Pay SDK Playground](https://base.github.io/account-sdk/pay-playground) before integrating them into your app.
+**Interactive Playground:** Try out the [`pay()`](/base-account/reference/base-pay/pay) and [`getPaymentStatus()`](/base-account/reference/base-pay/getPaymentStatus) functions in our [Base Pay SDK Playground](https://base.github.io/account-sdk/pay-playground) before integrating them into your app.
 </Note>
 
 ```ts Browser (SDK)
@@ -53,7 +53,7 @@ try {
 ```
 
 <Note>
-**Important:** The `testnet` parameter in `getPaymentStatus()` must match the value used in the original `pay()` call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
+**Important:** The `testnet` parameter in [`getPaymentStatus()`](/base-account/reference/base-pay/getPaymentStatus) must match the value used in the original [`pay()`](/base-account/reference/base-pay/pay) call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
 </Note>
 
 This is what the user will see when prompted to pay:
@@ -122,13 +122,13 @@ You can use the `callbackURL` to validate the user's information on the server s
 Learn more about this in the [callbackURL reference](/base-account/reference/core/capabilities/datacallback).
 </Tip>
 
-## Server side
+## Server Side
 
 When accepting payments, your backend must validate transactions and user info received from the frontend. This section covers two critical aspects: verifying transaction completion and validating user information.
 
-### Verify user transaction
+### Verify User Transaction
 
-Use `getPaymentStatus()` on your backend to confirm that a payment has been completed before fulfilling orders. Never trust payment confirmations from the frontend alone.
+Use [`getPaymentStatus()`](/base-account/reference/base-pay/getPaymentStatus) on your backend to confirm that a payment has been completed before fulfilling orders. Never trust payment confirmations from the frontend alone.
 
 ```ts Backend (SDK)
 import { getPaymentStatus } from '@base-org/account';
@@ -222,30 +222,9 @@ export async function verifyAndFulfillPayment(
 - Consider adding an index on the transaction ID for fast lookups
 </Tip>
 
-### Validate user info with dataCallback
+### Validate User Info
 
 If you're collecting user information (email, phone, shipping address) during checkout, use the `callbackURL` parameter to validate this data server-side before the transaction is submitted.
-
-When you provide a `callbackURL` in your `payerInfo` configuration, the wallet will POST the user's information to your endpoint for validation. This gives you the opportunity to:
-
-- Verify email addresses are valid and not disposable
-- Validate shipping addresses against your supported regions
-- Check phone numbers are correctly formatted
-- Block suspicious or fraudulent information
-
-```ts Client-side setup
-const payment = await pay({
-  amount: '25.00',
-  to: '0xRecipient',
-  payerInfo: {
-    requests: [
-      { type: 'email' },
-      { type: 'physicalAddress' }
-    ],
-    callbackURL: 'https://your-api.com/validate-payment-info'
-  }
-});
-```
 
 Your callback endpoint receives the user's information and must respond with either a success or error response:
 
