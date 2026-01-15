@@ -3,7 +3,7 @@
 title: "High-Performance Indexing: The Graph vs. Goldsky"
 slug: /cookbook/data/high-performance-indexing
 description: A comparative guide to indexing strategies on Base. Learn when to use The Graph (Subgraphs) vs. Goldsky (Real-time Pipelines) and how to deploy a custom subgraph.
-authors: [your-github-username]
+authors: [Jadonamite]
 tags: [data, indexing, subgraphs, goldsky, the-graph, graphql]
 ---
 
