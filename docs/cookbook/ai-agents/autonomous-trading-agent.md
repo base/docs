@@ -4,7 +4,7 @@
 title: "Building Autonomous Trading Agents with AgentKit"
 slug: /cookbook/ai-agents/trading-agent
 description: Build a production-ready AI agent using CDP AgentKit and LangChain. Features wallet persistence, custom tool creation, and natural language DeFi execution.
-authors: [your-github-username]
+authors: [jadonamite]
 tags: [ai, agentkit, langchain, cdp, automation, python]
 ---
 
