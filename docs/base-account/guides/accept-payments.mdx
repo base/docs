@@ -145,12 +145,13 @@ export async function checkPayment(txId: string, testnet = false) {
 ```
 
 <Warning>
-**Prevent Replay Attacks**
+**Prevent Replay and Impersonation Attacks**
 
-A malicious user could submit the same valid transaction ID multiple times to receive goods or services repeatedly. Always track processed transaction IDs in your database.
+- **Replay attacks:** A malicious user could submit the same valid transaction ID multiple times. Always track processed transaction IDs in your database.
+- **Impersonation attacks:** A malicious user could submit someone else's transaction ID to fulfill their own order. Always verify that the payment sender matches the authenticated user.
 </Warning>
 
-Here's an example that prevents replay attacks by storing processed transactions:
+Here's an example that prevents both attack vectors:
 
 ```ts Backend (with replay protection) expandable
 import { getPaymentStatus } from '@base-org/account';
@@ -167,6 +168,7 @@ const processedTransactions = new Map<string, {
 export async function verifyAndFulfillPayment(
   txId: string, 
   orderId: string,
+  payerAddress: string, // From authenticated user (SIWE, JWT, etc.)
   testnet = false
 ) {
   // 1. Check if this transaction was already processed
@@ -184,7 +186,13 @@ export async function verifyAndFulfillPayment(
     throw new Error(`Payment not completed. Status: ${status}`);
   }
 
-  // 3. Validate the payment details match your order
+  // 3. Verify the payment sender matches the authenticated user
+  // This prevents a malicious user from claiming someone else's payment
+  if (sender.toLowerCase() !== payerAddress.toLowerCase()) {
+    throw new Error('Payment sender does not match authenticated user');
+  }
+
+  // 4. Validate the payment details match your order
   // This ensures the user paid the correct amount to the correct address
   const expectedAmount = await getOrderAmount(orderId);
   const expectedRecipient = process.env.PAYMENT_ADDRESS;
@@ -197,7 +205,7 @@ export async function verifyAndFulfillPayment(
     throw new Error('Payment recipient mismatch');
   }
 
-  // 4. Mark transaction as processed BEFORE fulfilling
+  // 5. Mark transaction as processed BEFORE fulfilling
   // Store sender for easy lookup (e.g., to query all payments from a user)
   // In production, use a database transaction to ensure atomicity
   processedTransactions.set(txId, {
@@ -207,7 +215,7 @@ export async function verifyAndFulfillPayment(
     timestamp: new Date()
   });
   
-  // 5. Fulfill the order
+  // 6. Fulfill the order
   await fulfillOrder(orderId);
   
   return { success: true, orderId, sender };
