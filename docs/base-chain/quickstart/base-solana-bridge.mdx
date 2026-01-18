@@ -92,6 +92,13 @@ The Solana to Base bridge uses a pull-based model that requires 3 steps:
 When bridging from Solana to Base, native SOL/SPL are locked and ERC20 SOL is minted on Base.
 </Info>
 
+<Warning>
+  If your Solana → Base message includes a call to execute, you must ensure
+  the ABI-encoded call is **executable on Base**. A call that cannot be executed
+  on Base **cannot be undone**. If you bridge tokens in the same transaction,
+  those tokens will be **locked**.
+</Warning>
+
 Reference scripts (auto-relay, token wrapping, CLI utilities) live in the `scripts/` directory of the official repository:
 
 <GithubRepoCard title="Solana → Base CLI Scripts" githubUrl="https://github.com/base/bridge/tree/main/scripts/src/commands/sol/bridge" />
@@ -187,6 +194,16 @@ const proveIx = getProveMessageInstruction({
 const relayIx = getRelayMessageInstruction({ message: messagePda });
 await buildAndSendTransaction(SOLANA_RPC_URL, [proveIx, relayIx], payer);
 ```
+
+<Warning>
+If you operate a relayer that signs and submits Solana transactions for users in the **Base → Solana**
+direction, do **not** sign transactions that require your relayer pubkey as a signer.
+
+A malicious user can encode a transaction that includes your relayer pubkey as a required signer; if
+you sign and submit it, you may unintentionally authorize arbitrary instructions (including ones
+that can steal relayer funds). As a baseline mitigation, ignore any transaction that specifies your
+pubkey as a signer.
+</Warning>
 
 ## Utilities
 
@@ -303,7 +320,9 @@ Set `CDP_API_KEY` in your `.env` file to get access to the faucet.
   "Bridge": "0x01824a90d32A69022DdAEcC6C5C14Ed08dB4EB9B",
   "BridgeValidator": "0xa80C07DF38fB1A5b3E6a4f4FAAB71E7a056a4EC7",
   "CrossChainERC20Factory": "0x488EB7F7cb2568e31595D48cb26F63963Cc7565D",
-  "SOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC"
+  "SOL": "0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC",
+  "FLYWHEEL_ADDRESS": "0x00000F14AD09382841DB481403D1775ADeE1179F",
+  "BRIDGE_CAMPAIGN_ADDRESS": "0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9"
 }
 ```
 

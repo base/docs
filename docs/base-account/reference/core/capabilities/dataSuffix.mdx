@@ -1,0 +1,157 @@
+---
+title: "dataSuffix"
+description: "Append arbitrary data to transaction calldata for attribution tracking"
+---
+
+Defined in [ERC-8021](https://eip.tools/eip/8021)
+
+<Info>
+The dataSuffix capability allows apps to append arbitrary hex-encoded bytes to transaction calldata. This enables attribution tracking, allowing platforms to identify which app originated a transaction and distribute rewards accordingly.
+</Info>
+
+## Parameters
+
+<ParamField body="value" type="`0x${string}`" required>
+Hex-encoded bytes to append to the transaction calldata. This value is appended to the end of the calldata for each call in the batch.
+</ParamField>
+
+<ParamField body="optional" type="boolean">
+When `true`, the wallet may ignore the capability if it doesn't support it. When `false` or omitted, the wallet must support the capability or reject the request.
+</ParamField>
+
+## Returns
+
+<ResponseField name="dataSuffix" type="object">
+The data suffix capability configuration for the specified chain.
+
+<Expandable title="DataSuffix capability properties">
+<ResponseField name="supported" type="boolean">
+Indicates whether the wallet supports appending data suffixes to transaction calldata.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Example Usage
+
+<RequestExample>
+```typescript Check DataSuffix Support
+const capabilities = await provider.request({
+  method: 'wallet_getCapabilities',
+  params: [userAddress]
+});
+
+const dataSuffixSupport = capabilities["0x2105"]?.dataSuffix;
+```
+
+```typescript Send Transaction with DataSuffix
+const result = await provider.request({
+  method: "wallet_sendCalls",
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    calls: [{
+      to: "0x1234567890123456789012345678901234567890",
+      value: "0x0",
+      data: "0xa9059cbb000000000000000000000000..."
+    }],
+    capabilities: {
+      dataSuffix: {
+        value: "0x1234567890abcdef1234567890abcdef",
+        optional: true
+      }
+    }
+  }]
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json Capability Response (Supported)
+{
+  "0x2105": {
+    "dataSuffix": {
+      "supported": true
+    }
+  }
+}
+```
+
+```json Capability Response (Unsupported)
+{
+  "0x2105": {
+    "dataSuffix": {
+      "supported": false
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message | Description |
+| ---- | ------- | ----------- |
+| 4100 | Data suffix not supported | Wallet does not support data suffix functionality |
+| 5700 | DataSuffix capability required | Transaction requires dataSuffix but wallet doesn't support it |
+
+## How It Works
+
+When a wallet receives a `dataSuffix` capability, the suffix is appended to `userOp.callData`. The suffix bytes are concatenated directly to the end of the calldata, making them available for onchain parsing and attribution.
+
+## Use Cases
+
+### Builder Codes Attribution
+
+The primary use case for `dataSuffix` is [Builder Codes](/base-chain/quickstart/builder-codes) attribution. Builder Codes are unique identifiers that allow apps to receive attribution for onchain activity they generate.
+
+```typescript
+import { Attribution } from "ox/erc8021";
+
+// Example: Using Builder Code with dataSuffix.
+// Using the ox/erc8021 package to generate the ERC-8021 suffix from your builder code.
+const builderCodeSuffix = Attribution.toDataSuffix({
+  codes: ['bc_foobar'], // Get your code from base.dev
+});
+
+await provider.request({
+  method: "wallet_sendCalls",
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    calls: [{
+      to: contractAddress,
+      value: "0x0",
+      data: swapCallData
+    }],
+    capabilities: {
+      dataSuffix: {
+        value: builderCodeSuffix,
+        optional: true
+      }
+    }
+  }]
+});
+```
+
+Register on [base.dev](https://base.dev) to get your Builder Code for proper attribution.
+
+## Best Practices
+
+1. **Use with Builder Codes**: Register on [base.dev](https://base.dev) to get your Builder Code for proper attribution
+2. **Set optional appropriately**: Use `optional: true` if your app can function without attribution tracking
+3. **Keep suffixes small**: Larger suffixes increase gas costs
+
+<Info>
+For wallet developers implementing dataSuffix support, see the [For Wallet Developers](/base-chain/quickstart/builder-codes#for-wallet-developers) section in the Builder Codes guide.
+</Info>
+
+## Related Capabilities
+
+- [paymasterService](/base-account/reference/core/capabilities/paymasterService) - Combine with sponsored transactions
+- [atomic](/base-account/reference/core/capabilities/atomic) - Use with atomic batch transactions
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

@@ -1,5 +1,5 @@
 ---
-title: "Base Builder Codes" 
+title: "Base Builder Codes"
 description: "Integrate Builder Codes to attribute onchain activity to your app or wallet."
 ---
 
@@ -13,6 +13,7 @@ Each code has associated metadata. Onchain metadata primarily includes a “payo
 
 Once your app is registered on [Base.dev](http://base.dev/), the Base App will auto-append your Base Builder Code to transactions its users make in your app (e.g. via your mini app, or the Base App's browser). This powers your onchain analytics in [Base.dev](http://base.dev/) and qualifies you for potential future rewards.
 
+<<<<<<< HEAD
 
 
 ## For App Developers
@@ -130,6 +131,93 @@ Integrating Builder Codes requires appending a suffix—provided by Base—to yo
 Once you have added the suffix, your app is fully ERC-8021 compliant.
 
 ---
+=======
+<Warning>
+  **Builder Code analytics currently only support Smart Account (AA)
+  transactions.** EOA support is coming soon. Your attribution data is preserved
+  and will appear once EOA support is activated.
+</Warning>
+
+## For App Developers
+
+When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da` ) that you'll use to generate your attribution suffix. 
+
+<Tip>
+  You can find your code anytime under **Settings** → **Builder Code**.
+</Tip>
+
+<Steps>
+  <Step title="Install the Standard Library for Ethereum">
+
+This will allow you to append the encoded version of your builder code.
+
+    ```bash Terminal
+    npm i ox
+    ```
+  </Step>
+
+  <Step title="Copy Your Builder Code">
+    Navigate to **base.dev > Settings > Builder Codes** to find your unique builder code.
+  </Step>
+
+  <Step title="Create the Encoded Data Suffix">
+    Use the `Attribution.toDataSuffix` method from the `ox` library to encode your builder code:
+
+    ```ts App.tsx
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"], // obtained from base.dev > Settings > Builder Codes
+    });
+    ```
+  </Step>
+
+  <Step title="Send transaction using the dataSuffix capability">
+    Use Wagmi's `useSendCalls` hook with the `dataSuffix` capability to append attribution data to your transactions.
+
+    ```ts App.tsx
+    import { useSendCalls } from "wagmi";
+    import { parseEther } from "viem";
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"],
+    });
+
+    function App() {
+      const { sendCalls } = useSendCalls();
+
+      return (
+        <button
+          onClick={() =>
+            sendCalls({
+              calls: [
+                {
+                  to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+                  value: parseEther("1"),
+                },
+                {
+                  data: "0xdeadbeef",
+                  to: "0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC",
+                },
+              ],
+              capabilities: {
+                dataSuffix: {
+                  value: DATA_SUFFIX,
+                  optional: true,
+                },
+              },
+            })
+          }
+        >
+          Send calls
+        </button>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+>>>>>>> 05ba46d6478b8df0c5976dffa95ec198038e5c8c
 
 ## For Wallet Developers
 
@@ -137,13 +225,15 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
 
 <Steps>
   <Step title="Support the dataSuffix Capability">
-    Your wallet should accept a `dataSuffix` string in the `capabilities` object of `wallet_sendCalls`.
+    Your wallet should accept a `dataSuffix` object in the `capabilities` object of `wallet_sendCalls`.
 
     ```typescript lines
-    interface DataSuffixCapability {
-      dataSuffix: string; // hex-encoded bytes provided by the app
+    type DataSuffixCapability = {
+      value: `0x${string}`;  // hex-encoded bytes provided by the app
+      optional?: boolean;    // whether the capability is optional
     }
     ```
+
   </Step>
 
   <Step title="Append Suffix to Calldata">
@@ -156,13 +246,13 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```typescript lines
         // Minimal example for EOA
         function applySuffixToEOA(tx, capabilities) {
-          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          const suffix = capabilities.dataSuffix?.value
           if (!suffix) return tx
 
           return {
             ...tx,
             // Append suffix bytes (remove 0x prefix from suffix if tx.data has it)
-            data: tx.data + suffix.slice(2) 
+            data: tx.data + suffix.slice(2)
           }
         }
         ```
@@ -173,7 +263,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```typescript lines
         // Minimal example for ERC-4337
         function applySuffixToUserOp(userOp, capabilities) {
-          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          const suffix = capabilities.dataSuffix?.value
           if (!suffix) return userOp
 
           return {
@@ -185,6 +275,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step title="(Optional) Add Wallet Attribution">
     Wallets may also include their own attribution code (their own ERC-8021 suffix) by simply prepending the wallet’s own suffix before the app’s.
@@ -199,20 +290,21 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
     ```
 
     This ensures both the app and the wallet receive onchain attribution.
+
   </Step>
 </Steps>
 
 ## For Base-Solana Bridge Developers
 
 <Warning>
-Onchain Builder codes are currently still not live on mainnet.
+  Onchain Builder codes are currently still not live on mainnet.
 </Warning>
 
 Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-solana-bridge) via the `hookData` mechanism. Currently available for **Solana → Base** flows only.
 
 <Steps>
   <Step title="Get your Builder Code">
-    When you register on base.dev, you will receive a Builder Code. This is a random string (e.g., k3p9da) that you will use to generate your attribution suffix.
+    When you register on base.dev, you will find a Builder Code under your app's settings. This is a random string (e.g., k3p9da) that you will use to generate your attribution suffix.
   </Step>
 
   <Step title="Build hookData">
@@ -225,6 +317,7 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
       100               // feeBps (100 = 1%)
     );
     ```
+
   </Step>
 
   <Step title="Attach to Bridge Message">
@@ -235,15 +328,15 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
         For a bridge with no follow-up call:
 
         ```
-        to:     <BRIDGE_CAMPAIGN_ADDRESS>
+        to:     <BRIDGE_CAMPAIGN_ADDRESS> // 0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9 on Base Sepolia
         amount: 100
         call:
           ty:    Call
-          to:    <FLYWHEEL_ADDRESS>
+          to:    <FLYWHEEL_ADDRESS> // 0x00000F14AD09382841DB481403D1775ADeE1179F on Base Sepolia
           value: 0
           data:  abi.encodeWithSelector(
                    Flywheel.send.selector,
-                   <BRIDGE_CAMPAIGN_ADDRESS>,
+                   <BRIDGE_CAMPAIGN_ADDRESS>, // 0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9 on Base Sepolia
                    <wSOL_ADDRESS>,
                    hookData
                  )
@@ -257,12 +350,17 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
 
         // 1) Flywheel attribution (must be first)
         calls[0] = Call({
-          to:    <FLYWHEEL_ADDRESS>,
+          to:    <FLYWHEEL_ADDRESS>, // 0x00000F14AD09382841DB481403D1775ADeE1179F on Base Sepolia
           value: 0,
           data:  abi.encodeWithSelector(
                    Flywheel.send.selector,
+<<<<<<< HEAD
                    <BRIDGE_CAMPAIGN_ADDRESS>,
                    <wSOL_ADDRESS>, // 0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82 on Base Mainnet
+=======
+                   <BRIDGE_CAMPAIGN_ADDRESS>, // 0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9 on Base Sepolia
+                   <TOKEN_ADDRESS>, // e.g. For SOL on Base Sepolia, use 0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC
+>>>>>>> 05ba46d6478b8df0c5976dffa95ec198038e5c8c
                    hookData
                  )
         });
@@ -285,16 +383,111 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
         ```
       </Tab>
     </Tabs>
+
+  </Step>
+  <Step title="Learn More: A Full Implementation Example">
+    [Terminally Onchain](https://terminallyonchain.com/) is a production Next.js app that exposes the bridge via a command terminal UI. Users connect a Solana wallet, type commands such as to bridge and call a contract on Base:
+
+    You can use [Terminally Onchain](https://terminallyonchain.com/) to test bridge transactions with Builder Codes like so:
+
+    ```bash
+    bridge 0.0001 sol 0xYOUR_DESTINATION_ADDRESS --with-bc YOUR_BUILDER_CODE --bc-fee YOUR_FEE_BPS
+    ```
+
+    To see how this is implemented, you can take a look at the [Github repo](https://github.com/base/sol2base/blob/e0c283035be1e3e345d329e2d77b05e29a1d38b3/src/components/MainContent.tsx#L667):
+
+    ```typescript sol2base/MainContent.tsx expandable
+    // Constants
+    const BRIDGE_CAMPAIGN_ADDRESS = "0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9";
+    const FLYWHEEL_ADDRESS = "0x00000F14AD09382841DB481403D1775ADeE1179F";
+    const MULTICALL_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+
+    // Encode hookData: (address user, string code, uint8 feeBps)
+    const buildBuilderHookData = (
+      destination: string,
+      builderCode: string,
+      feeBps: number
+    ) => {
+      const coder = new AbiCoder();
+      return coder.encode(
+        ["address", "string", "uint8"],
+        [destination, builderCode, feeBps]
+      );
+    };
+
+    // Build Flywheel.send call
+    const buildBuilderCall = (
+      destination: string,
+      builderCode: string,
+      feeBps: number,
+      tokenAddress: string
+    ): BaseContractCall => {
+      const hookData = buildBuilderHookData(destination, builderCode, feeBps);
+      const data = encodeFunctionData({
+        abi: FLYWHEEL_ABI,
+        functionName: "send",
+        args: [BRIDGE_CAMPAIGN_ADDRESS, tokenAddress, hookData],
+      });
+      return { type: "call", target: FLYWHEEL_ADDRESS, value: "0", data };
+    };
+
+    // Wrap builder + user calls in Multicall (for chained calls)
+    const buildMulticall = (
+      builder: BaseContractCall,
+      userCall: BaseContractCall
+    ): BaseContractCall => {
+      const data = encodeFunctionData({
+        abi: MULTICALL_ABI,
+        functionName: "multicall",
+        args: [
+          [
+            { target: builder.target, callData: builder.data },
+            { target: userCall.target, callData: userCall.data },
+          ],
+        ],
+      });
+      return { type: "delegatecall", target: MULTICALL_ADDRESS, value: "0", data };
+    };
+
+    // Usage: attach builder code to bridge
+    if (payload.flags.withBc) {
+      const builderCall = buildBuilderCall(
+        destination,
+        builderCode,
+        feeBps,
+        remoteToken
+      );
+      callOption = userCall ? buildMulticall(builderCall, userCall) : builderCall;
+    }
+
+    // Set destination to campaign address when using builder codes
+    const destinationForBridge = builderCode
+      ? BRIDGE_CAMPAIGN_ADDRESS
+      : payload.destination;
+    ```
+
   </Step>
 </Steps>
 
----
+<Tip>
+Mainnet support for Builder Codes is not open to all builders yet. If you are interested in getting access, please contact the team on [discord](https://discord.gg/buildonbase).
+</Tip>
+
+## Contract Addresses
+
+| Contract | Base Mainnet | Base Sepolia |
+| -------- | ------------ | ------------ |
+| `BRIDGE_CAMPAIGN_ADDRESS` | `0x539A97cc4724d5b2740DB98Bc71445448eFC1Bde` | `0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9` |
+| `FLYWHEEL_ADDRESS` | `0x00000F14AD09382841DB481403D1775ADeE1179F` | `0x00000F14AD09382841DB481403D1775ADeE1179F` |
+| `MULTICALL_ADDRESS` | `0xcA11bde05977b3631167028862bE2a173976CA11` | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 
 ## Give feedback!
 
 <Note>
+<<<<<<< HEAD
 We're constantly working to improve the Builder Codes experience. If you have any feedback, please let us know  [here](https://t.co/zwvtmXXzGz).
+=======
+  Base is constantly working to improve the Builder Codes experience. If you
+  have any feedback, please let the team know [here](https://t.co/zwvtmXXzGz).
+>>>>>>> 05ba46d6478b8df0c5976dffa95ec198038e5c8c
 </Note>
-
-
-
