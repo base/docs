@@ -1,0 +1,132 @@
+---
+title: 'Optimize Gas Costs on Base'
+sidebarTitle: 'Optimize Gas Costs'
+description: 'Learn practical strategies to minimize transaction costs on Base by optimizing for L1 data fees and L2 execution.'
+---
+
+Base offers significantly lower fees than Ethereum mainnet, but gas optimization remains crucial for high-frequency operations, gaming, and providing a premium user experience. Effective optimization on Base requires understanding that **L1 data fees** (the cost of posting data to Ethereum) are the primary cost driver.
+
+## Understanding Base Gas Fees
+
+Base uses a two-component fee model. The total cost of a transaction is the sum of:
+
+1.  **L2 Execution Fee**: The cost to execute your transaction logic on Base (usually very low).
+2.  **L1 Data Fee**: The cost to post your transaction data (calldata) to Ethereum mainnet.
+
+<Tip>
+On Base, the **L1 data fee typically accounts for 70-90% of total transaction costs**. Reducing the amount of data you send to the chain (calldata) is the most effective way to save gas.
+</Tip>
+
+---
+
+## Top Optimization Strategies
+
+### 1. Minimize Calldata Size
+Since L1 data fees are the primary cost, reducing the size of your transaction inputs is your biggest win.
+
+- **Use `calldata` for read-only arrays**: Use the `calldata` keyword instead of `memory` for function arguments to avoid unnecessary copying.
+- **Use `bytes32` instead of `string`**: Fixed-size types are more efficient than dynamic ones.
+- **Optimize parameters**: Only pass necessary data. Consider fetching values like `block.timestamp` on-chain rather than passing them as arguments.
+
+```solidity
+// ❌ Inefficient: Copies to memory
+function processBatch(uint256[] memory ids) external { ... }
+
+// ✅ Optimized: Reads directly from calldata
+function processBatch(uint256[] calldata ids) external { ... }
+```
+
+### 2. Efficient Storage Patterns
+Reading and writing to storage (`SLOAD`/`SSTORE`) are the most expensive operations on the execution side.
+
+- **Pack your variables**: Group smaller variables (like `uint8`, `bool`, `address`) together so they fit into a single 32-byte slot.
+- **Use `immutable` and `constant`**: These values are baked into the contract bytecode and don't require storage reads.
+- **Cache storage in memory**: If you read a storage variable multiple times in a function, read it once into a local variable.
+
+```solidity
+// ✅ Optimized packing: Fits into a single 32-byte slot
+struct UserProfile {
+    address user;    // 20 bytes
+    uint64 joinDate; // 8 bytes
+    bool isActive;   // 1 byte
+}
+
+// ✅ Use immutable for values set at deployment
+address public immutable factory;
+```
+
+### 3. Batch Operations
+Every transaction has a fixed "base fee" overhead. By batching multiple operations into a single transaction, you distribute that overhead across all operations.
+
+<CardGroup cols={2}>
+  <Card title="Batch Transfers" icon="list-check">
+    Use a single transaction to send tokens to multiple recipients.
+  </Card>
+  <Card title="Multi-call" icon="layer-group">
+    Combine multiple state-changing calls into a single execution flow.
+  </Card>
+</CardGroup>
+
+### 4. Optimize Loops
+Looping over large arrays can quickly become expensive if not handled correctly.
+
+- **Cache array length**: Don't call `.length` in every iteration of a `for` loop.
+- **Use `unchecked` increments**: In Solidity 0.8+, you can safely use `unchecked { ++i; }` for loop counters to save 30-40 gas per iteration.
+
+```solidity
+// ✅ Optimized loop pattern
+function sum(uint256[] calldata numbers) external pure returns (uint256 total) {
+    uint256 length = numbers.length;
+    for (uint256 i = 0; i < length;) {
+        total += numbers[i];
+        unchecked { ++i; }
+    }
+}
+```
+
+---
+
+## Tools for Measuring Gas
+
+You can't optimize what you don't measure. Use these tools to profile your smart contracts:
+
+<Steps>
+  <Step title="Foundry Gas Snapshots">
+    Run `forge snapshot` to generate a `.gas-snapshot` file and track changes over time during development.
+  </Step>
+  <Step title="Hardhat Gas Reporter">
+    Use the `hardhat-gas-reporter` plugin to see estimated costs in USD or ETH for every test run.
+  </Step>
+  <Step title="Tenderly Debugger">
+    Analyze specific transactions to see a line-by-line breakdown of gas consumption and opcode costs.
+  </Step>
+</Steps>
+
+---
+
+## Gas Optimization Checklist
+
+<Check>
+Used `calldata` instead of `memory` for read-only parameters.
+</Check>
+<Check>
+Packed storage variables into 32-byte slots.
+</Check>
+<Check>
+Used `immutable` or `constant` for values that don't change.
+</Check>
+<Check>
+Cached frequently accessed storage variables in memory.
+</Check>
+<Check>
+Implemented `unchecked` increments for loop counters.
+</Check>
+<Check>
+Used events instead of storage for data only needed off-chain.
+</Check>
+
+## Next Steps
+
+- [Learn more about Network Fees](/base-chain/network-information/network-fees)
+- [Deploy your optimized contract](/get-started/deploy-smart-contracts)
+- [Go Gasless with Paymasters](/cookbook/go-gasless)
