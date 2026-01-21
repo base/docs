@@ -1,143 +1,64 @@
 # Base Documentation
 
-Technical documentation for Base, an Ethereum L2 blockchain. Built with Mintlify.
+Technical documentation for Base (Ethereum L2). Built with Mintlify.
 
-## Quick Reference
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `mintlify dev` | Local dev server (http://localhost:3000) |
-| `mintlify install` | Reinstall dependencies |
-| `node scripts/lint-mdx.js` | Lint MDX files (deterministic) |
-| `/lint` | Run linter and get help fixing issues |
-| `/doc-feedback` | Review docs for quality and style guide adherence |
+| `mintlify dev` | Local dev server |
+| `/lint` | Lint MDX files and fix issues |
+| `/doc-feedback` | Review content quality |
 
-## Repository Structure
+## Structure
 
 ```
-docs/                    # All documentation content (MDX files)
-├── get-started/         # Introduction, quickstarts, builder support
-├── base-chain/          # Network info, node operations, tools
-├── base-account/        # Smart Wallet, account abstraction
-├── base-app/            # Agents, app development
-├── mini-apps/           # Mini app development guides
-├── onchainkit/          # React component library (versioned)
-├── cookbook/            # Use-case tutorials
-├── learn/               # Educational content (Solidity, Ethereum)
-├── images/              # Assets organized by topic
-├── snippets/            # Reusable MDX components
-└── docs.json            # Navigation and site configuration
-storybook/               # Component demos (Chromatic deployment)
+docs/
+├── get-started/      # Intro, quickstarts
+├── base-chain/       # Network, nodes, tools
+├── base-account/     # Smart Wallet SDK
+├── base-app/         # Agent development
+├── mini-apps/        # MiniKit guides
+├── onchainkit/       # React components (versioned)
+├── cookbook/         # Tutorials
+├── learn/            # Solidity, Ethereum basics
+├── images/           # Assets by topic
+├── snippets/         # Reusable MDX components
+└── docs.json         # Navigation config
 ```
 
-## Documentation Sections
+## Content Rules
 
-| Section | Path | Content Type |
-|---------|------|--------------|
-| Get Started | `get-started/` | Intro, quickstarts, AI prompting |
-| Base Chain | `base-chain/` | Network, nodes, tools, security |
-| Base Account | `base-account/` | Smart Wallet SDK, integrations |
-| Base App | `base-app/` | Agent development |
-| Mini Apps | `mini-apps/` | Mini app guides, MiniKit |
-| OnchainKit | `onchainkit/` | React components (versioned) |
-| Cookbook | `cookbook/` | Practical tutorials |
-| Learn | `learn/` | Solidity, Ethereum fundamentals |
-
-## Content Standards
-
-### File Format
-
-Every MDX file requires frontmatter:
-
+**Frontmatter** (required):
 ```yaml
 ---
-title: "Clear, keyword-rich title"
-description: "Concise value description"
+title: "Keyword-rich title"
+description: "Value description"
 ---
 ```
 
-### Writing Rules
+**Writing**: American English, sentence case headings, second person ("you"), active voice.
 
-- American English spelling
-- Sentence case for headings
-- Second person ("you") for instructions
-- Active voice, present tense
-- No H1 in body (title comes from frontmatter)
+**Code blocks**: Always specify language. Add filename or title. Use `highlight={}` for emphasis.
 
-### Code Blocks
+**Components**: See [mintlify-reference.md](mintlify-reference.md) for syntax.
 
-- Always specify language: ` ```typescript ` not ` ``` `
-- Add filename or title: ` ```typescript page.tsx ` or ` ```typescript title="Example" `
-- Blocks >7 lines: add `lines` for line numbers
-- Use `highlight={1-2,5}` for emphasis
-- Use `wrap` to prevent horizontal scroll
-
-### Components
-
-Use sparingly and correctly:
-
-**Callouts** (for important info only):
-- `<Note>` - supplementary info
-- `<Tip>` - best practices
-- `<Warning>` - critical cautions
-- `<Info>` - neutral context
-- `<Check>` - success confirmation
-
-**Structure**:
-- `<Steps>` with `<Step title="...">` - procedures
-- `<Tabs>` with `<Tab title="...">` - platform-specific content
-- `<CodeGroup>` - same concept in multiple languages
-- `<AccordionGroup>` with `<Accordion title="...">` - progressive disclosure
-
-**Media**:
-- All images wrapped in `<Frame>`
-- `<img>` must have `alt` attribute
-
-**API Docs**:
-- `<ParamField path|body|query|header="..." type="...">` - parameters
-- `<ResponseField name="..." type="...">` - responses
-
-### Comments
-
-Use MDX syntax, not HTML:
-```mdx
-{/* Correct */}
-<!-- Wrong -->
-```
+**Images**: Wrap in `<Frame>`, include `alt` attribute.
 
 ## Navigation
 
-All navigation is defined in `docs.json`:
+Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 
-- **Tabs**: Top-level sections (Get Started, Base Chain, etc.)
-- **Groups**: Subsections within tabs
-- **Pages**: Individual MDX files
-
-When adding pages:
-1. Create MDX file in appropriate directory
-2. Add path to `docs.json` in correct group
-
-When removing pages:
-1. Delete MDX file
-2. Remove from `docs.json`
-3. Add redirect in `docs.json` redirects section
-
-## Git
-
-- **Primary branch**: `master`
-- **Auto-deploy**: Mintlify GitHub App deploys on push to master
-
-## Key Reference Files
+## References
 
 | File | Purpose |
 |------|---------|
-| `docs.json` | Site navigation and config |
-| `content-instructions.md` | Detailed writing guidelines |
-| `mintlify-reference.md` | Component syntax reference |
-| `scripts/lint-mdx.js` | Deterministic MDX linter |
+| [content-instructions.md](content-instructions.md) | Writing guidelines |
+| [mintlify-reference.md](mintlify-reference.md) | Component syntax |
+| [scripts/README.md](scripts/README.md) | Linter usage |
 
 ## Before Committing
 
-1. Run `/lint` and fix any errors
-2. If removing docs, add redirects in `docs.json`
-3. Verify internal links work
+1. Run `/lint` and fix errors
+2. Add redirects for removed pages
+3. Verify links work
