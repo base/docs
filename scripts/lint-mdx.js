@@ -128,6 +128,7 @@ function checkHeadingStructure(content, filePath) {
   let inCodeBlock = false;
   let lastHeadingLevel = 0;
   let h1Count = 0;
+  let totalHeadingCount = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -141,6 +142,7 @@ function checkHeadingStructure(content, filePath) {
     const headingMatch = line.match(/^(#{1,6})\s+/);
     if (headingMatch) {
       const level = headingMatch[1].length;
+      totalHeadingCount++;
 
       if (level === 1) {
         h1Count++;
@@ -163,6 +165,15 @@ function checkHeadingStructure(content, filePath) {
 
       lastHeadingLevel = level;
     }
+  }
+
+  // Check for pages with no headings (bad for SEO)
+  if (totalHeadingCount === 0) {
+    issues.push({
+      line: 1,
+      severity: "warning",
+      message: "No headings found (at least one heading improves SEO)",
+    });
   }
 
   return issues;
