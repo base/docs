@@ -25,7 +25,7 @@ If you intend on using the BasePayButton, please follow the [Brand Guidelines](/
 ## Client-side (Browser SDK)
 
 <Note>
-**Interactive Playground:** Try out the `pay()` and `getPaymentStatus()` functions in our [Base Pay SDK Playground](https://base.github.io/account-sdk/pay-playground) before integrating them into your app.
+**Interactive Playground:** Try out the [`pay()`](/base-account/reference/base-pay/pay) and [`getPaymentStatus()`](/base-account/reference/base-pay/getPaymentStatus) functions in our [Base Pay SDK Playground](https://base.github.io/account-sdk/pay-playground) before integrating them into your app.
 </Note>
 
 ```ts Browser (SDK)
@@ -53,7 +53,7 @@ try {
 ```
 
 <Note>
-**Important:** The `testnet` parameter in `getPaymentStatus()` must match the value used in the original `pay()` call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
+**Important:** The `testnet` parameter in [`getPaymentStatus()`](/base-account/reference/base-pay/getPaymentStatus) must match the value used in the original [`pay()`](/base-account/reference/base-pay/pay) call. If you initiated a payment on testnet with `testnet: true`, you must also pass `testnet: true` when checking its status.
 </Note>
 
 This is what the user will see when prompted to pay:
@@ -122,12 +122,18 @@ You can use the `callbackURL` to validate the user's information on the server s
 Learn more about this in the [callbackURL reference](/base-account/reference/core/capabilities/datacallback).
 </Tip>
 
-## Polling example
+## Server Side
+
+When accepting payments, your backend must validate transactions and user info received from the frontend. This section covers two critical aspects: verifying transaction completion and validating user information.
+
+### Verify User Transaction
+
+Use [`getPaymentStatus()`](/base-account/reference/base-pay/getPaymentStatus) on your backend to confirm that a payment has been completed before fulfilling orders. Never trust payment confirmations from the frontend alone.
 
 ```ts Backend (SDK)
 import { getPaymentStatus } from '@base-org/account';
 
-export async function checkPayment(txId, testnet = false) {
+export async function checkPayment(txId: string, testnet = false) {
   const status = await getPaymentStatus({ 
     id: txId,
     testnet  // Must match the testnet setting from the original pay() call
@@ -137,6 +143,140 @@ export async function checkPayment(txId, testnet = false) {
   }
 }
 ```
+
+<Warning>
+**Prevent Replay and Impersonation Attacks**
+
+- **Replay attacks:** A malicious user could submit the same valid transaction ID multiple times. Always track processed transaction IDs in your database.
+- **Impersonation attacks:** A malicious user could submit someone else's transaction ID to fulfill their own order. Always verify that the payment sender matches the authenticated user.
+</Warning>
+
+Here's an example that prevents both attack vectors:
+
+```ts Backend (with replay protection) expandable
+import { getPaymentStatus } from '@base-org/account';
+
+// Example using a database to track processed transactions
+// Replace with your actual database implementation (PostgreSQL, MongoDB, etc.)
+const processedTransactions = new Map<string, { 
+  orderId: string; 
+  sender: string; 
+  amount: string;
+  timestamp: Date;
+}>(); // In production, use a persistent database
+
+export async function verifyAndFulfillPayment(
+  txId: string, 
+  orderId: string,
+  payerAddress: string, // From authenticated user (SIWE, JWT, etc.)
+  testnet = false
+) {
+  // 1. Check if this transaction was already processed
+  if (processedTransactions.has(txId)) {
+    throw new Error('Transaction already processed');
+  }
+
+  // 2. Verify the payment status on-chain
+  const { status, sender, amount, recipient } = await getPaymentStatus({ 
+    id: txId,
+    testnet
+  });
+
+  if (status !== 'completed') {
+    throw new Error(`Payment not completed. Status: ${status}`);
+  }
+
+  // 3. Verify the payment sender matches the authenticated user
+  // This prevents a malicious user from claiming someone else's payment
+  if (sender.toLowerCase() !== payerAddress.toLowerCase()) {
+    throw new Error('Payment sender does not match authenticated user');
+  }
+
+  // 4. Validate the payment details match your order
+  // This ensures the user paid the correct amount to the correct address
+  const expectedAmount = await getOrderAmount(orderId);
+  const expectedRecipient = process.env.PAYMENT_ADDRESS;
+  
+  if (amount !== expectedAmount) {
+    throw new Error('Payment amount mismatch');
+  }
+  
+  if (recipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
+    throw new Error('Payment recipient mismatch');
+  }
+
+  // 5. Mark transaction as processed BEFORE fulfilling
+  // Store sender for easy lookup (e.g., to query all payments from a user)
+  // In production, use a database transaction to ensure atomicity
+  processedTransactions.set(txId, {
+    orderId,
+    sender,
+    amount,
+    timestamp: new Date()
+  });
+  
+  // 6. Fulfill the order
+  await fulfillOrder(orderId);
+  
+  return { success: true, orderId, sender };
+}
+```
+
+<Tip>
+**Database recommendations for tracking transactions:**
+
+- Store the transaction ID, order ID, sender address, amount, timestamp, and fulfillment status
+- Use a unique constraint on the transaction ID to prevent duplicates
+- Consider adding an index on the transaction ID for fast lookups
+</Tip>
+
+### Validate User Info
+
+If you're collecting user information (email, phone, shipping address) during checkout, use the `callbackURL` parameter to validate this data server-side before the transaction is submitted.
+
+Your callback endpoint receives the user's information and must respond with either a success or error response:
+
+```ts Backend (validation endpoint)
+export async function POST(request: Request) {
+  const requestData = await request.json();
+  const { requestedInfo } = requestData.capabilities.dataCallback;
+  const errors: Record<string, string> = {};
+
+  // Validate email
+  if (requestedInfo.email) {
+    const blockedDomains = ['tempmail.com', 'throwaway.com'];
+    const domain = requestedInfo.email.split('@')[1];
+    if (blockedDomains.includes(domain)) {
+      errors.email = 'Please use a valid email address';
+    }
+  }
+
+  // Validate shipping address
+  if (requestedInfo.physicalAddress) {
+    const addr = requestedInfo.physicalAddress;
+    const supportedCountries = ['US', 'CA', 'GB'];
+    if (!supportedCountries.includes(addr.countryCode)) {
+      errors.physicalAddress = { 
+        countryCode: 'We currently only ship to US, Canada, and UK' 
+      };
+    }
+  }
+
+  // Return errors if validation failed
+  if (Object.keys(errors).length > 0) {
+    return Response.json({ errors });
+  }
+
+  // Success - return the request to proceed with the transaction
+  return Response.json({ request: requestData });
+}
+```
+
+<Note>
+The callback is invoked **before** the transaction is submitted. If you return errors, the user is prompted to correct their information. If you return success, the transaction proceeds.
+</Note>
+
+For complete details on the callback request/response format and all supported data types, see the [dataCallback reference](/base-account/reference/core/capabilities/datacallback).
 
 ## Add the Base Pay Button
 

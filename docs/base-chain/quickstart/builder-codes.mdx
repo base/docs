@@ -13,19 +13,86 @@ Each code has associated metadata. Onchain metadata primarily includes a “payo
 
 Once your app is registered on [Base.dev](http://base.dev/), the Base App will auto-append your Base Builder Code to transactions its users make in your app (e.g. via your mini app, or the Base App's browser). This powers your onchain analytics in [Base.dev](http://base.dev/) and qualifies you for potential future rewards.
 
-<Warning>
-  **Builder Code analytics currently only support Smart Account (AA)
-  transactions.** EOA support is coming soon. Your attribution data is preserved
-  and will appear once EOA support is activated.
-</Warning>
 
 ## For App Developers
 
-When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `k3p9da`) that you'll use to generate your attribution suffix. 
+When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da` ) that you'll use to generate your attribution suffix. 
 
-You can find your code anytime under **Settings** → **Builder Code**.
+<Tip>
+  You can find your code anytime under **Settings** → **Builder Code**.
+</Tip>
 
-<Callout icon="clock" color="#3B82F6" iconType="regular">Manual appending outside of the Base app is coming soon.</Callout>
+<Steps>
+  <Step title="Install the Standard Library for Ethereum">
+
+This will allow you to append the encoded version of your builder code.
+
+    ```bash Terminal
+    npm i ox
+    ```
+  </Step>
+
+  <Step title="Copy Your Builder Code">
+    Navigate to **base.dev > Settings > Builder Codes** to find your unique builder code.
+  </Step>
+
+  <Step title="Create the Encoded Data Suffix">
+    Use the `Attribution.toDataSuffix` method from the `ox` library to encode your builder code:
+
+    ```ts App.tsx
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"], // obtained from base.dev > Settings > Builder Codes
+    });
+    ```
+  </Step>
+
+  <Step title="Send transaction using the dataSuffix capability">
+    Use Wagmi's `useSendCalls` hook with the `dataSuffix` capability to append attribution data to your transactions.
+
+    ```ts App.tsx
+    import { useSendCalls } from "wagmi";
+    import { parseEther } from "viem";
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"],
+    });
+
+    function App() {
+      const { sendCalls } = useSendCalls();
+
+      return (
+        <button
+          onClick={() =>
+            sendCalls({
+              calls: [
+                {
+                  to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+                  value: parseEther("1"),
+                },
+                {
+                  data: "0xdeadbeef",
+                  to: "0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC",
+                },
+              ],
+              capabilities: {
+                dataSuffix: {
+                  value: DATA_SUFFIX,
+                  optional: true,
+                },
+              },
+            })
+          }
+        >
+          Send calls
+        </button>
+      );
+    }
+    ```
+  </Step>
+</Steps>
 
 ## For Wallet Developers
 
@@ -33,11 +100,12 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
 
 <Steps>
   <Step title="Support the dataSuffix Capability">
-    Your wallet should accept a `dataSuffix` string in the `capabilities` object of `wallet_sendCalls`.
+    Your wallet should accept a `dataSuffix` object in the `capabilities` object of `wallet_sendCalls`.
 
     ```typescript lines
-    interface DataSuffixCapability {
-      dataSuffix: string; // hex-encoded bytes provided by the app
+    type DataSuffixCapability = {
+      value: `0x${string}`;  // hex-encoded bytes provided by the app
+      optional?: boolean;    // whether the capability is optional
     }
     ```
 
@@ -53,7 +121,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```typescript lines
         // Minimal example for EOA
         function applySuffixToEOA(tx, capabilities) {
-          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          const suffix = capabilities.dataSuffix?.value
           if (!suffix) return tx
 
           return {
@@ -70,7 +138,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
         ```typescript lines
         // Minimal example for ERC-4337
         function applySuffixToUserOp(userOp, capabilities) {
-          const suffix = capabilities.find(c => c.dataSuffix)?.dataSuffix
+          const suffix = capabilities.dataSuffix?.value
           if (!suffix) return userOp
 
           return {
@@ -102,10 +170,6 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
 </Steps>
 
 ## For Base-Solana Bridge Developers
-
-<Warning>
-  Onchain Builder codes are currently still not live on mainnet.
-</Warning>
 
 Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-solana-bridge) via the [`hookData`](https://github.com/base/flywheel/blob/30266bba4649b0eb161e55bfa4755651049a5d1f/src/hooks/BridgeReferralFees.sol#L75) mechanism. Currently available for **Solana → Base** flows only.
 
@@ -271,9 +335,14 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
   </Step>
 </Steps>
 
-<Tip>
-Mainnet support for Builder Codes is not open to all builders yet. If you are interested in getting access, please contact the team on [discord](https://discord.gg/buildonbase).
-</Tip>
+
+## Contract Addresses
+
+| Contract | Base Mainnet | Base Sepolia |
+| -------- | ------------ | ------------ |
+| `BRIDGE_CAMPAIGN_ADDRESS` | `0x539A97cc4724d5b2740DB98Bc71445448eFC1Bde` | `0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9` |
+| `FLYWHEEL_ADDRESS` | `0x00000F14AD09382841DB481403D1775ADeE1179F` | `0x00000F14AD09382841DB481403D1775ADeE1179F` |
+| `MULTICALL_ADDRESS` | `0xcA11bde05977b3631167028862bE2a173976CA11` | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 
 ## Give feedback!
 
