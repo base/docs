@@ -1,0 +1,298 @@
+---
+title: "Thirdweb"
+description: "Configure Thirdweb with Base Account for your React application"
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx";
+
+Learn how to set up Thirdweb with Base Account to enable seamless user authentication and wallet management.
+
+## Overview
+
+[Thirdweb](https://thirdweb.com/) provides a complete onchain application development framework with wallet connection, authentication, and smart contract interactions.
+By integrating Thirdweb with Base Account,
+you can leverage Thirdweb's `ConnectButton` component
+while providing users with native Base Account wallet support.
+
+### What you'll achieve
+
+By the end of this guide, you will:
+
+- Set up Thirdweb with Base Account support
+- Have Base Account available as a wallet option alongside email authentication
+- Use Thirdweb's `ConnectButton` for a polished wallet connection experience
+
+You can jump ahead and use the [Base Account Thirdweb Template](https://github.com/base/demos/tree/main/base-account/base-account-thirdweb-template) to get started.
+
+<GithubRepoCard
+  title="Base Account Thirdweb Template"
+  githubUrl="https://github.com/base/demos/tree/main/base-account/base-account-thirdweb-template"
+/>
+
+## Installation
+
+### 1. Create a new Next.js project
+
+<CodeGroup>
+```bash npm
+npx create-next-app@latest base-account-thirdweb
+cd base-account-thirdweb
+```
+
+```bash yarn
+yarn create next-app base-account-thirdweb
+cd base-account-thirdweb
+```
+
+```bash pnpm
+pnpm create next-app base-account-thirdweb
+cd base-account-thirdweb
+```
+
+```bash bun
+bun create next-app base-account-thirdweb
+cd base-account-thirdweb
+```
+</CodeGroup>
+
+### 2. Install the dependencies
+
+Install the Thirdweb SDK (version 5.118.0 or higher is required for Base Account support):
+
+<CodeGroup>
+```bash npm
+npm install thirdweb@^5.118.0
+```
+
+```bash yarn
+yarn add thirdweb@^5.118.0
+```
+
+```bash pnpm
+pnpm add thirdweb@^5.118.0
+```
+
+```bash bun
+bun add thirdweb@^5.118.0
+```
+</CodeGroup>
+
+## Configuration
+
+### 1. Set up Environment Variables
+
+Create a `.env.local` file in your project root:
+
+```bash
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your-client-id
+```
+
+Get your Client ID from the [Thirdweb Dashboard](https://thirdweb.com/dashboard).
+
+### 2. Create the Thirdweb Client
+
+Create a client configuration file:
+
+```ts src/lib/client.ts
+import { createThirdwebClient } from "thirdweb";
+
+export const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
+});
+```
+
+### 3. Configure ThirdwebProvider
+
+Create a providers wrapper component and update your layout:
+
+<CodeGroup>
+```tsx Create Provider (src/providers/providers.tsx) expandable
+"use client";
+
+import { ThirdwebProvider } from "thirdweb/react";
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return <ThirdwebProvider>{children}</ThirdwebProvider>;
+}
+```
+
+```tsx Add to Layout (src/app/layout.tsx) expandable
+import type { Metadata } from "next";
+import "./globals.css";
+import Providers from "@/providers/providers";
+
+export const metadata: Metadata = {
+  title: "Base Account Thirdweb Template",
+  description: "Build on Base with Thirdweb's authentication and Base Account support",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="antialiased">
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+</CodeGroup>
+
+## Usage
+
+Use Thirdweb's `ConnectButton` with your wallet configuration:
+
+```tsx src/app/page.tsx expandable
+"use client";
+
+import dynamic from "next/dynamic";
+import { lightTheme } from "thirdweb/react";
+import { inAppWallet, createWallet } from "thirdweb/wallets";
+import { base } from "thirdweb/chains";
+import { client } from "@/lib/client";
+
+// Dynamic import to avoid SSR hydration issues
+const ConnectButton = dynamic(
+  () => import("thirdweb/react").then((mod) => mod.ConnectButton),
+  { ssr: false }
+);
+
+// Configure wallets
+const emailWallet = inAppWallet({
+  auth: {
+    options: ["email"],
+  },
+});
+
+const baseAccountWallet = createWallet("org.base.account");
+const wallets = [emailWallet, baseAccountWallet];
+const recommendedWallets = [baseAccountWallet];
+
+// Custom theme (optional)
+const customTheme = lightTheme({
+  colors: {
+    primaryButtonBg: "#0052FF",
+    primaryButtonText: "#FFFFFF",
+    accentText: "#0052FF",
+  },
+});
+
+export default function Home() {
+  return (
+    <main className="min-h-screen flex items-center justify-center">
+      <ConnectButton
+        client={client}
+        wallets={wallets}
+        recommendedWallets={recommendedWallets}
+        chain={base}
+        showAllWallets={false}
+        theme={customTheme}
+        connectButton={{
+          label: "Sign In",
+        }}
+        connectModal={{
+          title: "Sign In",
+          size: "compact",
+        }}
+      />
+    </main>
+  );
+}
+```
+
+### 3. Run the project locally
+
+You're done! Run the project locally:
+
+<CodeGroup>
+```bash npm
+npm run dev
+```
+
+```bash yarn
+yarn dev
+```
+
+```bash pnpm
+pnpm dev
+```
+
+```bash bun
+bun dev
+```
+</CodeGroup>
+
+You should see a page with a "Sign In" button. Clicking it will open the Thirdweb connect modal with Base Account and email authentication options.
+
+<div style={{ display: 'flex', justifyContent: 'center'}}>
+  <img src="/images/base-account/Thirdweb-Base-Account.png" alt="Base × Thirdweb Demo" style={{ width: '600px', height: 'auto' }} />
+</div>
+
+## Customization
+
+### Wallet Options
+
+You can customize which wallets appear in the connect modal:
+
+```tsx
+// Email only
+const wallets = [inAppWallet({ auth: { options: ["email"] } })];
+
+// Base Account only
+const wallets = [createWallet("org.base.account")];
+
+// Multiple options including social logins
+const wallets = [
+  inAppWallet({
+    auth: {
+      options: ["email", "google", "apple", "discord"],
+    },
+  }),
+  createWallet("org.base.account"),
+];
+```
+
+### Theme
+
+Customize the appearance using `lightTheme` or `darkTheme`:
+
+```tsx
+import { lightTheme, darkTheme } from "thirdweb/react";
+
+// Light theme with custom colors
+const theme = lightTheme({
+  colors: {
+    primaryButtonBg: "#0052FF",
+    accentText: "#0052FF",
+    modalBg: "#FFFFFF",
+  },
+});
+
+// Or use dark theme
+const theme = darkTheme();
+```
+
+### Chain
+
+Change the default chain by importing from `thirdweb/chains`:
+
+```tsx
+import { base, baseSepolia, mainnet } from "thirdweb/chains";
+
+<ConnectButton
+  client={client}
+  chain={baseSepolia} // Use Base Sepolia testnet
+  // ...
+/>
+```
+
+## Resources
+
+- [Thirdweb Documentation](https://portal.thirdweb.com)
+- [Thirdweb ConnectButton Reference](https://portal.thirdweb.com/references/typescript/v5/ConnectButton)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Base Support](https://discord.com/invite/buildonbase)
