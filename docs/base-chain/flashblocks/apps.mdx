@@ -200,6 +200,46 @@ curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json
 }
 ```
 
+#### eth_subscribe <Badge color="orange" shape="rounded">Beta</Badge>
+
+Subscribe to real-time streams of Flashblocks data. Three subscription types are available:
+
+- **pendingLogs** - Stream logs from transactions in Flashblocks
+- **newFlashblockTransactions** - Stream transaction hashes included in the block
+- **newFlashblocks** - Stream the pending block as new Flashblocks arrive
+
+```
+wscat -c wss://sepolia-preconf.base.org
+> {"jsonrpc":"2.0","method":"eth_subscribe","params":["newFlashblocks"],"id":1}
+```
+
+**Example Response**
+```
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x..." // subscription ID
+}
+```
+
+#### base_transactionStatus <Badge color="orange" shape="rounded">Beta</Badge>
+
+Check whether a transaction is present in the mempool:
+```
+curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"base_transactionStatus","params":["0x..."],"id":1}'
+```
+
+**Example Response**
+```
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "status": "pending"
+  }
+}
+```
+
 ### Libraries
 
 You will need to use a Flashblocks-aware RPC endpoint to use Flashblocks with the following libraries:
