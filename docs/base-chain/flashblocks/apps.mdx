@@ -200,6 +200,80 @@ curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json
 }
 ```
 
+#### eth_subscribe <Badge color="orange" shape="rounded">Beta</Badge>
+
+Subscribe to real-time streams of Flashblocks data via WebSocket. Three subscription types are available:
+
+<Note>Requires node-reth minimum client version v0.3.0</Note>
+
+- **pendingLogs** - Stream logs from transactions in Flashblocks
+- **newFlashblockTransactions** - Stream transaction hashes included in the block
+- **newFlashblocks** - Stream the pending block as new Flashblocks arrive
+
+```javascript
+import WebSocket from 'ws';
+import { createHash } from 'crypto';
+
+const ws = new WebSocket('wss://sepolia.flashblocks.base.org/ws');
+
+ws.on('open', () => {
+  console.log('Connected to Flashblocks WebSocket');
+  // Subscribe to new Flashblocks
+  ws.send(JSON.stringify({
+    jsonrpc: "2.0",
+    method: "eth_subscribe",
+    params: ["newFlashblockTransactions"],
+    id: 1
+  }));
+});
+
+ws.on('message', (data: WebSocket.Data) => {
+  try {
+    if (Buffer.isBuffer(data)) {
+      if (data.length >= 37) {
+        const txHash = '0x' + data.slice(5, 37).toString('hex');
+        console.log(txHash);
+      }
+    } else {
+      const response = JSON.parse(data.toString());
+      if (response.id === 1) {
+        console.log('✓ Subscribed');
+      }
+    }
+  } catch (error) {
+    // Handle error
+  }
+});
+
+ws.on('error', (error) => {
+  console.error('WebSocket error:', error);
+});
+
+ws.on('close', () => {
+  console.log('WebSocket connection closed');
+});
+```
+
+#### base_transactionStatus <Badge color="orange" shape="rounded">Beta</Badge>
+
+Check whether a transaction is present in the mempool:
+
+<Note>Requires node-reth minimum client version v0.3.0</Note>
+```
+curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"base_transactionStatus","params":["0x..."],"id":1}'
+```
+
+**Example Response**
+```
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "status": "pending"
+  }
+}
+```
+
 ### Libraries
 
 You will need to use a Flashblocks-aware RPC endpoint to use Flashblocks with the following libraries:
