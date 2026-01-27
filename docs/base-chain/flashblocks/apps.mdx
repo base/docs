@@ -202,24 +202,54 @@ curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json
 
 #### eth_subscribe <Badge color="orange" shape="rounded">Beta</Badge>
 
-Subscribe to real-time streams of Flashblocks data. Three subscription types are available:
+Subscribe to real-time streams of Flashblocks data via WebSocket. Three subscription types are available:
 
 - **pendingLogs** - Stream logs from transactions in Flashblocks
 - **newFlashblockTransactions** - Stream transaction hashes included in the block
 - **newFlashblocks** - Stream the pending block as new Flashblocks arrive
 
-```
-wscat -c wss://sepolia-preconf.base.org
-> {"jsonrpc":"2.0","method":"eth_subscribe","params":["newFlashblocks"],"id":1}
-```
+```javascript
+import WebSocket from 'ws';
+import { createHash } from 'crypto';
 
-**Example Response**
-```
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x..." // subscription ID
-}
+const ws = new WebSocket('wss://sepolia.flashblocks.base.org/ws');
+
+ws.on('open', () => {
+  console.log('Connected to Flashblocks WebSocket');
+  // Subscribe to new Flashblocks
+  ws.send(JSON.stringify({
+    jsonrpc: "2.0",
+    method: "eth_subscribe",
+    params: ["newFlashblockTransactions"],
+    id: 1
+  }));
+});
+
+ws.on('message', (data: WebSocket.Data) => {
+  try {
+    if (Buffer.isBuffer(data)) {
+      if (data.length >= 37) {
+        const txHash = '0x' + data.slice(5, 37).toString('hex');
+        console.log(txHash);
+      }
+    } else {
+      const response = JSON.parse(data.toString());
+      if (response.id === 1) {
+        console.log('✓ Subscribed');
+      }
+    }
+  } catch (error) {
+    // Handle error
+  }
+});
+
+ws.on('error', (error) => {
+  console.error('WebSocket error:', error);
+});
+
+ws.on('close', () => {
+  console.log('WebSocket connection closed');
+});
 ```
 
 #### base_transactionStatus <Badge color="orange" shape="rounded">Beta</Badge>
