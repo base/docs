@@ -1,0 +1,122 @@
+---
+title: "Base Builder Codes FAQ"
+description: "Integrate Builder Codes to attribute onchain activity to your app or wallet."
+---
+
+
+# ERC-8021 Frequently Asked Questions
+
+A comprehensive FAQ covering ERC-8021 Transaction Attribution, from basic concepts to advanced implementation details.
+
+### What are the benefits of supporting Builder Codes?
+
+- **Revenue Sharing:** Base can automatically distribute fees to applications that bring them users  
+- **Analytics:** Developers can reliably track onchain usage, user acquisition, and conversion metrics in Base.dev  
+- **Ecosystem Incentives:** Creates sustainable economic models where everyone in the value chain gets credited
+
+### What is a "builder code" and where do I get one?
+
+A **builder code** is a human-readable ASCII string (like `"baseapp"` or `"bc_xyz456"`) that identifies your application in the ERC-8021 attribution system. When your app's transactions include this code, protocols can identify and reward you.
+
+**How to get a builder code:**
+
+1. Register your application with Base.dev   
+2. Your code will be mapped to a payout address associated with Base.dev  
+3. Once registered, include your code in the ERC-8021 suffix on all transactions
+
+### Do I need to modify my smart contracts to use ERC-8021?
+
+**No.** The attribution suffix is appended to the end of transaction calldata. Smart contracts execute normally and ignore the extra data. Attribution is extracted by offchain indexers after the fact.
+
+This means:
+
+- Any existing smart contract automatically supports ERC-8021  
+- No upgrades or redeployments required  
+- Zero impact on contract execution or gas costs (beyond the minimal suffix data)
+
+### How much additional gas do Builder Codes cost?
+
+The ERC-8021 suffix adds a small amount of data to each transaction, which results in a minor gas increase:
+
+**Suffix size breakdown:**
+- 1 byte for codes length
+- Variable bytes for your builder code (e.g., "baseapp" = 7 bytes)
+- 1 byte for schema ID
+- 16 bytes for the ERC marker
+
+**Total:** Typically 18-30 bytes depending on your code length.
+
+**Gas impact:**
+- **L2 execution cost:** ~300-500 gas (negligible—less than 1% of most transactions)
+- **L1 data cost:** The additional bytes increase the L1 data posting cost, but with EIP-4844 blob data this is minimal
+
+For context, a simple ETH transfer costs 21,000 gas, so the Builder Code overhead represents a fraction of a percent for most transactions. The exact cost varies with L1 gas prices and network conditions.
+
+### Can I use ERC-8021 with Externally Owned Accounts (EOAs)?
+
+**Yes.** ERC-8021 works with both EOAs and smart contract wallets.
+
+### Where exactly should I add the data suffix? 
+
+This is a critical implementation detail that many builders get wrong. There are **three levels** of data abstraction:
+
+| Level | Description | Add Suffix Here? |
+| :---- | :---- | :---- |
+| **Calldata** | The `data` field on an individual call object `{to, value, data}` | NO |
+| **Transaction Data** | The `data` field of the Ethereum transaction itself | YES |
+| **User Operation Data** | The `callData` field of an ERC-4337 User Operation | YES |
+
+
+### How do I verify that my transaction was properly attributed?
+
+There are two primary methods to confirm attribution:
+
+**1. Check base.dev (for Base network)**
+
+- Visit [base.dev](https://base.dev) and look for your builder code  
+- Attribution counts increment when transactions with your code are processed
+
+**2. Use a Block Explorer (Basescan, Etherscan, etc.)**
+
+- Find your transaction hash  
+- View the input data field  
+- Verify the last 16 bytes are the ERC marker (`0x8021...8021`)  
+- Decode the suffix to confirm your builder code is present
+
+**Programmatic verification:**
+
+```javascript
+// Check if transaction has valid ERC-8021 suffix
+const ERC_MARKER = "8021802180218021802180218021802180218021";
+const inputData = tx.input;
+const hasMarker = inputData.slice(-32) === ERC_MARKER;
+```
+
+### What wallets and SDKs currently support ERC-8021?
+
+**SDKs with native support:**
+
+- **viem/wagmi** - TypeScript SDK with native `dataSuffix` parameter support for server-side and client-side transactions
+
+**Wallets with support:**
+
+- **Privy** - Embedded wallet solution with ERC-8021 capability  
+- **Turnkey** - Infrastructure for programmatic wallets
+
+**ERC-5792 Integration:** Wallets supporting ERC-5792 can use the `DataSuffixCapability` for clean suffix appending:
+
+```javascript
+await wallet.sendCalls({
+  calls: [...],
+  capabilities: {
+    dataSuffix: {
+      dataSuffix: "0x07626173656170700080218021802180218021802180218021"
+    }
+  }
+});
+```
+
+## Additional Resources
+
+- [Official ERC-8021 Proposal ](https://eip.tools/eip/8021)  
+- [Builder Code Docs](/base-chain/builder-codes/builder-codes)  
