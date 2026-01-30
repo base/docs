@@ -1,5 +1,5 @@
 ---
-title: "Base Builder Codes FAQ"
+title: "Builder Codes FAQ"
 ---
 
 ### What are the benefits of supporting Builder Codes?
@@ -10,13 +10,11 @@ title: "Base Builder Codes FAQ"
 
 ### What is a "builder code" and where do I get one?
 
-A **builder code** is a human-readable ASCII string (like `"baseapp"` or `"bc_xyz456"`) that identifies your application in the ERC-8021 attribution system. When your app's transactions include this code, protocols can identify and reward you.
+A **builder code** is a ASCII string (like `"baseapp"` or `"bc_xyz456"`) that identifies your application in the ERC-8021 attribution system. When your app's transactions include this code, protocols can identify and reward you.
 
-**How to get a builder code:**
-
-1. Register your application with Base.dev   
-2. Your code will be mapped to a payout address associated with Base.dev  
-3. Once registered, include your code in the ERC-8021 suffix on all transactions
+<Tip>
+  Obtain your builder code [here](/base-chain/builder-codes/builder-codes).
+</Tip>
 
 ### Do I need to modify my smart contracts to use ERC-8021?
 
@@ -26,41 +24,27 @@ This means:
 
 - Any existing smart contract automatically supports ERC-8021  
 - No upgrades or redeployments required  
-- Zero impact on contract execution or gas costs (beyond the minimal suffix data)
+- Zero impact on contract execution
 
 ### How much additional gas do Builder Codes cost?
 
-The ERC-8021 suffix adds a small amount of data to each transaction, which results in a minor gas increase:
+The ERC-8021 suffix adds a negligible amount of gas to each transaction at  16 gas per non-zero byte. 
 
-The suffix adds 18-30 bytes to your transaction (depending on code length). At 16 gas per non-zero byte, this is a marginal increase—negligible for most transactions.
+### Will Builder Codes expose my identity?
 
-### Will Builder Codes dox my wallet?
-
-Builder Codes provide a transparent way to see how you are contributing to the chain.
+No. Builder Codes only associate transactions with your application—they don't expose any wallet information that isn't already public onchain.
 
 ### Can I use ERC-8021 with Externally Owned Accounts (EOAs)?
 
 **Yes.** ERC-8021 works with both EOAs and smart contract wallets.
 
-### Where exactly should I add the data suffix? 
-
-This is a critical implementation detail that many builders get wrong. There are **three levels** of data abstraction:
-
-| Level | Description | Add Suffix Here? |
-| :---- | :---- | :---- |
-| **Calldata** | The `data` field on an individual call object `{to, value, data}` | NO |
-| **Transaction Data** | The `data` field of the Ethereum transaction itself | YES |
-| **User Operation Data** | The `callData` field of an ERC-4337 User Operation | YES |
-
-
 ### How do I verify that my transaction was properly attributed?
 
-There are two primary methods to confirm attribution:
+**1. Check base.dev**
 
-**1. Check base.dev (for Base network)**
-
-- Visit [base.dev](https://base.dev) and look for your builder code  
-- Attribution counts increment when transactions with your code are processed
+- Visit the [base.dev](https://base.dev) 
+- Select Onchain from the transaction type drop down 
+- Under the Total Transaction section attribution counts increment when transactions with your code are processed
 
 **2. Use a Block Explorer (Basescan, Etherscan, etc.)**
 
@@ -69,27 +53,34 @@ There are two primary methods to confirm attribution:
 - Verify the last 16 bytes are the ERC marker (`0x8021...8021`)  
 - Decode the suffix to confirm your builder code is present
 
-**Programmatic verification:**
+**3. Open Source Tools**
 
-```javascript
-// Check if transaction has valid ERC-8021 suffix
-const ERC_MARKER = "8021802180218021802180218021802180218021";
-const inputData = tx.input;
-const hasMarker = inputData.slice(-32) === ERC_MARKER;
-```
+- Use the [Builder Code Validation](https://builder-code-checker.vercel.app/) tool
+- Select transactiion type
+- Enter in the Transaction or UserOperation Hash 
+- Click the **Check Attribution** 
+
 
 ### What wallets and SDKs currently support ERC-8021?
 
-**SDKs with native support:**
+**EOAs:**
+
+All EOA wallets support dataSuffix by default. 
+
+**SDKs:**
 
 - **viem/wagmi** - TypeScript SDK with native `dataSuffix` parameter support for server-side and client-side transactions
 
-**Wallets with support:**
+<Note>
+This requires `viem@2.45.0` or higher
+</Note>
+
+**Embedded Wallets:**
 
 - **Privy** - Embedded wallet solution with ERC-8021 capability  
 - **Turnkey** - Infrastructure for programmatic wallets
 
-**ERC-5792 Integration:** Wallets supporting ERC-5792 can use the `DataSuffixCapability` for clean suffix appending:
+**Smart Wallets:** Wallets supporting ERC-5792 can use the `DataSuffixCapability` for clean suffix appending:
 
 ```javascript
 await wallet.sendCalls({
