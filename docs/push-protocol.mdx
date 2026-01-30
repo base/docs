@@ -1,0 +1,173 @@
+# Push Protocol Notification Integration: On-Chain Event Alerts
+
+**Author:** @jadonamite
+**Topic:** Notifications & User Engagement
+**Level:** Intermediate
+**Prerequisites:** Push Protocol Channel, Foundry, Base Sepolia ETH
+
+Notifications are the missing link in Web3 UX. Instead of users refreshing a dashboard to see if a transaction failed or a position was liquidated, your smart contract should tell them.
+
+In this tutorial, we will integrate **Push Protocol** (formerly EPNS) to send an on-chain notification directly from a Base smart contract to a user's wallet address whenever a critical event occurs.
+
+---
+
+## 1. Architecture
+
+1. **Channel:** You (the developer) own a "Channel" on Push Protocol.
+2. **Delegate:** You authorize your Base smart contract to send notifications on behalf of your Channel.
+3. **Trigger:** Your smart contract calls the **Push Communicator** contract on Base.
+4. **Delivery:** The user receives a notification in their Push-compatible wallet (e.g., Uniswap Wallet, Metamask Snap) or the Push dApp.
+
+---
+
+## 2. Prerequisites
+
+1. **Create a Channel:** Go to [app.push.org/channels/create](https://www.google.com/search?q=https://app.push.org/channels/create) (on Ethereum Sepolia or Polygon Mumbai for testing) and create a channel.
+* *Note: Creating a channel requires a small amount of PUSH tokens.*
+
+
+2. **Base Sepolia Wallet:** Funded with ETH.
+
+---
+
+## 3. Smart Contracts
+
+We will create a simple `NotificationSender` contract.
+
+### The Interface (`src/interfaces/IPUSHCommInterface.sol`)
+
+Define the interface for the Push Communicator contract.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IPUSHCommInterface {
+    function sendNotification(
+        address _channel,
+        address _recipient,
+        bytes calldata _identity
+    ) external;
+}
+
+```
+
+### The Sender Contract (`src/NotificationSender.sol`)
+
+This contract emits a notification whenever `triggerEvent()` is called.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {IPUSHCommInterface} from "./interfaces/IPUSHCommInterface.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+contract NotificationSender is Ownable {
+    // Push Communicator Contract Address on Base Sepolia
+    // Check https://docs.push.org/developers/smart-contracts/push-smart-contract-addresses for latest
+    address public constant PUSH_COMM_ADDRESS = 0x0C34d54a09CFe75BCcd878A469206Ae77E0fe6e7; // Example: Eth Sepolia (Replace with Base specific if available, or use Cross-Chain)
+    
+    address public channelAddress;
+
+    event EventTriggered(address indexed user);
+
+    constructor(address _channelAddress) Ownable(msg.sender) {
+        channelAddress = _channelAddress;
+    }
+
+    function triggerEvent(address _recipient) external {
+        // 1. Perform your contract logic (e.g., liquidation, swap, etc.)
+        emit EventTriggered(_recipient);
+
+        // 2. Construct the Notification Payload
+        // Identity format: 0 + IdentityType + "+" + NotificationType + "+" + Title + "+" + Body
+        // IdentityType: 2 (Direct Payload)
+        // NotificationType: 3 (Targeted)
+        string memory title = "Base Alert";
+        string memory body = "Your on-chain action was successful!";
+        
+        bytes memory identity = abi.encodePacked(
+            "0", // Standard Identity
+            "+", 
+            "3", // Targeted Notification
+            "+", 
+            title, 
+            "+", 
+            body
+        );
+
+        // 3. Send Notification via Push Comm Contract
+        IPUSHCommInterface(PUSH_COMM_ADDRESS).sendNotification(
+            channelAddress, // The Channel sending the notif
+            _recipient,     // The User receiving it
+            identity        // The payload
+        );
+    }
+}
+
+```
+
+*Note: If a native Base Communicator contract is not live on your specific testnet, Push allows you to send notifications via their SDK (Off-chain) or using Cross-Chain messaging. For this tutorial, we assume the standard EVM deployment.*
+
+---
+
+## 4. Deployment & Delegation (Critical Step)
+
+For the notification to work, **your smart contract must be a Delegate of your Channel**.
+
+### Step 1: Deploy the Contract
+
+```bash
+forge create src/NotificationSender.sol:NotificationSender \
+  --constructor-args <YOUR_CHANNEL_ADDRESS_FROM_DASHBOARD> \
+  --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY
+
+```
+
+*Copy the deployed contract address.*
+
+### Step 2: Add Delegate (On Push dApp)
+
+1. Go to the [Push Channel Dashboard](https://www.google.com/search?q=https://app.push.org/channels).
+2. Click **"Add Delegate"**.
+3. Paste your **Base Contract Address**.
+4. Sign the transaction to approve it.
+* *Why?* This prevents random people from sending spam notifications pretending to be your channel.
+
+
+
+### Step 3: Test It
+
+```bash
+cast send <CONTRACT_ADDRESS> "triggerEvent(address)" <YOUR_WALLET_ADDRESS> \
+  --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY
+
+```
+
+---
+
+## 5. Verification
+
+1. Go to [app.push.org/inbox](https://www.google.com/search?q=https://app.push.org/inbox).
+2. Connect the `<YOUR_WALLET_ADDRESS>` wallet.
+3. You should see a new notification: **"Base Alert: Your on-chain action was successful!"**
+
+---
+
+## 6. Common Pitfalls
+
+1. **"Unauthorized" Error:**
+* **Cause:** You forgot Step 2 (Adding the contract as a Delegate). The `PushComm` contract will revert if the sender is not authorized by the Channel Owner.
+
+
+2. **Wrong Address Format:**
+* **Cause:** Push uses specific identity bytes. Ensure you concatenate the strings exactly as `"0+3+Title+Body"`.
+
+
+3. **Chain Mismatch:**
+* **Cause:** Your Channel is on Polygon, but you are sending from Base.
+* **Fix:** This is allowed! Push is chain-agnostic. Just ensure you are calling the `PushComm` contract that exists on the chain where your *transaction* is happening.
+
