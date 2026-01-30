@@ -32,7 +32,7 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 Prerequisite: Node.js v19+.
 
 1. Clone the repository.
-2. Install the Mint CLI to preview documentation changes locally:
+2. Install the Mintlify CLI to preview documentation changes locally:
 
 ```bash
 npm i -g mint
@@ -59,7 +59,7 @@ npx mint dev
 ## How to contribute
 
 1. **Fork and branch**: Fork `base/docs` and create a descriptive branch for your change.
-2. **Edit content in `docs/`**: Follow the structure and style guidelines below. Preview locally with the Mint CLI.
+2. **Edit content in `docs/`**: Follow the structure and style guidelines below. Preview locally with the Mintlify CLI.
 3. **Open a pull request**: Provide a clear summary and links to related pages. The docs team and community will review.
 
 > Tip: Prefer small, focused PRs. Link related guides and references directly in your content.
