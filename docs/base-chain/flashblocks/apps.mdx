@@ -202,13 +202,55 @@ curl https://sepolia-preconf.base.org -X POST -H "Content-Type: application/json
 
 #### eth_subscribe <Badge color="orange" shape="rounded">Beta</Badge>
 
-Subscribe to real-time streams of Flashblocks data via WebSocket. Three subscription types are available:
+Flashblocks-aware nodes support specialized `eth_subscribe` methods for real-time streaming of Flashblock data. 
 
-<Note>Requires [base/base](https://github.com/base/base) minimum client version v0.3.0</Note>
+<Note>Requires [base/base](https://github.com/base/base) minimum client version v0.3.1</Note>
 
-- **pendingLogs** - Stream logs from transactions in Flashblocks
-- **newFlashblockTransactions** - Stream transaction hashes included in the block
-- **newFlashblocks** - Stream the pending block as new Flashblocks arrive
+<Warning>
+Each subscription returns **one item per WebSocket message** and emits events every 200ms. If your application performs heavy processing on each event, consider throttling or debouncing to avoid performance issues.
+</Warning>
+
+**Subscription Types:**
+
+| Subscription | Description | Response |
+|--------------|-------------|----------|
+| `newFlashblockTransactions` | Stream transactions as they're included | One transaction per message |
+| `pendingLogs` | Stream logs matching a filter | One log per message |
+| `newFlashblocks` | Stream block state updates | Block state per Flashblock |
+
+---
+
+**newFlashblockTransactions**
+
+```json
+{"jsonrpc":"2.0", "id": 1, "method": "eth_subscribe", "params": ["newFlashblockTransactions"]}
+```
+
+Optional `full` parameter for enriched transaction and log data:
+```json
+{"jsonrpc":"2.0", "id": 1, "method": "eth_subscribe", "params": ["newFlashblockTransactions", {"full": true}]}
+```
+
+---
+
+**pendingLogs**
+
+Filter logs by address and topics:
+```json
+{"jsonrpc":"2.0", "id": 1, "method": "eth_subscribe", "params": ["pendingLogs", {"address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]}]}
+```
+
+---
+
+**newFlashblocks**
+
+```json
+{"jsonrpc":"2.0", "id": 1, "method": "eth_subscribe", "params": ["newFlashblocks"]}
+```
+
+---
+
+**JavaScript Example:**
 
 ```javascript
 import WebSocket from 'ws';
