@@ -5,88 +5,82 @@ description: "Integrate Builder Codes to attribute onchain activity to your app 
 
 ## What are Builder Codes
 
-Base Builder Codes are an ERC-721 NFT collection where unique codes (e.g. “abc123”) are minted to help identify builders onchain.
+Base Builder Codes are an ERC-721 NFT collection where unique codes (e.g. "abc123") are minted to help identify builders onchain.
 
-Each code has associated metadata. Onchain metadata primarily includes a “payout address” where each code declares where potential rewards should be sent to. Offchain metadata includes more details about the app including its name and site.
+Each code has associated metadata. Onchain metadata primarily includes a "payout address" where each code declares where potential rewards should be sent to. Offchain metadata includes more details about the app including its name and site.
 
 ## Automatic Builder-Code Attribution on Base
 
 Once your app is registered on [Base.dev](http://base.dev/), the Base App will auto-append your Base Builder Code to transactions its users make in your app (e.g. via your mini app, or the Base App's browser). This powers your onchain analytics in [Base.dev](http://base.dev/) and qualifies you for potential future rewards.
 
-
 ## For App Developers
 
-When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da` ) that you'll use to generate your attribution suffix. 
+When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da`) that you'll use to generate your attribution suffix.
 
 <Tip>
   You can find your code anytime under **Settings** → **Builder Code**.
 </Tip>
 
+The recommended approach is to configure `dataSuffix` at the client level, which automatically appends your Builder Code to all transactions.
+
+<Note>
+  Requires [viem](https://viem.sh) version 2.45.0 or higher, or [wagmi](https://wagmi.sh) version 2.17.0 or higher.
+</Note>
+
+### Quick setup with Wagmi
+
 <Steps>
-  <Step title="Install the Standard Library for Ethereum">
+  <Step title="Install dependencies">
+    Install the required packages. The `dataSuffix` feature requires viem version 2.45.0 or higher.
 
-This will allow you to append the encoded version of your builder code.
-
-    ```bash Terminal
-    npm i ox
+    ```bash
+    npm i ox wagmi viem
     ```
   </Step>
 
-  <Step title="Copy Your Builder Code">
-    Navigate to **base.dev > Settings > Builder Codes** to find your unique builder code.
-  </Step>
+  <Step title="Configure your Wagmi client">
+    Add the `dataSuffix` option to your Wagmi config. This automatically appends your Builder Code to all transactions.
 
-  <Step title="Create the Encoded Data Suffix">
-    Use the `Attribution.toDataSuffix` method from the `ox` library to encode your builder code:
-
-    ```ts App.tsx
+    ```ts config.ts
+    import { createConfig, http } from "wagmi";
+    import { base } from "wagmi/chains";
     import { Attribution } from "ox/erc8021";
 
-    const DATA_SUFFIX = Attribution.toDataSuffix({
-      codes: ["YOUR-BUILDER-CODE"], // obtained from base.dev > Settings > Builder Codes
-    });
-    ```
-  </Step>
-
-  <Step title="Send transaction using the dataSuffix capability">
-    Use Wagmi's `useSendCalls` hook with the `dataSuffix` capability to append attribution data to your transactions.
-
-    ```ts App.tsx
-    import { useSendCalls } from "wagmi";
-    import { parseEther } from "viem";
-    import { Attribution } from "ox/erc8021";
-
+    // Get your Builder Code from base.dev > Settings > Builder Codes
     const DATA_SUFFIX = Attribution.toDataSuffix({
       codes: ["YOUR-BUILDER-CODE"],
     });
 
-    function App() {
-      const { sendCalls } = useSendCalls();
+    export const config = createConfig({
+      chains: [base],
+      transports: {
+        [base.id]: http(),
+      },
+      dataSuffix: DATA_SUFFIX,
+    });
+    ```
+  </Step>
+
+  <Step title="Use Wagmi hooks as usual">
+    With the config in place, all transactions automatically include your Builder Code—no changes to your hooks or components. This works with both `useSendTransaction` and `useSendCalls`.
+
+    ```tsx App.tsx
+    import { useSendTransaction } from "wagmi";
+    import { parseEther } from "viem";
+
+    function SendButton() {
+      const { sendTransaction } = useSendTransaction();
 
       return (
         <button
           onClick={() =>
-            sendCalls({
-              calls: [
-                {
-                  to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
-                  value: parseEther("1"),
-                },
-                {
-                  data: "0xdeadbeef",
-                  to: "0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC",
-                },
-              ],
-              capabilities: {
-                dataSuffix: {
-                  value: DATA_SUFFIX,
-                  optional: true,
-                },
-              },
+            sendTransaction({
+              to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+              value: parseEther("0.01"),
             })
           }
         >
-          Send calls
+          Send ETH
         </button>
       );
     }
@@ -94,15 +88,144 @@ This will allow you to append the encoded version of your builder code.
   </Step>
 </Steps>
 
+### Quick setup with Viem
+
+<Steps>
+  <Step title="Install dependencies">
+    Install the required packages. The `dataSuffix` feature requires viem version 2.45.0 or higher.
+
+    ```bash
+    npm i ox viem
+    ```
+  </Step>
+
+  <Step title="Configure your wallet client">
+    Add the `dataSuffix` option when creating your wallet client. See the [viem wallet client docs](https://viem.sh/docs/clients/wallet) for more configuration options.
+
+    ```ts client.ts
+    import { createWalletClient, http } from "viem";
+    import { base } from "viem/chains";
+    import { Attribution } from "ox/erc8021";
+
+    // Get your Builder Code from base.dev > Settings > Builder Codes
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      codes: ["YOUR-BUILDER-CODE"],
+    });
+
+    export const walletClient = createWalletClient({
+      chain: base,
+      transport: http(),
+      dataSuffix: DATA_SUFFIX,
+    });
+    ```
+  </Step>
+
+  <Step title="Send transactions as usual">
+    All transactions sent through this client automatically include your Builder Code.
+
+    ```ts
+    import { parseEther } from "viem";
+    import { walletClient } from "./client";
+
+    const hash = await walletClient.sendTransaction({
+      to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      value: parseEther("0.01"),
+    });
+    ```
+  </Step>
+</Steps>
+
+### Legacy: Per-transaction approach
+
+<Accordion title="Appending dataSuffix per-transaction">
+  If you need to append the suffix on a per-transaction basis rather than at the client level, you can pass `dataSuffix` directly to the transaction.
+
+  <Tabs>
+    <Tab title="useSendTransaction">
+      ```tsx App.tsx
+      import { useSendTransaction } from "wagmi";
+      import { parseEther } from "viem";
+      import { Attribution } from "ox/erc8021";
+
+      const DATA_SUFFIX = Attribution.toDataSuffix({
+        codes: ["YOUR-BUILDER-CODE"],
+      });
+
+      function App() {
+        const { sendTransaction } = useSendTransaction();
+
+        return (
+          <button
+            onClick={() =>
+              sendTransaction({
+                to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+                value: parseEther("0.01"),
+                dataSuffix: DATA_SUFFIX,
+              })
+            }
+          >
+            Send ETH
+          </button>
+        );
+      }
+      ```
+    </Tab>
+    <Tab title="useSendCalls">
+      When using `useSendCalls`, pass the suffix via the `capabilities` object. This requires the connected wallet to support the `dataSuffix` capability.
+
+      ```tsx App.tsx
+      import { useSendCalls } from "wagmi";
+      import { parseEther } from "viem";
+      import { Attribution } from "ox/erc8021";
+
+      const DATA_SUFFIX = Attribution.toDataSuffix({
+        codes: ["YOUR-BUILDER-CODE"],
+      });
+
+      function App() {
+        const { sendCalls } = useSendCalls();
+
+        return (
+          <button
+            onClick={() =>
+              sendCalls({
+                calls: [
+                  {
+                    to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+                    value: parseEther("1"),
+                  },
+                ],
+                capabilities: {
+                  dataSuffix: {
+                    value: DATA_SUFFIX,
+                    optional: true,
+                  },
+                },
+              })
+            }
+          >
+            Send calls
+          </button>
+        );
+      }
+      ```
+    </Tab>
+  </Tabs>
+</Accordion>
+
+### Verify attribution
+
+To confirm your Builder Code is being appended correctly, see [How do I verify that my transaction was properly attributed?](/base-chain/builder-codes/builder-codes-faq#how-do-i-verify-that-my-transaction-was-properly-attributed) in the FAQ.
+
 ## For Wallet Developers
 
 Wallet providers need to support the `dataSuffix` capability to enable attribution. This involves accepting the capability and appending the suffix to the calldata before signing.
 
 <Steps>
-  <Step title="Support the dataSuffix Capability">
+  <Step title="Support the dataSuffix capability">
     Your wallet should accept a `dataSuffix` object in the `capabilities` object of `wallet_sendCalls`.
 
-    ```typescript lines
+    ```typescript
     type DataSuffixCapability = {
       value: `0x${string}`;  // hex-encoded bytes provided by the app
       optional?: boolean;    // whether the capability is optional
@@ -111,14 +234,14 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
 
   </Step>
 
-  <Step title="Append Suffix to Calldata">
+  <Step title="Append suffix to calldata">
     When constructing the transaction or User Operation, extract the `dataSuffix` and append it to the calldata.
 
     <Tabs>
       <Tab title="EOA Transactions">
         Append to `tx.data`.
 
-        ```typescript lines
+        ```typescript
         // Minimal example for EOA
         function applySuffixToEOA(tx, capabilities) {
           const suffix = capabilities.dataSuffix?.value
@@ -135,7 +258,7 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
       <Tab title="ERC-4337 User Operations">
         Append to `userOp.callData` (not the transaction-level calldata).
 
-        ```typescript lines
+        ```typescript
         // Minimal example for ERC-4337
         function applySuffixToUserOp(userOp, capabilities) {
           const suffix = capabilities.dataSuffix?.value
@@ -152,11 +275,11 @@ Wallet providers need to support the `dataSuffix` capability to enable attributi
     </Tabs>
 
   </Step>
-  <Step title="(Optional) Add Wallet Attribution">
-    Wallets may also include their own attribution code (their own ERC-8021 suffix) by simply prepending the wallet’s own suffix before the app’s.
+  <Step title="Add wallet attribution (optional)">
+    Wallets may also include their own attribution code (their own ERC-8021 suffix) by prepending the wallet's suffix before the app's.
 
-    *   **No interaction required with apps:** The wallet handles this independently.
-    *   **Multi-code support:** ERC-8021 natively supports multiple attribution codes.
+    - **No interaction required with apps:** The wallet handles this independently.
+    - **Multi-code support:** ERC-8021 natively supports multiple attribution codes.
 
     **Example:**
 
@@ -191,7 +314,7 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
 
   </Step>
 
-  <Step title="Attach to Bridge Message">
+  <Step title="Attach to bridge message">
     Set `to = BRIDGE_CAMPAIGN_ADDRESS` and attach a call to `Flywheel.send`.
 
     <Tabs>
@@ -251,7 +374,7 @@ Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-sol
     </Tabs>
 
   </Step>
-  <Step title="Learn More: A Full Implementation Example">
+  <Step title="Learn more: A full implementation example">
     [Terminally Onchain](https://terminallyonchain.com/) is a production Next.js app that exposes the bridge via a command terminal UI. Users connect a Solana wallet, type commands such as to bridge and call a contract on Base:
 
     You can use [Terminally Onchain](https://terminallyonchain.com/) to test bridge transactions with Builder Codes like so:
