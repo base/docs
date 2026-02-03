@@ -291,7 +291,7 @@ contract RNGContract {
 <Warning>
 You must whitelist this smart contract under the wallet address you registered with Supra, and deposit funds to be paid for the gas fees associated with transactions for your callback function.
 
-Follow the [guidance steps](https://supraoracles.com/docs/vrf/v2-guide#step-1-create-the-supra-router-contract-interface-1) provided by Supra for whitelisting your contract and depositing funds.
+Follow the [guidance steps](https://docs.arbitrum.io/for-devs/oracles/supra/supras-vrf) provided by Supra for whitelisting your contract and depositing funds.
 
 If you have not yet registered your wallet with Supra, see the [Prerequisites](#prerequisites) section.
 </Warning>
