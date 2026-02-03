@@ -5,126 +5,433 @@
 > Base App (formerly Coinbase Wallet) is a social, onchain everything app. Builders can create Mini Apps and chat‑based agents that interact with users and safely execute onchain actions.
 
 ### What you can build
-- XMTP messaging agents with safe onchain actions (transaction trays)
-- Mini Apps discoverable in Base App (via MiniKit and manifests)
+- **XMTP messaging agents** with safe onchain actions via transaction trays
+- **Mini Apps** discoverable in Base App (via MiniKit and manifests)
   - For full context of mini apps, review the [mini apps llms.txt file](../mini-apps/llms.txt)
 
-## Minimal Critical Code (agents)
-```ts
-// XMTP client skeleton used across examples
+---
+
+## Quick Start: Minimal Critical Code
+
+### Basic XMTP Agent (Echo Bot)
+```typescript
 import { Client, type XmtpEnv, type Signer } from '@xmtp/node-sdk'
 
-const encryptionKey: Uint8Array = /* stable key for history */
+// Configuration
+const encryptionKey: Uint8Array = /* stable key for message history */
 const signer: Signer = /* your wallet signer */
-const env: XmtpEnv = 'dev'
+const env: XmtpEnv = 'dev' // or 'production'
 
+// Initialize client
 const client = await Client.create(signer, { encryptionKey, env })
+
+// Sync conversations and stream messages
 await client.conversations.sync()
 for await (const msg of await client.conversations.streamAllMessages()) {
+  // Skip messages from self
   if (msg?.senderInboxId === client.inboxId) continue
+  
+  // Get conversation and reply
   const convo = await client.conversations.getConversationById(msg.conversationId)
   await convo.send('gm')
 }
 ```
 
-## Navigation (with brief descriptions)
+### Agent with Transaction Tray
+```typescript
+import { Client } from '@xmtp/node-sdk'
+
+// ... (client setup as above)
+
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  const text = msg.content?.toLowerCase() || ''
+  
+  if (text.includes('buy')) {
+    // Send transaction tray for user approval
+    await convo.send({
+      type: 'transaction_tray',
+      title: 'Purchase Confirmation',
+      actions: [{
+        label: 'Confirm Purchase',
+        calls: [{
+          to: '0x...', // Contract address
+          data: '0x...' // Encoded function call
+        }]
+      }]
+    })
+  } else {
+    await convo.send('How can I help you today?')
+  }
+}
+```
+
+---
+
+## Documentation Navigation
 
 ### Introduction
-- [Beta FAQ](https://docs.base.org/base-app/introduction/beta-faq.md) — Beta scope, access, smart wallet notes
+- **[Beta FAQ](https://docs.base.org/base-app/introduction/beta-faq.md)** — Beta program scope, access requirements, smart wallet implementation notes
 
 ### Chat Agents
-- [Why Agents](https://docs.base.org/base-app/agents/why-agents.md) — Rationale and examples
-- [Getting Started](https://docs.base.org/base-app/agents/getting-started.md) — Setup and first agent
-- [Content Types](https://docs.base.org/base-app/agents/content-types.md) — Messaging schemas
-- [Transaction Trays](https://docs.base.org/base-app/agents/transaction-trays.md) — Onchain UX in chat
-- [Best Practices](https://docs.base.org/base-app/agents/best-practices.md) — Implementation guidance
-- [Getting Featured](https://docs.base.org/base-app/agents/getting-featured.md) — Distribution checklist
+- **[Why Agents](https://docs.base.org/base-app/agents/why-agents.md)** — Design rationale, use cases, and example implementations
+- **[Getting Started](https://docs.base.org/base-app/agents/getting-started.md)** — Environment setup, dependencies, and building your first agent
+- **[Content Types](https://docs.base.org/base-app/agents/content-types.md)** — Available message schemas (text, buttons, forms, transaction trays)
+- **[Transaction Trays](https://docs.base.org/base-app/agents/transaction-trays.md)** — Creating safe onchain actions with user approval UI
+- **[Best Practices](https://docs.base.org/base-app/agents/best-practices.md)** — Error handling, rate limiting, security, and UX guidelines
+- **[Getting Featured](https://docs.base.org/base-app/agents/getting-featured.md)** — Requirements and checklist for app directory inclusion
 
+---
 
-## Quickstart (excerpts)
+## Core Concepts
 
-Source: `https://docs.base.org/base-app/agents/getting-started.md`
+### Security Model
+**Source:** `https://docs.base.org/base-app/agents/why-agents.md`
 
-Create an XMTP agent that can receive messages and reply, then evolve it to surface transaction trays for safe onchain actions.
+- **Non-custodial**: Agents propose actions; users approve in Base App with their smart wallet
+- **Key isolation**: Private keys never leave the user's device
+- **Transaction transparency**: All onchain actions are reviewable before execution
 
-Skeleton:
+### User Experience Pattern
+**Source:** `https://docs.base.org/base-app/agents/why-agents.md`
 
-```ts
-import { Client, type XmtpEnv, type Signer } from '@xmtp/node-sdk'
+1. User messages agent with intent (e.g., "buy 10 USDC")
+2. Agent processes request and prepares transaction
+3. Agent sends transaction tray to user
+4. User reviews and approves in Base App
+5. Transaction executes via user's smart wallet
 
-const signer: Signer = /* your signer */
-const encryptionKey: Uint8Array = /* stable key for history */
-const env: XmtpEnv = 'dev'
+### Content Types Overview
+**Source:** `https://docs.base.org/base-app/agents/content-types.md`
 
-const client = await Client.create(signer, { encryptionKey, env })
+Available message types for agent communication:
+
+| Content Type | Purpose | Example Use Case |
+|--------------|---------|------------------|
+| `text` | Plain text messages | Conversational responses |
+| `button` | Interactive buttons | Menu navigation, quick actions |
+| `form` | Data collection | User preferences, shipping info |
+| `transaction_tray` | Onchain actions | Swaps, transfers, contract calls |
+
+### Distribution Strategy
+**Source:** `https://docs.base.org/base-app/agents/getting-featured.md`
+
+To maximize discoverability:
+- Complete agent metadata and branding
+- Implement error handling and rate limits
+- Follow UX best practices
+- Submit for review via featuring checklist
+
+---
+
+## API Reference
+
+### Client Initialization
+```typescript
+interface ClientConfig {
+  encryptionKey: Uint8Array  // Persistent key for message history
+  env: 'dev' | 'production'  // Network environment
+}
+
+const client = await Client.create(signer: Signer, config: ClientConfig)
+```
+
+### Message Streaming
+```typescript
+// Sync all conversations
 await client.conversations.sync()
-for await (const msg of await client.conversations.streamAllMessages()) {
-  if (msg?.senderInboxId === client.inboxId) continue
-  const convo = await client.conversations.getConversationById(msg.conversationId)
-  await convo.send('gm')
+
+// Stream incoming messages
+for await (const message of await client.conversations.streamAllMessages()) {
+  // Handle message
 }
 ```
 
-Source: `https://docs.base.org/base-app/agents/transaction-trays.md`
+### Sending Messages
+```typescript
+// Get conversation
+const convo = await client.conversations.getConversationById(conversationId: string)
 
-Transaction trays let you surface predefined, safe actions. Users approve in‑app; your agent never holds keys.
+// Send text
+await convo.send('Hello!')
 
-
-## Key Concepts (excerpts)
-
-Source: `https://docs.base.org/base-app/agents/why-agents.md`
-
-- Safety: Agents propose actions; users approve in Base App with a smart wallet. No private keys leave the client.
-- UX: Transaction trays standardize onchain actions, reduce phishing, and help users understand intent.
-- Content types: Structured messages ensure predictable parsing and rendering across clients.
-  - Source: `https://docs.base.org/base-app/agents/content-types.md`
-- Distribution: Follow the featuring checklist to maximize discovery.
-  - Source: `https://docs.base.org/base-app/agents/getting-featured.md`
-
-
-## API and Schemas (pruned)
-
-Message content types (subset):
-- Text, Button, Form, Transaction Tray
-  - Source: `https://docs.base.org/base-app/agents/content-types.md`
-
-Transaction tray schema (conceptual):
-
-```json
-{
-  "type": "transaction_tray",
-  "title": "Buy",
-  "actions": [
-    { "label": "Confirm purchase", "calls": [{ "to": "0x...", "data": "0x..." }] }
-  ]
-}
-```
-
-
-## Examples (common flows)
-
-Example: Simple echo agent with guardrails
-
-Source: `https://docs.base.org/base-app/agents/best-practices.md`
-
-```ts
-if (!isSupportedContentType(msg)) return
-const text = parseText(msg)
-if (text.length > MAX_LEN) return convo.send('Message too long')
-await convo.send(text)
-```
-
-Example: Surface a checkout action as a transaction tray
-
-Source: `https://docs.base.org/base-app/agents/transaction-trays.md`
-
-```ts
+// Send structured content
 await convo.send({
   type: 'transaction_tray',
-  title: 'Checkout',
-  actions: [
-    { label: 'Pay', calls: [{ to: USDC, data: erc20.transfer(MERCHANT, AMOUNT) }] }
-  ]
+  title: string,
+  actions: Action[]
 })
 ```
 
+### Transaction Tray Schema
+**Source:** `https://docs.base.org/base-app/agents/transaction-trays.md`
+
+```typescript
+interface TransactionTray {
+  type: 'transaction_tray'
+  title: string                    // Display title for the action
+  description?: string             // Optional explanation
+  actions: TransactionAction[]     // One or more actions
+}
+
+interface TransactionAction {
+  label: string                    // Button text
+  calls: Call[]                    // Contract calls to execute
+}
+
+interface Call {
+  to: string                       // Contract address (0x...)
+  value?: string                   // ETH value in wei (optional)
+  data: string                     // Encoded function call (0x...)
+}
+```
+
+**Example:**
+```typescript
+{
+  type: 'transaction_tray',
+  title: 'Swap Tokens',
+  description: 'Exchange 100 USDC for ETH',
+  actions: [{
+    label: 'Confirm Swap',
+    calls: [{
+      to: '0x1234...', // DEX contract
+      data: '0xabcd...' // swap(uint256,uint256,address)
+    }]
+  }]
+}
+```
+
+---
+
+## Implementation Examples
+
+### Example 1: Echo Agent with Guards
+**Source:** `https://docs.base.org/base-app/agents/best-practices.md`
+
+```typescript
+const MAX_MESSAGE_LENGTH = 1000
+
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  
+  // Validate content type
+  if (!isSupportedContentType(msg)) {
+    await convo.send('Unsupported message type')
+    continue
+  }
+  
+  // Parse and validate length
+  const text = parseText(msg)
+  if (text.length > MAX_MESSAGE_LENGTH) {
+    await convo.send('Message too long. Please keep it under 1000 characters.')
+    continue
+  }
+  
+  // Echo back
+  await convo.send(text)
+}
+```
+
+### Example 2: E-commerce Checkout Agent
+**Source:** `https://docs.base.org/base-app/agents/transaction-trays.md`
+
+```typescript
+import { encodeFunctionData } from 'viem'
+
+const USDC_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+const MERCHANT_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
+
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  const text = msg.content?.toLowerCase() || ''
+  
+  if (text.includes('checkout') || text.includes('buy')) {
+    const amount = parseAmount(text) // Extract amount from message
+    
+    // Encode ERC20 transfer
+    const data = encodeFunctionData({
+      abi: [{
+        name: 'transfer',
+        type: 'function',
+        inputs: [
+          { name: 'recipient', type: 'address' },
+          { name: 'amount', type: 'uint256' }
+        ]
+      }],
+      functionName: 'transfer',
+      args: [MERCHANT_ADDRESS, amount]
+    })
+    
+    // Send transaction tray
+    await convo.send({
+      type: 'transaction_tray',
+      title: 'Complete Purchase',
+      description: `Pay ${amount / 1e6} USDC to merchant`,
+      actions: [{
+        label: 'Pay Now',
+        calls: [{
+          to: USDC_ADDRESS,
+          data: data
+        }]
+      }]
+    })
+  } else {
+    await convo.send('Send "buy" or "checkout" to complete your purchase')
+  }
+}
+```
+
+### Example 3: Multi-Step Agent (Form → Transaction)
+```typescript
+const userState = new Map() // Track conversation state
+
+for await (const msg of await client.conversations.streamAllMessages()) {
+  if (msg?.senderInboxId === client.inboxId) continue
+  
+  const convo = await client.conversations.getConversationById(msg.conversationId)
+  const userId = msg.senderInboxId
+  const text = msg.content || ''
+  
+  const state = userState.get(userId) || { step: 'initial' }
+  
+  switch (state.step) {
+    case 'initial':
+      await convo.send({
+        type: 'button',
+        text: 'What would you like to do?',
+        buttons: [
+          { label: 'Send Payment', action: 'payment' },
+          { label: 'Check Balance', action: 'balance' }
+        ]
+      })
+      userState.set(userId, { step: 'awaiting_action' })
+      break
+      
+    case 'awaiting_action':
+      if (text === 'payment') {
+        await convo.send('Enter recipient address:')
+        userState.set(userId, { step: 'awaiting_address' })
+      }
+      break
+      
+    case 'awaiting_address':
+      userState.set(userId, { step: 'awaiting_amount', recipient: text })
+      await convo.send('Enter amount in USDC:')
+      break
+      
+    case 'awaiting_amount':
+      const amount = parseFloat(text) * 1e6
+      await convo.send({
+        type: 'transaction_tray',
+        title: 'Send USDC',
+        actions: [{
+          label: `Send ${text} USDC`,
+          calls: [{
+            to: USDC_ADDRESS,
+            data: encodeTransfer(state.recipient, amount)
+          }]
+        }]
+      })
+      userState.delete(userId) // Reset state
+      break
+  }
+}
+```
+
+---
+
+## Best Practices
+
+### Error Handling
+**Source:** `https://docs.base.org/base-app/agents/best-practices.md`
+
+```typescript
+try {
+  await convo.send(message)
+} catch (error) {
+  console.error('Failed to send message:', error)
+  // Implement retry logic or fallback
+}
+```
+
+### Rate Limiting
+```typescript
+const messageCount = new Map<string, number>()
+const RATE_LIMIT = 10 // messages per minute
+
+function checkRateLimit(userId: string): boolean {
+  const count = messageCount.get(userId) || 0
+  if (count >= RATE_LIMIT) return false
+  
+  messageCount.set(userId, count + 1)
+  setTimeout(() => messageCount.delete(userId), 60000)
+  return true
+}
+```
+
+### Input Validation
+```typescript
+function validateAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address)
+}
+
+function sanitizeInput(text: string): string {
+  return text.trim().slice(0, MAX_LENGTH)
+}
+```
+
+---
+
+## Environment Setup
+
+### Dependencies
+```bash
+npm install @xmtp/node-sdk viem
+```
+
+### Environment Variables
+```bash
+PRIVATE_KEY=your_wallet_private_key
+XMTP_ENV=dev # or production
+ENCRYPTION_KEY=your_stable_encryption_key
+```
+
+### Minimal package.json
+```json
+{
+  "type": "module",
+  "dependencies": {
+    "@xmtp/node-sdk": "^0.0.1",
+    "viem": "^2.0.0"
+  }
+}
+```
+
+---
+
+## Additional Resources
+
+- [XMTP Documentation](https://xmtp.org/docs)
+- [Base Network Documentation](https://docs.base.org)
+- [Mini Apps Guide](../mini-apps/llms.txt)
+- [Smart Wallet Overview](https://docs.base.org/base-app/introduction/beta-faq.md)
+
+---
+
+## Support & Community
+
+- Submit issues and feature requests via the Base App developer portal
+- Join the Base Discord for community support
+- Review example agents in the [Base App repository](https://github.com/base-org)
+
+---
+
+**Last Updated:** January 2025  
+**API Version:** XMTP Node SDK v0.0.1
