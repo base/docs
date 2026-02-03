@@ -421,7 +421,7 @@ This address is the [bundler], which is a special node that bundles user operati
 
 #### EntryPoint
 
-The EntryPoint contract for Base Goerli is located at `0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789`. Strangely, in your transaction receipt you'll see that the transaction includes a transfer of ETH **from** the EntryPoint **to** the bundler. This transaction is how the bundler gets compensated for performing the service of bundling user ops and turning them into transactions -- the EntryPoint calculates the gas used by user ops and multiplies that by the fee percentage and send it to the bundler.
+The EntryPoint contract for Base sepolia is located at `0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789`. Strangely, in your transaction receipt you'll see that the transaction includes a transfer of ETH **from** the EntryPoint **to** the bundler. This transaction is how the bundler gets compensated for performing the service of bundling user ops and turning them into transactions -- the EntryPoint calculates the gas used by user ops and multiplies that by the fee percentage and send it to the bundler.
 
 ### Review the Example Code
 
@@ -435,7 +435,7 @@ Starting on line 63, the exported `SmartAccountProvider` does the following:
 
 1. Fetch the user's wallets and find their Privy wallet. This wallet is provided, and if need be created, by the `PrivyProvider`
 1. Set up state variables to manage and share connection status and the smart account itself
-1. Initialize an RPC client for the [Base Paymaster] (on Goerli). The URL is hardcoded in `lib/constants.ts`
+1. Initialize an RPC client for the [Base Paymaster] (on sepolia). The URL is hardcoded in `lib/constants.ts`
 1. Initialize an ERC-4337 RPC client for Alchemy's network. This network is where the bundler address comes from
 1. Create a smart wallet. In this case, the `signer` is your EOA embedded wallet created by Privy and fetched in the first step
 1. The EOA address is displayed in the example app as `YOUR SIGNER ADDRESS`
@@ -466,13 +466,13 @@ When a user clicks, the app first creates a viem `RpcTransactionRequest` for the
 }
 ```
 
-The app then updates the toast component to update the users while it `await`s first the `userOpHash`, then the `transactionHash`, indicating that transaction has completed successfully. It then updates the link in the toast to send the user to that transaction on Goerli BaseScan.
+The app then updates the toast component to update the users while it `await`s first the `userOpHash`, then the `transactionHash`, indicating that transaction has completed successfully. It then updates the link in the toast to send the user to that transaction on sepolia BaseScan.
 
 ### Implementing the Paymaster in your own App
 
 Create a new project using Privy's [`create-next-app`] template, and complete the setup instructions in the readme.
 
-Add an environment variable for `NEXT_PUBLIC_ALCHEMY_API_KEY` and paste in the an API key for a Base Goerli app. If you need a key, go to [add an app] and create a new one.
+Add an environment variable for `NEXT_PUBLIC_ALCHEMY_API_KEY` and paste in the an API key for a Base sepolia app. If you need a key, go to [add an app] and create a new one.
 
 #### Copying and Updating the Source Files
 
@@ -524,7 +524,7 @@ useEffect(() => {
 
 #### Configuring the PrivyProvider and Adding SmartAccountProvider
 
-By default, the `PrivyProvider` allows logging in with a wallet or email address. To limit it to only the wallet, update the config. You can also set the default chain here. You'll need to import `baseGoerli` to do so.
+By default, the `PrivyProvider` allows logging in with a wallet or email address. To limit it to only the wallet, update the config. You can also set the default chain here. You'll need to import `basesepolia` to do so.
 
 You also need to import and wrap the app with `SmartAccountProvider`, imported from `hooks/SmartAccountContext.tsx`.
 
@@ -544,7 +544,7 @@ Its instance type 'SmartAccountProvider<Transport>' is not a valid JSX element.
   onSuccess={() => router.push('/dashboard')}
   config={{
     loginMethods: ['wallet'],
-    defaultChain: baseGoerli,
+    defaultChain: baseSepolia,
   }}
 >
   <SmartAccountProvider>
@@ -563,7 +563,7 @@ Grab the snippet from the original demo that displays the user's addresses, and 
 </p>
 <a
   className="mt-2 text-sm text-zinc-500 hover:text-violet-600"
-  href={`${BASE_GOERLI_SCAN_URL}/address/${smartAccountAddress}#tokentxnsErc721`}
+  href={`${BASE_SEPOLIA_SCAN_URL}/address/${smartAccountAddress}#tokentxnsErc721`}
 >
   {smartAccountAddress}
 </a>
@@ -572,7 +572,8 @@ Grab the snippet from the original demo that displays the user's addresses, and 
 </p>
 <a
   className="mt-2 text-sm text-zinc-500 hover:text-violet-600"
-  href={`${BASE_GOERLI_SCAN_URL}/address/${eoa?.address}`}
+  href={`${BASE_SEPOLIA
+  _SCAN_URL}/address/${eoa?.address}`}
 >
   {eoa?.address}
 </a>
@@ -580,7 +581,7 @@ Grab the snippet from the original demo that displays the user's addresses, and 
 
 Paste it above the `<p>` for the `User Object` window.
 
-You'll need to import `BASE_GOERLI_SCAN_URL` from `constants.ts`. The `useSmartAccount` hook returns `smartAccountProvider` and `eoa`. Import it and add it under the `usePrivy` hook. You don't need them just yet, but go ahead and decompose `smartAccountProvider` and `sendSponsoredUserOperation` as well:
+You'll need to import `BASE_SEPOLIA_SCAN_URL` from `constants.ts`. The `useSmartAccount` hook returns `smartAccountProvider` and `eoa`. Import it and add it under the `usePrivy` hook. You don't need them just yet, but go ahead and decompose `smartAccountProvider` and `sendSponsoredUserOperation` as well:
 
 ```tsx
 const router = useRouter();
@@ -614,7 +615,7 @@ The app sometimes gets confused with login state after you've made changes to `c
 
 #### Calling a Smart Contract Function
 
-You've adjusted the foundation of the app to allow you to use the Base Goerli Paymaster with your normal wallet as the signer. Now, it's time to call a smart contract function.
+You've adjusted the foundation of the app to allow you to use the Base sepolia Paymaster with your normal wallet as the signer. Now, it's time to call a smart contract function.
 
 Start by using the `mint` function in the original example. In the `DashboardPage` component, add a state variable holding an empty element:
 
@@ -649,7 +650,7 @@ const onMint = async () => {
     const transactionHash = await smartAccountProvider.waitForUserOperationTransaction(userOpHash);
 
     setTransactionLink(
-      <a href={`${BASE_GOERLI_SCAN_URL}/tx/${transactionHash}`}>
+      <a href={`${BASE_SEPOLIA_SCAN_URL}/tx/${transactionHash}`}>
         Successfully minted! Click here to see your transaction.
       </a>,
     );
@@ -682,7 +683,7 @@ For simplicity, we've stripped out the code to disable the button while it is mi
 
 #### Calling Another Function
 
-The [Base Paymaster] on Goerli is very permissive. To call another function, all you need to do is to change the `RpcTransactionRequest` in `sendSponsoredUserOperation` to match the address, abi, function name, and arguments of your function on your smart contract.
+The [Base Paymaster] on Sepolia is very permissive. To call another function, all you need to do is to change the `RpcTransactionRequest` in `sendSponsoredUserOperation` to match the address, abi, function name, and arguments of your function on your smart contract.
 
 For example, to call the `claim` function in the Weighted Voting contract we've used in other tutorials, you'd simply need to import the Hardhat-style [artifact] for the contract and use it to call the function:
 
@@ -722,8 +723,8 @@ In this article, we've explored the transformative potential of Account Abstract
 [securely stored]: https://docs.privy.io/guide/security#user-data-management
 [paymaster example]: https://github.com/privy-io/base-paymaster-example/blob/main/README.md
 [ERC-4337]: https://eips.ethereum.org/EIPS/eip-4337
-[NFT Contract]: https://goerli.basescan.org/address/0x6527e5052de5521fe370ae5ec0afcc6cd5a221de
-[view for the contract itself]: https://goerli.basescan.org/address/0x6527e5052de5521fe370ae5ec0afcc6cd5a221de
+[NFT Contract]: https://sepolia.basescan.org/address/0x6527e5052de5521fe370ae5ec0afcc6cd5a221de
+[view for the contract itself]: https://sepolia.basescan.org/address/0x6527e5052de5521fe370ae5ec0afcc6cd5a221de
 [Base Paymaster]: https://github.com/base-org/paymaster
 [EntryPoint]: https://github.com/eth-infinitism/account-abstraction/releases
 [bundler]: https://www.alchemy.com/overviews/what-is-a-bundler
