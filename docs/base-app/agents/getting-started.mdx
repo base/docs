@@ -10,42 +10,66 @@ Build powerful chat agents that integrate seamlessly with Base App using the XMT
 For the complete guide, visit [XMTP documentation](https://docs.xmtp.org/agents/get-started/build-an-agent)
 </Note>
 
-## Installation
+## Step 1: Set up your workspace
 
-<CodeGroup>
+Clone the XMTP agent examples repository to get started quickly with all dependencies and tooling:
 
-```bash npm
-npm install @xmtp/agent-sdk
+```bash
+git clone https://github.com/ephemeraHQ/xmtp-agent-examples.git
+cd xmtp-agent-examples
+npm install
 ```
 
-```bash pnpm
-pnpm add @xmtp/agent-sdk
+This installs `@xmtp/agent-sdk` and all required dependencies.
+
+## Step 2: Generate your agent keys
+
+Generate wallet keys and environment variables for your agent:
+
+```bash
+npm run gen:keys
 ```
 
-```bash yarn
-yarn add @xmtp/agent-sdk
+This creates a `.env` file in your project root with:
+
+```bash
+XMTP_WALLET_KEY=0x... # Your agent's private key (auto-generated)
+XMTP_DB_ENCRYPTION_KEY=... # Encryption key for local database (auto-generated)
+XMTP_ENV=dev # Environment (use 'dev' for testing, 'production' for Base App)
 ```
 
-</CodeGroup>
+<Tip>
+The keys are automatically generated - you don't need to fill these values manually!
+</Tip>
 
-## Usage
+## Step 3: Create your agent file
 
-This example shows how to create an agent that sends a message when it receives a text message.
+In the project root, create an `index.ts` file for your agent code:
 
-```ts [Node]
+```bash
+touch index.ts
+```
+
+## Step 4: Write your agent code
+
+Add the following code to `index.ts`:
+
+```ts
+// Import dotenv to load environment variables from .env file
+import "dotenv/config";
 import { Agent } from '@xmtp/agent-sdk';
 
-// 2. Spin up the agent
+// Spin up the agent
 const agent = await Agent.createFromEnv({
   env: 'production', // base app works only on production
 });
 
-// 3. Respond to text messages
+// Respond to text messages
 agent.on('text', async (ctx) => {
   await ctx.sendText('Hello from my Base App Agent! 👋');
 });
 
-// 4. Log when we're ready
+// Log when we're ready
 agent.on('start', () => {
   console.log(`Waiting for messages...`);
   console.log(`Address: ${agent.address}`);
@@ -54,15 +78,39 @@ agent.on('start', () => {
 await agent.start();
 ```
 
-### Set environment variables
+<Tip>
+The `import "dotenv/config"` line is **required** to load your `.env` file. Without it, you'll get an error about XMTP_WALLET_KEY format.
+</Tip>
 
-To run an example XMTP agent, you must create a `.env` file with the following variables:
+## Step 5: Run your agent
+
+Start your agent locally:
 
 ```bash
-XMTP_WALLET_KEY= # the private key of the wallet
-XMTP_DB_ENCRYPTION_KEY= # encryption key for the local database
-XMTP_ENV=production # local, dev, production
+npx tsx --watch index.ts
 ```
+
+You'll see output like:
+
+```
+Waiting for messages...
+Agent address: 0x4a86dfa0ad31801256dd5f8bdf95b3ea5bbe2ba9
+```
+
+## Step 6: Test your agent
+
+Test your agent on xmtp.chat:
+
+1. **Copy your agent address** from the terminal output
+2. **Go to** [xmtp.chat](https://xmtp.chat)
+3. **Connect your wallet** (MetaMask, Coinbase Wallet, etc.)
+4. **Switch to Dev environment** in settings (gear icon, top right)
+5. **Create a new dm** with your agent's address
+6. **Send a message** - your agent should respond with "Hello from my Base App Agent! 👋"
+
+<Tip>
+Make sure the environment in xmtp.chat matches your agent's `env` setting. Use Dev mode for `env: "dev"` and Production mode for `env: "production"` (Base App).
+</Tip>
 
 ## Get a basename for your agent
 
