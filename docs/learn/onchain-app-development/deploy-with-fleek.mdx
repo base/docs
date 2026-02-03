@@ -1,64 +1,81 @@
----
-title: 'Deploy an Onchain App with Fleek'
-description: Learn how to deploy an onchain app using Fleek.
-authors:
-  - briandoyle81
-tags: ['frontend']
-difficulty: hard
-hide_table_of_contents: false
-
-image: https://docs.base.org/img/base-learn-open-graph.png
----
-
 # Deploy an Onchain App with Fleek
 
-One of the "secrets" of onchain apps is that they almost always have a very large web2 component that they're dependent on. Most onchain apps rely on traditional infrastructure for their frontends, APIs, and other parts of the architecture.
+Fleek is an edge-optimized cloud platform that enables developers to build and deploy applications with exceptional performance. Powered by Fleek Network, a decentralized content delivery network, Fleek combines the speed and reliability of traditional CDNs with the benefits of Web3 infrastructure including IPFS content addressing, decentralized storage (Filecoin/Arweave), and blockchain-native features.
 
-[Fleek]'s goal is to address this issue with the [Fleek Network], a fast and trustless Content Delivery Network (CDN).
+This tutorial guides you through deploying an onchain application using Fleek's modern hosting platform with automated CI/CD, enabling you to ship faster while maintaining full control over your infrastructure.
 
-In this tutorial, you'll use [Fleek] to deploy a site built with the [Onchain App Template].
+---
 
 ## Objectives
 
-By the end of this tutorial you should be able to:
+By the end of this tutorial, you'll be able to:
 
-- Deploy a [Next.js] using the Coinbase [Smart Wallet] on [Fleek]
-- Integrate with [Github] for CI/CD
+- Deploy a Next.js application using Coinbase Smart Wallet on Fleek
+- Set up automated deployments with GitHub integration
+- Configure custom domains and ENS names for your application
+- Leverage Fleek Network's edge infrastructure for optimal performance
+
+---
 
 ## Prerequisites
 
-### Next.js
+### Next.js Knowledge
 
-You should be familiar with [Next.js], but do not need to be an expert. If you are comfortable with other React libraries, the pattern should be relatively easy to follow.
+You should have basic familiarity with Next.js. Experience with other React frameworks will be helpful, as the patterns are similar.
 
-### Onchain Apps
+### Onchain App Development
 
-The tutorial assumes you're comfortable with the basics of deploying an app and connecting it to a smart contract. If you're still learning this part, check out our tutorials in [Base Learn] for [Building an Onchain App].
+This tutorial assumes you understand the fundamentals of building onchain applications and connecting them to smart contracts. If you're new to this, start with the [Building an Onchain App] tutorials in [Base Learn].
 
-## Setting up the Template
+### Required Tools
 
-You can skip this section if you've already built an app based off the template, such as our tutorial for [How to Mint on Zora with an App].
+- **Node.js** (v18 or later recommended)
+- **Git** and a GitHub account
+- **Bun** or npm for package management
 
-Open [Onchain App Template], click the green `Use  this template` button, and create a new repository from the template. Clone your repo and open it in an editor.
+---
 
-Install _bun_ if you need to, and install dependencies.
+## Project Setup
+
+### Using the Onchain App Template
+
+Skip this section if you already have an app built from the template, such as from the [How to Mint on Zora with an App] tutorial.
+
+**Create your project:**
+
+1. Visit the [Onchain App Template] repository
+2. Click the green **Use this template** button
+3. Create a new repository from the template
+4. Clone your repository locally
+
+**Install dependencies:**
 
 ```bash
-# Install bun in case you don't have it
+# Install bun if needed
 curl -fsSL https://bun.sh/install | bash
 
-# Install packages
-bun i
+# Install project dependencies
+bun install
 
-# Run Next app
+# Start the development server
 bun run dev
 ```
 
-Navigate to `localhost:3000` and make sure that it's working, then shut down the server. For this tutorial, you **do not** need to set any environment variables.
+**Verify setup:**
 
-## Installing and Configuring Fleek
+Navigate to `http://localhost:3000` and confirm the application runs correctly. You can then stop the development server.
 
-[Fleek] requires static pages, so you'll need to ensure that your build process produces them. In your editor, open `next.config.js` and update the `nextConfig`.
+**Note:** For this tutorial, you don't need to configure environment variables.
+
+---
+
+## Configuring for Fleek Deployment
+
+Fleek requires static site generation for optimal performance on its edge network. Configure your Next.js application accordingly.
+
+### Update Next.js Configuration
+
+Open `next.config.js` and update the configuration:
 
 ```javascript
 /** @type {import('next').NextConfig} */
@@ -74,110 +91,293 @@ const nextConfig = {
 module.exports = nextConfig;
 ```
 
-Save and close the file.
+**Configuration explained:**
+- `output: 'export'` - Generates static HTML files
+- `images: { unoptimized: true }` - Disables Next.js image optimization (required for static export)
+- `trailingSlash: true` - Ensures consistent URL patterns
 
-Run `bun run build` and confirm that a directory called `out` is created.
+**Test the build:**
 
-Navigate to [Fleek]'s website and create an account, or log in if you already have one.
+```bash
+bun run build
+```
 
-Click into `First Project`. You can rename it if you want in the `Settings` tab.
+Verify that an `out` directory is created with your static files.
 
-The best way to start is to link Fleek to your repo from the beginning. Click `Add New` from the upper right corner, then select `Deploy My Site`. Select your code location, log into your Git provider, and accept installing the Fleek app.
+---
 
-You can either give it permissions for all repos, or add them one at a time.
+## Setting Up Fleek
 
-Select your repo, and click the `Deploy` button. The `Configure Site` window should automatically populate with the appropriate information, but just in case:
+### Create Your Account
 
-- Site Name: Your site name
-- Framework: Next.js
-- Branch: main
-- Publish Directory: out
-- Build Command: npm install && npm run build
+1. Navigate to [Fleek.xyz](https://fleek.xyz)
+2. Sign up for a free account or log in if you already have one
+3. You'll be directed to your dashboard with a default project
 
-Click `Deploy Site`. Your deploy will probably fail, but this is expected!
+### Install Fleek CLI
 
-Return to your code editor.
-
-Open a terminal and install the Fleek CLI with:
+The Fleek CLI enables deployment management from your terminal:
 
 ```bash
 npm install -g @fleek-platform/cli
 ```
 
-Then, **in the root of your project** run:
+**Verify installation:**
+
+```bash
+fleek -v
+```
+
+You should see a version number (2.10.1 or higher is recommended).
+
+---
+
+## Connecting Your Repository
+
+### Link GitHub to Fleek
+
+1. In your Fleek dashboard, click **Add New** (upper right)
+2. Select **Deploy My Site**
+3. Choose **GitHub** as your code location
+4. Authorize Fleek to access your repositories
+5. Grant permissions (all repos or specific repositories)
+
+### Configure Your Site
+
+After selecting your repository:
+
+1. **Site Name**: Choose a descriptive name for your site
+2. **Framework**: Fleek auto-detects Next.js
+3. **Branch**: Select `main` (or your production branch)
+4. **Publish Directory**: `out`
+5. **Build Command**: `npm install && npm run build`
+
+Click **Deploy Site** to start the initial deployment.
+
+**Expected behavior:** Your first deployment may fail - this is normal and will be resolved in the next steps.
+
+---
+
+## CLI Configuration
+
+### Authenticate with Fleek
+
+From your project's root directory:
 
 ```bash
 fleek login
 ```
 
-Click the link in your terminal, then click `Confirm` in the web page that opens up. Once you are connected, click the `Visit Dashboard` button. The site automatically creates a project called `First Project`. If you'd like, you can rename it, or add a new one.
+A browser window will open. Click **Confirm** to authenticate, then **Visit Dashboard** when prompted.
 
-Each project can include more than one site.
+### Initialize Your Site
 
-Return to your terminal in the app folder, and run:
+Run the initialization command:
 
 ```bash
 fleek sites init
 ```
 
-Select `First Project` from the list
+**Follow the prompts:**
+
+1. **Select project**: Choose your project (likely "First Project")
+2. **Link existing site**: Select `Y` (Yes)
+3. **Choose your site**: Select the site you created earlier
+4. **Configuration format**: Select `JSON (fleek.config.json)` 
+   - ⚠️ **Important:** Do NOT select TypeScript format, even though you're using TypeScript
+
+**Configuration details:**
 
 ```
-⚠️ Warning! To proceed, please select a project...
-
-✔ Select a project from the list: › First Project
-
-✅ Success! You have switched to project "First Project".
+? Directory for site files: out
+? Include build command?: Y
+? Build command: npm install && npm run build
+? Configuration format: JSON (fleek.config.json)
 ```
 
-For `We've found existing sites. Would you like to link to one of them?`, pick: `Y`
+A `fleek.config.json` file will be created in your project root.
 
-Find the site you just added and select it.
+---
 
-<Warning>
-You're using TypeScript, but **do not** select `TypeScript (fleek.config.ts)` in the final prompt. Select `JSON (fleek.config.json)`.
-</Warning>
+## Automated Deployment
 
-You'll get a few more prompts:
+### Enable CI/CD with Git
 
-- ? Please specify the directory containing the site files to be uploaded
-  - Enter `out`
-- ? Would you like to include the optional "build" command?
-  - Pick `Y`
-- ? Specify `build` command:
-  - Enter `npm install && npm run build`
-  - Select `JSON (fleek.config.json)`
+Fleek automatically deploys when you push to your repository - no manual CLI deployment needed.
 
-### Deployment
+**Trigger your first automated deployment:**
 
-You can deploy the site from the CLI as the docs describe, but you **do not need to**. There is a better way!
+1. Make a small change to your code (e.g., update text in `src/app/page.tsx`)
+2. Commit your changes:
+   ```bash
+   git add .
+   git commit -m "Configure Fleek deployment"
+   git push origin main
+   ```
 
-```bash
-# Don't use, better method below!
-fleek sites deploy
-```
+3. Fleek will automatically detect the push and trigger a deployment
 
-Instead, trigger an automatic deploy by making a change to the text at `src/app/page.tsx`, committing your changes, and pushing to your repo.
+### Monitor Deployment
 
-## Dashboard Overview and Confirming Deployment
+**View deployment progress:**
 
-Return to your dashboard and click on the `Sites` tab. Click on the card for your new site to open it. Here, you can see information about your site in a similar presentation to other deployment providers.
+1. Open your Fleek dashboard
+2. Navigate to **Sites** → Select your site
+3. Click the **Deploys** tab
+4. Watch your deployment status change from **Pending** to **Live**
 
-Click on the `<-> Deploys` tab and you'll see the automatic deploy you triggered by pushing the commit! Open your site by clicking on the build once it shifts from `Pending` to `Live`. You can then click on the link to view your site.
+**Access your deployed site:**
 
-Click on `Settings`. If you'd like, you can change the slug for your site to a name that's more related to your project.
+Once deployment completes, click on the build to view deployment details and access your live site URL (e.g., `https://your-site-name.on-fleek.app`).
+
+---
+
+## Dashboard Features
+
+### Site Overview
+
+Your site dashboard provides comprehensive deployment management:
+
+- **Overview**: Quick stats and site status
+- **Deploys**: Full deployment history with logs
+- **Settings**: Domain configuration, build settings, and more
+- **Analytics**: (if enabled) Traffic and performance metrics
+
+### Deploy Previews
+
+Fleek automatically creates preview deployments for pull requests:
+
+1. Enable in **Settings** → **Build & Deploy** → **Deploy Contexts**
+2. Open a pull request to your production branch
+3. View the preview deployment directly in your GitHub PR
+4. Test changes before merging to production
+
+### Custom Domains
+
+**Configure a custom domain:**
+
+1. Navigate to **Settings** → **Domains**
+2. Click **Add Domain**
+3. Enter your domain name
+4. Configure your DNS provider with the provided records
+5. Fleek will automatically provision SSL certificates
+
+**Configure an ENS domain:**
+
+1. Navigate to **Settings** → **Domains**
+2. Select **ENS Domain**
+3. Follow the prompts to link your ENS name
+4. Your site will be accessible via your ENS domain
+
+### Build Settings
+
+Customize your deployment pipeline:
+
+- **Environment Variables**: Add secrets and configuration
+- **Build Commands**: Modify build and install commands
+- **Node Version**: Specify Node.js version
+- **Deploy Notifications**: Configure webhook or email alerts
+
+---
+
+## Advanced Features
+
+### Fleek Network Integration
+
+Fleek is progressively integrating Fleek Network features:
+
+- **Decentralized CDN**: Content delivery via Fleek Network nodes
+- **IPFS Addressing**: Automatic content addressing and pinning
+- **Decentralized Storage**: Optional Filecoin/Arweave integration
+- **Edge Functions**: Server-side code execution at the edge
+
+### Performance Optimization
+
+Fleek automatically optimizes your deployment:
+
+- **Global Edge Network**: Content served from locations closest to users
+- **Smart Caching**: Intelligent cache management for static assets
+- **Compression**: Automatic brotli/gzip compression
+- **HTTP/3 Support**: Latest protocol support for faster connections
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Build fails with "output directory not found":**
+- Verify `next.config.js` includes `output: 'export'`
+- Check that build command produces an `out` directory
+- Review build logs in Fleek dashboard for specific errors
+
+**Images not displaying:**
+- Ensure `images: { unoptimized: true }` is in your config
+- Use standard `<img>` tags instead of Next.js `<Image>` component for static export
+- Or use `next/image` with proper loader configuration
+
+**Deployment doesn't trigger on push:**
+- Verify GitHub integration in Fleek dashboard
+- Check that you're pushing to the configured branch
+- Ensure the Fleek GitHub app has proper repository permissions
+
+**Site shows old content after deployment:**
+- Clear your browser cache
+- Wait a few minutes for CDN propagation
+- Use deploy preview feature to verify changes
+
+---
+
+## Production Checklist
+
+Before going live with your application:
+
+- [ ] Test the site thoroughly using deploy previews
+- [ ] Configure environment variables for production
+- [ ] Set up custom domain or ENS name
+- [ ] Enable deploy previews for safer updates
+- [ ] Review build settings and optimize build time
+- [ ] Set up deployment notifications
+- [ ] Test on multiple devices and browsers
+- [ ] Verify wallet connection works correctly
+- [ ] Check that all smart contract interactions function properly
+- [ ] Monitor first deployment for any edge cases
+
+---
+
+## What's Next
+
+Now that your app is deployed on Fleek:
+
+- **Explore Fleek Functions**: Add server-side functionality with edge functions
+- **Implement Full-Stack Next.js**: Use Fleek's SSR support for dynamic content
+- **Integrate ENS**: Give your app a memorable blockchain-native domain
+- **Monitor Performance**: Use Fleek analytics to track usage
+- **Scale Up**: Leverage Fleek Network's decentralized infrastructure as you grow
+
+---
+
+## Resources
+
+- [Fleek Documentation](https://hosting.fleek.xyz/docs/)
+- [Fleek CLI Reference](https://hosting.fleek.xyz/docs/cli/)
+- [Fleek Network](https://fleek.network/)
+- [Fleek Discord Community](https://discord.gg/fleek)
+- [Fleek Templates](https://fleek.xyz/templates/)
+- [GitHub Issues](https://github.com/fleek-platform)
+
+---
 
 ## Conclusion
 
-In this tutorial, you learned how to use [Fleek] to deploy a [Next.js] site based on [Onchain App Template]. You also learned how to link Fleek to your Git provider to enable CI/CD.
+In this tutorial, you learned how to deploy a Next.js onchain application using Fleek's edge-optimized hosting platform. You configured automated deployments with GitHub integration, explored Fleek's dashboard features, and learned about the decentralized infrastructure powering your application.
+
+Fleek combines the developer experience of modern deployment platforms with the benefits of Web3 infrastructure, giving you the tools to build fast, reliable, and truly decentralized applications.
+
+---
 
 [Base Learn]: https://base.org/learn
 [Smart Wallet]: https://www.smartwallet.dev/why
-[Fleek]: https://fleek.xyz
-[Fleek Network]: https://fleek.xyz/blog/announcements/introducing-fleek-network-and-fleek-xyz/
 [Next.js]: https://nextjs.org/
 [Onchain App Template]: https://github.com/coinbase/onchain-app-template
-[Smart Wallet]: https://www.coinbase.com/wallet/smart-wallet
-[How to Mint on Zora with an App]: /use-case-guides/creator/nft-minting-with-zora.mdx
-
-
+[How to Mint on Zora with an App]: https://docs.base.org/guides/nft-minting-with-zora
