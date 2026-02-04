@@ -1,0 +1,317 @@
+---
+title: 'Deploy OpenClaw on AWS Lightsail'
+description: 'Set up your own AI personal assistant in the cloud using AWS Lightsail with Telegram integration'
+---
+
+[OpenClaw](https://github.com/openclaw/openclaw) is an open-source AI personal assistant that helps you manage tasks, answer questions, and automate workflows through messaging platforms. This guide walks you through deploying OpenClaw on AWS Lightsail and connecting it to Telegram.
+
+## What you'll need
+
+Before starting, make sure you have:
+
+- An [AWS account](https://aws.amazon.com/) (free tier eligible for some services)
+- A [Telegram account](https://telegram.org/)
+- An API key from either:
+  - [Anthropic](https://console.anthropic.com/) (for Claude models)
+  - [OpenAI](https://platform.openai.com/) (for GPT models)
+
+## Cost overview
+
+The recommended AWS Lightsail instance costs approximately **$20/month** for a 4GB RAM instance, which provides sufficient resources for running OpenClaw reliably.
+
+## Create your Lightsail instance
+
+### Step 1: Access AWS Lightsail
+
+1. Sign in to the [AWS Console](https://console.aws.amazon.com/)
+2. Search for "Lightsail" in the services search bar
+3. Click **Create instance**
+
+### Step 2: Configure the instance
+
+1. **Select your instance location**: Choose the AWS Region closest to you for better latency
+2. **Select a platform**: Choose **Linux/Unix**
+3. **Select a blueprint**: Choose **OS Only** → **Ubuntu 24.04 LTS**
+4. **Choose your instance plan**: Select the **$20 USD** plan (4 GB RAM, 2 vCPUs, 80 GB SSD)
+5. **Name your instance**: Enter a descriptive name like `openclaw-server`
+6. Click **Create instance**
+
+Wait for the instance status to show **Running** before proceeding.
+
+## Access your instance
+
+You have two options for connecting to your server.
+
+### Option 1: Browser-based SSH (easiest)
+
+1. In the Lightsail console, find your instance
+2. Click the terminal icon or **Connect using SSH**
+3. A browser-based terminal opens automatically
+
+### Option 2: SSH with keys (recommended for regular use)
+
+1. In Lightsail, go to **Account** → **SSH keys**
+2. Download your default key or create a new one
+3. Save the `.pem` file securely on your computer
+4. Set proper permissions and connect:
+
+```bash Terminal
+chmod 400 ~/Downloads/your-key.pem
+ssh -i ~/Downloads/your-key.pem ubuntu@YOUR_INSTANCE_IP
+```
+
+Replace `YOUR_INSTANCE_IP` with your instance's public IP address (found in the Lightsail console).
+
+## Install dependencies
+
+Once connected to your instance, update the system and install Node.js.
+
+### Update system packages
+
+```bash Terminal
+sudo apt update && sudo apt upgrade -y
+```
+
+### Install Node.js 22+
+
+OpenClaw requires Node.js version 22 or higher. Install it using NodeSource:
+
+```bash Terminal
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+### Verify installation
+
+```bash Terminal
+node --version
+npm --version
+```
+
+You should see Node.js version 22.x.x or higher.
+
+## Install and configure OpenClaw
+
+### Install OpenClaw globally
+
+```bash Terminal
+sudo npm install -g openclaw@latest
+```
+
+### Run the onboarding wizard
+
+OpenClaw includes an interactive setup wizard:
+
+```bash Terminal
+openclaw onboard
+```
+
+The wizard guides you through:
+- Choosing your AI provider (Anthropic or OpenAI)
+- Entering your API key
+- Configuring basic settings
+
+### Configure your AI provider
+
+After onboarding, you can customize your configuration. Edit the config file:
+
+```bash Terminal
+nano ~/.openclaw/openclaw.json
+```
+
+#### For Anthropic Claude
+
+```json Anthropic configuration
+{
+  "ai": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "apiKey": "sk-ant-your-api-key-here"
+  }
+}
+```
+
+#### For OpenAI
+
+```json OpenAI configuration
+{
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "apiKey": "sk-your-api-key-here"
+  }
+}
+```
+
+Save the file with `Ctrl+O`, then exit with `Ctrl+X`.
+
+## Set up Telegram integration
+
+### Create a Telegram bot
+
+1. Open Telegram and search for [@BotFather](https://t.me/botfather)
+2. Start a chat and send `/newbot`
+3. Follow the prompts to:
+   - Choose a name for your bot (e.g., "My OpenClaw Assistant")
+   - Choose a username (must end in `bot`, e.g., `myopenclaw_bot`)
+4. BotFather responds with your **bot token** - save this securely
+
+### Configure OpenClaw for Telegram
+
+Add the Telegram channel to your OpenClaw configuration:
+
+```bash Terminal
+nano ~/.openclaw/openclaw.json
+```
+
+Update the configuration to include Telegram:
+
+```json Full configuration with Telegram
+{
+  "ai": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "apiKey": "sk-ant-your-api-key-here"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "YOUR_TELEGRAM_BOT_TOKEN"
+    }
+  }
+}
+```
+
+Replace `YOUR_TELEGRAM_BOT_TOKEN` with the token from BotFather.
+
+## Security best practices
+
+### Configure the firewall
+
+Enable and configure Ubuntu's firewall (UFW):
+
+```bash Terminal
+sudo ufw allow OpenSSH
+sudo ufw enable
+sudo ufw status
+```
+
+### Protect your API keys
+
+Your API keys are stored in `~/.openclaw/openclaw.json`. Ensure proper permissions:
+
+```bash Terminal
+chmod 600 ~/.openclaw/openclaw.json
+```
+
+### Use SSH keys only
+
+For enhanced security, disable password authentication:
+
+1. Edit the SSH config:
+
+```bash Terminal
+sudo nano /etc/ssh/sshd_config
+```
+
+2. Find and set:
+
+```text sshd_config
+PasswordAuthentication no
+```
+
+3. Restart SSH:
+
+```bash Terminal
+sudo systemctl restart sshd
+```
+
+<Warning>
+Make sure you can connect with your SSH key before disabling password authentication, or you may lock yourself out.
+</Warning>
+
+For more security recommendations, see the [AWS Lightsail security best practices](https://docs.aws.amazon.com/lightsail/latest/userguide/understanding-ssh-in-amazon-lightsail.html).
+
+## Running OpenClaw
+
+### Start the agent
+
+Run OpenClaw to start your assistant:
+
+```bash Terminal
+openclaw start
+```
+
+OpenClaw connects to your configured channels (like Telegram) and starts listening for messages.
+
+### Test your setup
+
+1. Open Telegram and find your bot
+2. Send a message like "Hello!"
+3. Your OpenClaw assistant should respond
+
+### Usage pattern
+
+<Info>
+OpenClaw is designed for interactive usage rather than running 24/7. Start it when you need assistance and stop it when you're done. This approach is more cost-effective and secure.
+</Info>
+
+To stop OpenClaw, press `Ctrl+C` in the terminal.
+
+### Give instructions
+
+You can give your assistant instructions to customize its behavior:
+
+```bash Terminal
+openclaw instruct "You are my personal productivity assistant. Help me manage tasks and remind me of important deadlines."
+```
+
+## Troubleshooting
+
+### OpenClaw won't start
+
+**Check Node.js version:**
+
+```bash Terminal
+node --version
+```
+
+Ensure it's 22.x.x or higher.
+
+**Check your config file for syntax errors:**
+
+```bash Terminal
+cat ~/.openclaw/openclaw.json | python3 -m json.tool
+```
+
+### Telegram bot not responding
+
+- Verify your bot token is correct
+- Make sure you started the bot in Telegram (send `/start`)
+- Check that OpenClaw is running and shows the Telegram channel as connected
+
+### API errors
+
+- Verify your API key is valid and has available credits
+- Check you're using a supported model name
+- Ensure your API key has the correct permissions
+
+### Connection issues
+
+- Check your instance's public IP hasn't changed
+- Verify SSH is allowed through the firewall: `sudo ufw status`
+- Ensure your SSH key permissions are correct: `chmod 400 your-key.pem`
+
+## Next steps
+
+Now that OpenClaw is running, explore these options:
+
+- **Add more channels**: Configure additional messaging platforms like Discord or Slack
+- **Explore skills**: OpenClaw supports plugins for extended functionality
+- **Customize behavior**: Use the `openclaw instruct` command to fine-tune your assistant
+
+### Resources
+
+- [OpenClaw GitHub repository](https://github.com/openclaw/openclaw)
+- [OpenClaw documentation](https://openclaw.ai/)
+- [AWS Lightsail documentation](https://docs.aws.amazon.com/lightsail/)
