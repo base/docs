@@ -1,0 +1,177 @@
+---
+title: "Builder Codes for Bridge Developers"
+sidebarTitle: "For Bridge Developers"
+description: "Integrate Builder Codes with the Base-Solana bridge using hookData."
+---
+
+Builder codes work with the [Base-Solana bridge](/base-chain/quickstart/base-solana-bridge) via the [`hookData`](https://github.com/base/flywheel/blob/30266bba4649b0eb161e55bfa4755651049a5d1f/src/hooks/BridgeReferralFees.sol#L75) mechanism. Currently available for **Solana → Base** flows only.
+
+<Steps>
+  <Step title="Get Your Builder Code">
+    When you register on base.dev, you will find a Builder Code under your app's settings. This is a random string (e.g., k3p9da) that you will use to generate your attribution suffix.
+  </Step>
+
+  <Step title="Build hookData">
+    ABI-encode the user address, your code, and fee:
+
+    ```solidity
+    bytes memory hookData = abi.encode(
+      0xUSER,           // destination address on Base (NOT the Twin)
+      0xBUILDER_CODE,   // your builder code in type string memory
+      100               // feeBps (100 = 1%)
+    );
+    ```
+
+  </Step>
+
+  <Step title="Attach to Bridge Message">
+    Set `to = BRIDGE_CAMPAIGN_ADDRESS` and attach a call to `Flywheel.send`.
+
+    <Tabs>
+      <Tab title="Simple Bridge">
+        For a bridge with no follow-up call:
+
+        ```
+        to:     <BRIDGE_CAMPAIGN_ADDRESS> // 0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9 on Base Sepolia
+        amount: 100
+        call:
+          ty:    Call
+          to:    <FLYWHEEL_ADDRESS> // 0x00000F14AD09382841DB481403D1775ADeE1179F on Base Sepolia
+          value: 0
+          data:  abi.encodeWithSelector(
+                   Flywheel.send.selector,
+                   <BRIDGE_CAMPAIGN_ADDRESS>, // 0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9 on Base Sepolia
+                   <wSOL_ADDRESS>,
+                   hookData
+                 )
+        ```
+      </Tab>
+      <Tab title="Bridge + Follow-Up Call">
+        To chain additional calls, use `DelegateCall` with `Multicall`:
+
+        ```solidity
+        Call[] memory calls = new Call[](2);
+
+        // 1) Flywheel attribution (must be first)
+        calls[0] = Call({
+          to:    <FLYWHEEL_ADDRESS>, // 0x00000F14AD09382841DB481403D1775ADeE1179F on Base Sepolia
+          value: 0,
+          data:  abi.encodeWithSelector(
+                   Flywheel.send.selector,
+                   <BRIDGE_CAMPAIGN_ADDRESS>, // 0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9 on Base Sepolia
+                   <TOKEN_ADDRESS>, // e.g. For SOL on Base Sepolia, use 0xCace0c896714DaF7098FFD8CC54aFCFe0338b4BC
+                   hookData
+                 )
+        });
+
+        // 2) Your follow-up call
+        calls[1] = Call({
+          to:    <YOUR_CONTRACT>,
+          value: 0,
+          data:  abi.encodeWithSelector(YourContract.yourFunction.selector)
+        });
+        ```
+
+        Then set the bridge call to:
+
+        ```
+        call:
+          ty:    DelegateCall
+          to:    <MULTICALL_ADDRESS> // 0xcA11bde05977b3631167028862bE2a173976CA11 on Base Mainnet
+          data:  abi.encodeWithSelector(Multicall.multicall.selector, calls)
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+  <Step title="Learn More: A Full Implementation Example">
+    [Terminally Onchain](https://terminallyonchain.com/) is a production Next.js app that exposes the bridge via a command terminal UI. Users connect a Solana wallet, type commands such as to bridge and call a contract on Base:
+
+    You can use [Terminally Onchain](https://terminallyonchain.com/) to test bridge transactions with Builder Codes like so:
+
+    ```bash
+    bridge 0.0001 sol 0xYOUR_DESTINATION_ADDRESS --with-bc YOUR_BUILDER_CODE --bc-fee YOUR_FEE_BPS
+    ```
+
+    To see how this is implemented, you can take a look at the [Github repo](https://github.com/base/sol2base/blob/e0c283035be1e3e345d329e2d77b05e29a1d38b3/src/components/MainContent.tsx#L667):
+
+    ```typescript sol2base/MainContent.tsx expandable
+    // Constants
+    const BRIDGE_CAMPAIGN_ADDRESS = "0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9";
+    const FLYWHEEL_ADDRESS = "0x00000F14AD09382841DB481403D1775ADeE1179F";
+    const MULTICALL_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+
+    // Encode hookData: (address user, string code, uint8 feeBps)
+    const buildBuilderHookData = (
+      destination: string,
+      builderCode: string,
+      feeBps: number
+    ) => {
+      const coder = new AbiCoder();
+      return coder.encode(
+        ["address", "string", "uint8"],
+        [destination, builderCode, feeBps]
+      );
+    };
+
+    // Build Flywheel.send call
+    const buildBuilderCall = (
+      destination: string,
+      builderCode: string,
+      feeBps: number,
+      tokenAddress: string
+    ): BaseContractCall => {
+      const hookData = buildBuilderHookData(destination, builderCode, feeBps);
+      const data = encodeFunctionData({
+        abi: FLYWHEEL_ABI,
+        functionName: "send",
+        args: [BRIDGE_CAMPAIGN_ADDRESS, tokenAddress, hookData],
+      });
+      return { type: "call", target: FLYWHEEL_ADDRESS, value: "0", data };
+    };
+
+    // Wrap builder + user calls in Multicall (for chained calls)
+    const buildMulticall = (
+      builder: BaseContractCall,
+      userCall: BaseContractCall
+    ): BaseContractCall => {
+      const data = encodeFunctionData({
+        abi: MULTICALL_ABI,
+        functionName: "multicall",
+        args: [
+          [
+            { target: builder.target, callData: builder.data },
+            { target: userCall.target, callData: userCall.data },
+          ],
+        ],
+      });
+      return { type: "delegatecall", target: MULTICALL_ADDRESS, value: "0", data };
+    };
+
+    // Usage: attach builder code to bridge
+    if (payload.flags.withBc) {
+      const builderCall = buildBuilderCall(
+        destination,
+        builderCode,
+        feeBps,
+        remoteToken
+      );
+      callOption = userCall ? buildMulticall(builderCall, userCall) : builderCall;
+    }
+
+    // Set destination to campaign address when using builder codes
+    const destinationForBridge = builderCode
+      ? BRIDGE_CAMPAIGN_ADDRESS
+      : payload.destination;
+    ```
+
+  </Step>
+</Steps>
+
+## Contract Addresses
+
+| Contract | Base Mainnet | Base Sepolia |
+| -------- | ------------ | ------------ |
+| `BRIDGE_CAMPAIGN_ADDRESS` | `0x539A97cc4724d5b2740DB98Bc71445448eFC1Bde` | `0xE2AD1C34382410C30d826B019A0B3700F5c4e6c9` |
+| `FLYWHEEL_ADDRESS` | `0x00000F14AD09382841DB481403D1775ADeE1179F` | `0x00000F14AD09382841DB481403D1775ADeE1179F` |
+| `MULTICALL_ADDRESS` | `0xcA11bde05977b3631167028862bE2a173976CA11` | `0xcA11bde05977b3631167028862bE2a173976CA11` |
