@@ -30,7 +30,7 @@ documentation](https://docs.optimism.io/stack/transactions/fees).
 
 As part of the [Jovian upgrade], Base introduced a minimum base fee. This feature sets a floor for the L2 base fee, preventing it from dropping to extremely low levels during periods of low network activity.
 
-The minimum base fee for Base Mainnet is 2,000,000 wei (0.002 gwei). This value may be periodically adjusted as we gather data on how it affects the chain. For reference, a minimum base fee of 0.002 gwei results in a cost of approximately $0.001 for a typical 200,000 gas transaction at an ETH price of $2500.
+The minimum base fee for Base Mainnet is 2,000,000 wei (0.002 gwei). This value may be periodically adjusted as we gather data on how it affects the chain. For reference, a minimum base fee of 0.002 gwei results in a cost of approximately \$0.001 for a typical 200,000 gas transaction at an ETH price of \$2500.
 
 ### Benefits
 
@@ -46,5 +46,36 @@ The minimum base fee for Base Mainnet is 2,000,000 wei (0.002 gwei). This value 
 | Base Sepolia | 200,000 wei (0.0002 gwei) |
 
 See the [Configuration Changelog](/base-chain/network-information/configuration-changelog) for a history of changes to the minimum base fee and other network parameters.
+
+## EIP-1559 Fee Parameters
+
+Base uses the OP Stack's implementation of EIP-1559, which controls how the L2 base fee adjusts in response to network demand. Two key parameters govern this behavior:
+
+### Elasticity Multiplier
+
+The **Elasticity Multiplier** determines the maximum gas capacity of a block relative to the target gas usage. With an elasticity of 6, blocks can contain up to 6× the target gas, allowing the network to absorb sudden demand spikes.
+
+### Base Fee Change Denominator
+
+The **Base Fee Change Denominator** controls how quickly the base fee adjusts. A larger denominator means slower, more gradual fee changes. With a denominator of 125, the base fee changes more smoothly compared to lower values.
+
+### Maximum Rate of Change
+
+The maximum rate of base fee change per block is calculated as:
+
+**Max increase per block = (Elasticity - 1) / Denominator**
+
+With the current parameters (Elasticity = 6, Denominator = 125):
+- Maximum increase per block: (6 - 1) / 125 = **4%**
+- Minimum time to double the base fee: 18 blocks × 2 seconds = **36 seconds**
+
+This gradual adjustment helps prevent extreme fee volatility during traffic spikes while still allowing the network to respond to sustained demand.
+
+### Current Configuration
+
+| Network      | Elasticity | Denominator | Max Change/Block |
+|--------------|------------|-------------|------------------|
+| Base Mainnet | 6          | 125         | 4%               |
+| Base Sepolia | 6          | 50          | 10%              |
 
 [Jovian upgrade]: https://docs.optimism.io/notices/upgrade-17
