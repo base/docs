@@ -1,5 +1,5 @@
 ## Mintlify component reference
-Full mintlify reference docs can be found at https://www.mintlify.com/docs/llms.txt
+Full Mintlify reference docs can be found at https://www.mintlify.com/docs/llms.txt
 
 ### docs.json
 
