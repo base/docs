@@ -70,6 +70,23 @@ This system requires only a one honest party to remain secure. Base will always 
 Note: if the dispute game is won by a challenger, the state of the L2 chain does not reorg. The output proposal is marked invalid and any withdrawals that were proven against it cannot finalize. Those withdrawals would need to be re-proven against a different, valid output root.
 </Accordion>
 
+### Fault Proof Diversity
+
+As part of [Upgrade 18], Base supports two independent fault proof implementations running in parallel:
+
+| Game Type | Implementation | Description |
+|-----------|----------------|-------------|
+| `CANNON` (0) | op-program (Go) | Original fault proof using `op-node` + `op-geth` |
+| `CANNON_KONA` (8) | kona-client (Rust) | Alternate fault proof using `kona-node` + `op-reth` |
+
+Both implementations use Cannon as the Fault Proof Virtual Machine (FPVM) and share the same dispute game contract (`FaultDisputeGame.sol`). This diversity increases redundancy in the fault proof layer—if a bug affects one implementation, the other can still secure the network.
+
+<Note>
+Games of either type can be created after upgrade, but withdrawals continue to use the respected game type configured by governance.
+</Note>
+
+[Upgrade 18]: https://docs.optimism.io/notices/upgrade-18
+
 ## FAQ
 
 <AccordionGroup>
