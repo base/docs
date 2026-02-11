@@ -274,7 +274,12 @@ describe('Test', function () {
       const ownerAddress = await owner.account.address;
       const signer1Address = await signer1.account.address;
 
-      // TODO...
+      // create a signed message
+      const message = keccak256(encodePacked(['address'], [signer1Address]));
+      const messageBytes = toBytes(message);
+      const signature = await owner.signMessage({
+        message: { raw: messageBytes },
+      });
 
       // Signer 1 calls the mintTo function with the signature
       expect(await soulboundSignatureMint.write.mintTo([signer1Address, signature])).to.be.ok;
