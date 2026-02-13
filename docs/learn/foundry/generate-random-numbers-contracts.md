@@ -210,10 +210,10 @@ To do this, add the following callback function (`requestCallback`) to your smar
 function requestCallback(uint256 _nonce ,uint256[] _rngList) external {
     require(msg.sender == supraAddr, "Only the Supra Router can call this function.");
     uint8 i = 0;
-    uint256[] memory x = new uint256[](rngList.length);
-    rngForNonce[nonce] = x;
-    for(i=0; i<rngList.length;i++){
-        rngForNonce[nonce][i] = rngList[i] % 100;
+    uint256[] memory x = new uint256[](_rngList.length);
+    rngForNonce[_nonce] = x;
+    for(i=0; i<_rngList.length;i++){
+        rngForNonce[_nonce][i] = _rngList[i] % 100;
     }
 }
 ```
