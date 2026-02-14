@@ -161,7 +161,7 @@ async function verifySourceCode() {
   const params = new URLSearchParams({
     module: 'contract',
     action: 'verifysourcecode',
-    apikey: 'DK8M329VYXDSKTF633ABTK3SAEZ2U9P8FK', //remove hardcode
+    apikey: '<YOUR-API-KEY>',
   });
 
   const data = new URLSearchParams({
@@ -258,7 +258,7 @@ Result is the GUID and is a unique identifier for checking the status of your co
 To verify the contract, let's create a curl request with the following parameters
 
 ```bash
-curl "https://api.basescan.org/api?module=contract&action=checkverifystatus&guid=cqjzzvppgswqw5adq4v6iq4xkmf519pj1higvcxsdiwcvwxemd&apikey=DK8M329VYXDSKTF633ABTK3SAEZ2U9P8FK"
+curl "https://api.basescan.org/api?module=contract&action=checkverifystatus&guid=cqjzzvppgswqw5adq4v6iq4xkmf519pj1higvcxsdiwcvwxemd&apikey=<YOUR-API-KEY>"
 ```
 
 Run the command and you will see a that the contract should already be verified based on the `result` field
