@@ -1,0 +1,561 @@
+---
+title: Account Abstraction on Base using Gelato
+slug: /account-abstraction-with-gelato
+description: A tutorial that teaches how to implement Account Abstraction into a Base project with Gelato and Embedded Wallets
+---
+
+## Objectives
+
+By the end of this tutorial, you will be able to:
+
+- Interact with Gelato's Bundler and Paymaster in an ERC-4337 flow  
+- Leverage EIP-7702 with all gas payment methods using Gelato's Smart Wallet SDK  
+- Integrate Embedded Wallets (Dynamic, Privy) through Gelato's Smart Wallet React SDK  
+
+## Core Concepts
+
+### ERC-4337
+ERC-4337 is a standardized way to bring account abstraction to Ethereum without needing a hard fork or major changes to the protocol. Instead of relying only on the normal transaction pool, it introduces a separate layer for handling user operations.  
+
+#### Key Components of ERC-4337
+
+- **UserOperations**: These are objects similar to transactions that represent what a user wants to do. They contain all required details for execution but allow more flexibility and advanced logic compared to normal transactions.  
+
+- **Bundlers**: These are special actors that gather multiple UserOperations, group them together, and submit them as one transaction on Ethereum. This improves efficiency, reduces network load, and enables new ways of handling gas fees and transaction costs.  
+
+- **Smart Contract Wallets**: With ERC-4337, the main logic of account abstraction lives inside smart contracts. These wallets can be customized with features like daily spending limits, delegated access, or recovery mechanisms in case a user loses their private keys.  
+
+### EIP-7702
+EIP-7702 is a proposed upgrade to Ethereum, planned for the 2025 Pectra hardfork. It introduces a new transaction type that allows Externally Owned Accounts (EOAs) to delegate their execution logic to a smart contract. This is done via a "delegation designator" field, which specifies a smart contract address. When a transaction is sent to the EOA, the logic at the designated smart contract is executed, while the EOA remains the msg.sender.
+
+#### Solving the EOA vs Smart Contract Gap
+
+Ethereum users have historically faced a tradeoff between simplicity and programmability:
+
+- **EOAs (Externally Owned Accounts)**
+  - Simple and widely used
+  - Cannot perform advanced actions like transaction batching, gasless transactions, or multi-chain workflows
+
+- **Smart Contract Accounts (SCAs)**
+  - Support advanced features
+  - Require moving funds and identity to a new address
+  - Can cause friction, split liquidity, and user hesitation
+
+EIP-7702 bridges this gap, allowing EOAs to behave like smart accounts without changing their address. This preserves the user's on-chain history, identity, and assets, while enabling smart account features. 
+
+### EIP-7702 vs ERC-4337
+
+Both ERC-4337 and EIP-7702 aim to advance account abstraction on Ethereum, but they approach it in different ways.
+
+#### Key Differences
+- **ERC-4337**: A smart account framework built around the `EntryPoint` contract, using components like **UserOperations**, **Bundlers**, and **Paymasters**. It requires no protocol changes and is already live across multiple networks.  
+- **EIP-7702**: A protocol-level upgrade that introduces a new transaction type, temporarily turning EOAs into smart accounts. This simplifies the developer and user experience but requires a hard fork and client updates.  
+
+#### How They Work Together
+Rather than competing, the two are complementary:  
+- **EIP-7702** can upgrade an EOA into a smart account.  
+- That account can then leverage the **ERC-4337 infrastructure** for relaying, gas sponsorship, and modular features.  
+
+### Embedded Wallets
+An embedded wallet functions like a full-featured web-based account. It is a programmable crypto wallet that can be issued directly to users within your website or app. With an embedded wallet, users can receive tokens instantly and interact on-chain without needing an external wallet like MetaMask or Phantom.
+
+You can also turn these embedded wallets into smart accounts using our smart wallet feature. This allows you to sponsor users' gas fees, implement complex approval logic, and more.
+
+### Gelato's Bundler and Paymaster (Gas Tank)
+The Gelato Bundler is a versatile and production-ready solution for ERC-4337, supporting all major EVM networks and multiple paymaster models, including Verifying Paymasters and ERC20-based paymasters.
+
+The key difference between Gelato Bundler and traditional bundlers is that it provides an additional way to sponsor gas via the Gas Tank.
+
+Unlike other bundlers that rely only on on-chain paymasters per network, Gelato Bundler enables gas sponsorship through a unified gas tank deployed on Polygon. This makes multi-chain gas sponsorship seamless.
+
+### Gelato's Smart Wallet SDK 
+To simplify adoption and integration of smart wallets, Gelato offers the Smart Wallet SDK, providing native support for both EIP-7702 and ERC-4337 in a single, modular SDK.
+
+#### Developer Benefits
+
+With this SDK, developers can:
+
+- Upgrade EOAs to smart accounts instantly using EIP-7702
+- Build fully ERC-4337-compatible smart accounts without managing their own bundler or paymaster infrastructure
+- Integrate embedded wallets with familiar Web2-style logins such as email, phone, or social accounts
+- Enable gas abstraction with ERC-20 fee payments and gas sponsorship
+- Deliver a cross-chain native experience across supported EVM networks
+
+## Getting Started
+Before we start integrating Gasless Transactions with Gelato Bundler and Paymaster, let's first set up the environment.
+
+### Setting up the Paymaster (Gas Tank)
+
+Follow these steps to set up the Paymaster (Gas Tank):
+1. Create an account on the [Gelato App](https://app.gelato.cloud).
+2. Link your wallet to the Gas Tank.
+3. Generate an API key under the Paymaster & Bundler section.
+4. Configure Sponsorship Policies to activate the API key across different networks.
+
+Now that we have the Paymaster (Gas Tank) setup, let's begin integrating the Gasless Transactions with Gelato Bundler and Paymaster using Viem.
+
+### Sending Transactions with Coinbase Smart Account using Viem
+This example demonstrates how to use Viem to interact with Gelato's Bundler, Paymaster (Gas Tank), and Coinbase Smart Account within an ERC-4337 flow.
+
+It also includes using Gelato Bundler with on-chain paymasters such as Base Paymaster.
+
+Let's start by installing the dependencies.
+
+**Installing dependencies:**
+
+<CodeGroup>
+```bash npm
+npm install viem
+```
+```bash yarn
+yarn add viem
+```
+```bash pnpm
+pnpm add viem
+```
+</CodeGroup>
+
+
+<Steps>
+
+<Step title="Import the dependencies">
+```ts
+import { toCoinbaseSmartAccount, createBundlerClient, createPaymasterClient, } from "viem/account-abstraction";
+```
+
+</Step>
+
+<Step title="Setup a Smart Account">
+
+You can use any Smart Account that is compatible with Viem's Account type and ERC-4337. In this example, we'll be using Coinbase's Smart Account.
+<CodeGroup>
+
+```ts main.ts
+import { client, owner } from "./config";
+
+const account = await toCoinbaseSmartAccount({
+  client,
+  owners: [owner],
+});
+```
+
+```ts config.ts
+import { http, createPublicClient } from "viem";
+import { baseSepolia } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+
+export const owner = privateKeyToAccount(process.env.PRIVATE_KEY);
+
+export const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(),
+});
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Setup Bundler Client">
+
+#### Gelato Bundler and Paymaster (Gas Tank)
+The `Gelato Bundler` RPC URL is:
+
+```bash
+https://api.gelato.digital/bundlers/${chainID}/rpc
+```
+
+When using sponsorship with the Gas Tank, you must include an API key and set the `sponsored` parameter to `true`.
+
+```ts
+const bundlerClient = createBundlerClient({
+    account,
+    client,
+    transport: http(`https://api.gelato.digital/bundlers/${chainID}/rpc?apiKey=${apiKey}&sponsored=true`)
+})
+```
+
+#### Gelato Bundler and On-chain Paymaster (Base Paymaster)
+If you are using an on-chain paymaster (such as the Base Paymaster), the sponsored parameter should either be omitted or explicitly set to false. Adding an API key in this case is optional, but recommended to avoid request rate limiting.
+```ts
+const paymasterClient = createPaymasterClient({
+  transport: http(process.env.BASE_PAYMASTER_URL)
+})
+
+const bundlerClient = createBundlerClient({
+    account,
+    client,
+    paymaster: paymasterClient,
+    transport: http(`https://api.gelato.digital/bundlers/${chainID}/rpc?apiKey=${apiKey}`)
+})
+```
+
+
+</Step>
+
+<Step title="Send a User Operation">
+
+When sending a **User Operation** with Gas Tank sponsorship:  
+
+- You must set both `maxFeePerGas` and `maxPriorityFeePerGas` to `0`.  
+- This ensures that transaction fees are settled after execution, instead of being paid upfront through the EntryPoint.
+```ts
+const userOpHash = await bundlerClient.sendUserOperation({
+  calls: [
+    {
+      to: zeroAddress,
+      data: "0x",
+      value: 0n,
+    },
+  ],
+  maxFeePerGas: BigInt(0),
+  maxPriorityFeePerGas: BigInt(0),
+});
+
+const receipt = await bundler.waitForUserOperationReceipt({ hash: userOpHash });
+console.log(`Transaction successful: ${receipt.receipt.transactionHash}`);
+```
+
+When sending a **User Operation** with an on-chain paymaster:
+
+```ts
+const userOpHash = await bundlerClient.sendUserOperation({
+  calls: [
+    {
+      to: zeroAddress,
+      data: "0x",
+      value: 0n,
+    },
+  ],
+});
+
+const receipt = await bundler.waitForUserOperationReceipt({ hash: userOpHash });
+console.log(`Transaction successful: ${receipt.receipt.transactionHash}`);
+```
+
+</Step>
+</Steps>
+
+### Sending Transactions with Gelato Smart Account using Smart Wallet SDK
+
+Gelato provides a Smart Wallet SDK that enables seamless interaction with its infrastructure, supporting both EIP-7702 and ERC-4337 along with all gas payment methods.
+
+In addition, Gelato has developed a highly efficient Smart Contract Account (Delegation Contract) that allows EOAs to be upgraded and used via EIP-7702.
+
+**Installing dependencies:**
+
+<CodeGroup>
+```bash npm
+npm install @gelatonetwork/smartwallet viem
+```
+```bash yarn
+yarn add @gelatonetwork/smartwallet viem
+```
+```bash pnpm
+pnpm add @gelatonetwork/smartwallet viem
+```
+</CodeGroup>
+
+<Steps>
+  <Step title="Importing Dependencies">
+    ```typescript
+    import { createGelatoSmartWalletClient, sponsored } from "@gelatonetwork/smartwallet";
+    import { gelato } from "@gelatonetwork/smartwallet/accounts";
+    import { createWalletClient, createPublicClient, http, type Hex } from "viem";
+    import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+    ```
+  </Step>
+  <Step title="Setup Smart Account">
+    You can set up a Smart Account as per your needs. In the case of Gelato, the Gelato Smart Account address will be the same as your EOA, enabling EIP-7702 features.
+  
+
+        ```typescript
+        const privateKey = (process.env.PRIVATE_KEY ?? generatePrivateKey()) as Hex;
+        const owner = privateKeyToAccount(privateKey);
+
+        const publicClient = createPublicClient({
+          chain: baseSepolia,
+          transport: http(),
+        });
+
+        const account = await gelato({
+          owner,
+          client: publicClient,
+        });
+        ```
+  </Step>
+  <Step title="Setup Wallet Client">
+    Quickly get started by creating a wallet client using `createWalletClient` from `viem` with local account for your specified network.
+    ```typescript
+    const client = createWalletClient({
+      account,
+      chain: baseSepolia,
+      transport: http()
+    });
+    ```
+  </Step>
+  <Step title="Creating a Smart Wallet Client">
+    Before creating a Smart Wallet Client, you need to set up an API Key and configure the Paymaster (Gas Tank).
+
+    Refer to the [guide](#setting-up-the-paymaster-gas-tank) above for detailed instructions on creating an API Key and setting up the Paymaster.
+
+    ```typescript
+    const smartWalletClient = createGelatoSmartWalletClient(client, { apiKey });
+    ```
+  </Step>
+  <Step title="Sending Transactions">
+    You can send transactions using different gas payment methods as shown below. Additionally, you can add multiple transactions to the calls array to batch them and send them on-chain in a single request.
+
+    <Tabs>
+      <Tab title="Sponsored">
+        ```typescript
+        const results = await smartWalletClient.execute({
+          payment: sponsored(),
+          calls: [
+            {
+              to: "0xa8851f5f279eD47a292f09CA2b6D40736a51788E",
+              data: "0xd09de08a",
+              value: 0n
+            }
+          ]
+        });
+
+        console.log("userOp hash:", results?.id);
+        const txHash = await results?.wait();
+        console.log("transaction hash", txHash);
+        ```
+      </Tab>
+      <Tab title="ERC-20">
+        ```typescript
+        const token = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // USDC (Base Sepolia)
+        const results = await smartWalletClient.execute({
+          payment: erc20(token),
+          calls: [
+            {
+              to: "0xa8851f5f279eD47a292f09CA2b6D40736a51788E",
+              data: "0xd09de08a",
+              value: 0n
+            }
+          ]
+        });
+
+        console.log("userOp hash:", results?.id);
+        const txHash = await results?.wait();
+        console.log("transaction hash", txHash);
+        ```
+      </Tab>
+      <Tab title="Native">
+        ```typescript
+        const results = await smartWalletClient.execute({
+          payment: native(),
+          calls: [
+            {
+              to: "0xa8851f5f279eD47a292f09CA2b6D40736a51788E",
+              data: "0xd09de08a",
+              value: 0n
+            }
+          ]
+        });
+
+        console.log("userOp hash:", results?.id);
+        const txHash = await results?.wait();
+        console.log("transaction hash", txHash);
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+</Steps>
+
+### Sending Transactions with Embedded Wallets using Smart Wallet React SDK
+For frontend projects, Gelato provides a React SDK that simplifies integrating the Smart Wallet SDK with wallet providers such as Dynamic and Privy.
+
+The following example demonstrates how to set up this integration.
+
+**Installing dependencies:**
+
+<CodeGroup>
+```bash npm
+npm install @gelatonetwork/smartwallet-react-sdk viem
+```
+```bash yarn
+yarn add @gelatonetwork/smartwallet-react-sdk viem
+```
+```bash pnpm
+pnpm add @gelatonetwork/smartwallet-react-sdk viem
+```
+</CodeGroup>
+
+<Steps>
+<Step title="Importing Dependencies">
+    ```typescript
+    import {
+      GelatoSmartWalletContextProvider,
+      useGelatoSmartWalletProviderContext,
+      GelatoSmartWalletConnectButton,
+      dynamic,
+      privy,
+      wagmi,
+    } from "@gelatonetwork/smartwallet-react-sdk";
+
+    import { sponsored, native, erc20 } from "@gelatonetwork/smartwallet";
+    import { baseSepolia } from "viem/chains";
+    import { http } from "wagmi";
+    ```
+
+  </Step>
+  <Step title="Setting up Smart Wallet Context Provider">
+    Before setting up the Smart Wallet Context Provider, you need to set up an API Key and configure the Paymaster (Gas Tank).
+
+    Refer to the [guide](#setting-up-the-paymaster-gas-tank) above for detailed instructions on creating an API Key and setting up the Paymaster.
+
+    You will also need to set up Dynamic or Privy App ID. Check out the Dynamic Dashboard [here](https://app.dynamic.xyz/) and Privy Dashboard [here](https://dashboard.privy.io/).
+
+    Alternatively, you can configure the Dynamic Environment ID directly in the [Gelato Dashboard](https://app.gelato.cloud/) under the Embedded Wallets section.
+
+  <Tabs>
+    <Tab title="Dynamic">
+        ```typescript
+        <GelatoSmartWalletContextProvider
+          settings={{
+            scw: {
+              type: "gelato" // use gelato, safe, or custom
+            }
+            apiKey: process.env.GELATO_API_KEY as string,
+            waas: dynamic(
+              process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID as string
+            ),
+            wagmi: wagmi({
+              chains: [baseSepolia],
+              transports: {
+                [baseSepolia.id]: http(),
+              },
+            }),
+          }}
+        >
+          {children}
+        </GelatoSmartWalletContextProvider>
+        ```
+    </Tab>
+    <Tab title="Privy">
+        ```typescript
+        <GelatoSmartWalletContextProvider
+          settings={{
+            scw: {
+              type: "gelato" // use gelato, safe, or custom
+            }
+            apiKey: process.env.GELATO_API_KEY as string,
+            waas: privy(
+              process.env.NEXT_PUBLIC_PRIVY_ENVIRONMENT_ID as string
+            ),
+            wagmi: wagmi({
+              chains: [baseSepolia],
+              transports: {
+                [baseSepolia.id]: http(),
+              },
+            }),
+          }}
+        >
+          {children}
+        </GelatoSmartWalletContextProvider>
+        ```
+    </Tab>
+  </Tabs>
+  </Step>
+  <Step title="Setting up Connect Button">
+    You can customize the appearance of your connect button here. This button triggers the wallet connectors widget configured for the UI.
+
+    ```typescript
+    const children = (
+      <div className="mt-2 text-white">Get Started!</div>
+    ) as React.ReactElement;
+
+    export const Login = () => (
+      <GelatoSmartWalletConnectButton>{children}</GelatoSmartWalletConnectButton>
+    );
+    ```
+
+  </Step>
+  <Step title="Fetching Smart Wallet Client">
+    Use this client directly to execute transactions with different gas payment methods. Additionally, a logout option is available to disconnect your connected wallet.
+
+    ```typescript
+    const {
+      gelato: { client },
+      switchNetwork,
+      logout,
+    } = useGelatoSmartWalletProviderContext();
+    ```
+
+  </Step>
+<Step title="Sending Transactions">
+    You can send transactions using different gas payment methods as shown below. Additionally, you can add multiple transactions to the calls array to batch them and send them on-chain in a single request.
+
+    <Tabs>
+      <Tab title="Sponsored">
+        ```typescript
+        const results = await client.execute({
+          payment: sponsored(),
+          calls: [
+            {
+              to: "0xa8851f5f279eD47a292f09CA2b6D40736a51788E",
+              data: "0xd09de08a",
+              value: 0n
+            }
+          ]
+        });
+
+        console.log("userOp hash:", results?.id);
+        const txHash = await results?.wait();
+        console.log("transaction hash", txHash);
+        ```
+      </Tab>
+      <Tab title="ERC-20">
+        ```typescript
+        const token = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // USDC (Base Sepolia)
+        const results = await client.execute({
+          payment: erc20(token),
+          calls: [
+            {
+              to: "0xa8851f5f279eD47a292f09CA2b6D40736a51788E",
+              data: "0xd09de08a",
+              value: 0n
+            }
+          ]
+        });
+
+        console.log("userOp hash:", results?.id);
+        const txHash = await results?.wait();
+        console.log("transaction hash", txHash);
+        ```
+      </Tab>
+      <Tab title="Native">
+        ```typescript
+        const results = await client.execute({
+          payment: native(),
+          calls: [
+            {
+              to: "0xa8851f5f279eD47a292f09CA2b6D40736a51788E",
+              data: "0xd09de08a",
+              value: 0n
+            }
+          ]
+        });
+
+        console.log("userOp hash:", results?.id);
+        const txHash = await results?.wait();
+        console.log("transaction hash", txHash);
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+</Steps>
+
+## References
+Read more about the following topics in Gelato's documentation:
+
+- [Paymaster & Bundler](https://docs.gelato.cloud/Paymaster-&-Bundler/Introduction)
+- [Gas Tank](https://docs.gelato.cloud/Paymaster-&-Bundler/GasTank/Introduction)
+- [Smart Wallet SDK](https://docs.gelato.cloud/Smart-Wallet-SDK/Introduction)
+- [Embedded Wallets](https://docs.gelato.cloud/Smart-Wallet-SDK/Embedded-Wallets/Overview)
