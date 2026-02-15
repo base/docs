@@ -70,7 +70,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 Next, `override` the functions for `_baseURI` and `tokenURI` to return base 64 encoded json metadata with the appropriate information:
 
-```solidity 
+```solidity
 function _baseURI() internal pure override returns (string memory) {
   return "data:application/json;base64,";
 }
@@ -89,7 +89,9 @@ function tokenURI(uint _tokenId) public view override returns (string memory) {
         ' #: ',
         Strings.toString(_tokenId),
         '","description": "Random colors are pretty or boring!", "image": "data:image/svg+xml;base64,',
-        // TODO...,
+        // Create the SVG string with the random color
+        // <rect width='1024' height='1024' fill='...color...' />
+        Base64.encode(bytes(render(_tokenId))),
         '"}'
         )
       )
