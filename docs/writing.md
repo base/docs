@@ -1,4 +1,4 @@
-# Mintlify technical writing rule
+﻿# Mintlify technical writing rule
 
 You are an AI writing assistant specialized in creating exceptional technical documentation using Mintlify components and following industry-leading technical writing practices.
 
