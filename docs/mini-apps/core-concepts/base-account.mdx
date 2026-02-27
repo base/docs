@@ -149,6 +149,36 @@ The next section lists the methods and capabilities that are not supported in Mi
 </Steps>
 ---
 
+## Verify social accounts with Base Verify
+
+[Base Verify](/base-account/guides/verify-social-accounts) lets your Mini App users prove ownership of verified accounts (X, Coinbase, Instagram, TikTok) without sharing credentials. You receive a deterministic token for Sybil resistance — one verified account produces the same token regardless of which wallet the user connects with.
+
+**How it works:**
+
+1. Check if the wallet has a verification → API returns yes/no
+2. If no → redirect to the Base Verify Mini App for OAuth
+3. User verifies → returns to your app
+4. Check again → now verified, you receive a token
+
+**Quick example — check if a user has a verified X account:**
+
+```typescript Title "Base Verify check" highlight={1-4,7-8}
+const resources = [
+  'urn:verify:provider:x',
+  'urn:verify:provider:x:verified:eq:true',
+  'urn:verify:action:claim_airdrop'
+]
+
+// Generate SIWE message with these resources, sign it,
+// then send to your backend to call the Base Verify API
+```
+
+<Card title="Full Base Verify integration guide" icon="shield-check" href="/base-account/guides/verify-social-accounts">
+  Complete walkthrough covering all providers, traits, API reference, security, and implementation details.
+</Card>
+
+---
+
 ## Unsupported Methods and Capabilities
 
 The following methods and capabilities are not yet supported in Mini Apps but will be added soon:
@@ -157,10 +187,7 @@ The following methods and capabilities are not yet supported in Mini Apps but wi
 |---------|------------------|
 | Sign in with Base | `wallet_connect` |
 | Sub accounts | `wallet_getSubAccounts`, `wallet_addSubAccount` |
-| Spend permissions | `coinbase_fetchPermissions`, `coinbase_fetchPermission` |
 | Profiles | `datacallback` |
-| Signing typed data | `signTypedData` |
-| Signing messages | `wallet_sign` |
 
 All other standard Ethereum and Base Account RPC methods work as expected.
 
