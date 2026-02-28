@@ -45,11 +45,11 @@ Where the Mini App was launched from (e.g., "cast", "launcher", "notification").
 </Expandable>
 </ResponseField>
 
-<ResponseField name="isFrameReady" type="boolean">
+<ResponseField name="isMiniAppReady" type="boolean">
 Whether the frame has signaled readiness to the host application.
 </ResponseField>
 
-<ResponseField name="setFrameReady" type="() => void">
+<ResponseField name="setMiniAppReady" type="() => void">
 Function to signal frame readiness to the host application. Call this once your Mini App has finished loading.
 </ResponseField>
 
@@ -61,13 +61,13 @@ import { useMiniKit } from '@coinbase/onchainkit/minikit';
 import { useEffect } from 'react';
 
 export default function MyMiniApp() {
-  const { context, isFrameReady, setFrameReady } = useMiniKit();
+  const { context, isMiniAppReady, setMiniAppReady } = useMiniKit();
 
   useEffect(() => {
-    if (!isFrameReady) {
-      setFrameReady();
+    if (!isMiniAppReady) {
+      setMiniAppReady();
     }
-  }, [setFrameReady, isFrameReady]);
+  }, [setMiniAppReady, isMiniAppReady]);
 
   return (
     <div>
@@ -86,7 +86,7 @@ import { useMiniKit } from '@coinbase/onchainkit/minikit';
 
 export default function ClientSpecificFeatures() {
   const { context } = useMiniKit();
-  
+
   const isBaseApp = context.client.clientFid === '309857';
   const isFarcaster = context.client.clientFid === '1';
 
@@ -128,14 +128,14 @@ export default function AnalyticsTracker() {
 ## Usage Notes
 
 ### Frame Readiness
-Always call `setFrameReady()` once your Mini App has finished initial loading:
+Always call `setMiniAppReady()` once your Mini App has finished initial loading:
 
-```tsx components/FrameReady.tsx
+```tsx components/MiniAppReady.tsx
 useEffect(() => {
-  if (!isFrameReady) {
-    setFrameReady();
+  if (!isMiniAppReady) {
+    setMiniAppReady();
   }
-}, [setFrameReady, isFrameReady]);
+}, [setMiniAppReady, isMiniAppReady]);
 ```
 
 ### Context Data Security
