@@ -1,34 +1,319 @@
 ---
 sidebarTitle: 'Avoid Malicious Flags'
-title: How to avoid getting your app flagged as malicious
-description: The Base bug bounty program and procedures for reporting vulnerabilities.
+title: How to Avoid Getting Your App Flagged as Malicious
+description: Best practices for building secure, trustworthy apps and preventing false positives in security scans.
 ---
 
-Ensuring that your app is perceived as trustworthy and not flagged as malicious requires attention to best practices. Here’s a quick guide on how to build a secure and compliant app from day one.
+# How to Avoid Getting Your App Flagged as Malicious
 
-## 1. Verify and reduce the risk of your smart contract
+Building a secure and trustworthy application requires adherence to security best practices and ecosystem standards. This guide outlines the steps necessary to prevent your app from being flagged as malicious by security providers and wallets.
 
-- **Verify Smart Contract**: Ensure that the source code of your contracts is verified and publicly available on [block explorers](/base-chain/tools/block-explorers). For example, this can be done on [Etherscan](https://basescan.org/verifyContract) and [Basescan](https://basescan.org/verifyContract) under “Verify Contract”.
-- **Limit Exposure of User Funds**: Design your contracts to minimize the exposure of user funds. Use efficient design to reduce any unnecessary risk. For example, request the minimum amount needed to fulfill the transaction.
+## Overview
 
-## 2. Submit a verification request
+Security providers like Blockaid scan blockchain applications to protect users from malicious contracts and phishing attempts. Following these guidelines will help ensure your legitimate application is recognized as safe and trustworthy.
 
-After verifying your smart contract, consider [submitting a verification request](https://report.blockaid.io/). This step helps ensure that your app is recognized as safe and verified by trusted sources in the ecosystem.
+## Prerequisites
 
-## 3. Follow app best practices
+Before you begin, ensure you have:
+- Deployed smart contracts on Base or Base Sepolia testnet
+- A publicly accessible frontend application
+- Access to block explorer verification tools
 
-- **Accessibility Across Regions**: Avoid geo-blocking or access restrictions that prevent certain regions or countries from accessing your app. Depending on legal or compliance reasons, this may be necessary which you can indicate in your verification request submission.
-- **Consistent Behavior**: Avoid rapid or unexplained changes in UI that can make users feel uncertain about the app’s reliability.
-- **Transparent Onchain Interactions**: Make sure your app’s onchain interactions are clear and match the UI actions. For example, a “Mint” button should clearly emit a mint transaction.
-- **Standard Sign-in Methods**: Provide all standard connection methods for users to sign in, such as WalletConnect / Coinbase Wallet SDK or popular browser extension wallets.
-- **Audit Your Contracts**: Have your contracts audited by a reputable firm. Publish the audit report and provide a reference link so users can easily find it. Audits show that you’ve taken extra steps to secure your smart contracts.
+## 1. Smart Contract Security
 
-By following these recommendations, you’ll significantly reduce the chances of your app being flagged as malicious and foster a secure and trustworthy environment for your users.
+### Verify Your Smart Contracts
+
+Contract verification makes your source code publicly auditable and is essential for building trust.
+
+**Steps to verify:**
+
+1. Navigate to your contract on [Basescan](https://basescan.org) (mainnet) or [Base Sepolia Scan](https://sepolia.basescan.org) (testnet)
+2. Click on the "Contract" tab
+3. Select "Verify and Publish" 
+4. Choose your verification method:
+   - **Solidity (Single file)** - For simple contracts
+   - **Solidity (Standard JSON Input)** - For complex projects with multiple files
+   - **Vyper** - For Vyper contracts
+5. Provide the required compilation details matching your deployment
+6. Submit for verification
+
+**Additional block explorers:**
+- [Blockscout](https://base.blockscout.com/) - Alternative Base explorer
+- See the full list of [Base block explorers](/base-chain/tools/block-explorers)
+
+### Design for Security
+
+Implement security-focused design patterns in your smart contracts:
+
+**Minimize fund exposure:**
+- Request only the minimum token approvals needed for each transaction
+- Use incremental approvals rather than unlimited allowances where possible
+- Implement time-locks for sensitive operations
+- Consider using the withdrawal pattern for fund transfers
+
+**Follow established standards:**
+- Implement well-tested token standards (ERC-20, ERC-721, ERC-1155)
+- Use OpenZeppelin or similar audited contract libraries
+- Follow the checks-effects-interactions pattern to prevent reentrancy
+
+**Example: Safe approval pattern**
+```solidity
+// ❌ Bad: Requesting unlimited approval
+token.approve(spender, type(uint256).max);
+
+// ✅ Good: Request exact amount needed
+uint256 requiredAmount = calculateRequiredAmount();
+token.approve(spender, requiredAmount);
+```
+
+### Conduct Security Audits
+
+Professional audits significantly reduce the risk of vulnerabilities and build user confidence.
+
+**Best practices:**
+- Engage reputable audit firms before mainnet deployment
+- Address all critical and high-severity findings
+- Publish audit reports publicly on your website and GitHub
+- Consider multiple audits for high-value contracts
+- Implement continuous security monitoring
+
+**Recommended audit providers:**
+- OpenZeppelin
+- Trail of Bits
+- ConsenSys Diligence
+- Certora
+- Code4rena (competitive audits)
+
+## 2. Submit a Verification Request
+
+After verifying your contracts, submit your app for security review.
+
+**Submission process:**
+
+1. Visit [Blockaid's verification portal](https://report.blockaid.io/)
+2. Select "Request Verification" or "Report False Positive"
+3. Provide the following information:
+   - Contract addresses on Base
+   - Application URL
+   - Description of your app's functionality
+   - Links to verified contracts on block explorers
+   - Audit reports (if available)
+   - Team and project information
+4. Submit and await review (typically 2-5 business days)
+
+**What to include in your submission:**
+- Clear explanation of your app's purpose and functionality
+- Onchain transaction patterns users should expect
+- Any geographic or regulatory restrictions
+- Contact information for security researchers
+- Bug bounty program details (if applicable)
+
+## 3. Frontend Best Practices
+
+### User Experience Standards
+
+**Provide universal access:**
+- Avoid geo-blocking unless legally required for compliance
+- If geographic restrictions are necessary, clearly state them in your verification request
+- Ensure accessibility for users with disabilities (WCAG 2.1 AA compliance)
+
+**Maintain consistency:**
+- Keep UI/UX stable and predictable
+- Announce significant changes in advance
+- Avoid sudden redirects or unexpected popups
+- Use clear, consistent branding and design
+
+**Clear communication:**
+- Display transaction details before requesting signatures
+- Show gas estimates and total costs
+- Explain what each transaction will do in plain language
+- Provide help documentation and support channels
+
+### Transaction Transparency
+
+Ensure frontend actions accurately reflect onchain transactions:
+
+**UI-to-transaction mapping:**
+```javascript
+// ✅ Good: Clear button label matching transaction
+<button onClick={mintNFT}>
+  Mint NFT - 0.01 ETH
+</button>
+
+// ❌ Bad: Misleading or vague label
+<button onClick={executeTransaction}>
+  Click Here
+</button>
+```
+
+**Best practices:**
+- Button labels should clearly describe the transaction
+- Show token amounts, addresses, and functions being called
+- Display transaction simulations when possible
+- Warn users about irreversible actions
+- Implement transaction preview before signing
+
+### Wallet Integration
+
+Support standard wallet connection methods to maximize compatibility:
+
+**Required integrations:**
+- WalletConnect v2 (for mobile and multi-wallet support)
+- Coinbase Wallet SDK
+- MetaMask and browser extension wallets
+- Safe (Gnosis Safe) multisig support
+
+**Implementation example:**
+```typescript
+import { createConfig, http } from 'wagmi'
+import { base } from 'wagmi/chains'
+import { coinbaseWallet, walletConnect, injected } from 'wagmi/connectors'
+
+const config = createConfig({
+  chains: [base],
+  connectors: [
+    coinbaseWallet({ appName: 'Your App' }),
+    walletConnect({ projectId: 'YOUR_PROJECT_ID' }),
+    injected()
+  ],
+  transports: {
+    [base.id]: http()
+  }
+})
+```
+
+## 4. Additional Security Measures
+
+### Implement Rate Limiting
+
+Protect your app and users from abuse:
+- Rate limit API endpoints
+- Implement CAPTCHA for sensitive actions
+- Monitor for unusual transaction patterns
+- Set reasonable gas limits
+
+### Content Security
+
+**Website security:**
+- Use HTTPS with valid SSL certificates
+- Implement Content Security Policy (CSP) headers
+- Enable HSTS (HTTP Strict Transport Security)
+- Regularly update dependencies for security patches
+
+**Domain verification:**
+- Register official social media accounts
+- Verify domain ownership through DNS records
+- Use consistent branding across all platforms
+- Report impersonators and phishing sites
+
+### Transparency and Communication
+
+**Maintain public presence:**
+- Active GitHub repository with clear documentation
+- Regular updates on Twitter/X or other social channels
+- Responsive support channels (Discord, Telegram)
+- Clear terms of service and privacy policy
+
+**Document your security practices:**
+- Publish security.txt file at `/.well-known/security.txt`
+- Maintain a responsible disclosure policy
+- Consider running a bug bounty program
+- Document incident response procedures
+
+## 5. Monitoring and Maintenance
+
+### Continuous Security
+
+**Regular audits:**
+- Review contract interactions monthly
+- Monitor for unusual transaction patterns
+- Keep dependencies updated
+- Re-audit after significant changes
+
+**User feedback:**
+- Monitor support channels for security concerns
+- Respond quickly to user reports
+- Track false positive reports
+- Maintain incident response procedures
+
+### Update Process
+
+When making changes to your app:
+
+1. **Test thoroughly** on testnet before mainnet deployment
+2. **Communicate changes** to users in advance
+3. **Update documentation** to reflect new functionality
+4. **Resubmit for verification** if contracts change significantly
+5. **Monitor for issues** after deployment
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+**Issue: App flagged despite verification**
+- Ensure all contracts are verified on block explorers
+- Check that frontend URL matches verification submission
+- Review recent changes that might trigger flags
+- Contact Blockaid support with details
+
+**Issue: False positive on legitimate transaction**
+- [Report the false positive to Blockaid](https://report.blockaid.io/mistake)
+- Provide transaction hash and context
+- Include screenshots showing the issue
+- Follow up on the report status
+
+**Issue: Wallet warnings on connection**
+- Verify SSL certificate is valid and current
+- Check Content Security Policy headers
+- Ensure no mixed content (HTTP/HTTPS)
+- Test across multiple browsers and wallets
+
+### Getting Help
+
+If your app is incorrectly flagged as malicious:
+
+1. **Verify completion** of all recommended steps above
+2. **Review Blockaid's feedback** if provided
+3. **Submit a false positive report** at [https://report.blockaid.io/mistake](https://report.blockaid.io/mistake)
+4. **Provide comprehensive information:**
+   - Contract addresses and verification links
+   - Audit reports
+   - Description of legitimate functionality
+   - Transaction examples showing proper behavior
+
+**Support channels:**
+- Blockaid support: [https://report.blockaid.io](https://report.blockaid.io)
+- Base Discord: [discord.gg/buildonbase](https://discord.gg/buildonbase)
+- Base GitHub: [github.com/base-org](https://github.com/base-org)
+
+## Best Practices Checklist
+
+Use this checklist to ensure your app meets security standards:
+
+- [ ] All smart contracts verified on Basescan
+- [ ] Contracts audited by reputable firm(s)
+- [ ] Audit reports published and linked publicly
+- [ ] Verification request submitted to Blockaid
+- [ ] Minimal and appropriate token approvals requested
+- [ ] Clear UI-to-transaction mapping implemented
+- [ ] Standard wallet connectors integrated (WalletConnect, Coinbase Wallet SDK)
+- [ ] HTTPS with valid SSL certificate
+- [ ] No unnecessary geo-blocking
+- [ ] Security.txt file published
+- [ ] Responsible disclosure policy documented
+- [ ] Active support and communication channels
+- [ ] Regular security monitoring in place
+
+## Related Resources
+
+- [Base Bug Bounty Program](/base-chain/security/bug-bounty)
+- [Block Explorers for Base](/base-chain/tools/block-explorers)
+- [Smart Contract Security Best Practices](https://docs.base.org/security/best-practices)
+- [Wallet Integration Guide](https://docs.base.org/wallet-integration)
+- [Blockaid Documentation](https://docs.blockaid.io)
 
 ---
 
-**Still having trouble?**
-Coinbase Wallet may report false positives when flagging apps. To avoid false positives, please make sure you have completed the recommended actions above. If your app is still flagged as suspicious or malicious, [report it to Blockaid](https://report.blockaid.io/mistake).
+**Last Updated:** January 2026
 
----
-
+For additional support or to report security vulnerabilities, please refer to our [security policy](/base-chain/security) or contact the Base team through official channels.
