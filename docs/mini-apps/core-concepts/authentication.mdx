@@ -1,7 +1,44 @@
 ---
 title: Authentication
-description: Quick Auth provides instant authentication by leveraging Farcaster's identity system - no passwords, email verification, or complex OAuth flows required.
+description: Instantly recognize users, personalize their experience, and securely access wallet or social graph data.
 ---
+
+
+## Choosing An Authentication Method
+Users in the Base app are authenticated with passkey account using [Sign in with Ethereum](https://docs.login.xyz/) (SIWE) or their Farcaster account using [Sign in With Farcaster](https://docs.farcaster.xyz/developers/siwf/).
+
+When deciding between SIWE and SIWF, the core question is whether your app depends on Farcaster’s social context or must work outside Farcaster clients.
+
+![auth-flow-chart](/images/miniapps/auth-flowchart.png)
+
+#### Sending Notifications
+
+If your app plans to send notifications to users, you must use SIWF.
+Notifications require a Farcaster identity (FID), which is only available through Sign-in With Farcaster.
+
+You can still support SIWE if your app also needs a universal wallet-based identity, but SIWF is required for any notification functionality.
+
+
+#### App location
+
+If your app will be used on the open web, other wallets, or standalone mobile apps, use SIWE as your primary authentication.
+
+You can still offer SIWF when the user arrives from a Farcaster client.
+
+
+####  Utilizing Farcaster Social Graph
+
+If your app does not rely on followers, FIDs, casts, or social graph logic, use SIWE and optionally support SIWF for enhanced social features.
+
+If your app does rely on that data, consider if you are willing to require users to have a Farcaster account.
+
+<Tip>
+For a complete guide on authenticating users with SIWE, see our [Authenticate Users](/base-account/guides/authenticate-users#add-the-base-sign-in-with-base-button) guide using Sign in with Base.
+</Tip>
+
+## Quick Auth
+
+Quick Auth provides instant authentication by leveraging Farcaster's identity system - no passwords, email verification, or complex OAuth flows required.
 
 When Quick Auth is called:
 
@@ -9,9 +46,9 @@ When Quick Auth is called:
 * The SDK returns a JWT that your backend verifies to confirm the user's identity
 * The backend returns trusted data that can be used for sensitive actions
 
-<Tip>
+<Note>
 This differs from the [Context API](/mini-apps/core-concepts/context), which provides instant access to user information without authentication but cannot be trusted for sensitive operations.
-</Tip>
+</Note>
 
 
 ## Implementation
