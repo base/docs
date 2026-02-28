@@ -1,0 +1,2005 @@
+---
+title: 'JSON-RPC API Reference'
+description: 'Complete reference for all JSON-RPC methods available on Base chain nodes, with parameters, return values, and examples for every method.'
+---
+
+Base nodes implement the Ethereum JSON-RPC 2.0 specification. All HTTP methods accept POST requests to your RPC endpoint. WebSocket endpoints support the same methods plus real-time subscription methods.
+
+<Info>
+For production use, connect through a [node provider](/base-chain/tools/node-providers) or [run your own Base node](/base-chain/node-operators/run-a-base-node). The public endpoints `https://mainnet.base.org` and `https://sepolia.base.org` are rate-limited and not suitable for production traffic.
+</Info>
+
+## Request & Response Format
+
+All requests are HTTP POST with `Content-Type: application/json`. The body must be a JSON-RPC 2.0 request object:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jsonrpc` | string | Always `"2.0"` |
+| `method` | string | The RPC method name |
+| `params` | array | Method parameters in order |
+| `id` | number \| string | Identifier echoed back in the response |
+
+**Success response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x4b7"
+}
+```
+
+**Error response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "Invalid params"
+  }
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+| --- | --- | --- |
+| `-32700` | Parse error | Invalid JSON received by the server |
+| `-32600` | Invalid request | The JSON sent is not a valid request object |
+| `-32601` | Method not found | The method does not exist or is not available |
+| `-32602` | Invalid params | Invalid method parameter(s) |
+| `-32603` | Internal error | Internal JSON-RPC error |
+| `-32000` | Server error | Node-specific error (see message for details) |
+
+## Block Parameters
+
+Methods that accept a block parameter support the following values:
+
+| Value | Description |
+| --- | --- |
+| `"latest"` | Most recently mined block (default when not specified) |
+| `"earliest"` | Genesis block (block 0) |
+| `"pending"` | Pending/preconfirmed state — use with Flashblocks endpoints |
+| `"safe"` | Latest block considered safe by the consensus layer |
+| `"finalized"` | Latest block considered finalized |
+| `"0x<n>"` | Specific block number in hexadecimal |
+
+## Account & State Methods
+
+### eth_blockNumber
+
+Returns the number of the most recently mined block.
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The current block number as a hexadecimal string.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_blockNumber",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x12ced28"
+}
+```
+</CodeGroup>
+
+### eth_getBalance
+
+Returns the ETH balance of a given address at a specified block.
+
+**Parameters**
+
+<ParamField body="address" type="string" required>
+  The 20-byte address to check the balance for.
+</ParamField>
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The account balance in wei as a hexadecimal string.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getBalance",
+  "params": [
+    "0x4200000000000000000000000000000000000006",
+    "latest"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x2c68af0bb14000"
+}
+```
+</CodeGroup>
+
+### eth_getTransactionCount
+
+Returns the number of transactions sent from an address — also known as the account nonce. Use the `pending` block parameter to include transactions that are in the mempool but not yet mined.
+
+**Parameters**
+
+<ParamField body="address" type="string" required>
+  The 20-byte account address.
+</ParamField>
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The number of transactions sent from the address as a hexadecimal integer.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionCount",
+  "params": [
+    "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "latest"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x1b"
+}
+```
+</CodeGroup>
+
+### eth_getCode
+
+Returns the compiled bytecode stored at a given contract address. Returns `"0x"` for externally owned accounts (EOAs).
+
+**Parameters**
+
+<ParamField body="address" type="string" required>
+  The 20-byte address (typically a smart contract).
+</ParamField>
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The bytecode at the address as a hex string. Returns `"0x"` if there is no code (EOA or self-destructed contract).
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getCode",
+  "params": [
+    "0x4200000000000000000000000000000000000006",
+    "latest"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063..."
+}
+```
+</CodeGroup>
+
+### eth_getStorageAt
+
+Returns the raw value stored at a specific storage slot of a contract address.
+
+**Parameters**
+
+<ParamField body="address" type="string" required>
+  The 20-byte contract address.
+</ParamField>
+
+<ParamField body="storagePosition" type="string" required>
+  The hex-encoded integer position of the storage slot (e.g., `"0x0"` for slot 0).
+</ParamField>
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The 32-byte value stored at the given storage position as a hex string.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getStorageAt",
+  "params": [
+    "0x4200000000000000000000000000000000000006",
+    "0x0",
+    "latest"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}
+```
+</CodeGroup>
+
+### eth_call
+
+Executes a message call against the current chain state without broadcasting a transaction. No gas is consumed on-chain. Used to read contract state or simulate calls.
+
+**Parameters**
+
+<ParamField body="transactionObject" type="object" required>
+  The transaction call object.
+
+  <Expandable title="Transaction object fields">
+    <ParamField body="from" type="string">
+      The 20-byte address the call is sent from. Optional; defaults to the zero address.
+    </ParamField>
+    <ParamField body="to" type="string">
+      The 20-byte address of the contract to call.
+    </ParamField>
+    <ParamField body="gas" type="string">
+      Hex-encoded integer of gas to provide for the call. Defaults to a high limit if omitted.
+    </ParamField>
+    <ParamField body="gasPrice" type="string">
+      Hex-encoded gas price in wei. For legacy transactions. Optional.
+    </ParamField>
+    <ParamField body="maxFeePerGas" type="string">
+      EIP-1559 maximum total fee per gas. Optional.
+    </ParamField>
+    <ParamField body="maxPriorityFeePerGas" type="string">
+      EIP-1559 maximum priority fee per gas. Optional.
+    </ParamField>
+    <ParamField body="value" type="string">
+      Hex-encoded ETH value to send with the call in wei. Optional.
+    </ParamField>
+    <ParamField body="data" type="string">
+      ABI-encoded call data: the 4-byte function selector followed by encoded arguments. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The return value of the executed contract call as a hex-encoded byte array.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_call",
+  "params": [
+    {
+      "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "data": "0x70a082310000000000000000000000004200000000000000000000000000000000000006"
+    },
+    "latest"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x0000000000000000000000000000000000000000000000000000000005f5e100"
+}
+```
+</CodeGroup>
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | execution reverted | The call reverted. The `data` field in the error object contains the ABI-encoded revert reason when available. |
+
+## Block Methods
+
+### eth_getBlockByNumber
+
+Returns information about a block by its block number.
+
+**Parameters**
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+<ParamField body="fullTransactions" type="boolean" required>
+  If `true`, returns full transaction objects in the `transactions` array. If `false`, returns only transaction hashes.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object | null">
+  A block object, or `null` if no block was found.
+
+  <Expandable title="Block object fields">
+    <ResponseField name="number" type="string">
+      Block number as a hex string. `null` when the block is pending.
+    </ResponseField>
+    <ResponseField name="hash" type="string">
+      32-byte hash of the block. `null` when the block is pending.
+    </ResponseField>
+    <ResponseField name="parentHash" type="string">
+      32-byte hash of the parent block.
+    </ResponseField>
+    <ResponseField name="nonce" type="string">
+      8-byte proof-of-work nonce. Always `"0x0000000000000000"` on Base (proof-of-stake).
+    </ResponseField>
+    <ResponseField name="sha3Uncles" type="string">
+      32-byte SHA3 hash of the uncles data in the block. Always the empty-uncle-list hash on Base.
+    </ResponseField>
+    <ResponseField name="logsBloom" type="string">
+      256-byte bloom filter for the logs of the block.
+    </ResponseField>
+    <ResponseField name="transactionsRoot" type="string">
+      32-byte root of the transaction trie.
+    </ResponseField>
+    <ResponseField name="stateRoot" type="string">
+      32-byte root of the final state trie.
+    </ResponseField>
+    <ResponseField name="receiptsRoot" type="string">
+      32-byte root of the receipts trie.
+    </ResponseField>
+    <ResponseField name="miner" type="string">
+      20-byte address of the fee recipient (block proposer on Base).
+    </ResponseField>
+    <ResponseField name="difficulty" type="string">
+      Block difficulty. Always `"0x0"` on Base (proof-of-stake).
+    </ResponseField>
+    <ResponseField name="totalDifficulty" type="string">
+      Total chain difficulty. Always `"0x0"` on Base (proof-of-stake).
+    </ResponseField>
+    <ResponseField name="extraData" type="string">
+      Hex-encoded extra data field of the block.
+    </ResponseField>
+    <ResponseField name="size" type="string">
+      Integer size of the block in bytes as a hexadecimal.
+    </ResponseField>
+    <ResponseField name="gasLimit" type="string">
+      Maximum gas allowed in this block.
+    </ResponseField>
+    <ResponseField name="gasUsed" type="string">
+      Total gas used by all transactions in this block.
+    </ResponseField>
+    <ResponseField name="timestamp" type="string">
+      Unix timestamp of when the block was collated.
+    </ResponseField>
+    <ResponseField name="transactions" type="array">
+      Array of transaction hashes (when `fullTransactions` is `false`) or full transaction objects (when `true`).
+    </ResponseField>
+    <ResponseField name="uncles" type="array">
+      Array of uncle block hashes. Always `[]` on Base.
+    </ResponseField>
+    <ResponseField name="baseFeePerGas" type="string">
+      Base fee per gas in this block (EIP-1559).
+    </ResponseField>
+    <ResponseField name="withdrawals" type="array">
+      Array of validator withdrawals included in the block (EIP-4895).
+    </ResponseField>
+    <ResponseField name="withdrawalsRoot" type="string">
+      32-byte root of the withdrawals trie (EIP-4895).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockByNumber",
+  "params": ["latest", false],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "number": "0x12ced28",
+    "hash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "parentHash": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+    "nonce": "0x0000000000000000",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "logsBloom": "0x00000000000000000000000000000000...",
+    "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "stateRoot": "0x3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+    "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "miner": "0x4200000000000000000000000000000000000011",
+    "difficulty": "0x0",
+    "totalDifficulty": "0x0",
+    "extraData": "0x",
+    "size": "0x220",
+    "gasLimit": "0x1c9c380",
+    "gasUsed": "0x5208",
+    "timestamp": "0x6783a5d0",
+    "transactions": [
+      "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+    ],
+    "uncles": [],
+    "baseFeePerGas": "0x3b9aca00",
+    "withdrawals": [],
+    "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>
+
+### eth_getBlockByHash
+
+Returns information about a block by its hash.
+
+**Parameters**
+
+<ParamField body="blockHash" type="string" required>
+  The 32-byte hash of the block.
+</ParamField>
+
+<ParamField body="fullTransactions" type="boolean" required>
+  If `true`, returns full transaction objects. If `false`, returns only transaction hashes.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object | null">
+  A block object with the same fields as [`eth_getBlockByNumber`](#eth_getblockbynumber), or `null` if no block was found.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockByHash",
+  "params": [
+    "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    false
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "number": "0x12ced28",
+    "hash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "parentHash": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+    "gasLimit": "0x1c9c380",
+    "gasUsed": "0x5208",
+    "timestamp": "0x6783a5d0",
+    "baseFeePerGas": "0x3b9aca00",
+    "transactions": [
+      "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+    ]
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>
+
+### eth_getBlockReceipts
+
+Returns all transaction receipts for a given block. More efficient than calling `eth_getTransactionReceipt` individually for each transaction.
+
+**Parameters**
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="array | null">
+  An array of transaction receipt objects for every transaction in the block, or `null` if the block was not found. Each receipt has the same structure as [`eth_getTransactionReceipt`](#eth_gettransactionreceipt).
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockReceipts",
+  "params": ["latest"],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+      "transactionIndex": "0x0",
+      "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+      "blockNumber": "0x12ced28",
+      "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+      "to": "0x4200000000000000000000000000000000000006",
+      "cumulativeGasUsed": "0x5208",
+      "effectiveGasPrice": "0x3b9aca00",
+      "gasUsed": "0x5208",
+      "contractAddress": null,
+      "logs": [],
+      "logsBloom": "0x000...",
+      "status": "0x1",
+      "type": "0x2"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### eth_getBlockTransactionCountByNumber
+
+Returns the number of transactions in a block identified by block number.
+
+**Parameters**
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string | null">
+  The number of transactions in the block as a hexadecimal integer, or `null` if no block was found.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockTransactionCountByNumber",
+  "params": ["latest"],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x12"
+}
+```
+</CodeGroup>
+
+### eth_getBlockTransactionCountByHash
+
+Returns the number of transactions in a block identified by block hash.
+
+**Parameters**
+
+<ParamField body="blockHash" type="string" required>
+  The 32-byte hash of the block.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string | null">
+  The number of transactions in the block as a hexadecimal integer, or `null` if no block was found.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getBlockTransactionCountByHash",
+  "params": [
+    "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x12"
+}
+```
+</CodeGroup>
+
+## Transaction Methods
+
+### eth_getTransactionByHash
+
+Returns transaction information for a given transaction hash.
+
+**Parameters**
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte transaction hash.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object | null">
+  A transaction object, or `null` if no transaction was found.
+
+  <Expandable title="Transaction object fields">
+    <ResponseField name="hash" type="string">
+      32-byte hash of the transaction.
+    </ResponseField>
+    <ResponseField name="nonce" type="string">
+      Number of transactions sent by the sender prior to this one.
+    </ResponseField>
+    <ResponseField name="blockHash" type="string">
+      32-byte hash of the block this transaction is in. `null` if pending.
+    </ResponseField>
+    <ResponseField name="blockNumber" type="string">
+      Block number this transaction is in. `null` if pending.
+    </ResponseField>
+    <ResponseField name="transactionIndex" type="string">
+      Transaction's index position in the block. `null` if pending.
+    </ResponseField>
+    <ResponseField name="from" type="string">
+      20-byte address of the sender.
+    </ResponseField>
+    <ResponseField name="to" type="string">
+      20-byte address of the receiver. `null` for contract creation transactions.
+    </ResponseField>
+    <ResponseField name="value" type="string">
+      Value transferred in wei as a hexadecimal.
+    </ResponseField>
+    <ResponseField name="gas" type="string">
+      Gas provided by the sender.
+    </ResponseField>
+    <ResponseField name="gasPrice" type="string">
+      Gas price in wei. For EIP-1559 transactions, this is the effective gas price paid.
+    </ResponseField>
+    <ResponseField name="maxFeePerGas" type="string">
+      Maximum total fee per gas the sender is willing to pay (EIP-1559). Only present for type `0x2` transactions.
+    </ResponseField>
+    <ResponseField name="maxPriorityFeePerGas" type="string">
+      Maximum priority fee per gas (EIP-1559). Only present for type `0x2` transactions.
+    </ResponseField>
+    <ResponseField name="input" type="string">
+      ABI-encoded call data sent with the transaction. `"0x"` for plain ETH transfers.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Transaction type: `"0x0"` (legacy), `"0x1"` (EIP-2930 access list), `"0x2"` (EIP-1559), `"0x7e"` (deposit transaction on Base).
+    </ResponseField>
+    <ResponseField name="chainId" type="string">
+      Chain ID the transaction is valid for. `"0x2105"` for Base Mainnet, `"0x14a34"` for Base Sepolia.
+    </ResponseField>
+    <ResponseField name="accessList" type="array">
+      List of addresses and storage keys the transaction accesses (EIP-2930). Only present for type `0x1` and `0x2` transactions.
+    </ResponseField>
+    <ResponseField name="v" type="string">
+      ECDSA recovery ID.
+    </ResponseField>
+    <ResponseField name="r" type="string">
+      32-byte ECDSA signature component r.
+    </ResponseField>
+    <ResponseField name="s" type="string">
+      32-byte ECDSA signature component s.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionByHash",
+  "params": [
+    "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "nonce": "0x1b",
+    "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "blockNumber": "0x12ced28",
+    "transactionIndex": "0x0",
+    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "value": "0x2c68af0bb14000",
+    "gas": "0x5208",
+    "gasPrice": "0x3b9aca00",
+    "maxFeePerGas": "0x77359400",
+    "maxPriorityFeePerGas": "0x3b9aca00",
+    "input": "0x",
+    "type": "0x2",
+    "chainId": "0x2105",
+    "accessList": [],
+    "v": "0x1",
+    "r": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+    "s": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>
+
+### eth_getTransactionByBlockHashAndIndex
+
+Returns transaction information for a given block hash and transaction index position.
+
+**Parameters**
+
+<ParamField body="blockHash" type="string" required>
+  The 32-byte hash of the block.
+</ParamField>
+
+<ParamField body="transactionIndex" type="string" required>
+  The transaction's index position in the block as a hexadecimal integer (e.g., `"0x0"` for the first transaction).
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object | null">
+  A transaction object with the same fields as [`eth_getTransactionByHash`](#eth_gettransactionbyhash), or `null` if no transaction was found at that position.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionByBlockHashAndIndex",
+  "params": [
+    "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "0x0"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "blockNumber": "0x12ced28",
+    "transactionIndex": "0x0",
+    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "value": "0x2c68af0bb14000",
+    "type": "0x2"
+  }
+}
+```
+</CodeGroup>
+
+### eth_getTransactionByBlockNumberAndIndex
+
+Returns transaction information for a given block number and transaction index position.
+
+**Parameters**
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `pending`, `safe`, or `finalized`.
+</ParamField>
+
+<ParamField body="transactionIndex" type="string" required>
+  The transaction's index position in the block as a hexadecimal integer.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object | null">
+  A transaction object with the same fields as [`eth_getTransactionByHash`](#eth_gettransactionbyhash), or `null` if no transaction was found at that position.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionByBlockNumberAndIndex",
+  "params": ["latest", "0x0"],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "blockNumber": "0x12ced28",
+    "transactionIndex": "0x0",
+    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "value": "0x2c68af0bb14000",
+    "type": "0x2"
+  }
+}
+```
+</CodeGroup>
+
+### eth_getTransactionReceipt
+
+Returns the receipt for a mined transaction. Receipts are only available after the transaction has been included in a block.
+
+<Info>
+For preconfirmed transaction receipts before a block is sealed, use a [Flashblocks-aware endpoint](/base-chain/flashblocks/api-reference#eth_gettransactionreceipt).
+</Info>
+
+**Parameters**
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte hash of the transaction.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object | null">
+  A transaction receipt object, or `null` if the transaction is not found or is still pending.
+
+  <Expandable title="Transaction receipt fields">
+    <ResponseField name="transactionHash" type="string">
+      32-byte hash of the transaction.
+    </ResponseField>
+    <ResponseField name="transactionIndex" type="string">
+      Transaction's index position in the block.
+    </ResponseField>
+    <ResponseField name="blockHash" type="string">
+      32-byte hash of the block this transaction is in.
+    </ResponseField>
+    <ResponseField name="blockNumber" type="string">
+      Block number this transaction is in.
+    </ResponseField>
+    <ResponseField name="from" type="string">
+      20-byte address of the sender.
+    </ResponseField>
+    <ResponseField name="to" type="string">
+      20-byte address of the receiver. `null` for contract creation transactions.
+    </ResponseField>
+    <ResponseField name="cumulativeGasUsed" type="string">
+      Total gas used in the block at the point this transaction was executed.
+    </ResponseField>
+    <ResponseField name="effectiveGasPrice" type="string">
+      Actual gas price paid per unit of gas for this transaction.
+    </ResponseField>
+    <ResponseField name="gasUsed" type="string">
+      Gas used by this specific transaction.
+    </ResponseField>
+    <ResponseField name="contractAddress" type="string | null">
+      The address of the contract created by this transaction, if it was a contract creation. Otherwise `null`.
+    </ResponseField>
+    <ResponseField name="logs" type="array">
+      Array of log objects generated by this transaction.
+    </ResponseField>
+    <ResponseField name="logsBloom" type="string">
+      256-byte bloom filter for the logs of this transaction.
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      `"0x1"` for a successful transaction, `"0x0"` for a failed (reverted) transaction.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Transaction type: `"0x0"` (legacy), `"0x1"` (EIP-2930), `"0x2"` (EIP-1559).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionReceipt",
+  "params": [
+    "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "transactionIndex": "0x0",
+    "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "blockNumber": "0x12ced28",
+    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "cumulativeGasUsed": "0x5208",
+    "effectiveGasPrice": "0x3b9aca00",
+    "gasUsed": "0x5208",
+    "contractAddress": null,
+    "logs": [],
+    "logsBloom": "0x00000000000000000000000000000000...",
+    "status": "0x1",
+    "type": "0x2"
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | transaction indexing is in progress | The node is still indexing transactions. Retry after the node has finished syncing. |
+
+### eth_sendRawTransaction
+
+Submits a signed, RLP-encoded transaction to the network for broadcast. The transaction must be signed offline using the sender's private key before calling this method.
+
+**Parameters**
+
+<ParamField body="signedTransactionData" type="string" required>
+  The signed transaction data as a hex-encoded RLP-encoded string. Typically generated by a wallet library such as ethers.js, viem, or web3.js.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The 32-byte transaction hash if the transaction was accepted into the mempool.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_sendRawTransaction",
+  "params": [
+    "0x02f86b82210501843b9aca008477359400825208944200000000000000000000000000000000000006872c68af0bb1400080c001a01a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2ba02b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+}
+```
+</CodeGroup>
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | nonce too low | The transaction nonce is lower than the current account nonce |
+| `-32000` | insufficient funds for gas * price + value | The sender's balance cannot cover gas cost and value |
+| `-32000` | already known | An identical transaction is already in the mempool |
+| `-32000` | replacement transaction underpriced | A replacement transaction must pay a higher gas price |
+
+## Gas & Fee Methods
+
+### eth_gasPrice
+
+Returns the current gas price suggested for legacy (type `0x0`) transactions.
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  Current gas price in wei as a hexadecimal string.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_gasPrice",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x3b9aca00"
+}
+```
+</CodeGroup>
+
+### eth_maxPriorityFeePerGas
+
+Returns the suggested `maxPriorityFeePerGas` (tip) for EIP-1559 transactions. Add this to the current `baseFeePerGas` to derive a `maxFeePerGas`.
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  Suggested priority fee per gas in wei as a hexadecimal string.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_maxPriorityFeePerGas",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x3b9aca00"
+}
+```
+</CodeGroup>
+
+### eth_feeHistory
+
+Returns historical base fees, gas usage ratios, and priority fee percentiles for a range of blocks. Useful for building accurate EIP-1559 fee estimates.
+
+**Parameters**
+
+<ParamField body="blockCount" type="string | number" required>
+  Number of blocks to include in the history. Must be between 1 and 1024. Can be a decimal integer or a hex string (e.g., `4` or `"0x4"`).
+</ParamField>
+
+<ParamField body="newestBlock" type="string" required>
+  The newest block in the requested range. Block number in hexadecimal, or a block tag: `latest`, `safe`, or `finalized`.
+</ParamField>
+
+<ParamField body="rewardPercentiles" type="array">
+  Optional. An array of percentile values between 0 and 100. For each block, the node returns the effective priority fee at each percentile from the transactions in that block. For example, `[25, 50, 75]` returns 25th, 50th, and 75th percentile values.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object">
+  Fee history data for the requested range.
+
+  <Expandable title="Fee history fields">
+    <ResponseField name="oldestBlock" type="string">
+      Block number of the oldest block in the returned range.
+    </ResponseField>
+    <ResponseField name="baseFeePerGas" type="array">
+      Array of base fees per gas for each block in the range, plus one extra entry for the next block after the range. Length is `blockCount + 1`.
+    </ResponseField>
+    <ResponseField name="gasUsedRatio" type="array">
+      Array of gas used ratios (values between 0 and 1) for each block in the range.
+    </ResponseField>
+    <ResponseField name="reward" type="array">
+      Array of arrays containing the priority fees at each requested percentile for each block. Only present when `rewardPercentiles` is provided.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_feeHistory",
+  "params": [4, "latest", [25, 75]],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "oldestBlock": "0x12ced25",
+    "baseFeePerGas": [
+      "0x3b9aca00",
+      "0x3b9aca00",
+      "0x3b9aca00",
+      "0x3b9aca00",
+      "0x3b9aca00"
+    ],
+    "gasUsedRatio": [0.21, 0.45, 0.12, 0.67],
+    "reward": [
+      ["0x3b9aca00", "0x77359400"],
+      ["0x3b9aca00", "0x77359400"],
+      ["0x3b9aca00", "0x77359400"],
+      ["0x3b9aca00", "0x77359400"]
+    ]
+  }
+}
+```
+</CodeGroup>
+
+### eth_estimateGas
+
+Estimates the amount of gas required to execute a transaction. The estimate may be higher than the gas actually used at execution time.
+
+**Parameters**
+
+<ParamField body="transactionObject" type="object" required>
+  The transaction object to estimate gas for.
+
+  <Expandable title="Transaction object fields">
+    <ParamField body="from" type="string">
+      The 20-byte address the transaction is sent from. Optional.
+    </ParamField>
+    <ParamField body="to" type="string">
+      The 20-byte destination address. Required for contract calls; omit for contract deployments.
+    </ParamField>
+    <ParamField body="gas" type="string">
+      Gas limit for the estimate. Optional.
+    </ParamField>
+    <ParamField body="gasPrice" type="string">
+      Gas price in wei for legacy transactions. Optional.
+    </ParamField>
+    <ParamField body="maxFeePerGas" type="string">
+      EIP-1559 maximum total fee per gas. Optional.
+    </ParamField>
+    <ParamField body="maxPriorityFeePerGas" type="string">
+      EIP-1559 maximum priority fee per gas. Optional.
+    </ParamField>
+    <ParamField body="value" type="string">
+      ETH value to send with the transaction in wei. Optional.
+    </ParamField>
+    <ParamField body="data" type="string">
+      ABI-encoded call data. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="blockParameter" type="string">
+  Optional block to estimate against. Defaults to `latest`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The estimated gas amount as a hexadecimal integer.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_estimateGas",
+  "params": [
+    {
+      "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+      "to": "0x4200000000000000000000000000000000000006",
+      "value": "0x2c68af0bb14000"
+    }
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x5208"
+}
+```
+</CodeGroup>
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | execution reverted | The transaction would revert. The error data may contain a revert reason. |
+
+## Log Methods
+
+### eth_getLogs
+
+Returns an array of logs matching the given filter criteria. Particularly useful for indexing on-chain events.
+
+<Warning>
+Queries spanning large block ranges or high-activity contracts can time out or be rejected. Keep `fromBlock`-to-`toBlock` ranges under 2,000 blocks for reliable results. Node providers may enforce their own limits.
+</Warning>
+
+**Parameters**
+
+<ParamField body="filterObject" type="object" required>
+  The log filter object. At least one filter criterion should be provided.
+
+  <Expandable title="Filter object fields">
+    <ParamField body="fromBlock" type="string">
+      Start of the block range. Block number in hexadecimal or a block tag. Defaults to `"latest"`.
+    </ParamField>
+    <ParamField body="toBlock" type="string">
+      End of the block range. Block number in hexadecimal or a block tag. Defaults to `"latest"`.
+    </ParamField>
+    <ParamField body="address" type="string | array">
+      A single contract address or array of addresses to filter logs by. Optional.
+    </ParamField>
+    <ParamField body="topics" type="array">
+      Array of 32-byte topic filters. Each position can be `null` (match any), a single topic hex string, or an array of topic hex strings (match any in the array). Position 0 is typically the `keccak256` hash of the event signature. Optional.
+    </ParamField>
+    <ParamField body="blockHash" type="string">
+      A specific block hash to restrict results to that single block only. If provided, `fromBlock` and `toBlock` are ignored. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="array">
+  An array of log objects matching the filter.
+
+  <Expandable title="Log object fields">
+    <ResponseField name="address" type="string">
+      20-byte address of the contract that emitted the log.
+    </ResponseField>
+    <ResponseField name="topics" type="array">
+      Array of 0–4 indexed 32-byte topics. Topic 0 is the event signature hash for named events.
+    </ResponseField>
+    <ResponseField name="data" type="string">
+      ABI-encoded non-indexed event parameters.
+    </ResponseField>
+    <ResponseField name="blockNumber" type="string">
+      Block number in which this log was emitted.
+    </ResponseField>
+    <ResponseField name="transactionHash" type="string">
+      32-byte hash of the transaction that emitted this log.
+    </ResponseField>
+    <ResponseField name="transactionIndex" type="string">
+      Index of the transaction in the block.
+    </ResponseField>
+    <ResponseField name="blockHash" type="string">
+      32-byte hash of the block.
+    </ResponseField>
+    <ResponseField name="logIndex" type="string">
+      Log's index position within the block.
+    </ResponseField>
+    <ResponseField name="removed" type="boolean">
+      `true` if the log was removed due to a chain reorganization. `false` for valid logs.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getLogs",
+  "params": [
+    {
+      "fromBlock": "0x12ced00",
+      "toBlock": "0x12ced28",
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+    }
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "0x000000000000000000000000d3cda913deb6f4967b2ef66ae97de114a83bcc01",
+        "0x0000000000000000000000004200000000000000000000000000000000000006"
+      ],
+      "data": "0x0000000000000000000000000000000000000000000000000000000005f5e100",
+      "blockNumber": "0x12ced28",
+      "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+      "transactionIndex": "0x0",
+      "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+      "logIndex": "0x0",
+      "removed": false
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Chain & Network Methods
+
+### eth_chainId
+
+Returns the chain ID of the current network per [EIP-695](https://eips.ethereum.org/EIPS/eip-695).
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The chain ID as a hexadecimal string. `"0x2105"` (8453) for Base Mainnet, `"0x14a34"` (84532) for Base Sepolia.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_chainId",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response (Base Mainnet)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x2105"
+}
+```
+
+```json Response (Base Sepolia)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x14a34"
+}
+```
+</CodeGroup>
+
+### eth_syncing
+
+Returns the synchronization status of the node.
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="object | boolean">
+  Returns `false` if the node is fully synced with the network. Returns a sync status object if the node is still catching up.
+
+  <Expandable title="Sync status object fields (when syncing)">
+    <ResponseField name="startingBlock" type="string">
+      Block number where the current sync started.
+    </ResponseField>
+    <ResponseField name="currentBlock" type="string">
+      Current block the node has processed.
+    </ResponseField>
+    <ResponseField name="highestBlock" type="string">
+      Estimated highest block number on the network.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_syncing",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response (synced)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": false
+}
+```
+
+```json Response (syncing)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "startingBlock": "0x0",
+    "currentBlock": "0x12ce000",
+    "highestBlock": "0x12ced28"
+  }
+}
+```
+</CodeGroup>
+
+### net_version
+
+Returns the network ID as a decimal string. For Base, this is the same value as the chain ID.
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  The network ID as a decimal string (not hex). `"8453"` for Base Mainnet, `"84532"` for Base Sepolia.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "net_version",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response (Base Mainnet)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "8453"
+}
+```
+</CodeGroup>
+
+### web3_clientVersion
+
+Returns a string identifying the node client software and version.
+
+**Parameters**
+
+This method takes no parameters.
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  A string in the format `<client>/<version>/<os>/<runtime>`.
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "web3_clientVersion",
+  "params": [],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "op-geth/v1.101411.0/linux-amd64/go1.21.0"
+}
+```
+</CodeGroup>
+
+## Debug Methods
+
+<Info>
+Debug methods require a node with debug APIs enabled. Availability and rate limits vary by [node provider](/base-chain/tools/node-providers). These methods replay transactions and are computationally expensive — avoid calling them in hot paths.
+</Info>
+
+### debug_traceTransaction
+
+Replays a transaction and returns its complete EVM execution trace, including every opcode executed, gas consumed at each step, stack contents, and storage changes.
+
+**Parameters**
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte hash of the transaction to trace.
+</ParamField>
+
+<ParamField body="traceOptions" type="object">
+  Optional tracing configuration.
+
+  <Expandable title="Trace options fields">
+    <ParamField body="disableStorage" type="boolean">
+      If `true`, omits storage capture from struct logs. Reduces response size. Defaults to `false`.
+    </ParamField>
+    <ParamField body="disableMemory" type="boolean">
+      If `true`, omits memory capture from struct logs. Reduces response size. Defaults to `false`.
+    </ParamField>
+    <ParamField body="disableStack" type="boolean">
+      If `true`, omits stack capture from struct logs. Defaults to `false`.
+    </ParamField>
+    <ParamField body="tracer" type="string">
+      Name of a built-in tracer. Options: `"callTracer"` (returns a call tree), `"prestateTracer"` (returns the pre-execution state). Omit to use the default struct log tracer.
+    </ParamField>
+    <ParamField body="tracerConfig" type="object">
+      Configuration for the selected tracer. For `callTracer`: `{ "onlyTopCall": true }` skips internal calls.
+    </ParamField>
+    <ParamField body="timeout" type="string">
+      Execution timeout as a Go duration string (e.g., `"10s"`, `"30s"`). Defaults to `"5s"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="object">
+  The execution trace. Format depends on the `tracer` option selected.
+
+  <Expandable title="Default struct log trace fields">
+    <ResponseField name="gas" type="number">
+      Total gas provided for the transaction.
+    </ResponseField>
+    <ResponseField name="failed" type="boolean">
+      Whether the transaction failed (reverted).
+    </ResponseField>
+    <ResponseField name="returnValue" type="string">
+      Hex-encoded return value from the transaction execution.
+    </ResponseField>
+    <ResponseField name="structLogs" type="array">
+      Array of struct log entries, one per EVM opcode executed.
+
+      <Expandable title="Struct log entry fields">
+        <ResponseField name="pc" type="number">Program counter position.</ResponseField>
+        <ResponseField name="op" type="string">EVM opcode name (e.g., `"PUSH1"`, `"SLOAD"`).</ResponseField>
+        <ResponseField name="gas" type="number">Remaining gas at this step.</ResponseField>
+        <ResponseField name="gasCost" type="number">Gas cost of this opcode.</ResponseField>
+        <ResponseField name="depth" type="number">Call depth (1 = top-level call).</ResponseField>
+        <ResponseField name="stack" type="array">EVM stack values at this step.</ResponseField>
+        <ResponseField name="memory" type="array">EVM memory contents as 32-byte chunks.</ResponseField>
+        <ResponseField name="storage" type="object">Contract storage changes at this step (slot → value).</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+
+  <Expandable title="callTracer result fields">
+    <ResponseField name="type" type="string">
+      Call type: `"CALL"`, `"STATICCALL"`, `"DELEGATECALL"`, or `"CREATE"`.
+    </ResponseField>
+    <ResponseField name="from" type="string">Sender address.</ResponseField>
+    <ResponseField name="to" type="string">Recipient address.</ResponseField>
+    <ResponseField name="value" type="string">ETH value sent with the call.</ResponseField>
+    <ResponseField name="gas" type="string">Gas provided for the call.</ResponseField>
+    <ResponseField name="gasUsed" type="string">Gas actually consumed.</ResponseField>
+    <ResponseField name="input" type="string">Call data sent.</ResponseField>
+    <ResponseField name="output" type="string">Return data from the call.</ResponseField>
+    <ResponseField name="error" type="string">Error message if the call reverted. Optional.</ResponseField>
+    <ResponseField name="calls" type="array">Array of nested call objects for internal calls.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request (default trace)
+{
+  "jsonrpc": "2.0",
+  "method": "debug_traceTransaction",
+  "params": [
+    "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    {}
+  ],
+  "id": 1
+}
+```
+
+```json Request (callTracer)
+{
+  "jsonrpc": "2.0",
+  "method": "debug_traceTransaction",
+  "params": [
+    "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    { "tracer": "callTracer" }
+  ],
+  "id": 1
+}
+```
+
+```json Response (default trace)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "gas": 21000,
+    "failed": false,
+    "returnValue": "",
+    "structLogs": [
+      {
+        "pc": 0,
+        "op": "PUSH1",
+        "gas": 21000,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [],
+        "memory": [],
+        "storage": {}
+      }
+    ]
+  }
+}
+```
+
+```json Response (callTracer)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "type": "CALL",
+    "from": "0xd3cda913deb6f4967b2ef66ae97de114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "value": "0x2c68af0bb14000",
+    "gas": "0x5208",
+    "gasUsed": "0x5208",
+    "input": "0x",
+    "output": "0x",
+    "calls": []
+  }
+}
+```
+</CodeGroup>
+
+### debug_traceBlockByHash
+
+Replays all transactions in a block identified by its hash and returns an execution trace for each transaction.
+
+**Parameters**
+
+<ParamField body="blockHash" type="string" required>
+  The 32-byte hash of the block to trace.
+</ParamField>
+
+<ParamField body="traceOptions" type="object">
+  Optional trace configuration. Accepts the same fields as [`debug_traceTransaction`](#debug_tracetransaction).
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="array">
+  An array of trace result objects, one per transaction in the block.
+
+  <Expandable title="Trace result object fields">
+    <ResponseField name="txHash" type="string">
+      The transaction hash.
+    </ResponseField>
+    <ResponseField name="result" type="object">
+      The execution trace for this transaction. Same format as the result of `debug_traceTransaction`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "debug_traceBlockByHash",
+  "params": [
+    "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    { "tracer": "callTracer" }
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "txHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+      "result": {
+        "type": "CALL",
+        "from": "0xd3cda913deb6f4967b2ef66ae97de114a83bcc01",
+        "to": "0x4200000000000000000000000000000000000006",
+        "value": "0x2c68af0bb14000",
+        "gas": "0x5208",
+        "gasUsed": "0x5208",
+        "input": "0x",
+        "output": "0x",
+        "calls": []
+      }
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### debug_traceBlockByNumber
+
+Replays all transactions in a block identified by its number and returns an execution trace for each transaction.
+
+**Parameters**
+
+<ParamField body="blockParameter" type="string" required>
+  Block number in hexadecimal, or a block tag: `latest`, `earliest`, `safe`, or `finalized`.
+</ParamField>
+
+<ParamField body="traceOptions" type="object">
+  Optional trace configuration. Accepts the same fields as [`debug_traceTransaction`](#debug_tracetransaction).
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="array">
+  An array of trace result objects, one per transaction in the block. Same format as [`debug_traceBlockByHash`](#debug_traceblockbyhash).
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "debug_traceBlockByNumber",
+  "params": ["latest", { "tracer": "callTracer" }],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "txHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+      "result": {
+        "type": "CALL",
+        "from": "0xd3cda913deb6f4967b2ef66ae97de114a83bcc01",
+        "to": "0x4200000000000000000000000000000000000006",
+        "value": "0x2c68af0bb14000",
+        "gas": "0x5208",
+        "gasUsed": "0x5208",
+        "input": "0x",
+        "output": "0x",
+        "calls": []
+      }
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## WebSocket Methods
+
+WebSocket methods are only available over WebSocket (WSS) connections. All HTTP methods are also available over WebSocket. Connect using your provider's WSS endpoint and send JSON-RPC messages as UTF-8 text frames.
+
+### eth_subscribe
+
+Creates a real-time subscription to on-chain events. The node pushes event notifications to the client as JSON-RPC messages whenever a matching event occurs, without the client needing to poll.
+
+**Parameters**
+
+<ParamField body="subscriptionType" type="string" required>
+  The event type to subscribe to. See subscription types below.
+</ParamField>
+
+<ParamField body="filterOptions" type="object">
+  Optional filter options. Only applicable for the `logs` subscription type.
+
+  <Expandable title="Filter options (logs only)">
+    <ParamField body="address" type="string | array">
+      A single contract address or array of addresses to filter logs by. Optional.
+    </ParamField>
+    <ParamField body="topics" type="array">
+      Array of topic filters in the same format as `eth_getLogs`. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Subscription Types**
+
+| Type | Description | Notification payload |
+| ---- | ----------- | -------------------- |
+| `newHeads` | Fires for each new block header appended to the chain | Block header object |
+| `logs` | Fires for each new log matching the filter criteria | Log object |
+| `newPendingTransactions` | Fires for each new pending transaction hash added to the mempool | Transaction hash string |
+
+**Returns**
+
+<ResponseField name="result" type="string">
+  A hex-encoded subscription ID. All subsequent event notifications from this subscription include this ID in `params.subscription`.
+</ResponseField>
+
+Event notifications arrive as unsolicited JSON-RPC messages with `method: "eth_subscription"`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": { ... }
+  }
+}
+```
+
+**Subscribe to new block headers:**
+
+<CodeGroup>
+```json Request
+{"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
+```
+
+```json Response
+{"jsonrpc": "2.0", "id": 1, "result": "0x1887ec8b9589ccad00000000000532da"}
+```
+
+```json Event Notification
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": {
+      "number": "0x12ced29",
+      "hash": "0x4b5e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e4",
+      "parentHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+      "gasLimit": "0x1c9c380",
+      "gasUsed": "0xa410",
+      "timestamp": "0x6783a5d2",
+      "baseFeePerGas": "0x3b9aca00"
+    }
+  }
+}
+```
+</CodeGroup>
+
+**Subscribe to contract logs:**
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscribe",
+  "params": [
+    "logs",
+    {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ]
+    }
+  ],
+  "id": 1
+}
+```
+
+```json Response
+{"jsonrpc": "2.0", "id": 1, "result": "0x2a7bc8d4e3f5a6b1c2d3e4f5a6b7c8d9"}
+```
+
+```json Event Notification
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x2a7bc8d4e3f5a6b1c2d3e4f5a6b7c8d9",
+    "result": {
+      "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "0x000000000000000000000000d3cda913deb6f4967b2ef66ae97de114a83bcc01",
+        "0x0000000000000000000000004200000000000000000000000000000000000006"
+      ],
+      "data": "0x0000000000000000000000000000000000000000000000000000000005f5e100",
+      "blockNumber": "0x12ced29",
+      "transactionHash": "0xc903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568239",
+      "transactionIndex": "0x0",
+      "blockHash": "0x4b5e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e4",
+      "logIndex": "0x0",
+      "removed": false
+    }
+  }
+}
+```
+</CodeGroup>
+
+### eth_unsubscribe
+
+Cancels a subscription created by `eth_subscribe`. After cancellation, no further notifications are sent for that subscription ID.
+
+**Parameters**
+
+<ParamField body="subscriptionId" type="string" required>
+  The hex-encoded subscription ID returned by `eth_subscribe`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="result" type="boolean">
+  `true` if the subscription was successfully cancelled. `false` if the subscription ID was not found (e.g., already cancelled or never existed).
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_unsubscribe",
+  "params": ["0x1887ec8b9589ccad00000000000532da"],
+  "id": 1
+}
+```
+
+```json Response (success)
+{"jsonrpc": "2.0", "id": 1, "result": true}
+```
+
+```json Response (not found)
+{"jsonrpc": "2.0", "id": 1, "result": false}
+```
+</CodeGroup>
