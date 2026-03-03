@@ -55,6 +55,8 @@ Run this command when:
 - Commit with your other changes
 ```
 
+
+
 ### For status:
 ```
 ## AGENTS.md Status
@@ -70,3 +72,7 @@ Run this command when:
 - [STALE] 5 docs files changed since last generation
   Run `/agents` to regenerate
 ```
+## Version
+v1.1.0  
+Last updated: 2026-03-03
+
