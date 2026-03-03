@@ -1,0 +1,264 @@
+---
+title: 'Fee Estimation for Agents'
+description: 'Programmatic guide to computing optimal EIP-1559 fees on Base, including L2 execution fees, L1 data availability fees, and decision logic for high-frequency trading agents.'
+---
+
+Base transactions have two independent fee components that agents must compute correctly to avoid failed or stuck transactions:
+
+| Component | What it pays for | Varies with |
+| --------- | ---------------- | ----------- |
+| **L2 execution fee** | Executing opcodes on the L2 sequencer | L2 network congestion |
+| **L1 data availability fee** | Publishing transaction data to Ethereum | Ethereum L1 base fee + blob fee market |
+
+<Warning>
+Agents that only set L2 fees will underestimate total transaction cost, particularly during Ethereum congestion when the L1 component can exceed the L2 component.
+</Warning>
+
+---
+
+## L2 Fee Estimation
+
+Base uses EIP-1559. Every transaction requires:
+
+- `maxFeePerGas` — the maximum total fee per gas unit you will pay (base fee + priority fee)
+- `maxPriorityFeePerGas` — the tip paid to the sequencer on top of the base fee
+
+### Step 1 — Fetch priority fee history
+
+Use `eth_feeHistory` to compute priority fee percentiles from recent blocks:
+
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_feeHistory",
+  "params": [10, "latest", [10, 50, 90]],
+  "id": 1
+}
+```
+
+```json Response (abbreviated)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "baseFeePerGas": [
+      "0x4a817c800",
+      "0x4b5765e00",
+      "0x4c6b4e000"
+    ],
+    "gasUsedRatio": [0.12, 0.45, 0.89],
+    "reward": [
+      ["0x3b9aca00", "0x77359400", "0xee6b2800"],
+      ["0x3b9aca00", "0x77359400", "0x12a05f200"],
+      ["0x59682f00", "0xee6b2800", "0x1dcd65000"]
+    ]
+  }
+}
+```
+
+Each inner array in `reward` contains `[10th, 50th, 90th]` percentile priority fees (in wei) for that block. `baseFeePerGas` includes one extra entry — the **next block's predicted base fee**.
+
+### Step 2 — Choose a priority fee
+
+Select from the 90th-percentile column based on your urgency:
+
+| Scenario | `maxPriorityFeePerGas` |
+| -------- | ---------------------- |
+| Standard (next 1–3 Flashblocks) | median of last 10 blocks' **50th** percentile rewards |
+| Fast (next Flashblock) | median of last 10 blocks' **90th** percentile rewards |
+| Urgent (current Flashblock, if still open) | max of last 3 blocks' **90th** percentile rewards |
+
+```typescript
+function computePriorityFee(
+  rewards: bigint[][],
+  urgency: 'standard' | 'fast' | 'urgent'
+): bigint {
+  const percentileIdx = urgency === 'standard' ? 1 : 2; // 50th or 90th
+  const window = urgency === 'urgent' ? rewards.slice(-3) : rewards;
+  const fees = window.map(r => r[percentileIdx]).sort((a, b) => (a < b ? -1 : 1));
+  return urgency === 'urgent'
+    ? fees[fees.length - 1]                    // max of window
+    : fees[Math.floor(fees.length / 2)];       // median of window
+}
+```
+
+### Step 3 — Set maxFeePerGas
+
+Add a buffer to the next block's base fee to absorb fee increases across multiple Flashblocks:
+
+```typescript
+// nextBaseFee is baseFeePerGas[last] from eth_feeHistory
+const buffer = 2n; // 2x buffer absorbs ~18 Flashblocks of 4% increases
+const maxFeePerGas = nextBaseFee * buffer + maxPriorityFeePerGas;
+```
+
+### Current EIP-1559 parameters
+
+| Parameter | Value | Effect |
+| --------- | ----- | ------ |
+| Minimum base fee | 5,000,000 wei (0.005 gwei) | Floor; base fee never drops below this |
+| Max base fee increase per block | 4% | At max congestion, base fee doubles every ~36 seconds |
+| Block time | 2 seconds | Base fee update frequency |
+| Elasticity multiplier | 6× | Blocks can absorb 6× target gas before max fee increase |
+
+---
+
+## L1 Data Availability Fee Estimation
+
+The L1 fee is calculated from your serialized transaction's byte length and current Ethereum fees. Query the **GasPriceOracle** predeployment to estimate it before signing.
+
+**GasPriceOracle address (same on all networks):** `0x420000000000000000000000000000000000000F`
+
+### Key methods
+
+| Method | Returns | Use |
+| ------ | ------- | --- |
+| `getL1Fee(bytes)` | Wei | Exact L1 fee estimate for a serialized (RLP-encoded) transaction |
+| `getL1FeeUpperBound(uint256 unsignedTxSize)` | Wei | Upper bound estimate without full serialization |
+| `l1BaseFee()` | Wei | Current Ethereum L1 base fee as seen by Base |
+| `blobBaseFee()` | Wei | Current EIP-4844 blob base fee |
+| `baseFeeScalar()` | uint32 | Scalar applied to L1 base fee component |
+| `blobBaseFeeScalar()` | uint32 | Scalar applied to blob base fee component |
+
+### Querying with eth_call
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "eth_call",
+  "params": [
+    {
+      "to": "0x420000000000000000000000000000000000000F",
+      "data": "0x49948e0e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000c002f87082849a82520894d3cda913deb6f4967b2ef66ae97de114a83bcc01880de0b6b3a764000080c001a0..."
+    },
+    "latest"
+  ],
+  "id": 1
+}
+```
+
+The `data` field is the ABI-encoded call to `getL1Fee(bytes)` where `bytes` is your RLP-encoded unsigned transaction.
+
+### Simpler upper-bound approach
+
+For a quick upper-bound estimate before you have the full signed transaction:
+
+```typescript
+import { createPublicClient, http, parseAbi } from 'viem';
+import { base } from 'viem/chains';
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+const GAS_PRICE_ORACLE = '0x420000000000000000000000000000000000000F';
+const abi = parseAbi(['function getL1FeeUpperBound(uint256 unsignedTxSize) view returns (uint256)']);
+
+// Estimate tx size: roughly (calldata bytes) + 100 bytes overhead
+const estimatedTxSize = BigInt(calldata.length / 2 + 100);
+const l1FeeUpperBound = await client.readContract({
+  address: GAS_PRICE_ORACLE,
+  abi,
+  functionName: 'getL1FeeUpperBound',
+  args: [estimatedTxSize],
+});
+```
+
+---
+
+## Agent Decision Logic
+
+### Should this trade execute now?
+
+```
+totalFeeEstimate = (gasLimit * maxFeePerGas) + l1FeeUpperBound
+
+l1FeeRatio = l1FeeUpperBound / totalFeeEstimate
+
+if l1FeeRatio > 0.8 AND tradeValueUSD < threshold:
+    → DEFER: L1 fees dominate; wait for lower Ethereum congestion
+    → Re-check after 60 seconds
+
+if baseFee > normalBaseFee * 3:
+    → HIGH CONGESTION: use 90th percentile priority fee, set 3x baseFee buffer
+    → Consider splitting large trades into smaller batches
+
+else:
+    → PROCEED with standard fee settings
+```
+
+### Detecting Ethereum congestion
+
+```typescript
+const l1BaseFee = await client.readContract({
+  address: GAS_PRICE_ORACLE,
+  abi: parseAbi(['function l1BaseFee() view returns (uint256)']),
+  functionName: 'l1BaseFee',
+});
+
+// Base's "normal" L1 base fee threshold — adjust based on observed history
+const NORMAL_L1_BASE_FEE = 10_000_000_000n; // 10 gwei
+
+const isHighL1Congestion = l1BaseFee > NORMAL_L1_BASE_FEE * 3n;
+```
+
+### Flashblocks gas limit consideration
+
+<Note>
+Transactions with gas limits exceeding 1/10 of the block gas limit (currently **14 million gas**) cannot land in the first Flashblock and must wait for a later one with sufficient gas headroom. A transaction requiring 20M gas must wait for at least Flashblock 2.
+</Note>
+
+If an agent's transaction exceeds 14M gas and timing is critical, consider splitting the operation across multiple smaller transactions. Each can land in separate Flashblocks within the same 2-second block window.
+
+---
+
+## Complete Fee Computation Example
+
+```typescript
+import { createPublicClient, http, parseAbi, toHex } from 'viem';
+import { base } from 'viem/chains';
+
+const client = createPublicClient({ chain: base, transport: http() });
+const GAS_PRICE_ORACLE = '0x420000000000000000000000000000000000000F';
+
+async function computeOptimalFees(urgency: 'standard' | 'fast' | 'urgent', calldataBytes: number) {
+  // 1. Fetch fee history
+  const feeHistory = await client.getFeeHistory({
+    blockCount: 10,
+    rewardPercentiles: [10, 50, 90],
+  });
+
+  // 2. Compute priority fee
+  const percentileIdx = urgency === 'standard' ? 1 : 2;
+  const window = urgency === 'urgent'
+    ? feeHistory.reward!.slice(-3)
+    : feeHistory.reward!;
+  const fees = window.map(r => r[percentileIdx]).sort((a, b) => (a < b ? -1 : 1));
+  const maxPriorityFeePerGas = urgency === 'urgent'
+    ? fees[fees.length - 1]
+    : fees[Math.floor(fees.length / 2)];
+
+  // 3. Compute maxFeePerGas with 2x base fee buffer
+  const nextBaseFee = feeHistory.baseFeePerGas[feeHistory.baseFeePerGas.length - 1]!;
+  const maxFeePerGas = nextBaseFee * 2n + maxPriorityFeePerGas;
+
+  // 4. Estimate L1 fee
+  const oracleAbi = parseAbi(['function getL1FeeUpperBound(uint256) view returns (uint256)']);
+  const estimatedTxSize = BigInt(calldataBytes + 100);
+  const l1FeeUpperBound = await client.readContract({
+    address: GAS_PRICE_ORACLE,
+    abi: oracleAbi,
+    functionName: 'getL1FeeUpperBound',
+    args: [estimatedTxSize],
+  });
+
+  return { maxFeePerGas, maxPriorityFeePerGas, l1FeeUpperBound, nextBaseFee };
+}
+```
+
+---
+
+## Related
+
+- [Transaction Error Handling](/ai-agents/trading/transaction-error-handling) — what to do when fee estimation was wrong
+- [Agentic Transaction Flow](/ai-agents/trading/agentic-transaction-flow) — full lifecycle including simulation and retry
+- [Network Fees](/base-chain/network-information/network-fees) — background on Base fee mechanics
+- [Block Building](/base-chain/network-information/block-building) — Flashblocks timing and gas limits
