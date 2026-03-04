@@ -1,134 +1,87 @@
 ---
 title: 'Trading on Base'
-description: 'What trading agents need to know about Base: Flashblocks execution, fee mechanics, error handling, and how to discover strategy opportunities using Base-specific onchain signals.'
+description: 'Base-specific patterns, fee calibration, and onchain signals for trading agents. Covers what is unique to Base and not covered in the general docs.'
 ---
 
-Base offers trading agents two structural advantages over most EVM chains: **Flashblocks** (200ms preconfirmed block state, 10× faster than the 2-second block time) and an exposed L1/L2 fee structure that lets agents make explicit cost-vs-speed tradeoffs. This page covers what's specific to Base — for standard EVM execution patterns, the [Ethereum documentation](https://ethereum.org/developers/docs) applies without modification.
-
----
-
-## Flashblocks: the execution edge
-
-Base blocks are built in 200ms intervals called Flashblocks. Each Flashblock seals a portion of the 2-second block, locking in transaction order for that slice.
-
-**What this means for agents:**
-
-| Behavior | Implication |
-| -------- | ----------- |
-| Transactions ordered within a 200ms window, not a 2-second block | Priority fee competition is per-Flashblock, not per-block |
-| Once a Flashblock seals, its order is final | A later higher-fee transaction cannot displace a transaction already in a sealed Flashblock |
-| `"pending"` state on a Flashblocks endpoint reflects the actively building Flashblock | Agents can observe block composition ~200ms before it seals |
-| Each Flashblock can use up to 1/10 of the block gas limit (currently **14 million gas**) | Transactions over 14M gas must wait for a Flashblock with enough accumulated headroom |
-
-**Timing model:**
-```
-[0ms]    Flashblock N seals — order locked, preconfirmation issued
-[0-200ms] Flashblock N+1 being built — submit now to target this window
-[200ms]  Flashblock N+1 seals
-...
-[2000ms] Full L2 block seals (contains ~10 Flashblocks)
-```
-
-For latency-critical submissions, subscribe to `newFlashblocks` via WebSocket on a Flashblocks-aware endpoint and submit immediately after a seal event — this maximizes the window available for your transaction to land in the next Flashblock:
-
-```typescript
-const ws = new WebSocket('wss://mainnet-preconf.base.org');
-ws.onopen = () => ws.send(JSON.stringify({
-  jsonrpc: '2.0', id: 1,
-  method: 'eth_subscribe',
-  params: ['newFlashblocks'],
-}));
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  if (msg.method === 'eth_subscription') {
-    // Flashblock sealed — 200ms window opens for next one
-    submitTrade();
-  }
-};
-```
-
-See the [Flashblocks API Reference](/base-chain/flashblocks/api-reference) for full subscription types including `newFlashblockTransactions` and `pendingLogs`.
+Base offers two structural advantages for trading agents: **Flashblocks** (200ms preconfirmed block state, 10× faster than the 2-second block) and an exposed L1/L2 fee structure that enables explicit cost-vs-speed tradeoffs. This page covers only what is unique to Base — general EVM execution patterns are in the [Ethereum documentation](https://ethereum.org/developers/docs), and Base's RPC methods are in the [JSON-RPC API Reference](/base-chain/reference/json-rpc-api) and [Flashblocks API Reference](/base-chain/flashblocks/api-reference).
 
 ---
 
-## Fee mechanics
+## Execution patterns
 
-Base transactions have two cost components. Agents that only set L2 fees will underestimate total cost, particularly during Ethereum congestion when the L1 component can exceed the L2 component.
+### Use the preconf endpoint for all reads and submissions
 
-| Component | Controlled by | Varies with |
-| --------- | ------------- | ----------- |
-| L2 execution fee | `maxFeePerGas` / `maxPriorityFeePerGas` | L2 congestion |
-| L1 data availability fee | Automatically deducted | Ethereum L1 base fee + blob market |
+Always connect to `mainnet-preconf.base.org` (or `sepolia-preconf.base.org` for testnet) rather than the standard endpoint. This is the only way to access Flashblocks `pending` state, preconfirmed transaction streams, and `base_transactionStatus`. See [Flashblocks endpoints](/base-chain/flashblocks/apps#rpc-endpoints) for the full endpoint list including production provider options.
 
-### Setting L2 fees
+### Simulate against preconfirmed state before signing
 
-Use `eth_feeHistory` to compute priority fees from recent blocks rather than guessing:
+Call [`eth_simulateV1`](/base-chain/flashblocks/api-reference#eth_simulatev1) against the preconf endpoint with `"blockStateCalls"` targeting the `pending` block before signing any transaction. This catches reverts against current Flashblocks state rather than the last sealed block — which may be up to 2 seconds stale by the time your transaction lands.
 
-```json
-{"jsonrpc":"2.0","method":"eth_feeHistory","params":[10,"latest",[50,90]],"id":1}
-```
+### Poll `base_transactionStatus` instead of blocking on a receipt
+
+After submission, [`base_transactionStatus`](/base-chain/flashblocks/api-reference#base_transactionstatus) returns preconfirmed inclusion status within a single Flashblock interval (~200ms). Blocking on `eth_getTransactionReceipt` waits for a full sealed block (up to 2 seconds). For latency-sensitive strategies, poll `base_transactionStatus` first and only fall back to the receipt for finality confirmation.
+
+---
+
+## Fee calibration
+
+### L2 priority fee heuristics
+
+Use [`eth_feeHistory`](/base-chain/reference/json-rpc-api#eth_feehistory) over the last 5–10 blocks with reward percentiles `[50, 90]`:
 
 - **50th percentile reward** — standard inclusion within 1–3 Flashblocks
 - **90th percentile reward** — fast inclusion within the next Flashblock
-- **`maxFeePerGas`** — set to `nextBaseFee * 2 + maxPriorityFeePerGas` to survive base fee increases across multiple blocks
+- **`maxFeePerGas`** — set to `nextBaseFee * 2 + maxPriorityFeePerGas` to survive base fee increases across multiple blocks without overpaying
 
-The minimum base fee on Base is **0.005 gwei** (5,000,000 wei). The base fee can increase by at most **4% per block**. See [Network Fees](/base-chain/network-information/network-fees) for full EIP-1559 parameters.
+### L1 fee decision rule
 
-### Estimating the L1 fee
+Before signing, estimate the L1 cost via the [GasPriceOracle](/base-chain/network-information/network-fees#querying-the-l1-fee). If the ratio below exceeds `0.8` and trade size is small, the L1 fee dominates total cost — consider deferring until Ethereum congestion subsides:
 
-Query the **GasPriceOracle** predeployment before signing to understand the L1 cost:
-
-**Address:** `0x420000000000000000000000000000000000000F` (same on all networks)
-
-| Method | Use |
-| ------ | --- |
-| `getL1FeeUpperBound(uint256 txSize)` | Quick upper-bound estimate from approximate tx byte length |
-| `getL1Fee(bytes)` | Exact estimate from fully serialized transaction |
-| `l1BaseFee()` | Current Ethereum L1 base fee as seen by Base |
-| `blobBaseFee()` | Current EIP-4844 blob base fee |
-
-**Decision rule:** If `l1FeeUpperBound / (gasLimit * maxFeePerGas + l1FeeUpperBound) > 0.8` and trade size is small, the L1 fee dominates — consider deferring until Ethereum congestion subsides.
+```
+l1FeeUpperBound / (gasLimit × maxFeePerGas + l1FeeUpperBound) > 0.8
+```
 
 ---
 
-## Base-specific error handling
+## Base-specific failure modes
 
-These errors are specific to Base or require Base-specific resolution. For a full error taxonomy and retry policy table, see [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions).
+Most transaction errors are standard EVM. These are the Base-specific cases that require different handling:
 
-| Error | Cause | Resolution |
-| ----- | ----- | ---------- |
+| Failure | What it means | What to do |
+| ------- | ------------- | ---------- |
 | `replacement transaction underpriced` | Replacing a pending tx requires ≥10% higher `maxFeePerGas` **and** `maxPriorityFeePerGas` | Increase both by ≥10%, resubmit with same nonce |
-| `exceeds maximum per-transaction gas limit` | Gas limit above Base's 25M cap | Reduce gas limit or split transaction |
-| `transaction underpriced` | `maxFeePerGas` below current base fee (min 0.005 gwei) | Re-fetch base fee, rebuild transaction |
-| DA throttling (no specific error code) | Sequencer limiting L2 throughput to manage L1 data availability | No fee increase resolves this — wait for throttle to lift |
+| DA throttling (no error code returned) | Sequencer is rate-limiting L2 throughput to manage L1 data availability costs | Fee-bumping does not resolve this — wait for the throttle to lift |
 
-**Nonce management:** Always fetch nonce with `eth_getTransactionCount(address, "pending")`, not `"latest"`. For concurrent submissions, track nonce locally and increment atomically — fetching fresh on each parallel call returns the same value for all.
+For the full error taxonomy, see [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions).
+
+**Nonce for concurrent submissions:** Always fetch with `eth_getTransactionCount(address, "pending")`. For parallel submissions, fetch once and increment locally — fetching fresh per call returns the same value for all concurrent requests.
 
 ---
 
-## Strategy discovery: Base-specific signals
+## Strategy signals
 
-Base exposes data that most chains don't provide with this resolution. The table below maps each signal to the class of opportunity it enables.
+Base exposes data that most chains don't provide at this resolution. The table maps each Base-specific signal to the class of opportunity it enables.
 
 | Signal | How to access | Opportunity category |
 | ------ | ------------- | -------------------- |
-| Preconfirmed pending block state (200ms early) | `eth_getBlockByNumber("pending")` on `mainnet-preconf.base.org` | Detect price impact before block seals; act on state changes visible to no one else |
+| Preconfirmed pending block state (200ms early) | `eth_getBlockByNumber("pending")` on preconf endpoint | Detect price impact before block seals; act on state changes visible to no one else |
 | Preconfirmed transaction stream | `eth_subscribe("newFlashblockTransactions")` | First-mover on large trades entering the block |
 | Preconfirmed logs | `eth_subscribe("pendingLogs", { address, topics })` | Detect liquidation thresholds, pool price events, oracle updates before finality |
-| Fee spike detection | `eth_feeHistory` trend over last 5 blocks | Identify congestion onset; adjust routing or pause/resume based on cost conditions |
+| Fee spike detection | `eth_feeHistory` trend over last 5 blocks | Identify congestion onset; adjust routing or pause/resume based on cost |
 | L1 base fee trend | `GasPriceOracle.l1BaseFee()` polled over time | Time submissions to minimize L1 data cost; small trades become viable when L1 fee drops |
-| Block gas utilization | `gasUsedRatio` from `eth_feeHistory` | Predict upcoming fee increases; calibrate urgency |
+| Block gas utilization | `gasUsedRatio` from `eth_feeHistory` | Predict upcoming base fee increases; calibrate urgency |
 
-**The Flashblocks advantage:** Most chains have a single pool of pending transactions with uncertain ordering. On Base, the Flashblocks endpoint gives agents a deterministic, ordered view of the next 200ms of chain state before it finalizes. This creates an information edge that doesn't exist on chains with only mempool visibility.
+**The Flashblocks advantage:** Most chains expose a pool of pending transactions with uncertain ordering. On Base, the Flashblocks endpoint gives agents a deterministic, ordered view of the next 200ms of chain state before it finalizes. This is an information edge that does not exist on chains with mempool-only visibility.
 
-**On emerging edges:** Execution speed and fee optimization are table stakes. The more durable edge for LLM-based agents is likely in interpreting *why* chain state is changing — correlating onchain signals (large pending swaps, oracle updates, liquidation proximity) with offchain information (sentiment, protocol governance, cross-chain flows) faster than any human or rule-based system can. The signals above are the raw inputs; the synthesis is where the edge lives.
+**On emerging edges:** Execution speed and fee optimization are table stakes. The more durable edge for LLM-based agents is likely in interpreting *why* chain state is changing — correlating onchain signals (large pending swaps, oracle updates, liquidation proximity) with offchain context faster than any rule-based system can. The signals above are the raw inputs; the synthesis is where the edge lives.
 
 ---
 
 ## Related
 
-- [Flashblocks API Reference](/base-chain/flashblocks/api-reference) — full subscription types and Flashblocks-specific RPC methods
-- [Block Building](/base-chain/network-information/block-building) — Flashblocks configuration, per-transaction gas maximum
-- [Network Fees](/base-chain/network-information/network-fees) — EIP-1559 parameters, minimum base fee
+- [Flashblocks API Reference](/base-chain/flashblocks/api-reference) — `eth_simulateV1`, `base_transactionStatus`, subscription types
+- [Flashblocks Integration Guide](/base-chain/flashblocks/apps) — endpoints, library setup (Wagmi, Viem, Ethers)
+- [Block Building](/base-chain/network-information/block-building) — Flashblocks timing, per-transaction gas maximum
+- [Network Fees](/base-chain/network-information/network-fees) — EIP-1559 parameters, GasPriceOracle methods
 - [JSON-RPC API Reference](/base-chain/reference/json-rpc-api) — complete RPC method reference
-- [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions) — diagnose pending, rejected, and failed transactions
+- [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions) — full error taxonomy and retry policies
