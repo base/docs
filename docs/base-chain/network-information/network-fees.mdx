@@ -78,4 +78,19 @@ This gradual adjustment helps prevent extreme fee volatility during traffic spik
 | Base Mainnet | 6          | 125         | 4%               |
 | Base Sepolia | 6          | 125         | 4%               |
 
+## Querying the L1 Fee
+
+The **GasPriceOracle** predeployment at `0x420000000000000000000000000000000000000F` (listed in [Contract Addresses](/base-chain/network-information/base-contracts)) lets you programmatically estimate the L1 fee component before signing and submitting a transaction.
+
+| Method | Returns |
+| ------ | ------- |
+| `getL1Fee(bytes)` | Exact L1 fee for a fully serialized (RLP-encoded) transaction |
+| `getL1FeeUpperBound(uint256 txSize)` | Upper-bound L1 fee estimate from approximate transaction byte length |
+| `l1BaseFee()` | Current Ethereum L1 base fee as seen by Base |
+| `blobBaseFee()` | Current EIP-4844 blob base fee |
+| `baseFeeScalar()` | Scalar applied to the L1 base fee component |
+| `blobBaseFeeScalar()` | Scalar applied to the blob base fee component |
+
+Use `getL1FeeUpperBound` when you need a quick estimate before the transaction is fully constructed. Use `getL1Fee` with the complete serialized transaction for an exact value before signing.
+
 [Jovian upgrade]: https://docs.optimism.io/notices/upgrade-17
