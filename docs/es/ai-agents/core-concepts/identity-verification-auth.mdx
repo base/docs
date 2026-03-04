@@ -1,0 +1,84 @@
+---
+title: "Identidad, Verificación y Autenticación"
+description: "Haz que tu agente sea descubrible y verificable para que otros agentes y servicios puedan confiar en él"
+---
+
+Cuando tu agente llama a un servicio, ¿cómo sabe ese servicio que es realmente tu agente y no un impostor? Cuando tu agente recibe una respuesta, ¿cómo sabe que la respuesta provino de un servicio legítimo? La identidad, verificación y autenticación resuelven estos problemas.
+
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/l387PXGnrgU?si=EM4IKT14ajFoYkNP"
+  title="Agent identity, verification, and auth"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+## Por qué la identidad importa
+
+En un mundo donde los agentes interactúan entre sí y con servicios de forma autónoma, la confianza es la base. Sin identidad:
+
+- Un servicio no puede verificar que una solicitud provino de un agente autorizado
+- Tu agente no puede verificar que una respuesta provino del servicio real (no un impostor malicioso)
+- Otros agentes no pueden descubrir qué hace tu agente o cómo interactuar con él
+
+Los estándares de identidad en Base resuelven los tres problemas: permiten que tu agente se registre en un directorio público, pruebe su identidad con cada solicitud y descubra otros agentes y servicios.
+
+## Registry: un directorio público para agentes
+
+Un registry es un directorio público donde los agentes y servicios publican su identidad. Cualquier participante puede consultar el registry para resolver el nombre de un agente a sus metadatos: qué hace, dónde viven sus endpoints y qué clave pública usa para firmar.
+
+En Base, esto se implementa a través del estándar **ERC-8004**. Cuando tu agente se registra, su entrada se almacena onchain, lo que significa que cualquiera puede verificarla sin depender de una autoridad central.
+
+Una entrada de registry típicamente incluye:
+
+- El nombre y descripción de tu agente
+- Los endpoints donde puede ser alcanzado
+- Un <Tooltip tip="Un par de claves criptográficas: la clave pública se comparte abiertamente (como una dirección de retorno) e identifica tu agente, mientras que la clave privada se mantiene secreta (como un sello de firma) y prueba que controlas la identidad">par de claves</Tooltip> que vincula la identidad del agente a sus credenciales criptográficas
+
+[Aprende más sobre Agent Registry (ERC-8004) →](https://www.8004.org/)
+
+## Verificación: probando identidad en runtime
+
+El registro le dice al mundo que tu agente existe. La verificación prueba que es realmente tu agente haciendo cada solicitud. Esto es manejado por el estándar **ERC-8128**.
+
+<Steps>
+  <Step title="Registra tu agente">
+    Tu agente registra su identidad y clave pública en el registry ERC-8004. Este es un paso de configuración único.
+  </Step>
+
+  <Step title="Firma cada solicitud">
+    Cuando tu agente llama a un servicio, firma la solicitud usando su clave privada. Esto crea una firma criptográfica única para esa solicitud específica.
+  </Step>
+
+  <Step title="El servicio verifica la firma">
+    El servicio busca la clave pública de tu agente desde el registry, luego verifica la firma. Si la firma coincide, el servicio sabe que la solicitud provino de tu agente registrado y no de un impostor.
+  </Step>
+</Steps>
+
+Esto funciona en ambas direcciones: tu agente también puede verificar que la respuesta de un servicio es auténtica verificando la firma del servicio contra el registry.
+
+[Aprende más sobre Agent Verification (ERC-8128) →](https://erc8128.slice.so/concepts/overview)
+
+## Sign In With Agent (SIWA)
+
+SIWA agrupa registry y verificación en un solo SDK, similar a cómo "Sign in with Google" agrupa OAuth y verificación de identidad en una integración. En lugar de conectar ERC-8004 y ERC-8128 por separado, integras SIWA y obtienes ambas capacidades de forma predeterminada.
+
+Con SIWA, tu agente puede:
+
+- **Registrar su identidad** en el directorio onchain
+- **Autenticarse en servicios** probando que es el agente registrado
+- **Firmar cada solicitud** para que los servicios puedan verificar autenticidad
+
+SIWA es la ruta más rápida para dar a tu agente una identidad verificable. Usa ERC-8004 y ERC-8128 directamente solo si necesitas un control más granular sobre el proceso de registro y verificación.
+
+[Aprende más en siwa.id →](https://siwa.id)
+
+<Tip>
+**Comienza con SIWA** para la ruta de integración más simple. Usa ERC-8004 y ERC-8128 directamente si necesitas control detallado sobre cómo tu agente se registra y cómo se realiza la verificación.
+</Tip>
+
+## Siguiente paso
+
+<Card title="Aplicaciones de agentes" icon="arrow-right" href="/ai-agents/core-concepts/agent-apps">
+  Construye servicios diseñados para agentes y haz que tu aplicación sea descubrible.
+</Card>
