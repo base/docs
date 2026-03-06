@@ -1,0 +1,98 @@
+# https://docs.base.org/ai-agents/llms-full.txt
+
+## AI Agents — Deep Guide for LLMs
+
+> Build AI agents that operate as independent economic actors on Base: a wallet to hold and spend funds, identity standards so other agents can trust it, a payment protocol for pay-per-request APIs, and a discovery layer so agents can find each other.
+
+### What you can do here
+- Choose a framework (Agent SDK, OpenClaw, BANKR) to build and run your agent
+- Give your agent a wallet to hold stablecoins and sign transactions
+- Enable your agent to pay for services automatically using the x402 protocol
+- Register and verify agent identity for agent-to-agent trust
+- Build agent apps — services designed for agents as the primary user
+- Apply Base-specific patterns for trading agents using Flashblocks
+
+## Navigation (with brief descriptions)
+
+### Introduction
+- [AI Agents on Base](https://docs.base.org/ai-agents/index.md) — Overview and how pieces fit together
+
+### Core Concepts
+- [Frameworks](https://docs.base.org/ai-agents/core-concepts/agent-frameworks.md) — Agent SDK, OpenClaw, BANKR comparison
+- [Wallets](https://docs.base.org/ai-agents/core-concepts/wallets.md) — Wallet options and setup
+- [Payments & Transactions](https://docs.base.org/ai-agents/core-concepts/payments-and-transactions.md) — x402 and skills
+- [Identity, Verification & Auth](https://docs.base.org/ai-agents/core-concepts/identity-verification-auth.md) — Agent identity and trust
+- [Agent Apps](https://docs.base.org/ai-agents/core-concepts/agent-apps.md) — Build agent-first services
+
+### Advanced
+- [Trading on Base](https://docs.base.org/ai-agents/trading.md) — Flashblocks, fee calibration, trading signals
+
+
+## Key Concepts (excerpts)
+
+Source: `https://docs.base.org/ai-agents/index.md`
+
+Base gives your AI agent the tools to operate as an independent economic actor:
+- **Framework**: Self-hosted SDK, open-source assistant (OpenClaw), or managed API (BANKR)
+- **Wallet**: Hold stablecoins, send payments, and sign transactions onchain
+- **Payments**: Pay for API access with stablecoins using the x402 pay-per-request protocol
+- **Identity**: Register your agent in a public directory so other agents and services can discover and verify it
+- **Agent Apps**: Create services designed for agents, exposing structured endpoints agents can call programmatically
+
+Source: `https://docs.base.org/ai-agents/core-concepts/agent-frameworks.md`
+
+Framework comparison:
+- **BANKR** — Managed Agent API with skill and wallet plugins; best for fast deployment
+- **OpenClaw** — Open-source personal AI assistant (Discord, Telegram, web); best for multi-channel agents
+- **Agent SDK** — Developer toolkit for custom agents with full control over behavior and integrations
+
+Source: `https://docs.base.org/ai-agents/core-concepts/wallets.md`
+
+An onchain wallet gives your agent the ability to hold funds, authorize transactions, and sign messages. Without one, your agent can read data but can't pay for services, receive payments, or prove its identity.
+
+Source: `https://docs.base.org/ai-agents/core-concepts/payments-and-transactions.md`
+
+- **x402 protocol**: Agents pay for services automatically with stablecoins on a per-request basis, no human approval required
+- **Skills**: Pre-built onchain actions (swaps, transfers, contract calls) that your agent can perform through a structured API
+
+Source: `https://docs.base.org/ai-agents/core-concepts/identity-verification-auth.md`
+
+- Agents register in a public directory with verifiable credentials
+- Other agents and services can look up and verify identity before trusting
+- Authentication flows designed for machine-to-machine (no human in the loop)
+
+Source: `https://docs.base.org/ai-agents/core-concepts/agent-apps.md`
+
+- Agent apps expose structured endpoints (not visual UIs) that agents can discover and call
+- Make your service discoverable by registering it in the agent directory
+- Design APIs with explicit schemas so agents can reason about inputs and outputs
+
+
+## Trading Agents (excerpts)
+
+Source: `https://docs.base.org/ai-agents/trading.md`
+
+Base offers two structural advantages for trading agents:
+- **Flashblocks**: 200ms preconfirmed block state, 10× faster than the 2-second block
+- **Exposed L1/L2 fee structure**: Enables explicit cost-vs-speed tradeoffs
+
+Key patterns:
+- Connect to `mainnet-preconf.base.org` for all reads and submissions to access Flashblocks pending state
+- Simulate with `eth_simulateV1` against preconfirmed state before signing any transaction
+- Poll `base_transactionStatus` (not `eth_getTransactionReceipt`) for low-latency inclusion status (~200ms)
+- Use `eth_feeHistory` over last 5–10 blocks with reward percentiles `[50, 90]` for fee calibration
+
+Fee calibration:
+```
+maxFeePerGas = nextBaseFee * 2 + maxPriorityFeePerGas
+```
+
+L1 fee decision rule — if this ratio exceeds 0.8, L1 fee dominates; consider deferring small trades:
+```
+l1FeeUpperBound / (gasLimit × maxFeePerGas + l1FeeUpperBound) > 0.8
+```
+
+Key Flashblocks signals for trading:
+- `eth_getBlockByNumber("pending")` on preconf endpoint — preconfirmed pending block state (200ms early)
+- `eth_subscribe("newFlashblockTransactions")` — first-mover on large trades entering the block
+- `eth_subscribe("pendingLogs", { address, topics })` — detect liquidation thresholds and oracle updates before finality
