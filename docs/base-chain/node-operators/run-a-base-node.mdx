@@ -1,5 +1,5 @@
 ---
-title: 'Getting Started'
+title: Run a Node
 description: A tutorial that teaches how to set up and run a Base Node.
 ---
 
@@ -10,6 +10,7 @@ This tutorial will walk you through setting up your own [Base Node](https://gith
 By the end of this tutorial you should be able to:
 
 - Deploy and sync a Base node
+- Enable Flashblocks for 200ms preconfirmations
 
 ## Prerequisites
 
@@ -100,3 +101,70 @@ echo Latest synced block behind by: $((($(date +%s)-$( \
 ```
 
 You'll also know that the sync hasn't completed if you get `Error: nonce has already been used` if you try to deploy using your node.
+
+---
+
+## Enable Flashblocks
+
+Once your node is synced, you can enable Flashblocks to serve 200ms preconfirmations to your applications.
+
+### Configuration
+
+To enable Flashblocks, start your node with the following environment variables:
+
+```sh
+NODE_TYPE=base CLIENT=reth RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base.org/ws" docker-compose up
+```
+
+| Variable | Description | Values |
+|----------|-------------|--------|
+| `NODE_TYPE` | Enables base reth node with Flashblocks | `base` |
+| `CLIENT` | Execution client | `reth` |
+| `RETH_FB_WEBSOCKET_URL` | Flashblocks WebSocket endpoint | See below |
+
+### WebSocket Endpoints
+
+| Network | URL |
+|---------|-----|
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+<Warning>
+**These WebSocket endpoints are for node infrastructure only.** Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [App Integration guide](/base-chain/flashblocks/apps) for details.
+</Warning>
+
+<Note>
+The [base](https://github.com/base/base) binary listens to the Flashblocks WebSocket stream and caches preconfirmation data. When Flashblocks-aware RPC methods are called, it returns data from this cache.
+</Note>
+
+### Verify Flashblocks Functionality
+
+Test that your node is properly serving Flashblocks by querying a pending block:
+
+```sh
+curl -X POST \
+  --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["pending", false],"id":1}' \
+  http://localhost:8545
+```
+
+A successful response will include block data from the latest Flashblock. If Flashblocks are temporarily unavailable, the node falls back to returning the latest finalized block.
+
+### Available RPC Methods
+
+Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods, plus these Flashblocks-enabled endpoints:
+
+| Method | Flashblocks Usage |
+|--------|------------------|
+| [`eth_getBlockByNumber`](/base-chain/flashblocks/apps#eth_getblockbynumber) | Use `pending` tag |
+| [`eth_getBalance`](/base-chain/flashblocks/apps#eth_getbalance) | Use `pending` tag |
+| [`eth_getTransactionReceipt`](/base-chain/flashblocks/apps#eth_gettransactionreceipt) | Returns preconfirmed receipts |
+| [`eth_getTransactionByHash`](/base-chain/flashblocks/apps#eth_gettransactionbyhash) | Use `pending` tag |
+| [`eth_getTransactionCount`](/base-chain/flashblocks/apps#eth_gettransactioncount) | Use `pending` tag |
+| [`eth_call`](/base-chain/flashblocks/apps#eth_call) | Use `pending` tag |
+| [`eth_simulateV1`](/base-chain/flashblocks/apps#eth_simulatev1) | Use `pending` tag |
+| [`eth_estimateGas`](/base-chain/flashblocks/apps#eth_estimategas) | Use `pending` tag |
+| [`eth_getLogs`](/base-chain/flashblocks/apps#eth_getlogs) | Use `pending` for `toBlock` |
+| [`eth_subscribe`](/base-chain/flashblocks/apps#eth_subscribe-beta) | Stream Flashblock data in real-time (Beta) |
+| [`base_transactionStatus`](/base-chain/flashblocks/apps#base_transactionstatus-beta) | Check if transaction is in mempool (Beta) |
+
+For code examples, see the [App Integration guide](/base-chain/flashblocks/apps#rpc-api).

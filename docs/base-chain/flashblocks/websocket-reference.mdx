@@ -1,0 +1,438 @@
+---
+title: Flashblocks WebSocket Reference
+sidebarTitle: WebSocket Reference
+description: Technical reference for the Flashblocks WebSocket API, data formats, and response schemas used for infrastructure-to-node data syncing.
+---
+
+This page documents the Flashblocks WebSocket API used for **infrastructure-to-node data syncing**.
+
+<Warning>
+**Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`**. This endpoint is reserved for node infrastructure. Apps should query their RPC node or node provider (e.g., QuickNode, Alchemy) for Flashblocks data instead. See the [App Integration guide](/base-chain/flashblocks/apps) for implementation details.
+</Warning>
+
+<Info>
+For background on how Flashblocks work and the [base](https://github.com/base/base) component, see the [Flashblocks Architecture](/base-chain/flashblocks/architecture).
+</Info>
+
+---
+
+## WebSocket Endpoints
+
+| Network | URL |
+|---------|-----|
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+<Warning>
+These endpoints are rate-limited (max 10 connections per IP).
+</Warning>
+
+<Tip>
+Applications should avoid hard dependencies on the WebSocket stream. RPCs provide stable behavior and automatic failover to regular blocks if Flashblocks are unavailable.
+</Tip>
+
+
+---
+
+## Message Format
+
+Messages are delivered as **Brotli-compressed binary** data. Decompress before parsing as JSON.
+
+To minimize bandwidth, each Flashblock only includes **diff data** from the previous Flashblock:
+
+- **[Index 0](#flashblock-object)** (initial): Contains the [`base`](#base-object) object with full block properties, plus the first [`diff`](#diff-object)
+- **[Index 1-10](#flashblock-object)** (subsequent): Contains only [`diff`](#diff-object) data (new transactions, updated state root, gas used)
+
+---
+
+## Schema
+
+### Flashblock Object
+
+The root structure of each WebSocket message. 
+
+<Card>
+<ParamField path="payload_id" type="string">
+Unique identifier for the block being built. Remains consistent across all 10 Flashblocks within a single full block.
+</ParamField>
+
+<ParamField path="index" type="number">
+Flashblock index within the current block (0-10). Index 0 contains system transactions only; indexes 1-10 contain user transactions.
+</ParamField>
+
+<ParamField path="base" type="Base">
+Block header properties. **Only present when `index` is 0.** See [Base Object](#base-object).
+</ParamField>
+
+<ParamField path="diff" type="Diff">
+Block differences/updates for this Flashblock. See [Diff Object](#diff-object).
+</ParamField>
+
+<ParamField path="metadata" type="Metadata">
+Additional data including balance updates and transaction receipts. **This object is not stable and may change without notice.** See [Metadata Object](#metadata-object).
+</ParamField>
+</Card>
+
+Example:
+```json flashblock.json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 0,
+  "base": { ... },
+  "diff": { ... },
+  "metadata": { ... }
+}
+```
+
+---
+
+### Base Object
+
+Contains full block header properties. **Only present in Index 0** (the first Flashblock of each full block).
+
+<Card>
+<ParamField path="parent_hash" type="string">
+Hash of the parent block.
+</ParamField>
+
+<ParamField path="fee_recipient" type="string">
+Address receiving transaction fees (coinbase).
+</ParamField>
+
+<ParamField path="block_number" type="string">
+Block number in hex format.
+</ParamField>
+
+<ParamField path="gas_limit" type="string">
+Maximum gas allowed in this block (hex).
+</ParamField>
+
+<ParamField path="timestamp" type="string">
+Unix timestamp of block creation (hex).
+</ParamField>
+
+<ParamField path="base_fee_per_gas" type="string">
+Base fee per gas unit (hex, EIP-1559).
+</ParamField>
+
+<ParamField path="prev_randao" type="string">
+Previous RANDAO value for randomness.
+</ParamField>
+
+<ParamField path="extra_data" type="string">
+Arbitrary data included by the block builder.
+</ParamField>
+</Card>
+
+Example:
+```json base.json
+{
+  "parent_hash": "0x9edc29b8b0a1e31d28616e40c16132ad0d58faa8bb952595b557526bdb9a960a",
+  "fee_recipient": "0x4200000000000000000000000000000000000011",
+  "block_number": "0x158a0e9",
+  "gas_limit": "0x3938700",
+  "timestamp": "0x67bf8332",
+  "base_fee_per_gas": "0xfa",
+  "prev_randao": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "extra_data": "0x"
+}
+```
+
+---
+
+### Diff Object
+
+Contains the block state changes for this specific Flashblock. Present in every message.
+
+<Card>
+<ParamField path="state_root" type="string">
+Merkle root of the state trie after applying this Flashblock's transactions.
+</ParamField>
+
+<ParamField path="block_hash" type="string">
+Hash of the block at this Flashblock index. Changes with each Flashblock as more transactions are added.
+</ParamField>
+
+<ParamField path="gas_used" type="string">
+Cumulative gas used up to and including this Flashblock (hex).
+</ParamField>
+
+<ParamField path="blob_gas_used" type="string">
+Cumulative blob gas used (hex, EIP-4844).
+</ParamField>
+
+<ParamField path="transactions" type="string[]">
+Array of RLP-encoded transaction data included in this Flashblock.
+</ParamField>
+
+<ParamField path="withdrawals" type="array">
+Validator withdrawals included in this Flashblock (typically empty on L2).
+</ParamField>
+
+<ParamField path="receipts_root" type="string">
+Merkle root of transaction receipts.
+</ParamField>
+
+<ParamField path="logs_bloom" type="string">
+Bloom filter for quick log searching.
+</ParamField>
+
+<ParamField path="withdrawals_root" type="string">
+Merkle root of withdrawals.
+</ParamField>
+</Card>
+
+Example:
+```json diff.json
+{
+  "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
+  "block_hash": "0x5c330e55a190f82ea486b61e5b12e27dfb4fb3cecfc5746886ef38ca1281bce8",
+  "gas_used": "0xab3f",
+  "blob_gas_used": "0x0",
+  "transactions": [
+    "0x02f90133..."
+  ],
+  "withdrawals": [],
+  "receipts_root": "0xa83fdcff1e433d49",
+  "logs_bloom": "0x00000000...",
+  "withdrawals_root": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+}
+```
+
+---
+
+### Metadata Object
+
+<Warning>
+**The `metadata` object is not stable.** Fields may be added, modified, or removed without prior notice. Do not build production dependencies on the structure or presence of any metadata fields. If you require stable data, use the [`diff`](#diff-object) object or query finalized block data via RPC.
+</Warning>
+
+Contains additional block metadata, including balance updates and transaction receipts.
+
+<Card>
+<ParamField path="block_number" type="number">
+Block number as a decimal integer.
+</ParamField>
+
+<ParamField path="new_account_balances" type="object">
+Map of addresses to their updated ETH balances (hex). Only includes accounts whose balances changed in this Flashblock.
+</ParamField>
+
+<ParamField path="receipts" type="object">
+Map of transaction hashes to their [Receipt](#receipt-object) objects. Contains execution results for transactions in this Flashblock.
+</ParamField>
+</Card>
+
+Example:
+```json metadata.json
+{
+  "block_number": 22585577,
+  "new_account_balances": {
+    "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0",
+    "0x4200000000000000000000000000000000000015": "0x1234"
+  },
+  "receipts": {
+    "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": { ... }
+  }
+}
+```
+
+---
+
+### Receipt Object
+
+Transaction execution result. Receipts come in two formats: **EIP-1559** (modern) or **Legacy**. Check which field is present to determine the type.
+
+<Card>
+<ParamField path="Eip1559" type="ReceiptData">
+Receipt data for EIP-1559 transactions. See [ReceiptData](#receiptdata-object).
+</ParamField>
+
+<ParamField path="Legacy" type="ReceiptData">
+Receipt data for legacy transactions. See [ReceiptData](#receiptdata-object).
+</ParamField>
+
+<ParamField path="Deposit" type="ReceiptData">
+Receipt data for L1→L2 deposit transactions. See [ReceiptData](#receiptdata-object).
+</ParamField>
+</Card>
+
+Example:
+```json receipt.json
+{
+  "Eip1559": {
+    "status": "0x1",
+    "cumulativeGasUsed": "0x1234f",
+    "logs": []
+  }
+}
+```
+
+---
+
+### ReceiptData Object
+
+The actual receipt information, regardless of transaction type.
+
+<Card>
+<ParamField path="status" type="string">
+Transaction status: `0x1` for success, `0x0` for failure.
+</ParamField>
+
+<ParamField path="cumulativeGasUsed" type="string">
+Total gas used in the block up to and including this transaction (hex).
+</ParamField>
+
+<ParamField path="logs" type="Log[]">
+Array of event logs emitted by the transaction. See [Log Object](#log-object).
+</ParamField>
+
+<ParamField path="depositNonce" type="string">
+Nonce for deposit transactions (L1→L2 only).
+</ParamField>
+</Card>
+
+Example:
+```json receiptdata.json
+{
+  "status": "0x1",
+  "cumulativeGasUsed": "0x1234f",
+  "logs": [
+    {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
+      "data": "0x0000000000000000000000000000000000000000000000000000000000001234"
+    }
+  ]
+}
+```
+
+---
+
+### Log Object
+
+Event log emitted by a smart contract. Crucial for detecting swaps, transfers, and other contract events.
+
+<Card>
+<ParamField path="address" type="string">
+Contract address that emitted the event.
+</ParamField>
+
+<ParamField path="topics" type="string[]">
+Array of indexed event parameters. The first topic is typically the event signature hash (e.g., `Transfer(address,address,uint256)`).
+</ParamField>
+
+<ParamField path="data" type="string">
+ABI-encoded non-indexed event parameters.
+</ParamField>
+</Card>
+
+Example:
+```json log.json
+{
+  "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "topics": [
+    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+    "0x000000000000000000000000abc123...",
+    "0x000000000000000000000000def456..."
+  ],
+  "data": "0x0000000000000000000000000000000000000000000000000000000000001234"
+}
+```
+
+---
+
+## Complete Example
+
+### Index 0 Response (Initial)
+
+The first Flashblock of each full block includes the `base` object:
+
+Example:
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 0,
+  "base": {
+    "parent_hash": "0x9edc29b8b0a1e31d28616e40c16132ad0d58faa8bb952595b557526bdb9a960a",
+    "fee_recipient": "0x4200000000000000000000000000000000000011",
+    "block_number": "0x158a0e9",
+    "gas_limit": "0x3938700",
+    "timestamp": "0x67bf8332",
+    "base_fee_per_gas": "0xfa"
+  },
+  "diff": {
+    "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
+    "block_hash": "0x5c330e55a190f82ea486b61e5b12e27dfb4fb3cecfc5746886ef38ca1281bce8",
+    "gas_used": "0xab3f",
+    "transactions": [
+      "0x7ef8f8a0b4afc0b7ce10e150801bbaf08ac33fecb0f38311793abccb022120d321c6d276..."
+    ],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577,
+    "new_account_balances": {
+      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0"
+    },
+    "receipts": {
+      "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
+        "Deposit": {
+          "status": "0x1",
+          "cumulativeGasUsed": "0xab3f",
+          "logs": [],
+          "depositNonce": "0x158a0ea"
+        }
+      }
+    }
+  }
+}
+```
+
+### Index 1-10 Response (Diff Only)
+
+Subsequent Flashblocks only include the `diff` (no `base` object):
+
+Example:
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 4,
+  "diff": {
+    "state_root": "0x7a8f45038665072f382730e689f4a1561835c9987fca8942fa95872fb9367eaa",
+    "block_hash": "0x9b32f7a14cbd1efc8c2c5cad5eb718ec9e0c5da92c3ba7080f8d4c49d660c332",
+    "gas_used": "0x1234f",
+    "transactions": [
+      "0x02f90133...",
+      "0x02f90196..."
+    ],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577,
+    "new_account_balances": {
+      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0",
+      "0x4200000000000000000000000000000000000015": "0x1234"
+    },
+    "receipts": {
+      "0x7c69632dc315f13a...": {
+        "Eip1559": {
+          "status": "0x1",
+          "cumulativeGasUsed": "0x1234f",
+          "logs": []
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Further Resources
+
+- [How To Build a Base Flashblocks Listener](https://docs.getblock.io/guides/how-to-build-a-base-flashblocks-listener) — Step-by-step Go tutorial
+- [Flashblocks Overview](/base-chain/flashblocks/overview) — Key concepts and transaction lifecycle
+- [App Integration](/base-chain/flashblocks/apps) — RPC examples and library integrations
+- [Reth node README](https://github.com/base/node/tree/main/reth#readme) — Hardware requirements and configuration
+- [Flashblocks Deep Dive](https://blog.base.dev/flashblocks-deep-dive) — Engineering blog with implementation details

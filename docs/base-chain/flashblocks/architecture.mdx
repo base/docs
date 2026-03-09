@@ -1,0 +1,39 @@
+---
+title: Flashblocks Architecture
+sidebarTitle: Architecture
+description: Understand the sequencer architecture and infrastructure components that power Flashblocks on Base.
+---
+
+## Before Flashblocks
+
+Base operates a high-availability sequencer system with five sequencer instances:
+
+| Component | Role |
+|-----------|------|
+| **op-node** | Standard OP Stack consensus layer (CL) |
+| **op-geth** | Standard OP Stack execution layer (EL) |
+| **op-conductor** | High availability controller with Raft consensus for leader election |
+
+One sequencer instance acts as the **leader**, responsible for building blocks and propagating them via P2P. The remaining four act as **followers** that sync the chain. Leadership transfers if the current leader stops producing blocks.
+
+## With Flashblocks
+
+Flashblocks introduce several new infrastructure components:
+
+| Component | Purpose | What It Unlocks |
+|-----------|---------|-----------------|
+| **rollup-boost** | CL↔EL Engine API proxy | Enables sharing Flashblocks with the EL without modifying the CL. Provides a stable seam for future block-building evolutions (multi-builder, etc.) |
+| **op-rbuilder** | Out-of-protocol builder at 200ms cadence | Produces the sub-second Flashblocks, decoupled from the EL. Enables pluggable builder mechanisms |
+| **websocket-proxy** | Flashblocks stream fan-out | Broadcast layer so many consumers can read the stream without overwhelming the builder |
+| **[base](https://github.com/base/base)** | RPC surface exposing preconfirmations | Converts streamed Flashblocks into familiar RPCs so apps and wallets can consume preconfirmation state |
+
+Both [rollup-boost](https://github.com/flashbots/rollup-boost) and [op-rbuilder](https://github.com/flashbots/op-rbuilder) are built and maintained by Flashbots, while Base maintains the websocket-proxy and [base](https://github.com/base/base) components.
+
+---
+
+## Further Reading
+
+- [Flashblocks Overview](/base-chain/flashblocks/overview) — Key concepts and transaction lifecycle
+- [Enable Flashblocks](/base-chain/node-operators/run-a-base-node#enable-flashblocks) — Run your own Flashblocks-aware RPC node
+- [WebSocket Reference](/base-chain/flashblocks/websocket-reference) — Technical reference for infrastructure-to-node data syncing
+- [Flashblocks Deep Dive](https://blog.base.dev/flashblocks-deep-dive) — Engineering blog post with implementation details

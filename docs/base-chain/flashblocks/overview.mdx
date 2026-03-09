@@ -1,0 +1,163 @@
+---
+title: Flashblocks Overview
+sidebarTitle: Overview
+description: Understand the sequencer architecture, block building algorithm, and integration options for Flashblocks on Base.
+---
+
+## What are Flashblocks?
+
+Flashblocks introduce **200ms** incremental state updates to Base, significantly reducing perceived latency for users. 
+
+Built in collaboration with [Flashbots](https://www.flashbots.net/), this mechanism streams sub-blocks within the standard 2-second block interval, providing near-instant sequencer preconfirmations, allowing applications to reflect state changes long before the full block is gossiped to the rest of the network. 
+
+<Note>
+Flashblocks are always live on Base. All blocks are built by the Flashblocks builder. Apps can choose whether to consume preconfirmations or wait for standard 2-second block finality.
+</Note>
+
+### Key Concepts
+
+| Term | Definition |
+|------|------------|
+| **Flashblock** | A 200ms sub-block containing a portion of the full block's transactions |
+| **Preconfirmation** | An ultra-fast signal that a transaction will be included, before the full block is sealed |
+| **Full Block** | A series of 10 Flashblocks combined to form the complete 2-second block |
+
+Each block contains **10 Flashblocks** (indexes 1-10), each arriving every 200ms. Index 0 exists but only contains system transactions. See [Gas Allocation](#gas-allocation) for how gas budgets work.
+
+
+## Architecture
+
+For details on the sequencer system and Flashblocks infrastructure components (rollup-boost, op-rbuilder, websocket-proxy, and base), see the [Architecture](/base-chain/flashblocks/architecture) page.
+
+## Transaction Lifecycle
+
+When you send a transaction to Base, here's what happens:
+
+### 1. Submission
+```
+User → DNS (mainnet.base.org) → Load Balancer → Proxyd → Mempool
+```
+
+The transaction reaches the private mempool and is inserted into the txpool as pending.
+
+### 2. Distribution
+The mempool maintains P2P connections with execution layers (op-reth, op-rbuilder), ensuring all pending transactions are synced for block building.
+
+### 3. Block Building
+During each 200ms block building loop, op-rbuilder selects transactions based on:
+
+1. **Transaction fee** — transactions are ordered by fee (highest first)
+2. **Gas limit and remaining capacity** — each Flashblock `j` can use up to `j/10` of the total block gas limit
+
+<Note>
+**Dynamic Mempool:** The builder uses a dynamic mempool that continuously accepts new transactions while building. This minimizes inclusion latency but means a late-arriving high-fee transaction may appear after an already-committed lower-fee transaction within the same Flashblock. This is expected behavior, not a violation of fee priority—transactions are ordered by fee *at the time they're selected*.
+</Note>
+
+### 4. Block Building Algorithm
+
+The builder follows this process for each 2-second block:
+
+```
+FOR each flashblock j FROM 0 TO 10:
+    1. Wait until next 200ms window
+    2. Calculate available gas: (j / 10) × total_block_gas_limit
+    3. Sort pending transactions by fee (descending)
+    4. Select top transactions that fit within available gas
+    5. Execute transactions and update state
+    6. Stream flashblock to websocket-proxy
+```
+
+<Note>
+**Index 0** contains only system transactions and doesn't use any gas limit. **Indexes 1-10** are the actual Flashblocks that pull pending transactions from the txpool.
+</Note>
+
+### 5. Preconfirmation Delivery
+Once a transaction is included in a Flashblock, it's streamed to the websocket-proxy, which RPC nodes listen to. When you call a Flashblocks-aware RPC method (like `eth_getTransactionReceipt`), the node retrieves the preconfirmed data from its cache.
+
+<Info>
+For the complete WebSocket message schema, see the [WebSocket Reference](/base-chain/flashblocks/websocket-reference#schema): [Flashblock](/base-chain/flashblocks/websocket-reference#flashblock-object), [Diff](/base-chain/flashblocks/websocket-reference#diff-object), [Metadata](/base-chain/flashblocks/websocket-reference#metadata-object), [Receipt](/base-chain/flashblocks/websocket-reference#receipt-object). Note: The `metadata` object is **not stable** and may change without notice.
+</Info>
+
+---
+
+## Gas Allocation
+
+The gas budget is **cumulative**, not per-Flashblock. Each Flashblock unlocks an additional 1/10 of the total block gas:
+
+| Flashblock | Cumulative Gas Available |
+|------------|--------------------------|
+| 1 | 1/10 of block limit (~18.75M gas) |
+| 2 | 2/10 of block limit (~37.5M gas) |
+| 3 | 3/10 of block limit (~56.25M gas) |
+| ... | ... |
+| 10 | Full block limit (~187.5M gas) |
+
+<Tip>
+**Unused gas carries forward.** If Flashblock 1 only uses 0.3/10 of gas, Flashblock 2 can use up to 1.7/10 (the cumulative 2/10 limit minus what's already been used).
+</Tip>
+
+**Implications for large transactions:**
+- Transactions exceeding 1/10 of block gas (~18.75M) can be included once enough cumulative capacity exists. For example, a 20M gas transaction can be included in the 2nd Flashblock if the 1st Flashblock leaves at least 1.25M gas unused (since 2/10 = 37.5M cumulative, minus 20M needed = 17.5M already consumed is acceptable).
+- There is a separate **max gas limit per transaction** on Base, which is distinct from Flashblock capacity.
+- Large transactions may experience slightly longer inclusion times while waiting for sufficient cumulative capacity.
+
+---
+
+## Reliability
+
+### Reorg Rate
+
+Base targets a < 0.1% Flashblock reorg rate. A reorg means a Flashblock was streamed as a preconfirmation but wasn't included in the final block.
+
+A reorg means a Flashblock was streamed as a preconfirmation but wasn't included in the final block. This is rare due to architectural improvements where rollup-boost stores Flashblocks in a `best_payload` variable and only returns the final payload on `get_payload`, preventing tail Flashblock reorgs.
+
+<Warning>
+**Implement fallback logic.** While reorg rates are low, applications should handle the possibility of preconfirmation reorgs by falling back to full block data for critical operations. Check current metrics at [base.org/stats](https://base.org/stats).
+</Warning>
+
+### Builder Failover
+
+The op-conductor verifies builder health by checking if the builder remains synced with the tip of the chain. If a builder falls behind, leadership transfers automatically. This ensures high availability—Flashblocks won't experience extended outages due to unhealthy builders.
+
+### Fallback Behavior
+
+If an extreme circumstance makes running Flashblocks unsafe, preconfirmations are disabled network-wide and confirmation falls back to standard 2-second blocks. The sequencer continues operating normally.
+
+---
+
+## Performance Characteristics
+
+| Metric | Value |
+|--------|-------|
+| Flashblock build time (P50) | ~10ms |
+| Preconfirmation latency | ~200ms |
+| Full block time | 2 seconds |
+| Flashblocks per block | 10 |
+| Reorg rate | < 0.1% |
+
+---
+
+## Integration Paths
+
+Choose the integration method that fits your use case:
+
+| Use Case | Recommended Approach | Documentation |
+|----------|---------------------|---------------|
+| **Apps needing instant UX** | Flashblocks-aware RPC with `pending` tag | [App Integration](/base-chain/flashblocks/apps) |
+| **Infrastructure providers** | Host Flashblocks-aware RPC nodes | [Enable Flashblocks](/base-chain/node-operators/run-a-base-node#enable-flashblocks) |
+| **Standard apps** | Continue using regular RPCs | No changes needed |
+
+<Tip>
+Applications should avoid hard dependencies on the WebSocket stream. RPCs provide stable behavior and automatic failover to regular blocks if Flashblocks go down.
+</Tip>
+
+---
+
+## Further Reading
+
+- [App Integration Guide](/base-chain/flashblocks/apps) — RPC methods, code examples, and library integrations
+- [Enable Flashblocks](/base-chain/node-operators/run-a-base-node#enable-flashblocks) — Run your own Flashblocks-aware RPC node
+- [WebSocket Reference](/base-chain/flashblocks/websocket-reference) — Technical reference for infrastructure-to-node data syncing
+- [FAQ](/base-chain/flashblocks/faq) — Common questions about Flashblocks
+- [Block Building](/base-chain/network-information/block-building) — Detailed block ordering configuration
+- [Flashblocks Deep Dive](https://blog.base.dev/flashblocks-deep-dive) — Engineering blog post with implementation details
