@@ -1,0 +1,246 @@
+---
+title: "Migrate to a Standard Web App"
+description: "Migrate your Farcaster mini app to work in the Base App. Covers environment detection with isInMiniApp, replacing deprecated SDK methods, and registering on Base.dev."
+tag: "NEW"
+---
+
+<Warning>
+After April 2, the Base App treats all apps as standard web apps regardless of Farcaster manifests. Use the migration paths below to get your app working correctly in the Base App.
+</Warning>
+
+## What's changing
+
+The Base App is moving from the Farcaster mini-app spec to a single model: **standard web app + wallet**, powered by Base.dev.
+
+| Before | After |
+| --- | --- |
+| Farcaster manifest (`/.well-known/farcaster.json`) | App metadata on [Base.dev](https://www.base.dev) projects |
+| Neynar webhooks for add/remove events | Base-owned backends (Base Account / address preferences) |
+| FID-based notifications via Neynar | Wallet-address notifications via Base.dev notifications API |
+| Farcaster SDK for auth and actions | wagmi + viem + Sign-In with Ethereum (SIWE) |
+| Search and discovery via Farcaster | Base.dev app metadata + builder codes |
+
+---
+
+## Choose your migration path
+
+<Tabs>
+<Tab title="Standard web app">
+
+Your app has no Farcaster SDK dependencies. You're mostly done.
+
+<Steps>
+<Step title="Confirm your app is web- and wallet-ready">
+  - Loads in a mobile browser (the Base App uses a standard in-app browser)
+  - Uses wagmi/viem for wallet connection and contract interactions
+  - Uses SIWE for authentication where needed
+</Step>
+
+<Step title="Register on Base.dev">
+  Create a project at [base.dev](https://www.base.dev) and set your app's **primary URL**.
+</Step>
+
+<Step title="Fill in project metadata">
+  Complete all metadata fields in your Base.dev project:
+
+  - Name, icon, tagline, description
+  - Screenshots, category
+  - Primary URL, builder code
+</Step>
+
+<Step title="Integrate notifications (optional)">
+  Use the Base.dev notifications API to send wallet-address notifications to users who installed your app and opted in. See [Notifications](/mini-apps/core-concepts/notifications).
+</Step>
+</Steps>
+
+<Check>
+Your existing web app is now ready for the Base App — no Farcaster manifest required.
+</Check>
+
+</Tab>
+
+<Tab title="Hybrid app (web + Farcaster)">
+
+Your app already has a web version alongside Farcaster support. The main work is ensuring Farcaster-specific UI and actions are not shown to Base App users.
+
+<Steps>
+<Step title="Gate Farcaster-specific logic with isInMiniApp">
+  Use the `isInMiniApp` utility from `@farcaster/miniapp-sdk` to detect the environment. Only render Farcaster-specific UI and call SDK methods when this returns `true`.
+
+  ```typescript
+  import { sdk } from '@farcaster/miniapp-sdk';
+
+  export function useEnvironment() {
+    const [isFarcaster, setIsFarcaster] = useState(false);
+
+    useEffect(() => {
+      sdk.isInMiniApp().then(setIsFarcaster);
+    }, []);
+
+    return { isFarcaster };
+  }
+  ```
+
+  ```tsx
+  function App() {
+    const { isFarcaster } = useEnvironment();
+
+    return (
+      <>
+        {isFarcaster ? (
+          <FarcasterActions />  // Farcaster SDK calls, FID-based UI
+        ) : (
+          <WalletConnect />     // wagmi wallet connect, SIWE auth
+        )}
+      </>
+    );
+  }
+  ```
+</Step>
+
+<Step title="Migrate notifications to Base.dev">
+  Farcaster-based notifications (via Neynar, FIDs, or tokens) will not reach Base App users. Replace them with the Base.dev notifications API, which sends by wallet address.
+
+  See [Notifications](/mini-apps/core-concepts/notifications) for the full integration guide.
+</Step>
+
+<Step title="Register on Base.dev and fill in metadata">
+  Create a project at [base.dev](https://www.base.dev) and complete your app metadata (name, icon, tagline, description, screenshots, category, primary URL, builder code).
+</Step>
+</Steps>
+
+<Check>
+After these steps, your app renders the correct experience for each environment from the same codebase.
+</Check>
+
+</Tab>
+
+<Tab title="Farcaster-only app">
+
+Your app has no standalone web experience. You have three options to make it compatible with the Base App.
+
+<AccordionGroup>
+<Accordion title="Option A — Convert to a standard web app">
+  Convert your app entirely to a standard web app.
+
+  1. Scaffold a new web app using the [Build a Base App](/get-started/build-app) quickstart as a reference:
+
+     ```bash Terminal
+     npx create-next-app@latest my-app --typescript --tailwind --app
+     cd my-app
+     npm install wagmi viem @tanstack/react-query
+     ```
+
+  2. Replace Farcaster sign-in with SIWE and use wallet address for identity (not FID):
+
+     ```typescript
+     import { useSignMessage, useAccount } from 'wagmi';
+     ```
+
+  3. Replace all Farcaster SDK method calls with their standard web equivalents. See the [deprecated methods table](#deprecated-farcaster-sdk-methods-in-the-base-app) below.
+
+  4. Register on [Base.dev](https://www.base.dev) and fill in your app metadata.
+</Accordion>
+
+<Accordion title="Option B — Build a separate web version">
+  Build a separate web version for the Base App. Both versions can share onchain logic (contracts, ABIs) but have independent front-ends.
+
+  1. Scaffold the web version from the [Build a Base App](/get-started/build-app) quickstart.
+  2. Port your core mechanics as an onchain flow using wagmi/viem.
+  3. Register the web version's URL on [Base.dev](https://www.base.dev) as the primary URL.
+</Accordion>
+
+<Accordion title="Option C — Add a hybrid layer (recommended)">
+  Add a web-compatible layer to your existing codebase using `isInMiniApp` detection. One codebase, one deployment.
+
+  1. Install `@farcaster/miniapp-sdk` if you haven't already, and use `isInMiniApp` to detect context:
+
+     ```typescript
+     import { sdk } from '@farcaster/miniapp-sdk';
+
+     const isFarcaster = await sdk.isInMiniApp();
+     ```
+
+  2. Add a web-compatible auth and wallet layer using wagmi/viem/SIWE for the non-Farcaster path.
+
+  3. Gate all Farcaster SDK calls and FID-based UI behind the `isFarcaster` check.
+
+  4. Register on [Base.dev](https://www.base.dev) and fill in your app metadata.
+
+  See the **Hybrid app** tab for the full pattern.
+</Accordion>
+</AccordionGroup>
+
+</Tab>
+</Tabs>
+
+---
+
+## Deprecated Farcaster SDK methods in the Base App
+
+The following Farcaster mini-app SDK methods are not invoked by the Base App after April 2. Migrate to the alternatives listed.
+
+| SDK method | Alternative in the Base App |
+| --- | --- |
+| `signIn` | Sign-In with Ethereum using wagmi (`useSignMessage`) |
+| `sendToken` | Standard ERC-20 transfer with wagmi (`useWriteContract`) |
+| `openUrl` | `window.open(url)` |
+| `openMiniApp` | `window.open(url)` |
+| `viewToken` | Deeplink: `https://base.app/coin/base-mainnet/TOKEN_ADDRESS` |
+| `viewProfile` | Deeplink: `https://base.app/profile/WALLET_ADDRESS` |
+| `swapToken` | No direct replacement in the Base App |
+| `requestCameraAndMicrophoneAccess` | No replacement |
+| `close` | No replacement |
+| `addMiniApp` | No replacement |
+| `viewCast` | Not needed in the Base App |
+| `composeCast` | Not needed in the Base App |
+| `ready` | Not needed — remove it from the Base App path |
+| User context and FID | Read the injected wallet address via wagmi (`useAccount`) |
+
+---
+
+## UX expectations for the Base App
+
+Apps running in the Base App should follow these UX principles:
+
+1. **Single focused first experience** — on first load, users should instantly understand what the app does and what the primary action is.
+2. **End-to-end onchain flow** — show onchain state before action, update the UI after the transaction confirms, and optionally link to an explorer.
+3. **Clear, explicit actions** — use descriptive button labels ("Increment tally", "Mint NFT") rather than generic labels ("Submit"). Show a progress state while a transaction is pending.
+4. **Wallet-first, mobile-first** — prominent "Connect wallet" entry point, layout optimized for the Base App webview, large tap targets.
+5. **Graceful states** — handle loading (skeletons/spinners), empty (explain what's missing + CTA), and error states (human-readable copy + retry action).
+6. **High-signal notifications** — if you send notifications, deep-link into a concrete, relevant screen. Only send to users who installed and opted in.
+
+---
+
+## Pre-flight checklist
+
+Before considering your app migrated, verify the following:
+
+<Steps>
+<Step title="Farcaster-specific features are gated">
+  Any Farcaster SDK calls or FID-based UI are wrapped in an `isInMiniApp()` check and do not render for standard web users.
+</Step>
+
+<Step title="Confirm standard web stack for the Base App path">
+  The web path uses wagmi + viem for wallet and contract interactions. SIWE is used for authentication where needed.
+</Step>
+
+<Step title="Register and complete Base.dev metadata">
+  Project is registered on [Base.dev](https://www.base.dev) with primary URL set. Name, icon, tagline, screenshots, category, description, and builder code are all filled in.
+</Step>
+
+<Step title="Notifications use Base.dev API (if applicable)">
+  Notifications are sent via the Base.dev notifications API by wallet address — not via Neynar, FIDs, or tokens.
+</Step>
+
+<Step title="UX meets Base App standards">
+  - One clear primary job
+  - One main CTA visible without deep scrolling
+  - Immediate, visible state update after transactions
+  - Mobile-friendly layout with clear loading and error states
+</Step>
+</Steps>
+
+<Check>
+If all steps above are complete, your app is ready for the Base App as a standard web app + wallet powered by Base.dev.
+</Check>
