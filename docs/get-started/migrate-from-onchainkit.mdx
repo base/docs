@@ -3,11 +3,46 @@ title: "Migrate your OnchainKit App"
 description: "How to migrate your OnchainKit app to wagmi and viem using the Base migration skill."
 ---
 
-OnchainKit is being deprecated. This guide helps you migrate your existing OnchainKit app to standalone [wagmi](https://wagmi.sh) and [viem](https://viem.sh) using the Base migration skill.
+OnchainKit is no longer maintained. This guide helps you migrate your existing OnchainKit app to a standalone [wagmi](https://wagmi.sh) project using the Base migration skill.
 
-The skill covers three components: `OnchainKitProvider`, `Wallet`, and `Transaction`. Install it from the [Base Skills repo](https://github.com/base/skills/tree/master/skills) and use the prompts below with your AI coding assistant.
+## Overview
+
+The skill handles three components: `OnchainKitProvider`, `Wallet`, and `Transaction`. For each it:
+
+- Deletes existing OnchainKit component code from your project
+- Creates new wagmi/viem-based replacement files
+- Logs any errors in a `mistakes.md` file at your project root
+
+## Prerequisites
+
+- A Next.js or React project using OnchainKit
+- An AI coding assistant that supports skills (Claude Code or Cursor)
+
+## Install the Skill
+
+<Steps>
+<Step title="Clone the Base Skills repo">
+```bash
+git clone https://github.com/base/skills.git base-skills
+```
+</Step>
+<Step title="Copy the migration skill into your project">
+For Claude Code:
+```bash
+cp -r base-skills/skills/migrating-an-onchainkit-app .claude/skills/
+```
+For Cursor:
+```bash
+cp -r base-skills/skills/migrating-an-onchainkit-app .cursor/skills/
+```
+</Step>
+</Steps>
 
 ## Migration Prompts
+
+<Warning>
+If migrating individually, start with the Provider prompt below. The wallet and transaction components depend on `WagmiProvider` being implemented first.
+</Warning>
 
 ### One-Shot (all three components)
 
@@ -33,6 +68,10 @@ Migrate my OnchainKit wallet component to a standalone wagmi-based connect butto
 Migrate my OnchainKit transaction component to use wagmi hooks directly.
 ```
 
-<Note>
-If migrating components individually, the provider must be migrated first. The wallet and transaction components depend on `WagmiProvider` being in the tree. The skill will automatically create a `mistakes.md` file to log any errors encountered during migration.
-</Note>
+## Verify
+
+After migration, run this prompt to confirm the three migrated components are fully replaced:
+
+```text
+Run npm run build and confirm there are no remaining imports of OnchainKitProvider, Wallet, or Transaction from @coinbase/onchainkit in the project.
+```
