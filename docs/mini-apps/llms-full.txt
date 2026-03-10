@@ -7,21 +7,25 @@
 ### What you can do here
 - Scaffold new Mini Apps with MiniKit and integrate existing Next.js apps
 - Configure manifests for discovery and client capabilities
-- Build social‑native UX using OnchainKit components
+- Build social‑native UX using MiniKit and wagmi
 - Plan growth loops (sharing, search, notifications) and optimize onboarding
 - Diagnose issues specific to Base App vs. other Farcaster clients
 
-## Minimal Critical Code (MiniKit + OnchainKit wiring)
+## Minimal Critical Code (MiniKit wiring)
 ```tsx
-// MiniKit and OnchainKit often co‑exist in Mini Apps. Keep providers minimal.
-import { OnchainKitProvider } from '@coinbase/onchainkit'
-import { base } from 'wagmi/chains'
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { wagmiConfig } from './wagmi-config'
+import { useState } from 'react'
 
 export function Providers(props: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient())
   return (
-    <OnchainKitProvider apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY} chain={base}>
-      {props.children}
-    </OnchainKitProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        {props.children}
+      </QueryClientProvider>
+    </WagmiProvider>
   )
 }
 ```
@@ -84,9 +88,7 @@ export function Providers(props: { children: React.ReactNode }) {
 - [Testing](https://docs.base.org/mini-apps/troubleshooting/testing.md) — Testing guide
 
 ### Technical Reference
-- [MiniKit Overview](https://docs.base.org/onchainkit/latest/components/minikit/overview.md) — Overview
-- [Provider & Initialization](https://docs.base.org/onchainkit/latest/components/minikit/provider-and-initialization.md) — Provider
-- [Hooks](https://docs.base.org/onchainkit/latest/components/minikit/hooks/useMiniKit.md) — Hooks
+- [MiniKit Overview](https://docs.base.org/mini-apps/introduction/overview.md) — Overview
 
 
 ## Quickstart (excerpts)
@@ -105,7 +107,7 @@ Source: `https://docs.base.org/mini-apps/quickstart/migrate-existing-apps.md`
 Add MiniKit to an existing Next.js app:
 
 ```bash
-npm install @coinbase/minikit @coinbase/onchainkit
+npm install @coinbase/minikit wagmi viem @tanstack/react-query
 ```
 
 
@@ -139,13 +141,12 @@ Sources:
 Hook reference:
 
 - useAuthenticate — Returns verified user from SIWF or wallet auth. Use alongside `useMiniKit` context.
-  - Source: `https://docs.base.org/onchainkit/latest/components/minikit/hooks/useAuthenticate.md`
+  - Source: `https://docs.base.org/mini-apps/core-concepts/authentication.md`
 
 Example (hook usage):
 
 ```tsx
-import { useMiniKit } from '@coinbase/minikit'
-import { useAuthenticate } from '@coinbase/onchainkit/minikit'
+import { useMiniKit, useAuthenticate } from '@coinbase/minikit'
 
 export function AuthGate(props: { children: React.ReactNode }) {
   const { context } = useMiniKit()
@@ -164,9 +165,9 @@ export function AuthGate(props: { children: React.ReactNode }) {
 ## API and Schemas (pruned)
 
 - MiniKit Provider and initialization props
-  - Source: `https://docs.base.org/onchainkit/latest/components/minikit/provider-and-initialization.md`
+  - Source: `https://docs.base.org/mini-apps/introduction/overview.md`
 - `useMiniKit` hook: access frame context, user, and client capabilities
-  - Source: `https://docs.base.org/onchainkit/latest/components/minikit/hooks/useMiniKit.md`
+  - Source: `https://docs.base.org/mini-apps/core-concepts/context.md`
 
 Example manifest fields (conceptual):
 
@@ -196,27 +197,9 @@ Example manifest fields (conceptual):
 
 ## Examples (common flows)
 
-Example: Wire providers for OnchainKit + MiniKit
-
-Sources:
-- `https://docs.base.org/onchainkit/latest/components/minikit/provider-and-initialization.md`
-
-```tsx
-import { OnchainKitProvider } from '@coinbase/onchainkit'
-import { base } from 'wagmi/chains'
-
-export function Providers(props: { children: React.ReactNode }) {
-  return (
-    <OnchainKitProvider apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY} chain={base}>
-      {props.children}
-    </OnchainKitProvider>
-  )
-}
-```
-
 Example: Use `useMiniKit` to access client context
 
-Source: `https://docs.base.org/onchainkit/latest/components/minikit/hooks/useMiniKit.md`
+Source: `https://docs.base.org/mini-apps/core-concepts/context.md`
 
 ```tsx
 import { useMiniKit } from '@coinbase/minikit'

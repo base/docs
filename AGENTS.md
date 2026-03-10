@@ -1,10 +1,10 @@
 # Base Docs Index
 IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
-Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
+Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, MiniKit.
 [Docs]|root:./docs
 |ai-agents:index,trading
 |ai-agents/core-concepts:agent-apps,agent-frameworks,identity-verification-auth,payments-and-transactions,wallets
-|base-account/basenames:basename-transfer,basenames-faq,basenames-onchainkit-tutorial,basenames-wagmi-tutorial
+|base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
 |base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
 |base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
@@ -43,49 +43,4 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |mini-apps/resources:design-resources,templates
 |mini-apps/technical-guides:accept-payments,building-chat-agents,dynamic-embeds,neynar-notifications,sharing-and-social-graph,sign-manifest
 |mini-apps/troubleshooting:base-app-compatibility,common-issues,error-handling,how-search-works,testing
-|onchainkit:create-a-basename-profile-component,getting-started,installation,restricted,use-coinbase-smart-wallet-and-eoas
-|onchainkit/api:build-deposit-to-morpho-tx,build-mint-transaction,build-swap-transaction,build-withdraw-from-morpho-tx,get-mint-details,get-portfolios,get-swap-quote,get-token-details,get-tokens,types
-|onchainkit/buy:buy,types
-|onchainkit/checkout:checkout,types
-|onchainkit/config:is-base,is-ethereum,onchainkit-provider,supplemental-providers,types
-|onchainkit/earn:earn,types
-|onchainkit/fund:fetch-onramp-config,fetch-onramp-options,fetch-onramp-quote,fetch-onramp-transaction-status,fund-button,fund-card,get-onramp-buy-url,setup-onramp-event-listeners,types
-|onchainkit/guides:ai-prompting-guide,build-onchain-apps,contribution,lifecycle-status,reporting-bug,tailwind,telemetry,themes,troubleshooting,use-basename-in-onchain-app,using-ai-powered-ides
-|onchainkit/hooks:use-build-deposit-to-morpho-tx,use-build-withdraw-from-morpho-tx,use-earn-context,use-mint-details,use-morpho-vault,use-token-details
-|onchainkit/identity:address,avatar,badge,get-address,get-attestations,get-avatar,get-avatars,get-name,get-names,identity-card,identity,name,socials,types,use-address,use-avatar,use-avatars,use-name,use-names
-|onchainkit/installation:astro,nextjs,remix,vite
-|onchainkit/latest/components/appchain:bridge
-|onchainkit/latest/components/buy:buy
-|onchainkit/latest/components/checkout:checkout
-|onchainkit/latest/components/connected:connected
-|onchainkit/latest/components/earn:earn
-|onchainkit/latest/components/fund:fund-button,fund-card
-|onchainkit/latest/components/identity:address,avatar,badge,identity-card,identity,name,socials
-|onchainkit/latest/components/minikit:overview,provider-and-initialization
-|onchainkit/latest/components/minikit/hooks:useAddFrame,useAuthenticate,useClose,useComposeCast,useMiniKit,useNotification,useOpenUrl,usePrimaryButton,useViewCast,useViewProfile
-|onchainkit/latest/components/mint:nft-card,nft-mint-card
-|onchainkit/latest/components/signature:signature
-|onchainkit/latest/components/swap:swap-settings,swap
-|onchainkit/latest/components/token:token-chip,token-image,token-row,token-search,token-select-dropdown
-|onchainkit/latest/components/transaction:transaction
-|onchainkit/latest/components/wallet:wallet-dropdown-basename,wallet-dropdown-disconnect,wallet-dropdown-fund-link,wallet-dropdown-link,wallet-island,wallet-modal,wallet
-|onchainkit/latest/configuration:onchainkit-provider,themes,wagmi-viem-integration
-|onchainkit/latest/getting-started:manual-installation,overview,quickstart-guide,troubleshooting
-|onchainkit/latest/guides:ai-prompting-guide,contributing
-|onchainkit/latest/hooks/earn:use-build-deposit-to-morpho-tx,use-build-withdraw-from-morpho-tx,use-earn-context,use-morpho-vault
-|onchainkit/latest/hooks/identity:use-address,use-avatar,use-avatars,use-name,use-names
-|onchainkit/latest/hooks/mint:use-mint-details,use-token-details
-|onchainkit/latest/utilities/earn:build-deposit-to-morpho-tx,build-withdraw-from-morpho-tx
-|onchainkit/latest/utilities/fund:fetch-onramp-config,fetch-onramp-options,fetch-onramp-quote,fetch-onramp-transaction-status,get-onramp-buy-url,setup-onramp-event-listeners
-|onchainkit/latest/utilities/identity:get-address,get-attestations,get-avatar,get-avatars,get-name,get-names
-|onchainkit/latest/utilities/token:format-amount
-|onchainkit/latest/utilities/wallet:is-valid-aa-entrypoint,is-wallet-a-coinbase-smart-wallet
-|onchainkit/mint:nft-card,nft-mint-card,types
-|onchainkit/paymaster:erc20-paymaster,errors,gasless-transactions-with-paymaster,how-to-contribute,quickstart-guide,quickstart-headless,security,troubleshooting,welcome
-|onchainkit/signature:signature,types
-|onchainkit/swap:swap-settings,swap,types
-|onchainkit/templates:onchain-commerce-app,onchain-nft-app,onchain-social-profile
-|onchainkit/token:format-amount,token-chip,token-image,token-row,token-search,token-select-dropdown,types
-|onchainkit/transaction:transaction,types
-|onchainkit/wallet:is-valid-aa-entrypoint,is-wallet-a-coinbase-smart-wallet,types,wallet-dropdown-basename,wallet-dropdown-disconnect,wallet-dropdown-fund-link,wallet-dropdown-link,wallet-island,wallet-modal,wallet
 |root:AGENTS,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
