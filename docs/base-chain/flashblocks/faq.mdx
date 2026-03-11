@@ -28,7 +28,7 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
   <Accordion title="Why is my transaction having trouble getting included?">
     Transactions with large gas limits (> ~18.75M gas, which is 1/10 of the ~187.5M block limit) may have longer inclusion times. This is because the builder allocates gas cumulatively—each Flashblock `j` can use up to `j/10` of the total block gas limit. Large transactions can be included once enough cumulative capacity exists.
 
-    See [Gas Allocation](/base-chain/flashblocks/overview#gas-allocation) for the full breakdown.
+    See [Gas & Transaction Sizing](/base-chain/flashblocks/app-integration#gas-&-transaction-sizing) for the full breakdown.
   </Accordion>
 
   <Accordion title="How do I ensure my transaction is in the first Flashblock?">
@@ -87,6 +87,20 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     This is expected. When the previous block takes longer to build, the system compensates by allocating less time to the next block, resulting in fewer Flashblocks.
   </Accordion>
 
+  <Accordion title="Can the Flashblock index exceed 10? Is that a bug?">
+    **No, it is not a bug.** Seeing indices of 10, 11, or higher is expected behavior.
+
+    The standard math — 2-second block time ÷ 200ms per Flashblock — gives exactly 10 Flashblocks (indices 0–9). In practice, however, the transition from one full L2 block to the next is not always perfectly synchronized with the 200ms timer. Two things can cause extra indices:
+
+    1. **Sequencer delay:** If the sequencer takes slightly longer than 2000ms to finalize and seal the full block, the Flashblock stream continues emitting incremental updates for the current block to keep the stream live.
+    2. **Timing drift:** If the internal 200ms clock drifts or starts early relative to the L2 block's canonical start time, an extra update can fit within the 2-second window.
+
+    **What this means for your implementation:**
+    - Do not hardcode `9` or `10` as the final index — the last Flashblock for a given block is not predictable by index alone.
+    - Watch the `payloadId` instead. The most reliable signal that a block has finished is when `payloadId` changes, or when the full block is confirmed via standard RPC. All Flashblocks sharing the same `payloadId` belong to the same block, regardless of how high the index goes.
+    - Once the sequencer advances to the next block, `payloadId` resets and `index` returns to `0`.
+  </Accordion>
+
   <Accordion title="What encoding format is the transaction data in?">
     Transaction data in the [`diff.transactions`](/base-chain/flashblocks/api-reference#diff-object) array is Recursive Length Prefix (RLP) encoded.
   </Accordion>
@@ -128,7 +142,7 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     | `eth_subscribe` | Stream Flashblock data in real-time (Beta) |
     | `base_transactionStatus` | Check if transaction is in mempool (Beta) |
 
-    See [App Integration](/base-chain/flashblocks/app-integration#rpc-api-reference) for full examples.
+    See the [Flashblocks API Reference](/base-chain/flashblocks/api-reference) for full method details and examples.
   </Accordion>
 </AccordionGroup>
 
