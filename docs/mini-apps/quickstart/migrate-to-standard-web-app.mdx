@@ -5,8 +5,12 @@ tag: "NEW"
 ---
 
 <Warning>
-After April 9, the Base App treats all apps as standard web apps regardless of Farcaster manifests. Use the migration paths below to get your app working correctly in the Base App.
+After April 9, 2026, the Base App treats all apps as standard web apps regardless of Farcaster manifests. Use the migration paths below to get your app working correctly in the Base App.
 </Warning>
+
+<Tip>
+**Using an AI coding agent?** Install the [Migration Skill](https://github.com/base/skills) to let your agent handle this migration automatically. Run `npx skills add base/skills` and ask your agent to migrate your Farcaster mini app to a standard web app.
+</Tip>
 
 ## What's changing
 
@@ -14,15 +18,19 @@ The Base App is moving from the Farcaster mini-app spec to a single model: **sta
 
 | Before | After |
 | --- | --- |
-| Farcaster manifest (`/.well-known/farcaster.json`) | App metadata on [Base.dev](https://www.base.dev) projects. Existing registed apps do not need to update metadata. |
+| Farcaster manifest (`/.well-known/farcaster.json`) | App metadata on [Base.dev](https://www.base.dev) projects. Already registered apps do not need to update metadata. |
 | Neynar webhooks for add/remove events | Base-owned backends (Base Account / address preferences) |
-| FID-based notifications via Neynar | Wallet-address notifications via Base.dev notifications API (live april 9) |
+| FID-based notifications via Neynar | Wallet-address notifications via Base.dev notifications API *(coming soon)* |
 | Farcaster SDK for auth and actions | wagmi + viem + Sign-In with Ethereum (SIWE) |
 | Search and discovery via Farcaster | Base.dev app metadata + [builder codes](https://docs.base.org/base-chain/builder-codes/builder-codes) |
 
 ---
 
 ## Choose your migration path
+
+<Note>
+**Automate this with an AI agent.** Install [Migration Skills](https://github.com/base/skills) (`npx skills add base/skills`) and ask your agent to convert your Farcaster mini app to a standard web app. The skill maps deprecated SDK methods, replaces auth and wallet logic, and wires up the Base App path automatically.
+</Note>
 
 <Tabs>
 <Tab title="Standard web app">
@@ -33,11 +41,11 @@ Your app has no Farcaster SDK dependencies. You're mostly done.
 <Step title="Confirm your app is web- and wallet-ready">
   - Loads in a mobile browser (the Base App uses a standard in-app browser)
   - Uses wagmi/viem for wallet connection and contract interactions
-  - Uses SIWE for authentication where needed
+  - Uses [SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) for authentication where needed
 </Step>
 
 <Step title="Register on Base.dev">
-  Create a project at [base.dev](https://www.base.dev) and set your app's **primary URL**.
+  If you haven't registered yet, create a project at [Base.dev](https://www.base.dev) and set your app's **primary URL**. Already registered apps do not need to re-register or update metadata.
 </Step>
 
 <Step title="Fill in project metadata">
@@ -45,11 +53,14 @@ Your app has no Farcaster SDK dependencies. You're mostly done.
 
   - Name, icon, tagline, description
   - Screenshots, category
-  - Primary URL, builder code
+  - Primary URL, [builder code](/base-chain/builder-codes/builder-codes)
 </Step>
 
 <Step title="Integrate notifications (optional)">
-  Use the Base.dev notifications API to send wallet-address notifications to users who installed your app and opted in. See [Notifications](/mini-apps/core-concepts/notifications).
+  <Warning>
+  Notifications migration will be available in Base.dev soon.
+  </Warning>
+  Use the Base.dev notifications API to send wallet-address notifications to users who installed your app and opted in.
 </Step>
 </Steps>
 
@@ -99,13 +110,14 @@ Your app already has a web version alongside Farcaster support. The main work is
 </Step>
 
 <Step title="Migrate notifications to Base.dev">
+  <Warning>
+  Notifications migration will be available in Base.dev soon.
+  </Warning>
   Farcaster-based notifications (via Neynar, FIDs, or tokens) will not reach Base App users. Replace them with the Base.dev notifications API, which sends by wallet address.
-
-  See [Notifications](/mini-apps/core-concepts/notifications) for the full integration guide.
 </Step>
 
 <Step title="Register on Base.dev and fill in metadata">
-  Create a project at [base.dev](https://www.base.dev) and complete your app metadata (name, icon, tagline, description, screenshots, category, primary URL, builder code).
+  If you haven't registered yet, create a project at [Base.dev](https://www.base.dev) and complete your app metadata (name, icon, tagline, description, screenshots, category, primary URL, [builder code](/base-chain/builder-codes/builder-codes)). Already registered apps do not need to re-register or update metadata.
 </Step>
 </Steps>
 
@@ -131,7 +143,7 @@ Your app has no standalone web experience. You have three options to make it com
      npm install wagmi viem @tanstack/react-query
      ```
 
-  2. Replace Farcaster sign-in with SIWE and use wallet address for identity (not FID):
+  2. Replace Farcaster sign-in with [SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) and use wallet address for identity (not FID):
 
      ```typescript
      import { useSignMessage, useAccount } from 'wagmi';
@@ -139,7 +151,7 @@ Your app has no standalone web experience. You have three options to make it com
 
   3. Replace all Farcaster SDK method calls with their standard web equivalents. See the [deprecated methods table](#deprecated-farcaster-sdk-methods-in-the-base-app) below.
 
-  4. Register on [Base.dev](https://www.base.dev) and fill in your app metadata.
+  4. If you haven't registered yet, register on [Base.dev](https://www.base.dev) and fill in your app metadata.
 </Accordion>
 
 <Accordion title="Option B — Build a separate web version">
@@ -147,7 +159,7 @@ Your app has no standalone web experience. You have three options to make it com
 
   1. Scaffold the web version from the [Build a Base App](/get-started/build-app) quickstart.
   2. Port your core mechanics as an onchain flow using wagmi/viem.
-  3. Register the web version's URL on [Base.dev](https://www.base.dev) as the primary URL.
+  3. If you haven't registered yet, register the web version's URL on [Base.dev](https://www.base.dev) as the primary URL.
 </Accordion>
 
 <Accordion title="Option C — Add a hybrid layer (recommended)">
@@ -161,11 +173,11 @@ Your app has no standalone web experience. You have three options to make it com
      const isFarcaster = await sdk.isInMiniApp();
      ```
 
-  2. Add a web-compatible auth and wallet layer using wagmi/viem/SIWE for the non-Farcaster path.
+  2. Add a web-compatible auth and wallet layer using wagmi/viem/[SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) for the non-Farcaster path.
 
   3. Gate all Farcaster SDK calls and FID-based UI behind the `isFarcaster` check.
 
-  4. Register on [Base.dev](https://www.base.dev) and fill in your app metadata.
+  4. If you haven't registered yet, register on [Base.dev](https://www.base.dev) and fill in your app metadata.
 
   See the **Hybrid app** tab for the full pattern.
 </Accordion>
@@ -178,11 +190,11 @@ Your app has no standalone web experience. You have three options to make it com
 
 ## Deprecated Farcaster SDK methods in the Base App
 
-The following Farcaster mini-app SDK methods are not invoked by the Base App after April 9. Migrate to the alternatives listed.
+The following Farcaster mini-app SDK methods are not invoked by the Base App after April 9, 2026. Migrate to the alternatives listed.
 
 | SDK method | Alternative in the Base App |
 | --- | --- |
-| `signIn` | Sign-In with Ethereum using wagmi (`useSignMessage`) |
+| `signIn` | [Sign-In with Ethereum](https://viem.sh/docs/siwe/utilities/createSiweMessage) using wagmi (`useSignMessage`) |
 | `sendToken` | Standard ERC-20 transfer with wagmi (`useWriteContract`) |
 | `openUrl` | `window.open(url)` |
 | `openMiniApp` | `window.open(url)` |
@@ -222,14 +234,17 @@ Before considering your app migrated, verify the following:
 </Step>
 
 <Step title="Confirm standard web stack for the Base App path">
-  The web path uses wagmi + viem for wallet and contract interactions. SIWE is used for authentication where needed.
+  The web app uses wagmi + viem for wallet and contract interactions. [SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) is used for authentication where needed.
 </Step>
 
 <Step title="Register and complete Base.dev metadata">
-  Project is registered on [Base.dev](https://www.base.dev) with primary URL set. Name, icon, tagline, screenshots, category, description, and builder code are all filled in.
+  Project is registered on [Base.dev](https://www.base.dev) with primary URL set. Name, icon, tagline, screenshots, category, description, and [builder code](/base-chain/builder-codes/builder-codes) are all filled in.
 </Step>
 
 <Step title="Notifications use Base.dev API (if applicable)">
+<Warning>
+  Notifications migration will be available in Base.dev soon.
+</Warning>
   Notifications are sent via the Base.dev notifications API by wallet address — not via Neynar, FIDs, or tokens.
 </Step>
 
