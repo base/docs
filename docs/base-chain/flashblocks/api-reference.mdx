@@ -487,17 +487,17 @@ Fields may be added, modified, or removed without prior notice. Do not build pro
 
 ### Receipt Object
 
-Transaction execution result. Check which field is present to determine the transaction type: `Eip1559`, `Legacy`, or `Deposit`.
+Transaction execution result. 
 
-Each variant wraps a [ReceiptData](#receiptdata-object) object.
-
-### ReceiptData Object
+Check which `type` is present to determine the transaction type: `Legacy`, `Access List`, `EIP-1559`, `Custom/Experimental (Deposit)`
 
 <Card>
+<ParamField path="type" type="string">Transaction type: `0x0` Legacy, `0x1` Access List, `0x2` EIP-1559, `0x7e` Deposit (L1→L2).</ParamField>
 <ParamField path="status" type="string">Transaction status: `0x1` for success, `0x0` for failure.</ParamField>
 <ParamField path="cumulativeGasUsed" type="string">Total gas used in the block up to and including this transaction (hex).</ParamField>
 <ParamField path="logs" type="Log[]">Array of event logs emitted by the transaction. See [Log Object](#log-object).</ParamField>
-<ParamField path="depositNonce" type="string">Nonce for deposit transactions (L1→L2 only).</ParamField>
+<ParamField path="logsBloom" type="string">Bloom filter for the logs in this receipt.</ParamField>
+<ParamField path="transactionIndex" type="string">Index of the transaction within the block (hex).</ParamField>
 </Card>
 
 ### Log Object
@@ -538,12 +538,12 @@ Each variant wraps a [ReceiptData](#receiptdata-object) object.
     },
     "receipts": {
       "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
-        "Deposit": {
-          "status": "0x1",
-          "cumulativeGasUsed": "0xab3f",
-          "logs": [],
-          "depositNonce": "0x158a0ea"
-        }
+        "type": "0x7e",
+        "status": "0x1",
+        "cumulativeGasUsed": "0xab3f",
+        "logs": [],
+        "logsBloom": "0x00000000...",
+        "transactionIndex": "0x0"
       }
     }
   }
@@ -570,11 +570,12 @@ Each variant wraps a [ReceiptData](#receiptdata-object) object.
     },
     "receipts": {
       "0x7c69632dc315f13a...": {
-        "Eip1559": {
-          "status": "0x1",
-          "cumulativeGasUsed": "0x1234f",
-          "logs": []
-        }
+        "type": "0x2",
+        "status": "0x1",
+        "cumulativeGasUsed": "0x1234f",
+        "logs": [],
+        "logsBloom": "0x00000000...",
+        "transactionIndex": "0x1"
       }
     }
   }
