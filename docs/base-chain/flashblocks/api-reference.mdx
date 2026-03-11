@@ -1,12 +1,12 @@
 ---
 title: 'Flashblocks API Reference'
-description: 'Complete reference for Flashblocks-aware RPC methods and real-time WebSocket subscription types for sub-200ms preconfirmed transaction data.'
+description: 'Reference for Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema.'
 ---
 
-Flashblocks-aware nodes extend the standard Ethereum JSON-RPC API with support for preconfirmed block state and Flashblocks-specific real-time subscriptions. All [standard JSON-RPC methods](/base-chain/reference/json-rpc-api) remain fully supported.
+This page covers what is unique to Flashblocks: the preconf endpoints, Flashblocks-only methods, real-time WebSocket subscriptions, and the infrastructure stream schema.
 
 <Info>
-See [Flashblocks](/base-chain/flashblocks/apps) for an overview of Flashblocks and how to integrate it into your app. For the standard Base node RPC reference, see the [JSON-RPC API Reference](/base-chain/reference/json-rpc-api).
+All [standard JSON-RPC methods](/base-chain/reference/json-rpc-api) work as-is against a Flashblocks endpoint — use the `"pending"` block tag to read preconfirmed state.
 </Info>
 
 ## Endpoints
@@ -21,354 +21,6 @@ Connect to a Flashblocks-aware endpoint to access preconfirmed data:
 <Warning>
 The public endpoints above are rate-limited and not suitable for production traffic. For production use, connect through a Flashblocks-enabled node provider such as Alchemy, QuickNode, or dRPC.
 </Warning>
-
----
-
-## Standard Methods with Flashblocks Behavior
-
-The following standard JSON-RPC methods return preconfirmed data when called with the `"pending"` block tag against a Flashblocks-aware endpoint. This gives your application real-time state up to 200ms before the next full block is sealed.
-
-### eth_getBlockByNumber
-
-When called with `"pending"`, returns the current Flashblock — the block actively being built with preconfirmed transactions.
-
-#### Parameters
-
-<ParamField body="blockParameter" type="string" required>
-  Use `"pending"` to retrieve the latest Flashblock. Also accepts `"latest"`, `"safe"`, `"finalized"`, or a specific block number.
-</ParamField>
-
-<ParamField body="fullTransactions" type="boolean" required>
-  If `true`, returns full transaction objects. If `false`, returns only transaction hashes.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="object | null">
-  A block object reflecting the current preconfirmed state. See [eth_getBlockByNumber](/base-chain/reference/json-rpc-api#eth_getblockbynumber) for full field descriptions.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["pending",true],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "number": "0x1234",
-    "hash": "0x...",
-    "transactions": [...]
-  }
-}
-```
-</CodeGroup>
-
----
-
-### eth_getTransactionReceipt
-
-Returns the receipt for a preconfirmed transaction before it is included in a finalized block.
-
-#### Parameters
-
-<ParamField body="transactionHash" type="string" required>
-  The 32-byte transaction hash.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="object | null">
-  A transaction receipt object for the preconfirmed transaction, or `null` if not found. See [eth_getTransactionReceipt](/base-chain/reference/json-rpc-api#eth_gettransactionreceipt) for full field descriptions.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0x..."],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "transactionHash": "0x...",
-    "blockNumber": "0x1234",
-    "status": "0x1"
-  }
-}
-```
-</CodeGroup>
-
----
-
-### eth_getBalance
-
-Returns the ETH balance of an address in the latest preconfirmed Flashblock state.
-
-#### Parameters
-
-<ParamField body="address" type="string" required>
-  The 20-byte address to query.
-</ParamField>
-
-<ParamField body="blockParameter" type="string" required>
-  Use `"pending"` to query preconfirmed state.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="string">
-  The balance in wei as a hexadecimal string.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0x...","pending"],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x0234c00000"
-}
-```
-</CodeGroup>
-
----
-
-### eth_getTransactionCount
-
-Returns the account nonce in the latest preconfirmed Flashblock state. Use `"pending"` to account for transactions that are preconfirmed but not yet in a sealed block.
-
-#### Parameters
-
-<ParamField body="address" type="string" required>
-  The 20-byte account address.
-</ParamField>
-
-<ParamField body="blockParameter" type="string" required>
-  Use `"pending"` to include preconfirmed transactions in the nonce count.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="string">
-  The transaction count (nonce) as a hexadecimal integer.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0x...","pending"],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x1b"
-}
-```
-</CodeGroup>
-
----
-
-### eth_getTransactionByHash
-
-Returns a preconfirmed transaction before it is included in a finalized block.
-
-#### Parameters
-
-<ParamField body="transactionHash" type="string" required>
-  The 32-byte transaction hash.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="object | null">
-  A transaction object, or `null` if not found. See [eth_getTransactionByHash](/base-chain/reference/json-rpc-api#eth_gettransactionbyhash) for full field descriptions.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_getTransactionByHash","params":["0x..."],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "type": "0x2",
-    "chainId": "0x14a34",
-    "nonce": "0x1b",
-    "hash": "0x...",
-    "from": "0x...",
-    "to": "0x..."
-  }
-}
-```
-</CodeGroup>
-
----
-
-### eth_call
-
-Executes a contract call against the latest preconfirmed Flashblock state.
-
-#### Parameters
-
-<ParamField body="transactionObject" type="object" required>
-  The transaction call object. See [eth_call](/base-chain/reference/json-rpc-api#eth_call) for field details.
-</ParamField>
-
-<ParamField body="blockParameter" type="string" required>
-  Use `"pending"` to execute the call against preconfirmed state.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="string">
-  Hex-encoded return data from the contract call.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x...","data":"0x..."},"pending"],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
-}
-```
-</CodeGroup>
-
----
-
-### eth_estimateGas
-
-Estimates gas for a transaction against the latest preconfirmed Flashblock state.
-
-#### Parameters
-
-<ParamField body="transactionObject" type="object" required>
-  The transaction object. See [eth_estimateGas](/base-chain/reference/json-rpc-api#eth_estimategas) for field details.
-</ParamField>
-
-<ParamField body="blockParameter" type="string" required>
-  Use `"pending"` to estimate against preconfirmed state.
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="string">
-  Estimated gas as a hexadecimal integer.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_estimateGas","params":[{"to":"0x...","data":"0x..."},"pending"],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x5208"
-}
-```
-</CodeGroup>
-
----
-
-### eth_getLogs
-
-Returns logs from preconfirmed Flashblock data by setting `"toBlock"` to `"pending"`.
-
-#### Parameters
-
-<ParamField body="filterObject" type="object" required>
-  The log filter object.
-
-  <Expandable title="Filter object fields">
-    <ParamField body="fromBlock" type="string">
-      Start of the block range. Use `"latest"` for the most recent mined block.
-    </ParamField>
-    <ParamField body="toBlock" type="string">
-      Use `"pending"` to include logs from the current Flashblock.
-    </ParamField>
-    <ParamField body="address" type="string | array">
-      A single contract address or array of addresses to filter by. Optional.
-    </ParamField>
-    <ParamField body="topics" type="array">
-      Array of topic filters. Same format as in `eth_getLogs`. Optional.
-    </ParamField>
-  </Expandable>
-</ParamField>
-
-#### Returns
-
-<ResponseField name="result" type="array">
-  An array of log objects. See [eth_getLogs](/base-chain/reference/json-rpc-api#eth_getlogs) for full field descriptions.
-</ResponseField>
-
-<CodeGroup>
-```bash cURL
-curl https://sepolia-preconf.base.org \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock":"latest","toBlock":"pending","address":"0x...","topics":["0x..."]}],"id":1}'
-```
-
-```json Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": [
-    {
-      "address": "0x...",
-      "topics": ["0x..."],
-      "data": "0x...",
-      "blockNumber": "0x1234",
-      "transactionHash": "0x...",
-      "transactionIndex": "0x0",
-      "blockHash": "0x...",
-      "logIndex": "0x0",
-      "removed": false
-    }
-  ]
-}
-```
-</CodeGroup>
-
----
 
 ## Flashblocks-Specific Methods
 
@@ -746,3 +398,185 @@ Cancels a Flashblocks subscription. Works identically to the [standard eth_unsub
 {"jsonrpc": "2.0", "id": 1, "result": true}
 ```
 </CodeGroup>
+
+---
+
+## Infrastructure Stream
+
+The raw Flashblocks infrastructure stream is the upstream source that Flashblocks-aware RPC nodes consume.
+
+<Warning>
+**Applications should not connect directly to the infrastructure stream.** These endpoints are for node infrastructure only. App developers should use the [WebSocket subscription methods](#websocket-subscription-methods) above via a Flashblocks-aware RPC provider.
+</Warning>
+
+| Network | URL |
+|---------|-----|
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+### Flashblock Object
+
+The root structure of each infrastructure stream message.
+
+<Card>
+<ParamField path="payload_id" type="string">
+Unique identifier for the block being built. Remains consistent across all 10 Flashblocks within a single full block.
+</ParamField>
+
+<ParamField path="index" type="number">
+Flashblock index within the current block (0–10). Index 0 contains system transactions only; indexes 1–10 contain user transactions.
+</ParamField>
+
+<ParamField path="base" type="Base">
+Block header properties. **Only present when `index` is 0.** See [Base Object](#base-object).
+</ParamField>
+
+<ParamField path="diff" type="Diff">
+Block differences/updates for this Flashblock. See [Diff Object](#diff-object).
+</ParamField>
+
+<ParamField path="metadata" type="Metadata">
+Additional data including balance updates and transaction receipts. **Not stable — may change without notice.** See [Metadata Object](#metadata-object).
+</ParamField>
+</Card>
+
+### Base Object
+
+Contains full block header properties. **Only present in Index 0** (the first Flashblock of each full block).
+
+<Card>
+<ParamField path="parent_hash" type="string">Hash of the parent block.</ParamField>
+<ParamField path="fee_recipient" type="string">Address receiving transaction fees (coinbase).</ParamField>
+<ParamField path="block_number" type="string">Block number in hex format.</ParamField>
+<ParamField path="gas_limit" type="string">Maximum gas allowed in this block (hex).</ParamField>
+<ParamField path="timestamp" type="string">Unix timestamp of block creation (hex).</ParamField>
+<ParamField path="base_fee_per_gas" type="string">Base fee per gas unit (hex, EIP-1559).</ParamField>
+<ParamField path="prev_randao" type="string">Previous RANDAO value for randomness.</ParamField>
+<ParamField path="extra_data" type="string">Arbitrary data included by the block builder.</ParamField>
+</Card>
+
+### Diff Object
+
+Contains the block state changes for this specific Flashblock. Present in every message.
+
+<Card>
+<ParamField path="state_root" type="string">Merkle root of the state trie after applying this Flashblock's transactions.</ParamField>
+<ParamField path="block_hash" type="string">Hash of the block at this Flashblock index. Changes with each Flashblock as more transactions are added.</ParamField>
+<ParamField path="gas_used" type="string">Cumulative gas used up to and including this Flashblock (hex).</ParamField>
+<ParamField path="blob_gas_used" type="string">Cumulative blob gas used (hex, EIP-4844).</ParamField>
+<ParamField path="transactions" type="string[]">Array of RLP-encoded transaction data included in this Flashblock.</ParamField>
+<ParamField path="withdrawals" type="array">Validator withdrawals included in this Flashblock (typically empty on L2).</ParamField>
+<ParamField path="receipts_root" type="string">Merkle root of transaction receipts.</ParamField>
+<ParamField path="logs_bloom" type="string">Bloom filter for quick log searching.</ParamField>
+<ParamField path="withdrawals_root" type="string">Merkle root of withdrawals.</ParamField>
+</Card>
+
+### Metadata Object
+
+<Warning>
+**The `metadata` object is not stable.** 
+
+Fields may be added, modified, or removed without prior notice. Do not build production dependencies on it — use the [`diff`](#diff-object) object or query finalized block data via RPC instead.
+</Warning>
+
+<Card>
+<ParamField path="block_number" type="number">Block number as a decimal integer.</ParamField>
+<ParamField path="new_account_balances" type="object">Map of addresses to their updated ETH balances (hex). Only includes accounts whose balances changed in this Flashblock.</ParamField>
+<ParamField path="receipts" type="object">Map of transaction hashes to their [Receipt](#receipt-object) objects.</ParamField>
+</Card>
+
+### Receipt Object
+
+Transaction execution result. Check which field is present to determine the transaction type: `Eip1559`, `Legacy`, or `Deposit`.
+
+Each variant wraps a [ReceiptData](#receiptdata-object) object.
+
+### ReceiptData Object
+
+<Card>
+<ParamField path="status" type="string">Transaction status: `0x1` for success, `0x0` for failure.</ParamField>
+<ParamField path="cumulativeGasUsed" type="string">Total gas used in the block up to and including this transaction (hex).</ParamField>
+<ParamField path="logs" type="Log[]">Array of event logs emitted by the transaction. See [Log Object](#log-object).</ParamField>
+<ParamField path="depositNonce" type="string">Nonce for deposit transactions (L1→L2 only).</ParamField>
+</Card>
+
+### Log Object
+
+<Card>
+<ParamField path="address" type="string">Contract address that emitted the event.</ParamField>
+<ParamField path="topics" type="string[]">Array of indexed event parameters. The first topic is typically the event signature hash.</ParamField>
+<ParamField path="data" type="string">ABI-encoded non-indexed event parameters.</ParamField>
+</Card>
+
+### Complete Examples
+
+**Index 0 (initial)** — includes the `base` object:
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 0,
+  "base": {
+    "parent_hash": "0x9edc29b8b0a1e31d28616e40c16132ad0d58faa8bb952595b557526bdb9a960a",
+    "fee_recipient": "0x4200000000000000000000000000000000000011",
+    "block_number": "0x158a0e9",
+    "gas_limit": "0x3938700",
+    "timestamp": "0x67bf8332",
+    "base_fee_per_gas": "0xfa"
+  },
+  "diff": {
+    "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
+    "block_hash": "0x5c330e55a190f82ea486b61e5b12e27dfb4fb3cecfc5746886ef38ca1281bce8",
+    "gas_used": "0xab3f",
+    "transactions": ["0x7ef8f8a0b4afc0b7ce10e150801bbaf08ac33fecb0f38311793abccb022120d321c6d276..."],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577,
+    "new_account_balances": {
+      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0"
+    },
+    "receipts": {
+      "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
+        "Deposit": {
+          "status": "0x1",
+          "cumulativeGasUsed": "0xab3f",
+          "logs": [],
+          "depositNonce": "0x158a0ea"
+        }
+      }
+    }
+  }
+}
+```
+
+**Index 1–10 (diff only)** — no `base` object:
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 4,
+  "diff": {
+    "state_root": "0x7a8f45038665072f382730e689f4a1561835c9987fca8942fa95872fb9367eaa",
+    "block_hash": "0x9b32f7a14cbd1efc8c2c5cad5eb718ec9e0c5da92c3ba7080f8d4c49d660c332",
+    "gas_used": "0x1234f",
+    "transactions": ["0x02f90133...", "0x02f90196..."],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577,
+    "new_account_balances": {
+      "0x4200000000000000000000000000000000000015": "0x1234"
+    },
+    "receipts": {
+      "0x7c69632dc315f13a...": {
+        "Eip1559": {
+          "status": "0x1",
+          "cumulativeGasUsed": "0x1234f",
+          "logs": []
+        }
+      }
+    }
+  }
+}
+```
