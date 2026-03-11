@@ -30,12 +30,13 @@ The Base App is moving from the Farcaster mini-app spec to a single model: **sta
 
 <Tabs>
 <Tab title="I'm converting a mini app">
-
-Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth, identity, and actions with standard web equivalents.
-
 <Tip>
 **Let your agent handle this.** Install the [Migration Skill](https://github.com/base/skills) with `npx skills add base/skills` and ask your agent to migrate your Farcaster mini app to a standard web app. The skill maps deprecated SDK methods, replaces auth and wallet logic, and wires up the Base App path automatically.
 </Tip>
+
+Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth, identity, and actions with standard web equivalents.
+
+
 
 <Steps>
 <Step title="Add the standard web stack">
@@ -148,20 +149,6 @@ The following Farcaster mini-app SDK methods are not invoked by the Base App aft
 | `ready` | Not needed — remove it from the Base App path |
 | User context and FID | Read the injected wallet address via wagmi (`useAccount`) |
 
----
-
-## UX expectations for the Base App
-
-Apps running in the Base App should follow these UX principles:
-
-1. **Single focused first experience** — on first load, users should instantly understand what the app does and what the primary action is.
-2. **End-to-end onchain flow** — show onchain state before action, update the UI after the transaction confirms, and optionally link to an explorer.
-3. **Clear, explicit actions** — use descriptive button labels ("Increment tally", "Mint NFT") rather than generic labels ("Submit"). Show a progress state while a transaction is pending.
-4. **Wallet-first, mobile-first** — prominent "Connect wallet" entry point, layout optimized for the Base App webview, large tap targets.
-5. **Graceful states** — handle loading (skeletons/spinners), empty (explain what's missing + CTA), and error states (human-readable copy + retry action).
-6. **High-signal notifications** — if you send notifications, deep-link into a concrete, relevant screen. Only send to users who installed and opted in.
-
----
 
 ## Pre-flight checklist
 
@@ -172,8 +159,8 @@ Before considering your app migrated, verify the following:
   All Farcaster SDK packages are uninstalled and all SDK imports and FID-based UI are removed from the codebase.
 </Step>
 
-<Step title="Confirm standard web stack for the Base App path">
-  The web app uses wagmi + viem for wallet and contract interactions. [SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) is used for authentication where needed.
+<Step title="Wallet and auth use wagmi + viem">
+  Wallet connection and contract interactions use wagmi + viem. Authentication uses [SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) where needed.
 </Step>
 
 <Step title="Register and complete Base.dev metadata">
@@ -187,12 +174,6 @@ Before considering your app migrated, verify the following:
   Notifications are sent via the Base.dev notifications API by wallet address — not via Neynar, FIDs, or tokens.
 </Step>
 
-<Step title="UX meets Base App standards">
-  - One clear primary job
-  - One main CTA visible without deep scrolling
-  - Immediate, visible state update after transactions
-  - Mobile-friendly layout with clear loading and error states
-</Step>
 </Steps>
 
 <Check>
