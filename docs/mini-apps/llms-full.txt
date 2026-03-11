@@ -2,16 +2,16 @@
 
 ## Mini Apps — Deep Guide for LLMs
 
-> Mini Apps are social‑native, instant‑launch web apps that run inside Base App. This guide orients an LLM to MiniKit fundamentals, product capabilities, UX best practices, growth mechanics, and troubleshooting.
+> Mini Apps are social‑native, instant‑launch web apps that run inside Base App. This guide orients an LLM to Mini App fundamentals, product capabilities, UX best practices, growth mechanics, and troubleshooting.
 
 ### What you can do here
-- Scaffold new Mini Apps with MiniKit and integrate existing Next.js apps
+- Scaffold new Mini Apps and integrate existing Next.js apps
 - Configure manifests for discovery and client capabilities
-- Build social‑native UX using MiniKit and wagmi
+- Build social‑native UX using wagmi
 - Plan growth loops (sharing, search, notifications) and optimize onboarding
 - Diagnose issues specific to Base App vs. other Farcaster clients
 
-## Minimal Critical Code (MiniKit wiring)
+## Minimal Critical Code
 ```tsx
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -87,14 +87,14 @@ export function Providers(props: { children: React.ReactNode }) {
 - [Testing](https://docs.base.org/mini-apps/troubleshooting/testing.md) — Testing guide
 
 ### Technical Reference
-- [MiniKit Overview](https://docs.base.org/mini-apps/introduction/overview.md) — Overview
+- [Mini Apps Overview](https://docs.base.org/mini-apps/introduction/overview.md) — Overview
 
 
 ## Quickstart (excerpts)
 
 Source: `https://docs.base.org/mini-apps/quickstart/create-new-miniapp.md`
 
-Create a new Mini App with MiniKit:
+Create a new Mini App:
 
 ```bash
 npm create minikit@latest my-mini-app
@@ -103,10 +103,10 @@ cd my-mini-app && npm i && npm run dev
 
 Source: `https://docs.base.org/mini-apps/quickstart/migrate-existing-apps.md`
 
-Add MiniKit to an existing Next.js app:
+Add Mini App support to an existing Next.js app:
 
 ```bash
-npm install @coinbase/minikit wagmi viem @tanstack/react-query
+npm install @farcaster/miniapp-sdk wagmi viem @tanstack/react-query
 ```
 
 
@@ -137,35 +137,14 @@ Sources:
 - Resilience & UX: Provide guest mode where possible; handle declined auth gracefully with alternate paths or read‑only modes.
 - Server verification: Verify any signed payloads or tokens server‑side. Enforce replay protection, expiration, and domain binding.
 
-Hook reference:
-
-- useAuthenticate — Returns verified user from SIWF or wallet auth. Use alongside `useMiniKit` context.
-  - Source: `https://docs.base.org/mini-apps/core-concepts/authentication.md`
-
-Example (hook usage):
-
-```tsx
-import { useMiniKit, useAuthenticate } from '@coinbase/minikit'
-
-export function AuthGate(props: { children: React.ReactNode }) {
-  const { context } = useMiniKit()
-  const { user } = useAuthenticate()
-
-  // Use context for UI hints only
-  const displayName = context?.user?.displayName ?? 'Friend'
-
-  // Use verified user for secure ops
-  if (!user) return <button>Sign in</button>
-  return <div aria-live="polite">Welcome, {displayName}!{props.children}</div>
-}
-```
+Authentication uses Quick Auth via the Farcaster SDK. See: `https://docs.base.org/mini-apps/core-concepts/authentication.md`
 
 
 ## API and Schemas (pruned)
 
-- MiniKit Provider and initialization props
+- Mini App provider setup and initialization
   - Source: `https://docs.base.org/mini-apps/introduction/overview.md`
-- `useMiniKit` hook: access frame context, user, and client capabilities
+- Farcaster SDK context: access frame and user context data
   - Source: `https://docs.base.org/mini-apps/core-concepts/context.md`
 
 Example manifest fields (conceptual):
@@ -196,15 +175,15 @@ Example manifest fields (conceptual):
 
 ## Examples (common flows)
 
-Example: Use `useMiniKit` to access client context
+Example: Use the Farcaster SDK to access client context
 
 Source: `https://docs.base.org/mini-apps/core-concepts/context.md`
 
 ```tsx
-import { useMiniKit } from '@coinbase/minikit'
+import { sdk } from '@farcaster/miniapp-sdk'
 
 export function Screen() {
-  const { user, client } = useMiniKit()
-  return <pre>{JSON.stringify({ user, client }, null, 2)}</pre>
+  const context = sdk.context
+  return <pre>{JSON.stringify(context, null, 2)}</pre>
 }
 ```
