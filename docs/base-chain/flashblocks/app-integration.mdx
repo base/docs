@@ -1,35 +1,71 @@
 ---
-title: Flashblocks Integration
-sidebarTitle: Apps
+title: App Integration
+sidebarTitle: App Integration
 description: Integrate Flashblocks into your app for 200ms transaction confirmations using RPC APIs and popular libraries like Ethers, Wagmi and Viem.
 ---
 
-Get **200ms transaction confirmations** on Base—10x faster than the standard 2-second block time.
+Choose the integration method that fits your use case:
 
-Flashblocks enable up to 200 millisecond transaction confirmations on Base by leveraging preconfirmations, ultra-fast signals that arrive before the next block is sealed. Built for developers who demand instant UX, it's ideal for high-frequency apps, games, and real-time interactions where waiting even a few seconds is too long. By integrating directly within Base's infrastructure, Flashblocks enables seamless, ultrafast and snappy user experiences without compromising security.
+| Use Case | Recommended Approach | Documentation |
+|----------|---------------------|---------------|
+| **Apps needing instant UX** | Flashblocks-aware RPC with `pending` tag | [API Reference](/base-chain/flashblocks/api-reference) |
+| **Infrastructure providers** | Host Flashblocks-aware RPC nodes | [Enable Flashblocks](/base-chain/node-operators/run-a-base-node#enable-flashblocks) |
+| **Standard apps** | Continue using regular RPCs | [JSON-RPC API Reference](/base-chain/reference/json-rpc-api) |
 
-See the [Flashblocks API Reference](/base-chain/flashblocks/api-reference) for the full list of supported RPC methods and WebSocket subscription types.
+<Tip>
+Applications should avoid hard dependencies on the WebSocket stream. RPCs provide stable behavior and automatic failover to regular blocks if Flashblocks go down.
+</Tip>
 
-## Integrating Flashblocks
+## RPC Endpoints
 
-Flashblocks is enabled for developers on Base. You can integrate with Flashblocks data via the RPC API or the WebSocket API.
+For HTTP and WebSocket endpoint URLs, see the [Flashblocks API Reference](/base-chain/flashblocks/api-reference#endpoints). Public endpoints are rate-limited — for production use, connect through a Flashblocks-enabled node provider such as Alchemy, QuickNode, or dRPC.
 
-### RPC Endpoints
+## Performance Characteristics
 
-Base offers the following public Flashblocks-aware RPC endpoints. These are rate-limited and may not be suitable for production use — we recommend using a node provider that runs Flashblocks-integrated nodes. Major node providers such as Alchemy, Infura, QuickNode, and dRPC have Flashblocks-aware RPCs.
+| Metric | Value |
+|--------|-------|
+| Flashblock build time (P50) | ~10ms |
+| Preconfirmation latency | ~200ms |
+| Full block time | 2 seconds |
+| Flashblocks per block | 10 |
+| Reorg rate | < 0.1% |
 
-| Network | URL |
-| :------ | :-- |
-| Mainnet | https://mainnet-preconf.base.org |
-| Sepolia | https://sepolia-preconf.base.org |
+## Gas & Transaction Sizing
 
-For a full reference of all supported RPC methods — including preconfirmed state queries, simulation, and real-time subscriptions — see the [Flashblocks API Reference](/base-chain/flashblocks/api-reference).
+The gas budget is **cumulative**, not per-Flashblock. Each Flashblock unlocks an additional 1/10 of the total block gas:
 
-### Libraries
+| Flashblock | Cumulative Gas Available |
+|------------|--------------------------|
+| 1 | 1/10 of block limit (~18.75M gas) |
+| 2 | 2/10 of block limit (~37.5M gas) |
+| 3 | 3/10 of block limit (~56.25M gas) |
+| ... | ... |
+| 10 | Full block limit (~187.5M gas) |
+
+<Tip>
+**Unused gas carries forward.** If Flashblock 1 only uses 0.3/10 of gas, Flashblock 2 can use up to 1.7/10 (the cumulative 2/10 limit minus what's already been used).
+</Tip>
+
+**Implications for large transactions:**
+- Transactions exceeding 1/10 of block gas (~18.75M) may not land in the first Flashblock — they wait until enough cumulative capacity exists.
+- There is a separate **max gas limit per transaction** on Base, distinct from Flashblock capacity.
+- If confirmation speed matters, keep individual transactions under ~18.75M gas to maximize the chance of inclusion in the earliest Flashblock.
+
+## Reliability & Fallback
+
+Base targets a **< 0.1% Flashblock reorg rate** — meaning a preconfirmation was streamed but not included in the final block. This is rare, but apps should account for it.
+
+<Warning>
+**Implement fallback logic.** Treat preconfirmations as strong signals, not guarantees. For critical operations, confirm against finalized block data. Check live reorg metrics at [base.org/stats](https://base.org/stats).
+</Warning>
+
+If Flashblocks become unavailable, the sequencer continues operating normally and confirmation falls back to standard 2-second blocks. Build your app to handle both cases gracefully.
+
+## Library Examples
 
 You will need to use a Flashblocks-aware RPC endpoint to use Flashblocks with the following libraries:
 
-#### [Wagmi](https://wagmi.sh)
+### [Wagmi](https://wagmi.sh)
 
 To use Flashblocks with Wagmi, you will need to use the `basePreconf` chain in the Wagmi Config (see `config.ts`).
 
@@ -94,7 +130,7 @@ export const config = createConfig({
 
 </CodeGroup>
 
-#### [Viem](https://viem.sh)
+### [Viem](https://viem.sh)
 
 ```ts
 import { createWalletClient, http, parseEther, publicActions } from "viem";
@@ -128,7 +164,7 @@ console.log(`Transaction included at: ${confirmTime.toISOString()}`);
 console.log(`Time difference: ${confirmTime - submissionTime}ms`);
 ```
 
-#### [Ethers](https://github.com/ethers-io/ethers.js)
+### [Ethers](https://github.com/ethers-io/ethers.js)
 
 ```jsx
   const providerA = new ethers.JsonRpcProvider(

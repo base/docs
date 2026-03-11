@@ -24,9 +24,8 @@ If you're just getting started and need an RPC URL, you can use our free endpoin
 
 **Note:** Our RPCs are rate-limited, they are not suitable for production apps.
 
-If you're looking to harden your app and avoid rate-limiting for your users, please consider using an endpoint from one of our [partners](/base-chain/tools/node-providers).
+If you're looking to harden your app and avoid rate-limiting for your users, please consider using an endpoint from one of our [partners](/base-chain/node-operators/node-providers).
 </Warning>
-
 
 ### Hardware requirements
 
@@ -63,7 +62,7 @@ This tutorial assumes you are familiar with [Docker](https://www.docker.com/) an
 
 ### L1 RPC URL
 
-You'll need your own L1 RPC URL. This can be one that you run yourself, or via a third-party provider, such as our [partners](/base-chain/tools/node-providers).
+You'll need your own L1 RPC URL. This can be one that you run yourself, or via a third-party provider, such as our [partners](/base-chain/node-operators/node-providers).
 
 ## Running a Node
 
@@ -130,11 +129,13 @@ NODE_TYPE=base CLIENT=reth RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base
 | Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
 
 <Warning>
-**These WebSocket endpoints are for node infrastructure only.** Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [App Integration guide](/base-chain/flashblocks/apps) for details.
+**These WebSocket endpoints are for node infrastructure only.** 
+
+Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [App Integration guide](/base-chain/flashblocks/app-integration) for details.
 </Warning>
 
 <Note>
-The [base](https://github.com/base/base) binary listens to the Flashblocks WebSocket stream and caches preconfirmation data. When Flashblocks-aware RPC methods are called, it returns data from this cache.
+The [base](https://github.com/base/base) binary listens to the Flashblocks WebSocket stream and caches preconfirmation data. When Flashblocks-aware RPC methods are called, it returns data from this cache. For the full message schema and payload structure, see [Infrastructure Stream](/base-chain/flashblocks/api-reference#infrastructure-stream).
 </Note>
 
 ### Verify Flashblocks Functionality
@@ -151,20 +152,4 @@ A successful response will include block data from the latest Flashblock. If Fla
 
 ### Available RPC Methods
 
-Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods, plus these Flashblocks-enabled endpoints:
-
-| Method | Flashblocks Usage |
-|--------|------------------|
-| [`eth_getBlockByNumber`](/base-chain/flashblocks/apps#eth_getblockbynumber) | Use `pending` tag |
-| [`eth_getBalance`](/base-chain/flashblocks/apps#eth_getbalance) | Use `pending` tag |
-| [`eth_getTransactionReceipt`](/base-chain/flashblocks/apps#eth_gettransactionreceipt) | Returns preconfirmed receipts |
-| [`eth_getTransactionByHash`](/base-chain/flashblocks/apps#eth_gettransactionbyhash) | Use `pending` tag |
-| [`eth_getTransactionCount`](/base-chain/flashblocks/apps#eth_gettransactioncount) | Use `pending` tag |
-| [`eth_call`](/base-chain/flashblocks/apps#eth_call) | Use `pending` tag |
-| [`eth_simulateV1`](/base-chain/flashblocks/apps#eth_simulatev1) | Use `pending` tag |
-| [`eth_estimateGas`](/base-chain/flashblocks/apps#eth_estimategas) | Use `pending` tag |
-| [`eth_getLogs`](/base-chain/flashblocks/apps#eth_getlogs) | Use `pending` for `toBlock` |
-| [`eth_subscribe`](/base-chain/flashblocks/apps#eth_subscribe-beta) | Stream Flashblock data in real-time (Beta) |
-| [`base_transactionStatus`](/base-chain/flashblocks/apps#base_transactionstatus-beta) | Check if transaction is in mempool (Beta) |
-
-For code examples, see the [App Integration guide](/base-chain/flashblocks/apps#rpc-api).
+Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods plus Flashblocks-specific methods and WebSocket subscriptions. See the [Flashblocks API Reference](/base-chain/flashblocks/api-reference) for the full list, including code examples and parameter details.
