@@ -1,0 +1,84 @@
+---
+title: Flashblocks Overview
+sidebarTitle: Overview
+description: Understand the sequencer architecture, block building algorithm, and integration options for Flashblocks on Base.
+---
+
+## What are Flashblocks?
+
+Flashblocks introduce **200ms** incremental state updates to Base, significantly reducing perceived latency for users. 
+
+Built in collaboration with [Flashbots](https://www.flashbots.net/), this mechanism streams sub-blocks within the standard 2-second block interval, providing near-instant sequencer preconfirmations, allowing applications to reflect state changes long before the full block is gossiped to the rest of the network. 
+
+<Note>
+Flashblocks are always live on Base. All blocks are built by the Flashblocks builder. Apps can choose whether to consume preconfirmations or wait for standard 2-second block finality.
+</Note>
+
+### Key Concepts
+
+| Term | Definition |
+|------|------------|
+| **Flashblock** | A 200ms sub-block containing a portion of the full block's transactions |
+| **Preconfirmation** | An ultra-fast signal that a transaction will be included, before the full block is sealed |
+| **Full Block** | A series of 10 Flashblocks combined to form the complete 2-second block |
+
+Each block contains **10 Flashblocks** (indexes 1-10), each arriving every 200ms. Index 0 exists but only contains system transactions. See [Gas & Transaction Sizing](/base-chain/flashblocks/app-integration#gas-&-transaction-sizing) for how gas budgets work.
+
+
+## Architecture
+
+For details on the sequencer system and Flashblocks infrastructure components (rollup-boost, op-rbuilder, websocket-proxy, and base), see the [Architecture](/base-chain/flashblocks/architecture) page.
+
+## Transaction Lifecycle
+
+When you send a transaction to Base, here's what happens:
+
+### 1. Submission
+```
+User → DNS (mainnet.base.org) → Load Balancer → Proxyd → Mempool
+```
+
+The transaction reaches the private mempool and is inserted into the txpool as pending.
+
+### 2. Distribution
+The mempool maintains P2P connections with execution layers (op-reth, op-rbuilder), ensuring all pending transactions are synced for block building.
+
+### 3. Block Building
+During each 200ms block building loop, op-rbuilder selects transactions based on:
+
+1. **Transaction fee** — transactions are ordered by fee (highest first)
+2. **Gas limit and remaining capacity** — each Flashblock `j` can use up to `j/10` of the total block gas limit
+
+<Note>
+**Dynamic Mempool:** The builder uses a dynamic mempool that continuously accepts new transactions while building. This minimizes inclusion latency but means a late-arriving high-fee transaction may appear after an already-committed lower-fee transaction within the same Flashblock. This is expected behavior, not a violation of fee priority—transactions are ordered by fee *at the time they're selected*.
+</Note>
+
+### 4. Block Building Algorithm
+
+The builder follows this process for each 2-second block:
+
+```
+FOR each flashblock j FROM 0 TO 10:
+    1. Wait until next 200ms window
+    2. Calculate available gas: (j / 10) × total_block_gas_limit
+    3. Sort pending transactions by fee (descending)
+    4. Select top transactions that fit within available gas
+    5. Execute transactions and update state
+    6. Stream flashblock to websocket-proxy
+```
+
+<Note>
+**Index 0** contains only system transactions and doesn't use any gas limit. **Indexes 1-10** are the actual Flashblocks that pull pending transactions from the txpool.
+</Note>
+
+### 5. Preconfirmation Delivery
+Once a transaction is included in a Flashblock, it's streamed to the websocket-proxy, which RPC nodes listen to. When you call a Flashblocks-aware RPC method (like `eth_getTransactionReceipt`), the node retrieves the preconfirmed data from its cache.
+
+<Info>
+For the complete infrastructure stream schema, see the [API Reference](/base-chain/flashblocks/api-reference): [Flashblock](/base-chain/flashblocks/api-reference#flashblock-object), [Diff](/base-chain/flashblocks/api-reference#diff-object), [Metadata](/base-chain/flashblocks/api-reference#metadata-object), [Receipt](/base-chain/flashblocks/api-reference#receipt-object). 
+</Info>
+
+## Further Reading
+- [FAQ](/base-chain/flashblocks/faq) — Common questions about Flashblocks
+- [Block Building](/base-chain/network-information/block-building) — Detailed block ordering configuration
+- [Flashblocks Deep Dive](https://blog.base.dev/flashblocks-deep-dive) — Engineering blog post with implementation details

@@ -21,24 +21,36 @@ See the [Configuration Changelog](/base-chain/network-information/configuration-
 ## Configurations
 
 ### Flashblocks
-Currently, blocks are built using [op-rbuilder](https://github.com/flashbots/op-rbuilder) and priority fee auctions occur
-every 200ms. There are two changes from the vanilla ordering to be aware of:
 
-#### Timing
+Blocks are built using [op-rbuilder](https://github.com/flashbots/op-rbuilder) with priority fee auctions occurring every **200ms**. This reduces effective block times from 2 seconds to 200 milliseconds through preconfirmations.
 
-Flashblocks are built every 200ms, each ordering a portion of the block. Unlike the current system where later-arriving transactions with higher priority fees can be placed at the top of the block, Flashblocks creates a time-based constraint. Once a Flashblock is built and broadcast, its transaction ordering is locked even if a transaction with a higher priority fee arrives later, it cannot be included in earlier, already built Flashblocks.
+<Info>
+For a comprehensive technical deep dive into Flashblocks architecture, see the [Flashblocks Overview](/base-chain/flashblocks/overview).
+</Info>
 
-#### High Gas Limits
+*There are three key differences from vanilla ordering:*
 
-If your app creates transactions with large gas limits, we recommend monitoring to detect any changes in inclusion latency. Transactions with gas limits over 1/10 of the current block gas limit (currently 14 million gas), face additional constraints:
+1. **Timing** — Flashblocks are built every 200ms, each ordering a portion of the block. Once built and broadcast, transaction ordering is locked. Later-arriving transactions with higher priority fees cannot be included in earlier Flashblocks.
 
-* Each Flashblock can only use a portion of the block's total gas limit
-* Flashblock 1: up to 1/10 of the total gas
-* Flashblock 2: up to 2/10 of the total gas
+2. **Gas Allocation** — Each Flashblock has an incrementally increasing gas budget. Flashblock 1 can use 1/10 of the block gas limit, Flashblock 2 can use 2/10, and so on until Flashblock 10 has access to the full limit.
 
-And so on for subsequent Flashblocks
+   | Flashblock | Available Gas |
+   |------------|---------------|
+   | 1 | ~14M gas (1/10) |
+   | 2 | ~28M gas (2/10) |
+   | 3 | ~42M gas (3/10) |
+   | ... | ... |
+   | 10 | ~140M gas (full) |
 
-Consequently, transactions with large gas requirements must wait for later Flashblocks with sufficient gas capacity. For example, a transaction exceeding 1/10 of the block's gas limit cannot be included in Flashblock 1 and must wait for Flashblock 2 or later.
+   <Warning>
+   Transactions exceeding 14M gas cannot fit in Flashblock 1 and must wait for later Flashblocks. Monitor inclusion latency if your app creates large transactions.
+   </Warning>
+
+3. **Dynamic Mempool** — The builder continuously accepts new transactions while building each Flashblock. This minimizes inclusion latency but means transactions are ordered by fee *at the time of selection*, not globally across all transactions that arrive during the 200ms window. A late-arriving high-fee transaction may appear after an already-committed lower-fee transaction.
+
+   <Note>
+   This is a deliberate tradeoff: faster inclusion at the cost of occasionally "breaking" expected priority gas auction (PGA) ordering within a Flashblock. See the [Flashblocks FAQ](/base-chain/flashblocks/faq) for more details.
+   </Note>
 
 ### Per-Transaction Gas Maximum
 

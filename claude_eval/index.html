@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Base Account Integration (HTML + JS)</title>
+    <style>
+      :root {
+        --bg: #0b0f19;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #243042;
+        --accent: #0052ff;
+        --ok: #10b981;
+        --err: #ef4444;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1200px 800px at 30% -10%, rgba(0,82,255,0.25), transparent 55%),
+          var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 28px 18px 8px;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      h1 { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
+      p { margin: 0; color: var(--muted); line-height: 1.5; }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      .card {
+        background: color-mix(in srgb, var(--panel) 92%, transparent);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      label { color: var(--muted); font-size: 12px; display: block; margin-bottom: 6px; }
+      input, select {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: var(--text);
+        outline: none;
+      }
+      input:focus, select:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+      .field { flex: 1 1 220px; min-width: 220px; }
+      button {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: color-mix(in srgb, var(--accent) 80%, white);
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        white-space: pre-wrap;
+      }
+      .status.ok { border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); }
+      .status.err { border-color: color-mix(in srgb, var(--err) 55%, var(--border)); }
+      .small { font-size: 12px; color: var(--muted); }
+      code { color: #c7d2fe; }
+      footer { max-width: 980px; margin: 0 auto; padding: 0 18px 28px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Base Account: Sign in with Base + Base Pay (no framework)</h1>
+      <p>
+        Minimal integration using the Base Account SDK loaded from a CDN.
+        <span class="small">Run this via a local server (not <code>file://</code>).</span>
+      </p>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="row">
+          <button id="btnSignIn" class="primary">Sign in with Base</button>
+          <button id="btnDisconnect">Disconnect</button>
+          <div class="small" id="walletInfo">Not connected</div>
+        </div>
+        <div class="status" id="authStatus">Auth status will appear here.</div>
+        <p class="small" style="margin-top: 10px;">
+          SIWB uses <code>wallet_connect</code> with the <code>signInWithEthereum</code> capability.
+          In production, send the returned <code>message</code> and <code>signature</code> to your backend for verification.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2 style="margin:0 0 10px; font-size: 16px;">Base Pay</h2>
+        <div class="row">
+          <div class="field">
+            <label for="to">Recipient address</label>
+            <input id="to" placeholder="0x..." value="0x2211d1D0020DAEA8039E46Cf1367962070d77DA9" />
+          </div>
+          <div class="field">
+            <label for="amount">Amount (USD)</label>
+            <input id="amount" inputmode="decimal" value="5.00" />
+          </div>
+          <div class="field">
+            <label for="network">Network</label>
+            <select id="network">
+              <option value="testnet" selected>Testnet (Base Sepolia)</option>
+              <option value="mainnet">Mainnet (Base)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 10px;">
+          <button id="btnPay" class="primary">Pay with Base</button>
+          <button id="btnCheck" disabled>Check payment status</button>
+          <div class="small">Last payment id: <span id="paymentId">(none)</span></div>
+        </div>
+
+        <div class="status" id="payStatus">Payment status will appear here.</div>
+
+        <p class="small" style="margin-top: 10px;">
+          Note: Base Pay works even if the user hasn’t signed in first.
+        </p>
+      </section>
+    </main>
+
+    <footer class="small">
+      Local dev: <code>npx serve .</code> or <code>python -m http.server</code>
+    </footer>
+
+    <!-- Base Account SDK via CDN (per Base docs) -->
+    <script src="https://unpkg.com/@base-org/account/dist/base-account.min.js"></script>
+
+    <script>
+      // ---- Helpers ----
+      const $ = (id) => document.getElementById(id);
+
+      function setStatus(el, msg, type) {
+        el.textContent = msg;
+        el.classList.remove('ok', 'err');
+        if (type === 'ok') el.classList.add('ok');
+        if (type === 'err') el.classList.add('err');
+      }
+
+      function shortAddr(addr) {
+        if (!addr || addr.length < 10) return addr || '';
+        return addr.slice(0, 6) + '...' + addr.slice(-4);
+      }
+
+      function generateNonce() {
+        // Base docs use crypto.randomUUID().replace(/-/g, "")
+        return window.crypto.randomUUID().replace(/-/g, '');
+      }
+
+      // ---- SDK init ----
+      if (!window.createBaseAccountSDK) {
+        // Script didn't load (blocked, offline, etc.)
+        setStatus($('authStatus'), 'Base Account SDK failed to load. Check your network / CSP.', 'err');
+      }
+
+      const sdk = window.createBaseAccountSDK({
+        appName: 'Base Account Demo',
+        appLogoUrl: 'https://base.org/logo.png',
+      });
+      const provider = sdk.getProvider();
+
+      // ---- State ----
+      let connectedAddress = null;
+      let lastPaymentId = null;
+
+      function refreshWalletInfo() {
+        $('walletInfo').textContent = connectedAddress ? `Connected: ${shortAddr(connectedAddress)}` : 'Not connected';
+      }
+
+      refreshWalletInfo();
+
+      // ---- Sign in (SIWB) ----
+      $('btnSignIn').onclick = async () => {
+        try {
+          setStatus($('authStatus'), 'Connecting to Base Account...', '');
+          const nonce = generateNonce();
+
+          const { accounts } = await provider.request({
+            method: 'wallet_connect',
+            params: [
+              {
+                version: '1',
+                capabilities: {
+                  signInWithEthereum: {
+                    nonce,
+                    chainId: '0x2105', // Base mainnet (8453) as hex per docs
+                  },
+                },
+              },
+            ],
+          });
+
+          const { address } = accounts[0];
+          connectedAddress = address;
+          refreshWalletInfo();
+
+          const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+
+          setStatus(
+            $('authStatus'),
+            `Signed in!\nAddress: ${address}\n\nSend this to your backend to verify:\n- message (SIWE)\n- signature\n\n(Also see console for full object.)`,
+            'ok'
+          );
+
+          console.log('SIWB auth payload:', { address, message, signature, nonce });
+        } catch (err) {
+          console.error('Sign-in error:', err);
+          setStatus($('authStatus'), `Sign-in failed: ${err?.message || String(err)}`, 'err');
+        }
+      };
+
+      $('btnDisconnect').onclick = async () => {
+        // The docs quickstart doesn’t specify a disconnect method.
+        // We'll just clear local UI state.
+        connectedAddress = null;
+        refreshWalletInfo();
+        setStatus($('authStatus'), 'Disconnected (local UI reset).', '');
+      };
+
+      // ---- Base Pay ----
+      $('btnPay').onclick = async () => {
+        try {
+          if (!window.base?.pay || !window.base?.getPaymentStatus) {
+            throw new Error('window.base.pay/getPaymentStatus not found. SDK may not be loaded.');
+          }
+
+          const to = $('to').value.trim();
+          const amount = $('amount').value.trim();
+          const network = $('network').value;
+          const testnet = network === 'testnet';
+
+          if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
+            throw new Error('Invalid recipient address.');
+          }
+          if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
+            throw new Error('Invalid amount.');
+          }
+
+          setStatus($('payStatus'), `Processing payment...\nTo: ${to}\nAmount (USD): ${amount}\nNetwork: ${testnet ? 'Base Sepolia (testnet)' : 'Base (mainnet)'}`, '');
+
+          const result = await window.base.pay({
+            amount, // USD – SDK quotes equivalent USDC
+            to,
+            testnet,
+          });
+
+          lastPaymentId = result.id;
+          $('paymentId').textContent = lastPaymentId;
+          $('btnCheck').disabled = false;
+
+          // Immediately query status (docs do this)
+          const status = await window.base.getPaymentStatus({ id: result.id, testnet });
+
+          setStatus($('payStatus'), `Payment initiated/completed.\nPayment id: ${result.id}\nStatus: ${status.status}`, 'ok');
+        } catch (err) {
+          console.error('Payment error:', err);
+          setStatus($('payStatus'), `Payment failed: ${err?.message || String(err)}`, 'err');
+        }
+      };
+
+      $('btnCheck').onclick = async () => {
+        try {
+          if (!lastPaymentId) throw new Error('No payment id yet.');
+          const testnet = $('network').value === 'testnet';
+
+          setStatus($('payStatus'), `Checking payment status...\nPayment id: ${lastPaymentId}`, '');
+          const status = await window.base.getPaymentStatus({ id: lastPaymentId, testnet });
+          setStatus($('payStatus'), `Payment id: ${lastPaymentId}\nStatus: ${status.status}`, 'ok');
+        } catch (err) {
+          console.error('Check status error:', err);
+          setStatus($('payStatus'), `Status check failed: ${err?.message || String(err)}`, 'err');
+        }
+      };
+    </script>
+  </body>
+</html>
