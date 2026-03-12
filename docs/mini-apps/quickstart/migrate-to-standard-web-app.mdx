@@ -46,15 +46,64 @@ Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth,
   npm uninstall @farcaster/frame-sdk @farcaster/frame-wagmi-connector
   ```
 
-  Delete `/.well-known/farcaster.json` and any manifest-serving route if you have one. Remove `sdk.actions.*` calls — the [deprecated methods table](#deprecated-farcaster-sdk-methods-in-the-base-app) lists the standard web replacement for each one.
+  Delete `/.well-known/farcaster.json` and any manifest-serving route if you have one. Remove `sdk.actions.*`.
 </Step>
 
 <Step title="Add the standard web stack">
   Install wagmi, viem, and React Query if you don't have them already:
 
   ```bash Terminal
-  npm install wagmi viem @tanstack/react-query
+  npm install wagmi viem @tanstack/react-query @base-org/account
   ```
+
+  Create a wagmi config for Base and wrap your app with `WagmiProvider` and `QueryClientProvider`:
+
+  ```tsx config.ts lines expandable wrap
+  import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
+  import { base } from 'wagmi/chains';
+  import { baseAccount, injected } from 'wagmi/connectors';
+
+  export const config = createConfig({
+    chains: [base],
+    connectors: [
+      injected(),
+      baseAccount({
+        appName: 'My App',
+      }),
+    ],
+    storage: createStorage({ storage: cookieStorage }),
+    ssr: true,
+    transports: {
+      [base.id]: http(),
+    },
+  });
+
+  declare module 'wagmi' {
+    interface Register {
+      config: typeof config;
+    }
+  }
+  ```
+
+  ```tsx App.tsx lines highlight={8-12}
+  import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+  import { WagmiProvider } from 'wagmi';
+  import { config } from './config';
+
+  const queryClient = new QueryClient();
+
+  export default function App({ children }: { children: React.ReactNode }) {
+    return (
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </WagmiProvider>
+    );
+  }
+  ```
+
+  This replaces the Farcaster frame connector with standard wagmi providers that work in the Base app's in-app browser.
 </Step>
 
 <Step title="Replace auth and identity">
@@ -185,13 +234,13 @@ The following Farcaster mini-app SDK methods are not invoked by the Base App aft
 | `openMiniApp` | `window.open(url)` |
 | `viewToken` | Deeplink: `https://base.app/coin/base-mainnet/TOKEN_ADDRESS` |
 | `viewProfile` | Deeplink: `https://base.app/profile/WALLET_ADDRESS` |
-| `swapToken` | No direct replacement in the Base App |
+| `swapToken` | Construct swap transactions with wagmi, viem, or your preferred onchain library. |
 | `requestCameraAndMicrophoneAccess` | No replacement |
 | `close` | No replacement |
-| `addMiniApp` | No replacement |
+| `addMiniApp` | the Base App handles mini app installation automatically. No SDK needed. |
 | `viewCast` | Not needed in the Base App |
 | `composeCast` | Not needed in the Base App |
-| `ready` | Not needed — remove it from the Base App path |
+| `ready` | Not needed. Your app is ready to display when it loads. |
 | User context and FID | Read the injected wallet address via wagmi (`useAccount`) |
 
 
