@@ -434,10 +434,22 @@ Returns information about a block by its block number.
       Base fee per gas in this block (EIP-1559).
     </ResponseField>
     <ResponseField name="withdrawals" type="array">
-      Array of validator withdrawals included in the block (EIP-4895).
+      Array of validator withdrawals included in the block (EIP-4895). Always `[]` on Base — L2 does not process validator withdrawals.
     </ResponseField>
     <ResponseField name="withdrawalsRoot" type="string">
       32-byte root of the withdrawals trie (EIP-4895).
+    </ResponseField>
+    <ResponseField name="parentBeaconBlockRoot" type="string">
+      32-byte beacon block root of the parent block (EIP-4788). Present on all Base blocks.
+    </ResponseField>
+    <ResponseField name="requestsHash" type="string">
+      Hash of the requests list (EIP-7685). Always the empty requests hash (`0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`) on Base.
+    </ResponseField>
+    <ResponseField name="blobGasUsed" type="string">
+      Total blob gas consumed by blob-carrying transactions in this block (EIP-4844). Accurately reflects blob gas in both finalized and preconfirmed (Flashblocks) blocks.
+    </ResponseField>
+    <ResponseField name="excessBlobGas" type="string">
+      Cumulative excess blob gas used to calculate the blob base fee (EIP-4844).
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -737,7 +749,7 @@ Returns transaction information for a given transaction hash.
       ABI-encoded call data sent with the transaction. `"0x"` for plain ETH transfers.
     </ResponseField>
     <ResponseField name="type" type="string">
-      Transaction type: `"0x0"` (legacy), `"0x1"` (EIP-2930 access list), `"0x2"` (EIP-1559), `"0x7e"` (deposit transaction on Base).
+      Transaction type: `"0x0"` (Legacy), `"0x1"` (EIP-2930/Access List), `"0x2"` (EIP-1559), `"0x7e"` (Deposit).
     </ResponseField>
     <ResponseField name="chainId" type="string">
       Chain ID the transaction is valid for. `"0x2105"` for Base Mainnet, `"0x14a34"` for Base Sepolia.
@@ -963,7 +975,13 @@ For preconfirmed transaction receipts before a block is sealed, use a [Flashbloc
       `"0x1"` for a successful transaction, `"0x0"` for a failed (reverted) transaction.
     </ResponseField>
     <ResponseField name="type" type="string">
-      Transaction type: `"0x0"` (legacy), `"0x1"` (EIP-2930), `"0x2"` (EIP-1559).
+      Transaction type: `"0x0"` (Legacy), `"0x1"` (EIP-2930/Access List), `"0x2"` (EIP-1559), `"0x7e"` (Deposit).
+    </ResponseField>
+    <ResponseField name="blobGasUsed" type="string">
+      Blob gas consumed by this transaction (EIP-4844). `"0x0"` for non-blob transactions. When querying via a [Flashblocks-aware endpoint](/base-chain/flashblocks/api-reference#endpoints), this is accurately propagated from the preconfirmed block state.
+    </ResponseField>
+    <ResponseField name="blobGasPrice" type="string">
+      Blob gas price at the time of the transaction (EIP-4844).
     </ResponseField>
   </Expandable>
 </ResponseField>
