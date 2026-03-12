@@ -5,9 +5,9 @@ description: "Use Base Verify to let users prove ownership of verified accounts 
 
 ## What is Base Verify?
 
-Base Verify allows users to prove ownership of verified accounts (X, Coinbase, Instagram, TikTok) without sharing credentials. Your app receives a deterministic token for Sybil resistance.
+Base Verify allows users to prove ownership of verified accounts on [X](https://x.com/), [Coinbase](https://www.coinbase.com/), [Instagram](https://www.instagram.com/), and [TikTok](https://www.tiktok.com/) without sharing credentials. Your app receives a deterministic token for Sybil resistance.
 
-Even if a wallet has few transactions, Base Verify reveals whether the user is high-value through their verified social accounts (X Blue, Instagram, TikTok) or Coinbase One subscription. This lets you identify quality users regardless of onchain activity.
+Even if a wallet has few transactions, Base Verify reveals whether the user is high-value through their verified social accounts on X, Instagram, and TikTok or a [Coinbase One](https://www.coinbase.com/one) subscription. This lets you identify quality users regardless of onchain activity.
 
 **Example use cases:**
 
@@ -15,13 +15,15 @@ Even if a wallet has few transactions, Base Verify reveals whether the user is h
 - Exclusive content access (e.g., creator coins)
 - Identity-based rewards and loyalty programs
 
+If you still need wallet connection or message signing in your app, start with [Authenticate users](/base-account/guides/authenticate-users), [Sign and verify typed data](/base-account/guides/sign-and-verify-typed-data), or the [web React quickstart](/base-account/quickstart/web-react).
+
 ---
 
 ## Core concepts
 
 ### Provider
 
-An identity platform that Base Verify integrates with. Currently supports **X (Twitter)**, **Coinbase**, **Instagram**, and **TikTok**.
+An identity platform that Base Verify integrates with. Currently supports **[X](https://x.com/)**, **[Coinbase](https://www.coinbase.com/)**, **[Instagram](https://www.instagram.com/)**, and **[TikTok](https://www.tiktok.com/)**.
 
 ### Verification
 
@@ -52,9 +54,9 @@ A developer-defined string that identifies what the user is doing with their ver
 
 #### How actions work
 
-Actions are specified in the SIWE message resources:
+Actions are specified in the [Sign-In with Ethereum (SIWE)](https://eips.ethereum.org/EIPS/eip-4361) message resources:
 
-```typescript Title "SIWE resources with action"
+```typescript SIWE resources with action
 resources: [
   'urn:verify:provider:x',
   'urn:verify:action:claim_daily_reward'
@@ -63,7 +65,7 @@ resources: [
 
 The action is returned in the API response:
 
-```json Title "API response with action"
+```json Verification response with action
 {
   "token": "abc123...",
   "action": "claim_daily_reward",
@@ -121,7 +123,7 @@ Without Base Verify, users could claim multiple times with different wallets. Wi
 
 #### How to store tokens
 
-```typescript Title "Token storage schema"
+```json Verification token storage record
 {
   token: "abc123...",
   walletAddress: "0x1234...",
@@ -132,7 +134,7 @@ Without Base Verify, users could claim multiple times with different wallets. Wi
 
 #### Prevent double claims
 
-```typescript Title "Double claim prevention" expandable lines
+```typescript Prevent duplicate claims by token expandable lines
 async function claimAirdrop(verificationToken: string, walletAddress: string) {
   const existingClaim = await db.findClaimByToken(verificationToken);
 
@@ -154,7 +156,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 
 ## Architecture and flow
 
-```
+```text Base Verify architecture and verification flow
                     ┌─────────────┐
                     │             │  1. User connects wallet
                     │   Your      │
@@ -238,8 +240,8 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 ### Prerequisites
 
 1. **API key** — fill out the [interest form](https://forms.gle/6L4hWAHkojYcefz27) to get access
-2. **Wallet integration** — users must be able to connect and sign messages
-3. **Backend server** — to securely call the Base Verify API
+2. **Wallet integration** — users must be able to connect and sign messages. See [Authenticate users](/base-account/guides/authenticate-users) or the [web React quickstart](/base-account/quickstart/web-react)
+3. **Backend server** — to securely call the Base Verify API and keep your secret key private. For a similar frontend-to-backend signing pattern, see [Sign and verify typed data](/base-account/guides/sign-and-verify-typed-data)
 
 ### Register your app
 
@@ -280,7 +282,7 @@ BASE_VERIFY_SECRET_KEY=your_secret_key_here
 
 <Step title="Generate the SIWE signature (frontend)">
 
-Build a SIWE message that includes the provider, trait requirements, and action:
+Build a [SIWE](https://eips.ethereum.org/EIPS/eip-4361) message that includes the provider, trait requirements, and action:
 
 ```typescript lib/signature-generator.ts expandable lines highlight={7-12,15-24}
 import { SiweMessage, generateNonce } from 'siwe'
@@ -325,7 +327,7 @@ The frontend generates the signature and sends it to **your** backend, which cal
 
 **Frontend:**
 
-```typescript Title "Frontend verification check" expandable lines highlight={2-8,11-19}
+```typescript Frontend verification check expandable lines highlight={2-8,11-19}
 async function checkVerification(address: string) {
   const signature = await generateSignature(
     async (msg) => {
@@ -416,7 +418,7 @@ Your backend **must** validate that the trait requirements in the SIWE message m
 
 If you receive a 404 response, redirect the user to the Base Verify Mini App to complete OAuth:
 
-```typescript Title "Redirect to Base Verify Mini App" highlight={3-6,9}
+```typescript Open the Base Verify Mini App highlight={3-6,9}
 function redirectToVerifyMiniApp(provider: string) {
   const params = new URLSearchParams({
     redirect_uri: config.appUrl,
@@ -430,7 +432,7 @@ function redirectToVerifyMiniApp(provider: string) {
 }
 ```
 
-After verification, the user returns to your `redirect_uri` with `?success=true`. Run the check again (step 3) — it now returns 200 with a token.
+After verification, the user returns to your `redirect_uri` with `?success=true`. Run the check again (step 3) and it now returns 200 with a token. If you're building for the Base app, see the [Mini apps overview](/mini-apps/introduction/overview) for broader app structure and lifecycle guidance.
 
 </Step>
 </Steps>
@@ -455,7 +457,7 @@ Do **not** retry 404 responses — the user simply hasn't verified yet. Do **not
 
 All API requests require your secret key in the `Authorization` header:
 
-```typescript Title "Authorization header"
+```http Authorization header
 Authorization: Bearer YOUR_SECRET_KEY
 ```
 
@@ -465,7 +467,7 @@ Check if a wallet has a specific verification and retrieve the verification toke
 
 #### Request
 
-```typescript Title "Request body"
+```json POST /v1/base_verify_token request body
 {
   signature: string,   // SIWE signature from wallet
   message: string      // SIWE message (includes provider/traits in resources)
@@ -474,7 +476,7 @@ Check if a wallet has a specific verification and retrieve the verification toke
 
 #### Example request
 
-```bash Title "cURL example" wrap
+```bash POST /v1/base_verify_token cURL example wrap
 curl -X POST https://verify.base.dev/v1/base_verify_token \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_SECRET_KEY" \
@@ -488,7 +490,7 @@ curl -X POST https://verify.base.dev/v1/base_verify_token \
 
 **200 OK — verified:**
 
-```json Title "Success response"
+```json 200 OK response
 {
   "token": "abc123...",
   "action": "claim_airdrop",
@@ -504,7 +506,7 @@ curl -X POST https://verify.base.dev/v1/base_verify_token \
 
 **404 Not Found — verification not found:**
 
-```json Title "Not found response"
+```json 404 not found response
 {
   "error": "verification_not_found"
 }
@@ -514,7 +516,7 @@ Redirect the user to the Base Verify Mini App to complete verification.
 
 **400 Bad Request — traits not satisfied:**
 
-```json Title "Traits not satisfied response"
+```json 400 traits not satisfied response
 {
   "code": 9,
   "message": "verification_traits_not_satisfied",
@@ -526,7 +528,7 @@ The user has the provider account but doesn't meet trait requirements. Do not re
 
 **401 Unauthorized — invalid key:**
 
-```json Title "Unauthorized response"
+```json 401 unauthorized response
 {
   "error": "unauthorized"
 }
@@ -538,7 +540,7 @@ Check that your secret key is correct and included in the Authorization header.
 
 To redirect users to Base Verify for verification:
 
-```typescript Title "Redirect URL format"
+```text Base Verify redirect URL format
 https://verify.base.dev?redirect_uri={your_app_url}&providers={provider}
 ```
 
@@ -551,9 +553,9 @@ https://verify.base.dev?redirect_uri={your_app_url}&providers={provider}
 
 ## Trait catalog
 
-Traits are specific attributes of a provider account that you can verify. They are specified in SIWE message resources using this format:
+Traits are specific attributes of a provider account that you can verify. They are specified in [SIWE](https://eips.ethereum.org/EIPS/eip-4361) message resources using this format:
 
-```typescript Title "Trait URN syntax"
+```text Trait resource format
 urn:verify:provider:{provider}:{trait_name}:{operation}:{value}
 ```
 
@@ -592,7 +594,7 @@ urn:verify:provider:{provider}:{trait_name}:{operation}:{value}
 
 When you specify multiple traits for the same provider, **all** must be satisfied (AND logic):
 
-```typescript Title "Multiple traits (AND logic)"
+```typescript Multiple traits for one provider
 resources: [
   'urn:verify:provider:x',
   'urn:verify:provider:x:verified:eq:true',
@@ -608,7 +610,7 @@ You can only check one provider per request. To check multiple providers, make s
 
 **Tiered access:**
 
-```typescript Title "Tiered access example"
+```typescript Tiered access trait rules
 // Bronze tier: any verified account
 traits: { 'verified': 'true' }
 
@@ -623,14 +625,14 @@ traits: { 'followers': 'gte:10000' }
 
 ### Coinbase
 
-**Provider:** `coinbase`
+**Provider:** `coinbase` ([Coinbase](https://www.coinbase.com/))
 
 | Trait | Type | Operations | Description | Example values |
 | :--- | :--- | :--- | :--- | :--- |
-| `coinbase_one_active` | Boolean | `eq` | Active Coinbase One subscription | `"true"`, `"false"` |
-| `coinbase_one_billed` | Boolean | `eq` | User has been billed for Coinbase One | `"true"`, `"false"` |
+| `coinbase_one_active` | Boolean | `eq` | Active [Coinbase One](https://www.coinbase.com/one) subscription | `"true"`, `"false"` |
+| `coinbase_one_billed` | Boolean | `eq` | User has been billed for [Coinbase One](https://www.coinbase.com/one) | `"true"`, `"false"` |
 
-```typescript Title "Coinbase trait examples"
+```typescript Coinbase trait examples
 // Check for Coinbase One subscribers
 {
   provider: 'coinbase',
@@ -644,9 +646,9 @@ traits: { 'followers': 'gte:10000' }
 }
 ```
 
-### X (Twitter)
+### X
 
-**Provider:** `x`
+**Provider:** `x` ([X](https://x.com/))
 
 | Trait | Type | Operations | Description | Example values |
 | :--- | :--- | :--- | :--- | :--- |
@@ -654,7 +656,7 @@ traits: { 'followers': 'gte:10000' }
 | `verified_type` | String | `eq` | Type of verification | `"blue"`, `"government"`, `"business"`, `"none"` |
 | `followers` | Integer | `eq`, `gt`, `gte`, `lt`, `lte` | Number of followers | `"1000"`, `"50000"` |
 
-```typescript Title "X trait examples" expandable lines
+```typescript X trait examples expandable lines
 // Check for any verified account
 {
   provider: 'x',
@@ -685,7 +687,7 @@ traits: { 'followers': 'gte:10000' }
 
 ### Instagram
 
-**Provider:** `instagram`
+**Provider:** `instagram` ([Instagram](https://www.instagram.com/))
 
 | Trait | Type | Operations | Description | Example values |
 | :--- | :--- | :--- | :--- | :--- |
@@ -693,7 +695,7 @@ traits: { 'followers': 'gte:10000' }
 | `followers_count` | Integer | `eq`, `gt`, `gte`, `lt`, `lte` | Number of followers | `"1000"`, `"50000"` |
 | `instagram_id` | String | `eq` | Unique Instagram user ID | `"1234567890"` |
 
-```typescript Title "Instagram trait examples" expandable lines
+```typescript Instagram trait examples expandable lines
 // Check for follower count (greater than)
 {
   provider: 'instagram',
@@ -718,7 +720,7 @@ traits: { 'followers': 'gte:10000' }
 
 ### TikTok
 
-**Provider:** `tiktok`
+**Provider:** `tiktok` ([TikTok](https://www.tiktok.com/))
 
 | Trait | Type | Operations | Description | Example values |
 | :--- | :--- | :--- | :--- | :--- |
@@ -730,7 +732,7 @@ traits: { 'followers': 'gte:10000' }
 | `likes_count` | Integer | `eq`, `gt`, `gte`, `lt`, `lte` | Total likes received | `"10000"`, `"100000"` |
 | `video_count` | Integer | `eq`, `gt`, `gte`, `lt`, `lte` | Number of videos posted | `"50"`, `"200"` |
 
-```typescript Title "TikTok trait examples" expandable lines
+```typescript TikTok trait examples expandable lines
 // Check for follower count
 {
   provider: 'tiktok',
@@ -760,7 +762,7 @@ traits: { 'followers': 'gte:10000' }
 
 ### SIWE signature requirement
 
-Every API call requires a valid SIWE signature from the wallet owner. This prevents:
+Every API call requires a valid [SIWE](https://eips.ethereum.org/EIPS/eip-4361) signature from the wallet owner. This prevents:
 
 - Arbitrary lookup of verification status
 - Third parties checking if a wallet is verified
@@ -768,7 +770,7 @@ Every API call requires a valid SIWE signature from the wallet owner. This preve
 
 The user signs a structured message proving they control the wallet and agree to check specific traits:
 
-```typescript Title "SIWE payload example"
+```json SIWE payload example
 {
   domain: "your-app.com",
   address: "0x1234...",
@@ -797,7 +799,7 @@ When your backend receives a SIWE message from the frontend, you **must** valida
 
 **Implementation:**
 
-```typescript Title "Backend trait validation" lines highlight={2-4,7}
+```typescript Validate traits on the backend lines highlight={2-4,7}
 import { validateTraits } from './lib/trait-validator';
 
 const expectedTraits = {
@@ -832,7 +834,7 @@ if (!validation.valid) {
 
 ### OAuth security model
 
-Base Verify validates provider accounts through OAuth:
+Base Verify validates provider accounts through [OAuth](https://oauth.net/2/):
 
 1. User initiates OAuth in the Base Verify Mini App
 2. Provider (X, Instagram, etc.) authenticates the user
