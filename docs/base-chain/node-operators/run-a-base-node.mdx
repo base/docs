@@ -1,5 +1,5 @@
 ---
-title: 'Getting Started'
+title: Run a Node
 description: A tutorial that teaches how to set up and run a Base Node.
 ---
 
@@ -10,6 +10,7 @@ This tutorial will walk you through setting up your own [Base Node](https://gith
 By the end of this tutorial you should be able to:
 
 - Deploy and sync a Base node
+- Enable Flashblocks for 200ms preconfirmations
 
 ## Prerequisites
 
@@ -23,9 +24,8 @@ If you're just getting started and need an RPC URL, you can use our free endpoin
 
 **Note:** Our RPCs are rate-limited, they are not suitable for production apps.
 
-If you're looking to harden your app and avoid rate-limiting for your users, please consider using an endpoint from one of our [partners](/base-chain/tools/node-providers).
+If you're looking to harden your app and avoid rate-limiting for your users, please consider using an endpoint from one of our [partners](/base-chain/node-operators/node-providers).
 </Warning>
-
 
 ### Hardware requirements
 
@@ -62,7 +62,7 @@ This tutorial assumes you are familiar with [Docker](https://www.docker.com/) an
 
 ### L1 RPC URL
 
-You'll need your own L1 RPC URL. This can be one that you run yourself, or via a third-party provider, such as our [partners](/base-chain/tools/node-providers).
+You'll need your own L1 RPC URL. This can be one that you run yourself, or via a third-party provider, such as our [partners](/base-chain/node-operators/node-providers).
 
 ## Running a Node
 
@@ -100,3 +100,56 @@ echo Latest synced block behind by: $((($(date +%s)-$( \
 ```
 
 You'll also know that the sync hasn't completed if you get `Error: nonce has already been used` if you try to deploy using your node.
+
+---
+
+## Enable Flashblocks
+
+Once your node is synced, you can enable Flashblocks to serve 200ms preconfirmations to your applications.
+
+### Configuration
+
+To enable Flashblocks, start your node with the following environment variables:
+
+```sh
+NODE_TYPE=base CLIENT=reth RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base.org/ws" docker-compose up
+```
+
+| Variable | Description | Values |
+|----------|-------------|--------|
+| `NODE_TYPE` | Enables base reth node with Flashblocks | `base` |
+| `CLIENT` | Execution client | `reth` |
+| `RETH_FB_WEBSOCKET_URL` | Flashblocks WebSocket endpoint | See below |
+
+### WebSocket Endpoints
+
+| Network | URL |
+|---------|-----|
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+<Warning>
+**These WebSocket endpoints are for node infrastructure only.** 
+
+Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [App Integration guide](/base-chain/flashblocks/app-integration) for details.
+</Warning>
+
+<Note>
+The [base](https://github.com/base/base) binary listens to the Flashblocks WebSocket stream and caches preconfirmation data. When Flashblocks-aware RPC methods are called, it returns data from this cache. For the full message schema and payload structure, see [Infrastructure Stream](/base-chain/flashblocks/api-reference#infrastructure-stream).
+</Note>
+
+### Verify Flashblocks Functionality
+
+Test that your node is properly serving Flashblocks by querying a pending block:
+
+```sh
+curl -X POST \
+  --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["pending", false],"id":1}' \
+  http://localhost:8545
+```
+
+A successful response will include block data from the latest Flashblock. If Flashblocks are temporarily unavailable, the node falls back to returning the latest finalized block.
+
+### Available RPC Methods
+
+Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods plus Flashblocks-specific methods and WebSocket subscriptions. See the [Flashblocks API Reference](/base-chain/flashblocks/api-reference) for the full list, including code examples and parameter details.

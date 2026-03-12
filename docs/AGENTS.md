@@ -32,8 +32,6 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/quickstart:base-solana-bridge,bridge-token,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
 |base-chain/tools:account-abstraction,base-products,block-explorers,cross-chain,data-indexers,network-faucets,node-providers,onboarding,onchain-registry-api,onramps,oracles,tokens-in-wallet
-|cookbook:accept-crypto-payments,ai-assisted-documentation-reading,ai-powered-development-fundamentals,ai-prompting,base-app-coins,base-builder-mcp,converting-customizing-mini-apps,defi-your-app,essential-documentation-resources,go-gasless,introduction-to-mini-apps,launch-ai-agents,launch-tokens,mastering-ai-prompt-engineering,onboard-any-user,onchain-social,spend-permissions-ai-agent,successful-miniapps-in-tba,testing-onchain-apps
-|cookbook/minikit:add-frame-metadata,add-minikit,build-your-mini-app-with-prompt,configure-environment,create-manifest,fork-and-customize,install,manifest-cli,test-and-deploy
 |get-started:base-mentorship-program,base-services-hub,base,build-app,concepts,country-leads-and-ambassadors,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,prompt-library
 |learn:exercise-contracts,welcome
 |learn/address-and-payable:address-and-payable
