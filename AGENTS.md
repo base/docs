@@ -11,7 +11,7 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
 |base-account/guides:accept-payments,accept-recurring-payments,authenticate-users,migration-guide,sign-and-verify-typed-data
 |base-account/guides/tips:inspect-txn-simulation,popup-tips
-|base-account/improve-ux:batch-transactions,magic-spend,spend-permissions,sub-accounts
+|base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
 |base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
 |base-account/more:base-gasless-campaign,telemetry
 |base-account/more/troubleshooting/usage-details:gas-usage,popups,simulations,unsupported-calls,wallet-library-support
