@@ -2,14 +2,14 @@
 IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
 Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
 [Docs]|root:./docs
-|ai-agents:index,resources-for-ai-agents,trading
+|ai-agents:index,trading
 |ai-agents/core-concepts:agent-apps,agent-frameworks,identity-verification-auth,payments-and-transactions,wallets
 |base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
 |base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
 |base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
 |base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
-|base-account/guides:accept-payments,accept-recurring-payments,authenticate-users,migration-guide,sign-and-verify-typed-data
+|base-account/guides:accept-payments,accept-recurring-payments,authenticate-users,migration-guide,sign-and-verify-typed-data,verify-social-accounts
 |base-account/guides/tips:inspect-txn-simulation,popup-tips
 |base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
 |base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
@@ -32,7 +32,7 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/reference:json-rpc-api
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
-|get-started:base-mentorship-program,base-services-hub,base,block-explorers,build-app,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,mistakes,prompt-library
+|get-started:base-mentorship-program,base-services-hub,base,block-explorers,build-app,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,mistakes,prompt-library,resources-for-ai-agents
 |mini-apps/core-concepts:authentication,base-account,context,embeds-and-previews,manifest,navigation,notifications
 |mini-apps/featured-guidelines:design-guidelines,notification-guidelines,overview,product-guidelines,technical-guidelines
 |mini-apps/growth:build-viral-mini-apps,optimize-onboarding,rewards
