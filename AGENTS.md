@@ -2,7 +2,7 @@
 IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
 Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
 [Docs]|root:./docs
-|ai-agents:index,trading
+|ai-agents:index,resources-for-ai-agents,trading
 |ai-agents/core-concepts:agent-apps,agent-frameworks,identity-verification-auth,payments-and-transactions,wallets
 |base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
