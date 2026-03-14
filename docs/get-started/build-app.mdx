@@ -1,250 +1,546 @@
 ---
-title: Build an App
-description: A guide to building a next.js app on Base using OnchainKit
+title: "Build an app on Base"
+description: "A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support."
 ---
 
-Welcome to the Base quickstart guide! In this walkthrough, we'll create a simple onchain app from start to finish. Whether you're a seasoned developer or just starting out, this guide has got you covered.
+This guide walks you through building an onchain tally app on Base from scratch. You will connect wallets, read and write to a smart contract, detect wallet capabilities, and fall back gracefully for wallets that do not support batching.
 
-## What You'll Achieve
+## What you'll build
 
-By the end of this quickstart, you'll have built an onchain app by:
-
-- Configuring your development environment
-- Deploying your smart contracts to Base
-- Interacting with your deployed contracts from the frontend
-
-Our simple app will be an onchain tally app which lets you add to a total tally, stored onchain, by pressing a button.
+- A Next.js app that connects wallets and handles connection state
+- Contract reads and writes against a deployed counter on Base Sepolia
+- Batch transaction support for smart wallets via EIP-5792
+- A graceful fallback for wallets that do not support batching
 
 <Tip>
-**Why Base?**
-
-Base is a fast, low-cost, builder-friendly Ethereum L2 built to bring the next billion users onchain. By following this guide, you'll join a vibrant ecosystem of developers, creators, and innovators who are building a global onchain economy.
+Base is a fast, low-cost Ethereum L2 built to bring the next billion users onchain. Low gas fees make batch transactions practical and real-time UX possible. Every pattern in this guide works on any EVM chain.
 </Tip>
 
-
-## Set Up Your Development Environment
+## Steps
 
 <Steps>
-  <Step title="Bootstrap with OnchainKit">
-  OnchainKit is a library of ready-to-use React components and Typescript utilities for building onchain apps. Run the following command in your terminal and follow the prompts to bootstrap your project.
+  <Step title="Set up your project">
+    Create a new Next.js app and install the required dependencies.
 
-  ```bash Terminal
-  npm create onchain@latest
-  ```
-
-  The prompts will ask you for a CDP API Key which you can get [here](https://portal.cdp.coinbase.com/projects/api-keys/client-key).
-
-  Once you've gone through the prompts, you'll have a new project directory with a basic OnchainKit app. Run the following to see it live.
-
-  ```bash Terminal
-  cd my-onchainkit-app
-  npm install
-  npm run dev
-  ```
-
-  You should see the following screen.
-
-<Frame>
-  <img alt="OnchainKit Template" src="/images/onchainkit/quickstart.png" height="364" />
-</Frame>
-
-  Once we've deployed our contracts, we'll add a button that lets us interact with our contracts.
-
+    ```bash Terminal
+    npx create-next-app@latest my-base-app --typescript --tailwind --app
+    cd my-base-app
+    npm install wagmi viem @tanstack/react-query @base-org/account
+    ```
   </Step>
-  <Step title="Install and initialize Foundry">
-  The total tally will be stored onchain in a smart contract. We'll use the Foundry framework to deploy our contract to the Base Sepolia testnet.
 
-  1. Create a new "contracts" folder in the root of your project
+  <Step title="Configure Wagmi for Base">
+    Create the Wagmi config with Base Sepolia, then wrap your app in the required providers.
 
-  ```bash Terminal
-  mkdir contracts && cd contracts
-  ```
+    ```typescript config/wagmi.ts lines expandable
+    import { http, createConfig, createStorage, cookieStorage } from 'wagmi'
+    import { baseSepolia } from 'wagmi/chains'
+    import { baseAccount, injected } from 'wagmi/connectors'
 
-  2. Install and initialize Foundry
+    export const config = createConfig({
+      chains: [baseSepolia],
+      connectors: [
+        injected(),
+        baseAccount({
+          appName: 'My Base App',
+        }),
+      ],
+      storage: createStorage({ storage: cookieStorage }),
+      ssr: true,
+      transports: {
+        [baseSepolia.id]: http('https://sepolia.base.org'),
+      },
+    })
 
-  ```bash Terminal
-  curl -L https://foundry.paradigm.xyz | bash
-  foundryup
-  forge init --no-git
-  ```
+    declare module 'wagmi' {
+      interface Register {
+        config: typeof config
+      }
+    }
+    ```
 
-  Open the project and find the `Counter.sol` contract file in the `/contracts/src` folder. You'll find the simple logic for our tally app.
+    <Note>
+    `ssr: true` combined with `cookieStorage` prevents Next.js hydration mismatches. The `baseAccount` connector connects users via the [Base Account SDK](/base-account/overview/what-is-base-account) smart wallet — you will detect its capabilities in step 7. The `injected` connector handles browser extension wallets like MetaMask.
+    </Note>
 
-  <Tip>
-  **--no-git**
+    ```typescript app/providers.tsx lines expandable
+    'use client'
 
-  Because `contracts` is a folder in our project, we don't want to initialize a separate git repository for it, so we add the `--no-git` flag.
-  </Tip>
+    import { WagmiProvider } from 'wagmi'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { type ReactNode } from 'react'
+    import { config } from '@/config/wagmi'
+
+    const queryClient = new QueryClient()
+
+    export function Providers({ children }: { children: ReactNode }) {
+      return (
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </WagmiProvider>
+      )
+    }
+    ```
+
+    Wrap your root layout with `<Providers>`.
   </Step>
-  <Step title="Configure Foundry with Base">
-  To deploy your smart contracts to Base, you need two key components:
 
-  1. A node connection to interact with the Base network
-  2. A funded private key to deploy the contract
+  <Step title="Connect wallets">
+    Create a component that handles all four wallet connection states.
 
-  Let's set up both of these:
+    ```typescript components/ConnectWallet.tsx lines expandable
+    'use client'
 
-  - Create a `.env` file in your `contracts` directory and add the Base and Base Sepolia RPC URLs
+    import { useAccount, useConnect, useDisconnect } from 'wagmi'
 
-  ```bash contracts/.env
-  BASE_RPC_URL="https://mainnet.base.org"
-  BASE_SEPOLIA_RPC_URL="https://sepolia.base.org"
-  ```
+    export function ConnectWallet() {
+      const { address, isConnected, isConnecting, isReconnecting } = useAccount()
+      const { connect, connectors } = useConnect()
+      const { disconnect } = useDisconnect()
 
-  -Load your environment variables
+      if (isReconnecting) return <div>Reconnecting...</div>
 
-  ```bash Terminal
-  source .env
-  ```
+      if (!isConnected) {
+        return (
+          <div className="flex flex-col gap-2">
+            {connectors.map((connector) => (
+              <button
+                key={connector.uid}
+                onClick={() => connect({ connector })}
+                disabled={isConnecting}
+              >
+                Connect {connector.name}
+              </button>
+            ))}
+          </div>
+        )
+      }
 
-  <Tip>
-  **Base Sepolia**
+      return (
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-sm">
+            {address?.slice(0, 6)}...{address?.slice(-4)}
+          </span>
+          <button onClick={() => disconnect()}>Disconnect</button>
+        </div>
+      )
+    }
+    ```
 
-  Base Sepolia is the test network for Base, which we will use for the rest of this guide. You can obtain free Base Sepolia ETH from one of the [faucets listed here](/base-chain/tools/network-faucets).
-  </Tip>
+    <Note>
+    `useAccount` exposes four states: `isConnecting`, `isReconnecting`, `isConnected`, and `isDisconnected`. Checking only `isConnected` causes UI flashes on page load — handle all four.
+    </Note>
   </Step>
-  <Step title="Secure your private key">
-  A private key with testnet funds is required to deploy the contract. You can generate a fresh private key [here](https://visualkey.link/).
 
-  1. Store your private key in Foundry's secure keystore
+  <Step title="Deploy a contract with Foundry">
+    Install Foundry and initialize a contracts directory inside your project.
 
-  ```bash Terminal
-  cast wallet import deployer --interactive
-  ```
+    ```bash Terminal
+    mkdir contracts && cd contracts
+    curl -L https://foundry.paradigm.xyz | bash
+    foundryup
+    forge init --no-git
+    ```
 
-  2. When prompted enter your private key and a password.
+    <Note>
+    The `--no-git` flag prevents Foundry from initialising a nested git repository inside your project.
+    </Note>
 
-  Your private key is stored in `~/.foundry/keystores` which is not tracked by git.
+    Configure Base Sepolia in your environment file.
 
-  <Warning>
-  Never share or commit your private key. Always keep it secure and handle with care.
-  </Warning>
+    ```bash contracts/.env
+    BASE_SEPOLIA_RPC_URL="https://sepolia.base.org"
+    ```
+
+    <Note>
+    If `https://sepolia.base.org` is unreachable, use an alternative public endpoint such as `https://base-sepolia-rpc.publicnode.com`. For production apps, use a dedicated RPC provider.
+    </Note>
+
+    Load the variable and import your deployer key securely.
+
+    ```bash Terminal
+    source .env
+    cast wallet import deployer --interactive
+    ```
+
+    <Warning>
+    Never share or commit your private key. `cast wallet import` stores it in `~/.foundry/keystores`, which is not tracked by git.
+    </Warning>
+
+    <Note>
+    `cast wallet import --interactive` requires a TTY (interactive terminal). In scripted or CI environments, pass the key directly instead:
+
+    ```bash Terminal
+    forge create ./src/Counter.sol:Counter \
+      --rpc-url $BASE_SEPOLIA_RPC_URL \
+      --private-key $DEPLOYER_PRIVATE_KEY
+    ```
+    </Note>
+
+    Deploy the contract.
+
+    ```bash Terminal
+    forge create ./src/Counter.sol:Counter \
+      --rpc-url $BASE_SEPOLIA_RPC_URL \
+      --account deployer
+    ```
+
+    Verify the deployment by reading the initial counter value.
+
+    ```bash Terminal
+    cast call <CONTRACT_ADDRESS> "number()(uint256)" --rpc-url $BASE_SEPOLIA_RPC_URL
+    ```
+
+    You need testnet ETH to pay for deployment. Get free Base Sepolia ETH from one of the [network faucets](/base-chain/network-information/network-faucets).
+  </Step>
+
+  <Step title="Read contract data">
+    Define your contract address and ABI, then read the current counter value.
+
+    ```typescript config/counter.ts lines expandable
+    export const COUNTER_ADDRESS = '0x...' as const
+
+    export const counterAbi = [
+      {
+        type: 'function',
+        name: 'number',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+        stateMutability: 'view',
+      },
+      {
+        type: 'function',
+        name: 'increment',
+        inputs: [],
+        outputs: [],
+        stateMutability: 'nonpayable',
+      },
+    ] as const
+    ```
+
+    <Note>
+    `as const` is required. Without it, wagmi cannot infer function names, argument types, or return types from the ABI.
+    </Note>
+
+    ```typescript components/CounterDisplay.tsx lines expandable
+    'use client'
+
+    import { useReadContract } from 'wagmi'
+    import { baseSepolia } from 'wagmi/chains'
+    import { COUNTER_ADDRESS, counterAbi } from '@/config/counter'
+
+    export function CounterDisplay() {
+      const { data: count, isLoading, isError } = useReadContract({
+        address: COUNTER_ADDRESS,
+        abi: counterAbi,
+        functionName: 'number',
+        chainId: baseSepolia.id,
+      })
+
+      if (isLoading && count === undefined) return <p>Loading...</p>
+      if (isError && count === undefined) return <p>Failed to read contract</p>
+
+      return <p className="text-5xl font-bold">{count?.toString()}</p>
+    }
+    ```
+
+    <Note>
+    `isError` can be `true` while `data` still holds a valid cached value from a previous successful fetch. Always gate error renders on `data === undefined` so stale data is preferred over an error message.
+    </Note>
+  </Step>
+
+  <Step title="Write to a contract">
+    Send a transaction and surface all three confirmation states to the user.
+
+    ```typescript components/IncrementButton.tsx lines expandable
+    'use client'
+
+    import { useEffect } from 'react'
+    import {
+      useWriteContract,
+      useWaitForTransactionReceipt,
+      useChainId,
+      useSwitchChain,
+    } from 'wagmi'
+    import { readContractQueryOptions } from 'wagmi/query'
+    import { useQueryClient } from '@tanstack/react-query'
+    import { baseSepolia } from 'wagmi/chains'
+    import { config } from '@/config/wagmi'
+    import { COUNTER_ADDRESS, counterAbi } from '@/config/counter'
+
+    export function IncrementButton() {
+      const chainId = useChainId()
+      const { switchChain, isPending: isSwitching } = useSwitchChain()
+      const { data: hash, isPending, writeContract } = useWriteContract()
+      const { isLoading: isConfirming, isSuccess } =
+        useWaitForTransactionReceipt({ hash })
+      const queryClient = useQueryClient()
+
+      useEffect(() => {
+        if (isSuccess) {
+          queryClient.invalidateQueries({
+            queryKey: readContractQueryOptions(config, {
+              address: COUNTER_ADDRESS,
+              abi: counterAbi,
+              functionName: 'number',
+              chainId: baseSepolia.id,
+            }).queryKey,
+          })
+        }
+      }, [isSuccess, queryClient])
+
+      if (chainId !== baseSepolia.id) {
+        return (
+          <button onClick={() => switchChain({ chainId: baseSepolia.id })}>
+            {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
+          </button>
+        )
+      }
+
+      return (
+        <div>
+          <button
+            onClick={() =>
+              writeContract({
+                address: COUNTER_ADDRESS,
+                abi: counterAbi,
+                functionName: 'increment',
+                chainId: baseSepolia.id,
+              })
+            }
+            disabled={isPending || isConfirming}
+          >
+            {isPending
+              ? 'Confirm in Wallet...'
+              : isConfirming
+              ? 'Confirming...'
+              : 'Increment'}
+          </button>
+          {isSuccess && <p>Confirmed!</p>}
+          {hash && (
+            <a href={`https://sepolia.basescan.org/tx/${hash}`} target="_blank">
+              View on Basescan
+            </a>
+          )}
+        </div>
+      )
+    }
+    ```
+
+    <Note>
+    `useReadContract` caches its result and does not automatically refetch after a write. Use `queryClient.invalidateQueries` with the read's query key to trigger a single refetch when a transaction confirms.
+    </Note>
+
+    Surface three states to the user: waiting for wallet signature, waiting for on-chain confirmation, and success.
+
+    <Warning>
+    Without `useSwitchChain`, calling `writeContract` while the wallet is on the wrong network causes wagmi to attempt a background chain switch. If the user misses or dismisses the wallet popup, the button stays at "Confirm in Wallet..." indefinitely with no error and no recovery path.
+    </Warning>
+  </Step>
+
+  <Step title="Detect wallet capabilities">
+    Smart wallets support batch transactions via EIP-5792. EOAs do not. Detect support before attempting to batch.
+
+    ```typescript hooks/useWalletCapabilities.ts lines expandable
+    import { useCapabilities } from 'wagmi'
+    import { baseSepolia } from 'wagmi/chains'
+    import { useMemo } from 'react'
+
+    export function useWalletCapabilities() {
+      const { data: capabilities } = useCapabilities()
+
+      const supportsBatching = useMemo(() => {
+        const atomic = capabilities?.[baseSepolia.id]?.atomic
+        return atomic?.status === 'ready' || atomic?.status === 'supported'
+      }, [capabilities])
+
+      const supportsPaymaster = useMemo(() => {
+        return capabilities?.[baseSepolia.id]?.paymasterService?.supported === true
+      }, [capabilities])
+
+      return { supportsBatching, supportsPaymaster }
+    }
+    ```
+
+    <Note>
+    `useChainId()` returns the wallet's current chain, not your deployment chain. A MetaMask user on Ethereum mainnet would get incorrect capability results. Always check capabilities against the chain where your contract is deployed.
+    </Note>
+
+    See [Batch Transactions with Wagmi](/base-account/framework-integrations/wagmi/batch-transactions) for a deeper look at EIP-5792 capability detection.
+  </Step>
+
+  <Step title="Batch transactions with fallback">
+    Use `useSendCalls` for smart wallets and `useWriteContract` for EOAs. The component detects which path to take at render time.
+
+    ```typescript components/BatchIncrement.tsx lines expandable
+    'use client'
+
+    import { useEffect } from 'react'
+    import {
+      useSendCalls,
+      useWaitForCallsStatus,
+      useWriteContract,
+      useWaitForTransactionReceipt,
+      useAccount,
+      useChainId,
+      useSwitchChain,
+    } from 'wagmi'
+    import { readContractQueryOptions } from 'wagmi/query'
+    import { useQueryClient } from '@tanstack/react-query'
+    import { encodeFunctionData } from 'viem'
+    import { baseSepolia } from 'wagmi/chains'
+    import { config } from '@/config/wagmi'
+    import { useWalletCapabilities } from '@/hooks/useWalletCapabilities'
+    import { COUNTER_ADDRESS, counterAbi } from '@/config/counter'
+
+    const counterQueryKey = readContractQueryOptions(config, {
+      address: COUNTER_ADDRESS,
+      abi: counterAbi,
+      functionName: 'number',
+      chainId: baseSepolia.id,
+    }).queryKey
+
+    export function BatchIncrement() {
+      const { isConnected } = useAccount()
+      const { supportsBatching } = useWalletCapabilities()
+
+      if (!isConnected) return <p>Connect your wallet first.</p>
+
+      return supportsBatching ? <BatchFlow /> : <SequentialFlow />
+    }
+
+    function BatchFlow() {
+      const chainId = useChainId()
+      const { switchChain, isPending: isSwitching } = useSwitchChain()
+      const { data, sendCalls, isPending } = useSendCalls()
+      const { isLoading: isConfirming, isSuccess } = useWaitForCallsStatus({
+        id: data?.id,
+      })
+      const queryClient = useQueryClient()
+
+      useEffect(() => {
+        if (isSuccess) {
+          queryClient.invalidateQueries({ queryKey: counterQueryKey })
+        }
+      }, [isSuccess, queryClient])
+
+      if (chainId !== baseSepolia.id) {
+        return (
+          <button onClick={() => switchChain({ chainId: baseSepolia.id })}>
+            {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
+          </button>
+        )
+      }
+
+      const incrementData = encodeFunctionData({
+        abi: counterAbi,
+        functionName: 'increment',
+      })
+
+      return (
+        <div>
+          <button
+            onClick={() =>
+              sendCalls({
+                calls: [
+                  { to: COUNTER_ADDRESS, data: incrementData },
+                  { to: COUNTER_ADDRESS, data: incrementData },
+                ],
+                chainId: baseSepolia.id,
+              })
+            }
+            disabled={isPending || isConfirming}
+          >
+            {isPending
+              ? 'Confirm in Wallet...'
+              : isConfirming
+              ? 'Confirming...'
+              : 'Increment x2 (Batch)'}
+          </button>
+          {isSuccess && <p>Batch confirmed!</p>}
+        </div>
+      )
+    }
+
+    function SequentialFlow() {
+      const chainId = useChainId()
+      const { switchChain, isPending: isSwitching } = useSwitchChain()
+      const { data: hash, isPending, writeContract } = useWriteContract()
+      const { isLoading: isConfirming, isSuccess } =
+        useWaitForTransactionReceipt({ hash })
+      const queryClient = useQueryClient()
+
+      useEffect(() => {
+        if (isSuccess) {
+          queryClient.invalidateQueries({ queryKey: counterQueryKey })
+        }
+      }, [isSuccess, queryClient])
+
+      if (chainId !== baseSepolia.id) {
+        return (
+          <button onClick={() => switchChain({ chainId: baseSepolia.id })}>
+            {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
+          </button>
+        )
+      }
+
+      return (
+        <button
+          onClick={() =>
+            writeContract({
+              address: COUNTER_ADDRESS,
+              abi: counterAbi,
+              functionName: 'increment',
+              chainId: baseSepolia.id,
+            })
+          }
+          disabled={isPending || isConfirming}
+        >
+          {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Confirming...' : 'Increment'}
+        </button>
+      )
+    }
+    ```
+
+    <Warning>
+    Never call `useSendCalls` without first confirming `supportsBatching` is `true`. Calling it against an EOA will throw.
+    </Warning>
+  </Step>
+
+  <Step title="Assemble the page">
+    Compose the components into a single page.
+
+    ```typescript app/page.tsx lines expandable
+    import { ConnectWallet } from '@/components/ConnectWallet'
+    import { CounterDisplay } from '@/components/CounterDisplay'
+    import { BatchIncrement } from '@/components/BatchIncrement'
+
+    export default function Home() {
+      return (
+        <main className="min-h-screen flex flex-col items-center justify-center gap-8 p-8">
+          <h1 className="text-3xl font-bold">Onchain Tally</h1>
+          <ConnectWallet />
+          <CounterDisplay />
+          <BatchIncrement />
+        </main>
+      )
+    }
+    ```
+
+    Start the development server.
+
+    ```bash Terminal
+    npm run dev
+    ```
   </Step>
 </Steps>
 
-## Deploy Your Contracts
+## Next steps
 
-Now that your environment is set up, let's deploy your contracts to Base Sepolia. The foundry project provides a deploy script that will deploy the Counter.sol contract.
-
-<Steps>
-  <Step title="Run the deploy script">
-  1. Use the following command to compile and deploy your contract
-
-  ```bash Terminal
-  forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer
-  ```
-
-  Note the format of the contract being deployed is `<contract-path>:<contract-name>`.
-  </Step>
-  <Step title="Save the contract address">
-  After successful deployment, the transaction hash will be printed to the console output
-
-  Copy the deployed contract address and add it to your `.env` file
-
-  ```bash
-  COUNTER_CONTRACT_ADDRESS="0x..."
-  ```
-
-  </Step>
-  <Step title="Load the new environment variable">
-  ```bash Terminal
-  source .env
-  ```
-  </Step>
-  <Step title="Verify Your Deployment">
-  To ensure your contract was deployed successfully:
-
-  1. Check the transaction on [Sepolia Basescan](https://sepolia.basescan.org/).
-  2. Use the `cast` command to interact with your deployed contract from the command line
-
-  ```bash
-  cast call $COUNTER_CONTRACT_ADDRESS "number()(uint256)" --rpc-url $BASE_SEPOLIA_RPC_URL
-  ```
-
-  This will return the initial value of the Counter contract's `number` storage variable, which will be `0`.
-  </Step>
-</Steps>
-
-**Congratulations! You've deployed your smart contract to Base Sepolia!**
-
-Now lets connect the frontend to interact with your recently deployed contract.
-
-## Interacting with your contract
-
-To interact with the smart contract logic, we need to submit an onchain transaction. We can do this easily with the `Transaction` component. This is a simplified version of the `Transaction` component, designed to streamline the integration process. Instead of manually defining each subcomponent and prop, we can use this shorthand version which renders our suggested implementation of the component and includes the `TransactionButton` and `TransactionToast` components.
-
-<Steps>
-  <Step title="Add the Transaction component">
-  Lets add the `Transaction` component to our `page.tsx` file. Delete the existing content in the `main` tag and replace it with the snippet below.
-
-  ```tsx page.tsx
-  // @noErrors: 2307 - Cannot find module '@/calls'
-  import { Transaction } from '@coinbase/onchainkit/transaction';
-  import { calls } from '@/calls';
-
-  <main className="flex flex-grow items-center justify-center">
-    <div className="w-full max-w-4xl p-4">
-      <div className="mx-auto mb-6 w-1/3">
-        <Transaction calls={calls} />
-      </div>
-    </div>
-  </main>;
-  ```
-  </Step>
-  <Step title="Defining the contract calls">
-  In the previous code snippet, you'll see we imported `calls` from the `calls.ts` file. This file provides the details needed to interact with our contract and call the `increment` function. Create a new `calls.ts` file in the same folder as your `page.tsx` file and add the following code.
-
-  ```ts calls.ts
-  const counterContractAddress = '0x...'; // add your contract address here
-  const counterContractAbi = [
-    {
-      type: 'function',
-      name: 'increment',
-      inputs: [],
-      outputs: [],
-      stateMutability: 'nonpayable',
-    },
-  ] as const;
-
-  export const calls = [
-    {
-      address: counterContractAddress,
-      abi: counterContractAbi,
-      functionName: 'increment',
-      args: [],
-    },
-  ];
-  ```
-
-  <Tip>
-  **Contract Address**
-
-  The `calls.ts` file contains the details of the contract interaction, including the contract address, which we saved in the previous step.
-  </Tip>
-  </Step>
-  <Step title="Testing the component">
-  Now, when you connect a wallet and click on the `Transact` button and approve the transaction, it will increment the tally onchain by one.
-
-  We can verify that the onchain count took place onchain by once again using `cast` to call the `number` function on our contract.
-
-  ```bash Terminal
-  cast call $COUNTER_CONTRACT_ADDRESS "number()(uint256)" --rpc-url $BASE_SEPOLIA_RPC_URL
-  ```
-
-  If the transaction was successful, the tally should have incremented by one!
-  </Step>
-</Steps>
-
-We now have a working onchain tally app! While the example is simple, it illustrates the end to end process of building on onchain app. We:
-
-- Configured a project with frontend and onchain infrastructure
-- Deployed a smart contract to Base Sepolia
-- Interacted with the contract from the frontend
-
-## Further Improvements
-
-This is just the beginning. There are many ways we can improve upon this app. For example, we could:
-
-- Make the `increment` transaction gasless by integrating with [Paymaster](/onchainkit/transaction/transaction#sponsor-with-paymaster-capabilities)
-- Improve the wallet connection and sign up flow with the [WalletModal](/onchainkit/wallet/wallet-modal) component
-- Add onchain [Identity](/onchainkit/identity/identity) so we know who added the most recent tally
+- **Go to mainnet** — add `base` to your `chains` array and transports in `config/wagmi.ts`, redeploy your contract to Base mainnet, and update `COUNTER_ADDRESS`.
+- **Sponsor gas** — use the `paymasterService` capability with `useSendCalls` to cover your users' transaction fees. See [Sponsor Gas](/base-account/improve-ux/sponsor-gas/paymasters).
+- **Batch read calls** — reduce RPC round trips by batching reads via viem's `multicall`.
+- **Optimistic updates** — update the UI before confirmation using TanStack Query's `onMutate` callback.
+- **Wagmi setup reference** — review the full [Wagmi setup guide](/base-account/framework-integrations/wagmi/setup) for additional configuration options.

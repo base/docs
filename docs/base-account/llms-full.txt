@@ -2,11 +2,12 @@
 
 ## Base Account — Deep Guide for LLMs
 
-> Base Account is a passkey‑secured, ERC‑4337 smart wallet with universal sign‑in, USDC payments, sponsored gas, batch transactions, spend permissions, and sub‑accounts.
+> Base Account is a passkey‑secured, ERC‑4337 smart wallet with universal sign‑in, USDC payments, social verification, sponsored gas, batch transactions, spend permissions, and sub‑accounts.
 
 ### What you can do here
 - Add Base Account to web and mobile apps
 - Authenticate users with SIWE + ERC‑6492
+- Verify social and Coinbase One accounts for Sybil-resistant rewards and gated access
 - Accept USDC with Base Pay and sponsor gas with a paymaster
 - Use batch transactions and ERC‑20 gas payments
 - Grant revocable spend permissions and create app‑scoped sub‑accounts
@@ -33,12 +34,13 @@ const { status } = await getPaymentStatus({ id })
 ### Guides
 - [Authenticate Users](https://docs.base.org/base-account/guides/authenticate-users.md) — SIWE + ERC‑6492
 - [Accept Payments](https://docs.base.org/base-account/guides/accept-payments.md) — Base Pay
+- [Accept Recurring Payments](https://docs.base.org/base-account/guides/accept-recurring-payments.md) — Subscriptions
 - [Batch Transactions](https://docs.base.org/base-account/improve-ux/batch-transactions.md) — Multi‑call
 - [Paymasters](https://docs.base.org/base-account/improve-ux/sponsor-gas/paymasters.md) — Sponsor gas
 - [ERC‑20 Paymasters](https://docs.base.org/base-account/improve-ux/sponsor-gas/erc20-paymasters.md) — ERC‑20 gas
 - [Spend Permissions](https://docs.base.org/base-account/improve-ux/spend-permissions.md) — Spending
+- [Verify Social Accounts](https://docs.base.org/base-account/guides/verify-social-accounts.md) — Base Verify
 - [Sub‑Accounts](https://docs.base.org/base-account/improve-ux/sub-accounts.md) — App‑scoped accounts
-- [MagicSpend](https://docs.base.org/base-account/improve-ux/magic-spend.md) — Coinbase balance spend
 - [Sign & Verify Data](https://docs.base.org/base-account/guides/sign-and-verify-typed-data.md) — Signatures
 
 ### Framework Integrations
@@ -47,14 +49,20 @@ const { status } = await getPaymentStatus({ id })
 - [Wagmi Base Pay](https://docs.base.org/base-account/framework-integrations/wagmi/base-pay.md) — Payments
 - [Wagmi Other Use Cases](https://docs.base.org/base-account/framework-integrations/wagmi/other-use-cases.md) — Patterns
 - [Privy Setup](https://docs.base.org/base-account/framework-integrations/privy/setup.md) — Privy
+- [Privy Authentication](https://docs.base.org/base-account/framework-integrations/privy/authentication.md) — Privy auth
 - [Privy Sub‑Accounts](https://docs.base.org/base-account/framework-integrations/privy/sub-accounts.md) — Privy sub‑accounts
-- [Dynamic](https://docs.base.org/base-account/framework-integrations/nextjs-with-dynamic.md) — Dynamic integration
+- [Privy Spend Permissions](https://docs.base.org/base-account/framework-integrations/privy/spend-permissions.md) — Privy spend permissions
+- [RainbowKit](https://docs.base.org/base-account/framework-integrations/rainbowkit.md) — RainbowKit integration
+- [Reown](https://docs.base.org/base-account/framework-integrations/reown.md) — Reown integration
+- [Thirdweb](https://docs.base.org/base-account/framework-integrations/thirdweb.md) — Thirdweb integration
+- [CDP](https://docs.base.org/base-account/framework-integrations/cdp.md) — CDP integration
 
 ### Reference (selected)
 - [SDK: createBaseAccount](https://docs.base.org/base-account/reference/core/createBaseAccount.md)
 - [SDK: getProvider](https://docs.base.org/base-account/reference/core/getProvider.md)
 - [Provider RPC Methods](https://docs.base.org/base-account/reference/core/provider-rpc-methods/request-overview.md)
 - [Capabilities](https://docs.base.org/base-account/reference/core/capabilities/overview.md)
+- [Capability: auxiliaryFunds](https://docs.base.org/base-account/reference/core/capabilities/auxiliaryFunds.md) — Reference only, currently disabled
 - [UI Elements](https://docs.base.org/base-account/reference/ui-elements/brand-guidelines.md)
 - [Onchain Contracts](https://docs.base.org/base-account/reference/onchain-contracts/smart-wallet.md)
 
@@ -67,7 +75,6 @@ const { status } = await getPaymentStatus({ id })
 ### Basenames
 - [FAQ](https://docs.base.org/base-account/basenames/basenames-faq.md)
 - [Transfer](https://docs.base.org/base-account/basenames/basename-transfer.md)
-- [OnchainKit Tutorial](https://docs.base.org/base-account/basenames/basenames-onchainkit-tutorial.md)
 - [Wagmi Tutorial](https://docs.base.org/base-account/basenames/basenames-wagmi-tutorial.md)
 
 ### Contribute
@@ -213,6 +220,25 @@ await provider.request({
     sponsor: { type: 'paymaster', token: 'USDC' }
   }]
 })
+```
+
+Example: Verify a social account and store the deterministic token
+
+Source: `https://docs.base.org/base-account/guides/verify-social-accounts.md`
+
+```ts
+const response = await fetch('/api/base-verify/check', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ signature, message })
+})
+
+if (response.status === 404) {
+  redirectToVerifyMiniApp('x')
+} else if (response.ok) {
+  const { token, action } = await response.json()
+  await db.saveVerificationToken({ token, action, walletAddress })
+}
 ```
 
 Example: Create and use a sub‑account for scoped spend
