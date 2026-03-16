@@ -192,6 +192,141 @@ Click the share button in your app to test the full experience. You should see t
 </Step>
 </Steps>
 
+## Understanding Next.js Dynamic Routes
+
+When building share pages, it's important to understand how Next.js App Router handles dynamic routes to avoid common pitfalls.
+
+### How Dynamic Routes Work
+
+A dynamic route uses brackets `[param]` to match any value:
+
+```plaintext
+app/share/[username]/page.tsx
+```
+
+This route matches:
+- `/share/alice` → `{ username: "alice" }`
+- `/share/bob` → `{ username: "bob" }`
+- `/share/0x1234...` → `{ username: "0x1234..." }`
+
+### Common Pitfall: Multiple Dynamic Routes
+
+<Warning>
+A common mistake is creating multiple dynamic route segments at the same directory level. This causes routing conflicts that break your embeds.
+</Warning>
+
+```plaintext
+❌ This causes routing conflicts:
+app/share/[id]/page.tsx        # Matches /share/123
+app/share/[username]/page.tsx  # Also matches /share/123
+app/share/[wallet]/page.tsx    # Also matches /share/123
+```
+
+**Why this breaks:** Next.js App Router cannot distinguish between `[id]`, `[username]`, and `[wallet]` since they all match `/share/{anything}`. The result:
+
+- **Unpredictable routing** - Next.js picks one route arbitrarily
+- **Broken embed previews** - Wrong metadata gets served to Farcaster
+- **Silent failures** - No build errors, issues only appear at runtime
+- **Debugging difficulty** - May work in development, fail in production
+
+### Solution 1: Single Dynamic Route with Type Detection
+
+Use one dynamic route that detects the parameter type:
+
+```tsx lines expandable wrap app/share/[param]/page.tsx
+import { Metadata } from 'next';
+
+interface PageProps {
+  params: Promise<{ param: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { param } = await params;
+
+  // Detect wallet address (0x + 40 hex characters)
+  if (param.startsWith('0x') && param.length === 42) {
+    return generateWalletMetadata(param);
+  }
+
+  // Detect numeric ID
+  if (/^\d+$/.test(param)) {
+    return generateIdMetadata(param);
+  }
+
+  // Default to username
+  return generateUsernameMetadata(param);
+}
+
+async function generateWalletMetadata(wallet: string): Promise<Metadata> {
+  const imageUrl = `${process.env.NEXT_PUBLIC_URL}/api/og/${wallet}`;
+  return {
+    title: 'My NFT',
+    other: {
+      'fc:miniapp': JSON.stringify({
+        version: '1',
+        imageUrl,
+        button: {
+          title: 'View NFT',
+          action: {
+            type: 'launch_frame',
+            name: 'Launch App',
+            url: process.env.NEXT_PUBLIC_URL
+          }
+        }
+      })
+    }
+  };
+}
+
+async function generateIdMetadata(id: string): Promise<Metadata> {
+  // Fetch post/item data by ID and return metadata
+  // ...
+}
+
+async function generateUsernameMetadata(username: string): Promise<Metadata> {
+  // Fetch user profile data and return metadata
+  // ...
+}
+```
+
+### Solution 2: Use Distinct Path Prefixes
+
+If type detection is complex, use different URL prefixes:
+
+```plaintext
+✅ Clear, unambiguous routes:
+app/share/user/[username]/page.tsx    # /share/user/alice
+app/share/wallet/[address]/page.tsx   # /share/wallet/0x1234...
+app/share/post/[id]/page.tsx          # /share/post/123
+```
+
+This makes URLs longer but avoids all ambiguity.
+
+### Dynamic Base URL
+
+When deploying to multiple environments (staging, production), use `headers()` to get the actual request URL instead of hardcoding:
+
+```tsx lines wrap
+import { headers } from 'next/headers';
+
+async function getBaseUrl(): Promise<string> {
+  const headersList = await headers();
+  const host = headersList.get('host');
+  const protocol = headersList.get('x-forwarded-proto') || 'https';
+  return host ? `${protocol}://${host}` : 'https://your-app.com';
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { wallet } = await params;
+  const baseUrl = await getBaseUrl();
+  const imageUrl = `${baseUrl}/api/og/${wallet}`;
+
+  // Use baseUrl for all URLs in metadata...
+}
+```
+
+This ensures your embed URLs work correctly in both staging (`your-app-staging.vercel.app`) and production (`your-app.com`).
+
 ## Related Concepts
 
 <CardGroup cols={1}>
