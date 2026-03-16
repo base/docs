@@ -1,26 +1,24 @@
----
-title: <Earn /> · OnchainKit
-sidebarTitle: <Earn />
-description: Earn interest on your crypto with OnchainKit
----
+# Earn Component · OnchainKit
 
-The `Earn` component provides a simple interface for earning interest on your crypto via Morpho vaults on Base.
+The `Earn` component provides a streamlined interface for earning yield on crypto assets through Morpho vaults on Base.
 
-## Prerequisites
+## Setup
 
-Before using the `Earn` component, ensure you've completed the [Getting Started](/onchainkit/getting-started) steps.
+### Prerequisites
 
-### Starting a new project
+Complete the [Getting Started](/onchainkit/getting-started) guide before implementing `Earn`.
 
-If you're starting a new project, we recommend using `create onchain` to scaffold your project.
+### New Projects
+
+Bootstrap a new project with our scaffolding tool:
 
 ```bash
 npm create onchain@latest
 ```
 
-### Adding to an existing project
+### Existing Projects
 
-If you're adding `Earn` to an existing project, simply install OnchainKit.
+Add OnchainKit to your project:
 
 <CodeGroup>
 ```bash npm
@@ -40,17 +38,17 @@ bun add @coinbase/onchainkit
 ```
 </CodeGroup>
 
-Wrap the `<OnchainKitProvider />` around your app, following the steps in [Getting Started](/onchainkit/getting-started#add-providers).
+Configure `<OnchainKitProvider />` following the [Getting Started guide](/onchainkit/getting-started#add-providers).
 
-## Quickstart
+## Basic Implementation
 
-To use `Earn`, you'll need to provide a `vaultAddress` prop. A vault address can be obtained from Morpho's [Vaults page](https://app.morpho.org/base/earn).
+The `Earn` component requires a `vaultAddress` prop. Find vault addresses on [Morpho's Vaults page](https://app.morpho.org/base/earn).
 
 ```tsx
 // @noErrors: 2307
-import { Earn } from '@coinbase/onchainkit/earn'; // [!code focus]
+import { Earn } from '@coinbase/onchainkit/earn';
 
-<Earn vaultAddress="0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A" /> // [!code focus]
+<Earn vaultAddress="0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A" />
 ```
 
 {/* <EarnMain /> */}
@@ -63,11 +61,9 @@ import { Earn } from '@coinbase/onchainkit/earn'; // [!code focus]
 
 ## Customization
 
-### Custom components and layouts
+### Layout Composition
 
-`Earn` accepts a `children` prop that can be used to render `Earn` subcomponents or custom components.
-
-For instance, you can render the `EarnDeposit` component by itself within the `Earn` component, along with any other custom components you'd like to render.
+Use the `children` prop to compose custom layouts with `Earn` subcomponents:
 
 ```tsx
 // @noErrors: 2307
@@ -88,7 +84,9 @@ import { Earn, EarnDeposit } from '@coinbase/onchainkit/earn';
   height="450px"
 />
 
-For more granular control, you can also render lower level subcomponents within `EarnDeposit` and `EarnWithdraw`. These subcomponents accept `className` props to customize their styles.
+### Granular Control
+
+Render lower-level subcomponents for fine-grained customization. All subcomponents accept `className` for styling:
 
 ```tsx
 import { Earn,
@@ -116,17 +114,17 @@ import { Earn,
   height="400px"
 />
 
-### Customizing styles
+### Styling
 
-The `Earn` component is best styled via a [OnchainKit theme](/onchainkit/guides/themes#custom-theme). You can also override individual component styles using `className`.
+Apply styles through [OnchainKit themes](/onchainkit/guides/themes#custom-theme) or override individual components with `className`.
 
 ## Advanced Usage
 
-If you'd like to implement your own custom components, you can use `useEarnContext` within an `Earn` component to access context and build your own components.
+Build fully custom implementations using `useEarnContext` to access component state and methods.
 
-You can find the full interface for `EarnContextType` on the [Types page](/onchainkit/earn/types#earncontexttype).
+View the complete [`EarnContextType` interface](/onchainkit/earn/types#earncontexttype) in the Types documentation.
 
-Below, we use `useEarnContext` to implement a custom deposit interface by using `useEarnContext` to access the `depositAmount` and `setDepositAmount` context values.
+**Example: Custom Deposit Interface**
 
 <CodeGroup>
 ```tsx index.tsx
@@ -134,10 +132,9 @@ Below, we use `useEarnContext` to implement a custom deposit interface by using 
 import { Earn, useEarnContext } from '@coinbase/onchainkit/earn';
 import { CustomDepositButtons } from '@/custom-deposit-buttons';
 
-  <Earn vaultAddress="0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A">
-      <CustomDepositButtons />
-  </Earn>
-
+<Earn vaultAddress="0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A">
+  <CustomDepositButtons />
+</Earn>
 ```
 
 ```tsx custom-deposit-buttons.tsx
@@ -186,65 +183,71 @@ function CustomDepositButtons() {
   height="400px"
 />
 
-Taking advantage of the data and methods provided by `useEarnContext`, developers can implement fully custom deposit and withdraw interfaces, modifying everything from UI elements to input behavior.
+Leverage `useEarnContext` data and methods to build completely custom deposit and withdraw flows.
 
-## Examples
+## Transaction Sponsorship
 
-### Sponsoring transactions
-
-To sponsor transactions, you can use the `isSponsored` prop.
+Enable gasless transactions with the `isSponsored` prop:
 
 ```tsx
 // @noErrors: 2304
 <Earn vaultAddress="0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A" isSponsored />
 ```
 
-Ensure that your `OnchainKitProvider` has a `paymaster` configured:
+Configure your paymaster in `OnchainKitProvider`:
 
 ```tsx
 // @noErrors:  2304 17008 1005
 <OnchainKitProvider
-  config={{ // [!code focus]
-    paymaster: process.env.PAYMASTER_ENDPOINT, // [!code focus]
-  }} // [!code focus]
+  config={{
+    paymaster: process.env.PAYMASTER_ENDPOINT,
+  }}
 >
 ```
 
 <Tip>
-If you have a contract allowlist set on Coinbase Developer Platform, you'll need to ensure that the following contract functions are allowed:
+Configure your contract allowlist on Coinbase Developer Platform to include:
 
-- `deposit` on the Morpho vault
-- `redeem` on the Morpho vault
-- `approve` on the token being deposited
+- `deposit` on Morpho vault contracts
+- `redeem` on Morpho vault contracts
+- `approve` on deposit token contracts
 </Tip>
 
+## Component Reference
 
-## Components
+### Core Components
 
-The `Earn` component includes the following subcomponents:
+- **`<Earn />`** - Complete deposit/withdraw interface with `children` support and `useEarnContext` access
+- **`<EarnProvider />`** - Headless context provider exposing `useEarnContext`
+- **`<EarnDeposit />`** - Pre-built deposit card
+- **`<EarnWithdraw />`** - Pre-built withdraw card
 
-- `<Earn />` - A fully built Withdraw and Deposit component. Also includes a `children` prop to render custom components and provides `useEarnContext` to access the context values.
-- `<EarnProvider />` - A headless provider that provides the `useEarnContext` hook to the `Earn` component.
-- `<EarnDeposit />` - A fully built deposit card.
-- `<EarnWithdraw />` - A fully built withdraw card.
-- `<EarnDetails />` - A component that displays the details of the vault.
-- `<DepositAmountInput />` - A component that handles the deposit amount input.
-- `<DepositBalance />` - A component that displays the balance underlying asset in the user's wallet.
-- `<DepositButton />` - A component that triggers the deposit transaction.
-- `<WithdrawAmountInput />` - A component that handles the withdraw amount input.
-- `<WithdrawBalance />` - A component that displays how much the user can withdraw from a vault.
-- `<WithdrawButton />` - A component that triggers the withdraw transaction.
-- `<YieldDetails />` - A component that displays the yield details of the vault.
-- `<VaultDetails />` - A component that displays the vault details.
+### Deposit Components
+
+- **`<DepositAmountInput />`** - Deposit amount input field
+- **`<DepositBalance />`** - Displays wallet balance for deposit asset
+- **`<DepositButton />`** - Triggers deposit transaction
+
+### Withdraw Components
+
+- **`<WithdrawAmountInput />`** - Withdraw amount input field
+- **`<WithdrawBalance />`** - Displays withdrawable vault balance
+- **`<WithdrawButton />`** - Triggers withdraw transaction
+
+### Information Components
+
+- **`<EarnDetails />`** - Vault overview information
+- **`<YieldDetails />`** - Yield metrics and APY
+- **`<VaultDetails />`** - Detailed vault parameters
 
 ## Hooks
 
-- [`useEarnContext`](/onchainkit/hooks/use-earn-context) - A hook that provides the context values of the `Earn` component.
-- [`useBuildDepositToMorphoTx`](/onchainkit/hooks/use-build-deposit-to-morpho-tx) - A hook that builds a deposit transaction to Morpho.
-- [`useBuildWithdrawFromMorphoTx`](/onchainkit/hooks/use-build-withdraw-from-morpho-tx) - A hook that builds a withdraw transaction from Morpho.
-- [`useMorphoVault`](/onchainkit/hooks/use-morpho-vault) - A hook that provides the details of a Morpho vault.
+- [`useEarnContext`](/onchainkit/hooks/use-earn-context) - Access Earn component context
+- [`useBuildDepositToMorphoTx`](/onchainkit/hooks/use-build-deposit-to-morpho-tx) - Build deposit transactions
+- [`useBuildWithdrawFromMorphoTx`](/onchainkit/hooks/use-build-withdraw-from-morpho-tx) - Build withdraw transactions
+- [`useMorphoVault`](/onchainkit/hooks/use-morpho-vault) - Fetch vault details
 
-## Props
+## Type Definitions
 
 - [`LifecycleStatus`](/onchainkit/earn/types#lifecyclestatus)
 - [`EarnReact`](/onchainkit/earn/types#earnreact)
@@ -261,4 +264,3 @@ The `Earn` component includes the following subcomponents:
 - [`EarnDetailsReact`](/onchainkit/earn/types#earndetailsreact)
 - [`DepositButtonReact`](/onchainkit/earn/types#depositbuttonreact)
 - [`WithdrawButtonReact`](/onchainkit/earn/types#withdrawbuttonreact)
-
