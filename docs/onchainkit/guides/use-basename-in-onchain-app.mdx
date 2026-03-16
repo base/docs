@@ -1,97 +1,1334 @@
+# Integrating Basenames with OnchainKit
+
+## Table of Contents
+- [Overview](#overview)
+- [What are Basenames?](#what-are-basenames)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Integration Methods](#integration-methods)
+  - [React Components](#react-components)
+  - [React Hooks](#react-hooks)
+  - [TypeScript Utilities](#typescript-utilities)
+- [Advanced Usage](#advanced-usage)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Additional Resources](#additional-resources)
+
 ---
-title: Use Basename · OnchainKit
-sidebarTitle: Use Basename
-description: Integrate Basenames into your onchain app, in just a few steps.
+
+## Overview
+
+This guide provides a comprehensive walkthrough for integrating Basenames into your onchain application using OnchainKit. Basenames are human-readable identifiers for wallet addresses on Base, making blockchain interactions more user-friendly and accessible.
+
+### Key Benefits
+- **User-Friendly**: Replace complex hexadecimal addresses with readable names
+- **ENS Compatible**: Built on the same technology as Ethereum Name Service (ENS)
+- **Native to Base**: Fully onchain and deployed on the Base network
+- **Flexible Integration**: Multiple integration options (components, hooks, utilities)
+
 ---
+
+## What are Basenames?
 
 Basenames are an essential onchain building block that empowers builders to establish their identity on Base by registering human-readable names for their wallet addresses.
 
-They operate entirely onchain, utilizing the same technology as ENS names, and are deployed on Base. 
+### Technical Details
+- **Protocol**: Based on ENS (Ethereum Name Service) technology
+- **Network**: Deployed on Base L2
+- **Format**: `username.base.eth`
+- **Resolution**: Bidirectional (address ↔ name)
 
-You can integrate [Basenames](https://www.base.org/names) into your app with these few steps.
+### Use Cases
+- Display user identities in your dApp
+- Simplify wallet address input
+- Create social features with readable identifiers
+- Build reputation systems
+- Enhance UX in NFT marketplaces and DeFi applications
 
-<Steps>
-  <Step title="New to OnchainKit?">
-  Follow the [Getting Started](/onchainkit/getting-started) guide to install the package.
-  </Step>
-  <Step title="Already using OnchainKit?">
-  Update to the latest version and choose from the following steps: a React component approach, a React hook, or a pure TypeScript utility function.
-  </Step>
-</Steps>
+---
 
+## Prerequisites
 
-## React components with `<Avatar>` and `<Name>`
+### System Requirements
+- Node.js 16.x or higher
+- npm, yarn, or pnpm package manager
+- React 18.x or higher (for component/hook usage)
+- TypeScript 4.x or higher (recommended)
 
-Use the [`<Avatar>`](/onchainkit/identity/avatar) and [`<Name>`](/onchainkit/identity/name) components to display Basenames associated with Ethereum addresses.
+### Knowledge Prerequisites
+- Basic understanding of React (for component/hook approaches)
+- Familiarity with Web3/blockchain concepts
+- Understanding of wallet addresses and ENS
 
-The `chain` prop is optional and setting to Base, it's what makes the components switch from ENS to Basenames.
+---
+
+## Installation
+
+### For New Projects
+
+If you're new to OnchainKit, follow these steps:
+
+1. **Install OnchainKit**
+   ```bash
+   npm install @coinbase/onchainkit
+   # or
+   yarn add @coinbase/onchainkit
+   # or
+   pnpm add @coinbase/onchainkit
+   ```
+
+2. **Install Required Dependencies**
+   ```bash
+   npm install viem wagmi
+   ```
+
+3. **Configure Your Project**
+
+   Refer to the [OnchainKit Getting Started Guide](https://onchainkit.xyz/getting-started) for detailed setup instructions, including:
+   - Setting up providers
+   - Configuring wallet connections
+   - Initializing the OnchainKit client
+
+### For Existing Projects
+
+If you're already using OnchainKit:
+
+1. **Update to Latest Version**
+   ```bash
+   npm update @coinbase/onchainkit
+   ```
+
+2. **Verify Installation**
+   ```bash
+   npm list @coinbase/onchainkit
+   ```
+
+---
+
+## Integration Methods
+
+OnchainKit provides three flexible approaches to integrate Basenames, catering to different architectural needs and preferences.
+
+### React Components
+
+**Best for**: Quick integration, UI-focused applications, developers who prefer declarative code
+
+#### Available Components
+
+##### `<Avatar>` Component
+Displays the avatar/profile picture associated with a Basename.
+
+**Props:**
+- `address` (string, required): Ethereum address
+- `chain` (Chain, optional): Chain configuration (use `base` from `viem/chains`)
+- `className` (string, optional): CSS class for styling
+- `defaultComponent` (ReactNode, optional): Fallback component
+
+**Example:**
+```tsx
+import { Avatar } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+function UserProfile() {
+  const address = '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1';
+  
+  return (
+    <div className="profile">
+      <Avatar 
+        address={address} 
+        chain={base}
+        className="avatar-lg"
+      />
+    </div>
+  );
+}
+```
+
+##### `<Name>` Component
+Displays the Basename associated with an address.
+
+**Props:**
+- `address` (string, required): Ethereum address
+- `chain` (Chain, optional): Chain configuration
+- `className` (string, optional): CSS class for styling
+- `sliced` (boolean, optional): Show abbreviated address if no name found
+
+**Example:**
+```tsx
+import { Name } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+function UserDisplay() {
+  const address = '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1';
+  
+  return (
+    <div className="user-info">
+      <Name 
+        address={address} 
+        chain={base}
+        sliced={true}
+      />
+    </div>
+  );
+}
+```
+
+#### Combined Component Example
 
 ```tsx
-// @noErrors: 2657 - JSX expressions must have one parent element
 import { Avatar, Name } from '@coinbase/onchainkit/identity';
 import { base } from 'viem/chains';
 
-const address = '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1';
-
-// omitted component code for brevity
-<Avatar address={address} chain={base} />
-<Name address={address} chain={base} />
+export function UserCard({ address }) {
+  return (
+    <div className="user-card">
+      <Avatar address={address} chain={base} />
+      <div className="user-details">
+        <Name address={address} chain={base} />
+        <span className="address-badge">{address.slice(0, 6)}...{address.slice(-4)}</span>
+      </div>
+    </div>
+  );
+}
 ```
 
-<iframe
-  src="https://684b5e62b1ff46bc5bf83966-aijszlfakk.chromatic.com/iframe.html?args=&id=onchainkit-identity-identity--use-basename-in-onchain-app&viewMode=story&dark=true&hero=true"
-  width="100%"
-  height="auto"
-/>
-{/* <App>
-  <Avatar address="0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1" chain={base}/>
-  <Name address="0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1" chain={base}/>
-</App> */}
+#### Styling Components
 
-## React hooks with `useAvatar` and `useName`
+```tsx
+// With Tailwind CSS
+<div className="flex items-center gap-3">
+  <Avatar 
+    address={address} 
+    chain={base}
+    className="w-12 h-12 rounded-full"
+  />
+  <Name 
+    address={address} 
+    chain={base}
+    className="text-lg font-semibold text-gray-900"
+  />
+</div>
 
-Use the [`useAvatar`](/onchainkit/identity/use-avatar) and [`useName`](/onchainkit/identity/use-name) hooks to get Basenames associated with Ethereum addresses.
+// With custom CSS
+<div className="profile-container">
+  <Avatar 
+    address={address} 
+    chain={base}
+    className="profile-avatar"
+  />
+  <Name 
+    address={address} 
+    chain={base}
+    className="profile-name"
+  />
+</div>
+```
 
-The hooks are incredibly useful for building custom components while leveraging OnchainKit for efficient data fetching.
+---
 
-<CodeGroup>
-```tsx code
+### React Hooks
+
+**Best for**: Custom UI implementations, advanced state management, building reusable components
+
+#### Available Hooks
+
+##### `useAvatar` Hook
+Fetches avatar data for a given Basename or address.
+
+**Parameters:**
+```typescript
+{
+  ensName?: string;    // Basename (e.g., 'zizzamia.base.eth')
+  address?: string;    // Ethereum address
+  chain?: Chain;       // Chain configuration
+}
+```
+
+**Returns:**
+```typescript
+{
+  data: string | null;        // Avatar URL or base64 data
+  isLoading: boolean;         // Loading state
+  error: Error | null;        // Error object if request fails
+  refetch: () => void;        // Function to refetch data
+}
+```
+
+**Example:**
+```tsx
+import { useAvatar } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+function CustomAvatar({ ensName }) {
+  const { data: avatar, isLoading, error } = useAvatar({ 
+    ensName, 
+    chain: base 
+  });
+
+  if (isLoading) return <div className="skeleton-avatar" />;
+  if (error) return <div className="avatar-error">Failed to load</div>;
+  
+  return (
+    <img 
+      src={avatar || '/default-avatar.png'} 
+      alt={`${ensName} avatar`}
+      className="user-avatar"
+    />
+  );
+}
+```
+
+##### `useName` Hook
+Fetches the Basename for a given address.
+
+**Parameters:**
+```typescript
+{
+  address: string;     // Ethereum address
+  chain?: Chain;       // Chain configuration
+}
+```
+
+**Returns:**
+```typescript
+{
+  data: string | null;        // Basename or null
+  isLoading: boolean;         // Loading state
+  error: Error | null;        // Error object if request fails
+  refetch: () => void;        // Function to refetch data
+}
+```
+
+**Example:**
+```tsx
+import { useName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+function UserNameDisplay({ address }) {
+  const { data: name, isLoading, error } = useName({ 
+    address, 
+    chain: base 
+  });
+
+  if (isLoading) return <span>Loading...</span>;
+  if (error) return <span>Error loading name</span>;
+  
+  return (
+    <span className="user-name">
+      {name || `${address.slice(0, 6)}...${address.slice(-4)}`}
+    </span>
+  );
+}
+```
+
+#### Advanced Hook Usage
+
+##### Combining Multiple Hooks
+
+```tsx
 import { useAvatar, useName } from '@coinbase/onchainkit/identity';
 import { base } from 'viem/chains';
 
-const address = '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1';
-const basename = 'zizzamia.base.eth';
-const { data: avatar, isLoading: avatarIsLoading } = await useAvatar({ ensName: basename, chain: base });
-const { data: name, isLoading: nameIsLoading } = await useName({ address, chain: base });
+function CompleteUserProfile({ address }) {
+  const { data: name, isLoading: nameLoading } = useName({ 
+    address, 
+    chain: base 
+  });
+  
+  const { data: avatar, isLoading: avatarLoading } = useAvatar({ 
+    ensName: name, 
+    chain: base 
+  });
+
+  const isLoading = nameLoading || avatarLoading;
+
+  if (isLoading) {
+    return <ProfileSkeleton />;
+  }
+
+  return (
+    <div className="profile-card">
+      <img 
+        src={avatar || '/default-avatar.png'} 
+        alt={name || 'User'} 
+      />
+      <h3>{name || 'Anonymous User'}</h3>
+      <p className="address">{address}</p>
+    </div>
+  );
+}
 ```
 
-```ts return value
-{ data: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwMCIgaGVpZ2h0PSIzMDAwIiB2aWV3Qm94PSIwIDAgMzAwMCAzMDAwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF81NTY5XzcyODM1KSI+PHJlY3Qgd2lkdGg9IjMwMDAiIGhlaWdodD0iMzAwMCIgZmlsbD0iIzE1NURGRCIvPjxjaXJjbGUgY3g9IjE1MDAiIGN5PSIxNTAwIiByPSIxNTAwIiBmaWxsPSIjMTU1REZEIi8+PHBhdGggZD0iTTI3MTMuMTMgMTUwMEMyNzMxLjIgMTY4MC45MiAyNjE1LjEzIDE4MTguMTUgMjUwNy43OCAxOTI0LjQyQzIzOTQuNyAyMDMyLjEzIDIyOTAuNDQgMjEwOC44OCAyMjAwLjg4IDIyMDAuNjFDMjEwOS4xNSAyMjkwLjE2IDIwMzIuMjIgMjM5NC42MSAxOTI0LjUxIDI1MDcuNjhDMTgxOC4xNSAyNjE1LjA0IDE2ODAuOTIgMjczMS4xMSAxNTAwIDI3MTMuMTNDMTMxOS4wOCAyNzMxLjIgMTE4MS44NSAyNjE1LjEzIDEwNzUuNTggMjUwNy43OEM5NjcuODY2IDIzOTQuNyA4OTEuMTIgMjI5MC40NCA3OTkuMzg5IDIyMDAuODhDNzA5LjgzNyAyMTA5LjE1IDYwNS4zOSAyMDMyLjIyIDQ5Mi4zMTUgMTkyNC41MUMzODQuOTYyIDE4MTguMTUgMjY4Ljg5IDE2ODAuOTIgMjg2Ljg3MyAxNTAwQzI2OC43OTkgMTMxOS4wOCAzODQuODcxIDExODEuODUgNDkyLjIyNCAxMDc1LjU4QzYwNS4yOTkgOTY3Ljg2NiA3MDkuNTY0IDg5MS4xMiA3OTkuMTE2IDc5OS4zODlDODkwLjg0OCA3MDkuODM3IDk2Ny43NzUgNjA1LjM5IDEwNzUuNDkgNDkyLjMxNUMxMTgxLjg1IDM4NC44NzEgMTMxOS4wOCAyNjguNzk5IDE1MDAgMjg2Ljg3M0MxNjgwLjkyIDI2OC43OTkgMTgxOC4xNSAzODQuODcxIDE5MjQuNDIgNDkyLjIyNEMyMDMyLjEzIDYwNS4yOTkgMjEwOC44OCA3MDkuNTY0IDIyMDAuNjEgNzk5LjExNkMyMjkwLjE2IDg5MC44NDggMjM5NC42MSA5NjcuNzc1IDI1MDcuNjggMTA3NS40OUMyNjE1LjA0IDExODEuODUgMjczMS4xMSAxMzE5LjA4IDI3MTMuMTMgMTUwMFoiIGZpbGw9IndoaXRlIi8+PHBhdGggZD0iTTEzOTEuMDYgMTUwMEMxMzkxLjA2IDE2NDcuODkgMTM1OC40IDE3ODEuNjIgMTMwNS43NCAxODc4LjI4QzEyNTMuMDMgMTk3NS4wNSAxMTgwLjY5IDIwMzQgMTEwMS41MyAyMDM0QzEwMjIuMzYgMjAzNCA5NTAuMDMxIDE5NzUuMDUgODk3LjMxNCAxODc4LjI4Qzg0NC42NiAxNzgxLjYyIDgxMiAxNjQ3Ljg5IDgxMiAxNTAwQzgxMiAxMzUyLjExIDg0NC42NiAxMjE4LjM4IDg5Ny4zMTQgMTEyMS43MkM5NTAuMDMxIDEwMjQuOTUgMTAyMi4zNiA5NjYgMTEwMS41MyA5NjZDMTE4MC42OSA5NjYgMTI1My4wMyAxMDI0Ljk1IDEzMDUuNzQgMTEyMS43MkMxMzU4LjQgMTIxOC4zOCAxMzkxLjA2IDEzNTIuMTEgMTM5MS4wNiAxNTAwWiIgZmlsbD0iIzE1NURGRCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI2Ii8+PGVsbGlwc2UgY3g9IjExMDIuNTciIGN5PSIxMTk0LjkzIiByeD0iMTI2LjQxNCIgcnk9IjIzMS45MzQiIGZpbGw9IndoaXRlIi8+PHBhdGggZD0iTTIxODcuMTYgMTUwMEMyMTg3LjE2IDE2NDcuODkgMjE1NC41IDE3ODEuNjIgMjEwMS44NCAxODc4LjI4QzIwNDkuMTIgMTk3NS4wNSAxOTc2Ljc5IDIwMzQgMTg5Ny42MyAyMDM0QzE4MTguNDYgMjAzNCAxNzQ2LjEzIDE5NzUuMDUgMTY5My40MSAxODc4LjI4QzE2NDAuNzYgMTc4MS42MiAxNjA4LjEgMTY0Ny44OSAxNjA4LjEgMTUwMEMxNjA4LjEgMTM1Mi4xMSAxNjQwLjc2IDEyMTguMzggMTY5My40MSAxMTIxLjcyQzE3NDYuMTMgMTAyNC45NSAxODE4LjQ2IDk2NiAxODk3LjYzIDk2NkMxOTc2Ljc5IDk2NiAyMDQ5LjEyIDEwMjQuOTUgMjEwMS44NCAxMTIxLjcyQzIxNTQuNSAxMjE4LjM4IDIxODcuMTYgMTM1Mi4xMSAyMTg3LjE2IDE1MDBaIiBmaWxsPSIjMTU1REZEIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjYiLz48ZWxsaXBzZSBjeD0iMTg5Ni41OCIgY3k9IjExOTQuOTMiIHJ4PSIxMjYuNDE0IiByeT0iMjMxLjkzNCIgZmlsbD0id2hpdGUiLz48L2c+PGRlZnM+PGNsaXBQYXRoIGlkPSJjbGlwMF81NTY5XzcyODM1Ij48cmVjdCB3aWR0aD0iMzAwMCIgaGVpZ2h0PSIzMDAwIiBmaWxsPSJ3aGl0ZSIvPjwvY2xpcFBhdGg+PC9kZWZzPjwvc3ZnPg==', isLoading: false }
-{ data: 'zizzamia.base.eth', isLoading: false }
+##### With Error Handling and Retry
+
+```tsx
+import { useAvatar, useName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import { useState } from 'react';
+
+function ResilientUserDisplay({ address }) {
+  const [retryCount, setRetryCount] = useState(0);
+  
+  const { 
+    data: name, 
+    isLoading, 
+    error,
+    refetch 
+  } = useName({ 
+    address, 
+    chain: base 
+  });
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    refetch();
+  };
+
+  if (error && retryCount < 3) {
+    return (
+      <div className="error-state">
+        <p>Failed to load name</p>
+        <button onClick={handleRetry}>Retry ({retryCount}/3)</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="user-display">
+      {isLoading ? (
+        <span>Loading...</span>
+      ) : (
+        <span>{name || address}</span>
+      )}
+    </div>
+  );
+}
 ```
-</CodeGroup>
 
-## Typescript utility with `getAvatar` and `getName`
+##### Caching and Performance Optimization
 
-Use the [`getAvatar`](/onchainkit/identity/get-avatar) and [`getName`](/onchainkit/identity/get-name) functions to get Basenames associated with Ethereum addresses.
+```tsx
+import { useAvatar, useName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import { useMemo } from 'react';
 
-Being pure functions, it seamlessly integrates into any TypeScript project, including Vue, Angular, Svelte, or Node.js.
+function OptimizedUserList({ addresses }) {
+  // Batch fetch all names
+  const nameQueries = addresses.map(address => ({
+    address,
+    chain: base
+  }));
 
-<CodeGroup>
-```tsx code
-import { getAvatar, getName } from '@coinbase/onchainkit/identity';
+  return (
+    <ul className="user-list">
+      {addresses.map(address => (
+        <UserListItem key={address} address={address} />
+      ))}
+    </ul>
+  );
+}
+
+function UserListItem({ address }) {
+  const { data: name } = useName({ address, chain: base });
+  
+  // Memoize display value
+  const displayName = useMemo(() => 
+    name || `${address.slice(0, 6)}...${address.slice(-4)}`,
+    [name, address]
+  );
+
+  return <li>{displayName}</li>;
+}
+```
+
+---
+
+### TypeScript Utilities
+
+**Best for**: Server-side operations, non-React frameworks, API integrations, batch processing
+
+#### Available Functions
+
+##### `getAvatar` Function
+Fetches avatar data for a given Basename.
+
+**Signature:**
+```typescript
+async function getAvatar(params: {
+  ensName: string;
+  chain?: Chain;
+}): Promise<string | null>
+```
+
+**Parameters:**
+- `ensName` (string, required): The Basename to query
+- `chain` (Chain, optional): Chain configuration (defaults to Base)
+
+**Returns:**
+- `Promise<string | null>`: Avatar URL/data or null if not found
+
+**Example:**
+```typescript
+import { getAvatar } from '@coinbase/onchainkit/identity';
 import { base } from 'viem/chains';
 
-const address = '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1';
-const basename = 'zizzamia.base.eth';
-const avatar = await getAvatar({ ensName: basename, chain: base });
-const name = await getName({ address, chain: base });
+async function fetchUserAvatar(basename: string) {
+  try {
+    const avatar = await getAvatar({ 
+      ensName: basename, 
+      chain: base 
+    });
+    
+    if (avatar) {
+      console.log('Avatar found:', avatar);
+      return avatar;
+    } else {
+      console.log('No avatar set for this Basename');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching avatar:', error);
+    throw error;
+  }
+}
+
+// Usage
+const avatar = await fetchUserAvatar('zizzamia.base.eth');
 ```
 
-```ts return value
-data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwMCIgaGVpZ2h0PSIzMDAwIiB2aWV3Qm94PSIwIDAgMzAwMCAzMDAwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF81NTY5XzcyODM1KSI+PHJlY3Qgd2lkdGg9IjMwMDAiIGhlaWdodD0iMzAwMCIgZmlsbD0iIzE1NURGRCIvPjxjaXJjbGUgY3g9IjE1MDAiIGN5PSIxNTAwIiByPSIxNTAwIiBmaWxsPSIjMTU1REZEIi8+PHBhdGggZD0iTTI3MTMuMTMgMTUwMEMyNzMxLjIgMTY4MC45MiAyNjE1LjEzIDE4MTguMTUgMjUwNy43OCAxOTI0LjQyQzIzOTQuNyAyMDMyLjEzIDIyOTAuNDQgMjEwOC44OCAyMjAwLjg4IDIyMDAuNjFDMjEwOS4xNSAyMjkwLjE2IDIwMzIuMjIgMjM5NC42MSAxOTI0LjUxIDI1MDcuNjhDMTgxOC4xNSAyNjE1LjA0IDE2ODAuOTIgMjczMS4xMSAxNTAwIDI3MTMuMTNDMTMxOS4wOCAyNzMxLjIgMTE4MS44NSAyNjE1LjEzIDEwNzUuNTggMjUwNy43OEM5NjcuODY2IDIzOTQuNyA4OTEuMTIgMjI5MC40NCA3OTkuMzg5IDIyMDAuODhDNzA5LjgzNyAyMTA5LjE1IDYwNS4zOSAyMDMyLjIyIDQ5Mi4zMTUgMTkyNC41MUMzODQuOTYyIDE4MTguMTUgMjY4Ljg5IDE2ODAuOTIgMjg2Ljg3MyAxNTAwQzI2OC43OTkgMTMxOS4wOCAzODQuODcxIDExODEuODUgNDkyLjIyNCAxMDc1LjU4QzYwNS4yOTkgOTY3Ljg2NiA3MDkuNTY0IDg5MS4xMiA3OTkuMTE2IDc5OS4zODlDODkwLjg0OCA3MDkuODM3IDk2Ny43NzUgNjA1LjM5IDEwNzUuNDkgNDkyLjMxNUMxMTgxLjg1IDM4NC44NzEgMTMxOS4wOCAyNjguNzk5IDE1MDAgMjg2Ljg3M0MxNjgwLjkyIDI2OC43OTkgMTgxOC4xNSAzODQuODcxIDE5MjQuNDIgNDkyLjIyNEMyMDMyLjEzIDYwNS4yOTkgMjEwOC44OCA3MDkuNTY0IDIyMDAuNjEgNzk5LjExNkMyMjkwLjE2IDg5MC44NDggMjM5NC42MSA5NjcuNzc1IDI1MDcuNjggMTA3NS40OUMyNjE1LjA0IDExODEuODUgMjczMS4xMSAxMzE5LjA4IDI3MTMuMTMgMTUwMFoiIGZpbGw9IndoaXRlIi8+PHBhdGggZD0iTTEzOTEuMDYgMTUwMEMxMzkxLjA2IDE2NDcuODkgMTM1OC40IDE3ODEuNjIgMTMwNS43NCAxODc4LjI4QzEyNTMuMDMgMTk3NS4wNSAxMTgwLjY5IDIwMzQgMTEwMS41MyAyMDM0QzEwMjIuMzYgMjAzNCA5NTAuMDMxIDE5NzUuMDUgODk3LjMxNCAxODc4LjI4Qzg0NC42NiAxNzgxLjYyIDgxMiAxNjQ3Ljg5IDgxMiAxNTAwQzgxMiAxMzUyLjExIDg0NC42NiAxMjE4LjM4IDg5Ny4zMTQgMTEyMS43MkM5NTAuMDMxIDEwMjQuOTUgMTAyMi4zNiA5NjYgMTEwMS41MyA5NjZDMTE4MC42OSA5NjYgMTI1My4wMyAxMDI0Ljk1IDEzMDUuNzQgMTEyMS43MkMxMzU4LjQgMTIxOC4zOCAxMzkxLjA2IDEzNTIuMTEgMTM5MS4wNiAxNTAwWiIgZmlsbD0iIzE1NURGRCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI2Ii8+PGVsbGlwc2UgY3g9IjExMDIuNTciIGN5PSIxMTk0LjkzIiByeD0iMTI2LjQxNCIgcnk9IjIzMS45MzQiIGZpbGw9IndoaXRlIi8+PHBhdGggZD0iTTIxODcuMTYgMTUwMEMyMTg3LjE2IDE2NDcuODkgMjE1NC41IDE3ODEuNjIgMjEwMS44NCAxODc4LjI4QzIwNDkuMTIgMTk3NS4wNSAxOTc2Ljc5IDIwMzQgMTg5Ny42MyAyMDM0QzE4MTguNDYgMjAzNCAxNzQ2LjEzIDE5NzUuMDUgMTY5My40MSAxODc4LjI4QzE2NDAuNzYgMTc4MS42MiAxNjA4LjEgMTY0Ny44OSAxNjA4LjEgMTUwMEMxNjA4LjEgMTM1Mi4xMSAxNjQwLjc2IDEyMTguMzggMTY5My40MSAxMTIxLjcyQzE3NDYuMTMgMTAyNC45NSAxODE4LjQ2IDk2NiAxODk3LjYzIDk2NkMxOTc2Ljc5IDk2NiAyMDQ5LjEyIDEwMjQuOTUgMjEwMS44NCAxMTIxLjcyQzIxNTQuNSAxMjE4LjM4IDIxODcuMTYgMTM1Mi4xMSAyMTg3LjE2IDE1MDBaIiBmaWxsPSIjMTU1REZEIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjYiLz48ZWxsaXBzZSBjeD0iMTg5Ni41OCIgY3k9IjExOTQuOTMiIHJ4PSIxMjYuNDE0IiByeT0iMjMxLjkzNCIgZmlsbD0id2hpdGUiLz48L2c+PGRlZnM+PGNsaXBQYXRoIGlkPSJjbGlwMF81NTY5XzcyODM1Ij48cmVjdCB3aWR0aD0iMzAwMCIgaGVpZ2h0PSIzMDAwIiBmaWxsPSJ3aGl0ZSIvPjwvY2xpcFBhdGg+PC9kZWZzPjwvc3ZnPg==
-zizzamia.base.eth;
+##### `getName` Function
+Fetches the Basename for a given address.
+
+**Signature:**
+```typescript
+async function getName(params: {
+  address: string;
+  chain?: Chain;
+}): Promise<string | null>
 ```
-</CodeGroup>
 
+**Parameters:**
+- `address` (string, required): Ethereum address to query
+- `chain` (Chain, optional): Chain configuration (defaults to Base)
 
+**Returns:**
+- `Promise<string | null>`: Basename or null if not found
+
+**Example:**
+```typescript
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+async function resolveAddress(address: string) {
+  try {
+    const name = await getName({ 
+      address, 
+      chain: base 
+    });
+    
+    if (name) {
+      console.log(`Address ${address} is registered as ${name}`);
+      return name;
+    } else {
+      console.log(`No Basename registered for ${address}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error resolving address:', error);
+    throw error;
+  }
+}
+
+// Usage
+const basename = await resolveAddress('0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1');
+```
+
+#### Advanced Utility Usage
+
+##### Batch Processing
+
+```typescript
+import { getName, getAvatar } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+interface UserProfile {
+  address: string;
+  name: string | null;
+  avatar: string | null;
+}
+
+async function fetchMultipleProfiles(
+  addresses: string[]
+): Promise<UserProfile[]> {
+  const profiles = await Promise.all(
+    addresses.map(async (address) => {
+      const name = await getName({ address, chain: base });
+      const avatar = name 
+        ? await getAvatar({ ensName: name, chain: base })
+        : null;
+      
+      return {
+        address,
+        name,
+        avatar
+      };
+    })
+  );
+  
+  return profiles;
+}
+
+// Usage
+const addresses = [
+  '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1',
+  '0x1234567890123456789012345678901234567890'
+];
+
+const profiles = await fetchMultipleProfiles(addresses);
+console.log(profiles);
+```
+
+##### Caching Layer
+
+```typescript
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+class BasenameCache {
+  private cache: Map<string, { name: string | null; timestamp: number }>;
+  private ttl: number; // Time to live in milliseconds
+
+  constructor(ttl = 5 * 60 * 1000) { // Default 5 minutes
+    this.cache = new Map();
+    this.ttl = ttl;
+  }
+
+  async getName(address: string): Promise<string | null> {
+    const cached = this.cache.get(address);
+    
+    if (cached && Date.now() - cached.timestamp < this.ttl) {
+      return cached.name;
+    }
+
+    const name = await getName({ address, chain: base });
+    
+    this.cache.set(address, {
+      name,
+      timestamp: Date.now()
+    });
+
+    return name;
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  invalidate(address: string) {
+    this.cache.delete(address);
+  }
+}
+
+// Usage
+const cache = new BasenameCache();
+const name = await cache.getName('0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1');
+```
+
+##### Server-Side API Integration
+
+```typescript
+// Next.js API Route Example
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { address } = req.query;
+
+  if (!address || typeof address !== 'string') {
+    return res.status(400).json({ error: 'Invalid address parameter' });
+  }
+
+  try {
+    const name = await getName({ address, chain: base });
+    
+    return res.status(200).json({
+      address,
+      basename: name,
+      hasBasename: name !== null
+    });
+  } catch (error) {
+    console.error('Error fetching basename:', error);
+    return res.status(500).json({ 
+      error: 'Failed to fetch basename',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+```
+
+##### Node.js Script Example
+
+```typescript
+import { getName, getAvatar } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import fs from 'fs/promises';
+
+interface ExportedProfile {
+  address: string;
+  basename: string | null;
+  avatar: string | null;
+  timestamp: string;
+}
+
+async function exportProfiles(
+  addresses: string[],
+  outputFile: string
+): Promise<void> {
+  console.log(`Processing ${addresses.length} addresses...`);
+  
+  const profiles: ExportedProfile[] = [];
+
+  for (const address of addresses) {
+    console.log(`Fetching data for ${address}...`);
+    
+    const basename = await getName({ address, chain: base });
+    const avatar = basename 
+      ? await getAvatar({ ensName: basename, chain: base })
+      : null;
+
+    profiles.push({
+      address,
+      basename,
+      avatar,
+      timestamp: new Date().toISOString()
+    });
+
+    // Rate limiting - wait 100ms between requests
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  await fs.writeFile(
+    outputFile,
+    JSON.stringify(profiles, null, 2),
+    'utf-8'
+  );
+
+  console.log(`Exported ${profiles.length} profiles to ${outputFile}`);
+}
+
+// Usage
+const addresses = ['0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1'];
+await exportProfiles(addresses, 'basenames-export.json');
+```
+
+---
+
+## Advanced Usage
+
+### Working with Multiple Chains
+
+While Basenames are native to Base, you might need to handle ENS names on Ethereum mainnet alongside Basenames:
+
+```tsx
+import { Name } from '@coinbase/onchainkit/identity';
+import { base, mainnet } from 'viem/chains';
+import { useState } from 'react';
+
+function MultiChainNameDisplay({ address }) {
+  const [selectedChain, setSelectedChain] = useState(base);
+
+  return (
+    <div>
+      <select 
+        value={selectedChain.id} 
+        onChange={(e) => setSelectedChain(
+          e.target.value === base.id.toString() ? base : mainnet
+        )}
+      >
+        <option value={base.id}>Base (Basename)</option>
+        <option value={mainnet.id}>Ethereum (ENS)</option>
+      </select>
+      
+      <Name address={address} chain={selectedChain} />
+    </div>
+  );
+}
+```
+
+### Reverse Resolution
+
+Check if a Basename exists and get its address:
+
+```typescript
+import { getAddress } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+async function reverseResolve(basename: string) {
+  try {
+    const address = await getAddress({ 
+      name: basename, 
+      chain: base 
+    });
+    return address;
+  } catch (error) {
+    console.error('Basename not found or invalid');
+    return null;
+  }
+}
+```
+
+### Custom Loading States
+
+```tsx
+import { Name } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+function NameWithSkeleton({ address }) {
+  return (
+    <Suspense fallback={<NameSkeleton />}>
+      <Name address={address} chain={base} />
+    </Suspense>
+  );
+}
+
+function NameSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-32"></div>
+    </div>
+  );
+}
+```
+
+### Form Integration
+
+```tsx
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import { useState } from 'react';
+
+function SendToBasename() {
+  const [basename, setBasename] = useState('');
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
+
+  const handleResolve = async () => {
+    setIsResolving(true);
+    try {
+      const address = await getAddress({ 
+        name: basename, 
+        chain: base 
+      });
+      setResolvedAddress(address);
+    } catch (error) {
+      setResolvedAddress(null);
+      alert('Basename not found');
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Enter basename (e.g., alice.base.eth)"
+        value={basename}
+        onChange={(e) => setBasename(e.target.value)}
+      />
+      <button onClick={handleResolve} disabled={isResolving}>
+        Resolve
+      </button>
+      
+      {resolvedAddress && (
+        <div>
+          <p>Resolved to: {resolvedAddress}</p>
+          <button>Send Transaction</button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Building a Search Feature
+
+```tsx
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import { useState, useEffect } from 'react';
+
+function UserSearch() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Array<{
+    address: string;
+    name: string | null;
+  }>>([]);
+
+  useEffect(() => {
+    const searchUsers = async () => {
+      // Assuming you have a list of addresses to search through
+      const addresses = getAddressesFromDatabase();
+      
+      const matchingUsers = await Promise.all(
+        addresses.map(async (address) => {
+          const name = await getName({ address, chain: base });
+          return { address, name };
+        })
+      );
+
+      const filtered = matchingUsers.filter(user =>
+        user.name?.toLowerCase().includes(query.toLowerCase()) ||
+        user.address.toLowerCase().includes(query.toLowerCase())
+      );
+
+      setResults(filtered);
+    };
+
+    if (query.length > 2) {
+      searchUsers();
+    }
+  }, [query]);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search by address or basename..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      
+      <ul>
+        {results.map((user) => (
+          <li key={user.address}>
+            {user.name || user.address}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+---
+
+## Best Practices
+
+### Performance Optimization
+
+1. **Implement Caching**
+   - Cache resolved names to reduce API calls
+   - Use appropriate TTL (Time To Live) values
+   - Consider using libraries like `react-query` or `swr`
+
+2. **Batch Requests**
+   ```typescript
+   // Bad: Sequential requests
+   for (const address of addresses) {
+     await getName({ address, chain: base });
+   }
+
+   // Good: Parallel requests
+   await Promise.all(
+     addresses.map(address => getName({ address, chain: base }))
+   );
+   ```
+
+3. **Lazy Loading**
+   ```tsx
+   import { lazy, Suspense } from 'react';
+   
+   const BasenameDisplay = lazy(() => import('./BasenameDisplay'));
+   
+   function App() {
+     return (
+       <Suspense fallback={<div>Loading...</div>}>
+         <BasenameDisplay />
+       </Suspense>
+     );
+   }
+   ```
+
+### Error Handling
+
+1. **Graceful Degradation**
+   ```tsx
+   function SafeName({ address }) {
+     const { data: name, error } = useName({ address, chain: base });
+     
+     if (error) {
+       return <span>{address.slice(0, 6)}...{address.slice(-4)}</span>;
+     }
+     
+     return <span>{name || address}</span>;
+   }
+   ```
+
+2. **User Feedback**
+   ```tsx
+   function NameWithStatus({ address }) {
+     const { data: name, isLoading, error } = useName({ 
+       address, 
+       chain: base 
+     });
+     
+     if (isLoading) return <LoadingSpinner />;
+     if (error) return <ErrorBadge message="Failed to load name" />;
+     if (!name) return <InfoBadge message="No basename registered" />;
+     
+     return <span>{name}</span>;
+   }
+   ```
+
+### Security Considerations
+
+1. **Validate Addresses**
+   ```typescript
+   import { isAddress } from 'viem';
+   
+   function validateAndResolve(address: string) {
+     if (!isAddress(address)) {
+       throw new Error('Invalid Ethereum address');
+     }
+     
+     return getName({ address, chain: base });
+   }
+   ```
+
+2. **Sanitize User Input**
+   ```typescript
+   function sanitizeBasename(input: string): string {
+     // Remove whitespace and convert to lowercase
+     return input.trim().toLowerCase();
+   }
+   
+   async function resolveUserInput(input: string) {
+     const sanitized = sanitizeBasename(input);
+     return getAddress({ name: sanitized, chain: base });
+   }
+   ```
+
+3. **Rate Limiting**
+   ```typescript
+   import pLimit from 'p-limit';
+   
+   const limit = pLimit(5); // Max 5 concurrent requests
+   
+   async function fetchMultipleNames(addresses: string[]) {
+     return Promise.all(
+       addresses.map(address => 
+         limit(() => getName({ address, chain: base }))
+       )
+     );
+   }
+   ```
+
+### Accessibility
+
+1. **Alt Text for Avatars**
+   ```tsx
+   <Avatar 
+     address={address} 
+     chain={base}
+     alt={`${name || 'User'}'s avatar`}
+   />
+   ```
+
+2. **ARIA Labels**
+   ```tsx
+   <div role="button" aria-label={`View profile for ${name || address}`}>
+     <Name address={address} chain={base} />
+   </div>
+   ```
+
+### Testing
+
+1. **Mock Data for Tests**
+   ```typescript
+   // test-utils.ts
+   export const mockBasenameData = {
+     address: '0x02feeb0AdE57b6adEEdE5A4EEea6Cf8c21BeB6B1',
+     name: 'test.base.eth',
+     avatar: 'data:image/svg+xml;base64,...'
+   };
+   
+   export function mockGetName(address: string) {
+     return address === mockBasenameData.address 
+       ? mockBasenameData.name 
+       : null;
+   }
+   ```
+
+2. **Component Testing**
+   ```tsx
+   import { render, screen } from '@testing-library/react';
+   import { Name } from '@coinbase/onchainkit/identity';
+   
+   jest.mock('@coinbase/onchainkit/identity', () => ({
+     useName: () => ({
+       data: 'test.base.eth',
+       isLoading: false,
+       error: null
+     })
+   }));
+   
+   test('renders basename correctly', () => {
+     render(<Name address="0x123..." chain={base} />);
+     expect(screen.getByText('test.base.eth')).toBeInTheDocument();
+   });
+   ```
+
+---
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Issue: Names Not Resolving
+
+**Symptoms:** `getName` returns `null` or components show addresses instead of names
+
+**Solutions:**
+1. Verify the address actually has a Basename registered
+2. Check that you're using the `base` chain configuration
+3. Ensure your network connection is stable
+4. Check for API rate limiting
+
+```typescript
+// Debugging helper
+async function debugNameResolution(address: string) {
+  console.log('Attempting to resolve:', address);
+  console.log('Chain:', base);
+  
+  try {
+    const name = await getName({ address, chain: base });
+    console.log('Result:', name || 'No name found');
+    return name;
+  } catch (error) {
+    console.error('Error details:', error);
+    throw error;
+  }
+}
+```
+
+#### Issue: Avatar Not Displaying
+
+**Symptoms:** Avatar component shows broken image or fallback
+
+**Solutions:**
+1. Check if the Basename has an avatar set
+2. Verify the avatar data format (base64 vs URL)
+3. Implement proper fallback handling
+
+```tsx
+function RobustAvatar({ address }) {
+  const basename = useName({ address, chain: base }).data;
+  const { data: avatar, error } = useAvatar({ 
+    ensName: basename, 
+    chain: base 
+  });
+
+  const avatarSrc = error 
+    ? '/default-avatar.png'
+    : avatar || '/default-avatar.png';
+
+  return (
+    <img 
+      src={avatarSrc}
+      alt="User avatar"
+      onError={(e) => {
+        e.currentTarget.src = '/default-avatar.png';
+      }}
+    />
+  );
+}
+```
+
+#### Issue: Slow Performance
+
+**Symptoms:** Components take a long time to load, UI feels sluggish
+
+**Solutions:**
+1. Implement caching
+2. Use pagination for large lists
+3. Optimize component re-renders
+
+```tsx
+import { memo } from 'react';
+
+const MemoizedName = memo(({ address }) => {
+  const { data: name } = useName({ address, chain: base });
+  return <span>{name || address}</span>;
+});
+```
+
+#### Issue: TypeScript Errors
+
+**Symptoms:** Type errors when using OnchainKit functions
+
+**Solutions:**
+1. Ensure you're using compatible TypeScript version (4.x+)
+2. Import types from the correct locations
+3. Use proper type annotations
+
+```typescript
+import type { Address, Chain } from 'viem';
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+
+async function typedGetName(
+  address: Address,
+  chain: Chain = base
+): Promise<string | null> {
+  return getName({ address, chain });
+}
+```
+
+#### Issue: CORS Errors
+
+**Symptoms:** Browser console shows CORS-related errors
+
+**Solutions:**
+1. Ensure you're making requests from allowed origins
+2. Check your RPC provider configuration
+3. Use server-side requests for sensitive operations
+
+```typescript
+// Use server-side API route
+export async function getServerSideProps(context) {
+  const { address } = context.params;
+  
+  const name = await getName({ 
+    address: address as string, 
+    chain: base 
+  });
+  
+  return {
+    props: { name }
+  };
+}
+```
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting:
+
+```typescript
+const DEBUG = process.env.NODE_ENV === 'development';
+
+async function debugGetName(address: string) {
+  if (DEBUG) {
+    console.group('getName Debug');
+    console.log('Address:', address);
+    console.log('Chain:', base.name);
+    console.time('Resolution time');
+  }
+
+  try {
+    const result = await getName({ address, chain: base });
+    
+    if (DEBUG) {
+      console.log('Result:', result);
+      console.timeEnd('Resolution time');
+    }
+    
+    return result;
+  } catch (error) {
+    if (DEBUG) {
+      console.error('Error:', error);
+      console.timeEnd('Resolution time');
+    }
+    throw error;
+  } finally {
+    if (DEBUG) {
+      console.groupEnd();
+    }
+  }
+}
+```
+
+---
+
+## Additional Resources
+
+### Official Documentation
+- [OnchainKit Documentation](https://onchainkit.xyz)
+- [OnchainKit Getting Started Guide](https://onchainkit.xyz/getting-started)
+- [Base Documentation](https://docs.base.org)
+- [Basenames Official Site](https://www.base.org/names)
+
+### API Reference
+- [Avatar Component API](https://onchainkit.xyz/identity/avatar)
+- [Name Component API](https://onchainkit.xyz/identity/name)
+- [useAvatar Hook API](https://onchainkit.xyz/identity/use-avatar)
+- [useName Hook API](https://onchainkit.xyz/identity/use-name)
+- [getAvatar Function API](https://onchainkit.xyz/identity/get-avatar)
+- [getName Function API](https://onchainkit.xyz/identity/get-name)
+
+### Community Resources
+- [OnchainKit GitHub Repository](https://github.com/coinbase/onchainkit)
+- [Base Discord Community](https://discord.gg/base)
+- [Stack Overflow - Base Tag](https://stackoverflow.com/questions/tagged/base)
+
+### Related Technologies
+- [ENS Documentation](https://docs.ens.domains)
+- [Viem Documentation](https://viem.sh)
+- [Wagmi Documentation](https://wagmi.sh)
+
+### Video Tutorials
+- OnchainKit Tutorial Series (coming soon)
+- Building with Basenames Workshop (coming soon)
+
+### Example Projects
+- [OnchainKit Examples Repository](https://github.com/coinbase/onchainkit/tree/main/examples)
+- Community-built apps using Basenames
+
+---
+
+## Contributing
+
+We welcome contributions to improve this documentation! 
+
+### How to Contribute
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+### Reporting Issues
+If you encounter bugs or have feature requests:
+1. Check existing issues first
+2. Provide detailed reproduction steps
+3. Include code examples when relevant
+4. Specify your environment (OS, Node version, etc.)
+
+---
+
+## License
+
+This documentation is provided under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## Changelog
+
+### Version 1.0.0 (Current)
+- Initial comprehensive documentation release
+- Coverage of all integration methods
+- Advanced usage examples
+- Troubleshooting guide
+
+---
+
+**Last Updated:** January 2026
+
+For the most up-to-date information, always refer to the [official OnchainKit documentation](https://onchainkit.xyz).
