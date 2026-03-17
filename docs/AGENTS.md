@@ -1,12 +1,11 @@
 ---
 title: "Base Docs Agent Index"
 description: "AI agent index for Base documentation. Structured entry point for LLMs and coding agents to navigate Base Chain, Base account and Base apps."
-hidden: true
+
 ---
 
-# Base Docs Index
 IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
-Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
+Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Base Account.
 [Docs]|root:./docs
 |ai-agents:index,trading
 |ai-agents/core-concepts:agent-apps,agent-frameworks,identity-verification-auth,payments-and-transactions,wallets
