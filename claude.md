@@ -18,11 +18,9 @@ docs/
 ├── get-started/      # Intro, quickstarts
 ├── base-chain/       # Network, nodes, tools
 ├── base-account/     # Smart Wallet SDK
-├── base-app/         # Agent development
+├── ai-agents/        # Agent development
 ├── mini-apps/        # MiniKit guides
 ├── onchainkit/       # React components (versioned)
-├── cookbook/         # Tutorials
-├── learn/            # Solidity, Ethereum basics
 ├── images/           # Assets by topic
 ├── snippets/         # Reusable MDX components
 └── docs.json         # Navigation config
