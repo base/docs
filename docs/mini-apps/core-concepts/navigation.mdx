@@ -37,38 +37,21 @@ Review this file and refactor any incorrect navigation patterns to use the corre
 2. **Create Posts:** Use `sdk.actions.composeCast({ text, embeds })`
 3. **View Casts:** Use `sdk.actions.viewCast(castUrl)`
 
-### For MiniKit (`@coinbase/onchainkit/minikit`)
-1. **External Links:** Use `useOpenUrl()` hook
-2. **Create Posts:** Use `useComposeCast()` hook
-3. **View Casts:** Use `useViewCast()` hook
-
 ## Migration Examples
 
 // BEFORE (Incorrect)
 <a href="https://example.com">Visit Site</a>
 <button onClick={() => window.open('https://example.com')}>Open</button>
 
-// AFTER (Correct - Farcaster SDK)
+// AFTER (Correct)
 import { sdk } from '@farcaster/miniapp-sdk';
 <button onClick={() => sdk.actions.openUrl('https://example.com')}>Visit Site</button>
-
-// AFTER (Correct - MiniKit)
-import { useOpenUrl } from '@coinbase/onchainkit/minikit';
-const openUrl = useOpenUrl();
-<button onClick={() => openUrl('https://example.com')}>Visit Site</button>
 
 // BEFORE (Incorrect)
 window.open('https://farcaster.com/~/compose?text=Check this out!')
 
-// AFTER (Correct - Farcaster SDK)
+// AFTER (Correct)
 sdk.actions.composeCast({
-  text: 'Check this out!',
-  embeds: [window.location.href]
-})
-
-// AFTER (Correct - MiniKit)
-const { composeCast } = useComposeCast();
-composeCast({
   text: 'Check this out!',
   embeds: [window.location.href]
 })
@@ -83,138 +66,52 @@ composeCast({
 ## External Navigation
 
 ### Opening External URLs
-<Tabs>
-<Tab title="Farcaster SDK">
 
-  Use `sdk.actions.openUrl()` to safely open external websites in the client's in-app browser:
+Use `sdk.actions.openUrl()` to safely open external websites in the client's in-app browser:
 
-  ```typescript App.tsx highlight={5}
-  import { sdk } from '@farcaster/miniapp-sdk';
+```typescript App.tsx highlight={5}
+import { sdk } from '@farcaster/miniapp-sdk';
 
-  // Correct: Use SDK action
-  const openExternalSite = () => {
-    sdk.actions.openUrl('https://example.com');
-  };
+// Correct: Use SDK action
+const openExternalSite = () => {
+  sdk.actions.openUrl('https://example.com');
+};
 
-  // Incorrect: Direct HTML link
-  // <a href="https://example.com">Visit Site</a>
-  ```
-  </Tab>
-  <Tab title="MiniKit">
-
-  Use [`useOpenUrl()`](/onchainkit/latest/components/minikit/hooks/useOpenUrl) to safely open external websites in the client's in-app browser:
-
-  ```tsx components/ExternalLinks.tsx highlight={8 -10}
-  import { useOpenUrl } from '@coinbase/onchainkit/minikit';
-
-  export default function ExternalLinks() {
-    const openUrl = useOpenUrl();
-
-    return (
-      <div className="external-links">
-        <button onClick={() => openUrl('https://base.org')}>
-          Visit Base.org
-        </button>
-        <button onClick={() => openUrl('https://twitter.com/base')}>
-          Follow on Twitter
-        </button>
-        <button onClick={() => openUrl('https://discord.gg/basechain')}>
-          Join Discord
-        </button>
-      </div>
-    );
-  }
-
-  // Incorrect: Direct HTML link
-  // <a href="https://example.com">Visit Site</a>
-  ```
-  </Tab>
-</Tabs>
+// Incorrect: Direct HTML link
+// <a href="https://example.com">Visit Site</a>
+```
 
 ### Composing Casts
 
-<Tabs>
-  <Tab title="Farcaster SDK">
+Use `sdk.actions.composeCast()` instead of composer intent URLs:
 
-  Use `sdk.actions.composeCast()` instead of composer intent URLs:
+```typescript App.tsx highlight={5-8}
+import { sdk } from '@farcaster/miniapp-sdk';
 
-  ```typescript App.tsx highlight={5-8}
-  import { sdk } from '@farcaster/miniapp-sdk';
+// Correct: Use SDK action
+const shareContent = () => {
+  sdk.actions.composeCast({
+    text: 'Check out this Mini App!',
+    embeds: ['https://yourminiapp.com']
+  });
+};
 
-  // Correct: Use SDK action
-  const shareContent = () => {
-    sdk.actions.composeCast({
-      text: 'Check out this Mini App!',
-      embeds: ['https://yourminiapp.com']
-    });
-  };
+// Incorrect: Composer intent URLs
+// window.open('https://farcaster.com/~/compose?text=...')
+```
 
-  // Incorrect: Composer intent URLs
-  // window.open('https://farcaster.com/~/compose?text=...')
-  ```
-  </Tab>
-  <Tab title="MiniKit">
-  Use [`useComposeCast()`](/onchainkit/latest/components/minikit/hooks/useComposeCast) to open the native composer with prefilled content:
-  ```tsx components/ShareCast.tsx highlight={8-13}
-  import { useComposeCast } from '@coinbase/onchainkit/minikit';
+### Viewing Casts
 
-  export default function ShareCast() {
-    const { composeCast } = useComposeCast();
+Use `sdk.actions.viewCast()` instead of cast intent URLs:
 
-    return (
-      <button
-        onClick={() =>
-          composeCast({
-            text: 'Check out this Mini App!',
-            embeds: [window.location.href]
-          })
-        }
-      >
-        Share This App
-      </button>
-    );
-  }
+```typescript App.tsx
+import { sdk } from '@farcaster/miniapp-sdk';
 
-  // Incorrect: Composer intent URLs
-  // window.open('https://farcaster.com/~/compose?text=...')
-  ```
-  </Tab>
-</Tabs>
-
-### Viewing Casts 
-
-<Tabs>
-  <Tab title="Farcaster SDK">
-
-  Use `sdk.actions.viewCast()` instead of cast intent URLs:
-
-  ```typescript App.tsx
-  import { sdk } from '@farcaster/miniapp-sdk';
-
-  // Correct: Use SDK action
-  const viewCast = () => {
-    sdk.actions.viewCast('https://base.app/post/0xffdec7c879aad726b5400d22ec8a89aaff6e0737');
-  };
-  ```
-  </Tab>
-  <Tab title="MiniKit">
-
-  Use [`useViewCast()`](/onchainkit/latest/components/minikit/hooks/useViewCast) to open a specific cast by its hash:
-  ```tsx components/ViewCastButton.tsx highlight={4,7-9}
-  import { useViewCast } from '@coinbase/onchainkit/minikit';
-
-  export default function ViewCastButton() {
-    const viewCast = useViewCast('0x1234567890abcdef1234567890abcdef12345678');
-
-    return (
-      <button onClick={viewCast}>
-        View Cast
-      </button>
-    );
-  }
-  ```
-  </Tab>
-</Tabs>
+// Correct: Use SDK action
+const viewCast = () => {
+  sdk.actions.viewCast('https://base.app/post/0xffdec7c879aad726b5400d22ec8a89aaff6e0737');
+};
+```
 
 ### Conditional Navigation
 
@@ -225,7 +122,7 @@ import { sdk } from 'farcaster/miniapp-sdk';
 
 const ConditionalNavigation = () => {
   const context = sdk.context;
-  
+
   const handleNavigation = () => {
     // Adapt behavior based on client capabilities
     if (context.client.clientFid) {
@@ -272,10 +169,10 @@ Getting the `conversationID`:
 agent.on('text', async (ctx) => {
   // Get conversation ID
   const conversationId = ctx.conversation.id;
-  
+
   // Create deeplink to THIS conversation (not just the agent)
   const groupDeeplink = `cbwallet://messaging/${conversationId}`;
-  
+
   if (ctx.isGroup()) {
     await ctx.sendText(`Share this group: ${groupDeeplink}`);
   }
@@ -285,8 +182,8 @@ agent.on('text', async (ctx) => {
 Use the `conversationID` as a button:
 
 ```typescript DeeplinkButton.tsx
-<button 
-  onClick={() => openUrl(`cbwallet://messaging/${conversationID}`)} 
+<button
+  onClick={() => openUrl(`cbwallet://messaging/${conversationID}`)}
 >
   Join Members Only Chat
 </button>
@@ -297,8 +194,8 @@ Use the `conversationID` as a button:
 Start a private conversation with a specific user or agent.
 
 ```typescript DeeplinkDM.tsx
-<button 
-  onClick={() => openUrl(`cbwallet://messaging/${address}`)} 
+<button
+  onClick={() => openUrl(`cbwallet://messaging/${address}`)}
 >
   Send Direct Message
 </button>
@@ -317,6 +214,3 @@ Start a private conversation with a specific user or agent.
 <ResponseField name="address" type="string" required>
   The 0x address of the user or agent you want to chat with (in hex format, e.g., `0xabc...1234`).
 </ResponseField>
-
-
-
