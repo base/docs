@@ -12,7 +12,7 @@ const path = require('path');
 
 const CONFIG = {
   docsDir: './docs',
-  outputFile: './AGENTS.md',
+  outputFile: './docs/agents.md',
 
   skipFiles: [
     'README.md', 'CHANGELOG.md', 'LICENSE.md', '.DS_Store',
@@ -30,7 +30,31 @@ const CONFIG = {
   extensions: ['.md', '.mdx']
 };
 
-function scanDocs(dir, basePath = '') {
+function loadMintIgnore(mintignorePath) {
+  const ignored = { dirs: new Set(), files: new Set(), bareFiles: new Set() };
+
+  if (!fs.existsSync(mintignorePath)) return ignored;
+
+  for (const line of fs.readFileSync(mintignorePath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    if (trimmed.endsWith('/*')) {
+      // /mini-apps/core-concepts/* → skip all files in that dir
+      ignored.dirs.add(trimmed.slice(1, -2));
+    } else if (trimmed.startsWith('/')) {
+      // /mini-apps/growth/build-viral-mini-apps → skip specific file
+      ignored.files.add(trimmed.slice(1));
+    } else {
+      // writing.md → skip by bare filename anywhere
+      ignored.bareFiles.add(trimmed.replace(/\.mdx?$/, ''));
+    }
+  }
+
+  return ignored;
+}
+
+function scanDocs(dir, basePath = '', ignored = { dirs: new Set(), files: new Set(), bareFiles: new Set() }) {
   const index = {};
 
   if (!fs.existsSync(dir)) return index;
@@ -46,19 +70,20 @@ function scanDocs(dir, basePath = '') {
 
     if (entry.isDirectory()) {
       if (CONFIG.skipDirs.includes(entry.name)) continue;
-      Object.assign(index, scanDocs(fullPath, relPath));
+      Object.assign(index, scanDocs(fullPath, relPath, ignored));
     } else {
       const ext = path.extname(entry.name).toLowerCase();
       if (CONFIG.extensions.includes(ext)) {
         const baseName = entry.name.replace(/\.mdx?$/, '');
-        if (!CONFIG.skipFilePatterns.some(p => p.test(baseName))) {
-          files.push(baseName);
-        }
+        if (CONFIG.skipFilePatterns.some(p => p.test(baseName))) continue;
+        if (ignored.bareFiles.has(baseName)) continue;
+        if (ignored.files.has(basePath ? `${basePath}/${baseName}` : baseName)) continue;
+        files.push(baseName);
       }
     }
   }
 
-  if (files.length > 0) {
+  if (files.length > 0 && !ignored.dirs.has(basePath)) {
     const key = (basePath || 'root').replace(/\/?\d+-/g, '/').replace(/^\//, '');
     index[key] = files;
   }
@@ -67,7 +92,8 @@ function scanDocs(dir, basePath = '') {
 }
 
 function generateMinified() {
-  const index = scanDocs(CONFIG.docsDir);
+  const ignored = loadMintIgnore(`${CONFIG.docsDir}/.mintignore`);
+  const index = scanDocs(CONFIG.docsDir, '', ignored);
 
   // Build minified index lines
   const lines = Object.entries(index)

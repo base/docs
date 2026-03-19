@@ -1,59 +1,94 @@
 ---
 title: "Resources for AI agents"
 description: "Base-first resources for AI agents, including docs indexes, MCP access, skills, and recommended starting points"
+keywords: ["AI agents", "LLM", "MCP", "Model Context Protocol", "llms.txt", "skills", "Claude Code", "Cursor", "agent wallet", "onchain AI", "Base documentation", "x402"]
 ---
 
-Use this page as the starting point when you want an AI assistant to build on Base. These resources help an assistant find the right documentation and retrieve live docs context for any Base product.
+<Note>
+Fetch the complete documentation index at [https://docs.base.org/llms.txt](https://docs.base.org/llms.txt).
+Use this file to discover all available pages before exploring further.
+</Note>
 
-## Docs index for AI
+# Resources for AI agents
 
-Start with the [LLMS.txt](https://docs.base.org/llms.txt) when you want broad documentation context. It gives your assistant a machine-readable entrypoint into the Base docs so it can discover the most relevant pages before going deeper.
+Use this page as the starting point when you want an AI assistant to build on Base. It covers three ways to give an assistant Base context: static docs files, a live MCP connection, and installable skills. You'll also find recommended entry points for common workflows.
 
-Use the docs index when you want to:
+## Quick setup
 
-- Understand the overall Base docs structure
-- Find the right section before reading full pages
-- Give an assistant high-level context for multiple Base products
+Get your agent connected to Base docs in one command. Pick the method that fits your tool.
 
-## Base MCP server
+### MCP server 
 
-Use the [Base MCP server setup guide](https://docs.base.org/get-started/docs-mcp) when you want live access to Base documentation from an AI coding assistant. The guide shows you how to connect `https://docs.base.org/mcp` in tools such as Cursor and Claude Code.
+A live connection lets your assistant search and read Base docs on demand, so it always has current information.
 
-Use MCP when you want your assistant to:
+<CodeGroup>
+```sh Claude Code
+claude mcp add --transport http base-docs https://docs.base.org/mcp
+```
 
-- Search Base docs in real time
-- Retrieve the exact page it needs while you work
-- Stay current with the latest Base documentation
+```sh Codex CLI
+codex mcp add base-docs --url https://docs.base.org/mcp
+```
 
-## Base skills
+```json Cursor / manual config
+{
+  "mcpServers": {
+    "base-docs": {
+      "url": "https://docs.base.org/mcp"
+    }
+  }
+}
+```
+</CodeGroup>
 
-Use the [Base skills repository](https://github.com/base/skills) when you want installable agent workflows for common Base development tasks. These skills help assistants handle specific jobs such as connecting to Base, deploying contracts, integrating Base Account, running a Base node, or migrating app patterns.
+See the [full MCP setup guide](/get-started/docs-mcp) for Cursor, Windsurf, and other editors.
 
-Use Base skills when you want to:
+### Static docs files
 
-- Speed up common implementation tasks
-- Give an assistant procedural guidance for Base-specific workflows
-- Reuse proven patterns instead of writing prompts from scratch
+Use these when you want to load context in a single fetch rather than maintaining a live connection.
+
+| File | What it contains | When to use it |
+| --- | --- | --- |
+| [`llms.txt`](https://docs.base.org/llms.txt) | Page index with titles and descriptions | Discovering which docs exist before going deeper |
+| [`llms-full.txt`](https://docs.base.org/llms-full.txt) | Complete documentation in one file | Giving an assistant broad context in one shot |
+
+Every docs page is also available as plain Markdown. Append `.md` to any URL:
+
+```txt
+https://docs.base.org/get-started/resources-for-ai-agents.md
+```
+
+### Skills
+
+Skills are installable agent workflows for common Base tasks, including connecting to Base, deploying contracts, integrating Base Account, running a node, and more. They give your assistant step-by-step procedural guidance instead of requiring it to piece together docs on its own.
+
+```sh
+npx skills install base/skills -g
+```
+
+Browse available skills in the [Base skills repository](https://github.com/base/skills).
 
 ## Recommended starting points
 
-Use these sections when you want to narrow context to a specific type of work:
+Once your agent has docs context, point it at the section that matches what you're building:
 
-- [AI Agents overview](/ai-agents) for the overall agent building model on Base
-- [Agent frameworks](/ai-agents/core-concepts/agent-frameworks) for framework choices and tradeoffs
-- [Wallets](/ai-agents/core-concepts/wallets) for agent wallets, signing, and funded execution
-- [Payments and transactions](/ai-agents/core-concepts/payments-and-transactions) for x402 payments and onchain actions
-- [Identity and auth](/ai-agents/core-concepts/identity-verification-auth) for verification and trust between agents and services
-- [Base Account quickstart for AI tools](/base-account/quickstart/ai-tools-available-for-devs) for agent-assisted wallet and account flows
-- [Deploy on Base](/base-chain/quickstart/deploy-on-base) for contract deployment on Base
-- [Build a Base app](/get-started/build-app) for agent experiences in the Base app
+| What you're doing | Start here |
+| --- | --- |
+| Building an AI agent on Base | [AI Agents overview](/ai-agents) |
+| Choosing an agent framework | [Agent frameworks](/ai-agents/core-concepts/agent-frameworks) |
+| Setting up agent wallets and signing | [Wallets](/ai-agents/core-concepts/wallets) |
+| Adding payments or onchain transactions | [Payments and transactions](/ai-agents/core-concepts/payments-and-transactions) |
+| Verifying identity between agents and services | [Identity and auth](/ai-agents/core-concepts/identity-verification-auth) |
+| Using AI tools with Base Account | [Base Account quickstart for AI tools](/base-account/quickstart/ai-tools-available-for-devs) |
+| Deploying contracts | [Deploy on Base](/base-chain/quickstart/deploy-on-base) |
+| Building an app on Base | [Build a Base app](/get-started/build-app) |
 
 ## Example prompts
 
-These prompts show the kinds of tasks you can ask an assistant to handle when it has access to Base resources:
+Copy these into your assistant to test that everything is working:
 
 - "Deploy my ERC-20 contract to Base Sepolia and verify it on Basescan."
 - "Add Sign in with Base to my Next.js app using wagmi."
 - "Set up a wallet for my AI agent that can hold USDC and sign transactions autonomously."
-- "Create a App with a USDC payment flow."
+- "Create an app with a USDC payment flow."
 - "Build an agent that pays for API requests using the x402 protocol."
