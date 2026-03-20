@@ -75,6 +75,16 @@ Whether data callbacks are supported for this account on this chain.
 </ResponseField>
 </Expandable>
 </ResponseField>
+
+<ResponseField name="gasLimitOverride" type="object">
+Indicates support for app-provided gas limit overrides on individual calls. Defined in [ERC-8132](https://github.com/ethereum/ERCs/pull/1485). Reported for all chains (`0x0`).
+
+<Expandable title="gasLimitOverride properties">
+<ResponseField name="supported" type="boolean">
+Whether gas limit overrides are supported.
+</ResponseField>
+</Expandable>
+</ResponseField>
 </Expandable>
 </ResponseField>
 </Expandable>
@@ -108,11 +118,13 @@ const baseCapabilities = capabilities["0x2105"]; // Base Mainnet
 const hasAuxiliaryFunds = baseCapabilities?.auxiliaryFunds?.supported;
 const supportsAtomic = baseCapabilities?.atomic?.supported === "supported";
 const hasPaymaster = baseCapabilities?.paymasterService?.supported;
+const hasGasLimitOverride = capabilities["0x0"]?.gasLimitOverride?.supported;
 
 console.log('Capabilities:', {
   hasAuxiliaryFunds,
   supportsAtomic,
-  hasPaymaster
+  hasPaymaster,
+  hasGasLimitOverride
 });
 ```
 </RequestExample>
@@ -138,6 +150,11 @@ console.log('Capabilities:', {
       },
       "datacallback": {
         "supported": false
+      }
+    },
+    "0x0": {
+      "gasLimitOverride": {
+        "supported": true
       }
     },
     "0x14A34": {
@@ -212,7 +229,8 @@ async function getWalletCapabilities(userAddress: string) {
     hasAtomicBatch: baseCapabilities.atomic?.supported === "supported",
     hasPaymaster: !!baseCapabilities.paymasterService?.supported,
     hasFlowControl: !!baseCapabilities.flowControl?.supported,
-    hasDataCallback: !!baseCapabilities.datacallback?.supported
+    hasDataCallback: !!baseCapabilities.datacallback?.supported,
+    hasGasLimitOverride: !!capabilities["0x0"]?.gasLimitOverride?.supported
   };
 }
 ```

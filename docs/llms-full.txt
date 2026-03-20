@@ -6,7 +6,7 @@
 
 ## How the docs are organized
 - Products have two files each: `/<product>/llms.txt` (index) and `/<product>/llms-full.txt` (expanded)
-- Main sections: Get Started, Base Chain, Base Account, AI Agents, Mini Apps, OnchainKit
+- Main sections: Get Started, Base Chain, Base Account, AI Agents, Mini Apps
 
 ## Cross-site concepts
 
@@ -23,9 +23,8 @@ Sources:
 - `https://docs.base.org/base-account/guides/authenticate-users.md`
 - `https://docs.base.org/base-account/guides/verify-social-accounts.md`
 - `https://docs.base.org/mini-apps/features/Authentication.md`
-- `https://docs.base.org/onchainkit/config/onchainkit-provider.md`
 
-> Auth patterns vary by product. Use SIWE (ERC‑6492 compatible) for user sign-in where smart wallets may not yet exist. In Mini Apps, defer auth until needed; prefer scoped, revocable permissions and transaction trays for intent. For SDK/server APIs (e.g., OnchainKit), supply API keys via environment variables, rotate regularly, and verify server-side signatures or webhooks. Never store user passkeys or raw private keys server-side.
+> Auth patterns vary by product. Use SIWE (ERC‑6492 compatible) for user sign-in where smart wallets may not yet exist. In Mini Apps, defer auth until needed; prefer scoped, revocable permissions and transaction trays for intent. Supply API keys via environment variables, rotate regularly, and verify server-side signatures or webhooks. Never store user passkeys or raw private keys server-side.
 
 ### Identity verification and Sybil resistance
 Sources:
@@ -35,38 +34,17 @@ Sources:
 
 ### Errors and retries
 Sources:
-- `https://docs.base.org/onchainkit/api/get-swap-quote.md`
 - `https://docs.base.org/base-chain/node-operators/troubleshooting.md`
 
 > Expect standard JSON error envelopes with `code`, `message`, and optional `details`. Treat 429 as rate-limited: respect `Retry-After` and apply exponential backoff with jitter. For idempotent operations (payments, tx-build), include an idempotency key if supported. Distinguish user-declined actions from transport or server errors and surface clear recovery guidance to users.
 
 ### Rate limits
 Sources:
-- `https://docs.base.org/onchainkit/api/get-tokens.md`
 - `https://docs.base.org/base-chain/node-operators/node-providers.md`
 
 > Rate limits vary by provider and endpoint. Batch reads when possible, cache static metadata, and use conditional requests. On 429, back off and retry after the indicated window. Avoid concurrent duplicate builds/quotes; fan out only when necessary.
 
 ### SDK install and hello world (JS/TS)
-
-OnchainKit (UI + server APIs)
-
-```bash
-npm install @coinbase/onchainkit wagmi viem
-```
-
-```tsx
-import { OnchainKitProvider } from '@coinbase/onchainkit'
-import { base } from 'wagmi/chains'
-
-export function Providers(props: { children: React.ReactNode }) {
-  return (
-    <OnchainKitProvider apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY} chain={base}>
-      {props.children}
-    </OnchainKitProvider>
-  )
-}
-```
 
 Base Account (smart wallet + pay helper + capabilities)
 
@@ -102,7 +80,6 @@ const client = createPublicClient({ chain: base, transport: http() })
 - AI Agents — `./ai-agents/llms-full.txt`
 - Base Chain — `./base-chain/llms-full.txt`
 - Mini Apps — `./mini-apps/llms-full.txt`
-- OnchainKit — `./onchainkit/llms-full.txt`
 
 ## Related indexes
 - Root index: `./llms.txt`
