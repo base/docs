@@ -1,0 +1,199 @@
+---
+title: "gasLimitOverride"
+description: "Override gas limits for individual calls in a wallet_sendCalls batch"
+---
+
+Defined in [ERC-8132](https://github.com/ethereum/ERCs/pull/1485)
+
+<Info>
+The gasLimitOverride capability allows apps to specify gas limits for individual calls within a `wallet_sendCalls` batch. Gas limits can be partially specified — you can provide overrides for only the calls you have context about, and the wallet estimates gas for the rest. Apps often have more context about the gas requirements of their own contract calls than the wallet, making app-provided gas limits more accurate.
+</Info>
+
+## Parameters
+
+This is a **call-level capability**, meaning it is specified on individual calls within a `wallet_sendCalls` batch rather than at the top level.
+
+<ParamField body="value" type="`0x${string}`" required>
+Hex-encoded gas limit for the call. Must be a non-zero value that does not exceed the block gas limit of the target chain.
+</ParamField>
+
+## Returns
+
+<ResponseField name="gasLimitOverride" type="object">
+The gasLimitOverride capability configuration.
+
+<Expandable title="gasLimitOverride capability properties">
+<ResponseField name="supported" type="boolean">
+Indicates whether the wallet supports app-provided gas limit overrides. Reported for all chains (`0x0`) when supported.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Example usage
+
+<RequestExample>
+```typescript Check gasLimitOverride support
+const capabilities = await provider.request({
+  method: 'wallet_getCapabilities',
+  params: [userAddress]
+});
+
+const gasLimitOverrideSupport = capabilities["0x0"]?.gasLimitOverride;
+```
+
+```typescript Send calls with a gas limit override
+const result = await provider.request({
+  method: "wallet_sendCalls",
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    atomicRequired: true,
+    calls: [
+      {
+        // Approval — no override, wallet estimates gas
+        to: tokenAddress,
+        value: "0x0",
+        data: approveCallData
+      },
+      {
+        // Swap — app provides a known gas limit
+        to: swapContractAddress,
+        value: "0x0",
+        data: swapCallData,
+        capabilities: {
+          gasLimitOverride: {
+            value: "0x30D40" // 200,000 gas
+          }
+        }
+      }
+    ]
+  }]
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json Capability response (supported)
+{
+  "0x0": {
+    "gasLimitOverride": {
+      "supported": true
+    }
+  }
+}
+```
+
+```json Capability response (unsupported)
+{
+  "0x0": {
+    "gasLimitOverride": {
+      "supported": false
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Error handling
+
+| Code   | Message              | Description                                                                 |
+| ------ | -------------------- | --------------------------------------------------------------------------- |
+| -32602 | Invalid params       | Gas limit is zero or exceeds the block gas limit of the target chain        |
+| 5700   | Capability required  | Call includes gasLimitOverride but wallet doesn't support it                 |
+
+## How it works
+
+When a wallet receives calls with `gasLimitOverride` capabilities:
+
+1. The wallet uses the app-provided gas limit for that call's portion of the batch gas limit.
+2. For calls **without** a `gasLimitOverride`, the wallet estimates gas as usual.
+3. The wallet may add additional gas to account for batch processing overhead (such as smart account execution or EIP-7702 delegation).
+
+This is a call-level capability, so you can specify gas limits for only some calls in a batch. The wallet handles estimation for the rest.
+
+## Use cases
+
+### Nondeterministic gas usage
+
+Some contract calls have nondeterministic gas costs that are difficult for wallets to estimate accurately. Apps with deep knowledge of their contracts can provide better gas limits:
+
+```typescript
+// A complex DeFi operation where gas usage depends on pool state
+const result = await provider.request({
+  method: "wallet_sendCalls",
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    atomicRequired: true,
+    calls: [
+      {
+        to: routerAddress,
+        value: "0x0",
+        data: swapCallData,
+        capabilities: {
+          gasLimitOverride: {
+            value: "0x7A120" // 500,000 gas — app knows the swap is complex
+          }
+        }
+      }
+    ]
+  }]
+});
+```
+
+### Partial gas limit specification
+
+You can specify gas limits for only the calls you have context about and let the wallet estimate the rest:
+
+```typescript
+const result = await provider.request({
+  method: "wallet_sendCalls",
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    atomicRequired: true,
+    calls: [
+      {
+        // Approval — let the wallet estimate gas
+        to: tokenAddress,
+        value: "0x0",
+        data: approveCallData
+      },
+      {
+        // Swap — app provides a known gas limit
+        to: swapContractAddress,
+        value: "0x0",
+        data: swapCallData,
+        capabilities: {
+          gasLimitOverride: {
+            value: "0x30D40" // 200,000 gas
+          }
+        }
+      }
+    ]
+  }]
+});
+```
+
+## Best practices
+
+1. **Check capabilities first**: Verify `gasLimitOverride` support via `wallet_getCapabilities` before including it in calls
+2. **Use `optional: true` for compatibility**: Mark the capability as optional if your app can function without it, so wallets that don't support it can still process the batch
+3. **Provide accurate limits**: Use gas limits based on your contract's actual requirements — overly tight limits cause reverts, overly generous limits waste block space
+4. **Let the wallet handle overhead**: Only specify gas for the call itself. The wallet accounts for batch processing overhead separately
+
+<Warning>
+The wallet returns an invalid params error (`-32602`) if a provided gas limit is zero or exceeds the block gas limit of the target chain.
+</Warning>
+
+## Related capabilities
+
+- [atomic](/base-account/reference/core/capabilities/atomic) - Use with atomic batch transactions
+- [paymasterService](/base-account/reference/core/capabilities/paymasterService) - Combine with sponsored transactions
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
