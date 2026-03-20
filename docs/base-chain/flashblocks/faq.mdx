@@ -125,14 +125,12 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     - Run your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks)
   </Accordion>
 
-  <Accordion title="Why does eth_call 'pending' execute against old state instead of the current Flashblock?">
-    This is a known limitation of Flashblocks-aware nodes. When you call `eth_call` with the `"pending"` block tag, the call executes against a block that may be 3–5 blocks behind the current chain tip — not against the preconfirmed Flashblock state.
+  <Accordion title="Why does eth_call 'pending' report a block number several blocks behind tip?">
+    This is expected behavior. Flashblocks-aware nodes store up to 5 historical blocks worth of Flashblocks state to prevent race conditions. When `eth_call "pending"` is called, it operates on top of that historical base, so the block number visible in the call context (e.g. `block.number`) may appear to be N-5.
 
-    This happens because `eth_call "pending"` internally resolves the block context from a different code path than `eth_getBlockByNumber "pending"`. The two are not synchronized: `eth_getBlockByNumber "pending"` correctly returns the current Flashblock state at N+1, while `eth_call "pending"` falls back to an older sealed block.
+    Importantly, **the result of the call is correct** — it reflects the latest sealed block plus all received Flashblocks at the time of the call. The reported block number is an artifact of how the pending state is constructed internally, not a sign that the call used stale data.
 
-    **If you need to simulate a call against actual preconfirmed state, use [`eth_simulateV1`](/base-chain/flashblocks/api-reference#eth_simulatev1) instead.** It executes against the live Flashblock state and supports state overrides, multi-block simulation, and transfer tracing.
-
-    For reading finalized on-chain state (not preconfirmed), `eth_call "latest"` behaves as expected.
+    If you need the call context to explicitly reflect the most recent preconfirmed block number, use [`eth_simulateV1`](/base-chain/flashblocks/api-reference#eth_simulatev1) instead, which supports full state overrides and executes against the live Flashblock state.
   </Accordion>
 
   <Accordion title="What RPC methods support Flashblocks?">
@@ -145,7 +143,7 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     | `eth_getTransactionReceipt` | Returns preconfirmed receipts |
     | `eth_getTransactionByHash` | Use `pending` tag |
     | `eth_getTransactionCount` | Use `pending` tag |
-    | `eth_call` | Use `pending` tag — note: executes against old state, not live Flashblock state. Use `eth_simulateV1` to simulate against preconfirmed state. |
+    | `eth_call` | Use `pending` tag — the call result is correct, but `block.number` in context may appear a few blocks behind tip. See [FAQ](/base-chain/flashblocks/faq#why-does-eth_call-pending-report-a-block-number-several-blocks-behind-tip) for details. |
     | `eth_simulateV1` | Use `pending` tag |
     | `eth_estimateGas` | Use `pending` tag |
     | `eth_getLogs` | Use `pending` for `toBlock` |
