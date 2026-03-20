@@ -17,12 +17,18 @@ AgentKit integrates with LangChain, giving your LangChain agent a set of onchain
 <Tabs>
   <Tab title="TypeScript">
     <Steps>
+      <Step title="Install dependencies">
+        ```bash Terminal
+        npm install @coinbase/agentkit-langchain @coinbase/agentkit @langchain/langgraph @langchain/openai
+        ```
+      </Step>
+
       <Step title="Clone the example">
         ```bash Terminal
         git clone https://github.com/coinbase/agentkit.git
-        cd agentkit
+        cd agentkit/typescript
         npm install && npm run build
-        cd typescript/examples/langchain-cdp-chatbot
+        cd examples/langchain-cdp-chatbot
         ```
       </Step>
 
@@ -49,10 +55,16 @@ AgentKit integrates with LangChain, giving your LangChain agent a set of onchain
 
   <Tab title="Python">
     <Steps>
+      <Step title="Install dependencies">
+        ```bash Terminal
+        pip install coinbase-agentkit coinbase-agentkit-langchain langchain-openai langgraph
+        ```
+      </Step>
+
       <Step title="Clone the example">
         ```bash Terminal
         git clone https://github.com/coinbase/agentkit.git
-        cd agentkit/python/examples/cdp-langchain-chatbot
+        cd agentkit/python/examples/langchain-cdp-chatbot
         ```
       </Step>
 
@@ -66,7 +78,7 @@ AgentKit integrates with LangChain, giving your LangChain agent a set of onchain
       <Step title="Install and run">
         ```bash Terminal
         poetry install
-        poetry run python main.py
+        poetry run python chatbot.py
         ```
       </Step>
     </Steps>
@@ -79,31 +91,28 @@ AgentKit provides a set of LangChain-compatible tools. You pass them to a LangCh
 
 <Tabs>
   <Tab title="TypeScript">
-    ```typescript index.ts
-    import { AgentKit, CdpWalletProvider } from "@coinbase/agentkit";
+    ```typescript chatbot.ts lines
+    import { AgentKit } from "@coinbase/agentkit";
     import { getLangChainTools } from "@coinbase/agentkit-langchain";
     import { ChatOpenAI } from "@langchain/openai";
     import { createReactAgent } from "@langchain/langgraph/prebuilt";
 
-    // Initialize AgentKit with a CDP wallet
-    const walletProvider = await CdpWalletProvider.configureWithWallet({
-      cdpApiKeyName: process.env.CDP_API_KEY_NAME!,
-      cdpApiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY!,
-      networkId: "base-sepolia",
+    // Initialize AgentKit — reads CDP_API_KEY_NAME and CDP_API_KEY_PRIVATE_KEY from env
+    const agentKit = await AgentKit.from({
+      cdpApiKeyName: process.env.CDP_API_KEY_NAME,
+      cdpApiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY,
     });
 
-    const agentkit = await AgentKit.from({ walletProvider });
-
     // Get AgentKit tools as LangChain tools
-    const tools = await getLangChainTools(agentkit);
+    const tools = await getLangChainTools(agentKit);
 
     // Create a LangChain agent
-    const llm = new ChatOpenAI({ model: "gpt-4o" });
+    const llm = new ChatOpenAI({ model: "gpt-4o-mini" });
     const agent = createReactAgent({ llm, tools });
 
     // Run the agent
     const result = await agent.invoke({
-      messages: [{ role: "user", content: "What is my ETH balance?" }],
+      messages: [{ role: "user", content: "What is my wallet address?" }],
     });
 
     console.log(result.messages.at(-1)?.content);
@@ -111,52 +120,31 @@ AgentKit provides a set of LangChain-compatible tools. You pass them to a LangCh
   </Tab>
 
   <Tab title="Python">
-    ```python main.py
-    from coinbase_agentkit import AgentKit, AgentKitConfig, CdpWalletProvider
+    ```python chatbot.py lines
+    from coinbase_agentkit import AgentKit
     from coinbase_agentkit_langchain import get_langchain_tools
     from langchain_openai import ChatOpenAI
     from langgraph.prebuilt import create_react_agent
 
-    # Initialize AgentKit with a CDP wallet
-    wallet_provider = CdpWalletProvider.configure_with_wallet(
-        cdp_api_key_name=os.environ["CDP_API_KEY_NAME"],
-        cdp_api_key_private_key=os.environ["CDP_API_KEY_PRIVATE_KEY"],
-        network_id="base-sepolia",
-    )
-
-    agentkit = AgentKit(AgentKitConfig(wallet_provider=wallet_provider))
+    # Initialize AgentKit — reads CDP_API_KEY_NAME and CDP_API_KEY_PRIVATE_KEY from env
+    agent_kit = AgentKit()
 
     # Get AgentKit tools as LangChain tools
-    tools = get_langchain_tools(agentkit)
+    tools = get_langchain_tools(agent_kit)
 
     # Create a LangChain agent
-    llm = ChatOpenAI(model="gpt-4o")
+    llm = ChatOpenAI(model="gpt-4o-mini")
     agent = create_react_agent(llm, tools)
 
     # Run the agent
     result = agent.invoke({
-        "messages": [{"role": "user", "content": "What is my ETH balance?"}]
+        "messages": [{"role": "user", "content": "What is my wallet address?"}]
     })
 
     print(result["messages"][-1].content)
     ```
   </Tab>
 </Tabs>
-
-## Available tools
-
-AgentKit registers the following tools with LangChain:
-
-| Tool | Description |
-|------|-------------|
-| `get_wallet_details` | Return the agent's wallet address and network |
-| `get_balance` | Check ETH or ERC-20 token balance |
-| `native_transfer` | Send ETH to an address |
-| `erc20_transfer` | Transfer an ERC-20 token |
-| `trade` | Swap tokens via an onchain DEX |
-| `deploy_token` | Deploy a new ERC-20 contract |
-| `wrap_eth` | Wrap ETH to WETH |
-| `request_faucet_funds` | Request testnet funds from the Base Sepolia faucet |
 
 ## Adding custom tools
 
@@ -170,7 +158,6 @@ Combine AgentKit tools with your own LangChain tools:
 
     const myTool = tool(
       async ({ query }) => {
-        // your custom logic
         return `Result for: ${query}`;
       },
       {
@@ -180,7 +167,7 @@ Combine AgentKit tools with your own LangChain tools:
       }
     );
 
-    const allTools = [...(await getLangChainTools(agentkit)), myTool];
+    const allTools = [...(await getLangChainTools(agentKit)), myTool];
     const agent = createReactAgent({ llm, tools: allTools });
     ```
   </Tab>
@@ -194,7 +181,7 @@ Combine AgentKit tools with your own LangChain tools:
         """Does something custom."""
         return f"Result for: {query}"
 
-    all_tools = get_langchain_tools(agentkit) + [my_custom_tool]
+    all_tools = get_langchain_tools(agent_kit) + [my_custom_tool]
     agent = create_react_agent(llm, all_tools)
     ```
   </Tab>
@@ -204,11 +191,12 @@ Combine AgentKit tools with your own LangChain tools:
 
 Fork a pre-configured template to start without local setup:
 
-- [TypeScript on Replit](https://replit.com/@lincolnmurr/AgentKitjs-Quickstart-010?v=1)
-- [Python on Replit](https://replit.com/@lincolnmurr/AgentKitpy-01?v=1)
+- [TypeScript (EVM) on Replit](https://replit.com/t/coinbase-developer-platform/repls/AgentKitjs-Quickstart-020-EVM-CDP-Wallet/view)
+- [Python (EVM) on Replit](https://replit.com/t/coinbase-developer-platform/repls/AgentKitpy-012-EVM/view)
+- [TypeScript (Solana) on Replit](https://replit.com/t/coinbase-developer-platform/repls/AgentKitjs-Solana-Quickstart-v020/view)
 
 <Warning>
-Replit templates store wallet data in `wallet_data.txt`. This file contains your wallet's private key and should not be used in production. See [CDP docs on securing wallets](https://docs.cdp.coinbase.com/wallet-api/docs/wallets#securing-a-wallet).
+Replit templates store wallet data in `wallet_data.txt`. This file contains your wallet's private key and should not be used in production. See [CDP docs on securing wallets](https://docs.cdp.coinbase.com/server-wallets/v2/introduction/welcome).
 </Warning>
 
 ## Next steps
