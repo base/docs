@@ -1,0 +1,88 @@
+---
+title: "Contract Addresses & Protocol References"
+description: "Deployed contract addresses for ERC-8004 agent identity registries and x402 facilitator endpoints on Base"
+keywords: ["ERC-8004 contract", "ERC-8128", "x402 facilitator", "Base contract addresses", "agent identity registry", "agent reputation registry"]
+---
+
+Reference addresses and endpoints for the protocols that power agent identity and payments on Base.
+
+## ERC-8004 Agent Registry
+
+ERC-8004 is a deployed onchain protocol with two smart contracts: the **Identity Registry** (ERC-721 NFT registry where agents register their identity) and the **Reputation Registry** (feedback and trust signals).
+
+### Base Mainnet
+
+| Contract | Address |
+|----------|---------|
+| Identity Registry | [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) |
+| Reputation Registry | [`0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`](https://basescan.org/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63) |
+
+### Base Sepolia (Testnet)
+
+| Contract | Address |
+|----------|---------|
+| Identity Registry | [`0x8004A818BFB912233c491871b3d84c89A494BD9e`](https://sepolia.basescan.org/address/0x8004A818BFB912233c491871b3d84c89A494BD9e) |
+| Reputation Registry | [`0x8004B663056A597Dffe9eCcC1965A193B7388713`](https://sepolia.basescan.org/address/0x8004B663056A597Dffe9eCcC1965A193B7388713) |
+
+These are the canonical registry addresses shared across all ERC-8004 deployments on Base. The same addresses are used by [8004scan.io](https://www.8004scan.io), the Agent0 SDK, and SIWA.
+
+[ERC-8004 contracts on GitHub →](https://github.com/erc-8004/erc-8004-contracts)
+
+## ERC-8128 Request Signing
+
+ERC-8128 is a cryptographic signing standard for HTTP messages — not a deployed smart contract. It defines how agents sign each request using their Ethereum key (EOA via ECDSA, or smart contract accounts via ERC-1271), and how servers verify those signatures.
+
+There is no contract address to deploy or configure. The standard operates entirely through the HTTP headers `Signature-Input`, `Signature`, and `Content-Digest`. Smart contract account verification uses the standard ERC-1271 `isValidSignature` interface already present on deployed accounts.
+
+[ERC-8128 specification →](https://erc8128.slice.so/concepts/overview)
+
+## x402 Payment Facilitators
+
+x402 facilitators are off-chain services, not a single smart contract. A facilitator verifies payment payloads submitted by clients and settles payments onchain on behalf of servers. Multiple independent facilitators operate on Base.
+
+### Coinbase CDP Facilitator (recommended)
+
+The Coinbase facilitator is the default for most integrations and requires a CDP API key:
+
+| | |
+|---|---|
+| **API endpoint** | `https://api.cdp.coinbase.com/platform/v2/x402` |
+| **Verify path** | `POST /v2/x402/verify` |
+| **Settle path** | `POST /v2/x402/settle` |
+| **Networks** | Base, Solana |
+| **Auth** | CDP API key required |
+
+[CDP x402 facilitator docs →](https://docs.cdp.coinbase.com/x402/docs/facilitator)
+
+### Public Testnet Facilitator
+
+For development and testing without a CDP API key:
+
+| | |
+|---|---|
+| **API endpoint** | `https://www.x402.org/facilitator` |
+| **Auth** | None required |
+
+### Third-party Facilitators
+
+Multiple third-party facilitators run on Base mainnet with varying network support and fee structures. See the [x402 ecosystem page](https://www.x402.org/ecosystem?filter=facilitators) for the current list.
+
+## Protocol summary
+
+| Protocol | Type | What it does |
+|----------|------|-------------|
+| ERC-8004 | Deployed smart contract | Onchain NFT registry mapping agents to public keys and endpoints |
+| ERC-8128 | Cryptographic standard | Per-request HTTP message signing using Ethereum keys — no contract |
+| x402 | Off-chain service + USDC transfers | Facilitates pay-per-request stablecoin payments between agents and services |
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Identity with SIWA" icon="fingerprint" href="/ai-agents/guides/identity-siwa">
+    Register your agent in the ERC-8004 registry and verify requests with ERC-8128.
+  </Card>
+
+  <Card title="x402 payments" icon="bolt" href="/ai-agents/guides/x402-payments">
+    Let your agent pay for API access with stablecoins using the x402 protocol.
+  </Card>
+</CardGroup>
