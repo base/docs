@@ -125,6 +125,14 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     - Run your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks)
   </Accordion>
 
+  <Accordion title="Why does eth_call 'pending' report a block number several blocks behind tip?">
+    This is expected behavior. Flashblocks-aware nodes store up to 5 historical blocks worth of Flashblocks state to prevent race conditions. When `eth_call "pending"` is called, it operates on top of that historical base, so the block number visible in the call context (e.g. `block.number`) may appear to be N-5.
+
+    When `eth_call "pending"` executes, the entire block context — `block.number`, `block.timestamp`, `block.basefee`, and all other block properties — corresponds to that historical base block (potentially N-5), not the current chain tip. **The call result is correct** in that it reflects all received Flashblocks state applied on top, but contracts that rely on block context properties should be aware that those values may be several blocks behind.
+
+    If you operate a node in a geographic region where your P2P latency is not significantly higher than the WebSocket stream latency, you can reduce this difference by lowering the `MAX_PENDING_BLOCKS_DEPTH` configuration value. This controls the maximum number of historical blocks worth of Flashblocks your node stores, so a lower value will make the block context closer to tip at the cost of reduced tolerance for P2P latency spikes.
+  </Accordion>
+
   <Accordion title="What RPC methods support Flashblocks?">
     The following methods are Flashblocks-enabled:
 
