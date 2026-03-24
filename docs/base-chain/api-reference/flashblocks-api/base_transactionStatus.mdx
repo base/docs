@@ -1,0 +1,51 @@
+---
+title: 'base_transactionStatus'
+sidebarTitle: 'base_transactionStatus'
+description: 'Checks whether a transaction is in the node mempool. Only available on Flashblocks endpoints.'
+---
+
+Checks whether a specific transaction is present in the node's mempool. Use this to confirm that a submitted transaction has been received before it appears in a Flashblock.
+
+<Info>
+Only available on Flashblocks endpoints: `https://mainnet-preconf.base.org` / `https://sepolia-preconf.base.org`.
+</Info>
+
+<Note>
+Requires [base/base](https://github.com/base/base) minimum client version v0.3.0.
+</Note>
+
+## Parameters
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte transaction hash to query.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+  Transaction status object.
+
+  <Expandable title="Status fields">
+    <ResponseField name="status" type="string">
+      `"Known"` if the transaction is present in the mempool. `"Unknown"` if it has not been seen by this node.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash cURL
+curl https://mainnet-preconf.base.org \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"base_transactionStatus","params":["0xabc123..."],"id":1}'
+```
+
+```json Known
+{"jsonrpc": "2.0", "id": 1, "result": {"status": "Known"}}
+```
+
+```json Unknown
+{"jsonrpc": "2.0", "id": 1, "result": {"status": "Unknown"}}
+```
+</CodeGroup>

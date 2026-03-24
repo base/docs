@@ -4,7 +4,7 @@ description: 'Base-specific patterns, fee calibration, and onchain signals for t
 keywords: ["Flashblocks trading", "machine payments protocol","trading agent Base", "base_transactionStatus", "onchain trading agent EVM", "L1 L2 fee optimization Base"]
 ---
 
-Base offers two structural advantages for trading agents: **Flashblocks** (200ms preconfirmed block state, 10× faster than the 2-second block) and an exposed L1/L2 fee structure that enables explicit cost-vs-speed tradeoffs. This page covers only what is unique to Base — general EVM execution patterns are in the [Ethereum documentation](https://ethereum.org/developers/docs), and Base's RPC methods are in the [JSON-RPC API Reference](/base-chain/reference/json-rpc-api) and [Flashblocks API Reference](/base-chain/flashblocks/api-reference).
+Base offers two structural advantages for trading agents: **Flashblocks** (200ms preconfirmed block state, 10× faster than the 2-second block) and an exposed L1/L2 fee structure that enables explicit cost-vs-speed tradeoffs. This page covers only what is unique to Base — general EVM execution patterns are in the [Ethereum documentation](https://ethereum.org/developers/docs), and Base's RPC methods are in the [API Reference](/base-chain/api-reference/rpc-overview).
 
 ---
 
@@ -16,11 +16,11 @@ Always connect to `mainnet-preconf.base.org` (or `sepolia-preconf.base.org` for 
 
 ### Simulate against preconfirmed state before signing
 
-Call [`eth_simulateV1`](/base-chain/flashblocks/api-reference#eth_simulatev1) against the preconf endpoint with `"blockStateCalls"` targeting the `pending` block before signing any transaction. This catches reverts against current Flashblocks state rather than the last sealed block — which may be up to 2 seconds stale by the time your transaction lands.
+Call [`eth_simulateV1`](/base-chain/api-reference/flashblocks-api/eth_simulateV1) against the preconf endpoint with `"blockStateCalls"` targeting the `pending` block before signing any transaction. This catches reverts against current Flashblocks state rather than the last sealed block — which may be up to 2 seconds stale by the time your transaction lands.
 
 ### Poll `base_transactionStatus` instead of blocking on a receipt
 
-After submission, [`base_transactionStatus`](/base-chain/flashblocks/api-reference#base_transactionstatus) returns preconfirmed inclusion status within a single Flashblock interval (~200ms). Blocking on `eth_getTransactionReceipt` waits for a full sealed block (up to 2 seconds). For latency-sensitive strategies, poll `base_transactionStatus` first and only fall back to the receipt for finality confirmation.
+After submission, [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) returns preconfirmed inclusion status within a single Flashblock interval (~200ms). Blocking on `eth_getTransactionReceipt` waits for a full sealed block (up to 2 seconds). For latency-sensitive strategies, poll `base_transactionStatus` first and only fall back to the receipt for finality confirmation.
 
 ---
 
@@ -28,7 +28,7 @@ After submission, [`base_transactionStatus`](/base-chain/flashblocks/api-referen
 
 ### L2 priority fee heuristics
 
-Use [`eth_feeHistory`](/base-chain/reference/json-rpc-api#eth_feehistory) over the last 5–10 blocks with reward percentiles `[50, 90]`:
+Use [`eth_feeHistory`](/base-chain/api-reference/rpc-overview#eth_feehistory) over the last 5–10 blocks with reward percentiles `[50, 90]`:
 
 - **50th percentile reward** — standard inclusion within 1–3 Flashblocks
 - **90th percentile reward** — fast inclusion within the next Flashblock
@@ -80,9 +80,9 @@ Base exposes data that most chains don't provide at this resolution. The table m
 
 ## Related
 
-- [Flashblocks API Reference](/base-chain/flashblocks/api-reference) — `eth_simulateV1`, `base_transactionStatus`, subscription types
+- [Flashblocks API Reference](/base-chain/api-reference/rpc-overview#flashblocks-api) — `eth_simulateV1`, `base_transactionStatus`, subscription types
 - [Flashblocks Integration Guide](/base-chain/flashblocks/app-integration) — endpoints, library setup (Wagmi, Viem, Ethers)
 - [Block Building](/base-chain/network-information/block-building) — Flashblocks timing, per-transaction gas maximum
 - [Network Fees](/base-chain/network-information/network-fees) — EIP-1559 parameters, GasPriceOracle methods
-- [JSON-RPC API Reference](/base-chain/reference/json-rpc-api) — complete RPC method reference
+- [JSON-RPC API Reference](/base-chain/api-reference/rpc-overview) — complete RPC method reference
 - [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions) — full error taxonomy and retry policies

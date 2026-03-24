@@ -1,0 +1,205 @@
+---
+title: 'Overview'
+sidebarTitle: 'Overview'
+description: 'Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema for Base pre-confirmations.'
+---
+
+Flashblocks endpoints expose all standard Ethereum JSON-RPC methods plus a set of pre-confirmation-specific additions. These let you read state, simulate transactions, and stream events against sequencer-ordered data up to ~1.8 seconds before a block seals.
+
+<Info>
+All [standard Ethereum JSON-RPC methods](/base-chain/api-reference/rpc-overview) work identically on Flashblocks endpoints. Use the `"pending"` block tag to resolve against pre-confirmed state instead of the transaction pool. See the [Overview](/base-chain/api-reference/rpc-overview#what-is-the-flashblocks-tier) for endpoint URLs and a full explanation of the two tiers.
+</Info>
+
+## HTTP Methods
+
+| Method | Description |
+| :--- | :--- |
+| [eth_simulateV1](/base-chain/api-reference/flashblocks-api/eth_simulateV1) | Simulate transaction bundles against pre-confirmed state |
+| [base_transactionStatus](/base-chain/api-reference/flashblocks-api/base_transactionStatus) | Check if a transaction has been received by the node mempool |
+
+## WebSocket Subscriptions
+
+On a Flashblocks WSS endpoint, `eth_subscribe` with `newHeads` emits a new event approximately every 200ms per Flashblock instead of every 2 seconds. Three additional subscription types are also available that are exclusive to Flashblocks endpoints:
+
+| Subscription | Description |
+| :--- | :--- |
+| [newFlashblockTransactions](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) | Stream individual transactions as they are pre-confirmed (~200ms each) |
+| [pendingLogs](/base-chain/api-reference/flashblocks-api/pendingLogs) | Stream filtered event logs from pre-confirmed transactions |
+| [newFlashblocks](/base-chain/api-reference/flashblocks-api/newFlashblocks) | Stream full Flashblock payload objects from the sequencer |
+
+## Infrastructure Stream
+
+The raw Flashblocks infrastructure stream is the upstream WebSocket feed consumed by Flashblocks-aware RPC nodes. It emits a new message approximately every 200ms as the sequencer pre-confirms transactions.
+
+<Warning>
+**Applications should not connect directly to the infrastructure stream.** These endpoints are for node operators only. App developers should use the [WebSocket subscription methods](#websocket-subscriptions) above via a Flashblocks-aware RPC provider.
+</Warning>
+
+| Network | Raw stream URL |
+| :--- | :--- |
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+### Flashblock Object
+
+The root structure of each infrastructure stream message.
+
+<Card>
+<ParamField path="payload_id" type="string">
+Unique identifier for the block being built. Remains consistent across all Flashblocks within a single full block.
+</ParamField>
+
+<ParamField path="index" type="number">
+Flashblock index within the current block. Starts at 0 (system transactions only). User transactions begin at index 1. Typically reaches 9–10 per block, but [may exceed 10](/base-chain/flashblocks/faq#why-can-the-flashblock-index-exceed-10) during sequencer timing drift.
+</ParamField>
+
+<ParamField path="base" type="Base Object">
+Block header properties. **Only present when `index` is `0`.** See [Base Object](#base-object).
+</ParamField>
+
+<ParamField path="diff" type="Diff Object">
+Incremental block state changes for this Flashblock. Present in every message. See [Diff Object](#diff-object).
+</ParamField>
+
+<ParamField path="metadata" type="Metadata Object">
+Supplemental data. **Unstable — fields may change without notice.** See [Metadata Object](#metadata-object).
+</ParamField>
+</Card>
+
+### Base Object
+
+Contains full block header properties. **Only present in the `index: 0` message** (the first Flashblock of each full block).
+
+<Card>
+<ParamField path="parent_hash" type="string">Hash of the parent block.</ParamField>
+<ParamField path="fee_recipient" type="string">Address receiving transaction fees (coinbase).</ParamField>
+<ParamField path="block_number" type="string">Block number in hex.</ParamField>
+<ParamField path="gas_limit" type="string">Maximum gas allowed in this block (hex).</ParamField>
+<ParamField path="timestamp" type="string">Unix timestamp of block creation (hex).</ParamField>
+<ParamField path="base_fee_per_gas" type="string">EIP-1559 base fee per gas (hex).</ParamField>
+<ParamField path="prev_randao" type="string">Previous RANDAO value used for on-chain randomness.</ParamField>
+<ParamField path="extra_data" type="string">Arbitrary data field set by the sequencer.</ParamField>
+</Card>
+
+### Diff Object
+
+Contains the incremental block state changes for this specific Flashblock. Present in every message.
+
+<Card>
+<ParamField path="state_root" type="string">Merkle root of the state trie after applying this Flashblock's transactions.</ParamField>
+<ParamField path="block_hash" type="string">Hash of the partial block at this Flashblock index. Changes with each Flashblock as more transactions are pre-confirmed.</ParamField>
+<ParamField path="gas_used" type="string">Cumulative gas used up to and including this Flashblock (hex).</ParamField>
+<ParamField path="blob_gas_used" type="string">Cumulative blob gas used (EIP-4844, hex).</ParamField>
+<ParamField path="transactions" type="string[]">Array of RLP-encoded transactions included in this Flashblock.</ParamField>
+<ParamField path="withdrawals" type="array">Validator withdrawals (always empty on Base L2).</ParamField>
+<ParamField path="receipts_root" type="string">Merkle root of transaction receipts.</ParamField>
+<ParamField path="logs_bloom" type="string">Bloom filter for logs in this Flashblock.</ParamField>
+<ParamField path="withdrawals_root" type="string">Merkle root of withdrawals.</ParamField>
+</Card>
+
+### Metadata Object
+
+<Warning>
+**The `metadata` object is not stable.** Fields may be added, modified, or removed without prior notice. Do not build production dependencies on it — use the [`diff`](#diff-object) object or query finalized block data via standard RPC instead.
+</Warning>
+
+<Card>
+<ParamField path="block_number" type="number">Block number as a decimal integer.</ParamField>
+<ParamField path="new_account_balances" type="object">Map of addresses to their updated ETH balances (hex). Only includes accounts whose balances changed in this Flashblock.</ParamField>
+<ParamField path="receipts" type="object">Map of transaction hashes to their [Receipt](#receipt-object) objects.</ParamField>
+</Card>
+
+### Receipt Object
+
+The abbreviated transaction receipt included in `metadata.receipts`. Check the `type` field to determine transaction type.
+
+<Card>
+<ParamField path="type" type="string">Transaction type: `0x0` Legacy, `0x1` Access List, `0x2` EIP-1559, `0x7e` Deposit (L1→L2).</ParamField>
+<ParamField path="status" type="string">Transaction status: `0x1` for success, `0x0` for failure.</ParamField>
+<ParamField path="cumulativeGasUsed" type="string">Total gas used in the block up to and including this transaction (hex).</ParamField>
+<ParamField path="logs" type="Log[]">Array of event logs emitted by the transaction. See [Log Object](#log-object).</ParamField>
+<ParamField path="logsBloom" type="string">Bloom filter for the logs in this receipt.</ParamField>
+<ParamField path="transactionIndex" type="string">Index of the transaction within the block (hex).</ParamField>
+</Card>
+
+### Log Object
+
+<Card>
+<ParamField path="address" type="string">Contract address that emitted the event.</ParamField>
+<ParamField path="topics" type="string[]">Array of indexed event parameters. Topic 0 is typically the event signature hash.</ParamField>
+<ParamField path="data" type="string">ABI-encoded non-indexed event parameters.</ParamField>
+</Card>
+
+### Complete Examples
+
+**Index 0** — includes the `base` object (block header):
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 0,
+  "base": {
+    "parent_hash": "0x9edc29b8b0a1e31d28616e40c16132ad0d58faa8bb952595b557526bdb9a960a",
+    "fee_recipient": "0x4200000000000000000000000000000000000011",
+    "block_number": "0x158a0e9",
+    "gas_limit": "0x3938700",
+    "timestamp": "0x67bf8332",
+    "base_fee_per_gas": "0xfa"
+  },
+  "diff": {
+    "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
+    "block_hash": "0x5c330e55a190f82ea486b61e5b12e27dfb4fb3cecfc5746886ef38ca1281bce8",
+    "gas_used": "0xab3f",
+    "transactions": ["0x7ef8f8a0b4afc0b7ce10e150801bbaf08ac33fecb0f38311793abccb022120d321c6d276..."],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577,
+    "new_account_balances": {
+      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0"
+    },
+    "receipts": {
+      "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
+        "type": "0x7e",
+        "status": "0x1",
+        "cumulativeGasUsed": "0xab3f",
+        "logs": [],
+        "logsBloom": "0x00000000...",
+        "transactionIndex": "0x0"
+      }
+    }
+  }
+}
+```
+
+**Index 1–N (diff only)** — no `base` object:
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 4,
+  "diff": {
+    "state_root": "0x7a8f45038665072f382730e689f4a1561835c9987fca8942fa95872fb9367eaa",
+    "block_hash": "0x9b32f7a14cbd1efc8c2c5cad5eb718ec9e0c5da92c3ba7080f8d4c49d660c332",
+    "gas_used": "0x1234f",
+    "transactions": ["0x02f90133...", "0x02f90196..."],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577,
+    "new_account_balances": {
+      "0x4200000000000000000000000000000000000015": "0x1234"
+    },
+    "receipts": {
+      "0x7c69632dc315f13a...": {
+        "type": "0x2",
+        "status": "0x1",
+        "cumulativeGasUsed": "0x1234f",
+        "logs": [],
+        "logsBloom": "0x00000000...",
+        "transactionIndex": "0x1"
+      }
+    }
+  }
+}
+```

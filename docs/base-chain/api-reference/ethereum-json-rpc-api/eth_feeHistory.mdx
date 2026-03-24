@@ -1,0 +1,61 @@
+---
+title: 'eth_feeHistory'
+sidebarTitle: 'eth_feeHistory'
+description: 'Returns historical base fees and priority fee percentiles for a range of blocks.'
+---
+
+Returns historical gas information for a range of blocks, including base fees and the distribution of priority fees. Useful for building fee estimation strategies.
+
+## Parameters
+
+<ParamField body="blockCount" type="string | number" required>
+  Number of blocks to return. Can be a decimal or hexadecimal integer. Maximum is typically 1024.
+</ParamField>
+
+<ParamField body="newestBlock" type="string" required>
+  The highest block to include, as a block number in hex or a block tag (`"latest"`, `"pending"`, etc.).
+</ParamField>
+
+<ParamField body="rewardPercentiles" type="array" required>
+  Array of percentile values (0–100) to sample from each block's priority fees. Example: `[25, 50, 75]` returns the 25th, 50th, and 75th percentile priority fees.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+  <Expandable title="Fee history fields">
+    <ResponseField name="oldestBlock" type="string">The oldest block number in the result set (hex).</ResponseField>
+    <ResponseField name="baseFeePerGas" type="array">Array of base fees per gas for each block, plus one extra for the next pending block.</ResponseField>
+    <ResponseField name="gasUsedRatio" type="array">Array of gas used / gas limit ratios for each block (0.0 to 1.0).</ResponseField>
+    <ResponseField name="reward" type="array">2D array of priority fee percentiles per block, matching the requested percentile values.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_feeHistory",
+  "params": ["0xa", "latest", [25, 50, 75]],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "oldestBlock": "0x158a0e0",
+    "baseFeePerGas": ["0xf5", "0xf7", "0xfa", "0xfc", "0xf8", "0xf5", "0xf2", "0xf0", "0xef", "0xf1", "0xf3"],
+    "gasUsedRatio": [0.45, 0.62, 0.38, 0.71, 0.55, 0.49, 0.43, 0.37, 0.52, 0.64],
+    "reward": [
+      ["0x1", "0x1", "0x2"],
+      ["0x1", "0x1", "0x1"]
+    ]
+  }
+}
+```
+</CodeGroup>

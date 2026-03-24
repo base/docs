@@ -1,0 +1,63 @@
+---
+title: 'eth_getCode'
+sidebarTitle: 'eth_getCode'
+description: 'Returns the contract bytecode at an address. Use pending on a Flashblocks endpoint to detect newly deployed contracts before block finalization.'
+---
+
+Returns the compiled bytecode at a given address. Returns `"0x"` for externally owned accounts (EOAs).
+
+<Tip>
+**Flashblocks:** Query `https://mainnet-preconf.base.org` with `"pending"` to detect contract deployments before the block seals.
+</Tip>
+
+## Parameters
+
+<ParamField body="address" type="string" required>
+  The 20-byte address to query.
+</ParamField>
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The bytecode at the address as a hex string. `"0x"` if there is no code.
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash Standard (latest)
+curl https://mainnet.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getCode",
+    "params": ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "latest"],
+    "id": 1
+  }'
+```
+
+```bash Flashblocks (pending, ~200ms)
+curl https://mainnet-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getCode",
+    "params": ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "pending"],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x608060405234801561001057600080fd5b50..."
+}
+```
+</CodeGroup>

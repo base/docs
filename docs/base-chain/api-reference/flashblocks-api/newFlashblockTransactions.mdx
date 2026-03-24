@@ -1,0 +1,51 @@
+---
+title: 'newFlashblockTransactions'
+sidebarTitle: 'newFlashblockTransactions'
+description: 'Subscribe to receive each transaction as it is pre-confirmed into a Flashblock. Only available on Flashblocks WebSocket endpoints.'
+---
+
+Subscribe via `eth_subscribe` to receive each transaction as it is pre-confirmed into a Flashblock. Pass `true` as the second parameter to receive full transaction and log data.
+
+<Info>
+Only available on Flashblocks WebSocket endpoints: `wss://mainnet-preconf.base.org` / `wss://sepolia-preconf.base.org`.
+</Info>
+
+<Note>
+Requires [base/base](https://github.com/base/base) minimum client version v0.3.1.
+</Note>
+
+<Warning>
+Each subscription emits **one item per WebSocket message**. Events arrive approximately every 200ms. If your handler performs heavy processing per event, throttle or debounce it to avoid blocking.
+</Warning>
+
+## Parameters
+
+<ParamField body="subscriptionType" type="string" required>
+  Must be `"newFlashblockTransactions"`.
+</ParamField>
+
+<ParamField body="full" type="boolean">
+  If `true`, each notification includes the full transaction object and associated logs. Defaults to `false` (minimal data only).
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  Hex-encoded subscription ID.
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```json Subscribe
+{"jsonrpc": "2.0", "id": 1, "method": "eth_subscribe", "params": ["newFlashblockTransactions"]}
+```
+
+```json Subscribe (full data)
+{"jsonrpc": "2.0", "id": 1, "method": "eth_subscribe", "params": ["newFlashblockTransactions", true]}
+```
+
+```json Subscription ID Response
+{"jsonrpc": "2.0", "id": 1, "result": "0x1887ec8b9589ccad00000000000532da"}
+```
+</CodeGroup>

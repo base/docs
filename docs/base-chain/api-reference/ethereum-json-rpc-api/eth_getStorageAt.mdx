@@ -1,0 +1,67 @@
+---
+title: 'eth_getStorageAt'
+sidebarTitle: 'eth_getStorageAt'
+description: 'Returns the value of a storage slot at an address. Use pending on a Flashblocks endpoint for pre-confirmed storage reads.'
+---
+
+Returns the value from a storage position at a given address.
+
+<Tip>
+**Flashblocks:** Query `https://mainnet-preconf.base.org` with `"pending"` to read storage updated by pre-confirmed transactions every ~200ms.
+</Tip>
+
+## Parameters
+
+<ParamField body="address" type="string" required>
+  The 20-byte address of the storage.
+</ParamField>
+
+<ParamField body="position" type="string" required>
+  The storage slot position as a hexadecimal integer.
+</ParamField>
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The value at the storage position as a 32-byte hex string.
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash Standard (latest)
+curl https://mainnet.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getStorageAt",
+    "params": ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "0x0", "latest"],
+    "id": 1
+  }'
+```
+
+```bash Flashblocks (pending, ~200ms)
+curl https://mainnet-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getStorageAt",
+    "params": ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "0x0", "pending"],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+}
+```
+</CodeGroup>

@@ -1,0 +1,119 @@
+---
+title: 'eth_getLogs'
+sidebarTitle: 'eth_getLogs'
+description: 'Returns logs matching a filter. Use pending on a Flashblocks endpoint to query logs from pre-confirmed transactions.'
+---
+
+Returns an array of all logs matching a given filter object. Particularly useful for indexing on-chain events.
+
+<Warning>
+Queries spanning large block ranges or high-activity contracts can time out or be rejected. Keep `fromBlock`-to-`toBlock` ranges under 2,000 blocks for reliable results. Node providers may enforce their own limits.
+</Warning>
+
+<Tip>
+**Flashblocks:** Set `"fromBlock": "pending"` and `"toBlock": "pending"` on a `https://mainnet-preconf.base.org` endpoint to query logs from pre-confirmed transactions, updated every ~200ms. For a real-time stream, consider the [`pendingLogs`](/base-chain/api-reference/flashblocks-api/pendingLogs) WebSocket subscription instead.
+</Tip>
+
+## Parameters
+
+<ParamField body="filter" type="object" required>
+  The filter options. At least one criterion should be provided.
+
+  <Expandable title="Filter fields">
+    <ParamField body="fromBlock" type="string">
+      Start of the block range. Block number in hex or a block tag. Use `"pending"` on a Flashblocks endpoint to include pre-confirmed logs. Defaults to `"latest"`.
+    </ParamField>
+    <ParamField body="toBlock" type="string">
+      End of the block range. Block number in hex or a block tag. Defaults to `"latest"`.
+    </ParamField>
+    <ParamField body="address" type="string | array">
+      A contract address or array of addresses to filter by. Optional.
+    </ParamField>
+    <ParamField body="topics" type="array">
+      Array of 32-byte topic filters. Each position can be `null` (match any), a single topic hex string, or an array of hex strings (match any in the array). Position 0 is typically the `keccak256` hash of the event signature. Optional.
+    </ParamField>
+    <ParamField body="blockHash" type="string">
+      Restricts logs to the block with this hash. If provided, `fromBlock` and `toBlock` are ignored. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="array">
+  Array of log objects matching the filter.
+
+  <Expandable title="Log object fields">
+    <ResponseField name="address" type="string">20-byte address of the contract that emitted the log.</ResponseField>
+    <ResponseField name="topics" type="array">Array of 0–4 indexed 32-byte topics. Topic 0 is typically the event signature hash.</ResponseField>
+    <ResponseField name="data" type="string">ABI-encoded non-indexed event parameters.</ResponseField>
+    <ResponseField name="blockNumber" type="string">Block number in which this log was emitted (hex).</ResponseField>
+    <ResponseField name="transactionHash" type="string">32-byte hash of the transaction that emitted this log.</ResponseField>
+    <ResponseField name="transactionIndex" type="string">Index of the transaction in the block (hex).</ResponseField>
+    <ResponseField name="blockHash" type="string">32-byte hash of the block.</ResponseField>
+    <ResponseField name="logIndex" type="string">Log's index position within the block (hex).</ResponseField>
+    <ResponseField name="removed" type="boolean">`true` if the log was removed due to a chain reorganization.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash Standard (block range)
+curl https://mainnet.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getLogs",
+    "params": [{
+      "fromBlock": "0x12ced00",
+      "toBlock": "0x12ced28",
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
+    }],
+    "id": 1
+  }'
+```
+
+```bash Flashblocks (pending, ~200ms)
+curl https://mainnet-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getLogs",
+    "params": [{
+      "fromBlock": "pending",
+      "toBlock": "pending",
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
+    }],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "0x000000000000000000000000d3cda913deb6f4967b2ef66ae97de114a83bcc01",
+        "0x0000000000000000000000004200000000000000000000000000000000000006"
+      ],
+      "data": "0x0000000000000000000000000000000000000000000000000000000005f5e100",
+      "blockNumber": "0x12ced28",
+      "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+      "transactionIndex": "0x0",
+      "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+      "logIndex": "0x0",
+      "removed": false
+    }
+  ]
+}
+```
+</CodeGroup>

@@ -1,0 +1,151 @@
+---
+title: 'debug_traceTransaction'
+sidebarTitle: 'debug_traceTransaction'
+description: 'Returns the full EVM execution trace for a transaction. Requires a node with debug APIs enabled.'
+---
+
+Replays a transaction and returns its complete EVM execution trace, including every opcode executed, gas consumed at each step, stack contents, and storage changes.
+
+<Warning>
+Debug methods replay transactions and are computationally expensive. Availability and rate limits vary by [node provider](/base-chain/node-operators/node-providers). Avoid calling these in hot paths.
+</Warning>
+
+## Parameters
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte transaction hash to trace.
+</ParamField>
+
+<ParamField body="traceOptions" type="object">
+  Optional tracing configuration.
+
+  <Expandable title="Trace options">
+    <ParamField body="tracer" type="string">
+      Built-in tracer name. `"callTracer"` returns a call tree. `"prestateTracer"` returns the pre-execution account state. Omit to use the default struct log tracer.
+    </ParamField>
+    <ParamField body="tracerConfig" type="object">
+      Options for the selected tracer. For `"callTracer"`: `{ "onlyTopCall": true }` skips internal calls.
+    </ParamField>
+    <ParamField body="disableStorage" type="boolean">
+      If `true`, omits storage capture from struct logs. Reduces response size. Defaults to `false`.
+    </ParamField>
+    <ParamField body="disableMemory" type="boolean">
+      If `true`, omits memory capture from struct logs. Reduces response size. Defaults to `false`.
+    </ParamField>
+    <ParamField body="disableStack" type="boolean">
+      If `true`, omits stack capture from struct logs. Defaults to `false`.
+    </ParamField>
+    <ParamField body="timeout" type="string">
+      Execution timeout as a Go duration string (e.g., `"10s"`, `"30s"`). Defaults to `"5s"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+  The execution trace. Format depends on the `tracer` option.
+
+  <Expandable title="Default struct log trace">
+    <ResponseField name="gas" type="number">Total gas provided for the transaction.</ResponseField>
+    <ResponseField name="failed" type="boolean">Whether the transaction failed (reverted).</ResponseField>
+    <ResponseField name="returnValue" type="string">Hex-encoded return value from the execution.</ResponseField>
+    <ResponseField name="structLogs" type="array">
+      Array of struct log entries, one per EVM opcode executed.
+
+      <Expandable title="Struct log fields">
+        <ResponseField name="pc" type="number">Program counter position.</ResponseField>
+        <ResponseField name="op" type="string">EVM opcode name (e.g., `"PUSH1"`, `"SLOAD"`).</ResponseField>
+        <ResponseField name="gas" type="number">Remaining gas at this step.</ResponseField>
+        <ResponseField name="gasCost" type="number">Gas cost of this opcode.</ResponseField>
+        <ResponseField name="depth" type="number">Call depth (1 = top-level call).</ResponseField>
+        <ResponseField name="stack" type="array">EVM stack values at this step.</ResponseField>
+        <ResponseField name="memory" type="array">EVM memory contents as 32-byte chunks.</ResponseField>
+        <ResponseField name="storage" type="object">Contract storage changes at this step (slot → value).</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+
+  <Expandable title="callTracer result">
+    <ResponseField name="type" type="string">Call type: `"CALL"`, `"STATICCALL"`, `"DELEGATECALL"`, or `"CREATE"`.</ResponseField>
+    <ResponseField name="from" type="string">Sender address.</ResponseField>
+    <ResponseField name="to" type="string">Recipient address.</ResponseField>
+    <ResponseField name="value" type="string">ETH value sent with the call.</ResponseField>
+    <ResponseField name="gas" type="string">Gas provided for the call.</ResponseField>
+    <ResponseField name="gasUsed" type="string">Gas actually consumed.</ResponseField>
+    <ResponseField name="input" type="string">Call data sent.</ResponseField>
+    <ResponseField name="output" type="string">Return data from the call.</ResponseField>
+    <ResponseField name="error" type="string">Error message if the call reverted. Optional.</ResponseField>
+    <ResponseField name="calls" type="array">Array of nested call objects for internal calls.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```json Request (default struct log)
+{
+  "jsonrpc": "2.0",
+  "method": "debug_traceTransaction",
+  "params": [
+    "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    {}
+  ],
+  "id": 1
+}
+```
+
+```json Request (callTracer)
+{
+  "jsonrpc": "2.0",
+  "method": "debug_traceTransaction",
+  "params": [
+    "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    { "tracer": "callTracer" }
+  ],
+  "id": 1
+}
+```
+
+```json Response (default)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "gas": 21000,
+    "failed": false,
+    "returnValue": "",
+    "structLogs": [
+      {
+        "pc": 0,
+        "op": "PUSH1",
+        "gas": 21000,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [],
+        "memory": [],
+        "storage": {}
+      }
+    ]
+  }
+}
+```
+
+```json Response (callTracer)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "type": "CALL",
+    "from": "0xd3cda913deb6f4967b2ef66ae97de114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "value": "0x2c68af0bb14000",
+    "gas": "0x5208",
+    "gasUsed": "0x5208",
+    "input": "0x",
+    "output": "0x",
+    "calls": []
+  }
+}
+```
+</CodeGroup>

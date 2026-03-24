@@ -1,0 +1,104 @@
+---
+title: 'eth_estimateGas'
+sidebarTitle: 'eth_estimateGas'
+description: 'Estimates the gas required for a transaction. Use pending on a Flashblocks endpoint to estimate against pre-confirmed state.'
+---
+
+Returns an estimate of how much gas is required to execute a transaction. The estimate may be larger than the gas actually used at execution time.
+
+<Tip>
+**Flashblocks:** Query `https://mainnet-preconf.base.org` with `"pending"` to estimate gas against the current pre-confirmed state, useful when a transaction depends on a prior pre-confirmed one.
+</Tip>
+
+## Parameters
+
+<ParamField body="transaction" type="object" required>
+  The transaction object to estimate gas for.
+
+  <Expandable title="Transaction fields">
+    <ParamField body="from" type="string">
+      Address the transaction is sent from. Optional.
+    </ParamField>
+    <ParamField body="to" type="string">
+      Address the transaction is sent to. Optional for contract deployments.
+    </ParamField>
+    <ParamField body="gas" type="string">
+      Gas limit. Optional; a high default is used if omitted.
+    </ParamField>
+    <ParamField body="gasPrice" type="string">
+      Gas price in wei for legacy transactions. Optional.
+    </ParamField>
+    <ParamField body="maxFeePerGas" type="string">
+      EIP-1559 maximum total fee per gas. Optional.
+    </ParamField>
+    <ParamField body="maxPriorityFeePerGas" type="string">
+      EIP-1559 maximum priority fee per gas. Optional.
+    </ParamField>
+    <ParamField body="value" type="string">
+      Value to transfer in wei. Optional.
+    </ParamField>
+    <ParamField body="data" type="string">
+      ABI-encoded call data. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="block" type="string">
+  Block to estimate against. Optional; defaults to `"latest"`. Use `"pending"` on a Flashblocks endpoint to estimate against pre-confirmed state.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The estimated gas amount as a hexadecimal integer.
+</ResponseField>
+
+## Error Codes
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | execution reverted | The transaction would revert. The error `data` field may contain a revert reason. |
+
+## Example
+
+<CodeGroup>
+```bash Standard
+curl https://mainnet.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_estimateGas",
+    "params": [{
+      "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+      "to": "0x4200000000000000000000000000000000000006",
+      "value": "0x2c68af0bb14000"
+    }],
+    "id": 1
+  }'
+```
+
+```bash Flashblocks (pending state)
+curl https://mainnet-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_estimateGas",
+    "params": [{
+      "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+      "to": "0x4200000000000000000000000000000000000006",
+      "value": "0x2c68af0bb14000"
+    }, "pending"],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x5208"
+}
+```
+</CodeGroup>

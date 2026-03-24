@@ -1,0 +1,112 @@
+---
+title: 'eth_call'
+sidebarTitle: 'eth_call'
+description: 'Executes a message call without creating a transaction. Use pending on a Flashblocks endpoint to simulate against pre-confirmed state.'
+---
+
+Executes a message call immediately without broadcasting a transaction to the network. No gas is consumed on-chain. Used to read contract state or simulate calls.
+
+<Tip>
+**Flashblocks:** Query `https://mainnet-preconf.base.org` with `"pending"` to simulate against the current pre-confirmed block state, updated every ~200ms.
+</Tip>
+
+<Note>
+**`eth_call "pending"` block context on Flashblocks nodes:** Block-context properties (`block.number`, `block.timestamp`, `block.basefee`) may reflect a block several behind tip due to how nodes cache historical Flashblocks. See the [FAQ](/base-chain/flashblocks/faq#why-does-eth_call-pending-report-a-block-context-several-blocks-behind-tip) for details.
+</Note>
+
+## Parameters
+
+<ParamField body="transaction" type="object" required>
+  The transaction call object.
+
+  <Expandable title="Transaction fields">
+    <ParamField body="from" type="string">
+      Address the call is sent from. Optional; defaults to the zero address.
+    </ParamField>
+    <ParamField body="to" type="string" required>
+      Address the call is directed to.
+    </ParamField>
+    <ParamField body="gas" type="string">
+      Gas provided for the call as a hexadecimal integer. Defaults to a high limit if omitted.
+    </ParamField>
+    <ParamField body="gasPrice" type="string">
+      Gas price in wei as a hexadecimal integer. For legacy transactions. Optional.
+    </ParamField>
+    <ParamField body="maxFeePerGas" type="string">
+      EIP-1559 maximum total fee per gas. Optional.
+    </ParamField>
+    <ParamField body="maxPriorityFeePerGas" type="string">
+      EIP-1559 maximum priority fee per gas. Optional.
+    </ParamField>
+    <ParamField body="value" type="string">
+      Value transferred in wei as a hexadecimal integer. Optional.
+    </ParamField>
+    <ParamField body="data" type="string">
+      ABI-encoded call data: the 4-byte function selector followed by encoded arguments. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`. Use `"pending"` on a Flashblocks endpoint to call against pre-confirmed state.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The return value of the call as a hex-encoded byte array.
+</ResponseField>
+
+## Error Codes
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | execution reverted | The call reverted. The `data` field in the error object contains the ABI-encoded revert reason when available. |
+
+## Example
+
+<CodeGroup>
+```bash Standard (latest)
+curl https://mainnet.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "data": "0x70a082310000000000000000000000004200000000000000000000000000000000000006"
+      },
+      "latest"
+    ],
+    "id": 1
+  }'
+```
+
+```bash Flashblocks (pending, ~200ms)
+curl https://mainnet-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "data": "0x70a082310000000000000000000000004200000000000000000000000000000000000006"
+      },
+      "pending"
+    ],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x0000000000000000000000000000000000000000000000000000000005f5e100"
+}
+```
+</CodeGroup>
