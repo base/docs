@@ -1,0 +1,90 @@
+---
+title: 'eth_getTransactionByHash'
+sidebarTitle: 'eth_getTransactionByHash'
+description: 'Returns a transaction by its hash.'
+---
+
+Returns information about a transaction given its hash. Returns `null` for unknown transactions.
+
+## Parameters
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte transaction hash.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object | null">
+  A transaction object, or `null` if the transaction was not found.
+
+  <Expandable title="Transaction fields">
+    <ResponseField name="hash" type="string">32-byte transaction hash.</ResponseField>
+    <ResponseField name="nonce" type="string">Number of transactions sent by the sender prior to this one (hex).</ResponseField>
+    <ResponseField name="blockHash" type="string">32-byte hash of the block containing this transaction. `null` if pending.</ResponseField>
+    <ResponseField name="blockNumber" type="string">Block number (hex). `null` if pending.</ResponseField>
+    <ResponseField name="transactionIndex" type="string">Index position in the block (hex). `null` if pending.</ResponseField>
+    <ResponseField name="from" type="string">20-byte sender address.</ResponseField>
+    <ResponseField name="to" type="string">20-byte recipient address. `null` for contract deployments.</ResponseField>
+    <ResponseField name="value" type="string">ETH value transferred in wei (hex).</ResponseField>
+    <ResponseField name="gas" type="string">Gas provided by the sender (hex).</ResponseField>
+    <ResponseField name="gasPrice" type="string">Gas price in wei. For EIP-1559 transactions, this is the effective gas price paid (hex).</ResponseField>
+    <ResponseField name="maxFeePerGas" type="string">EIP-1559 maximum total fee per gas (hex). Present for type `0x2` transactions only.</ResponseField>
+    <ResponseField name="maxPriorityFeePerGas" type="string">EIP-1559 maximum priority fee per gas (hex). Present for type `0x2` transactions only.</ResponseField>
+    <ResponseField name="input" type="string">ABI-encoded call data. `"0x"` for plain ETH transfers.</ResponseField>
+    <ResponseField name="type" type="string">Transaction type: `"0x0"` Legacy, `"0x1"` Access List, `"0x2"` EIP-1559, `"0x7e"` Deposit (L1→L2).</ResponseField>
+    <ResponseField name="chainId" type="string">Chain ID the transaction is valid for. `"0x2105"` for Base Mainnet, `"0x14a34"` for Base Sepolia.</ResponseField>
+    <ResponseField name="accessList" type="array">List of addresses and storage keys pre-declared by the transaction (EIP-2930). Present for type `0x1` and `0x2` transactions.</ResponseField>
+    <ResponseField name="v" type="string">ECDSA recovery ID (hex).</ResponseField>
+    <ResponseField name="r" type="string">32-byte ECDSA signature component r (hex).</ResponseField>
+    <ResponseField name="s" type="string">32-byte ECDSA signature component s (hex).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionByHash",
+  "params": ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "nonce": "0x1b",
+    "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "blockNumber": "0x12ced28",
+    "transactionIndex": "0x0",
+    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "value": "0x2c68af0bb14000",
+    "gas": "0x5208",
+    "gasPrice": "0x3b9aca00",
+    "maxFeePerGas": "0x77359400",
+    "maxPriorityFeePerGas": "0x3b9aca00",
+    "input": "0x",
+    "type": "0x2",
+    "chainId": "0x2105",
+    "accessList": [],
+    "v": "0x1",
+    "r": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+    "s": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>

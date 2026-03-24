@@ -1,0 +1,55 @@
+---
+title: 'eth_getBlockReceipts'
+sidebarTitle: 'eth_getBlockReceipts'
+description: 'Returns all transaction receipts for a block. Use pending on a Flashblocks endpoint for pre-confirmed receipts.'
+---
+
+Returns all transaction receipts for a given block.
+
+<Tip>
+**Flashblocks:** Query `https://mainnet-preconf.base.org` with `"pending"` to get receipts for all pre-confirmed transactions in the current Flashblock.
+</Tip>
+
+## Parameters
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="array">
+  Array of receipt objects for each transaction in the block. See [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) for the receipt object shape.
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash Standard (latest)
+curl https://mainnet.base.org \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_getBlockReceipts","params":["latest"],"id":1}'
+```
+
+```bash Flashblocks (pending)
+curl https://mainnet-preconf.base.org \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_getBlockReceipts","params":["pending"],"id":1}'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "transactionHash": "0xabc123...",
+      "blockNumber": "0x158a0e9",
+      "status": "0x1",
+      "gasUsed": "0x5208",
+      "type": "0x2"
+    }
+  ]
+}
+```
+</CodeGroup>

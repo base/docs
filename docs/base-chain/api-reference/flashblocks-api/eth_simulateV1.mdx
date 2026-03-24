@@ -1,0 +1,112 @@
+---
+title: 'eth_simulateV1'
+sidebarTitle: 'eth_simulateV1'
+description: 'Simulates one or more transaction bundles against the current pre-confirmed Flashblock state. Only available on Flashblocks endpoints.'
+---
+
+Simulates one or more transaction bundles against the current pre-confirmed Flashblock state. Supports state overrides, multi-block simulation, and optional transfer tracing.
+
+<Info>
+Only available on Flashblocks endpoints: `https://mainnet-preconf.base.org` / `https://sepolia-preconf.base.org`.
+</Info>
+
+## Parameters
+
+<ParamField body="simulationPayload" type="object" required>
+  The simulation configuration.
+
+  <Expandable title="Simulation payload fields">
+    <ParamField body="blockStateCalls" type="array" required>
+      Array of block state call objects. Each object represents one simulated block.
+
+      <Expandable title="Block state call fields">
+        <ParamField body="calls" type="array">
+          Array of transaction call objects to simulate within this block.
+        </ParamField>
+        <ParamField body="stateOverrides" type="object">
+          Per-address state overrides applied before simulation (e.g., balance, nonce, code, storage). Optional.
+        </ParamField>
+        <ParamField body="blockOverrides" type="object">
+          Block-level overrides (e.g., `number`, `timestamp`). Optional.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    <ParamField body="traceTransfers" type="boolean">
+      If `true`, ETH transfer events are included as logs in the result. Defaults to `false`.
+    </ParamField>
+    <ParamField body="validation" type="boolean">
+      If `true`, transaction validation (nonce, balance) is enforced. Defaults to `false`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="blockParameter" type="string" required>
+  Use `"pending"` to simulate against the current Flashblock state.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="array">
+  Array of simulated block results, one per entry in `blockStateCalls`.
+
+  <Expandable title="Block result fields">
+    <ResponseField name="calls" type="array">
+      Array of individual call results.
+
+      <Expandable title="Call result fields">
+        <ResponseField name="status" type="string">`"0x1"` for success, `"0x0"` for failure.</ResponseField>
+        <ResponseField name="gasUsed" type="string">Gas used as a hexadecimal integer.</ResponseField>
+        <ResponseField name="returnData" type="string">Hex-encoded return data.</ResponseField>
+        <ResponseField name="logs" type="array">Logs emitted (including ETH transfer logs if `traceTransfers` is `true`).</ResponseField>
+        <ResponseField name="error" type="string">Revert reason if the call failed. Optional.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash cURL
+curl https://sepolia-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_simulateV1",
+    "params": [
+      {
+        "blockStateCalls": [
+          {
+            "calls": [{"to": "0x...", "data": "0x..."}],
+            "stateOverrides": {}
+          }
+        ],
+        "traceTransfers": true,
+        "validation": true
+      },
+      "pending"
+    ],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "calls": [
+        {
+          "status": "0x1",
+          "gasUsed": "0x5208",
+          "returnData": "0x",
+          "logs": []
+        }
+      ]
+    }
+  ]
+}
+```
+</CodeGroup>

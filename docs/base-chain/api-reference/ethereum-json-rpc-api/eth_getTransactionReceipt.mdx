@@ -1,0 +1,105 @@
+---
+title: 'eth_getTransactionReceipt'
+sidebarTitle: 'eth_getTransactionReceipt'
+description: 'Returns the receipt for a mined transaction. Receipts are only available after a transaction is included in a block.'
+---
+
+Returns the receipt for a transaction by its hash. Returns `null` for transactions that are pending or have not been mined.
+
+<Note>
+Receipts are only available for mined transactions. To monitor a transaction before it is sealed, use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to confirm it is in the mempool, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) to detect its pre-confirmation in a Flashblock.
+</Note>
+
+## Parameters
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte transaction hash.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object | null">
+  The transaction receipt object, or `null` if the transaction has not been mined.
+
+  <Expandable title="Receipt fields">
+    <ResponseField name="transactionHash" type="string">32-byte transaction hash.</ResponseField>
+    <ResponseField name="transactionIndex" type="string">Index of the transaction in the block (hex).</ResponseField>
+    <ResponseField name="blockHash" type="string">32-byte hash of the block containing this transaction.</ResponseField>
+    <ResponseField name="blockNumber" type="string">Block number (hex).</ResponseField>
+    <ResponseField name="from" type="string">20-byte sender address.</ResponseField>
+    <ResponseField name="to" type="string">20-byte recipient address. `null` for contract deployments.</ResponseField>
+    <ResponseField name="cumulativeGasUsed" type="string">Total gas used in the block up to and including this transaction (hex).</ResponseField>
+    <ResponseField name="effectiveGasPrice" type="string">Actual gas price paid per unit of gas for this transaction (hex).</ResponseField>
+    <ResponseField name="gasUsed" type="string">Gas used by this specific transaction (hex).</ResponseField>
+    <ResponseField name="contractAddress" type="string | null">Address of the created contract, or `null` if not a deployment.</ResponseField>
+    <ResponseField name="logs" type="array">Array of log objects emitted by this transaction.</ResponseField>
+    <ResponseField name="logsBloom" type="string">256-byte bloom filter for the logs in this receipt.</ResponseField>
+    <ResponseField name="type" type="string">Transaction type: `"0x0"` Legacy, `"0x1"` Access List, `"0x2"` EIP-1559, `"0x7e"` Deposit (L1→L2).</ResponseField>
+    <ResponseField name="status" type="string">`"0x1"` for success, `"0x0"` for failure (revert).</ResponseField>
+    <ResponseField name="blobGasUsed" type="string">Blob gas consumed by this transaction (EIP-4844). `null` for non-blob transactions. Accurately propagated in both finalized and pre-confirmed Flashblock state.</ResponseField>
+    <ResponseField name="blobGasPrice" type="string">Blob gas price at the time of this transaction (EIP-4844). `null` for non-blob transactions.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Error Codes
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | transaction indexing is in progress | The node is still indexing transactions. Retry after the node has finished syncing. |
+
+## Flashblock-Specific Response Fields
+
+The Flashblocks infrastructure stream includes pre-confirmed receipt data inside the `metadata.receipts` object of each Flashblock payload before the block seals. This abbreviated receipt matches the full receipt shape:
+
+| Field | Flashblock `metadata.receipts[hash]` |
+| --- | --- |
+| `type` | Transaction type (`0x0`, `0x1`, `0x2`, `0x7e`) |
+| `status` | `"0x1"` success / `"0x0"` failure |
+| `cumulativeGasUsed` | Cumulative gas in block to this transaction |
+| `logs` | Emitted log objects |
+| `logsBloom` | Bloom filter |
+| `transactionIndex` | Index in block |
+
+## Example
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionReceipt",
+  "params": ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],
+  "id": 1
+}
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
+    "transactionIndex": "0x0",
+    "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+    "blockNumber": "0x12ced28",
+    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
+    "to": "0x4200000000000000000000000000000000000006",
+    "cumulativeGasUsed": "0x5208",
+    "effectiveGasPrice": "0x3b9aca00",
+    "gasUsed": "0x5208",
+    "contractAddress": null,
+    "logs": [],
+    "logsBloom": "0x00000000000000000000000000000000...",
+    "status": "0x1",
+    "type": "0x2"
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>

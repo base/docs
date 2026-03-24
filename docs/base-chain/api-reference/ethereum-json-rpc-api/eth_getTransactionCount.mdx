@@ -1,0 +1,63 @@
+---
+title: 'eth_getTransactionCount'
+sidebarTitle: 'eth_getTransactionCount'
+description: 'Returns the number of transactions sent from an address (the nonce). Use pending on a Flashblocks endpoint to get the pre-confirmed nonce.'
+---
+
+Returns the number of transactions sent from an address. This value is the account's current nonce — the value to use as `nonce` when constructing the next transaction.
+
+<Tip>
+**Flashblocks:** Query `https://mainnet-preconf.base.org` with `"pending"` to get the nonce inclusive of all pre-confirmed transactions, updated every ~200ms. This is critical for agents submitting high-frequency transactions to avoid nonce gaps.
+</Tip>
+
+## Parameters
+
+<ParamField body="address" type="string" required>
+  The 20-byte address to query.
+</ParamField>
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`. Use `"pending"` on a Flashblocks endpoint to include all pre-confirmed transactions in the nonce count.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The transaction count (nonce) as a hexadecimal string.
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```bash Standard (latest confirmed)
+curl https://mainnet.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getTransactionCount",
+    "params": ["0x742d35Cc6634C0532925a3b8D4C9dD0b4f3BaEa", "latest"],
+    "id": 1
+  }'
+```
+
+```bash Flashblocks (pending nonce, ~200ms)
+curl https://mainnet-preconf.base.org \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "eth_getTransactionCount",
+    "params": ["0x742d35Cc6634C0532925a3b8D4C9dD0b4f3BaEa", "pending"],
+    "id": 1
+  }'
+```
+
+```json Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x4d2"
+}
+```
+</CodeGroup>
