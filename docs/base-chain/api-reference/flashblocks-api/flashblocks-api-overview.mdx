@@ -1,13 +1,38 @@
 ---
-title: 'Flashblocks API Overview'
-sidebarTitle: 'Flashblocks API Overview'
-description: 'Reference for Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema.'
+title: 'Overview'
+sidebarTitle: 'Overview'
+description: 'Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema for Base pre-confirmations.'
 ---
 
-This page covers what is unique to Flashblocks: Flashblocks-only RPC methods, real-time WebSocket subscriptions, and the raw infrastructure stream schema.
+Flashblocks endpoints expose all standard Ethereum JSON-RPC methods plus a set of pre-confirmation-specific additions. These let you read state, simulate transactions, and stream events against sequencer-ordered data up to ~1.8 seconds before a block seals.
+
+<Info>
+All [standard Ethereum JSON-RPC methods](/base-chain/api-reference/rpc-overview) work identically on Flashblocks endpoints. Use the `"pending"` block tag to resolve against pre-confirmed state instead of the transaction pool. See the [Overview](/base-chain/api-reference/rpc-overview#what-is-the-flashblocks-tier) for endpoint URLs and a full explanation of the two tiers.
+</Info>
+
+## HTTP Methods
+
+| Method | Description |
+| :--- | :--- |
+| [eth_simulateV1](/base-chain/api-reference/flashblocks-api/eth_simulateV1) | Simulate transaction bundles against pre-confirmed state |
+| [base_transactionStatus](/base-chain/api-reference/flashblocks-api/base_transactionStatus) | Check if a transaction has been received by the node mempool |
+
+## WebSocket Subscriptions
+
+On a Flashblocks WSS endpoint, `eth_subscribe` with `newHeads` emits a new event approximately every 200ms per Flashblock instead of every 2 seconds. Three additional subscription types are also available that are exclusive to Flashblocks endpoints:
+
+| Subscription | Description |
+| :--- | :--- |
+| [newFlashblockTransactions](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) | Stream individual transactions as they are pre-confirmed (~200ms each) |
+| [pendingLogs](/base-chain/api-reference/flashblocks-api/pendingLogs) | Stream filtered event logs from pre-confirmed transactions |
+| [newFlashblocks](/base-chain/api-reference/flashblocks-api/newFlashblocks) | Stream full Flashblock payload objects from the sequencer |
+
+## Infrastructure Stream
+
+The raw Flashblocks infrastructure stream is the upstream WebSocket feed consumed by Flashblocks-aware RPC nodes. It emits a new message approximately every 200ms as the sequencer pre-confirms transactions.
 
 <Warning>
-**Applications should not connect directly to the infrastructure stream.** These endpoints are for node infrastructure only. App developers should use the [WebSocket subscription methods](/base-chain/api-reference/flashblocks-api/newFlashblocks) via a Flashblocks-aware RPC provider instead.
+**Applications should not connect directly to the infrastructure stream.** These endpoints are for node operators only. App developers should use the [WebSocket subscription methods](#websocket-subscriptions) above via a Flashblocks-aware RPC provider.
 </Warning>
 
 | Network | Raw stream URL |
