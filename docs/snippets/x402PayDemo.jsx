@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-export const x402PayDemo = () => {
+export const X402PayDemo = () => {
   const mono = "ui-monospace,'Cascadia Code','Source Code Pro',Menlo,Monaco,Consolas,monospace";
   const col = {
     dim:     "#3f3f46",
