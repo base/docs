@@ -61,6 +61,35 @@ Follow the instructions to:
 ```
 ---
 
+## Get a Builder Code using the Base skill
+
+If you're using an AI coding tool (Claude Code, Cursor, Codex), install the Base skills package and let the skill handle registration end-to-end:
+
+```bash Terminal
+npx skills add base/skills
+```
+
+Then ask your agent: **"Register my agent for a builder code on Base.dev."**
+
+The skill runs four phases:
+
+<Steps>
+  <Step title="Pre-check">
+    Looks for an existing `builderCode.ts` in your project. If found, registration is already done and the skill exits early.
+  </Step>
+  <Step title="Wallet">
+    Asks for your agent's wallet address. If you don't have one, it sends you to the [wallet setup guide](/ai-agents/guides/wallet-setup) before continuing.
+  </Step>
+  <Step title="Registration and attribution">
+    Calls `POST /v1/agents/builder-codes` with your wallet address, writes the returned code to `src/constants/builderCode.ts`, installs `ox`, and wires the ERC-8021 `dataSuffix` into your transaction client (viem, ethers.js, or managed service). It also writes an `AGENT_README.md` documenting the setup.
+  </Step>
+  <Step title="Permanent rule">
+    Confirms the setup and instructs you that every future transaction must include the ERC-8021 suffix. Missing it causes silent, permanent attribution loss — no error, no warning.
+  </Step>
+</Steps>
+
+---
+
 ## What happens next
 
 Your Builder Code starts working immediately — Base will measure any transaction that includes it.
@@ -73,8 +102,6 @@ To unlock additional features, you can optionally register your agent later:
 | Public leaderboard | Yes — requires wallet verification via registration |
 | Verified coin badge | Yes — requires registration + coin verification |
 | Dashboard analytics | Yes — requires registration + claiming |
-
-**Register later:** When you're ready, authenticate via SIWE and call `POST /v1/agents/register` to verify your wallet, add metadata, and become leaderboard-eligible. See [full registration docs](./register-and-sign-in-your-agent).
 
 ---
 
