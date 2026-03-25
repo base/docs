@@ -1,0 +1,178 @@
+---
+title: "Get a Builder Code for Your Agent"
+description: "Register your agent on Base.dev and append a Builder Code to every transaction to measure onchain activity."
+keywords: ["builder code", "Base.dev", "ERC-8021", "attribution", "onchain activity", "agent attribution", "dataSuffix", "builder codes", "Base builder codes", "agent onchain"]
+---
+
+Base.dev is the canonical registry for agents on Base. A Builder Code ties every transaction your agent sends to your identity in that registry, giving you verifiable onchain attribution and access to analytics and leaderboard features.
+
+## What you get
+
+- **Builder Code** — a unique identifier (e.g. `bc_a1b2c3d4`) that you append to your onchain transactions. Base uses this to measure your agent's activity on Base Chain.
+
+## Prerequisites
+
+- An EVM wallet address that your agent operates from
+
+That's it. No authentication, no wallet signing, no account creation.
+
+---
+
+## Get your Builder Code
+
+One call. No auth.
+
+```bash Terminal
+curl -X POST https://api.base.dev/v1/agents/builder-codes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "wallet_address": "0x<your-wallet-address>"
+  }'
+```
+
+Response:
+
+```json Title Response
+{
+  "builder_code": "bc_a1b2c3d4",
+  "wallet_address": "0x...",
+  "usage_instructions": "Append this builder code to your onchain transactions using the ERC-8021 standard. See: https://docs.base.org/base-chain/quickstart/builder-codes"
+}
+```
+
+**Idempotent** — calling it again with the same wallet address returns the same builder code.
+
+---
+
+## Get a Builder Code with a prompt
+
+If you're using an AI agent, point it to this page:
+
+```text Title Prompt
+Get a Builder Code for my agent on Base.dev using the documentation at [URL of this page].
+
+My agent's wallet address: [0x...]
+
+Follow the instructions to:
+1. Call POST /v1/agents/builder-codes with my wallet address
+2. Return the builder code
+3. Show me how to append the builder code to my transactions using ERC-8021
+```
+
+---
+
+## Append your Builder Code to transactions
+
+Once you have a Builder Code, append it to every onchain transaction so Base can measure your agent's activity. This uses the [ERC-8021 standard](/base-chain/quickstart/builder-codes).
+
+<CodeGroup>
+
+```typescript viem lines expandable
+import { createWalletClient, http } from "viem";
+import { base } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { Attribution } from "ox/erc8021";
+
+const DATA_SUFFIX = Attribution.toDataSuffix({
+  codes: ["bc_a1b2c3d4"],
+});
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+export const walletClient = createWalletClient({
+  account,
+  chain: base,
+  transport: http(),
+  dataSuffix: DATA_SUFFIX,
+});
+
+// All transactions sent through this client automatically include your Builder Code
+const hash = await walletClient.sendTransaction({
+  to: "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+  value: parseEther("0.1"),
+});
+```
+
+```javascript ethers.js lines expandable
+import { Attribution } from 'ox/erc8021';
+import { ethers } from 'ethers';
+
+const builderCode = 'bc_a1b2c3d4';
+const suffix = Attribution.toDataSuffix({ codes: [builderCode] });
+
+const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+const tx = {
+  to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+  value: ethers.parseEther('0.1'),
+  data: suffix, // or append to existing calldata
+};
+
+const txResponse = await wallet.sendTransaction(tx);
+```
+
+```python web3.py lines expandable
+from web3 import Web3
+from eth_account import Account
+from ox.erc8021 import Attribution
+
+builder_code = 'bc_a1b2c3d4'
+suffix = Attribution.to_data_suffix(codes=[builder_code])
+
+w3 = Web3(Web3.HTTPProvider('https://mainnet.base.org'))
+account = Account.from_key(os.environ['PRIVATE_KEY'])
+
+tx = {
+    'from': account.address,
+    'to': '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+    'value': Web3.to_wei(0.1, 'ether'),
+    'data': suffix,  # or append to existing calldata
+    'nonce': w3.eth.get_transaction_count(account.address),
+    'gas': 21000,
+    'gasPrice': w3.eth.gas_price,
+    'chainId': 8453,
+}
+
+signed = account.sign_transaction(tx)
+tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+```
+
+</CodeGroup>
+
+---
+
+## What happens next
+
+Your Builder Code starts working immediately — Base will measure any transaction that includes it.
+
+To unlock additional features, you can optionally register your agent later:
+
+| Feature | Requires registration? |
+|---|---|
+| Onchain activity measurement | No — works as soon as you append the builder code |
+| Public leaderboard | Yes — requires wallet verification via registration |
+| Verified coin badge | Yes — requires registration + coin verification |
+| Dashboard analytics | Yes — requires registration + claiming |
+
+**Register later:** When you're ready, authenticate via SIWE and call `POST /v1/agents/register` to verify your wallet, add metadata, and become leaderboard-eligible. See [full registration docs](./register-and-sign-in-your-agent).
+
+---
+
+## API reference
+
+### Get builder code
+
+```
+POST /v1/agents/builder-codes
+```
+
+No authentication required.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `wallet_address` | string | Yes | Your agent's EVM wallet address (`0x...`) |
+
+Returns the builder code for the given wallet. Idempotent — the same wallet always returns the same code.
+
+
