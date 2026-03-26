@@ -1,24 +1,3 @@
-# https://docs.base.org/llms.txt
-
-## Base Documentation — LLM Entry Point
-
-> High‑signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
-
-- [Get Started](./get-started/llms.txt) — Orientation, products, use cases, and quickstarts
-- [Base Chain](./base-chain/llms.txt) — Deploy/connect, network info, tools, node ops, security
-- [Base Account](./base-account/llms.txt) — Passkey smart wallet, payments, social verification, spend permissions, sponsored gas, sub‑accounts
-- [AI Agents](./ai-agents/llms.txt) — Build onchain AI agents: wallets, payments, identity, frameworks
-- [Mini Apps](./mini-apps/llms.txt) — MiniKit, manifests, features, growth, troubleshooting
-
-## Tools available for AI assistants
-
-These resources give AI assistants direct access to Base documentation and reusable workflows.
-
-### Docs index
-
-[https://docs.base.org/llms.txt](https://docs.base.org/llms.txt)
-
-```
 # Base Docs Index
 IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
 Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
@@ -67,33 +46,3 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |mini-apps/technical-guides:accept-payments,building-chat-agents,neynar-notifications,sharing-and-social-graph,sign-manifest
 |onchainkit:migrate-from-onchainkit
 |root:cookie-policy,privacy-policy,terms-of-service,tone_of_voice
-```
-
-### Base MCP server
-
-`https://docs.base.org/mcp` 
-
-### Base skills
-
-[https://github.com/base/skills](https://github.com/base/skills)
-
-Install Base skills for your AI assistant:
-
-```
-npx skills add base/base-skills
-```
-
-## Recommended starting points
-
-Narrow context to a specific type of work:
-
-- [AI Agents overview](https://docs.base.org/ai-agents) — Overall agent building model on Base
-- [Agent frameworks](https://docs.base.org/ai-agents/core-concepts/agent-frameworks) 
-- [Wallets](https://docs.base.org/ai-agents/core-concepts/wallets) — Agent wallets, signing, and funded execution
-- [Payments and transactions](https://docs.base.org/ai-agents/core-concepts/payments-and-transactions) — x402 payments and onchain transaction
-- [Identity and auth](https://docs.base.org/ai-agents/core-concepts/identity-verification-auth) — Verification and trust between agents and services
-- [Base Account quickstart for AI tools](https://docs.base.org/base-account/quickstart/ai-tools-available-for-devs) — Agent-assisted wallet and account flows
-- [Deploy on Base](https://docs.base.org/base-chain/quickstart/deploy-on-base) — Contract deployment on Base
-- [Build a Base app](https://docs.base.org/get-started/build-app) 
-
-
