@@ -4,7 +4,7 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 [Docs]|root:./docs
 |ai-agents:index
 |ai-agents/frameworks:eliza,langchain,vercel-ai-sdk
-|ai-agents/guides:agent-app,register-and-sign-in-your-agent,trading,wallet-setup,x402-payments
+|ai-agents/guides:agent-app,agent-builder-codes,register-and-sign-in-your-agent,trading,wallet-setup,x402-payments
 |ai-agents/introduction:choosing-a-framework
 |ai-agents/quickstart:agentkit,openclaw-claude
 |ai-agents/reference:contracts
@@ -45,4 +45,4 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |mini-apps/quickstart:build-checklist,building-for-the-base-app,create-new-miniapp,migrate-existing-apps,migrate-to-standard-web-app,template
 |mini-apps/technical-guides:accept-payments,building-chat-agents,neynar-notifications,sharing-and-social-graph,sign-manifest
 |onchainkit:migrate-from-onchainkit
-|root:cookie-policy,privacy-policy,terms-of-service,tone_of_voice
+|root:agents,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
