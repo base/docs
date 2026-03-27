@@ -1,0 +1,146 @@
+---
+title: "Accepting Payments (x402)"
+description: "Gate your agent's endpoints with x402 to charge other agents per request"
+keywords: ["x402 server", "accept agent payments", "monetize API agent", "x402-express", "monetize-service skill", "OpenClaw x402 server"]
+---
+
+import { AcceptingPaymentsDemo } from "/snippets/AcceptingPaymentsDemo.jsx"
+
+You can build agent services that charge other agents for access using x402. When a client calls your endpoint without paying, you return `402` with payment requirements. Once the client pays, the facilitator verifies the payment and your server delivers the response.
+
+## Mock Demo
+
+<AcceptingPaymentsDemo />
+
+## Option 1 — OpenClaw monetize-service skill (simplest)
+
+With the CDP Agentic Wallet skills installed, expose a paid endpoint with a single prompt:
+
+```bash Terminal
+npx skills add coinbase/agentic-wallet-skills
+```
+
+Then ask your agent:
+
+```text
+Set up a paid endpoint for my market data at $0.01 per request
+```
+
+The `monetize-service` skill configures the x402 gating and deploys the endpoint. No server code required.
+
+[CDP Agentic Wallet skills →](https://docs.cdp.coinbase.com/agentic-wallet/skills)
+
+## Option 2 — Sponge Wallet payment links
+
+Create a reusable x402 payment link that other agents pay before accessing your service:
+
+```bash Terminal
+curl -X POST "https://api.wallet.paysponge.com/api/payment-links" \
+  -H "Authorization: Bearer $SPONGE_API_KEY" \
+  -H "Sponge-Version: 0.2.1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": "0.01",
+    "description": "Access to my market data API"
+  }'
+```
+
+Share the returned payment link URL with clients. Check payment status:
+
+```bash Terminal
+curl "https://api.wallet.paysponge.com/api/payment-links/{paymentLinkId}" \
+  -H "Authorization: Bearer $SPONGE_API_KEY" \
+  -H "Sponge-Version: 0.2.1"
+```
+
+[Sponge Wallet docs →](https://wallet.paysponge.com/skill.md)
+
+## Option 3 — Custom server with x402-express
+
+Use the `x402-express` package to add payment gating to any Express endpoint:
+
+```bash Terminal
+npm install x402-express express
+```
+
+```typescript TypeScript
+import express from "express";
+import { paymentMiddleware } from "x402-express";
+
+const app = express();
+
+app.use(
+  paymentMiddleware(
+    "0xYourAgentWalletAddress",
+    {
+      "/api/data": {
+        price: "$0.01",
+        network: "base-sepolia",
+      },
+    }
+  )
+);
+
+app.get("/api/data", (req, res) => {
+  res.json({ data: "premium content" });
+});
+
+app.listen(3000);
+```
+
+The middleware returns `402` to unpaid callers. The CDP facilitator handles verification and onchain settlement.
+
+[x402 seller quickstart →](https://docs.cdp.coinbase.com/x402/docs/client-server-model)
+
+## Configuring facilitators
+
+A facilitator is the off-chain service that verifies payment payloads and settles payments onchain. Two options:
+
+| Facilitator | When to use |
+|-------------|-------------|
+| **CDP facilitator** (default) | Production — requires CDP API key, supports Base and Solana |
+| **Public testnet facilitator** | Development — no API key, Base Sepolia only |
+
+The public testnet facilitator endpoint is `https://www.x402.org/facilitator`. Switch to the CDP facilitator for mainnet. See the [x402 client-server model](https://docs.cdp.coinbase.com/x402/docs/client-server-model) for full endpoint details.
+
+## Pricing and payment terms
+
+- Set prices in USD (e.g., `"$0.01"`) — the middleware converts to the appropriate token amount
+- Payments settle in USDC on Base by default
+- There is no minimum payment — even fractions of a cent are supported
+- Your wallet receives payment directly — no platform fee from the protocol
+
+## Make your endpoint discoverable
+
+Host a `SKILL.md` file at `/.well-known/SKILL.md` describing your endpoint's inputs, outputs, pricing, and authentication requirements. Agents discover your service by checking this path.
+
+```markdown SKILL.md template
+# Your Agent Service
+
+## Description
+What your service does, in plain language.
+
+## Endpoints
+
+### GET /api/data
+- **Description:** Returns premium market data
+- **Payment:** $0.01 per request via x402 (Base, USDC)
+- **Output:** JSON with current prices and volume
+
+## Authentication
+x402 payment required. No API key needed.
+```
+
+Register your service in the ERC-8004 registry so agents can discover it by category — see [agent registration](/ai-agents/setup/agent-registration).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="x402 protocol" icon="bolt" href="/ai-agents/payments/pay-for-services-with-x402">
+    How x402 works from the client side.
+  </Card>
+
+  <Card title="x402 client-server model" icon="file-contract" href="https://docs.cdp.coinbase.com/x402/docs/client-server-model">
+    Facilitator endpoints and protocol addresses.
+  </Card>
+</CardGroup>

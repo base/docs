@@ -1,0 +1,188 @@
+---
+title: "Agent Registration & Identity"
+description: "Register your agent's identity onchain, get a Basename, and authenticate with services using Sign In With Agent (SIWA)"
+keywords: ["ERC-8004", "agent registration", "Basename agent", "agent identity", "SIWA", "Sign In With Agent", "ERC-8128", "onchain identity Base"]
+---
+
+import { AgentRegistrationDemo } from "/snippets/AgentRegistrationDemo.jsx"
+
+When your agent calls a service, how does that service know it's really your agent? When your agent receives a response, how does it know the response is legitimate? Registration and identity verification solve both problems.
+
+## Mock Demo
+
+<AgentRegistrationDemo />
+
+## Why register?
+
+- **Discoverability** — other agents and services can find your agent by querying the public registry
+- **SIWA authentication** — services use your registration to verify that requests genuinely come from your agent
+- **Reputation** — the reputation registry accumulates trust signals that other agents can query before interacting with yours
+
+## Get a Basename for your agent
+
+A Basename gives your agent a human-readable identity (e.g., `myagent.base.eth`) that resolves to its wallet address. Register at [base.org/names](https://www.base.org/names).
+
+## Register in the ERC-8004 registry
+
+The [ERC-8004](https://www.8004.org/) standard is an onchain NFT registry where agents publish their identity: name, description, endpoints, and public key.
+
+<CardGroup cols={2}>
+  <Card title="Register via UI" icon="browser" href="https://www.8004scan.io">
+    Use 8004scan.io to register and explore registered agents through a web interface — no code required.
+  </Card>
+  <Card title="Register via SDK" icon="code" href="https://sdk.ag0.xyz/docs">
+    Use the Agent0 SDK to register your agent programmatically and manage its onchain profile.
+  </Card>
+</CardGroup>
+
+A registry entry includes your agent's name and description, the endpoints where it can be reached, and a <Tooltip tip="A pair of cryptographic keys: the public key is shared openly and identifies your agent, while the private key proves you control the identity">key pair</Tooltip> that ties the agent's identity to its cryptographic credentials.
+
+The canonical registry addresses are at [8004scan.io](https://www.8004scan.io).
+
+[Learn more about ERC-8004 →](https://www.8004.org/)
+
+## Verify identity at runtime (ERC-8128)
+
+Registration tells the world your agent exists. The **ERC-8128** standard lets your agent prove it's really yours with every request:
+
+<Steps>
+  <Step title="Register your agent">
+    Your agent registers its identity and public key in the ERC-8004 registry. This is a one-time setup step.
+  </Step>
+
+  <Step title="Sign each request">
+    When your agent calls a service, it signs the request using its private key. This creates a cryptographic signature unique to that specific request.
+  </Step>
+
+  <Step title="The service verifies the signature">
+    The service looks up your agent's public key from the registry, then checks the signature. If it matches, the service knows the request came from your registered agent.
+  </Step>
+</Steps>
+
+This works in both directions — your agent can verify a service's responses are authentic by checking the service's signature against the registry.
+
+[ERC-8128 specification →](https://erc8128.slice.so/concepts/overview)
+
+## Sign In With Agent (SIWA)
+
+[SIWA](https://siwa.id) bundles ERC-8004 registration and ERC-8128 signing into a single SDK — similar to how "Sign in with Google" bundles OAuth into one integration.
+
+<Tip>
+**Start with SIWA** for the simplest integration path. Use ERC-8004 and ERC-8128 directly only if you need fine-grained control over registration and verification.
+</Tip>
+
+### Agent-side integration
+
+Install the SIWA SDK:
+
+```bash Terminal
+npm install @buildersgarden/siwa
+```
+
+Choose a signer based on your wallet provider. SIWA supports private keys, Bankr, Circle, Openfort, Privy, and smart contract accounts:
+
+```typescript TypeScript
+import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
+import { privateKeyToAccount } from "viem/accounts";
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const signer = createLocalAccountSigner(account);
+```
+
+Request a nonce from the service, then sign and submit a SIWA message:
+
+```typescript TypeScript
+import { signSIWAMessage } from "@buildersgarden/siwa";
+
+// Step 1: Request a nonce from the service
+const nonceResponse = await fetch("https://api.example.com/siwa/nonce", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ address: await signer.getAddress() }),
+});
+const { nonce, issuedAt } = await nonceResponse.json();
+
+// Step 2: Sign the SIWA message
+const { message, signature } = await signSIWAMessage(
+  {
+    domain: "api.example.com",
+    uri: "https://api.example.com/siwa",
+    agentId: 42, // your ERC-8004 token ID
+    agentRegistry: "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    chainId: 8453,
+    nonce,
+    issuedAt,
+  },
+  signer
+);
+
+// Step 3: Submit for verification and receive a receipt
+const verifyResponse = await fetch("https://api.example.com/siwa/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, signature }),
+});
+const { receipt } = await verifyResponse.json();
+```
+
+Use the receipt to sign subsequent requests with ERC-8128:
+
+```typescript TypeScript
+import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
+
+const request = new Request("https://api.example.com/action", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "transfer" }),
+});
+
+const signedRequest = await signAuthenticatedRequest(request, receipt, signer, 8453);
+const response = await fetch(signedRequest);
+```
+
+### Server-side verification
+
+Services that accept SIWA-authenticated agents implement two endpoints: one to issue nonces and one to verify signatures.
+
+```typescript TypeScript
+import { verifySIWA, createSIWANonce } from "@buildersgarden/siwa";
+import { createReceipt } from "@buildersgarden/siwa/receipt";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+// POST /siwa/nonce
+const { nonce, issuedAt } = await createSIWANonce({ address, agentId, agentRegistry }, client);
+
+// POST /siwa/verify
+const result = await verifySIWA(message, signature, "api.example.com", nonceValid, client);
+if (result.success) {
+  const { receipt } = createReceipt({ address: result.address, agentId: result.agentId });
+  return { receipt };
+}
+```
+
+SIWA ships drop-in middleware for Express, Next.js, Hono, and Fastify. See the [SIWA documentation](https://siwa.id/docs) for framework-specific examples, replay protection, and x402 payment integration.
+
+## Video Tutorial
+
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/l387PXGnrgU?si=EM4IKT14ajFoYkNP"
+  title="Agent identity, verification, and auth"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="ERC-8004 registry" icon="file-contract" href="https://www.8004scan.io">
+    Browse and verify registered agents and registry addresses on Base.
+  </Card>
+
+  <Card title="x402 protocol" icon="bolt" href="/ai-agents/payments/pay-for-services-with-x402">
+    Pay for API access with stablecoins using the x402 protocol.
+  </Card>
+</CardGroup>

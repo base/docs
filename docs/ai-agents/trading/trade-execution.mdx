@@ -1,18 +1,55 @@
 ---
-title: 'Trading Tools for Agents'
-description: 'Base-specific patterns, fee calibration, and onchain signals for trading agents.'
-keywords: ["Flashblocks trading", "machine payments protocol","trading agent Base", "base_transactionStatus", "onchain trading agent EVM", "L1 L2 fee optimization Base"]
+title: "Trade Execution on Base"
+description: "Base-specific patterns, fee calibration, and onchain signals for trading agents"
+keywords: ["Flashblocks trading", "trading agent Base", "base_transactionStatus", "onchain trading agent EVM", "L1 L2 fee optimization Base", "token swap agent"]
 ---
+
+import { TradeExecutionDemo } from "/snippets/TradeExecutionDemo.jsx"
 
 Base offers two structural advantages for trading agents: **Flashblocks** (200ms preconfirmed block state, 10× faster than the 2-second block) and an exposed L1/L2 fee structure that enables explicit cost-vs-speed tradeoffs. This page covers only what is unique to Base — general EVM execution patterns are in the [Ethereum documentation](https://ethereum.org/developers/docs), and Base's RPC methods are in the [API Reference](/base-chain/api-reference/rpc-overview).
 
----
+## Mock Demo
+
+<TradeExecutionDemo />
+
+## Executing swaps with wallet-native tools
+
+[Bankr](https://bankr.bot), [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/), and [Sponge Wallet](https://www.paysponge.com) all include built-in swap capabilities — no external DEX integration needed.
+
+With [Bankr](https://bankr.bot):
+
+```text
+Buy $50 of ETH on Base
+Swap 100 USDC for ETH at market price
+```
+
+With [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills:
+
+```text
+Buy $50 of ETH
+Trade 0.01 ETH for USDC
+```
+
+With [Sponge Wallet](https://www.paysponge.com):
+
+```bash Terminal
+curl -X POST "https://api.wallet.paysponge.com/api/swap" \
+  -H "Authorization: Bearer $SPONGE_API_KEY" \
+  -H "Sponge-Version: 0.2.1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromToken": "USDC",
+    "toToken": "ETH",
+    "amount": "100",
+    "chain": "base"
+  }'
+```
 
 ## Execution patterns
 
 ### Use the preconf endpoint for all reads and submissions
 
-Always connect to `mainnet-preconf.base.org` (or `sepolia-preconf.base.org` for testnet) rather than the standard endpoint. This is the only way to access Flashblocks `pending` state, preconfirmed transaction streams, and `base_transactionStatus`. See [Flashblocks endpoints](/base-chain/flashblocks/app-integration#rpc-endpoints) for the full endpoint list including production provider options.
+Always connect to `mainnet-preconf.base.org` (or `sepolia-preconf.base.org` for testnet) rather than the standard endpoint. This is the only way to access Flashblocks `pending` state, preconfirmed transaction streams, and `base_transactionStatus`. See [Flashblocks endpoints](/base-chain/flashblocks/app-integration#rpc-endpoints) for the full list.
 
 ### Simulate against preconfirmed state before signing
 
@@ -21,8 +58,6 @@ Call [`eth_simulateV1`](/base-chain/api-reference/flashblocks-api/eth_simulateV1
 ### Poll `base_transactionStatus` instead of blocking on a receipt
 
 After submission, [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) returns preconfirmed inclusion status within a single Flashblock interval (~200ms). Blocking on `eth_getTransactionReceipt` waits for a full sealed block (up to 2 seconds). For latency-sensitive strategies, poll `base_transactionStatus` first and only fall back to the receipt for finality confirmation.
-
----
 
 ## Fee calibration
 
@@ -42,8 +77,6 @@ Before signing, estimate the L1 cost via the [GasPriceOracle](/base-chain/networ
 l1FeeUpperBound / (gasLimit × maxFeePerGas + l1FeeUpperBound) > 0.8
 ```
 
----
-
 ## Base-specific failure modes
 
 Most transaction errors are standard EVM. These are the Base-specific cases that require different handling:
@@ -57,26 +90,20 @@ For the full error taxonomy, see [Troubleshooting Transactions](/base-chain/netw
 
 **Nonce for concurrent submissions:** Always fetch with `eth_getTransactionCount(address, "pending")`. For parallel submissions, fetch once and increment locally — fetching fresh per call returns the same value for all concurrent requests.
 
----
-
 ## Strategy signals
 
-Base exposes data that most chains don't provide at this resolution. The table maps each Base-specific signal to the class of opportunity it enables.
+Base exposes data that most chains don't provide at this resolution:
 
 | Signal | How to access | Opportunity category |
 | ------ | ------------- | -------------------- |
-| Preconfirmed pending block state (200ms early) | `eth_getBlockByNumber("pending")` on preconf endpoint | Detect price impact before block seals; act on state changes visible to no one else |
+| Preconfirmed pending block state (200ms early) | `eth_getBlockByNumber("pending")` on preconf endpoint | Detect price impact before block seals |
 | Preconfirmed transaction stream | `eth_subscribe("newFlashblockTransactions")` | First-mover on large trades entering the block |
-| Preconfirmed logs | `eth_subscribe("pendingLogs", { address, topics })` | Detect liquidation thresholds, pool price events, oracle updates before finality |
-| Fee spike detection | `eth_feeHistory` trend over last 5 blocks | Identify congestion onset; adjust routing or pause/resume based on cost |
-| L1 base fee trend | `GasPriceOracle.l1BaseFee()` polled over time | Time submissions to minimize L1 data cost; small trades become viable when L1 fee drops |
-| Block gas utilization | `gasUsedRatio` from `eth_feeHistory` | Predict upcoming base fee increases; calibrate urgency |
+| Preconfirmed logs | `eth_subscribe("pendingLogs", { address, topics })` | Detect liquidation thresholds, oracle updates before finality |
+| Fee spike detection | `eth_feeHistory` trend over last 5 blocks | Identify congestion onset; adjust routing or pause |
+| L1 base fee trend | `GasPriceOracle.l1BaseFee()` polled over time | Time submissions to minimize L1 data cost |
+| Block gas utilization | `gasUsedRatio` from `eth_feeHistory` | Predict upcoming base fee increases |
 
 **The Flashblocks advantage:** Most chains expose a pool of pending transactions with uncertain ordering. On Base, the Flashblocks endpoint gives agents a deterministic, ordered view of the next 200ms of chain state before it finalizes. This is an information edge that does not exist on chains with mempool-only visibility.
-
-**On emerging edges:** Execution speed and fee optimization are table stakes. The more durable edge for LLM-based agents is likely in interpreting *why* chain state is changing — correlating onchain signals (large pending swaps, oracle updates, liquidation proximity) with offchain context faster than any rule-based system can. The signals above are the raw inputs; the synthesis is where the edge lives.
-
----
 
 ## Related
 

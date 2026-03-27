@@ -1,0 +1,109 @@
+---
+title: "Wallet Setup for Agents"
+description: "Give your AI agent a dedicated wallet on Base to hold funds, send payments, sign messages, and interact with onchain protocols securely."
+keywords: ["AI agent wallet", "Bankr wallet", "CDP agentic wallet", "Sponge wallet", "onchain AI agent", "agent wallet setup"]
+---
+
+import { WalletSetupDemo } from "/snippets/WalletSetupDemo.jsx"
+
+An onchain wallet gives your agent the ability to hold funds, authorize transactions, and sign messages. Without one, your agent can read data but can't pay for services, receive payments, or prove its identity.
+
+## Mock Demo
+
+<WalletSetupDemo />
+
+## Why your agent needs a dedicated wallet
+
+An AI agent *could* generate its own wallet by creating a random private key through prompting, but this is unsafe:
+
+- The private key appears in the agent's conversation context, where it can be logged, cached, or leaked through middleware
+- Any system with access to the agent's prompt history could extract the key
+- If the key is compromised, all funds in the wallet are permanently lost
+
+Dedicated wallet services solve this by managing keys in secure infrastructure separated from your agent's runtime. Your agent requests transactions without ever seeing the private key.
+
+## Choose a wallet
+
+<AccordionGroup>
+  <Accordion title="Bankr">
+    Every Bankr agent gets a cross-chain wallet on Base, Ethereum, Solana, Polygon, and Unichain. Gas is sponsored on supported chains. Built-in swap tools make Bankr ideal for trading agents.
+
+    Install the Bankr skill from your agent chat:
+
+    ```text
+    install the bankr skill from https://github.com/BankrBot/skills
+    ```
+
+    Create a dedicated account at [bankr.bot](https://bankr.bot) and generate an API key at [bankr.bot/api](https://bankr.bot/api). Don't use your personal Bankr account — keep your agent's wallet separate.
+
+    [Bankr docs →](https://docs.bankr.bot)
+  </Accordion>
+
+  <Accordion title="CDP Agentic Wallet">
+    Coinbase's standalone wallet for AI agents. Authentication is via email OTP — no API keys required in your agent. Private keys stay in Coinbase's secure infrastructure. Native x402 payment support is built in.
+
+    Install the pre-built wallet skills:
+
+    ```bash Terminal
+    npx skills add coinbase/agentic-wallet-skills
+    ```
+
+    Then ask your agent to authenticate:
+
+    ```text
+    Sign in to my wallet with your@email.com
+    ```
+
+    Skills include: `authenticate-wallet`, `fund`, `send-usdc`, `trade`, `pay-for-service`, `monetize-service`, and more. Operates on Base.
+
+    [CDP Agentic Wallet docs →](https://docs.cdp.coinbase.com/agentic-wallet/welcome)
+  </Accordion>
+
+  <Accordion title="Sponge Wallet">
+    A multi-chain agent wallet with native x402 payment handling, built-in token swaps, and cross-chain bridges across Base, Ethereum, and Solana. Sponge's x402 proxy handles discovery, payment, and retries automatically.
+
+    Register your agent to get a wallet immediately:
+
+    ```bash Terminal
+    curl -X POST https://api.wallet.paysponge.com/api/agents/register \
+      -H "Sponge-Version: 0.2.1" \
+      -H "Content-Type: application/json" \
+      -d '{"name": "my-agent", "agentFirst": true}'
+    ```
+
+    Store the returned `apiKey`:
+
+    ```bash Terminal
+    export SPONGE_API_KEY=sponge_live_...
+    ```
+
+    [Sponge Wallet docs →](https://wallet.paysponge.com/skill.md)
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+**Claude Code, Codex, and OpenCode users** — the wallet skills above work with any skills-enabled AI coding tool. Run the same `npx skills add` command from within your coding tool to get the same onchain capabilities.
+</Tip>
+
+## What your agent can do with a wallet
+
+Once your agent has a wallet, it can:
+
+- **Hold <Tooltip tip="Cryptocurrencies pegged to a stable asset like the US dollar (e.g., USDC). 1 USDC is designed to always equal $1.">stablecoins</Tooltip>**: receive and store USDC or other tokens
+- **Send and receive payments**: transfer funds to other wallets, pay for API access, or receive payments for services
+- **Sign messages**: cryptographically prove that a message or request came from your agent (used for identity verification)
+- **Interact with protocols**: call <Tooltip tip="Programs deployed onchain that automatically execute when conditions are met. They power everything from token swaps to lending.">smart contracts</Tooltip> to swap tokens, provide liquidity, or use other onchain services
+
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/G3yn8g4mf-s?si=jRsLzFPS_cui9-gF"
+  title="Agent wallets on Base"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+## Next step
+
+<Card title="Agent registration" icon="arrow-right" href="/ai-agents/setup/agent-registration">
+  Register your agent for discoverability and identity verification.
+</Card>
