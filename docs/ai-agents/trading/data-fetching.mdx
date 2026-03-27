@@ -14,22 +14,37 @@ x402 is well-suited for trading data: your agent pays per call in USDC, with no 
 
 - **No API key management** — your agent pays on demand; no credentials to rotate or store securely
 - **Pay only for what you use** — no monthly subscription for data you might not always need
-- **Works across any wallet** — Sponge Wallet's x402 proxy, CDP Agentic Wallet skills, and `x402-axios` all handle payment automatically
+- **Works across any wallet** — [Sponge Wallet's](https://www.paysponge.com) x402 proxy, [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills, and `x402-axios` all handle payment automatically
 - **Composable** — your agent can call multiple data providers in the same session, paying each separately
 
 ## Discovering x402-compatible endpoints
 
 x402-compatible services publish a discovery document at `/.well-known/x402.json`. You can also browse the Bazaar catalog for a curated list of x402 data providers.
 
-To discover a service with Sponge Wallet:
+<Tabs>
+  <Tab title="CDP Agentic Wallet">
+    Use the [`search-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/search-for-service) skill to search the x402 Bazaar:
 
-```bash Terminal
-curl "https://api.wallet.paysponge.com/api/discover?query=price+feed" \
-  -H "Authorization: Bearer $SPONGE_API_KEY" \
-  -H "Sponge-Version: 0.2.1"
-```
+    ```bash Terminal
+    npx awal@latest x402 bazaar search "price feed"
+    ```
 
-## Curated x402 data sources
+    To browse all available resources:
+
+    ```bash Terminal
+    npx awal@latest x402 bazaar list --network base
+    ```
+  </Tab>
+  <Tab title="Sponge Wallet">
+    ```bash Terminal
+    curl "https://api.wallet.paysponge.com/api/discover?query=price+feed" \
+      -H "Authorization: Bearer $SPONGE_API_KEY" \
+      -H "Sponge-Version: 0.2.1"
+    ```
+  </Tab>
+</Tabs>
+
+## Example x402 data sources
 
 ### CoinGecko — price feeds
 
@@ -37,50 +52,100 @@ CoinGecko provides cryptocurrency price feeds, market cap data, and historical O
 
 Fetch the current ETH price:
 
-```bash Terminal
-curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
-  -H "Authorization: Bearer $SPONGE_API_KEY" \
-  -H "Sponge-Version: 0.2.1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
-    "method": "GET",
-    "preferred_chain": "base"
-  }'
-```
+<Tabs>
+  <Tab title="CDP Agentic Wallet">
+    Use the [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skill:
 
-Or use the CDP Agentic Wallet `pay-for-service` skill:
-
-```text
-Get the current ETH price from CoinGecko
-```
+    ```bash Terminal
+    npx awal@latest x402 pay "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+    ```
+  </Tab>
+  <Tab title="Sponge Wallet">
+    ```bash Terminal
+    curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
+      -H "Authorization: Bearer $SPONGE_API_KEY" \
+      -H "Sponge-Version: 0.2.1" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "url": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+        "method": "GET",
+        "preferred_chain": "base"
+      }'
+    ```
+  </Tab>
+</Tabs>
 
 ### Alchemy — onchain data
 
-Alchemy exposes enhanced APIs for onchain data — token balances, NFT metadata, mempool visibility, and decoded transaction history — via x402-gated endpoints.
+Alchemy exposes enhanced APIs for onchain data — token balances, NFT metadata, mempool visibility, and decoded transaction history — via their [Agentic Gateway](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) at `https://x402.alchemy.com`.
 
-Fetch token balances for a wallet:
+<Note>
+  Alchemy's x402 gateway uses SIWE wallet authentication via their own [`@alchemy/x402`](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) CLI — not a generic x402 bazaar endpoint. Follow the setup steps below before making requests.
+</Note>
+
+**Step 1 — Install and set up a wallet:**
 
 ```bash Terminal
-curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
-  -H "Authorization: Bearer $SPONGE_API_KEY" \
-  -H "Sponge-Version: 0.2.1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://base-mainnet.g.alchemy.com/v2/getTokenBalances",
-    "method": "POST",
-    "body": { "address": "0xYourAddress" },
-    "preferred_chain": "base"
-  }'
+npx @alchemy/x402 wallet generate
 ```
 
-### Nansen — wallet analytics
+**Step 2 — Generate a SIWE auth token:**
 
-Nansen provides wallet labeling, smart money flow analysis, and on-chain fund tracking. x402 endpoint availability is expanding — check [nansen.ai](https://nansen.ai) for current endpoint status.
+```bash Terminal
+npx @alchemy/x402 sign --private-key ./wallet-key.txt > siwe-token.txt
+```
+
+**Step 3 — Fetch token balances on Base:**
+
+<Tabs>
+  <Tab title="Token balances (JSON-RPC)">
+    ```bash Terminal
+    TOKEN=$(cat siwe-token.txt)
+
+    curl -s -X POST "https://x402.alchemy.com/base-mainnet/v2" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: SIWE $TOKEN" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "alchemy_getTokenBalances",
+        "params": ["0xYourAddress"]
+      }'
+    ```
+  </Tab>
+  <Tab title="Portfolio (multi-chain)">
+    ```bash Terminal
+    TOKEN=$(cat siwe-token.txt)
+
+    curl -s -X POST "https://x402.alchemy.com/data/v1/assets/tokens/by-address" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: SIWE $TOKEN" \
+      -d '{"addresses": ["0xYourAddress"], "withMetadata": true}'
+    ```
+  </Tab>
+  <Tab title="Token prices">
+    ```bash Terminal
+    TOKEN=$(cat siwe-token.txt)
+
+    curl -s -G "https://x402.alchemy.com/prices/v1/tokens/by-symbol" \
+      --data-urlencode "symbols=ETH" \
+      --data-urlencode "symbols=USDC" \
+      -H "Authorization: SIWE $TOKEN"
+    ```
+  </Tab>
+</Tabs>
+
+If the gateway returns `402`, handle payment with the CLI and retry:
+
+```bash Terminal
+PAYMENT_SIG=$(npx @alchemy/x402 pay --private-key ./wallet-key.txt --payment-required "$PAYMENT_REQUIRED")
+```
+
+See the full [Alchemy Agentic Gateway skill](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) for wallet bootstrap, payment handling, and SDK integration.
 
 ## Making data calls inside an OpenClaw agent
 
-Install the Sponge Wallet skill or CDP Agentic Wallet skills, then prompt your agent directly:
+Install the [Sponge Wallet](https://www.paysponge.com) skill or [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills, then prompt your agent directly:
 
 ```text
 Get the current prices of ETH, BTC, and SOL from a paid data source

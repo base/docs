@@ -38,26 +38,40 @@ Any agent with a funded wallet can pay for any x402-enabled API — no pre-exist
 
 ### CDP Agentic Wallet
 
-With the CDP Agentic Wallet skills installed, your agent handles x402 payments automatically:
+With the [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills installed, your agent handles x402 payments automatically:
 
 ```bash Terminal
 npx skills add coinbase/agentic-wallet-skills
 ```
 
-Then ask your agent to discover and call a paid service:
+**Discover available services** using the [`search-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/search-for-service) skill:
+
+```bash Terminal
+npx awal@latest x402 bazaar search "weather forecast"
+```
+
+**Call a paid service** using the [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skill:
+
+```bash Terminal
+npx awal@latest x402 pay https://example.com/api/weather \
+  -X POST \
+  -d '{"query": "New York"}'
+```
+
+Or prompt your agent directly:
 
 ```text
 Find APIs for sentiment analysis
 Call that weather API and get the forecast for New York
 ```
 
-The `search-for-service` and `pay-for-service` skills handle discovery, payment, and retries.
+The [`search-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/search-for-service) and [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skills handle discovery, payment, and retries.
 
 [CDP Agentic Wallet skills →](https://docs.cdp.coinbase.com/agentic-wallet/skills)
 
 ### Sponge Wallet
 
-Sponge Wallet has a built-in x402 proxy that discovers services and handles payment automatically:
+[Sponge Wallet](https://www.paysponge.com) has a built-in x402 proxy that discovers services and handles payment automatically:
 
 **Step 1 — Discover a service:**
 
@@ -92,18 +106,9 @@ curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
   }'
 ```
 
-Sponge detects the `402`, pays in USDC from your wallet, and returns the API response.
+[Sponge Wallet](https://www.paysponge.com) detects the `402`, pays in USDC from your wallet, and returns the API response.
 
 [Sponge Wallet docs →](https://wallet.paysponge.com/skill.md)
-
-## Supported networks and tokens
-
-| Network | Token | Notes |
-|---------|-------|-------|
-| Base | USDC | Default — lowest fees |
-| Base Sepolia | USDC | Testnet |
-| Solana | USDC | Via CDP facilitator |
-| Polygon | USDC | Via CDP facilitator |
 
 ## Error handling and retries
 
@@ -114,8 +119,21 @@ Sponge detects the `402`, pays in USDC from your wallet, and returns the API res
 | `408` | Payment timeout | Retry with same or higher payment |
 | `429` | Rate limit | Back off and retry after the indicated delay |
 
-The CDP Agentic Wallet `pay-for-service` skill and Sponge Wallet's x402 proxy handle retries automatically. If you're building a custom client, parse the `PAYMENT-REQUIRED` header, construct the signed payload, and retry with the `PAYMENT-SIGNATURE` header.
+The [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skill and [Sponge Wallet's](https://www.paysponge.com) x402 proxy handle retries automatically. If you're building a custom client, parse the `PAYMENT-REQUIRED` header, construct the signed payload, and retry with the `PAYMENT-SIGNATURE` header.
 
+<Note>
+  If you're using [Bankr](https://bankr.bot), no setup is required. Just prompt it directly:
+
+  ```text
+  Get the current ETH price from a paid data source
+  Find a weather API and get the forecast for New York
+  Get the token balances for 0xYourAddress on Base
+  ```
+
+  Bankr handles service discovery, payment, and data extraction automatically.
+</Note>
+
+## Video Tutorial
 <iframe
   className="w-full aspect-video rounded-xl"
   src="https://www.youtube.com/embed/b5Wx2NAeY2E?si=r1FumIsbGt6nAt29"
