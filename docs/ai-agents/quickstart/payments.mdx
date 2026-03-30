@@ -1,0 +1,130 @@
+---
+title: "Get Started with Payments"
+description: "Build an agent that makes and accepts x402 payments on Base in under 10 minutes"
+keywords: ["x402 quickstart", "agent payments", "OpenClaw payments", "AI agent pay for API", "accept payments agent"]
+---
+
+import { PaymentsQuickstartDemo } from "/snippets/PaymentsQuickstartDemo.jsx"
+
+This guide gets you from zero to a working agent that makes a paid x402 API request and exposes its own paid endpoint — all in under 10 minutes.
+
+## Mock Demo
+
+<PaymentsQuickstartDemo />
+
+
+## Install OpenClaw
+
+<Steps>
+  <Step title="Install the CLI">
+    **macOS / Linux:**
+
+    ```bash Terminal
+    curl -fsSL https://openclaw.ai/install.sh | bash
+    ```
+
+    **Windows (PowerShell):**
+
+    ```powershell Terminal
+    iwr -useb https://openclaw.ai/install.ps1 | iex
+    ```
+
+    Verify the installation:
+
+    ```bash Terminal
+    openclaw --version
+    ```
+  </Step>
+
+  <Step title="Run onboarding">
+    ```bash Terminal
+    openclaw onboard --install-daemon
+    ```
+
+    Follow the prompts to connect your LLM provider and set up your wallet plugin.
+  </Step>
+
+  <Step title="Start the gateway">
+    ```bash Terminal
+    openclaw gateway --port 18789
+    ```
+
+    Open `http://127.0.0.1:18789/` to verify the gateway is live.
+  </Step>
+</Steps>
+
+<Tip>
+**Claude Code, Codex, and OpenCode users** — the wallet skills and x402 payment tools below are compatible with any skills-enabled AI coding tool. Run the same `npx skills add` commands and the capabilities work identically.
+</Tip>
+
+## Configure a wallet
+
+Install the CDP Agentic Wallet skills:
+
+```bash Terminal
+npx skills add coinbase/agentic-wallet-skills
+```
+
+Then authenticate:
+
+```text
+Sign in to my wallet with your@email.com
+```
+
+Or use a [Sponge Wallet](https://www.paysponge.com) with native x402 support — see [wallet setup](/ai-agents/setup/wallet-setup) for all options.
+
+## Make your first x402 payment
+
+Ask your agent to discover and call a paid API:
+
+```text
+Find a weather API and get the forecast for New York
+```
+
+The `search-for-service` and `pay-for-service` skills handle discovery, payment, and retries automatically. Your agent pays in USDC, gets the data, and returns the result — no API keys, no subscriptions.
+
+To make a direct x402 request with Sponge Wallet:
+
+```bash Terminal
+curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
+  -H "Authorization: Bearer $SPONGE_API_KEY" \
+  -H "Sponge-Version: 0.2.1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://api.example.com/paid-endpoint",
+    "method": "GET",
+    "preferred_chain": "base"
+  }'
+```
+
+## Gate your own endpoint with x402
+
+Ask your agent to expose a paid API:
+
+```text
+Set up a paid endpoint for my market data at $0.01 per request
+```
+
+The `monetize-service` skill (`npx skills add coinbase/agentic-wallet-skills`) configures the x402 gating and deploys the endpoint. Other agents can now discover and pay for your service automatically.
+
+Or use `x402-express` for a custom server — see [Accepting payments](/ai-agents/payments/accepting-payments).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="x402 protocol" icon="bolt" href="/ai-agents/payments/pay-for-services-with-x402">
+    Deep dive into how x402 works, supported networks, and error handling.
+  </Card>
+
+  <Card title="Accepting payments" icon="money-bill" href="/ai-agents/payments/accepting-payments">
+    Set up server-side x402 gating with OpenClaw skills or custom middleware.
+  </Card>
+
+  <Card title="Wallet setup" icon="wallet" href="/ai-agents/setup/wallet-setup">
+    Configure Bankr, CDP, or Sponge for your agent.
+  </Card>
+
+  <Card title="Agent registration" icon="fingerprint" href="/ai-agents/setup/agent-registration">
+    Register your agent for discoverability and identity verification.
+  </Card>
+</CardGroup>

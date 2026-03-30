@@ -1,0 +1,190 @@
+---
+title: "Fetching Market Data"
+description: "Use x402 to access live market data from CoinGecko, Alchemy, and other sources — no API key management required"
+keywords: ["x402 market data", "trading agent data", "CoinGecko x402", "Alchemy x402", "pay per call data", "agent data fetching"]
+---
+
+import { DataFetchingDemo } from "/snippets/DataFetchingDemo.jsx"
+
+x402 is well-suited for trading data: your agent pays per call in USDC, with no API key registration, subscription management, or rate-limit tiers to negotiate. The agent gets the data, the provider gets paid — that's the entire relationship.
+
+## Mock Demo
+
+<DataFetchingDemo />
+
+## Why x402 for market data
+
+- **No API key management** — your agent pays on demand; no credentials to rotate or store securely
+- **Pay only for what you use** — no monthly subscription for data you might not always need
+- **Works across any wallet** — [Sponge Wallet's](https://www.paysponge.com) x402 proxy, [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills, and `x402-axios` all handle payment automatically
+- **Composable** — your agent can call multiple data providers in the same session, paying each separately
+
+## Discovering x402-compatible endpoints
+
+x402-compatible services publish a discovery document at `/.well-known/x402.json`. You can also browse the Bazaar catalog for a curated list of x402 data providers.
+
+<Tabs>
+  <Tab title="CDP Agentic Wallet">
+    Use the [`search-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/search-for-service) skill to search the x402 Bazaar:
+
+    ```bash Terminal
+    npx awal@latest x402 bazaar search "price feed"
+    ```
+
+    To browse all available resources:
+
+    ```bash Terminal
+    npx awal@latest x402 bazaar list --network base
+    ```
+  </Tab>
+  <Tab title="Sponge Wallet">
+    ```bash Terminal
+    curl "https://api.wallet.paysponge.com/api/discover?query=price+feed" \
+      -H "Authorization: Bearer $SPONGE_API_KEY" \
+      -H "Sponge-Version: 0.2.1"
+    ```
+  </Tab>
+</Tabs>
+
+## Example x402 data sources
+
+### CoinGecko — price feeds
+
+CoinGecko provides cryptocurrency price feeds, market cap data, and historical OHLCV via x402-enabled endpoints.
+
+Fetch the current ETH price:
+
+<Tabs>
+  <Tab title="CDP Agentic Wallet">
+    Use the [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skill:
+
+    ```bash Terminal
+    npx awal@latest x402 pay "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+    ```
+  </Tab>
+  <Tab title="Sponge Wallet">
+    ```bash Terminal
+    curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
+      -H "Authorization: Bearer $SPONGE_API_KEY" \
+      -H "Sponge-Version: 0.2.1" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "url": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+        "method": "GET",
+        "preferred_chain": "base"
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+### Alchemy — onchain data
+
+Alchemy exposes enhanced APIs for onchain data — token balances, NFT metadata, mempool visibility, and decoded transaction history — via their [Agentic Gateway](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) at `https://x402.alchemy.com`.
+
+<Note>
+  Alchemy's x402 gateway uses SIWE wallet authentication via their own [`@alchemy/x402`](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) CLI — not a generic x402 bazaar endpoint. Follow the setup steps below before making requests.
+</Note>
+
+**Step 1 — Install and set up a wallet:**
+
+```bash Terminal
+npx @alchemy/x402 wallet generate
+```
+
+**Step 2 — Generate a SIWE auth token:**
+
+```bash Terminal
+npx @alchemy/x402 sign --private-key ./wallet-key.txt > siwe-token.txt
+```
+
+**Step 3 — Fetch token balances on Base:**
+
+<Tabs>
+  <Tab title="Token balances (JSON-RPC)">
+    ```bash Terminal
+    TOKEN=$(cat siwe-token.txt)
+
+    curl -s -X POST "https://x402.alchemy.com/base-mainnet/v2" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: SIWE $TOKEN" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "alchemy_getTokenBalances",
+        "params": ["0xYourAddress"]
+      }'
+    ```
+  </Tab>
+  <Tab title="Portfolio (multi-chain)">
+    ```bash Terminal
+    TOKEN=$(cat siwe-token.txt)
+
+    curl -s -X POST "https://x402.alchemy.com/data/v1/assets/tokens/by-address" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: SIWE $TOKEN" \
+      -d '{"addresses": ["0xYourAddress"], "withMetadata": true}'
+    ```
+  </Tab>
+  <Tab title="Token prices">
+    ```bash Terminal
+    TOKEN=$(cat siwe-token.txt)
+
+    curl -s -G "https://x402.alchemy.com/prices/v1/tokens/by-symbol" \
+      --data-urlencode "symbols=ETH" \
+      --data-urlencode "symbols=USDC" \
+      -H "Authorization: SIWE $TOKEN"
+    ```
+  </Tab>
+</Tabs>
+
+If the gateway returns `402`, handle payment with the CLI and retry:
+
+```bash Terminal
+PAYMENT_SIG=$(npx @alchemy/x402 pay --private-key ./wallet-key.txt --payment-required "$PAYMENT_REQUIRED")
+```
+
+See the full [Alchemy Agentic Gateway skill](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) for wallet bootstrap, payment handling, and SDK integration.
+
+## Making data calls inside an OpenClaw agent
+
+Install the [Sponge Wallet](https://www.paysponge.com) skill or [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills, then prompt your agent directly:
+
+```text
+Get the current prices of ETH, BTC, and SOL from a paid data source
+```
+
+```text
+Check the token balances at 0xYourWatchAddress on Base
+```
+
+The agent handles service discovery, payment, and data extraction. For a custom implementation using `x402-axios`:
+
+```bash Terminal
+npm install x402-axios axios
+```
+
+```typescript TypeScript
+import { withPaymentInterceptor } from "x402-axios";
+import axios from "axios";
+
+// walletClient must be a viem-compatible WalletClient
+const client = withPaymentInterceptor(axios.create(), walletClient);
+
+// If the endpoint returns 402, the interceptor pays automatically and retries
+const response = await client.get("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+console.log(response.data);
+```
+
+The interceptor handles the full 402 → pay → retry flow. For wiring a viem `WalletClient` to your setup, see the [x402 client docs](https://docs.cdp.coinbase.com/x402/docs/client-server-model).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Trade execution" icon="chart-line" href="/ai-agents/trading/trade-execution">
+    Execute swaps using Flashblocks timing and Base fee calibration.
+  </Card>
+
+  <Card title="x402 protocol" icon="bolt" href="/ai-agents/payments/pay-for-services-with-x402">
+    Full x402 flow, supported networks, and error handling.
+  </Card>
+</CardGroup>

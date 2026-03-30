@@ -1,60 +1,65 @@
 ---
 title: "AI Agents on Base"
-description: "Build AI agents that can hold funds, make payments, verify identity, and interact with services on Base"
-keywords: ["AI agents Base", "x402 protocol", "onchain agents", "Base L2", "Build with AI", "Base MCP server", "AgentKit", "OpenClaw"]
+description: "Build AI agents that trade, earn, and transact autonomously on Base"
+keywords: ["AI agents Base", "x402 protocol", "onchain agents", "Base L2", "Build with AI", "OpenClaw", "trading agent", "payment agent"]
 ---
 
-Base gives your AI agent the tools to operate as an independent economic actor: a wallet to hold and spend funds, identity standards so other agents and services can trust it, a payment protocol for pay-per-request APIs, and a discovery layer so agents can find each other.
+import { AgentPaymentDemo } from "/snippets/AgentPaymentDemo.jsx"
 
-## What you can build
+Base gives your AI agent the tools to operate as an independent economic actor: a wallet to hold and spend funds, identity standards so other agents and services can trust it, and payment protocols for services and commerce.
 
-- **A trading agent** that monitors market conditions and executes token swaps automatically using a funded wallet
-- **A payment agent** that pays for premium API data on behalf of your application using the x402 pay-per-request protocol
-- **A discoverable service** that other agents can find, verify, and pay to use — no human integration required
-- **A multi-channel assistant** that manages a wallet, answers questions, and executes onchain actions across Discord, Telegram, or web
+
+## Mock Demo
+
+<AgentPaymentDemo />
+
+### High-level flow
+
+Here's how the agent you can build from these guides operates end-to-end — from wallet setup and identity registration to making authenticated, paid API requests using the [x402 protocol](https://www.x402.org).
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Wallet as Agent Wallet
+    participant Registry as Identity Registry
+    participant API as Paid API
+    participant Facilitator as x402 Facilitator
+
+    Agent->>Wallet: Set up wallet (Bankr / CDP / Sponge)
+    Wallet-->>Agent: Address + signing capability
+
+    Agent->>Registry: Register identity (ERC-8004 + Basename)
+    Registry-->>Agent: Agent ID published onchain
+
+    Agent->>API: HTTP request
+    API-->>Agent: 402 Payment Required
+    Note over API,Agent: PAYMENT-REQUIRED header includes amount, token, and network
+    Agent->>Wallet: Sign payment payload
+    Wallet-->>Agent: Signed payment
+    Agent->>API: Retry with PAYMENT-SIGNATURE header
+    API->>Facilitator: Verify and settle payment
+    Facilitator-->>API: Payment confirmed
+    API-->>Agent: Response data
+```
+
+## How this section is organized
+
+The AI agents section covers the full stack for building an autonomous onchain agent:
+
+- **[Quickstarts](/ai-agents/quickstart/payments)** — End-to-end walkthroughs to get a working agent running in minutes. Start here if you're new.
+- **[Setup](/ai-agents/setup/wallet-setup)** — Give your agent a wallet and a registered onchain identity. Wallets let it hold funds and authorize transactions; registration lets other agents and services verify who they're dealing with.
+- **[Payments](/ai-agents/payments/pay-for-services-with-x402)** — Use x402 to pay for API access per-request in stablecoins, with no subscriptions or API keys required. Or gate your own endpoints to charge other agents.
+- **[Trading](/ai-agents/trading/data-fetching)** — Fetch live market data and execute token swaps on Base.
+- **[Skills](/ai-agents/skills)** — Installable knowledge packs that give your AI coding assistant deep context on Base APIs, tooling, and migration paths.
 
 ## Choose your path
 
 <CardGroup cols={2}>
-  <Card title="OpenClaw" icon="terminal" href="/ai-agents/quickstart/openclaw">
-    An open-source assistant you install and run locally. Add onchain skills through plugins. Best for self-hosted agents with a CLI-first workflow.
+  <Card title="Accept & make payments" icon="bolt" href="/ai-agents/quickstart/payments">
+    Build an agent that pays for API access with stablecoins and charges other agents for your services. Get running in under 10 minutes.
   </Card>
 
-  <Card title="AgentKit" icon="code" href="/ai-agents/quickstart/agentkit">
-    Coinbase's developer toolkit for building custom agents in TypeScript or Python. Full control over logic, integrations, and deployment.
-  </Card>
-</CardGroup>
-
-Not sure which to pick? See the [framework comparison guide](/ai-agents/introduction/choosing-a-framework).
-
-<Note>
-**Using Claude Code, Codex, or OpenCode?** All skills and wallet tools built for OpenClaw are also compatible with AI coding tools. Install any skill package with `npx skills add` from within your coding tool and the onchain capabilities work the same way — no separate setup required.
-</Note>
-
-## How the pieces fit together
-
-1. **Choose a framework** — pick between OpenClaw (self-hosted, skills-based) or AgentKit (SDK, full control)
-2. **Add a wallet** — give your agent the ability to hold stablecoins, send payments, and sign transactions
-3. **Use x402 payments** — let your agent pay for services per-request using stablecoins, no subscriptions or API keys
-4. **Establish identity** — register your agent in a public directory so other agents and services can discover and verify it
-5. **Build or connect to agent apps** — create services designed for agents, or connect your agent to existing ones
-
-## Guides
-
-<CardGroup cols={2}>
-  <Card title="Wallet setup" icon="wallet" href="/ai-agents/guides/wallet-setup">
-    Give your agent a dedicated wallet to hold funds and authorize transactions.
-  </Card>
-
-  <Card title="x402 payments" icon="bolt" href="/ai-agents/guides/x402-payments">
-    Pay for API access with stablecoins and accept payments from other agents.
-  </Card>
-
-  <Card title="Identity with SIWA" icon="fingerprint" href="/ai-agents/guides/identity-siwa">
-    Register and verify your agent's identity using Sign In With Agent.
-  </Card>
-
-  <Card title="Agent apps" icon="grid-2" href="/ai-agents/guides/agent-app">
-    Build services with agents as the primary user and make them discoverable.
+  <Card title="Build a trading agent" icon="chart-line" href="/ai-agents/quickstart/trading">
+    Build an agent that fetches live market data and executes token swaps automatically on Base.
   </Card>
 </CardGroup>
