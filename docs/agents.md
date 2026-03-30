@@ -3,15 +3,14 @@ IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating 
 Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
 [Docs]|root:./docs
 |ai-agents:index
-|ai-agents/frameworks:eliza,langchain,vercel-ai-sdk
-|ai-agents/guides:agent-app,agent-builder-codes,register-and-sign-in-your-agent,trading,wallet-setup,x402-payments
-|ai-agents/introduction:choosing-a-framework
-|ai-agents/quickstart:agentkit,openclaw-claude
-|ai-agents/frameworks:agentkit,eliza,langchain,vercel-ai-sdk
-|ai-agents/payments:accepting-payments,x402-protocol
+|ai-agents/guides:agent-builder-codes
+|ai-agents/payments:accepting-payments,pay-for-services-with-x402
 |ai-agents/quickstart:payments,trading
-|ai-agents/reference:contracts
 |ai-agents/setup:agent-registration,wallet-setup
+|ai-agents/skills:index
+|ai-agents/skills/base-account:building-with-base-account
+|ai-agents/skills/base-chain:adding-builder-codes,connecting-to-base-network,deploying-contracts,running-a-base-node
+|ai-agents/skills/migrations:convert-farcaster-miniapp-to-app,converting-minikit-to-farcaster,migrating-an-onchainkit-app
 |ai-agents/trading:data-fetching,trade-execution
 |base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
