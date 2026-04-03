@@ -153,26 +153,23 @@ Quicknode's x402 gateway at `https://x402.quicknode.com` gives your agent direct
   What sets Quicknode apart from other x402 providers: three payment tiers (per-request at `$0.001`, nanopayments at `$0.0001` via Circle Gateway, and credit drawdown for bulk use), WebSocket connections for streaming Base data, and a built-in Base Sepolia faucet so you can start testing without sourcing testnet USDC elsewhere.
 </Note>
 
-**Step 1 — Install the Quicknode x402 SDK:**
-
-The official [`@quicknode/x402`](https://www.npmjs.com/package/@quicknode/x402) package handles auth, payments, JWT management, and WebSocket connections for you.
-
-```bash Terminal
-npm install @quicknode/x402
-```
-
-**Step 2 — Make a per-request call (no auth needed):**
+Fetch token balances on Base:
 
 <Tabs>
   <Tab title="Per-request (curl)">
     ```bash Terminal
-    curl -X POST "https://x402.quicknode.com/base" \
+    # Read USDC balance for an address on Base
+    # balanceOf(address) selector: 0x70a08231
+    curl -X POST "https://x402.quicknode.com/base-mainnet" \
       -H "Content-Type: application/json" \
       -d '{
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "eth_blockNumber",
-        "params": []
+        "method": "eth_call",
+        "params": [{
+          "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "data": "0x70a08231000000000000000000000000YOUR_ADDRESS_HERE"
+        }, "latest"]
       }'
     ```
 
@@ -182,17 +179,18 @@ npm install @quicknode/x402
     Nanopayments run `$0.0001` per call, 10x cheaper than per-request. They require a Circle Gateway Wallet deposit and are available on Base Sepolia for now.
 
     ```bash Terminal
-    # Same request shape as per-request. The difference is in the 402 response:
-    # look for the accepts entry where extra.name === "GatewayWalletBatched"
-    # and sign that payload instead of the standard EIP-712 one.
-
+    # Read USDC balance for an address on Base Sepolia
+    # balanceOf(address) selector: 0x70a08231
     curl -X POST "https://x402.quicknode.com/base-sepolia" \
       -H "Content-Type: application/json" \
       -d '{
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "eth_blockNumber",
-        "params": []
+        "method": "eth_call",
+        "params": [{
+          "to": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+          "data": "0x70a08231000000000000000000000000YOUR_ADDRESS_HERE"
+        }, "latest"]
       }'
     ```
 
@@ -211,15 +209,19 @@ npm install @quicknode/x402
         "type": "siwx"
       }'
 
-    # 2. Use the JWT from the auth response
-    curl -X POST "https://x402.quicknode.com/base" \
+    # 2. Read USDC balance using the JWT
+    # balanceOf(address) selector: 0x70a08231
+    curl -X POST "https://x402.quicknode.com/base-mainnet" \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer <jwt-token>" \
       -d '{
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "eth_blockNumber",
-        "params": []
+        "method": "eth_call",
+        "params": [{
+          "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "data": "0x70a08231000000000000000000000000YOUR_ADDRESS_HERE"
+        }, "latest"]
       }'
     ```
 
@@ -227,13 +229,7 @@ npm install @quicknode/x402
   </Tab>
 </Tabs>
 
-**Step 3 — Browse Base endpoints:**
-
-```bash Terminal
-curl -s "https://x402.quicknode.com/discovery/resources" | jq '[.items[] | select(.metadata.networkSlug | startswith("base"))]'
-```
-
-The `/discovery/resources` endpoint returns a paginated catalog with per-network pricing. You can also hit `/openapi.json` for the full OpenAPI 3.1 spec with x402 annotations, which is useful if your agent needs to self-discover available Base endpoints.
+If you're building a TypeScript agent, the [`@quicknode/x402`](https://www.npmjs.com/package/@quicknode/x402) SDK handles auth, payment signing, JWT management, and WebSocket connections so you don't have to wire up the 402 flow manually.
 
 <Tip>
   Quicknode includes a testnet faucet on Base Sepolia. After authenticating, call `POST /drip` to get free USDC for testing. No external faucet needed.
