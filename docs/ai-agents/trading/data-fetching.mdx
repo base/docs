@@ -1,7 +1,7 @@
 ---
 title: "Fetching Market Data"
-description: "Use x402 to access live market data from CoinGecko, Alchemy, and other sources — no API key management required"
-keywords: ["x402 market data", "trading agent data", "CoinGecko x402", "Alchemy x402", "pay per call data", "agent data fetching"]
+description: "Use x402 to access live market data from CoinGecko, Alchemy, Quicknode, and other sources — no API key management required"
+keywords: ["x402 market data", "trading agent data", "CoinGecko x402", "Alchemy x402", "Quicknode x402", "pay per call data", "agent data fetching"]
 ---
 
 import { DataFetchingDemo } from "/snippets/DataFetchingDemo.jsx"
@@ -144,6 +144,80 @@ PAYMENT_SIG=$(npx @alchemy/x402 pay --private-key ./wallet-key.txt --payment-req
 ```
 
 See the full [Alchemy Agentic Gateway skill](https://github.com/alchemyplatform/skills/tree/main/skills/agentic-gateway) for wallet bootstrap, payment handling, and SDK integration.
+
+### Quicknode — onchain data
+
+Quicknode's x402 gateway at `https://x402.quicknode.com` gives your agent direct RPC access to Base (mainnet and Sepolia) without an account or API key. Pay per request in USDC, or buy credits in bulk if you're making a lot of calls.
+
+<Note>
+  What sets Quicknode apart from other x402 providers: three payment tiers (per-request at $0.001, nanopayments at $0.0001 via Circle Gateway, and credit drawdown for bulk use), WebSocket connections for streaming Base data, and a built-in Base Sepolia faucet so you can start testing without sourcing testnet USDC elsewhere.
+</Note>
+
+**Step 1 — Install the Quicknode x402 SDK:**
+
+The official [`@quicknode/x402`](https://www.npmjs.com/package/@quicknode/x402) package handles auth, payments, JWT management, and WebSocket connections for you.
+
+```bash Terminal
+npm install @quicknode/x402
+```
+
+**Step 2 — Make a per-request call (no auth needed):**
+
+<Tabs>
+  <Tab title="Per-request (curl)">
+    ```bash Terminal
+    curl -X POST "https://x402.quicknode.com/base" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_blockNumber",
+        "params": []
+      }'
+    ```
+
+    If the endpoint returns `402`, sign the EIP-712 payment payload from the response body and include it as a `PAYMENT-SIGNATURE` header on retry. Each call costs $0.001 USDC.
+  </Tab>
+  <Tab title="Credit drawdown (authenticated)">
+    For high-volume use, authenticate with SIWX and pay with credits instead:
+
+    ```bash Terminal
+    # 1. Sign in with your wallet (SIWX)
+    curl -X POST "https://x402.quicknode.com/auth" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "message": "<your-siwx-message>",
+        "signature": "<your-signature>",
+        "type": "siwx"
+      }'
+
+    # 2. Use the JWT from the auth response
+    curl -X POST "https://x402.quicknode.com/base" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer <jwt-token>" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_blockNumber",
+        "params": []
+      }'
+    ```
+
+    Credits cost $10 per 1,000,000 on mainnet. You only get charged for successful responses.
+  </Tab>
+</Tabs>
+
+**Step 3 — Browse Base endpoints:**
+
+```bash Terminal
+curl -s "https://x402.quicknode.com/discovery/resources" | jq '[.items[] | select(.metadata.networkSlug | startswith("base"))]'
+```
+
+The `/discovery/resources` endpoint returns a paginated catalog with per-network pricing. You can also hit `/openapi.json` for the full OpenAPI 3.1 spec with x402 annotations, which is useful if your agent needs to self-discover available Base endpoints.
+
+<Tip>
+  Quicknode includes a testnet faucet on Base Sepolia. After authenticating, call `POST /drip` to get free USDC for testing. No external faucet needed.
+</Tip>
 
 ## Making data calls inside an OpenClaw agent
 
