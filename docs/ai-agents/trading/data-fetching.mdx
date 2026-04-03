@@ -150,7 +150,7 @@ See the full [Alchemy Agentic Gateway skill](https://github.com/alchemyplatform/
 Quicknode's x402 gateway at `https://x402.quicknode.com` gives your agent direct RPC access to Base (mainnet and Sepolia) without an account or API key. Pay per request in USDC, or buy credits in bulk if you're making a lot of calls.
 
 <Note>
-  What sets Quicknode apart from other x402 providers: three payment tiers (per-request at $0.001, nanopayments at $0.0001 via Circle Gateway, and credit drawdown for bulk use), WebSocket connections for streaming Base data, and a built-in Base Sepolia faucet so you can start testing without sourcing testnet USDC elsewhere.
+  What sets Quicknode apart from other x402 providers: three payment tiers (per-request at `$0.001`, nanopayments at `$0.0001` via Circle Gateway, and credit drawdown for bulk use), WebSocket connections for streaming Base data, and a built-in Base Sepolia faucet so you can start testing without sourcing testnet USDC elsewhere.
 </Note>
 
 **Step 1 — Install the Quicknode x402 SDK:**
@@ -176,7 +176,27 @@ npm install @quicknode/x402
       }'
     ```
 
-    If the endpoint returns `402`, sign the EIP-712 payment payload from the response body and include it as a `PAYMENT-SIGNATURE` header on retry. Each call costs $0.001 USDC.
+    If the endpoint returns `402`, sign the EIP-712 payment payload from the response body and include it as a `PAYMENT-SIGNATURE` header on retry. Each call costs `$0.001` USDC. Failed requests and JSON-RPC errors don't cost anything, so you only pay when you actually get data back.
+  </Tab>
+  <Tab title="Nanopayment (Circle Gateway)">
+    Nanopayments run `$0.0001` per call, 10x cheaper than per-request. They require a Circle Gateway Wallet deposit and are available on Base Sepolia for now.
+
+    ```bash Terminal
+    # Same request shape as per-request. The difference is in the 402 response:
+    # look for the accepts entry where extra.name === "GatewayWalletBatched"
+    # and sign that payload instead of the standard EIP-712 one.
+
+    curl -X POST "https://x402.quicknode.com/base-sepolia" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_blockNumber",
+        "params": []
+      }'
+    ```
+
+    When you get the `402` back, find the `accepts` entry where `extra.name` is `"GatewayWalletBatched"`, sign it, and send it as the `PAYMENT-SIGNATURE` header on retry. Testnet cap is 10,000 requests (about `$1` total).
   </Tab>
   <Tab title="Credit drawdown (authenticated)">
     For high-volume use, authenticate with SIWX and pay with credits instead:
@@ -203,7 +223,7 @@ npm install @quicknode/x402
       }'
     ```
 
-    Credits cost $10 per 1,000,000 on mainnet. You only get charged for successful responses.
+    Credits cost `$10` per 1,000,000 on mainnet. You only get charged for successful responses.
   </Tab>
 </Tabs>
 
