@@ -1,0 +1,278 @@
+---
+title: "Notifications"
+description: "Send notifications to your mini app users by wallet address using the Base.dev REST API."
+---
+
+Send notifications to users who have installed your app in the Base App using the Base.dev REST API. No webhooks, no database, no token management.
+
+<Note>
+  Notifications are scoped to your app. Your API key only returns users who opted into your app and can only send to those users.
+</Note>
+
+## Quickstart
+
+<Steps>
+  <Step title="Generate your API key">
+    Go to your project on [Base.dev](https://base.dev), open **Settings > API Key**, and generate a new key. Add it to your environment:
+
+    ```bash .env
+    BASE_DEV_API_KEY=bdev_your_api_key_here
+    ```
+
+    <Warning>
+      Never commit API keys to version control.
+    </Warning>
+  </Step>
+
+  <Step title="Query your opted-in users">
+    <RequestExample>
+      ```bash cURL
+      curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.com&notification_enabled=true" \
+        -H "x-api-key: $BASE_DEV_API_KEY"
+      ```
+    </RequestExample>
+
+    <ResponseExample>
+      ```json Response
+      {
+        "success": true,
+        "users": [
+          { "address": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "notificationsEnabled": true },
+          { "address": "0x4e2bC8463190fBa0C5bF5921a98552f4728E3e9f", "notificationsEnabled": true }
+        ]
+      }
+      ```
+    </ResponseExample>
+  </Step>
+
+  <Step title="Send a notification">
+    <RequestExample>
+      ```bash cURL
+      curl -X POST "https://www.base.dev/v1/notifications/send" \
+        -H "x-api-key: $BASE_DEV_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "app_url": "https://your-app.com",
+          "wallet_addresses": ["0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74"],
+          "title": "Hey from your app!",
+          "message": "You have a new reward waiting.",
+          "target_path": "/rewards"
+        }'
+      ```
+    </RequestExample>
+
+    <ResponseExample>
+      ```json Response
+      {
+        "success": true,
+        "results": [
+          { "walletAddress": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "sent": true }
+        ],
+        "sentCount": 1,
+        "failedCount": 0
+      }
+      ```
+    </ResponseExample>
+  </Step>
+</Steps>
+
+## Send from code
+
+```typescript app/api/notify/route.ts
+import { NextResponse } from "next/server";
+
+const API_KEY = process.env.BASE_DEV_API_KEY!;
+const APP_URL = process.env.NEXT_PUBLIC_URL!;
+
+export async function POST(req: Request) {
+  const { title, message, targetPath } = await req.json();
+
+  const usersRes = await fetch(
+    `https://www.base.dev/v1/notifications/app/users?app_url=${APP_URL}&notification_enabled=true`,
+    { headers: { "x-api-key": API_KEY } }
+  );
+  const { users } = await usersRes.json();
+  const addresses = users.map((u: { address: string }) => u.address);
+
+  const sendRes = await fetch("https://www.base.dev/v1/notifications/send", {
+    method: "POST",
+    headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ app_url: APP_URL, wallet_addresses: addresses, title, message, target_path: targetPath }),
+  });
+
+  return NextResponse.json(await sendRes.json());
+}
+```
+
+## Scheduled notifications
+
+Use [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs) to send notifications on a recurring schedule.
+
+```typescript app/api/cron/notify/route.ts
+import { NextResponse } from "next/server";
+
+const API_KEY = process.env.BASE_DEV_API_KEY!;
+const APP_URL = process.env.NEXT_PUBLIC_URL!;
+
+export async function GET(req: Request) {
+  if (req.headers.get("Authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const usersRes = await fetch(
+    `https://www.base.dev/v1/notifications/app/users?app_url=${APP_URL}&notification_enabled=true`,
+    { headers: { "x-api-key": API_KEY } }
+  );
+  const { users } = await usersRes.json();
+  const addresses = users.map((u: { address: string }) => u.address);
+
+  const sendRes = await fetch("https://www.base.dev/v1/notifications/send", {
+    method: "POST",
+    headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      app_url: APP_URL,
+      wallet_addresses: addresses,
+      title: "Daily reminder",
+      message: "Check in today to keep your streak alive.",
+      target_path: "/streak",
+    }),
+  });
+
+  return NextResponse.json(await sendRes.json());
+}
+```
+
+Register the schedule in `vercel.json`:
+
+```json vercel.json
+{
+  "crons": [{ "path": "/api/cron/notify", "schedule": "0 9 * * *" }]
+}
+```
+
+## API reference
+
+Both endpoints require your API key in the `x-api-key` header.
+
+### GET /v1/notifications/app/users
+
+```
+GET https://www.base.dev/v1/notifications/app/users
+```
+
+**Query parameters**
+
+<ParamField query="app_url" type="string" required>
+  Your mini app URL as registered on Base.dev.
+</ParamField>
+
+<ParamField query="notification_enabled" type="boolean">
+  Set to `true` to return only users who have enabled notifications.
+</ParamField>
+
+**Response**
+
+<ResponseField name="success" type="boolean">
+  Whether the request succeeded.
+</ResponseField>
+
+<ResponseField name="users" type="array">
+  List of user objects.
+
+  <Expandable title="User properties">
+    <ResponseField name="address" type="string">
+      The user's wallet address.
+    </ResponseField>
+    <ResponseField name="notificationsEnabled" type="boolean">
+      Whether the user has enabled notifications for your app.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### POST /v1/notifications/send
+
+```
+POST https://www.base.dev/v1/notifications/send
+```
+
+**Request body**
+
+<ParamField body="app_url" type="string" required>
+  Your mini app URL as registered on Base.dev.
+</ParamField>
+
+<ParamField body="wallet_addresses" type="string[]" required>
+  Wallet addresses to notify. Maximum 1,000 per request.
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Notification title.
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Notification body text.
+</ParamField>
+
+<ParamField body="target_path" type="string">
+  Relative path to open when the user taps the notification (for example, `/leaderboard`). Omit to open your app at its root.
+</ParamField>
+
+**Response**
+
+<ResponseField name="success" type="boolean">
+  Whether the request completed.
+</ResponseField>
+
+<ResponseField name="results" type="array">
+  Per-address delivery status.
+
+  <Expandable title="Result properties">
+    <ResponseField name="walletAddress" type="string">
+      The wallet address targeted.
+    </ResponseField>
+    <ResponseField name="sent" type="boolean">
+      Whether delivery succeeded for this address.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="sentCount" type="number">
+  Total notifications sent.
+</ResponseField>
+
+<ResponseField name="failedCount" type="number">
+  Total notifications failed.
+</ResponseField>
+
+**Errors**
+
+| Error | Cause |
+|-------|-------|
+| `InvalidArgument` | More than 1,000 wallet addresses in a single request. |
+
+## Batching
+
+Each request accepts up to 1,000 addresses. For larger audiences, split into chunks.
+
+```typescript
+const BATCH_SIZE = 1000;
+
+async function notifyAllUsers(allAddresses: string[], title: string, message: string, targetPath: string) {
+  for (let i = 0; i < allAddresses.length; i += BATCH_SIZE) {
+    const batch = allAddresses.slice(i, i + BATCH_SIZE);
+    await fetch("https://www.base.dev/v1/notifications/send", {
+      method: "POST",
+      headers: { "x-api-key": process.env.BASE_DEV_API_KEY!, "Content-Type": "application/json" },
+      body: JSON.stringify({ app_url: "https://your-app.com", wallet_addresses: batch, title, message, target_path: targetPath }),
+    });
+  }
+}
+```
+
+## Rate limits
+
+| Constraint | Limit |
+|------------|-------|
+| Requests per minute (per API key) | 10 |
+| Wallet addresses per request | 1,000 |
+| Max users notifiable per minute | 10,000 |
