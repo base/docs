@@ -3,14 +3,13 @@ IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating 
 Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
 [Docs]|root:./docs
 |ai-agents:index
-|ai-agents/guides:agent-builder-codes
 |ai-agents/payments:accepting-payments,pay-for-services-with-x402
 |ai-agents/quickstart:payments,trading
-|ai-agents/setup:agent-registration,wallet-setup
+|ai-agents/setup:agent-builder-codes,agent-registration,wallet-setup
 |ai-agents/skills:index
-|ai-agents/skills/base-account:building-with-base-account
-|ai-agents/skills/base-chain:adding-builder-codes,connecting-to-base-network,deploying-contracts,running-a-base-node
-|ai-agents/skills/migrations:convert-farcaster-miniapp-to-app,converting-minikit-to-farcaster,migrating-an-onchainkit-app
+|ai-agents/skills/payments:cdp-payment-skills,sponge-x402
+|ai-agents/skills/trading:alchemy-agentic-gateway,coingecko,swap-execution
+|ai-agents/skills/wallets:bankr,cdp-agentic-wallet,sponge-wallet
 |ai-agents/trading:data-fetching,trade-execution
 |base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
@@ -37,8 +36,8 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
-|base-chain/builder-codes:app-developers,builder-codes,wallet-developers
-|base-chain/flashblocks:app-integration,architecture,faq,overview,run-a-flashblocks-node
+|base-chain/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
+|base-chain/flashblocks:app-integration,architecture,faq,overview
 |base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,ecosystem-contracts,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
 |base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
