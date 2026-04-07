@@ -1,26 +1,32 @@
 ---
 title: "Notifications"
-description: "Send push notifications to your mini app users through the Base.dev REST API."
+description: "Send in-app notifications to your app's users through the Base Dashboard REST API."
 ---
 
-The Notifications API lets you send push notifications to users who have pinned your mini app and opted in to notifications. Two REST endpoints handle the full workflow: query your audience by wallet address, then send targeted or broadcast messages.
-
 <Note>
-  Notifications are delivered through the **Base App** only. Users who interact with your mini app on other platforms will not receive notifications through this API.
+  Notifications are delivered through the **Base App** only. Users who interact with your app on other platforms will not receive notifications through this API.
 </Note>
+
+The Notifications API lets you send in-app notifications to users who have pinned your app and opted in to notifications. Two REST endpoints handle the full workflow: fetch your audience's wallet addresses, then send targeted or broadcast messages.
 
 ## Prerequisites
 
-- A project on [Base.dev](https://base.dev) with your mini app URL registered
-- An API key generated from **Settings > API Key** in your Base.dev project
+- A project on [Base Dashboard](https://dashboard.base.org) with your app URL registered
+- An API key generated from **Settings > API Key** in your Base Dashboard project
 
 ## Quick start
 
-Fetch your opted-in users, then send a notification. Both endpoints require your API key in the `x-api-key` header.
+Both endpoints require your API key in the `x-api-key` header.
+
+<Info>
+  The notification endpoints share a rate limit of **10 requests per minute per IP**. Requests to either endpoint count toward the same limit. Exceeding it returns a `429 Too Many Requests` response.
+</Info>
+
+Fetch the wallet addresses of users who have opted in to notifications for your app:
 
 ```bash title="Get users with notifications enabled"
-curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.com&notification_enabled=true" \
-  -H "x-api-key: $BASE_DEV_API_KEY"
+curl "https://dashboard.base.org/api/v1/notifications/app/users?app_url=<your-app-url>&notification_enabled=true" \
+  -H "x-api-key: <your-api-key>"
 ```
 
 ```json title="Response"
@@ -33,16 +39,18 @@ curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.c
 }
 ```
 
+Send a notification to one or more of those addresses. The `target_path` sets the route within your app that opens when the user taps the notification:
+
 ```bash title="Send a notification"
-curl -X POST "https://www.base.dev/v1/notifications/send" \
-  -H "x-api-key: $BASE_DEV_API_KEY" \
+curl -X POST "https://dashboard.base.org/api/v1/notifications/send" \
+  -H "x-api-key: <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
-    "app_url": "https://your-app.com",
-    "wallet_addresses": ["0xA11ce00000000000000000000000000000000000"],
-    "title": "New reward available",
-    "message": "You have a reward waiting. Tap to claim it.",
-    "target_path": "/rewards"
+    "app_url": "<your-app-url>",
+    "wallet_addresses": ["<wallet-address>"],
+    "title": "<title>",
+    "message": "<message>",
+    "target_path": "<target-path>"
   }'
 ```
 
@@ -64,13 +72,13 @@ curl -X POST "https://www.base.dev/v1/notifications/send" \
 Returns users who have pinned your app, with optional filtering by notification opt-in status. Results are paginated.
 
 ```http
-GET https://www.base.dev/v1/notifications/app/users
+GET https://dashboard.base.org/api/v1/notifications/app/users
 ```
 
 #### Query parameters
 
 <ParamField query="app_url" type="string" required>
-  Your mini app URL as registered on Base.dev.
+  Your app URL as registered on the Base Dashboard.
 </ParamField>
 
 <ParamField query="notification_enabled" type="boolean">
@@ -93,55 +101,36 @@ GET https://www.base.dev/v1/notifications/app/users
 
 <ResponseField name="users" type="array">
   Users who have pinned your app.
+</ResponseField>
 
-  <Expandable title="User object">
-    <ResponseField name="address" type="string">
-      The user's wallet address.
-    </ResponseField>
-    <ResponseField name="notificationsEnabled" type="boolean">
-      Whether the user has enabled notifications for your app.
-    </ResponseField>
-  </Expandable>
+<ResponseField name="users[].address" type="string">
+  The user's wallet address.
+</ResponseField>
+
+<ResponseField name="users[].notificationsEnabled" type="boolean">
+  Whether the user has enabled notifications for your app.
 </ResponseField>
 
 <ResponseField name="nextCursor" type="string">
   Cursor for the next page. Absent when no more results exist.
 </ResponseField>
 
-<RequestExample>
-```bash cURL
-curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.com&notification_enabled=true&limit=50" \
-  -H "x-api-key: $BASE_DEV_API_KEY"
-```
-</RequestExample>
 
-<ResponseExample>
-```json Response
-{
-  "success": true,
-  "users": [
-    { "address": "0xA11ce00000000000000000000000000000000000", "notificationsEnabled": true },
-    { "address": "0xB0B0000000000000000000000000000000000000", "notificationsEnabled": true }
-  ],
-  "nextCursor": "eyJsYXN0X2lkIjoiNjgifQ=="
-}
-```
-</ResponseExample>
 
 ---
 
 ### POST /v1/notifications/send
 
-Sends a push notification to one or more wallet addresses.
+Sends an in-app notification to one or more wallet addresses.
 
 ```http
-POST https://www.base.dev/v1/notifications/send
+POST https://dashboard.base.org/api/v1/notifications/send
 ```
 
 #### Request body
 
 <ParamField body="app_url" type="string" required>
-  Your mini app URL as registered on Base.dev.
+  Your app URL as registered on the Base Dashboard.
 </ParamField>
 
 <ParamField body="wallet_addresses" type="string[]" required>
@@ -168,18 +157,18 @@ POST https://www.base.dev/v1/notifications/send
 
 <ResponseField name="results" type="array">
   Per-address delivery status.
+</ResponseField>
 
-  <Expandable title="Result object">
-    <ResponseField name="walletAddress" type="string">
-      The targeted wallet address.
-    </ResponseField>
-    <ResponseField name="sent" type="boolean">
-      Whether delivery succeeded for this address.
-    </ResponseField>
-    <ResponseField name="failureReason" type="string">
-      Present when `sent` is `false`. Possible values: `user has not saved this app`, `user has notifications disabled`.
-    </ResponseField>
-  </Expandable>
+<ResponseField name="results[].walletAddress" type="string">
+  The targeted wallet address.
+</ResponseField>
+
+<ResponseField name="results[].sent" type="boolean">
+  Whether delivery succeeded for this address.
+</ResponseField>
+
+<ResponseField name="results[].failureReason" type="string">
+  Present when `sent` is `false`. Possible values: `user has not saved this app`, `user has notifications disabled`.
 </ResponseField>
 
 <ResponseField name="sentCount" type="number">
@@ -190,52 +179,18 @@ POST https://www.base.dev/v1/notifications/send
   Total notifications that failed to deliver.
 </ResponseField>
 
-<RequestExample>
-```bash cURL
-curl -X POST "https://www.base.dev/v1/notifications/send" \
-  -H "x-api-key: $BASE_DEV_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "app_url": "https://your-app.com",
-    "wallet_addresses": [
-      "0xA11ce00000000000000000000000000000000000",
-      "0xB0B0000000000000000000000000000000000000"
-    ],
-    "title": "New reward available",
-    "message": "You have a reward waiting. Tap to claim it.",
-    "target_path": "/rewards"
-  }'
-```
-</RequestExample>
 
-<ResponseExample>
-```json Response
-{
-  "success": false,
-  "results": [
-    {
-      "walletAddress": "0xA11ce00000000000000000000000000000000000",
-      "sent": true
-    },
-    {
-      "walletAddress": "0xB0B0000000000000000000000000000000000000",
-      "sent": false,
-      "failureReason": "user has notifications disabled"
-    }
-  ],
-  "sentCount": 1,
-  "failedCount": 1
-}
-```
-</ResponseExample>
+## Errors
 
-#### Errors
+Both endpoints return the following errors:
 
 | Status | Code | Cause |
 |--------|------|-------|
-| 400 | `InvalidArgument` | A required field is missing, `title` exceeds 30 characters, `message` exceeds 200 characters, `target_path` exceeds 500 characters or does not start with `/`, or more than 1,000 addresses provided. |
-| 401 | `Unauthenticated` | Missing or invalid API key. |
-| 403 | `PermissionDenied` | The `app_url` does not belong to your project, or your project is not authorized to send notifications. |
+| 400 | `Bad Request` | Possible causes:<ul><li>`app_url` is missing</li><li>`title` is missing or exceeds 30 characters</li><li>`message` is missing or exceeds 200 characters</li><li>`wallet_addresses` is missing or exceeds 1,000 addresses</li><li>`target_path` exceeds 500 characters or does not start with `/`</li></ul> |
+| 401 | `Unauthorized` | Missing or invalid API key. |
+| 403 | `Forbidden` | The `app_url` does not belong to your project, or your project is not whitelisted for notifications. |
+| 404 | `Not Found` | The project associated with your API key does not exist. |
+| 503 | `Service Unavailable` | The notification service is temporarily unavailable. Retry the request. Send endpoint only. |
 
 ## Batching and deduplication
 
