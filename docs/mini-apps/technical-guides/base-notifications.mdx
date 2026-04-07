@@ -1,185 +1,100 @@
 ---
 title: "Notifications"
-description: "Send notifications to your mini app users by wallet address using the Base.dev REST API."
+description: "Send push notifications to your mini app users through the Base.dev REST API."
 ---
 
-Send notifications to users who have installed your app in the Base App using the Base.dev REST API. No webhooks, no database, no token management.
+The Notifications API lets you send push notifications to users who have pinned your mini app and opted in to notifications. Two REST endpoints handle the full workflow: query your audience by wallet address, then send targeted or broadcast messages.
 
 <Note>
-  Notifications are scoped to your app. Your API key only returns users who opted into your app and can only send to those users.
+  Notifications are delivered through the **Base App** only. Users who interact with your mini app on other platforms will not receive notifications through this API.
 </Note>
 
-## Quickstart
+## Prerequisites
 
-<Steps>
-  <Step title="Generate your API key">
-    Go to your project on [Base.dev](https://base.dev), open **Settings > API Key**, and generate a new key. Add it to your environment:
+- A project on [Base.dev](https://base.dev) with your mini app URL registered
+- An API key generated from **Settings > API Key** in your Base.dev project
 
-    ```bash .env
-    BASE_DEV_API_KEY=bdev_your_api_key_here
-    ```
+## Quick start
 
-    <Warning>
-      Never commit API keys to version control.
-    </Warning>
-  </Step>
+Fetch your opted-in users, then send a notification. Both endpoints require your API key in the `x-api-key` header.
 
-  <Step title="Query your opted-in users">
-    <RequestExample>
-      ```bash cURL
-      curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.com&notification_enabled=true" \
-        -H "x-api-key: $BASE_DEV_API_KEY"
-      ```
-    </RequestExample>
-
-    <ResponseExample>
-      ```json Response
-      {
-        "success": true,
-        "users": [
-          { "address": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "notificationsEnabled": true },
-          { "address": "0x4e2bC8463190fBa0C5bF5921a98552f4728E3e9f", "notificationsEnabled": true }
-        ]
-      }
-      ```
-    </ResponseExample>
-  </Step>
-
-  <Step title="Send a notification">
-    <RequestExample>
-      ```bash cURL
-      curl -X POST "https://www.base.dev/v1/notifications/send" \
-        -H "x-api-key: $BASE_DEV_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-          "app_url": "https://your-app.com",
-          "wallet_addresses": ["0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74"],
-          "title": "Hey from your app!",
-          "message": "You have a new reward waiting.",
-          "target_path": "/rewards"
-        }'
-      ```
-    </RequestExample>
-
-    <ResponseExample>
-      ```json Response
-      {
-        "success": true,
-        "results": [
-          { "walletAddress": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "sent": true }
-        ],
-        "sentCount": 1,
-        "failedCount": 0
-      }
-      ```
-    </ResponseExample>
-  </Step>
-</Steps>
-
-## Send from code
-
-```typescript app/api/notify/route.ts
-import { NextResponse } from "next/server";
-
-const API_KEY = process.env.BASE_DEV_API_KEY!;
-const APP_URL = process.env.NEXT_PUBLIC_URL!;
-
-export async function POST(req: Request) {
-  const { title, message, targetPath } = await req.json();
-
-  const usersRes = await fetch(
-    `https://www.base.dev/v1/notifications/app/users?app_url=${APP_URL}&notification_enabled=true`,
-    { headers: { "x-api-key": API_KEY } }
-  );
-  const { users } = await usersRes.json();
-  const addresses = users.map((u: { address: string }) => u.address);
-
-  const sendRes = await fetch("https://www.base.dev/v1/notifications/send", {
-    method: "POST",
-    headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ app_url: APP_URL, wallet_addresses: addresses, title, message, target_path: targetPath }),
-  });
-
-  return NextResponse.json(await sendRes.json());
-}
+```bash title="Get users with notifications enabled"
+curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.com&notification_enabled=true" \
+  -H "x-api-key: $BASE_DEV_API_KEY"
 ```
 
-## Scheduled notifications
-
-Use [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs) to send notifications on a recurring schedule.
-
-```typescript app/api/cron/notify/route.ts
-import { NextResponse } from "next/server";
-
-const API_KEY = process.env.BASE_DEV_API_KEY!;
-const APP_URL = process.env.NEXT_PUBLIC_URL!;
-
-export async function GET(req: Request) {
-  if (req.headers.get("Authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const usersRes = await fetch(
-    `https://www.base.dev/v1/notifications/app/users?app_url=${APP_URL}&notification_enabled=true`,
-    { headers: { "x-api-key": API_KEY } }
-  );
-  const { users } = await usersRes.json();
-  const addresses = users.map((u: { address: string }) => u.address);
-
-  const sendRes = await fetch("https://www.base.dev/v1/notifications/send", {
-    method: "POST",
-    headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      app_url: APP_URL,
-      wallet_addresses: addresses,
-      title: "Daily reminder",
-      message: "Check in today to keep your streak alive.",
-      target_path: "/streak",
-    }),
-  });
-
-  return NextResponse.json(await sendRes.json());
-}
-```
-
-Register the schedule in `vercel.json`:
-
-```json vercel.json
+```json title="Response"
 {
-  "crons": [{ "path": "/api/cron/notify", "schedule": "0 9 * * *" }]
+  "success": true,
+  "users": [
+    { "address": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "notificationsEnabled": true },
+    { "address": "0x4e2bC8463190fBa0C5bF5921a98552f4728E3e9f", "notificationsEnabled": true }
+  ]
+}
+```
+
+```bash title="Send a notification"
+curl -X POST "https://www.base.dev/v1/notifications/send" \
+  -H "x-api-key: $BASE_DEV_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_url": "https://your-app.com",
+    "wallet_addresses": ["0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74"],
+    "title": "New reward available",
+    "message": "You have a reward waiting. Tap to claim it.",
+    "target_path": "/rewards"
+  }'
+```
+
+```json title="Response"
+{
+  "success": true,
+  "results": [
+    { "walletAddress": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "sent": true }
+  ],
+  "sentCount": 1,
+  "failedCount": 0
 }
 ```
 
 ## API reference
 
-Both endpoints require your API key in the `x-api-key` header.
-
 ### GET /v1/notifications/app/users
 
-```
+Returns users who have pinned your app, with optional filtering by notification opt-in status. Results are paginated.
+
+```http
 GET https://www.base.dev/v1/notifications/app/users
 ```
 
-**Query parameters**
+#### Query parameters
 
 <ParamField query="app_url" type="string" required>
   Your mini app URL as registered on Base.dev.
 </ParamField>
 
 <ParamField query="notification_enabled" type="boolean">
-  Set to `true` to return only users who have enabled notifications.
+  Set to `true` to return only users who have enabled notifications for your app.
 </ParamField>
 
-**Response**
+<ParamField query="cursor" type="string">
+  Pagination cursor returned from a previous response. Omit for the first page.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Maximum users per page. Capped at 100.
+</ParamField>
+
+#### Response
 
 <ResponseField name="success" type="boolean">
   Whether the request succeeded.
 </ResponseField>
 
 <ResponseField name="users" type="array">
-  List of user objects.
+  Users who have pinned your app.
 
-  <Expandable title="User properties">
+  <Expandable title="User object">
     <ResponseField name="address" type="string">
       The user's wallet address.
     </ResponseField>
@@ -189,90 +104,141 @@ GET https://www.base.dev/v1/notifications/app/users
   </Expandable>
 </ResponseField>
 
+<ResponseField name="nextCursor" type="string">
+  Cursor for the next page. Absent when no more results exist.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://www.base.dev/v1/notifications/app/users?app_url=https://your-app.com&notification_enabled=true&limit=50" \
+  -H "x-api-key: $BASE_DEV_API_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "users": [
+    { "address": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74", "notificationsEnabled": true },
+    { "address": "0x4e2bC8463190fBa0C5bF5921a98552f4728E3e9f", "notificationsEnabled": true }
+  ],
+  "nextCursor": "eyJsYXN0X2lkIjoiNjgifQ=="
+}
+```
+</ResponseExample>
+
+---
+
 ### POST /v1/notifications/send
 
-```
+Sends a push notification to one or more wallet addresses.
+
+```http
 POST https://www.base.dev/v1/notifications/send
 ```
 
-**Request body**
+#### Request body
 
 <ParamField body="app_url" type="string" required>
   Your mini app URL as registered on Base.dev.
 </ParamField>
 
 <ParamField body="wallet_addresses" type="string[]" required>
-  Wallet addresses to notify. Maximum 1,000 per request.
+  Wallet addresses to notify. Minimum 1, maximum 1,000 per request.
 </ParamField>
 
 <ParamField body="title" type="string" required>
-  Notification title.
+  Notification title. Maximum 30 characters.
 </ParamField>
 
 <ParamField body="message" type="string" required>
-  Notification body text.
+  Notification body text. Maximum 200 characters.
 </ParamField>
 
 <ParamField body="target_path" type="string">
-  Relative path to open when the user taps the notification (for example, `/leaderboard`). Omit to open your app at its root.
+  Path to open when the user taps the notification, such as `/rewards`. Must start with `/` if provided. Maximum 500 characters. Omit to open your app at its root URL.
 </ParamField>
 
-**Response**
+#### Response
 
 <ResponseField name="success" type="boolean">
-  Whether the request completed.
+  `true` only when every address in the request delivered successfully.
 </ResponseField>
 
 <ResponseField name="results" type="array">
   Per-address delivery status.
 
-  <Expandable title="Result properties">
+  <Expandable title="Result object">
     <ResponseField name="walletAddress" type="string">
-      The wallet address targeted.
+      The targeted wallet address.
     </ResponseField>
     <ResponseField name="sent" type="boolean">
       Whether delivery succeeded for this address.
+    </ResponseField>
+    <ResponseField name="failureReason" type="string">
+      Present when `sent` is `false`. Possible values: `user has not saved this app`, `user has notifications disabled`.
     </ResponseField>
   </Expandable>
 </ResponseField>
 
 <ResponseField name="sentCount" type="number">
-  Total notifications sent.
+  Total notifications delivered successfully.
 </ResponseField>
 
 <ResponseField name="failedCount" type="number">
-  Total notifications failed.
+  Total notifications that failed to deliver.
 </ResponseField>
 
-**Errors**
+<RequestExample>
+```bash cURL
+curl -X POST "https://www.base.dev/v1/notifications/send" \
+  -H "x-api-key: $BASE_DEV_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_url": "https://your-app.com",
+    "wallet_addresses": [
+      "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74",
+      "0x4e2bC8463190fBa0C5bF5921a98552f4728E3e9f"
+    ],
+    "title": "New reward available",
+    "message": "You have a reward waiting. Tap to claim it.",
+    "target_path": "/rewards"
+  }'
+```
+</RequestExample>
 
-| Error | Cause |
-|-------|-------|
-| `InvalidArgument` | More than 1,000 wallet addresses in a single request. |
-
-## Batching
-
-Each request accepts up to 1,000 addresses. For larger audiences, split into chunks.
-
-```typescript
-const BATCH_SIZE = 1000;
-
-async function notifyAllUsers(allAddresses: string[], title: string, message: string, targetPath: string) {
-  for (let i = 0; i < allAddresses.length; i += BATCH_SIZE) {
-    const batch = allAddresses.slice(i, i + BATCH_SIZE);
-    await fetch("https://www.base.dev/v1/notifications/send", {
-      method: "POST",
-      headers: { "x-api-key": process.env.BASE_DEV_API_KEY!, "Content-Type": "application/json" },
-      body: JSON.stringify({ app_url: "https://your-app.com", wallet_addresses: batch, title, message, target_path: targetPath }),
-    });
-  }
+<ResponseExample>
+```json Response
+{
+  "success": false,
+  "results": [
+    {
+      "walletAddress": "0xc0c3132DFc4929bb6F68FA76B8fB379fF8c5bE74",
+      "sent": true
+    },
+    {
+      "walletAddress": "0x4e2bC8463190fBa0C5bF5921a98552f4728E3e9f",
+      "sent": false,
+      "failureReason": "user has notifications disabled"
+    }
+  ],
+  "sentCount": 1,
+  "failedCount": 1
 }
 ```
+</ResponseExample>
 
-## Rate limits
+#### Errors
 
-| Constraint | Limit |
-|------------|-------|
-| Requests per minute (per API key) | 10 |
-| Wallet addresses per request | 1,000 |
-| Max users notifiable per minute | 10,000 |
+| Status | Code | Cause |
+|--------|------|-------|
+| 400 | `InvalidArgument` | A required field is missing, `title` exceeds 30 characters, `message` exceeds 200 characters, `target_path` exceeds 500 characters or does not start with `/`, or more than 1,000 addresses provided. |
+| 401 | `Unauthenticated` | Missing or invalid API key. |
+| 403 | `PermissionDenied` | The `app_url` does not belong to your project, or your project is not authorized to send notifications. |
+
+## Batching and deduplication
+
+Each request accepts up to 1,000 addresses. For larger audiences, split your address list across multiple requests.
+
+Duplicate addresses within a single request are deduplicated automatically. Identical notifications — same app URL, wallet address, title, message, and target path — sent within a 24-hour window are also deduplicated and return a success response without sending a duplicate push.
