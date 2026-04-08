@@ -210,6 +210,95 @@ See the [Privy Builder Codes integration guide](https://docs.privy.io/recipes/ev
   </Tabs>
 </Accordion>
 
+## Schema 2: CBOR Attribution 
+
+### Encoding a Schema 2 Suffix
+
+Pass `appCode`, `walletCode`, or both to `Attribution.toDataSuffix`. The `ox` library detects Schema 2 automatically when either field is present.
+
+<Steps>
+  <Step title="Install Dependencies">
+    Install the required packages. Requires the version of `ox` that includes ERC-8021 Schema 2 support.
+
+    ```bash  theme={null}
+    npm i ox wagmi viem
+    ```
+  </Step>
+
+  <Step title="Generate Your Attribution Suffix">
+    Call `Attribution.toDataSuffix` with your app code and add it to your Wagmi config or Viem wallet client.
+
+    ```ts config.ts theme={null}
+    import { createConfig, http } from "wagmi";
+    import { base } from "wagmi/chains";
+    import { Attribution } from "ox/erc8021";
+
+    // Get your Builder Code from base.dev > Settings > Builder Codes
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+      appCode: "YOUR-APP-CODE",
+    });
+
+    export const config = createConfig({
+      chains: [base],
+      transports: { [base.id]: http() },
+      dataSuffix: DATA_SUFFIX,
+    });
+    ```
+  </Step>
+
+  <Step title="Extend with Wallet Code, Registries, or Metadata (Optional)">
+    If you also need to attribute the wallet provider, point entities to custom registries, or attach campaign metadata, pass the additional fields to `Attribution.toDataSuffix`.
+
+    ```ts config.ts theme={null}
+    import { Attribution } from "ox/erc8021";
+
+    const DATA_SUFFIX = Attribution.toDataSuffix({
+     appCode:    "YOUR-APP-CODE",    // optional: use if you're an app
+     walletCode: "YOUR-WALLET-CODE", // optional: use if you're a wallet
+      registries: {
+        app: {
+          chainId: 8453,
+          address: "0xYourAppRegistryAddress",
+        },
+        wallet: {
+          chainId: 8453,
+          address: "0xYourWalletRegistryAddress",
+        },
+      },
+      metadata: {
+        utm_campaign: "winter-promo",
+        source: "webapp",
+      },
+    });
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  At least one of `appCode` or `walletCode` must be present. `chainId` in registries is a plain number (e.g., `8453`), consistent with Schema 1.
+</Note>
+
+### Decoding a Schema 2 Suffix
+
+`Attribution.fromData` handles all three schemas. Check `attribution.id === 2` to type-narrow to Schema 2 fields:
+
+```ts theme={null}
+import { Attribution } from "ox/erc8021";
+
+const attribution = Attribution.fromData(hexSuffix);
+
+if (attribution && attribution.id === 2) {
+  console.log(attribution.appCode);    // string | undefined
+  console.log(attribution.walletCode); // string | undefined
+  console.log(attribution.registries); // { app?, wallet? } | undefined
+  console.log(attribution.metadata);   // Record<string, unknown> | undefined
+}
+```
+
+<Tip>
+  Use the [Builder Code Validation](https://builder-code-checker.vercel.app/) tool to verify that your Schema 2 suffix decodes correctly before shipping.
+</Tip>
+
 ## Verify Attribution
 
 To confirm your Builder Code is being appended correctly:
