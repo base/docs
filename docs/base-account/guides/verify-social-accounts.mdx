@@ -160,7 +160,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
                     ┌─────────────┐
                     │             │  1. User connects wallet
                     │   Your      │
-                    │   Mini App  │
+                    │   App  │
                     │  (Frontend) │
                     └──────┬──────┘
                            │
@@ -176,7 +176,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
                            │
                            ▼
                     ┌──────────────┐
-                    │  Mini App    │  • Validates trait requirements
+                    │  App    │  • Validates trait requirements
                     │  Backend     │  • Verifies signature with Base Verify API
                     │  (Your API)  │
                     └──────┬───────┘
@@ -192,12 +192,12 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
                            │ 404 Not Found
                            ▼
 
-    5. Redirect to Base Verify Mini App
+    5. Redirect to Base Verify App
                            │
                            ▼
                     ┌──────────────────────┐
                     │  Base Verify         │  6. User completes OAuth
-                    │  Mini App            │     (X, Coinbase, Instagram, TikTok)
+                    │  App            │     (X, Coinbase, Instagram, TikTok)
                     │  verify.base.dev     │  7. Base Verify stores verification
                     └──────────┬───────────┘
                                │
@@ -205,7 +205,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
                                ▼
                         ┌─────────────┐
                         │  Your       │  9. Check again (step 4)
-                        │  Mini App   │     → Now returns 200 or 400
+                        │  App   │     → Now returns 200 or 400
                         └─────────────┘
 ```
 
@@ -213,7 +213,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 
 - Generate SIWE messages with trait requirements
 - Handle user wallet connection
-- Redirect to the Base Verify Mini App when verification is not found
+- Redirect to the Base Verify App when verification is not found
 - Store the returned verification token to prevent reuse
 - Keep your secret key secure on the backend
 
@@ -230,7 +230,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 | Code | Meaning | Action |
 | :--- | :--- | :--- |
 | **200 OK** | Wallet has verified the provider account AND meets all trait requirements. Returns a unique token. | Grant access, store the token. |
-| **404 Not Found** | Wallet has never verified this provider. | Redirect user to the Base Verify Mini App. |
+| **404 Not Found** | Wallet has never verified this provider. | Redirect user to the Base Verify App. |
 | **400 Bad Request** (`verification_traits_not_satisfied`) | Wallet has verified the provider, but doesn't meet the trait requirements. | Show user they don't meet requirements. Do **not** redirect. |
 
 ---
@@ -247,7 +247,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 
 Provide the Base Verify team:
 
-1. Your **Mini App domain**
+1. Your **App domain**
 2. Your **redirect URI** — where users return after verification (e.g., `https://yourapp.com`)
 
 <Warning>
@@ -416,9 +416,9 @@ Your backend **must** validate that the trait requirements in the SIWE message m
 
 <Step title="Redirect to Base Verify (frontend)">
 
-If you receive a 404 response, redirect the user to the Base Verify Mini App to complete OAuth:
+If you receive a 404 response, redirect the user to the Base Verify App to complete OAuth:
 
-```typescript Open the Base Verify Mini App highlight={3-6,9}
+```typescript Open the Base Verify App highlight={3-6,9}
 function redirectToVerifyMiniApp(provider: string) {
   const params = new URLSearchParams({
     redirect_uri: config.appUrl,
@@ -432,7 +432,7 @@ function redirectToVerifyMiniApp(provider: string) {
 }
 ```
 
-After verification, the user returns to your `redirect_uri` with `?success=true`. Run the check again (step 3) and it now returns 200 with a token. If you're building for the Base app, see the [Mini apps overview](/mini-apps/introduction/overview) for broader app structure and lifecycle guidance.
+After verification, the user returns to your `redirect_uri` with `?success=true`. Run the check again (step 3) and it now returns 200 with a token. If you're building for the Base app, see the [Apps overview](/apps/introduction/overview) for broader app structure and lifecycle guidance.
 
 </Step>
 </Steps>
@@ -441,7 +441,7 @@ After verification, the user returns to your `redirect_uri` with `?success=true`
 
 | Response | What to do |
 | :--- | :--- |
-| **404** | User hasn't verified. Redirect to the Base Verify Mini App. |
+| **404** | User hasn't verified. Redirect to the Base Verify App. |
 | **400** (`verification_traits_not_satisfied`) | User has account but doesn't meet requirements. Show a message — don't redirect and don't retry. |
 | **200** | Store the token and grant access. |
 
@@ -512,7 +512,7 @@ curl -X POST https://verify.base.dev/v1/base_verify_token \
 }
 ```
 
-Redirect the user to the Base Verify Mini App to complete verification.
+Redirect the user to the Base Verify App to complete verification.
 
 **400 Bad Request — traits not satisfied:**
 
@@ -536,7 +536,7 @@ The user has the provider account but doesn't meet trait requirements. Do not re
 
 Check that your secret key is correct and included in the Authorization header.
 
-### Mini App redirect
+### App redirect
 
 To redirect users to Base Verify for verification:
 
@@ -836,14 +836,14 @@ if (!validation.valid) {
 
 Base Verify validates provider accounts through [OAuth](https://oauth.net/2/):
 
-1. User initiates OAuth in the Base Verify Mini App
+1. User initiates OAuth in the Base Verify App
 2. Provider (X, Instagram, etc.) authenticates the user
 3. Provider returns an OAuth token to Base Verify
 4. Base Verify fetches account data using the OAuth token
 5. Base Verify stores the verification linked to the user's wallet
 6. OAuth token is encrypted and stored securely
 
-Your app never handles OAuth tokens or redirects — this is all handled within the Base Verify Mini App.
+Your app never handles OAuth tokens or redirects — this is all handled within the Base Verify App.
 
 ### Data storage
 

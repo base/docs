@@ -19,7 +19,7 @@ docs/
 ├── base-chain/       # Network, nodes, tools
 ├── base-account/     # Smart Wallet SDK
 ├── ai-agents/        # Agent development
-├── mini-apps/        # MiniKit guides
+├── apps/             # Apps on Base (MiniKit, guides)
 ├── onchainkit/       # React components (versioned)
 ├── images/           # Assets by topic
 ├── snippets/         # Reusable MDX components

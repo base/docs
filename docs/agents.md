@@ -11,6 +11,10 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |ai-agents/skills/trading:alchemy-agentic-gateway,coingecko,swap-execution
 |ai-agents/skills/wallets:bankr,cdp-agentic-wallet,sponge-wallet
 |ai-agents/trading:data-fetching,trade-execution
+|apps/growth:rewards
+|apps/quality-and-publishing:overview,quality-bar,submission-guidelines
+|apps/quickstart:build-checklist,building-for-the-base-app,create-new-app,migrate-existing-apps,migrate-to-standard-web-app,template
+|apps/technical-guides:accept-payments,base-notifications,building-chat-agents,neynar-notifications,sharing-and-social-graph,sign-manifest
 |base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
 |base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
@@ -43,9 +47,5 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
 |get-started:base-mentorship-program,base-services-hub,base,block-explorers,build-app,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,mistakes,prompt-library,resources-for-ai-agents
-|mini-apps/growth:rewards
-|mini-apps/quality-and-publishing:overview,quality-bar,submission-guidelines
-|mini-apps/quickstart:build-checklist,building-for-the-base-app,create-new-miniapp,migrate-existing-apps,migrate-to-standard-web-app,template
-|mini-apps/technical-guides:accept-payments,base-notifications,building-chat-agents,neynar-notifications,sharing-and-social-graph,sign-manifest
 |onchainkit:migrate-from-onchainkit
-|root:agents,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
+|root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
