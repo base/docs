@@ -4,6 +4,37 @@ title: Error Handling
 description: Patterns for surfacing and resolving common runtime errors in Mini Apps
 ---
 
-TODO: Provide guidance on handling errors from hooks, network issues, and manifest/metadata failures.
+Effective error handling is crucial for a smooth user experience in Mini Apps.
+
+## Common Error Patterns
+
+### Network Issues
+Always wrap async calls in `try/catch` blocks to handle network failures gracefully.
+
+```typescript
+try {
+  const data = await fetchData();
+} catch (error) {
+  console.error('Network error:', error);
+  // Show user-friendly toast or UI state
+}
+```
+
+### Hook Failures
+When using hooks like `useWriteContract`, handle both user rejection and transaction failures.
+
+```typescript
+const { writeContract } = useWriteContract({
+  mutation: {
+    onError: (error) => {
+      if (error.message.includes('User rejected')) {
+        // Handle user rejection
+      } else {
+        // Handle other errors
+      }
+    },
+  },
+});
+```
 
 
