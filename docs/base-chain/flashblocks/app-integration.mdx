@@ -198,6 +198,193 @@ console.log(`Time difference: ${confirmTime - submissionTime}ms`);
 
 You should see the confirmation time significantly lower than the standard RPC endpoint.
 
+
+## WebSocket Streaming
+
+For real-time monitoring — such as watching a specific address or tracking mempool activity — connect directly to the Flashblocks WebSocket stream.
+
+<Warning>
+Avoid hard dependencies on WebSocket in transaction-sending flows. Use WebSocket for monitoring only; use the RPC API for sending transactions and querying state.
+</Warning>
+
+### Endpoints
+
+| Network | WebSocket URL |
+|---------|--------------|
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+Public endpoints are rate-limited. For production use, connect through a Flashblocks-enabled node provider.
+
+### Message Format
+
+Flashblock messages are **Brotli-compressed JSON**. Each message represents one sub-block:
+
+- **`index: 0`** — contains full block header (`block_number`, `gas_limit`, `base_fee_per_gas`, `timestamp`)
+- **`index: 1–9`** — contains only the diff: new transactions and receipts added in this sub-block
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 0,
+  "base": {
+    "block_number": "0x158a0e9",
+    "gas_limit": "0x3938700",
+    "base_fee_per_gas": "0xfa",
+    "timestamp": "0x67bf8332"
+  },
+  "diff": {
+    "transactions": [...],
+    "receipts": [...]
+  }
+}
+```
+
+### Basic Connection
+
+Install the `ws` package:
+
+```bash
+npm install ws
+```
+
+```typescript
+import WebSocket from "ws";
+import { brotliDecompressSync } from "zlib";
+
+const WS_URL = "wss://mainnet.flashblocks.base.org/ws";
+
+function parseFlashblock(data: Buffer) {
+  try {
+    // Messages are Brotli-compressed
+    return JSON.parse(brotliDecompressSync(data).toString());
+  } catch {
+    // Some messages may arrive as plain JSON
+    return JSON.parse(data.toString());
+  }
+}
+
+const ws = new WebSocket(WS_URL);
+
+ws.on("open", () => console.log("Connected to Flashblocks"));
+
+ws.on("message", (data: Buffer) => {
+  const flashblock = parseFlashblock(data);
+  const txCount = flashblock.diff?.transactions?.length ?? 0;
+  console.log(`Flashblock #${flashblock.index}: ${txCount} transaction(s)`);
+});
+
+ws.on("error", (err) => console.error("WebSocket error:", err.message));
+ws.on("close", () => console.log("Disconnected"));
+```
+
+### Auto-Reconnect
+
+Production apps should reconnect automatically when the connection drops:
+
+```typescript
+import WebSocket from "ws";
+import { brotliDecompressSync } from "zlib";
+
+const WS_URL = "wss://mainnet.flashblocks.base.org/ws";
+
+function createFlashblocksClient(onFlashblock: (data: unknown) => void) {
+  let ws: WebSocket | null = null;
+  let reconnectDelay = 1000;
+
+  function connect() {
+    ws = new WebSocket(WS_URL);
+
+    ws.on("open", () => {
+      console.log("Connected to Flashblocks");
+      reconnectDelay = 1000; // reset on successful connection
+    });
+
+    ws.on("message", (data: Buffer) => {
+      try {
+        const decompressed = brotliDecompressSync(data);
+        onFlashblock(JSON.parse(decompressed.toString()));
+      } catch {
+        try { onFlashblock(JSON.parse(data.toString())); } catch { /* ignore */ }
+      }
+    });
+
+    ws.on("close", () => {
+      console.log(`Reconnecting in ${reconnectDelay}ms...`);
+      setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        connect();
+      }, reconnectDelay);
+    });
+
+    ws.on("error", (err) => {
+      console.error("WebSocket error:", err.message);
+      ws?.close();
+    });
+  }
+
+  connect();
+  return { disconnect: () => ws?.close() };
+}
+
+// Usage
+const client = createFlashblocksClient((flashblock) => {
+  console.log("New flashblock:", flashblock);
+});
+
+process.on("SIGINT", () => { client.disconnect(); process.exit(0); });
+```
+
+### Watch a Specific Address
+
+Monitor an address for incoming or outgoing transactions in real-time:
+
+```typescript
+import WebSocket from "ws";
+import { brotliDecompressSync } from "zlib";
+
+interface FlashblockTx {
+  hash: string;
+  from: string;
+  to: string | null;
+  value: string;
+}
+
+interface Flashblock {
+  index: number;
+  diff?: { transactions?: FlashblockTx[] };
+}
+
+function watchAddress(address: string) {
+  const target = address.toLowerCase();
+  const ws = new WebSocket("wss://mainnet.flashblocks.base.org/ws");
+
+  ws.on("open", () => console.log(`Watching ${address}`));
+
+  ws.on("message", (data: Buffer) => {
+    let flashblock: Flashblock;
+    try {
+      flashblock = JSON.parse(brotliDecompressSync(data).toString());
+    } catch {
+      try { flashblock = JSON.parse(data.toString()); } catch { return; }
+    }
+
+    for (const tx of flashblock.diff?.transactions ?? []) {
+      if (tx.from?.toLowerCase() === target || tx.to?.toLowerCase() === target) {
+        const valueEth = Number(BigInt(tx.value)) / 1e18;
+        console.log(`\nTransaction detected in flashblock #${flashblock.index}`);
+        console.log(`  Hash:  ${tx.hash}`);
+        console.log(`  From:  ${tx.from}`);
+        console.log(`  To:    ${tx.to ?? "contract creation"}`);
+        console.log(`  Value: ${valueEth.toFixed(6)} ETH`);
+      }
+    }
+  });
+}
+
+watchAddress("0xYourAddressHere");
+```
+
 ## Support
 
 For feedback, support or questions about Flashblocks, please don't hesitate to contact us in the `#developer-chat` channel in the [Base Discord](https://base.org/discord).
