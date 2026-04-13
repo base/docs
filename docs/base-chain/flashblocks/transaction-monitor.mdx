@@ -1,0 +1,227 @@
+---
+title: "Real-Time Transaction Monitor"
+description: "Build a real-time transaction monitor using Flashblocks WebSocket streaming with auto-reconnect and fallback to standard RPC"
+---
+
+# Real-Time Transaction Monitor
+
+This guide walks you through building a production-ready transaction monitor using Base Flashblocks. You will receive transaction preconfirmations within 200ms — 10x faster than waiting for a standard Base block.
+
+## Prerequisites
+
+- Node.js 18+
+- Basic knowledge of TypeScript and WebSockets
+
+## How Flashblocks work
+
+Base produces a new block every 2 seconds. Flashblocks split each block into up to 10 sub-blocks streamed every 200ms. Each message contains:
+
+- **`index: 0`** — full block header (`block_number`, `gas_limit`, `base_fee_per_gas`)
+- **`index: 1-9`** — incremental diff: new transactions and receipts added since the previous sub-block
+
+Messages arrive over WebSocket **Brotli-compressed**.
+
+## Setup
+
+```bash
+mkdir flashblocks-monitor && cd flashblocks-monitor
+npm init -y
+npm install ws
+npm install -D typescript @types/ws @types/node ts-node
+```
+
+Create `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "dist"
+  }
+}
+```
+
+## Build the monitor
+
+Create `monitor.ts`:
+
+```typescript
+import WebSocket from "ws";
+import { brotliDecompressSync } from "zlib";
+
+const config = {
+  wsUrl: "wss://mainnet.flashblocks.base.org/ws",
+  watchAddresses: ["0xYourWalletAddress"],
+  reconnect: { initialDelayMs: 1000, maxDelayMs: 30000 },
+};
+
+interface FlashblockTx {
+  hash: string;
+  from: string;
+  to: string | null;
+  value: string;
+  gas: string;
+}
+
+interface FlashblockReceipt {
+  transactionHash: string;
+  status: string;
+  gasUsed: string;
+  logs: Array<{ address: string; topics: string[]; data: string }>;
+}
+
+interface Flashblock {
+  payload_id: string;
+  index: number;
+  base?: {
+    block_number: string;
+    gas_limit: string;
+    base_fee_per_gas: string;
+    timestamp: string;
+  };
+  diff?: {
+    transactions?: FlashblockTx[];
+    receipts?: FlashblockReceipt[];
+  };
+}
+
+function parseMessage(data: Buffer): Flashblock | null {
+  try {
+    return JSON.parse(brotliDecompressSync(data).toString());
+  } catch {
+    try { return JSON.parse(data.toString()); } catch { return null; }
+  }
+}
+
+function handleFlashblock(flashblock: Flashblock) {
+  const { index, base, diff } = flashblock;
+  const watchSet = new Set(config.watchAddresses.map((a) => a.toLowerCase()));
+
+  if (index === 0 && base) {
+    const blockNum = parseInt(base.block_number, 16);
+    const baseFee = parseInt(base.base_fee_per_gas, 16);
+    console.log(`\n[Block #${blockNum}] base fee: ${baseFee} wei`);
+  }
+
+  const txs = diff?.transactions ?? [];
+  const receipts = diff?.receipts ?? [];
+
+  for (const tx of txs) {
+    const isWatched =
+      watchSet.has(tx.from?.toLowerCase()) ||
+      watchSet.has(tx.to?.toLowerCase() ?? "");
+
+    if (!isWatched) continue;
+
+    const receipt = receipts.find((r) => r.transactionHash === tx.hash);
+    const status = receipt
+      ? receipt.status === "0x1" ? "success" : "reverted"
+      : "preconfirmed";
+
+    const valueEth = (Number(BigInt(tx.value)) / 1e18).toFixed(6);
+
+    console.log(`  [flashblock #${index}] ${status.toUpperCase()}`);
+    console.log(`    Hash:  ${tx.hash}`);
+    console.log(`    From:  ${tx.from}`);
+    console.log(`    To:    ${tx.to ?? "contract creation"}`);
+    console.log(`    Value: ${valueEth} ETH`);
+    if (receipt?.logs?.length) {
+      console.log(`    Logs:  ${receipt.logs.length} event(s) emitted`);
+    }
+  }
+}
+
+function startMonitor() {
+  let ws: WebSocket | null = null;
+  let delay = config.reconnect.initialDelayMs;
+
+  function connect() {
+    console.log(`Connecting to ${config.wsUrl} ...`);
+    ws = new WebSocket(config.wsUrl);
+
+    ws.on("open", () => {
+      console.log("Connected to Flashblocks");
+      console.log(`Watching: ${config.watchAddresses.join(", ")}`);
+      delay = config.reconnect.initialDelayMs;
+    });
+
+    ws.on("message", (data: Buffer) => {
+      const flashblock = parseMessage(data);
+      if (flashblock) handleFlashblock(flashblock);
+    });
+
+    ws.on("close", () => {
+      console.log(`Disconnected. Reconnecting in ${delay}ms ...`);
+      setTimeout(() => {
+        delay = Math.min(delay * 2, config.reconnect.maxDelayMs);
+        connect();
+      }, delay);
+    });
+
+    ws.on("error", (err) => {
+      console.error("Error:", err.message);
+      ws?.close();
+    });
+  }
+
+  connect();
+  process.on("SIGINT", () => { console.log("\nShutting down ..."); ws?.close(); process.exit(0); });
+}
+
+startMonitor();
+```
+
+## Run
+
+```bash
+npx ts-node monitor.ts
+```
+
+Expected output:
+
+```
+Connecting to wss://mainnet.flashblocks.base.org/ws ...
+Connected to Flashblocks
+Watching: 0xYourWalletAddress
+
+[Block #23954321] base fee: 250 wei
+
+  [flashblock #3] SUCCESS
+    Hash:  0xabc123...
+    From:  0xYourWalletAddress
+    To:    0xRecipient...
+    Value: 0.001000 ETH
+```
+
+## Fallback to standard RPC
+
+If the Flashblocks endpoint is unavailable, fall back to polling the standard RPC:
+
+```typescript
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+
+const standardClient = createPublicClient({ chain: base, transport: http() });
+
+async function waitForTransaction(hash: `0x${string}`) {
+  try {
+    const flashblocksClient = createPublicClient({
+      chain: base,
+      transport: http("https://mainnet-preconf.base.org"),
+    });
+    return await flashblocksClient.getTransactionReceipt({ hash });
+  } catch {
+    console.warn("Flashblocks unavailable, falling back to standard RPC");
+    return await standardClient.waitForTransactionReceipt({ hash });
+  }
+}
+```
+
+## Next steps
+
+- [App Integration](/base-chain/flashblocks/app-integration) — RPC-based integration with viem, wagmi, and ethers.js
+- [Flashblocks API Reference](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview) — Full list of supported RPC methods
+- [Flashblocks Overview](/base-chain/flashblocks/overview) — How Flashblocks work under the hood
