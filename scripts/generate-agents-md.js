@@ -40,10 +40,10 @@ function loadMintIgnore(mintignorePath) {
     if (!trimmed || trimmed.startsWith('#')) continue;
 
     if (trimmed.endsWith('/*')) {
-      // /mini-apps/core-concepts/* → skip all files in that dir
+      // /apps/core-concepts/* → skip all files in that dir
       ignored.dirs.add(trimmed.slice(1, -2));
     } else if (trimmed.startsWith('/')) {
-      // /mini-apps/growth/build-viral-mini-apps → skip specific file
+      // /apps/growth/build-viral-apps → skip specific file
       ignored.files.add(trimmed.slice(1));
     } else {
       // writing.md → skip by bare filename anywhere

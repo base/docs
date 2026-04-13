@@ -1,0 +1,199 @@
+---
+title: "Notifications"
+description: "Send in-app notifications to your app's users through the Base Dashboard REST API."
+---
+
+<Note>
+  Notifications are delivered through the **Base App** only. Users who interact with your app on other platforms will not receive notifications through this API.
+</Note>
+
+The Notifications API lets you send in-app notifications to users who have pinned your app and opted in to notifications. Two REST endpoints handle the full workflow: fetch your audience's wallet addresses, then send targeted or broadcast messages.
+
+## Prerequisites
+
+- A project on [Base Dashboard](https://dashboard.base.org) with your app URL registered
+- An API key generated from **Settings > API Key** in your Base Dashboard project
+
+## Quick start
+
+Both endpoints require your API key in the `x-api-key` header.
+
+<Info>
+  The notification endpoints share a rate limit of **10 requests per minute per IP**. Requests to either endpoint count toward the same limit. Exceeding it returns a `429 Too Many Requests` response.
+</Info>
+
+Fetch the wallet addresses of users who have opted in to notifications for your app:
+
+```bash title="Get users with notifications enabled"
+curl "https://dashboard.base.org/api/v1/notifications/app/users?app_url=<your-app-url>&notification_enabled=true" \
+  -H "x-api-key: <your-api-key>"
+```
+
+```json title="Response"
+{
+  "success": true,
+  "users": [
+    { "address": "0xA11ce00000000000000000000000000000000000", "notificationsEnabled": true },
+    { "address": "0xB0B0000000000000000000000000000000000000", "notificationsEnabled": true }
+  ]
+}
+```
+
+Send a notification to one or more of those addresses. The `target_path` sets the route within your app that opens when the user taps the notification:
+
+```bash title="Send a notification"
+curl -X POST "https://dashboard.base.org/api/v1/notifications/send" \
+  -H "x-api-key: <your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_url": "<your-app-url>",
+    "wallet_addresses": ["<wallet-address>"],
+    "title": "<title>",
+    "message": "<message>",
+    "target_path": "<target-path>"
+  }'
+```
+
+```json title="Response"
+{
+  "success": true,
+  "results": [
+    { "walletAddress": "0xA11ce00000000000000000000000000000000000", "sent": true }
+  ],
+  "sentCount": 1,
+  "failedCount": 0
+}
+```
+
+## API reference
+
+### GET /v1/notifications/app/users
+
+Returns users who have pinned your app, with optional filtering by notification opt-in status. Results are paginated.
+
+```http
+GET https://dashboard.base.org/api/v1/notifications/app/users
+```
+
+#### Query parameters
+
+<ParamField query="app_url" type="string" required>
+  Your app URL as registered on the Base Dashboard.
+</ParamField>
+
+<ParamField query="notification_enabled" type="boolean">
+  Set to `true` to return only users who have enabled notifications for your app.
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Pagination cursor returned from a previous response. Omit for the first page.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Maximum users per page. Capped at 100.
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Whether the request succeeded.
+</ResponseField>
+
+<ResponseField name="users" type="array">
+  Users who have pinned your app.
+</ResponseField>
+
+<ResponseField name="users[].address" type="string">
+  The user's wallet address.
+</ResponseField>
+
+<ResponseField name="users[].notificationsEnabled" type="boolean">
+  Whether the user has enabled notifications for your app.
+</ResponseField>
+
+<ResponseField name="nextCursor" type="string">
+  Cursor for the next page. Absent when no more results exist.
+</ResponseField>
+
+
+
+---
+
+### POST /v1/notifications/send
+
+Sends an in-app notification to one or more wallet addresses.
+
+```http
+POST https://dashboard.base.org/api/v1/notifications/send
+```
+
+#### Request body
+
+<ParamField body="app_url" type="string" required>
+  Your app URL as registered on the Base Dashboard.
+</ParamField>
+
+<ParamField body="wallet_addresses" type="string[]" required>
+  Wallet addresses to notify. Minimum 1, maximum 1,000 per request.
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Notification title. Maximum 30 characters.
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Notification body text. Maximum 200 characters.
+</ParamField>
+
+<ParamField body="target_path" type="string">
+  Path to open when the user taps the notification, such as `/rewards`. Must start with `/` if provided. Maximum 500 characters. Omit to open your app at its root URL.
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  `true` only when every address in the request delivered successfully.
+</ResponseField>
+
+<ResponseField name="results" type="array">
+  Per-address delivery status.
+</ResponseField>
+
+<ResponseField name="results[].walletAddress" type="string">
+  The targeted wallet address.
+</ResponseField>
+
+<ResponseField name="results[].sent" type="boolean">
+  Whether delivery succeeded for this address.
+</ResponseField>
+
+<ResponseField name="results[].failureReason" type="string">
+  Present when `sent` is `false`. Possible values: `user has not saved this app`, `user has notifications disabled`.
+</ResponseField>
+
+<ResponseField name="sentCount" type="number">
+  Total notifications delivered successfully.
+</ResponseField>
+
+<ResponseField name="failedCount" type="number">
+  Total notifications that failed to deliver.
+</ResponseField>
+
+
+## Errors
+
+Both endpoints return the following errors:
+
+| Status | Code | Cause |
+|--------|------|-------|
+| 400 | `Bad Request` | Possible causes:<ul><li>`app_url` is missing</li><li>`title` is missing or exceeds 30 characters</li><li>`message` is missing or exceeds 200 characters</li><li>`wallet_addresses` is missing or exceeds 1,000 addresses</li><li>`target_path` exceeds 500 characters or does not start with `/`</li></ul> |
+| 401 | `Unauthorized` | Missing or invalid API key. |
+| 403 | `Forbidden` | The `app_url` does not belong to your project, or your project is not whitelisted for notifications. |
+| 404 | `Not Found` | The project associated with your API key does not exist. |
+| 503 | `Service Unavailable` | The notification service is temporarily unavailable. Retry the request. Send endpoint only. |
+
+## Batching and deduplication
+
+Each request accepts up to 1,000 addresses. For larger audiences, split your address list across multiple requests.
+
+Duplicate addresses within a single request are deduplicated automatically. Identical notifications — same app URL, wallet address, title, message, and target path — sent within a 24-hour window are also deduplicated and return a success response without sending a duplicate push.

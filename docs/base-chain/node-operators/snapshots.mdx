@@ -5,10 +5,6 @@ sidebarTitle: Snapshots
 
 Using a snapshot significantly reduces the initial time required to sync a Base node. Snapshots are updated regularly.
 
-<Warning>
-Geth Archive Nodes are no longer supported via snapshots due to performance limitations. For Archive functionality, please use Reth.
-</Warning>
-
 If you're a prospective or current Base node operator, you can restore from a snapshot to speed up your initial sync. Follow the steps below carefully.
 
 ## Restoring from Snapshot
@@ -16,27 +12,20 @@ If you're a prospective or current Base node operator, you can restore from a sn
 These steps assume you are in the cloned `node` directory (the one containing `docker-compose.yml`).
 
 1. **Prepare Data Directory**:
-    - **Before running Docker for the first time**, create the data directory on your host machine that will be mapped into the Docker container. This directory must match the `volumes` mapping in the `docker-compose.yml` file for the client you intend to use.  
-      - For Reth (recommended):  
+    - **Before running Docker for the first time**, create the data directory on your host machine that will be mapped into the Docker container. This directory must match the `volumes` mapping in the `docker-compose.yml` file.
         ```bash
         mkdir ./reth-data
-        ```  
-      - For Geth:  
-        ```bash
-        mkdir ./geth-data
-        ```  
+        ```
     - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./reth-data/*`), and proceed.
 
 2. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below. Use `wget` (or similar) to download it into the `node` directory.
 
-    | Network  | Client | Snapshot Type | Download Command (`wget …`)                                                                                       |
-    | -------- | ------ | ------------- | ----------------------------------------------------------------------------------------------------------------- |
-    | Testnet  | Reth   | Archive (recommended)| `wget -c https://sepolia-reth-archive-snapshots.base.org/$(curl https://sepolia-reth-archive-snapshots.base.org/latest)` |
-    | Testnet  | Reth   | Pruned               | `wget -c https://sepolia-reth-pruned-snapshots.base.org/$(curl https://sepolia-reth-pruned-snapshots.base.org/latest)` |                 |
-    | Testnet  | Geth   | Full                 | `wget -c https://sepolia-full-snapshots.base.org/$(curl https://sepolia-full-snapshots.base.org/latest)`             |
-    | Mainnet  | Reth   | Archive (recommended)| `wget -c https://mainnet-reth-archive-snapshots.base.org/$(curl https://mainnet-reth-archive-snapshots.base.org/latest)` |
-    | Mainnet  | Reth   | Pruned               | `wget -c https://mainnet-reth-pruned-snapshots.base.org/$(curl https://mainnet-reth-pruned-snapshots.base.org/latest)` |                 |
-    | Mainnet  | Geth   | Full                 | `wget -c https://mainnet-full-snapshots.base.org/$(curl https://mainnet-full-snapshots.base.org/latest)`             |
+    | Network  | Snapshot Type | Download Command (`wget …`)                                                                                       |
+    | -------- | ------------- | ----------------------------------------------------------------------------------------------------------------- |
+    | Testnet  | Archive (recommended)| `wget -c https://sepolia-reth-archive-snapshots.base.org/$(curl https://sepolia-reth-archive-snapshots.base.org/latest)` |
+    | Testnet  | Pruned               | `wget -c https://sepolia-reth-pruned-snapshots.base.org/$(curl https://sepolia-reth-pruned-snapshots.base.org/latest)` |
+    | Mainnet  | Archive (recommended)| `wget -c https://mainnet-reth-archive-snapshots.base.org/$(curl https://mainnet-reth-archive-snapshots.base.org/latest)` |
+    | Mainnet  | Pruned               | `wget -c https://mainnet-reth-pruned-snapshots.base.org/$(curl https://mainnet-reth-pruned-snapshots.base.org/latest)` |
 
     <Note>
     Ensure you have enough free disk space to download the snapshot archive (`.tar.gz` / `.tar.zst` file) _and_ extract its contents. The extracted data will be significantly larger than the archive.
@@ -51,26 +40,16 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     tar -I zstd -xvf <snapshot-filename.tar.zst>
     ```
 
-4. **Move Data**: The extraction process will likely create a directory (e.g., `reth` or `geth`). 
+4. **Move Data**: The extraction process will likely create a `reth` directory.
 
-    * Move the *contents* of that directory into the data directory you created in Step 1.
-        * Example (if archive extracted to a reth folder - **verify actual folder name**):
+    * Move the *contents* of that directory into the data directory you created in Step 1:
 
           ```bash
-          # For Reth
           mv ./reth/* ./reth-data/
           rm -rf ./reth    # Clean up empty extracted folder
           ```
 
-        * Example (if archive extracted to a geth folder):
-
-          ```bash
-          # For Geth
-          mv ./geth/* ./geth-data/
-          rm -rf ./geth    # Clean up empty extracted folder
-          ```
-
-    * The goal is to have the chain data directories (e.g., `chaindata`, `nodes`, `segments`, etc.) directly inside `./reth-data` or `./geth-data`, not nested within another subfolder.
+    * The goal is to have the chain data directories (e.g., `chaindata`, `nodes`, `segments`, etc.) directly inside `./reth-data`, not in a nested subfolder.
 
 5. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
 
