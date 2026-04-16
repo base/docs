@@ -31,112 +31,49 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     See [Gas & Transaction Sizing](/base-chain/flashblocks/app-integration#gas-&-transaction-sizing) for the full breakdown.
   </Accordion>
 
-  <Accordion title="How do I ensure my transaction is in the first Flashblock?">
-    There's no way to guarantee which Flashblock a transaction lands in, similar to how you can't guarantee a specific block. To improve chances of quick inclusion:
-
-    - Set a higher priority fee
-    - Keep gas limits below ~18.75M (1/10 of block limit) to be eligible for Flashblock 1
-  </Accordion>
-
-  <Accordion title="Why do transactions sometimes appear out of order by fee?">
-    The Flashblock builder uses a **dynamic mempool** that continuously accepts new transactions while building. This design prioritizes **low inclusion latency** over strict fee ordering.
-
-    **What this means:**
-    - Transactions are ordered by fee *at the time they're selected* for inclusion
-    - If a high-fee transaction arrives after a lower-fee transaction has already been committed to the current Flashblock, the high-fee transaction will appear after it (or in the next Flashblock)
-    - This is expected behavior, not a bug—the builder doesn't "reorder" already-committed transactions
-
-    **Why this tradeoff?**
-    
-    A "snapshot" mempool (freezing the transaction pool at the start of each block) would guarantee strict fee ordering but increase inclusion latency. The dynamic approach gets transactions included faster at the cost of occasionally "breaking" the expected priority gas auction (PGA) order.
-
-    **For traders and bots:** If strict fee-based ordering is critical for your use case, be aware that arrival timing matters as much as fee amount within a 200ms Flashblock window.
-  </Accordion>
-
-  <Accordion title="How frequently do Flashblock reorgs happen?">
-    Base targets a Flashblock reorg rate of < 0.1%. While reorgs are rare, applications should implement fallback logic for critical operations. 
-    
-    Check current metrics at [base.org/stats](https://base.org/stats).
-  </Accordion>
-
-  <Accordion title="What does it mean when a Flashblock is reorged?">
-    A reorg means a Flashblock was streamed as a preconfirmation but wasn't included in the final block. This is rare due to architectural improvements in rollup-boost that prevent tail Flashblock reorgs. Apps should handle this possibility gracefully, but occurrences are minimal.
+  <Accordion title="How do I ensure my transaction is in the first position of a block?">
+    To maximize the chance of being first in a block, submit transactions with high priority fees and monitor the mempool. Flashblocks provide more granular timing, but block ordering still follows standard fee-based priority.
   </Accordion>
 </AccordionGroup>
 
 ---
 
-## WebSocket
+## WebSocket Data
 
 <AccordionGroup>
-  <Accordion title="Can I connect directly to the Flashblocks WebSocket stream?">
-    **No.** The raw Flashblocks WebSocket (`wss://mainnet.flashblocks.base.org/ws`) is reserved for infrastructure-to-node data syncing. Applications should not connect to it directly.
-
-    Instead, query your RPC node or node provider (e.g., QuickNode, Alchemy, Infura, dRPC) for Flashblocks data via:
-    - **RPC API**: Standard JSON-RPC methods with the `pending` tag
-    - **WebSocket subscriptions**: Use `eth_subscribe` via your node provider's WebSocket endpoint
-
-    See [App Integration](/base-chain/flashblocks/app-integration) for implementation details.
+  <Accordion title="What's the difference between `pending` and `latest` block tags?">
+    - `pending`: Returns the current Flashblock (preconfirmed state)
+    - `latest`: Returns the latest finalized 2-second block
+    
+    Use `pending` to get real-time preconfirmations. Use `latest` for confirmed state.
   </Accordion>
 
-  <Accordion title="Why are there 11 Flashblock indices (0-10)?">
-    Index 0 contains only system transactions and doesn't use any gas limit. Indexes 1-10 are the actual Flashblocks that pull pending transactions from the txpool.
+  <Accordion title="Why am I seeing duplicate transactions?">
+    Each Flashblock contains transactions from the previous Flashblock plus new ones. A transaction appearing in Flashblock N will also appear in Flashblock N+1, N+2, etc., until the block is finalized.
+
+    To avoid duplicates, track transactions by hash and only process new ones.
   </Accordion>
 
-  <Accordion title="Why are there sometimes fewer than 10 Flashblocks?">
-    This is expected. When the previous block takes longer to build, the system compensates by allocating less time to the next block, resulting in fewer Flashblocks.
+  <Accordion title="How do I know when a transaction is finalized?">
+    Monitor the Flashblock stream and compare `block_number` with the `target_block_number`. When they match, the transaction is included in the finalized block.
+
+    See [WebSocket Integration](/base-chain/flashblocks/websocket-integration) for implementation details.
   </Accordion>
 
-  <Accordion title="Can the Flashblock index exceed 10? Is that a bug?">
-    **No, it is not a bug.** Seeing indices of 10, 11, or higher is expected behavior.
-
-    The standard math — 2-second block time ÷ 200ms per Flashblock — gives exactly 10 Flashblocks (indices 0–9). In practice, however, the transition from one full L2 block to the next is not always perfectly synchronized with the 200ms timer. Two things can cause extra indices:
-
-    1. **Sequencer delay:** If the sequencer takes slightly longer than 2000ms to finalize and seal the full block, the Flashblock stream continues emitting incremental updates for the current block to keep the stream live.
-    2. **Timing drift:** If the internal 200ms clock drifts or starts early relative to the L2 block's canonical start time, an extra update can fit within the 2-second window.
-
-    **What this means for your implementation:**
-    - Do not hardcode `9` or `10` as the final index — the last Flashblock for a given block is not predictable by index alone.
-    - Watch the `payloadId` instead. The most reliable signal that a block has finished is when `payloadId` changes, or when the full block is confirmed via standard RPC. All Flashblocks sharing the same `payloadId` belong to the same block, regardless of how high the index goes.
-    - Once the sequencer advances to the next block, `payloadId` resets and `index` returns to `0`.
-  </Accordion>
-
-  <Accordion title="What encoding format is the transaction data in?">
-    Transaction data in the [`diff.transactions`](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview#diff-object) array is Recursive Length Prefix (RLP) encoded.
-  </Accordion>
-
-  <Accordion title="Why am I getting rate limited on the WebSocket?">
-    The public WebSocket has a maximum connection limit. For production use, we recommend:
-
-    1. Running your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks)
-    2. Using a third-party node provider with Flashblocks support
+  <Accordion title="Can I get traces or receipts for pending transactions?">
+    Yes. Flashblocks endpoints support `eth_getTransactionReceipt` and trace methods for pending transactions. Receipts include preconfirmed state.
   </Accordion>
 </AccordionGroup>
 
 ---
 
-## RPC
+## RPC Usage
 
 <AccordionGroup>
-  <Accordion title="Why am I getting rate limited using mainnet-preconf.base.org?">
-    The public endpoint has explicit rate limiting. For production use:
+  <Accordion title="Which RPC methods work differently with Flashblocks?">
+    Most standard Ethereum JSON-RPC methods work identically. Methods that support the `pending` tag can return preconfirmed data:
 
-    - Use a third-party node provider with Flashblocks support (Alchemy, Infura, QuickNode, dRPC)
-    - Run your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks)
-  </Accordion>
-
-  <Accordion title="Why does eth_call 'pending' report a block number several blocks behind tip?">
-    This is expected behavior. Flashblocks-aware nodes store up to 5 historical blocks worth of Flashblocks state to prevent race conditions. When `eth_call "pending"` is called, it operates on top of that historical base, so the block number visible in the call context (e.g. `block.number`) may appear to be N-5.
-
-    When `eth_call "pending"` executes, the entire block context — `block.number`, `block.timestamp`, `block.basefee`, and all other block properties — corresponds to that historical base block (potentially N-5), not the current chain tip. **The call result is correct** in that it reflects all received Flashblocks state applied on top, but contracts that rely on block context properties should be aware that those values may be several blocks behind.
-
-    If you operate a node in a geographic region where your P2P latency is not significantly higher than the WebSocket stream latency, you can reduce this difference by lowering the `MAX_PENDING_BLOCKS_DEPTH` configuration value. This controls the maximum number of historical blocks worth of Flashblocks your node stores, so a lower value will make the block context closer to tip at the cost of reduced tolerance for P2P latency spikes.
-  </Accordion>
-
-  <Accordion title="What RPC methods support Flashblocks?">
-    The following methods are Flashblocks-enabled:
-
-    | Method | Usage |
+    | Method | Behavior |
     |--------|-------|
     | `eth_getBlockByNumber` | Use `pending` tag |
     | `eth_getBalance` | Use `pending` tag |
@@ -148,7 +85,7 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     | `eth_estimateGas` | Use `pending` tag |
     | `eth_getLogs` | Use `pending` for `toBlock` |
     | `eth_subscribe` | Stream Flashblock data in real-time |
-    | `base_transactionStatus` | Check if transaction is in mempool (Beta) |
+    | `base_transactionStatus` | Check if transaction is in mempool |
 
     See the [Flashblocks API Reference](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview) for full method details and examples.
   </Accordion>
@@ -163,3 +100,54 @@ For a comprehensive introduction to how Flashblocks work, see the [Flashblocks O
     Use the Reth binary from the [Base node repository](https://github.com/base/node/tree/main/reth). See the [Enable Flashblocks guide](/base-chain/node-operators/run-a-base-node#enable-flashblocks) for complete setup instructions.
   </Accordion>
 </AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="My WebSocket connection keeps dropping. What should I check?">
+    1. **Connection limits**: Ensure you're not exceeding rate limits
+    2. **Heartbeat**: Implement ping/pong to keep connection alive
+    3. **Error handling**: Reconnect on disconnect with exponential backoff
+    4. **Network stability**: Check for proxy or firewall issues
+
+    See [WebSocket Integration](/base-chain/flashblocks/websocket-integration) for connection management best practices.
+  </Accordion>
+
+  <Accordion title="Why are my preconfirmed transactions reverting?">
+    Preconfirmations indicate inclusion, not execution success. Transactions can still revert due to:
+    - State changes between Flashblocks
+    - Invalid transaction logic
+    - Insufficient gas
+
+    Always check the final receipt for execution status.
+  </Accordion>
+
+  <Accordion title="I'm getting stale data from the RPC. What's wrong?">
+    If you're using `latest` instead of `pending`, you'll see 2-second delayed data. Switch to `pending` for real-time Flashblock data.
+
+    Also verify you're connected to a Flashblocks endpoint:
+    - Mainnet: `https://mainnet-preconf.base.org`
+    - Sepolia: `https://sepolia-preconf.base.org`
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Flashblocks Overview" icon="bolt" href="/base-chain/flashblocks/overview">
+    Learn how Flashblocks work and their benefits
+  </Card>
+  <Card title="App Integration Guide" icon="code" href="/base-chain/flashblocks/app-integration">
+    Build apps with preconfirmation support
+  </Card>
+  <Card title="WebSocket Integration" icon="plug" href="/base-chain/flashblocks/websocket-integration">
+    Stream real-time Flashblock data
+  </Card>
+  <Card title="API Reference" icon="book" href="/base-chain/api-reference/flashblocks-api/flashblocks-api-overview">
+    Complete Flashblocks API documentation
+  </Card>
+</CardGroup>
