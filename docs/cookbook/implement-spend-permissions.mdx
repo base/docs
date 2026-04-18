@@ -1,0 +1,30 @@
+---
+title: "Implement Spend Permissions"
+description: "Learn how to allow apps to spend tokens on behalf of users without repeated approval prompts using Base Account."
+---
+
+# Implement Spend Permissions
+
+Spend Permissions allow smart wallets to grant specific allowances to a spender (your app's backend) for a set period. This enables seamless experiences like subscriptions, automatic trading, or gasless payments.
+
+## How it works
+
+1. **Request Permission:** The user signs a typed data structure defining the `allowance`, `period`, and `spender`.
+2. **Onchain Approval:** The signature is submitted to the `SpendPermissionManager` contract.
+3. **Execution:** The authorized spender calls `spend()` to transfer assets within the allowed limit.
+
+## Implementation Steps
+
+### 1. Build the Permission
+```typescript
+const permission = {
+  account: userAddress,
+  spender: "0xYourBackendAddress",
+  token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH
+  allowance: parseEther("0.1"),
+  period: 2592000, // 30 days
+  start: Math.floor(Date.now() / 1000),
+  end: Math.floor(Date.now() / 1000) + (2592000 * 12), // 1 year
+  salt: BigInt(0),
+  extraData: "0x",
+};
