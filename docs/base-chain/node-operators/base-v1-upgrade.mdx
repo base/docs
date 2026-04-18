@@ -1,15 +1,15 @@
 ---
-title: "Base V1 Upgrade"
-description: "Migrate your Base node to base-reth-node and base-consensus for V1."
+title: "Base Azul Upgrade"
+description: "Migrate your Base node to base-reth-node and base-consensus for Azul."
 ---
 
 <Warning>
-Base V1 is an upgrade that introduces Osaka features on Base and TEE/ZK proof systems. It requires migrating to Base-native clients.
+Base Azul is an upgrade that introduces Osaka features on Base and TEE/ZK proof systems. It requires migrating to Base-native clients.
 </Warning>
 
-Only `base-reth-node` (EL) and `base-consensus` (CL) support V1. **Nodes running `op-node`, `op-geth`, `op-reth`, `nethermind`, or `kona` will not support the network upgrade and must be migrated before activation.**
+Only `base-reth-node` (EL) and `base-consensus` (CL) support Azul. **Nodes running `op-node`, `op-geth`, `op-reth`, `nethermind`, or `kona` will not support the network upgrade and must be migrated before activation.**
 
-For full details on what's included, see the [V1 specification](https://specs.base.org/upgrades/v1/overview).
+For full details on what's included, see the [Azul specification](https://specs.base.org/upgrades/azul/overview).
 
 ## Activation Timeline
 
@@ -148,7 +148,13 @@ If you use [base/node](https://github.com/base/node), most variables are already
 | `OP_NODE_P2P_STATIC` | — |
 | `OP_NODE_P2P_DISABLE` | — |
 | `OP_NODE_P2P_NAT` | — |
+## Troubleshooting
 
+### Common Migration Issues
+
+- **Client Version Mismatch:** If `web3_clientVersion` does not show `base/v0.7.0`, ensure you have pulled the latest `base/node` images and restarted with `docker compose down && docker compose up -d`.
+- **P2P Connectivity:** Azul requires specific bootnodes. If your node isn't peering, verify that `BASE_NODE_P2P_BOOTNODES` is correctly mapped from your old `OP_NODE_P2P_BOOTNODES`.
+- **Execution Layer Auth:** Ensure your `jwt.txt` is accessible by the new `base-reth-node` container. The path in `BASE_NODE_L2_ENGINE_AUTH` must be valid within the container environment.
 ## FAQ
 
 - **Do I need to re-sync?** Not if you are already running OP Reth. Existing data is compatible.
