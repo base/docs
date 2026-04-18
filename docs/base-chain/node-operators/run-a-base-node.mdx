@@ -3,7 +3,7 @@ title: Run a Node
 description: A tutorial that teaches how to set up and run a Base Node.
 ---
 
-This tutorial will walk you through setting up your own [Base Node](https://github.com/base-org/node).
+This tutorial will walk you through setting up your own [Base Node](https://github.com/base/node).
 
 ## Objectives
 
@@ -66,7 +66,7 @@ You'll need your own L1 RPC URL. This can be one that you run yourself, or via a
 
 ## Running a Node
 
-1. Clone the [repo](https://github.com/base-org/node).
+1. Clone the [repo](https://github.com/base/node).
 2. Ensure you have an Ethereum L1 full node RPC available (not Base), and set `OP_NODE_L1_ETH_RPC` & `OP_NODE_L1_BEACON` (in the `.env.*` file if using `docker-compose`). If running your own L1 node, it needs to be synced before Base will be able to fully sync.
 3. Uncomment the line relevant to your network (`.env.sepolia`, or `.env.mainnet`) under the 2 `env_file` keys in `docker-compose.yml`.
 4. Run `docker compose up`. Confirm you get a response from:
@@ -149,3 +149,36 @@ A successful response will include block data from the latest Flashblock. If Fla
 ### Available RPC Methods
 
 Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods plus Flashblocks-specific methods and WebSocket subscriptions. See the [Flashblocks API Reference](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview) for the full list, including code examples and parameter details.
+
+## Enable Historical Proofs RPCs
+
+To serve methods like `eth_getProof`, `debug_executionWitness` and `debug_executePayload` efficiently, you'll need to set up the historical proofs execution extension (ExEx). This ExEx manages a separate database with data required to serve these methods. This database can add hundreds of GB of additional storage and requires a machine with higher I/O throughput. Most people do not need these RPCs to be available.
+
+In order to run the historical proofs ExEx, you simply need to set this environment variable:
+
+```bash Terminal
+RETH_HISTORICAL_PROOFS=true
+```
+
+When the node starts up for the first time, it will backfill existing state to the new proofs database in `<datadir>/proofs`. This process can take a while (24-48 hours for mainnet).
+
+To skip the backfill, snapshots of the proofs database are available. See the [Snapshots](/base-chain/node-operators/snapshots#proofs-snapshots) page for download instructions.
+
+<Note>
+The block at which the ExEx first starts will be the earliest block for which these RPCs are available. The flag `--rpc.eth-proof-window` is ignored when the proofs ExEx is enabled.
+
+By default, the ExEx saves 28 days of blocks, but you can customize this by setting `RETH_PROOFS_HISTORY_WINDOW=<num_blocks>`.
+</Note>
+
+### Improving Performance
+
+The proofs ExEx performs best when it is within 1024 blocks of the chain tip. This means when syncing up to tip, performance can be degraded. During initial sync on Base Mainnet, the ExEx may fall too far behind to catch up on its own.
+
+To fix this, you can run `base-consensus` in follow mode so it stays within 512 blocks of the proofs ExEx.
+
+```bash Terminal
+BASE_NODE_SOURCE_L2_RPC=<trusted_rpc>
+BASE_NODE_PROOFS=true
+```
+
+You can verify that the proofs ExEx is syncing efficiently by checking that the state root and execution durations are 0. The ExEx is not executing blocks in this case; instead it's just writing data from executed blocks to disk.
