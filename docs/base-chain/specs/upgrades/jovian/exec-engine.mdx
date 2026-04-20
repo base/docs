@@ -9,12 +9,12 @@ Jovian introduces a
 [configurable minimum base fee](https://github.com/ethereum-optimism/design-docs/blob/main/protocol/minimum-base-fee.md)
 to reduce the duration of priority-fee auctions on Base.
 
-The minimum base fee is configured via `SystemConfig` (see [System Configuration](../../protocol/consensus/derivation.mdx#system-configuration)) and enforced by the execution engine
+The minimum base fee is configured via `SystemConfig` (see [System Configuration](../../protocol/consensus/derivation#system-configuration)) and enforced by the execution engine
 via the block header `extraData` encoding and the Engine API `PayloadAttributesV3` parameters.
 
 ### Minimum Base Fee in Block Header
 
-Like [Holocene's dynamic EIP-1559 parameters](../holocene/exec-engine.mdx#dynamic-eip-1559-parameters), Jovian encodes
+Like [Holocene's dynamic EIP-1559 parameters](../holocene/exec-engine#dynamic-eip-1559-parameters), Jovian encodes
 fee parameters in the `extraData` field of each L2 block header. The format is extended to include an additional
 `u64` field for the minimum base fee in wei.
 
@@ -41,7 +41,7 @@ extended by future upgrades.
 
 ### Minimum Base Fee in `PayloadAttributesV3`
 
-The Engine API [`PayloadAttributesV3`](../../protocol/execution/index.mdx#extended-payloadattributesv3) is extended with a new
+The Engine API [`PayloadAttributesV3`](../../protocol/execution/index#extended-payloadattributesv3) is extended with a new
 field `minBaseFee`. The existing `eip1559Params` remains 8 bytes (Holocene format).
 
 ```text
@@ -63,7 +63,7 @@ The `minBaseFee` MUST be `null` prior to the Jovian fork, and MUST be non-`null`
 
 ### Rationale
 
-As with [Holocene's dynamic EIP-1559 parameters](../holocene/exec-engine.mdx#rationale), placing the
+As with [Holocene's dynamic EIP-1559 parameters](../holocene/exec-engine#rationale), placing the
 minimum base fee in the block header allows us to avoid reaching into the state during block sealing.
 This retains the purity of the function that computes the next block's base fee from its parent block
 header, while still allowing them to be dynamically configured. Dynamic configuration is handled
@@ -98,7 +98,7 @@ def daFootprint(block: Block) -> int:
 ```
 
 where `intercept`, `minTransactionSize`, `fastlzCoef` and `fastlzSize`
-are defined in the [Fjord specs](../fjord/exec-engine.mdx), `DEPOSIT_TX_TYPE` is `0x7E`,
+are defined in the [Fjord specs](../fjord/exec-engine), `DEPOSIT_TX_TYPE` is `0x7E`,
 and `//` represents integer floor division.
 
 From Jovian, the `blobGasUsed` property of each block header is set to that block's `daFootprint`. Note that pre-Jovian,
@@ -115,15 +115,15 @@ As a result, blocks with high DA usage may cause the base fee to increase in sub
 ### Scalar loading
 
 The `daFootprintGasScalar` is loaded in a similar way to the `operatorFeeScalar` and `operatorFeeConstant`
-[included](../isthmus/exec-engine.mdx#operator-fee) in the Isthmus fork. It can be read in two interchangable ways:
+[included](../isthmus/exec-engine#operator-fee) in the Isthmus fork. It can be read in two interchangable ways:
 
 - read from the deposited L1 attributes (`daFootprintGasScalar`) of the current L2 block
-(decoded according to the [jovian schema](l1-attributes.mdx))
+(decoded according to the [jovian schema](l1-attributes))
 - read from the L1 Block Info contract (`0x4200000000000000000000000000000000000015`)
   - using the solidity getter function `daFootprintGasScalar`
   - using a direct storage-read: big-endian `uint16` in slot `8` at offset `12`.
 
-It takes on a default value as described in the section on [L1 Attributes](l1-attributes.mdx).
+It takes on a default value as described in the section on [L1 Attributes](l1-attributes).
 
 ### Receipts
 
@@ -155,7 +155,7 @@ $$
 $$
 
 The effective per-gas scalar applied is therefore `100 * operatorFeeScalar`. Otherwise, the data types and operator fee
-semantics described in the [Isthmus spec](../isthmus/exec-engine.mdx#operator-fee) continue to apply.
+semantics described in the [Isthmus spec](../isthmus/exec-engine#operator-fee) continue to apply.
 
 ### Maximum value
 

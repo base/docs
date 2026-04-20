@@ -66,7 +66,7 @@ channel bank's queue becomes effectively a staging slot for a single channel, th
 The `MAX_CHANNEL_BANK_SIZE` parameter is no longer used, and the compressed size of the staging
 channel is required to be at most `MAX_RLP_BYTES_PER_CHANNEL` (else the channel is dropped). Note this
 latter rule is both a distinct condition and distinct effect, compared to the existing rule
-that the _uncompressed_ size of any given channel is _clipped_ to `MAX_RLP_BYTES_PER_CHANNEL` [during decompression](../../protocol/consensus/derivation.mdx#channel-format).
+that the _uncompressed_ size of any given channel is _clipped_ to `MAX_RLP_BYTES_PER_CHANNEL` [during decompression](../../protocol/consensus/derivation#channel-format).
 
 ### Timeout
 
@@ -91,7 +91,7 @@ the total limit of all channels' combined sizes by `MAX_CHANNEL_BANK_SIZE` befor
 
 ## Span Batches
 
-Partial Span Batch Validity changes the atomic validity model of [Span Batches](../delta/span-batches.mdx).
+Partial Span Batch Validity changes the atomic validity model of [Span Batches](../delta/span-batches).
 In Holocene, a span batch is treated as an optional stage in the derivation pipeline that sits
 before the batch queue, so that the batch queue pulls singular batches from this previous Span Batch
 stage. When encountering an invalid singular batch, it is dropped, as is the remaining span batch
@@ -101,7 +101,7 @@ _backwards-invalidate_ previous valid batches that came from the same span batch
 When a batch derived from the current staging channel is a singular batch, it is directly forwarded
 to the batch queue. Otherwise, it is set as the current span batch in the span batch stage. The
 following span batch validity checks are done, before singular batches are derived from it.
-Definitions are borrowed from the [original Span Batch specs](../delta/span-batches.mdx).
+Definitions are borrowed from the [original Span Batch specs](../delta/span-batches).
 
 - If the span batch _L1 origin check_ is not part of the canonical L1 chain, the span batch is
 invalid.
@@ -140,7 +140,7 @@ dropping the remaining channel.
 The batch queue is also simplified in that batches are required to arrive strictly ordered, and any
 batches that violate the ordering requirements are immediately dropped, instead of buffered.
 
-So the following changes are made to the [Bedrock Batch Queue](../../protocol/consensus/derivation.mdx#batch-queue):
+So the following changes are made to the [Bedrock Batch Queue](../../protocol/consensus/derivation#batch-queue):
 
 - The reordering step is removed, so that later checks will drop batches that are not sequential.
 - The `future` batch validity status is removed, and batches that were determined to be in the
@@ -186,11 +186,11 @@ span batch, if applicable, and channel it originated from are dropped as well.
 ## Attributes Builder
 
 Starting after the fork activation block, the `PayloadAttributes` produced by the attributes builder will include
-the `eip1559Params` field described in the [execution engine specs](exec-engine.mdx#eip1559params-encoding). This
+the `eip1559Params` field described in the [execution engine specs](exec-engine#eip1559params-encoding). This
 value exists within the `SystemConfig`.
 
 On the fork activation block, the attributes builder will include a 0'd out `eip1559Params`, as to instruct
-the engine to use the [canyon base fee parameter constants](../../protocol/execution/index.mdx#1559-parameters). This
+the engine to use the [canyon base fee parameter constants](../../protocol/execution/index#1559-parameters). This
 is to prime the pipeline's view of the `SystemConfig` with the default EIP-1559 parameter values. After the first
 Holocene payload has been processed, future payloads should use the `SystemConfig`'s EIP-1559 denominator and elasticity
 parameter as the `eip1559Params` field's value. When the pipeline encounters a `UpdateType.EIP_1559_PARAMS`,
@@ -200,7 +200,7 @@ parameter as the `eip1559Params` field's value. When the pipeline encounters a `
 
 The new batch rules activate when the _L1 inclusion block timestamp_ is greater or equal to the
 Holocene activation timestamp. Note that this is in contrast to how span batches activated in
-[Delta](../delta/overview.mdx), namely via the span batch L1 origin timestamp.
+[Delta](../delta/overview), namely via the span batch L1 origin timestamp.
 
 When the L1 traversal stage of the derivation pipeline moves its origin to the L1 block whose
 timestamp is the first to be greater or equal to the Holocene activation timestamp, the derivation
@@ -329,7 +329,7 @@ non-closed previous channel in the frame queue and channel bank, and
 
 So the sync start algorithm can optimistically select the last L2 unsafe, safe and finalized heads
 from the engine and if the L2 safe head's L1 origin is _plausible_ (see the
-[original sync start description](../../protocol/consensus/derivation.mdx#finding-the-sync-starting-point) for details),
+[original sync start description](../../protocol/consensus/derivation#finding-the-sync-starting-point) for details),
 start deriving from this L1 origin.
 
 - If the first frame we find is a _first frame_ for a channel that includes the safe head (TBD: or

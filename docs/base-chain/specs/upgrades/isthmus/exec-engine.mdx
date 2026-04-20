@@ -3,8 +3,8 @@ title: "L2 Execution Engine"
 description: "Execution engine changes in the Isthmus upgrade, including L2ToL1MessagePasser storage root in block headers and operator fee collection."
 ---
 
-[l2-to-l1-mp]: ../../protocol/execution/evm/predeploys.mdx#L2ToL1MessagePasser
-[output-root]: ../../reference/glossary.mdx#l2-output-root
+[l2-to-l1-mp]: ../../protocol/execution/evm/predeploys#L2ToL1MessagePasser
+[output-root]: ../../reference/glossary#l2-output-root
 
 ## Overview
 
@@ -87,7 +87,7 @@ even if a `withdrawalsRoot` is present and a MPT root is present in the header, 
 Any implementation that calculates output root should be careful not to use the header `withdrawalsRoot`.
 
 Note that there is always nonzero storage in the [`L2ToL1MessagePasser`][l2-to-l1-mp],
-because it is a [proxied predeploy](../../protocol/execution/evm/predeploys.mdx) -- from genesis it
+because it is a [proxied predeploy](../../protocol/execution/evm/predeploys) -- from genesis it
 stores an implementation address and owner address. So from Isthmus,
 the `withdrawalsRoot` will always be non-nil and never be the MPT root of an empty list.
 
@@ -130,7 +130,7 @@ Withdrawals list in the block body is encoded as an empty RLP list.
 
 ### BLS Precompiles
 
-Similar to the `bn256Pairing` precompile in the [granite hardfork](../granite/exec-engine.mdx),
+Similar to the `bn256Pairing` precompile in the [granite hardfork](../granite/exec-engine),
 [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537) introduces a BLS
 precompile that short-circuits depending on input size in the EVM.
 
@@ -142,7 +142,7 @@ The input size limits of the BLS precompile contracts are listed below:
 
 The rest of the BLS precompiles are fixed-size operations which have a fixed gas cost.
 
-All of the BLS precompiles should be [accelerated](../../protocol/fault-proof/index.mdx#precompile-accelerators) in fault proof
+All of the BLS precompiles should be [accelerated](../../protocol/fault-proof/index#precompile-accelerators) in fault proof
 programs so they call out to the L1 instead of calculating the result inside the program.
 
 ## Block Sealing
@@ -240,7 +240,7 @@ of a transaction now includes the worst-case operator fee.
 #### Configuring Operator Fee Parameters
 
 `operatorFeeScalar` and `operatorFeeConstant` are loaded in a similar way to the `baseFeeScalar` and
-`blobBaseFeeScalar` used in the [`L1Fee`](../../protocol/execution/index.mdx#ecotone-l1-cost-fee-changes-eip-4844-da).
+`blobBaseFeeScalar` used in the [`L1Fee`](../../protocol/execution/index#ecotone-l1-cost-fee-changes-eip-4844-da).
 calculation. In more detail, these parameters can be accessed in two interchangable ways.
 
 - read from the deposited L1 attributes (`operatorFeeScalar` and `operatorFeeConstant`) of the current L2 block
@@ -252,7 +252,7 @@ calculation. In more detail, these parameters can be accessed in two interchanga
 
 ### Fee Vaults
 
-These collected fees are sent to a new vault for the `operatorFee`: the [`OperatorFeeVault`](predeploys.mdx#operatorfeevault).
+These collected fees are sent to a new vault for the `operatorFee`: the [`OperatorFeeVault`](predeploys#operatorfeevault).
 
 Like the existing vaults, this is a hardcoded address, pointing at a pre-deployed proxy contract.
 The proxy is backed by a vault contract deployment, based on `FeeVault`, to route vault funds to L1 securely.
