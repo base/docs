@@ -125,12 +125,19 @@ The Base documentation is organized into established sections (for example: `get
 - For alternatives, use `<Tabs>` / `<Tab>`.
 - For API docs, use `<ParamField>`, `<ResponseField>`, and request/response examples.
 
+
 ### Code examples
 
 - Provide complete, runnable examples with realistic data.
 - Include proper error handling and edge cases.
 - Specify language and filename when helpful.
 - Show expected output or verification steps.
+
+**Example:**
+
+```bash
+cd docs
+mint dev
 
 ## Third-party guides policy
 
