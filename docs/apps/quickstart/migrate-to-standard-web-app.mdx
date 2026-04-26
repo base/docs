@@ -44,15 +44,21 @@ Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth,
   Install wagmi, viem, and React Query if you don't have them already:
 
   ```bash Terminal
-  npm install wagmi viem @tanstack/react-query @base-org/account
+  npm install wagmi viem ox @tanstack/react-query @base-org/account
   ```
 
   Create a wagmi config for Base and wrap your app with `WagmiProvider` and `QueryClientProvider`:
 
-  ```tsx config.ts lines expandable wrap
+  ```tsx config.ts lines expandable wrap highlight={4,6-9,24}
   import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
   import { base } from 'wagmi/chains';
   import { baseAccount, injected } from 'wagmi/connectors';
+  import { Attribution } from 'ox/erc8021';
+
+  // Get your Builder Code from base.dev > Settings > Builder Code
+  const DATA_SUFFIX = Attribution.toDataSuffix({
+    codes: ['YOUR-BUILDER-CODE'],
+  });
 
   export const config = createConfig({
     chains: [base],
@@ -67,6 +73,7 @@ Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth,
     transports: {
       [base.id]: http(),
     },
+    dataSuffix: DATA_SUFFIX,
   });
 
   declare module 'wagmi' {
@@ -173,7 +180,7 @@ Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth,
 </Step>
 
 <Step title="Register on Base.dev">
-  If you haven't registered yet, create a project at [Base.dev](https://www.base.dev) and complete your app metadata: name, icon, tagline, description, screenshots, category, primary URL, and [builder code](/apps/builder-codes/builder-codes). Already registered apps do not need to re-register or update metadata.
+  If you haven't registered yet, create a project at [Base.dev](https://www.base.dev) and complete your app metadata: name, icon, tagline, description, screenshots, category, primary URL, and [builder code](/apps/builder-codes/builder-codes). Already registered apps do not need to re-register or update metadata. To attribute transactions from web users outside the Base App browser, also add your Builder Code as a `dataSuffix` to your wagmi config. See [Builder Codes for App Developers](/apps/builder-codes/app-developers).
 </Step>
 </Steps>
 
