@@ -33,7 +33,7 @@ Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-res
 
 - [`docs/docs.json`](docs.json) — navigation, redirects, wildcard.
 - [`docs/.mintignore`](.mintignore) — paths under `/apps/...`.
-- [`docs/apps/**`](apps/) — **Visible** pages (e.g. `quickstart/migrate-to-standard-web-app`, `growth/rewards`, `technical-guides/base-notifications`) plus `llms.txt` / `llms-full.txt`.
+- [`docs/apps/**`](apps/) — **Visible** pages (e.g. `guides/migrate-to-standard-web-app`, `growth/rewards`, `technical-guides/base-notifications`) plus `llms.txt` / `llms-full.txt`.
 - [`docs/llms.txt`](llms.txt), [`docs/llms-full.txt`](llms-full.txt).
 - [`claude.md`](../claude.md) — repo structure diagram.
 - [`scripts/generate-agents-md.js`](../scripts/generate-agents-md.js) — comments.
@@ -42,5 +42,5 @@ Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-res
 ## Verification
 
 1. **`node scripts/lint-mdx.js`** — Run after edits.
-2. **Spot-check**: `/apps/quickstart/migrate-to-standard-web-app`, `/apps/quickstart/create-new-app`, `/apps/growth/rewards`.
+2. **Spot-check**: `/apps/guides/migrate-to-standard-web-app`, `/apps/quickstart/create-new-app`, `/apps/growth/rewards`.
 3. **Legacy URLs**: `/mini-apps/...` → `/apps/...` via redirects; hidden pages may still contain `/mini-apps/` in **source** links (unchanged); those URLs redirect when hit.

@@ -13,7 +13,8 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |ai-agents/trading:data-fetching,trade-execution
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
-|apps/quickstart:migrate-to-standard-web-app
+|apps/guides:migrate-to-standard-web-app
+|apps/quickstart:build-app
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
 |base-account/basenames:basename-transfer,basenames-faq
@@ -46,6 +47,6 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/node-operators:base-v1-upgrade,node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
-|get-started:base-mentorship-program,base-services-hub,base,block-explorers,build-app,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,mistakes,prompt-library,resources-for-ai-agents
+|get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,mistakes,prompt-library,resources-for-ai-agents
 |onchainkit:migrate-from-onchainkit
 |root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
