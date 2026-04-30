@@ -9,6 +9,8 @@
 - Register your app on Base.dev for search, discovery, and rewards eligibility
 - Replace deprecated Farcaster SDK methods with standard web equivalents (wagmi, viem, SIWE)
 - Earn financial rewards for building apps that drive user engagement and onchain transactions
+- Attribute onchain transactions to your app using Builder Codes (ERC-8021)
+- Send in-app push notifications to opted-in users via the Base Dashboard Notifications API
 
 ## Navigation (with brief descriptions)
 
@@ -17,6 +19,15 @@
 
 ### Growth
 - [Rewards](https://docs.base.org/apps/growth/rewards.md) — Verification programs, competitions, and partner opportunities for earning rewards
+
+### Builder Codes
+- [Builder Codes overview](https://docs.base.org/apps/builder-codes/builder-codes.md) — ERC-8021 NFT codes that attribute onchain transactions to your app; register on base.dev under Settings → Builder Code
+- [For App Developers](https://docs.base.org/apps/builder-codes/app-developers.md) — Append a dataSuffix to transactions using wagmi or viem; no contract changes required
+- [For Wallet Developers](https://docs.base.org/apps/builder-codes/wallet-developers.md) — Implement the ERC-5792 DataSuffixCapability so wallets pass through attribution suffixes
+- [For Agent Developers](https://docs.base.org/apps/builder-codes/agent-developers.md) — Attribute AI agent transactions via the Builder Codes API
+
+### Technical Guides
+- [Notifications](https://docs.base.org/apps/technical-guides/base-notifications.md) — REST API (via Base Dashboard) to fetch opted-in users and send in-app notifications; Base App only
 
 
 ## Key Concepts (excerpts)
@@ -42,6 +53,25 @@ Source: `https://docs.base.org/apps/growth/rewards.md`
 Base.dev rewards developers who build apps that deliver real value and drive meaningful onchain activity:
 1. Submit your app for verification on Base.dev — validates ownership by adding a Base builder address in the manifest
 2. Access earning opportunities — partner programs, competitions, and special campaigns
+
+Source: `https://docs.base.org/apps/builder-codes/builder-codes.md`
+
+Builder Codes are ERC-721 NFTs (unique strings like "abc123") that tag transactions with your app identity using ERC-8021 calldata suffixes. No contract changes are required — attribution is extracted offchain. Benefits: automatic reward attribution, analytics on base.dev, and discovery surface visibility. The suffix adds 16 gas per non-zero byte. Works with EOAs, smart wallets (ERC-5792 `dataSuffix` capability), and embedded wallets (Privy, Turnkey).
+
+Source: `https://docs.base.org/apps/technical-guides/base-notifications.md`
+
+The Notifications API sends in-app push notifications to Base App users who have pinned your app and opted in. Requires a Base Dashboard project and API key.
+
+Key constraints:
+- Notifications delivered in the **Base App only** — not other platforms
+- Rate limit: **20 requests/minute per IP** shared across both endpoints
+- `POST /send`: up to 1,000 addresses per request; title ≤30 chars, message ≤200 chars
+- Deduplication: identical notifications within 24 hours are suppressed automatically
+- Failure reasons: `user has not saved this app`, `user has notifications disabled`
+
+Workflow:
+1. `GET /v1/notifications/app/users?app_url=<url>&notification_enabled=true` — fetch opted-in wallet addresses (paginated, cursor-based)
+2. `POST /v1/notifications/send` — send title + message + optional `target_path` to up to 1,000 addresses
 
 
 ## Related indexes
