@@ -61,18 +61,33 @@ Builder Codes are ERC-721 NFTs (unique strings like "abc123") that tag transacti
 
 Source: `https://docs.base.org/apps/technical-guides/base-notifications.md`
 
-The Notifications API sends in-app push notifications to Base App users who have pinned your app and opted in. Requires a Base Dashboard project and API key.
+The Notifications API sends in-app push notifications to Base App users who have pinned your app and opted in. Requires a Base Dashboard project and API key from Base Dashboard > Settings > API Key.
 
 Key constraints:
 - Notifications delivered in the **Base App only** — not other platforms
-- Rate limit: **20 requests/minute per IP** shared across both endpoints
-- `POST /send`: up to 1,000 addresses per request; title ≤30 chars, message ≤200 chars
-- Deduplication: identical notifications within 24 hours are suppressed automatically
+- Rate limit: **20 requests/minute per IP** shared across all endpoints; exceeding returns `429`
+- `POST /send`: up to 1,000 addresses per request; title ≤30 chars, message ≤200 chars; `target_path` must start with `/`, ≤500 chars
+- Deduplication: identical notifications (same app URL, wallet, title, message, target path) within 24 hours are suppressed automatically
 - Failure reasons: `user has not saved this app`, `user has notifications disabled`
 
-Workflow:
-1. `GET /v1/notifications/app/users?app_url=<url>&notification_enabled=true` — fetch opted-in wallet addresses (paginated, cursor-based)
-2. `POST /v1/notifications/send` — send title + message + optional `target_path` to up to 1,000 addresses
+Endpoints (all require `x-api-key` header):
+
+**`POST /v1/notifications/app/user/status`** — check a single wallet's pin/notification status without paginating
+- Body: `app_url` (string, required), `wallet_address` (string, required; normalized to EIP-55)
+- Response: `appPinned` (boolean), `notificationsEnabled` (boolean; always `false` when `appPinned` is `false`)
+- Error 500 if upstream preferences service fails
+
+**`GET /v1/notifications/app/users`** — list wallets that have pinned your app, paginated (cursor-based, max 500/page)
+- Params: `app_url` (required), `notification_enabled=true` (filter to opted-in only), `cursor`, `limit`
+- Response: `users[].address`, `users[].notificationsEnabled`, `nextCursor` (absent on last page)
+
+**`POST /v1/notifications/send`** — send a notification to up to 1,000 wallet addresses
+- Body: `app_url`, `wallet_addresses[]`, `title`, `message`, `target_path` (optional)
+- Response: `success`, `results[].walletAddress`, `results[].sent`, `results[].failureReason`, `sentCount`, `failedCount`
+- `success` is `true` only when every address delivered successfully
+- Error 503 if notification service is temporarily unavailable
+
+Common errors across all endpoints: 400 (bad request / validation), 401 (invalid API key), 403 (app_url not in your project or not whitelisted), 404 (project not found)
 
 
 ## Related indexes
