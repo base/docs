@@ -7,7 +7,7 @@ description: "Send in-app notifications to your app's users through the Base Das
   Notifications are delivered through the **Base App** only. Users who interact with your app on other platforms will not receive notifications through this API.
 </Note>
 
-The Notifications API lets you send in-app notifications to users who have pinned your app and opted in to notifications. Two REST endpoints handle the full workflow: fetch your audience's wallet addresses, then send targeted or broadcast messages.
+The Notifications API lets you send in-app notifications to users who have pinned your app and opted in to notifications. Three REST endpoints handle the full workflow: check a single user's status, fetch your full audience's wallet addresses, or send targeted and broadcast messages.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ The Notifications API lets you send in-app notifications to users who have pinne
 
 ## Quick start
 
-Both endpoints require your API key in the `x-api-key` header.
+All endpoints require your API key in the `x-api-key` header.
 
 <Info>
   The notification endpoints share a rate limit of **20 requests per minute per IP**. Requests to either endpoint count toward the same limit. Exceeding it returns a `429 Too Many Requests` response.
@@ -115,7 +115,55 @@ GET https://dashboard.base.org/api/v1/notifications/app/users
   Cursor for the next page. Absent when no more results exist.
 </ResponseField>
 
+---
 
+### POST /v1/notifications/app/user/status
+
+Returns whether a single wallet has pinned your app and whether they have notifications enabled for it. Use this to render targeted "pin this app" or "enable notifications" CTAs without paginating through the users endpoint.
+
+```http
+POST https://dashboard.base.org/api/v1/notifications/app/user/status
+```
+
+#### Request body
+
+<ParamField body="app_url" type="string" required>
+  Your app URL as registered on the Base Dashboard.
+</ParamField>
+
+<ParamField body="wallet_address" type="string" required>
+  The wallet address to look up. Accepted in any case; normalized to EIP-55 checksum form before lookup.
+</ParamField>
+
+#### Response
+
+<ResponseField name="appPinned" type="boolean">
+  `true` if the wallet has saved/pinned your app.
+</ResponseField>
+
+<ResponseField name="notificationsEnabled" type="boolean">
+  `true` if the wallet has saved your app and has notifications enabled for it. Always `false` when `appPinned` is `false`.
+</ResponseField>
+
+#### Example
+
+```bash title="Check user status"
+curl -X POST "https://dashboard.base.org/api/v1/notifications/app/user/status" \
+  -H "x-api-key: <your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_url": "<your-app-url>",
+    "wallet_address": "<wallet-address>"
+  }'
+```
+
+```json title="Response (user has pinned and enabled notifications)"
+{ "appPinned": true, "notificationsEnabled": true }
+```
+
+```json title="Response (user has not pinned)"
+{ "appPinned": false, "notificationsEnabled": false }
+```
 
 ---
 
@@ -182,14 +230,15 @@ POST https://dashboard.base.org/api/v1/notifications/send
 
 ## Errors
 
-Both endpoints return the following errors:
+All endpoints return the following errors:
 
 | Status | Code | Cause |
 |--------|------|-------|
-| 400 | `Bad Request` | Possible causes:<ul><li>`app_url` is missing</li><li>`title` is missing or exceeds 30 characters</li><li>`message` is missing or exceeds 200 characters</li><li>`wallet_addresses` is missing or exceeds 1,000 addresses</li><li>`target_path` exceeds 500 characters or does not start with `/`</li></ul> |
+| 400 | `Bad Request` | Possible causes:<ul><li>`app_url` is missing</li><li>`wallet_address` is missing or not a valid Ethereum address (user status endpoint)</li><li>`title` is missing or exceeds 30 characters</li><li>`message` is missing or exceeds 200 characters</li><li>`wallet_addresses` is missing or exceeds 1,000 addresses</li><li>`target_path` exceeds 500 characters or does not start with `/`</li></ul> |
 | 401 | `Unauthorized` | Missing or invalid API key. |
 | 403 | `Forbidden` | The `app_url` does not belong to your project, or your project is not whitelisted for notifications. |
 | 404 | `Not Found` | The project associated with your API key does not exist. |
+| 500 | `Internal Server Error` | Failed to retrieve app user status from the upstream preferences service. User status endpoint only. |
 | 503 | `Service Unavailable` | The notification service is temporarily unavailable. Retry the request. Send endpoint only. |
 
 ## Batching and deduplication
