@@ -1,17 +1,13 @@
-# Install
+# Hooks
 
-Run once after cloning:
+To enable git hooks for this repo, run the following from the repo root:
 
 ```sh
+# 1. Register the hooks directory
 git config core.hooksPath githooks
+
+# 2. Make the post-commit hook executable
 chmod +x githooks/post-commit
 ```
 
-Verify:
-
-```sh
-git config --get core.hooksPath   # → githooks
-ls -l githooks/post-commit        # → -rwxr-xr-x
-```
-
-Done. Include `agents.md` in any commit message to trigger regeneration.
+Once installed, any commit message containing `agents.md` will automatically regenerate `docs/agents.md`.
