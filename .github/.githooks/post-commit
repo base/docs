@@ -1,0 +1,59 @@
+#!/bin/sh
+# Regenerates docs/agents.md after each commit (when commit message contains "agents.md").
+# If the index changed, creates a follow-up commit.
+#
+# Debug:  DEBUG_AGENTS_HOOK=1 git commit ...     (or export it for the session)
+
+log() {
+  [ -n "$DEBUG_AGENTS_HOOK" ] && echo "[post-commit] $*" >&2
+}
+
+log "fired (pid=$$)"
+
+# Guard against recursion: this hook re-fires on the follow-up commit below.
+if [ -n "$AGENTS_MD_HOOK_RUNNING" ]; then
+  log "recursion guard hit; exiting"
+  exit 0
+fi
+export AGENTS_MD_HOOK_RUNNING=1
+
+REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
+cd "$REPO_ROOT" || exit 0
+log "repo root: $REPO_ROOT"
+
+# Only run when the commit message opts in with the trigger token (case-insensitive).
+MSG=$(git log -1 --pretty=%B)
+log "last commit msg: $MSG"
+if ! printf '%s' "$MSG" | grep -qi 'agents\.md'; then
+  log "trigger 'agents.md' NOT in commit message; exiting"
+  exit 0
+fi
+log "trigger matched"
+
+if [ ! -f scripts/agents.js ]; then
+  log "scripts/agents.js NOT FOUND; exiting"
+  exit 0
+fi
+
+log "running: node scripts/agents.js"
+if [ -n "$DEBUG_AGENTS_HOOK" ]; then
+  node scripts/agents.js
+  rc=$?
+else
+  node scripts/agents.js >/dev/null 2>&1
+  rc=$?
+fi
+if [ $rc -ne 0 ]; then
+  echo "post-commit: agents.js failed (exit $rc); skipping" >&2
+  exit 0
+fi
+
+if git diff --quiet -- docs/agents.md 2>/dev/null; then
+  log "docs/agents.md unchanged; nothing to commit"
+  exit 0
+fi
+log "docs/agents.md changed; creating follow-up commit"
+
+git add docs/agents.md
+git commit -m "chore: regenerate docs/agents.md" --no-verify >/dev/null
+log "follow-up commit created"
