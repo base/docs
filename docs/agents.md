@@ -1,6 +1,41 @@
-# Base Docs Index
-IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
-Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
+---
+title: Base Docs Index
+description: Look up Base documentation with a compact directory-grouped index built for AI coding agents. Lists every markdown page by parent directory so agents find context before generating code.
+---
+# https://docs.base.org/llms.txt
+
+## Base Documentation — LLM Entry Point
+
+> High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
+
+- [AI Agents](./ai-agents/llms.txt) — Build AI agents that trade, earn, and transact autonomously on Base
+- [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
+- [Base Account](./base-account/llms.txt)
+- [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
+- [Get Started](./get-started/llms.txt)
+
+## Tools available for AI assistants
+
+These resources give AI assistants direct access to Base documentation and reusable workflows.
+
+### Base MCP server
+
+`https://docs.base.org/mcp`
+
+### Base skills
+
+AI agents can use Base skills to perform onchain actions directly from their tool loop — no custom integration required. Available skills include:
+
+[https://github.com/base/skills](https://github.com/base/skills)
+
+Install Base skills for your AI assistant:
+
+```
+npx skills add base/base-skills
+```
+
+## Compact docs index
+
 [Docs]|root:./docs
 |ai-agents:index
 |ai-agents/payments:accepting-payments,pay-for-services-with-x402
@@ -69,5 +104,4 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
 |base-chain/specs/upgrades/pectra-blob-schedule:derivation,overview
 |get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,prompt-library,resources-for-ai-agents
-|onchainkit:migrate-from-onchainkit
 |root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice

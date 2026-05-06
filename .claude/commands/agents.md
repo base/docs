@@ -19,7 +19,7 @@ Run this command when:
 2. **If docs changed or `$ARGUMENTS` includes `force`:**
    Run the generator script:
    ```bash
-   node scripts/generate-agents-md.js
+   node scripts/agents.js
    ```
 
 3. **Report the result:**

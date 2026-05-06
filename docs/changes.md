@@ -36,7 +36,7 @@ Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-res
 - [`docs/apps/**`](apps/) — **Visible** pages (e.g. `guides/migrate-to-standard-web-app`, `growth/rewards`, `technical-guides/base-notifications`) plus `llms.txt` / `llms-full.txt`.
 - [`docs/llms.txt`](llms.txt), [`docs/llms-full.txt`](llms-full.txt).
 - [`claude.md`](../claude.md) — repo structure diagram.
-- [`scripts/generate-agents-md.js`](../scripts/generate-agents-md.js) — comments.
+- [`scripts/agents.js`](../scripts/agents.js) — comments.
 - [`docs/agents.md`](agents.md) — regenerated.
 
 ## Verification
