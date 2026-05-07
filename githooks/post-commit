@@ -1,16 +1,26 @@
 #!/bin/sh
-# Regenerates docs index files after a commit, opt-in via commit-message tokens.
+# Regenerates docs index files after a commit. Two trigger paths:
 #
-#   "agents.md" in commit message  →  node scripts/agents.js   (writes docs/agents.md)
-#   "llms.txt"  in commit message  →  node scripts/llms.js     (writes docs/llms.txt + docs/llms-full.txt)
+#   AUTO  — if the commit added/deleted/renamed any docs/**/*.{md,mdx} file,
+#           BOTH generators run automatically (structural changes drift the
+#           indexes, so we regenerate without needing a keyword).
 #
-# Both tokens may appear in the same message; both generators run. If anything
-# changed, a single follow-up commit is created with the regenerated files.
+#   OPT-IN — if the commit message mentions a token, the matching generator
+#           runs even when no structural change happened (useful for
+#           content-only edits that affect llms.txt extraction):
+#               "agents.md" → node scripts/agents.js  (writes docs/agents.md)
+#               "llms.txt"  → node scripts/llms.js    (writes docs/llms.txt + docs/llms-full.txt)
 #
-# Token matching is case-insensitive. Matches whole substrings, so phrases like
-# "updates llms.txt", "regenerate agents.md", "fix typo in agents.md" all trigger.
+# Both tokens may appear in the same message; both generators run. Token
+# matching is case-insensitive substring.
 #
-# Debug:  DEBUG_DOCS_HOOK=1 git commit ...     (or export it for the session)
+# If anything actually changed, a single follow-up commit is created with
+# the regenerated files. The follow-up subject includes the short SHA of the
+# triggering commit so `git log` shows the chain.
+#
+# Bypass once:  SKIP_DOCS_HOOK=1   git commit ...
+# Bypass once via message:  include the literal token "[skip-docs]"
+# Debug:        DEBUG_DOCS_HOOK=1  git commit ...
 
 log() {
   [ -n "$DEBUG_DOCS_HOOK" ] && echo "[post-commit] $*" >&2
@@ -18,7 +28,14 @@ log() {
 
 log "fired (pid=$$)"
 
-# Guard against recursion: this hook re-fires on the follow-up commit below.
+# User-facing skip — useful when you legitimately need to mention a trigger
+# token in a commit message ("fix link to agents.md") without regenerating.
+if [ -n "$SKIP_DOCS_HOOK" ]; then
+  log "SKIP_DOCS_HOOK set; exiting"
+  exit 0
+fi
+
+# Internal recursion guard: this hook re-fires on the follow-up commit below.
 if [ -n "$DOCS_HOOK_RUNNING" ]; then
   log "recursion guard hit; exiting"
   exit 0
@@ -29,16 +46,45 @@ REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
 cd "$REPO_ROOT" || exit 0
 log "repo root: $REPO_ROOT"
 
+# Capture the SHA of the commit that triggered us, before we make any new
+# commits ourselves. Used in the follow-up subject for traceability.
+TRIGGER_SHA=$(git rev-parse --short HEAD)
 MSG=$(git log -1 --pretty=%B)
 log "last commit msg: $MSG"
 
+# Message-level skip token. Lets a single commit opt out without setting env.
+if printf '%s' "$MSG" | grep -qiF '[skip-docs]'; then
+  log "[skip-docs] token in commit message; exiting"
+  exit 0
+fi
+
 want_agents=0
 want_llms=0
+
+# Opt-in path: keyword in commit message.
 if printf '%s' "$MSG" | grep -qi 'agents\.md'; then want_agents=1; fi
 if printf '%s' "$MSG" | grep -qi 'llms\.txt'; then want_llms=1; fi
 
+# Auto path: structural changes (added / deleted / renamed) to .md/.mdx under
+# docs/, excluding the generated files themselves so a manual edit to
+# docs/agents.md never auto-triggers another regen. M (modified) is NOT a
+# structural change — content-only edits should use the keyword opt-in.
+if [ "$want_agents" = 0 ] || [ "$want_llms" = 0 ]; then
+  # HEAD~1 may not exist on the very first commit; handle that gracefully.
+  if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    structural=$(git diff-tree -r --no-commit-id --name-status --diff-filter=ADR HEAD~1 HEAD -- 'docs/*.md' 'docs/*.mdx' 'docs/**/*.md' 'docs/**/*.mdx' \
+      | awk '$2 != "docs/agents.md" && $2 !~ /^docs\/llms(-full)?\.txt$/ { print }')
+    if [ -n "$structural" ]; then
+      log "structural docs changes detected; auto-triggering both generators"
+      log "$structural"
+      want_agents=1
+      want_llms=1
+    fi
+  fi
+fi
+
 if [ "$want_agents" = 0 ] && [ "$want_llms" = 0 ]; then
-  log "no trigger token (agents.md / llms.txt) in commit message; exiting"
+  log "no trigger (keyword or structural); exiting"
   exit 0
 fi
 
@@ -79,11 +125,10 @@ if [ -z "$regenerated_files" ]; then
   exit 0
 fi
 
-# Of the files we tried to regenerate, find the ones that actually differ from
-# HEAD. We base the follow-up commit subject on this real diff so it never
-# claims to regenerate a file that didn't change.
+# Compare against HEAD (not the index) so a pre-staged generated file can't
+# fool the check into thinking nothing changed.
 # shellcheck disable=SC2086
-changed_files=$(git diff --name-only -- $regenerated_files)
+changed_files=$(git diff --name-only HEAD -- $regenerated_files)
 if [ -z "$changed_files" ]; then
   log "regenerated files unchanged; nothing to commit"
   exit 0
@@ -95,16 +140,27 @@ echo "$changed_files" | grep -q '^docs/agents\.md$' && has_agents=1
 echo "$changed_files" | grep -qE '^docs/llms(-full)?\.txt$' && has_llms=1
 
 if [ "$has_agents" = 1 ] && [ "$has_llms" = 1 ]; then
-  subject="chore: regenerate docs/agents.md + docs/llms.txt"
+  subject="chore: regenerate docs/agents.md + docs/llms.txt (post-commit of $TRIGGER_SHA)"
 elif [ "$has_agents" = 1 ]; then
-  subject="chore: regenerate docs/agents.md"
+  subject="chore: regenerate docs/agents.md (post-commit of $TRIGGER_SHA)"
 elif [ "$has_llms" = 1 ]; then
-  subject="chore: regenerate docs/llms.txt"
+  subject="chore: regenerate docs/llms.txt (post-commit of $TRIGGER_SHA)"
 else
-  subject="chore: regenerate docs indexes"
+  subject="chore: regenerate docs indexes (post-commit of $TRIGGER_SHA)"
 fi
 
 # Stage only the files that actually changed (xargs handles newline separator).
 echo "$changed_files" | xargs git add --
+
+# --no-verify is intentional: this commit is generated content, not human
+# work. Skipping pre-commit / commit-msg hooks here avoids (a) re-running
+# linters or formatters against generated files and (b) any future
+# conventional-commit / signoff hooks rejecting our chore: subject. The
+# DOCS_HOOK_RUNNING env guard above prevents this commit from re-firing
+# THIS hook regardless.
 git commit -m "$subject" --no-verify >/dev/null
 log "follow-up commit created: $subject"
+
+# Visible signal so the user sees the hook actually did work without
+# needing to enable DEBUG_DOCS_HOOK or scroll through `git log`.
+echo "[docs] $subject" >&2
