@@ -24,6 +24,29 @@ git config --local  --get core.hooksPath   # should print: githooks
 git config --global --get core.hooksPath   # should print nothing
 ```
 
+## Configuration
+
+Triggers, scripts, and outputs live in [`githooks/config.json`](./config.json). The hook logic itself never changes — to wire a new keyword to your own script, just add an entry:
+
+```json
+{
+  "skipToken": "[skip-docs]",
+  "generators": [
+    { "name": "agents", "trigger": "agents.md", "script": "scripts/agents.js", "outputs": ["docs/agents.md"] },
+    { "name": "llms",   "trigger": "llms.txt",  "script": "scripts/llms.js",   "outputs": ["docs/llms.txt", "docs/llms-full.txt"] },
+    { "name": "myindex", "trigger": "myindex.md", "script": "scripts/myindex.js", "outputs": ["docs/myindex.md"] }
+  ]
+}
+```
+
+Fields per generator:
+- `name` — short label used in logs and the auto-commit subject
+- `trigger` — case-insensitive substring matched against the commit message
+- `script` — path (from repo root) to a node script that writes the outputs
+- `outputs` — files the script writes; used to (a) detect a real diff vs `HEAD` and (b) exclude these files from structural-change detection so editing a generated file never auto-fires the hook
+
+If `jq` isn't installed or `config.json` is missing/malformed, the hook falls back to built-in defaults equivalent to the two entries above. The hook never errors out just because the config layer is unavailable.
+
 ## post-commit
 
 Regenerates docs index files when either:

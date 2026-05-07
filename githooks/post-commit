@@ -1,25 +1,24 @@
 #!/bin/sh
 # Regenerates docs index files after a commit. Two trigger paths:
 #
-#   AUTO  — if the commit added/deleted/renamed any docs/**/*.{md,mdx} file,
-#           BOTH generators run automatically (structural changes drift the
-#           indexes, so we regenerate without needing a keyword).
+#   AUTO  — if the commit added/deleted/renamed any docs/**/*.{md,mdx} file
+#           (excluding the generated outputs themselves), ALL configured
+#           generators run.
 #
-#   OPT-IN — if the commit message mentions a token, the matching generator
-#           runs even when no structural change happened (useful for
-#           content-only edits that affect llms.txt extraction):
-#               "agents.md" → node scripts/agents.js  (writes docs/agents.md)
-#               "llms.txt"  → node scripts/llms.js    (writes docs/llms.txt + docs/llms-full.txt)
+#   OPT-IN — if the commit message mentions a generator's trigger keyword,
+#           that generator runs even when no structural change happened
+#           (useful for content-only edits that affect llms.txt extraction).
 #
-# Both tokens may appear in the same message; both generators run. Token
-# matching is case-insensitive substring.
+# Triggers and generators are defined in githooks/config.json. Add your own
+# entry there to wire a custom keyword to your own script — the hook logic
+# below stays the same.
 #
 # If anything actually changed, a single follow-up commit is created with
-# the regenerated files. The follow-up subject includes the short SHA of the
-# triggering commit so `git log` shows the chain.
+# the regenerated files. Subject includes the short SHA of the triggering
+# commit for traceability.
 #
 # Bypass once:  SKIP_DOCS_HOOK=1   git commit ...
-# Bypass once via message:  include the literal token "[skip-docs]"
+# Bypass via message:  include the literal SKIP_TOKEN from config (default "[skip-docs]")
 # Debug:        DEBUG_DOCS_HOOK=1  git commit ...
 
 log() {
@@ -46,6 +45,11 @@ REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
 cd "$REPO_ROOT" || exit 0
 log "repo root: $REPO_ROOT"
 
+# Load triggers + outputs from githooks/config.json (with safe fallback).
+# shellcheck source=githooks/_lib.sh
+. "$REPO_ROOT/githooks/_lib.sh"
+load_hooks_config
+
 # Capture the SHA of the commit that triggered us, before we make any new
 # commits ourselves. Used in the follow-up subject for traceability.
 TRIGGER_SHA=$(git rev-parse --short HEAD)
@@ -53,37 +57,43 @@ MSG=$(git log -1 --pretty=%B)
 log "last commit msg: $MSG"
 
 # Message-level skip token. Lets a single commit opt out without setting env.
-if printf '%s' "$MSG" | grep -qiF '[skip-docs]'; then
-  log "[skip-docs] token in commit message; exiting"
+if printf '%s' "$MSG" | grep -qiF "$SKIP_TOKEN"; then
+  log "skip token '$SKIP_TOKEN' in commit message; exiting"
   exit 0
 fi
 
-want_agents=0
-want_llms=0
-
-# Opt-in path: keyword in commit message.
-if printf '%s' "$MSG" | grep -qi 'agents\.md'; then want_agents=1; fi
-if printf '%s' "$MSG" | grep -qi 'llms\.txt'; then want_llms=1; fi
+# Build a same-order list of generators we want to run, indexed by line number
+# in GENERATORS_TSV. -F treats trigger as a literal string (no regex surprises
+# if a config entry contains . / [ etc.).
+WANTED=$(
+  i=0
+  echo "$GENERATORS_TSV" | while IFS=$(printf '\t') read -r _name trigger _script _outputs; do
+    i=$((i + 1))
+    if [ -n "$trigger" ] && printf '%s' "$MSG" | grep -qiF -- "$trigger"; then
+      echo "$i"
+    fi
+  done | tr '\n' ' '
+)
 
 # Auto path: structural changes (added / deleted / renamed) to .md/.mdx under
-# docs/, excluding the generated files themselves so a manual edit to
-# docs/agents.md never auto-triggers another regen. M (modified) is NOT a
-# structural change — content-only edits should use the keyword opt-in.
-if [ "$want_agents" = 0 ] || [ "$want_llms" = 0 ]; then
-  # HEAD~1 may not exist on the very first commit; handle that gracefully.
+# docs/, excluding the configured generator outputs themselves so a manual
+# edit to docs/agents.md never auto-triggers another regen. M (modified) is
+# NOT a structural change — content-only edits should use the keyword opt-in.
+if [ -z "$WANTED" ]; then
   if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
     structural=$(git diff-tree -r --no-commit-id --name-status --diff-filter=ADR HEAD~1 HEAD -- 'docs/*.md' 'docs/*.mdx' 'docs/**/*.md' 'docs/**/*.mdx' \
-      | awk '$2 != "docs/agents.md" && $2 !~ /^docs\/llms(-full)?\.txt$/ { print }')
+      | awk -v excl="$EXCLUDE_REGEX" '$2 !~ excl { print }')
     if [ -n "$structural" ]; then
-      log "structural docs changes detected; auto-triggering both generators"
+      log "structural docs changes detected; auto-triggering all generators"
       log "$structural"
-      want_agents=1
-      want_llms=1
+      # Want every generator (1..N).
+      n=$(echo "$GENERATORS_TSV" | wc -l | tr -d ' ')
+      WANTED=$(seq 1 "$n" | tr '\n' ' ')
     fi
   fi
 fi
 
-if [ "$want_agents" = 0 ] && [ "$want_llms" = 0 ]; then
+if [ -z "$WANTED" ]; then
   log "no trigger (keyword or structural); exiting"
   exit 0
 fi
@@ -95,14 +105,18 @@ fi
 
 regenerated_files=""
 
-run_generator() {
-  script=$1
-  files=$2
+# Run each wanted generator in config order.
+for idx in $WANTED; do
+  line=$(echo "$GENERATORS_TSV" | sed -n "${idx}p")
+  name=$(printf '%s' "$line" | awk -F'\t' '{print $1}')
+  script=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
+  outputs=$(printf '%s' "$line" | awk -F'\t' '{print $4}')
+
   if [ ! -f "$script" ]; then
-    log "$script NOT FOUND; skipping"
-    return
+    log "[$name] $script NOT FOUND; skipping"
+    continue
   fi
-  log "running: node $script"
+  log "[$name] running: node $script"
   if [ -n "$DEBUG_DOCS_HOOK" ]; then
     node "$script"
   else
@@ -110,16 +124,13 @@ run_generator() {
   fi
   rc=$?
   if [ $rc -ne 0 ]; then
-    echo "post-commit: $script failed (exit $rc); skipping" >&2
-    return
+    echo "post-commit: [$name] $script failed (exit $rc); skipping" >&2
+    continue
   fi
-  regenerated_files="$regenerated_files $files"
-}
+  regenerated_files="$regenerated_files $outputs"
+done
 
-if [ "$want_agents" = 1 ]; then run_generator scripts/agents.js "docs/agents.md"; fi
-if [ "$want_llms" = 1 ]; then run_generator scripts/llms.js "docs/llms.txt docs/llms-full.txt"; fi
-
-regenerated_files=$(echo "$regenerated_files" | sed 's/^ *//')
+regenerated_files=$(echo "$regenerated_files" | sed 's/^ *//;s/ *$//')
 if [ -z "$regenerated_files" ]; then
   log "no generators ran successfully; nothing to commit"
   exit 0
@@ -135,18 +146,14 @@ if [ -z "$changed_files" ]; then
 fi
 log "regenerated files changed: $(echo "$changed_files" | tr '\n' ' ')"
 
-has_agents=0; has_llms=0
-echo "$changed_files" | grep -q '^docs/agents\.md$' && has_agents=1
-echo "$changed_files" | grep -qE '^docs/llms(-full)?\.txt$' && has_llms=1
-
-if [ "$has_agents" = 1 ] && [ "$has_llms" = 1 ]; then
-  subject="chore: regenerate docs/agents.md + docs/llms.txt (post-commit of $TRIGGER_SHA)"
-elif [ "$has_agents" = 1 ]; then
-  subject="chore: regenerate docs/agents.md (post-commit of $TRIGGER_SHA)"
-elif [ "$has_llms" = 1 ]; then
-  subject="chore: regenerate docs/llms.txt (post-commit of $TRIGGER_SHA)"
-else
+# Subject lists the actual files that changed — accurate regardless of which
+# generators are configured. Falls back to a generic subject if the list is
+# unexpectedly empty.
+files_one_line=$(echo "$changed_files" | tr '\n' ',' | sed 's/,$//;s/,/, /g')
+if [ -z "$files_one_line" ]; then
   subject="chore: regenerate docs indexes (post-commit of $TRIGGER_SHA)"
+else
+  subject="chore: regenerate $files_one_line (post-commit of $TRIGGER_SHA)"
 fi
 
 # Stage only the files that actually changed (xargs handles newline separator).

@@ -13,6 +13,11 @@ cd "$REPO_ROOT"
 git config --local core.hooksPath githooks
 chmod +x githooks/post-commit githooks/post-merge
 
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Note: 'jq' not installed — hooks will use built-in defaults instead of githooks/config.json."
+  echo "      Install with: brew install jq   (or: apt-get install jq)"
+fi
+
 echo "Installed hooks for this repo (scope: --local, this clone only):"
 echo "  core.hooksPath = $(git config --local --get core.hooksPath)"
 echo
