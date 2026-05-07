@@ -1,59 +1,110 @@
 #!/bin/sh
-# Regenerates docs/agents.md after each commit (when commit message contains "agents.md").
-# If the index changed, creates a follow-up commit.
+# Regenerates docs index files after a commit, opt-in via commit-message tokens.
 #
-# Debug:  DEBUG_AGENTS_HOOK=1 git commit ...     (or export it for the session)
+#   "agents.md" in commit message  →  node scripts/agents.js   (writes docs/agents.md)
+#   "llms.txt"  in commit message  →  node scripts/llms.js     (writes docs/llms.txt + docs/llms-full.txt)
+#
+# Both tokens may appear in the same message; both generators run. If anything
+# changed, a single follow-up commit is created with the regenerated files.
+#
+# Token matching is case-insensitive. Matches whole substrings, so phrases like
+# "updates llms.txt", "regenerate agents.md", "fix typo in agents.md" all trigger.
+#
+# Debug:  DEBUG_DOCS_HOOK=1 git commit ...     (or export it for the session)
 
 log() {
-  [ -n "$DEBUG_AGENTS_HOOK" ] && echo "[post-commit] $*" >&2
+  [ -n "$DEBUG_DOCS_HOOK" ] && echo "[post-commit] $*" >&2
 }
 
 log "fired (pid=$$)"
 
 # Guard against recursion: this hook re-fires on the follow-up commit below.
-if [ -n "$AGENTS_MD_HOOK_RUNNING" ]; then
+if [ -n "$DOCS_HOOK_RUNNING" ]; then
   log "recursion guard hit; exiting"
   exit 0
 fi
-export AGENTS_MD_HOOK_RUNNING=1
+export DOCS_HOOK_RUNNING=1
 
 REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
 cd "$REPO_ROOT" || exit 0
 log "repo root: $REPO_ROOT"
 
-# Only run when the commit message opts in with the trigger token (case-insensitive).
 MSG=$(git log -1 --pretty=%B)
 log "last commit msg: $MSG"
-if ! printf '%s' "$MSG" | grep -qi 'agents\.md'; then
-  log "trigger 'agents.md' NOT in commit message; exiting"
+
+want_agents=0
+want_llms=0
+if printf '%s' "$MSG" | grep -qi 'agents\.md'; then want_agents=1; fi
+if printf '%s' "$MSG" | grep -qi 'llms\.txt'; then want_llms=1; fi
+
+if [ "$want_agents" = 0 ] && [ "$want_llms" = 0 ]; then
+  log "no trigger token (agents.md / llms.txt) in commit message; exiting"
   exit 0
 fi
-log "trigger matched"
 
-if [ ! -f scripts/agents.js ]; then
-  log "scripts/agents.js NOT FOUND; exiting"
+if ! command -v node >/dev/null 2>&1; then
+  echo "post-commit: node not found; skipping docs regeneration." >&2
   exit 0
 fi
 
-log "running: node scripts/agents.js"
-if [ -n "$DEBUG_AGENTS_HOOK" ]; then
-  node scripts/agents.js
+regenerated_files=""
+
+run_generator() {
+  script=$1
+  files=$2
+  if [ ! -f "$script" ]; then
+    log "$script NOT FOUND; skipping"
+    return
+  fi
+  log "running: node $script"
+  if [ -n "$DEBUG_DOCS_HOOK" ]; then
+    node "$script"
+  else
+    node "$script" >/dev/null 2>&1
+  fi
   rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "post-commit: $script failed (exit $rc); skipping" >&2
+    return
+  fi
+  regenerated_files="$regenerated_files $files"
+}
+
+if [ "$want_agents" = 1 ]; then run_generator scripts/agents.js "docs/agents.md"; fi
+if [ "$want_llms" = 1 ]; then run_generator scripts/llms.js "docs/llms.txt docs/llms-full.txt"; fi
+
+regenerated_files=$(echo "$regenerated_files" | sed 's/^ *//')
+if [ -z "$regenerated_files" ]; then
+  log "no generators ran successfully; nothing to commit"
+  exit 0
+fi
+
+# Of the files we tried to regenerate, find the ones that actually differ from
+# HEAD. We base the follow-up commit subject on this real diff so it never
+# claims to regenerate a file that didn't change.
+# shellcheck disable=SC2086
+changed_files=$(git diff --name-only -- $regenerated_files)
+if [ -z "$changed_files" ]; then
+  log "regenerated files unchanged; nothing to commit"
+  exit 0
+fi
+log "regenerated files changed: $(echo "$changed_files" | tr '\n' ' ')"
+
+has_agents=0; has_llms=0
+echo "$changed_files" | grep -q '^docs/agents\.md$' && has_agents=1
+echo "$changed_files" | grep -qE '^docs/llms(-full)?\.txt$' && has_llms=1
+
+if [ "$has_agents" = 1 ] && [ "$has_llms" = 1 ]; then
+  subject="chore: regenerate docs/agents.md + docs/llms.txt"
+elif [ "$has_agents" = 1 ]; then
+  subject="chore: regenerate docs/agents.md"
+elif [ "$has_llms" = 1 ]; then
+  subject="chore: regenerate docs/llms.txt"
 else
-  node scripts/agents.js >/dev/null 2>&1
-  rc=$?
-fi
-if [ $rc -ne 0 ]; then
-  echo "post-commit: agents.js failed (exit $rc); skipping" >&2
-  exit 0
+  subject="chore: regenerate docs indexes"
 fi
 
-if git diff --quiet -- docs/agents.md 2>/dev/null; then
-  log "docs/agents.md unchanged; nothing to commit"
-  exit 0
-fi
-log "docs/agents.md changed; creating follow-up commit"
-
-git add docs/agents.md
-git commit -m "chore: regenerate docs/agents.md" --no-verify >/dev/null
-log "follow-up commit created"
+# Stage only the files that actually changed (xargs handles newline separator).
+echo "$changed_files" | xargs git add --
+git commit -m "$subject" --no-verify >/dev/null
+log "follow-up commit created: $subject"

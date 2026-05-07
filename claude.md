@@ -9,7 +9,8 @@ Technical documentation for Base (Ethereum L2). Built with Mintlify.
 | `mintlify dev` | Local dev server |
 | `/lint` | Lint MDX files and fix issues |
 | `/doc-feedback` | Review content quality |
-| `/agents` | Generate AGENTS.md index for AI agents |
+| `/agents` | Generate AGENTS.md index for AI agents (also runs via `githooks/post-commit` when commit message contains `agents.md`) |
+| `/llms` | Regenerate `docs/llms.txt` and `docs/llms-full.txt` (also runs via `githooks/post-commit` when commit message contains `llms.txt`) |
 
 ## Structure
 
@@ -60,5 +61,6 @@ Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 
 1. Run `/lint` and fix errors
 2. Run `/agents` if docs structure changed
+   - Or include `agents.md` / `llms.txt` in your commit message — the `githooks/post-commit` hook will regenerate the matching index files and create a follow-up commit. Enable hooks once per clone with `git config --local core.hooksPath githooks` (repo-scoped, never global).
 3. Add redirects for removed pages
 4. Verify links work
