@@ -1,14 +1,14 @@
 ---
 title: 'eth_getTransactionReceipt'
 sidebarTitle: 'eth_getTransactionReceipt'
-description: 'Returns the receipt for a mined transaction. Receipts are only available after a transaction is included in a block.'
+description: 'Returns the receipt for a transaction. Flashblocks endpoints can return preconfirmed receipt data from cache before the block seals.'
 ---
 
-Returns the receipt for a transaction by its hash. Returns `null` for transactions that are pending or have not been mined.
+Returns the receipt for a transaction by its hash. On Standard RPC endpoints, receipts are available after a transaction is included in a sealed block. On Flashblocks RPC endpoints, this method can return preconfirmed receipt data from the Flashblocks cache before the block seals.
 
-<Note>
-Receipts are only available for mined transactions. To monitor a transaction before it is sealed, use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to confirm it is in the mempool, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) to detect its pre-confirmation in a Flashblock.
-</Note>
+<Warning>
+Preconfirmed receipts are reorg-able until the full L2 block seals. This method does not accept a `pending` parameter; Flashblocks behavior is selected by using a Flashblocks RPC endpoint. See the [RPC Overview](/base-chain/api-reference/rpc-overview#flashblocks-behavior-matrix) for the canonical method matrix.
+</Warning>
 
 ## Parameters
 
@@ -19,7 +19,7 @@ Receipts are only available for mined transactions. To monitor a transaction bef
 ## Returns
 
 <ResponseField name="result" type="object | null">
-  The transaction receipt object, or `null` if the transaction has not been mined.
+  The transaction receipt object, or `null` if the transaction was not found. On Flashblocks endpoints, the result can be a preconfirmed receipt from the Flashblocks cache.
 
   <Expandable title="Receipt fields">
     <ResponseField name="transactionHash" type="string">32-byte transaction hash.</ResponseField>
@@ -55,6 +55,18 @@ Receipts are only available for mined transactions. To monitor a transaction bef
 | --- | --- | --- |
 | `-32000` | transaction indexing is in progress | The node is still indexing transactions. Retry after the node has finished syncing. |
 
+## Flashblock-Specific Response Fields
+
+Before Azul, the Flashblocks infrastructure stream included pre-confirmed receipt data inside the `metadata.receipts` object of each Flashblock payload before the block sealed. Azul removes receipts from the raw WebSocket payload. Applications should use Flashblocks RPC by-hash lookups or subscriptions instead of depending on raw stream receipt payloads.
+
+| Field | Flashblock `metadata.receipts[hash]` |
+| --- | --- |
+| `type` | Transaction type (`0x0`, `0x1`, `0x2`, `0x7e`) |
+| `status` | `"0x1"` success / `"0x0"` failure |
+| `cumulativeGasUsed` | Cumulative gas in block to this transaction |
+| `logs` | Emitted log objects |
+| `logsBloom` | Bloom filter |
+| `transactionIndex` | Index in block |
 
 ## Example
 

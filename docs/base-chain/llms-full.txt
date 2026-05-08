@@ -2,46 +2,42 @@
 
 ## Base Chain — Deep Guide for LLMs
 
-> Base is a fast, low‑cost Ethereum L2 built on the OP Stack. This guide orients an LLM to deployment, connectivity, network details, node operations, and security across the Base Chain docs.
+> Base is a fast, low‑cost Ethereum L2 built on the OP Stack. This guide orients an LLM to connectivity, network details, node operations, and security across the Base Chain docs.
 
 ### What you can do here
-- Deploy smart contracts quickly (testnet and mainnet)
 - Connect apps to read/write on Base
 - Understand fees, contracts, and bridges
 - Use the full Ethereum JSON-RPC API and Flashblocks pre-confirmation API
 - Operate performant nodes
 - Obtain testnet ETH from faucets
-- Discover Flashblocks resources
 - Follow security disclosure guidance
 
 ## Navigation (with brief descriptions)
 
-### Quickstart
-- [Why Base](https://docs.base.org/base-chain/quickstart/why-base.md) — Platform value prop
-- [Deploy on Base](https://docs.base.org/base-chain/quickstart/deploy-on-base.md) — Deploy contracts (Foundry)
-- [Connecting to Base](https://docs.base.org/base-chain/quickstart/connecting-to-base.md) — App connectivity
-- [Base-Solana Bridge](https://docs.base.org/base-chain/quickstart/base-solana-bridge.md) — Bridge between Base and Solana
-
 ### Network Information
-- [Base Contracts](https://docs.base.org/base-chain/network-information/base-contracts.md) — Canonical addresses
+- [Chain Overview](https://docs.base.org/base-chain/overview.md) — Entry point for Base Chain docs
+- [Transaction Lifecycle](https://docs.base.org/base-chain/network-information/transaction-lifecycle.md) — Transaction flow across fees, sequencing, preconfirmation, inclusion, and finality
 - [Network Fees](https://docs.base.org/base-chain/network-information/network-fees.md) — Fee model
-- [Block Building](https://docs.base.org/base-chain/network-information/block-building.md) — Block production
+- [Block Building](https://docs.base.org/base-chain/network-information/block-building.md) — Block production, Flashblocks, gas allocation, and per-transaction limits
 - [Diffs vs Ethereum](https://docs.base.org/base-chain/network-information/diffs-ethereum-base.md) — Differences from L1
-- [Bridges](https://docs.base.org/base-chain/network-information/bridges.md) — Bridges
+- [Bridging](https://docs.base.org/base-chain/network-information/bridges.md) — How assets and messages move between Base, Ethereum, Solana, Bitcoin, and other chains
+- [Base-Solana Bridge](https://docs.base.org/base-chain/network-information/base-solana-bridge.md) — Bridge assets and messages between Base and Solana
 - [Transaction Finality](https://docs.base.org/base-chain/network-information/transaction-finality.md) — Finality model
+- [Throughput and Limits](https://docs.base.org/base-chain/network-information/throughput-and-limits.md) — Capacity, gas, fee, and endpoint limits
+- [Sequencing Policy](https://docs.base.org/base-chain/network-information/sequencing-policy.md) — Ordering, inclusion, and sequencing behavior
+
+### Network Reference
+- [Networks and Endpoints](https://docs.base.org/base-chain/network-information/networks-and-endpoints.md) — Chain IDs, RPC URLs, Flashblocks endpoints, and explorers
+- [Connecting to Base](https://docs.base.org/base-chain/quickstart/connecting-to-base.md) — App connectivity and wallet network setup
+- [Base Contracts](https://docs.base.org/base-chain/network-information/base-contracts.md) — Canonical addresses
+- [Ecosystem Contracts](https://docs.base.org/base-chain/network-information/ecosystem-contracts.md) — Third-party addresses
 - [Troubleshooting Transactions](https://docs.base.org/base-chain/network-information/troubleshooting-transactions.md) — Diagnose common transaction issues
 - [Configuration Changelog](https://docs.base.org/base-chain/network-information/configuration-changelog.md) — Network config changes
 - [Network Faucets](https://docs.base.org/base-chain/network-information/network-faucets.md) — Testnet ETH for Base Sepolia
 
-### Flashblocks
-- [Overview](https://docs.base.org/base-chain/flashblocks/overview.md) — What Flashblocks is and how the two-tier RPC system works
-- [App Integration](https://docs.base.org/base-chain/flashblocks/app-integration.md) — Apps using Flashblocks
-- [Architecture](https://docs.base.org/base-chain/flashblocks/architecture.md) — How the sequencer emits Flashblocks and nodes consume them
-- [FAQ](https://docs.base.org/base-chain/flashblocks/faq.md) — Frequently asked questions about Flashblocks
-
 ### API Reference
-- [Overview](https://docs.base.org/base-chain/api-reference/rpc-overview.md) — Networks, endpoints (Standard and Flashblocks), request/response format, error codes, block parameters, and full method index for all three API groups
-- [Ethereum JSON-RPC API](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_blockNumber.md) — Core Ethereum protocol methods: account state, blocks, transactions, gas, logs, chain info, and WebSocket subscriptions (28 methods total)
+- [Overview](https://docs.base.org/base-chain/api-reference/rpc-overview.md) — Human overview of Standard and Flashblocks endpoints, request/response format, error codes, and block parameters
+- [Ethereum JSON-RPC API](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_blockNumber.md) — Core Ethereum protocol methods: account state, blocks, transactions, gas, logs, chain info, and WebSocket subscriptions (27 method pages)
 - [Flashblocks API](https://docs.base.org/base-chain/api-reference/flashblocks-api/flashblocks-api-overview.md) — Flashblocks-specific HTTP methods (eth_simulateV1, base_transactionStatus), WebSocket subscriptions (newFlashblockTransactions, pendingLogs, newFlashblocks), and the raw infrastructure stream schema
 - [Debug API](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceTransaction.md) — EVM execution tracing: debug_traceTransaction, debug_traceBlockByHash, debug_traceBlockByNumber
 
@@ -102,18 +98,63 @@
 - [Bug Bounty](https://docs.base.org/base-chain/security/bug-bounty.md) — Bug bounty program
 
 
-## Quickstart (excerpts)
+## API Method Inventory
 
-Source: `https://docs.base.org/base-chain/quickstart/deploy-on-base.md`
+Use this section as the agent-facing complete index. The human [API Overview](https://docs.base.org/base-chain/api-reference/rpc-overview.md) explains endpoint selection and JSON-RPC request shape; the method inventory below links to the canonical per-method pages.
 
-Deploy with Foundry to Base Sepolia:
+### Ethereum JSON-RPC API
 
-```bash
-forge create src/Contract.sol:Contract \
-  --rpc-url $BASE_SEPOLIA_RPC \
-  --private-key $PRIVATE_KEY \
-  --verify --verifier blockscout --verifier-url https://base-sepolia.blockscout.com/api
-```
+| Method | Purpose | Flashblocks note |
+| :--- | :--- | :--- |
+| [eth_blockNumber](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_blockNumber.md) | Returns the most recently mined block number. | Standard behavior. |
+| [eth_getBalance](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBalance.md) | Returns an account ETH balance at a block. | Use `pending` on a Flashblocks endpoint for preconfirmed balances. |
+| [eth_getTransactionCount](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionCount.md) | Returns the account nonce / transaction count. | Use `pending` on a Flashblocks endpoint for preconfirmed nonce state. |
+| [eth_getCode](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getCode.md) | Returns contract bytecode at an address. | Use `pending` on a Flashblocks endpoint to detect newly deployed contracts before the block seals. |
+| [eth_getStorageAt](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getStorageAt.md) | Returns a contract storage slot value. | Use `pending` on a Flashblocks endpoint for preconfirmed storage reads. |
+| [eth_call](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_call.md) | Executes a read-only call without creating a transaction. | Use `pending` on a Flashblocks endpoint to simulate against preconfirmed state. |
+| [eth_getBlockByNumber](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber.md) | Returns block information by block number or tag. | `pending` returns the live preconfirmed block on Flashblocks endpoints. |
+| [eth_getBlockByHash](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByHash.md) | Returns block information by hash. | Standard behavior. |
+| [eth_getBlockReceipts](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockReceipts.md) | Returns all transaction receipts for a block. | Use `pending` on a Flashblocks endpoint for preconfirmed receipts. |
+| [eth_getBlockTransactionCountByNumber](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockTransactionCountByNumber.md) | Returns transaction count in a block by number. | Use `pending` on a Flashblocks endpoint for current preconfirmed block count. |
+| [eth_getBlockTransactionCountByHash](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockTransactionCountByHash.md) | Returns transaction count in a block by hash. | Standard behavior. |
+| [eth_getTransactionByHash](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByHash.md) | Returns transaction data by transaction hash. | Flashblocks endpoints can return preconfirmed cache data; no `pending` parameter. |
+| [eth_getTransactionByBlockHashAndIndex](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByBlockHashAndIndex.md) | Returns a transaction by block hash and index. | Standard behavior. |
+| [eth_getTransactionByBlockNumberAndIndex](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByBlockNumberAndIndex.md) | Returns a transaction by block number and index. | Standard behavior. |
+| [eth_getTransactionReceipt](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt.md) | Returns a transaction receipt by transaction hash. | Flashblocks endpoints can return preconfirmed receipt cache data; no `pending` parameter. |
+| [eth_sendRawTransaction](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_sendRawTransaction.md) | Submits a pre-signed transaction. | Submit to Flashblocks preconf endpoints for faster preconfirmation feedback. |
+| [eth_gasPrice](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_gasPrice.md) | Returns the current gas price in wei. | Standard behavior. |
+| [eth_maxPriorityFeePerGas](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_maxPriorityFeePerGas.md) | Returns suggested EIP-1559 priority fee per gas. | Standard behavior. |
+| [eth_feeHistory](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_feeHistory.md) | Returns base fee and priority fee history for a block range. | Standard behavior. |
+| [eth_estimateGas](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_estimateGas.md) | Estimates gas required for a transaction. | Use `pending` on a Flashblocks endpoint to estimate against preconfirmed state. |
+| [eth_getLogs](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getLogs.md) | Returns logs matching a filter. | Use `pending` on Flashblocks endpoints for preconfirmed logs; use `pendingLogs` for streaming. |
+| [eth_chainId](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_chainId.md) | Returns the chain ID. | Standard behavior. |
+| [eth_syncing](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_syncing.md) | Returns node sync status. | Standard behavior. |
+| [net_version](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/net_version.md) | Returns the network ID as a string. | Standard behavior. |
+| [web3_clientVersion](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/web3_clientVersion.md) | Returns the client version string. | Standard behavior. |
+| [eth_subscribe](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe.md) | Creates a WebSocket subscription. | Flashblocks endpoints add subscription types and emit `newHeads` per Flashblock. |
+| [eth_unsubscribe](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_unsubscribe.md) | Cancels a WebSocket subscription. | Standard behavior. |
+
+### Flashblocks API
+
+| Method or surface | Purpose |
+| :--- | :--- |
+| [eth_simulateV1](https://docs.base.org/base-chain/api-reference/flashblocks-api/eth_simulateV1.md) | Simulates one or more transaction bundles against current preconfirmed Flashblock state. |
+| [base_transactionStatus](https://docs.base.org/base-chain/api-reference/flashblocks-api/base_transactionStatus.md) | Checks whether a transaction is in the node mempool. |
+| [newFlashblockTransactions](https://docs.base.org/base-chain/api-reference/flashblocks-api/newFlashblockTransactions.md) | WebSocket subscription for each transaction as it is preconfirmed into a Flashblock. |
+| [pendingLogs](https://docs.base.org/base-chain/api-reference/flashblocks-api/pendingLogs.md) | WebSocket subscription for filtered logs from preconfirmed transactions. |
+| [newFlashblocks](https://docs.base.org/base-chain/api-reference/flashblocks-api/newFlashblocks.md) | WebSocket subscription for the full Flashblock payload stream. |
+| [Raw infrastructure stream schema](https://docs.base.org/base-chain/api-reference/flashblocks-api/flashblocks-api-overview.md) | Node-operator stream consumed by Flashblocks-aware RPC infrastructure; applications should use Flashblocks RPC methods and subscriptions instead. |
+
+### Debug API
+
+| Method | Purpose |
+| :--- | :--- |
+| [debug_traceTransaction](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceTransaction.md) | Returns the full EVM execution trace for a transaction. |
+| [debug_traceBlockByHash](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceBlockByHash.md) | Returns EVM execution traces for all transactions in a block by hash. |
+| [debug_traceBlockByNumber](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceBlockByNumber.md) | Returns EVM execution traces for all transactions in a block by number. |
+
+
+## Connection Reference (excerpts)
 
 Source: `https://docs.base.org/base-chain/quickstart/connecting-to-base.md`
 
@@ -136,7 +177,7 @@ Source: `https://docs.base.org/base-chain/network-information/diffs-ethereum-bas
   - Source: `https://docs.base.org/base-chain/network-information/network-fees.md`
 - Canonical contracts: Use published address lists for bridges, system contracts, and registry.
   - Source: `https://docs.base.org/base-chain/network-information/base-contracts.md`
-- Bridges: Official and third‑party bridge options for moving assets to/from Base.
+- Bridging: How assets and messages move between Base, Ethereum, Solana, Bitcoin, and other chains.
   - Source: `https://docs.base.org/base-chain/network-information/bridges.md`
 
 
@@ -173,17 +214,20 @@ curl -s -X POST "$BASE_RPC" -H 'content-type: application/json' \
 ```
 
 
-## Flashblocks (excerpts)
+## Flashblocks (where to read)
 
 Sources:
-- `https://docs.base.org/base-chain/flashblocks/faq.md`
-- `https://docs.base.org/base-chain/flashblocks/app-integration.md`
+- `https://docs.base.org/base-chain/network-information/block-building.md`
+- `https://docs.base.org/base-chain/network-information/transaction-finality.md`
+- `https://docs.base.org/base-chain/api-reference/rpc-overview.md`
+- `https://docs.base.org/base-chain/node-operators/run-a-base-node.md`
 - `https://docs.base.org/base-chain/api-reference/flashblocks-api/flashblocks-api-overview.md`
 
-- Overview: Flashblocks provide sub-200ms preconfirmed block state on Base, enabling lower-latency reads and faster transaction confirmation signals.
-- Ecosystem: Review apps that make use of Flashblocks‑related infra and the node providers who support relevant capabilities.
-- When to consider: High‑frequency reads/writes, market‑sensitive UX, or services where propagation and data freshness are critical.
-- Integration: Connect to `mainnet.base.org` (or `sepolia.base.org`); use `"pending"` block tag to query preconfirmed state. Follow provider documentation and the Flashblocks docs for setup and operational guidance.
+- Block building: Read Block Building for Flashblocks sequencing, gas allocation, and per-transaction limits.
+- Finality: Read Transaction Finality for preconfirmation, L2 block inclusion, L1 batching, and finality stages.
+- API behavior: Read Base RPC Overview for Standard RPC, Flashblocks RPC, by-hash cache behavior, and raw stream differences.
+- Node operation: Read Run a Base Node and Flashblocks API Overview for raw stream infrastructure and schema details.
+- Integration: Connect to `mainnet-preconf.base.org` or `sepolia-preconf.base.org`; use `"pending"` block tag on Flashblocks endpoints for preconfirmed state where supported.
 - Validation: Measure end‑to‑end latency and consistency across providers as part of your rollout plan.
 
 Simple latency probe (conceptual):

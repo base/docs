@@ -11,7 +11,7 @@ Executes a message call immediately without broadcasting a transaction to the ne
 </Tip>
 
 <Note>
-**`eth_call "pending"` block context on Flashblocks nodes:** Block-context properties (`block.number`, `block.timestamp`, `block.basefee`) may reflect a block several behind tip due to how nodes cache historical Flashblocks. See the [FAQ](/base-chain/flashblocks/faq#why-does-eth_call-pending-report-a-block-context-several-blocks-behind-tip) for details.
+**`eth_call "pending"` block context on Flashblocks nodes:** Block-context properties (`block.number`, `block.timestamp`, `block.basefee`) may reflect a block several behind tip because Flashblocks-aware nodes keep historical Flashblocks state to tolerate propagation differences. The call result still reflects received Flashblocks state applied on top of that base context, but contracts that depend on block context properties should account for this behavior.
 </Note>
 
 ## Parameters
@@ -65,7 +65,7 @@ Executes a message call immediately without broadcasting a transaction to the ne
 
 ## Example
 
-<CodeGroup>
+<RequestExample>
 ```bash Standard (latest)
 curl https://mainnet.base.org \
   -X POST \
@@ -101,7 +101,9 @@ curl https://mainnet.base.org \
     "id": 1
   }'
 ```
+</RequestExample>
 
+<ResponseExample>
 ```json Response
 {
   "jsonrpc": "2.0",
@@ -109,4 +111,4 @@ curl https://mainnet.base.org \
   "result": "0x0000000000000000000000000000000000000000000000000000000005f5e100"
 }
 ```
-</CodeGroup>
+</ResponseExample>

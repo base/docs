@@ -33,20 +33,21 @@ Before diving into specific issues, here are some general steps that often help:
     - **Check**: Are you in the correct directory (the cloned `node` directory containing `docker-compose.yml`)?  
     - **Check**: Syntax errors in the command (e.g., misspelled `NETWORK_ENV`).
 
-- **Issue**: Container fails to start, logs show errors related to `.env` files or environment variables.  
-    - **Check**: Did you correctly configure the L1 endpoints (`BASE_NODE_L1_ETH_RPC`, `BASE_NODE_L1_BEACON`) in the correct `.env` file (`.env.mainnet` or `.env.sepolia`)?  
-    - **Check**: Are `RETH_CHAIN` and `RETH_SEQUENCER_HTTP` correctly set in the `.env` file?
+- **Issue**: Container fails to start, logs show errors related to `.env` files or environment variables.
+    - **Check**: Did you correctly configure the L1 endpoints (`BASE_NODE_L1_ETH_RPC`, `BASE_NODE_L1_BEACON`) in the correct `.env` file (`.env.mainnet` or `.env.sepolia`)?
+    - **Check**: Is the `BASE_NODE_L1_BEACON_ARCHIVER` endpoint set if required by your configuration or L1 node?
+    - **Check**: (Reth) Are `RETH_CHAIN` and `RETH_SEQUENCER_HTTP` correctly set in the `.env` file?
 
-- **Issue**: Errors related to JWT secret or authentication between `base-consensus` and the execution client.  
-    - **Check**: Ensure you haven't manually modified the `BASE_NODE_L2_ENGINE_AUTH` variable or the JWT file path (`$BASE_NODE_L2_ENGINE_AUTH`) unless you know what you're doing. The `docker-compose` setup usually handles this automatically.
+- **Issue**: Errors related to JWT secret or authentication between `base-consensus` and the execution client.
+    - **Check**: Ensure you haven't manually modified `BASE_NODE_L2_ENGINE_AUTH_RAW`, `BASE_NODE_L2_ENGINE_AUTH`, or the JWT file path unless you know what you're doing. The `docker-compose` setup usually handles this automatically.
 
 - **Issue**: Permission errors related to data volumes (`./reth-data`).
     - **Check**: Ensure the user running `docker compose` has write permissions to the directory where the `node` repository was cloned. Docker needs to be able to write to `./reth-data`. Sometimes running Docker commands with `sudo` can cause permission issues later; try running as a non-root user added to the `docker` group.
 
 ### Syncing Problems
 
-- **Issue**: Node doesn't start syncing or appears stuck (block height not increasing).  
-    - **Check**: `base-consensus` logs. Look for errors connecting to L1 endpoints or the execution client.  
+- **Issue**: Node doesn't start syncing or appears stuck (block height not increasing).
+    - **Check**: `base-consensus` logs. Look for errors connecting to L1 endpoints or the execution client.
     - **Check**: Look at logs for the execution client. Look for errors connecting to `base-consensus` via the Engine API (port `8551`) or P2P issues.
     - **Check**: L1 node health and sync status. Is the L1 node accessible and fully synced?
     - **Check**: System time. Ensure the server’s clock is accurately synchronized (use `ntp` or `chrony`). Significant time drift can cause P2P issues.
@@ -57,12 +58,12 @@ Before diving into specific issues, here are some general steps that often help:
     - **Check**: Network connection quality and bandwidth.  
     - **Check**: `base-consensus` and execution client logs for any performance warnings or errors.
 
-- **Issue**: `optimism_syncStatus` (port `7545` on `base-consensus`) shows a large time difference or errors.  
+- **Issue**: `optimism_syncStatus` on the base-consensus RPC port (`BASE_NODE_RPC_PORT`) shows a large time difference or errors.
     - **Action**: Check the logs for both the rollup node and the L2 execution client around the time the status was checked to identify the root cause (e.g., L1 connection issues, L2 client issues).
 
 - **Issue**: `Error: nonce has already been used` when trying to send transactions.  
     - **Cause**: The node is not yet fully synced to the head of the chain.  
-    - **Action**: Wait for the node to fully sync. Monitor progress using `optimism_syncStatus` or logs.
+    - **Action**: Wait for the node to fully sync. Monitor progress using `optimism_syncStatus` on the base-consensus RPC port or logs.
 
 ### Performance Issues
 

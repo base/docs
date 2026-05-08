@@ -23,7 +23,7 @@ These are **config and visible docs only** (not hidden MDX):
 |--------|------------|
 | Destinations pointed at **`/apps/overview`** (no page) | Now **`/apps/quickstart/create-new-app`** (matches prior `/mini-apps/overview` behavior). |
 | **`/mini-apps/features/links`** → missing `technical-guides/links` | Destination is **`/apps/core-concepts/navigation`**. |
-| **`/mini-apps/growth/data-driven-growth`** → missing `technical-guides/data-driven-growth` | Destination is **`https://base.dev`** (same as the `technical-guides/data-driven-growth` redirect). |
+| **`/mini-apps/growth/data-driven-growth`** → missing `technical-guides/data-driven-growth` | Destination is **`https://dashboard.base.org`** (same as the `technical-guides/data-driven-growth` redirect). |
 | **`/apps/features/manifest`** (base-app minikit redirects) | **`/apps/core-concepts/manifest`**. |
 | **`/mini-apps/quickstart/new-apps/features`** → missing `features/overview` | **`/apps/featured-guidelines/overview`**. |
 

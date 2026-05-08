@@ -35,6 +35,10 @@ The raw Flashblocks infrastructure stream is the upstream WebSocket feed consume
 **Applications should not connect directly to the infrastructure stream.** These endpoints are for node operators only. App developers should use the [WebSocket subscription methods](#websocket-subscriptions) above via a Flashblocks-aware RPC provider.
 </Warning>
 
+<Note>
+Azul simplifies the raw Flashblocks WebSocket payload. Account balances and receipts are not populated in the raw stream after Azul. Applications that need preconfirmed transaction or receipt data should use Flashblocks RPC behavior described in the [RPC Overview](/base-chain/api-reference/rpc-overview#flashblocks-behavior-matrix).
+</Note>
+
 | Network | Raw stream URL |
 | :--- | :--- |
 | Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
@@ -44,13 +48,13 @@ The raw Flashblocks infrastructure stream is the upstream WebSocket feed consume
 
 The root structure of each infrastructure stream message.
 
-<Card>
+<Card title="Flashblock fields">
 <ParamField path="payload_id" type="string">
 Unique identifier for the block being built. Remains consistent across all Flashblocks within a single full block.
 </ParamField>
 
 <ParamField path="index" type="number">
-Flashblock index within the current block. Starts at 0 (system transactions only). User transactions begin at index 1. Typically reaches 9–10 per block, but [may exceed 10](/base-chain/flashblocks/faq#why-can-the-flashblock-index-exceed-10) during sequencer timing drift.
+Flashblock index within the current block. Starts at 0 (system transactions only). User transactions begin at index 1. Typically reaches 9-10 per block, but can exceed 10 during sequencer timing drift. Do not hardcode a final index; use `payload_id` changes or full block confirmation via standard RPC as the signal that the block has advanced.
 </ParamField>
 
 <ParamField path="base" type="Base Object">
@@ -70,7 +74,7 @@ Supplemental data. **Unstable — fields may change without notice.** See [Metad
 
 Contains full block header properties. **Only present in the `index: 0` message** (the first Flashblock of each full block).
 
-<Card>
+<Card title="Base fields">
 <ParamField path="parent_hash" type="string">Hash of the parent block.</ParamField>
 <ParamField path="fee_recipient" type="string">Address receiving transaction fees (coinbase).</ParamField>
 <ParamField path="block_number" type="string">Block number in hex.</ParamField>
@@ -86,7 +90,7 @@ Contains full block header properties. **Only present in the `index: 0` message*
 
 Contains the incremental block state changes for this specific Flashblock. Present in every message.
 
-<Card>
+<Card title="Diff fields">
 <ParamField path="state_root" type="string">Merkle root of the state trie after applying this Flashblock's transactions.</ParamField>
 <ParamField path="block_hash" type="string">Hash of the partial block at this Flashblock index. Changes with each Flashblock as more transactions are pre-confirmed.</ParamField>
 <ParamField path="gas_used" type="string">Cumulative gas used up to and including this Flashblock (hex).</ParamField>
@@ -101,43 +105,13 @@ Contains the incremental block state changes for this specific Flashblock. Prese
 ### Metadata Object
 
 <Warning>
-**The `metadata` object is not stable.** Fields may be added, modified, or removed without prior notice. Do not build production dependencies on it — use the [`diff`](#diff-object) object or query finalized block data via standard RPC instead.
+**The `metadata` object is not stable.** Fields may be added, modified, or removed without prior notice. Do not build production dependencies on it — use the [`diff`](#diff-object), Flashblocks RPC methods, or finalized block data via standard RPC instead.
 </Warning>
 
-As of v0.8.0, `new_account_balances` and `receipts` are no longer present in the `metadata` object. `block_number` remains. The `access_list` field is present but always empty.
+After Azul, the raw infrastructure stream does not populate account balances or transaction receipts in `metadata`. Use Flashblocks RPC by-hash lookups, `pendingLogs`, or `newFlashblockTransactions` when you need preconfirmed transaction, receipt, or log data.
 
-<Card>
+<Card title="Metadata fields">
 <ParamField path="block_number" type="number">Block number as a decimal integer.</ParamField>
-</Card>
-
-### Receipt Object
-
-<Note>
-`metadata.receipts` was removed in v0.8.0. This schema is preserved for reference for older node versions. On v0.8.0+, use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) for polling-based receipt data, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) with `full: true` for a real-time stream of pre-confirmed transaction data including logs.
-</Note>
-
-<Card>
-<ParamField path="type" type="string">Transaction type: `0x0` Legacy, `0x1` Access List, `0x2` EIP-1559, `0x7e` Deposit (L1→L2).</ParamField>
-<ParamField path="status" type="string">Transaction status: `0x1` for success, `0x0` for failure.</ParamField>
-<ParamField path="cumulativeGasUsed" type="string">Total gas used in the block up to and including this transaction (hex).</ParamField>
-<ParamField path="logs" type="Log[]">Array of event logs emitted by the transaction. See [Log Object](#log-object).</ParamField>
-<ParamField path="logsBloom" type="string">Bloom filter for the logs in this receipt.</ParamField>
-<ParamField path="transactionIndex" type="string">Index of the transaction within the block (hex).</ParamField>
-</Card>
-
-### Log Object
-
-<Card>
-<ParamField path="address" type="string">Contract address that emitted the event.</ParamField>
-<ParamField path="topics" type="string[]">Array of indexed event parameters. Topic 0 is typically the event signature hash.</ParamField>
-<ParamField path="data" type="string">ABI-encoded non-indexed event parameters.</ParamField>
-<ParamField path="blockHash" type="string">Hash of the block containing this log.</ParamField>
-<ParamField path="blockNumber" type="string">Block number in hex.</ParamField>
-<ParamField path="blockTimestamp" type="string">Unix timestamp of the block as a hex string. Base L2 extension to the standard Ethereum log schema.</ParamField>
-<ParamField path="transactionHash" type="string">Hash of the transaction that emitted this log.</ParamField>
-<ParamField path="transactionIndex" type="string">Index of the transaction in the block (hex).</ParamField>
-<ParamField path="logIndex" type="string">Log's index position within the block (hex).</ParamField>
-<ParamField path="removed" type="boolean">`true` if the log was removed due to a chain reorg.</ParamField>
 </Card>
 
 ### Complete Examples

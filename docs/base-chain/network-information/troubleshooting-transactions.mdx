@@ -50,11 +50,11 @@ If you submit a transaction with a nonce that has already been used, it will be 
 
 ### Gas Limit Exceeds Maximum
 
-Base enforces a [per-transaction gas maximum](/base-chain/network-information/block-building#per-transaction-gas-maximum) of **16,777,216 gas (2^24)**. Transactions specifying a higher gas limit are rejected during block validation.
+Base enforces a [per-transaction gas maximum](/base-chain/network-information/block-building#per-transaction-gas-maximum). The active cap is network- and activation-dependent: Base Sepolia uses 16,777,216 gas, while Base Mainnet uses 25,000,000 gas until Azul activates on May 21, 2026 at 18:00 UTC and 16,777,216 gas after activation. Transactions specifying a higher gas limit are rejected by the mempool before inclusion.
 
 **Error**: `exceeds maximum per-transaction gas limit`
 
-**Solution**: Reduce the gas limit to 16,777,216 (2^24) or below. If your transaction genuinely requires more gas, you'll need to break it into multiple transactions.
+**Solution**: Reduce the gas limit to the active per-transaction cap for the network. If your transaction genuinely requires more gas, you'll need to break it into multiple transactions.
 
 ## Transaction Included But Failed
 
@@ -76,16 +76,7 @@ The contract execution encountered a revert condition.
 
 ### Understanding Confirmation Times
 
-Base produces blocks every 2 seconds, but [Flashblocks](/base-chain/flashblocks/app-integration) provide preconfirmations every 200ms.
-
-| Confirmation Level | Time | Description |
-|-------------------|------|-------------|
-| Flashblock preconfirmation | ~200ms | Transaction included in a preconfirmation |
-| L2 block inclusion | ~2s | Transaction included in a sealed L2 block |
-| L1 batch inclusion | ~2m | Transaction posted to Ethereum |
-| L1 finality | ~20m | Ethereum batch is finalized |
-
-See [Transaction Finality](/base-chain/network-information/transaction-finality) for more details.
+First identify which confirmation stage your app or wallet is waiting for. The canonical lifecycle and timing from Flashblock preconfirmation through L1 finality is documented in [Transaction Finality](/base-chain/network-information/transaction-finality).
 
 ### Using Flashblocks for Faster Confirmations
 
@@ -97,6 +88,8 @@ To get the fastest possible confirmation, use a Flashblocks-aware RPC endpoint:
 | Sepolia | `https://sepolia.base.org` |
 
 These endpoints return transaction receipts as soon as a transaction is included in a Flashblock, rather than waiting for the full L2 block.
+
+If a transaction appears on a Flashblocks-aware endpoint but not yet on a standard RPC endpoint, continue polling the standard endpoint before treating it as a regular L2 block inclusion. If neither endpoint returns a receipt, continue with the fee, nonce, and gas-limit checks above.
 
 ## Debugging Tools
 

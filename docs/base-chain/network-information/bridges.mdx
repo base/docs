@@ -1,36 +1,50 @@
 ---
-title: Bridges
-description: Documentation for bridging assets to Base. This page covers how to bridge assets between Ethereum, Solana, Bitcoin, and Base.
-
+title: Bridging
+description: How assets and messages move between Base, Ethereum, Solana, Bitcoin, and other chains.
 ---
 
-Base supports bridging assets from multiple chains including Ethereum, Solana, and Bitcoin. While the bridge on bridge.base.org has been deprecated, there are many bridges that support moving assets between Base and other chains.
+Bridging moves assets or messages between Base and another chain. The user experience can look like a single transfer, but the underlying mechanism depends on the source chain, destination chain, asset, and bridge provider.
 
-For questions, see our [FAQ](#faq).
+Base supports several bridging paths, including canonical Ethereum ↔ Base bridging, Base ↔ Solana bridging, and third-party bridges for assets such as BTC. For protocol-level details, see the [bridging specifications](/base-chain/specs/protocol/bridging/bridges).
 
----
+## How bridging works
+
+Most bridge designs use one of three patterns:
+
+- **Lock and mint:** the source-chain asset is locked in a bridge contract or custody system, and a representation is minted on the destination chain.
+- **Burn and release:** a bridged representation is burned on one chain, and the original or equivalent asset is released on the other chain.
+- **Message passing:** a source-chain action emits a message that is verified and executed on the destination chain.
+
+The trust model depends on who verifies the source-chain event and who can release or mint the destination-chain asset. Native Ethereum ↔ Base bridging uses the OP Stack bridge and fault proof system. Other bridge providers may use different validator sets, liquidity networks, or custody models.
+
+<Warning>
+Bridge security and withdrawal timing vary by provider and route. Always verify the destination token, bridge provider, and withdrawal assumptions before moving significant funds.
+</Warning>
 
 ## Ethereum ↔ Base
 
-### Superbridge
+Ethereum is Base's L1 settlement layer. Native deposits and withdrawals between Ethereum and Base use OP Stack bridge contracts and cross-domain messaging.
 
-Superbridge enables you to bridge ETH and other supported assets from Ethereum mainnet (L1) directly to Base.
+### Deposits to Base
 
-#### Supported Networks
+Deposits start on Ethereum. A user deposits ETH or an ERC-20 through an L1 bridge contract, the deposit is included on Ethereum, and the corresponding L2 transaction is derived and executed on Base. Deposits typically complete much faster than withdrawals because they do not need the fault proof challenge window.
 
-- [Base Mainnet](https://superbridge.app/base)
-- [Base Sepolia (Testnet)](https://superbridge.app/base-sepolia)
+### Withdrawals to Ethereum
 
-### Brid.gg
+Withdrawals start on Base and complete on Ethereum. The user initiates a withdrawal on Base, the withdrawal is proven against an output root on Ethereum, and the funds can be finalized after the fault proof challenge window if the output root remains valid.
 
-Brid.gg is another option that also helps you bridge ETH and supported assets between Ethereum mainnet (L1) and Base.
+<Note>
+Only Base-to-Ethereum withdrawals through the native bridge use the 7 day finality period. Normal Base transactions do not wait 7 days. See [Transaction Finality](/base-chain/network-information/transaction-finality#finality-for-withdrawal-transactions).
+</Note>
 
-#### Supported Networks
+### Bridge providers
 
-- [Base Mainnet](https://brid.gg/base)
-- [Base Sepolia (Testnet)](https://testnet.brid.gg/base-sepolia)
+Several bridge interfaces support Ethereum ↔ Base transfers:
 
-### Programmatic Bridging (Ethereum)
+- [Superbridge Base Mainnet](https://superbridge.app/base)
+- [Superbridge Base Sepolia](https://superbridge.app/base-sepolia)
+- [Brid.gg Base Mainnet](https://brid.gg/base)
+- [Brid.gg Base Sepolia](https://testnet.brid.gg/base-sepolia)
 
 See the [sample code repository](https://github.com/base-org/guides/tree/main/bridge/native) to see how to bridge ETH and ERC-20s from Ethereum to Base.
 
@@ -47,57 +61,52 @@ This implementation can only bridge assets to Base. Do not attempt to alter the
 code to withdraw the assets.
 </Warning>
 
-### For Token Issuers
-
-If you have an ERC-20 token deployed on Ethereum and want to enable bridging to Base, see our guide on [Bridging an L1 Token to Base](/base-chain/quickstart/bridge-token). This covers deploying your token on Base using the standard bridge contracts and getting it listed on the Superchain token list.
-
----
-
 ## Solana ↔ Base
 
-The Base-Solana bridge enables bidirectional token transfers and message passing between Base and Solana networks.
+The Base-Solana bridge enables bidirectional token transfers and message passing between Base and Solana. It uses bridge contracts/programs and validators to verify cross-chain messages between the two ecosystems.
 
-**Key Features:**
-- Transfer SOL and SPL tokens between Base and Solana
-- Send arbitrary cross-chain messages
-- Deploy wrapped tokens on either chain
-- Optional auto-relay for instant execution
+Use this route when you need to move SOL, SPL tokens, wrapped tokens, or application messages between Solana and Base.
 
 <CardGroup cols={2}>
-  <Card title="Full Documentation" icon="book" href="/base-chain/quickstart/base-solana-bridge">
-    Complete guide with code examples and contract addresses
+  <Card title="Base-Solana Bridge" icon="book" href="/base-chain/network-information/base-solana-bridge">
+    Read the implementation guide, contract addresses, token wrapping flow, and message passing examples.
   </Card>
   <Card title="Terminally Onchain" icon="terminal" href="https://terminallyonchain.com/">
-    Production terminal UI for bridging + contract calls
+    Use a production terminal UI for bridging and cross-chain contract calls.
   </Card>
 </CardGroup>
 
-### Contract Addresses
-
-| Network | Contract | Address |
-|---------|----------|---------|
-| Base Mainnet | Bridge | `0x3eff766C76a1be2Ce1aCF2B69c78bCae257D5188` |
-| Base Mainnet | SOL Token | `0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82` |
-| Solana Mainnet | Bridge Program | `HNCne2FkVaNghhjKXapxJzPaBvAKDG1Ge3gqhZyfVWLM` |
-
 <Info>
-For testnet addresses and full implementation details, see the [Base-Solana Bridge documentation](/base-chain/quickstart/base-solana-bridge#contract-addresses).
+For Mainnet, Sepolia, and Solana Devnet addresses, see the [Base-Solana Bridge documentation](/base-chain/network-information/base-solana-bridge#contract-addresses).
 </Info>
 
 ---
 
 ## Bitcoin → Base
 
-### Garden
-
 Garden is a fast non-custodial Bitcoin bridge that enables you to bridge BTC and other supported assets from Ethereum, Solana, and more, directly to Base.
 
-#### Supported Networks
+### Supported networks
 
 - [Base Mainnet](https://app.garden.finance/?output-chain=base&output-asset=cbBTC)
 - [Base Sepolia (Testnet)](https://testnet.garden.finance/?output-chain=base_sepolia&output-asset=USDT)
 
----
+## Choosing a route
+
+| Goal | Typical route |
+| --- | --- |
+| Move ETH or canonical ERC-20s between Ethereum and Base | Use an Ethereum ↔ Base bridge such as Superbridge or Brid.gg. |
+| Withdraw from Base to Ethereum with native security assumptions | Use the native withdrawal path and account for the 7 day challenge window. |
+| Move assets or messages between Solana and Base | Use the Base-Solana bridge. |
+| Move BTC or BTC-like assets to Base | Use a provider that supports Bitcoin routes to Base, such as Garden. |
+
+## Related specs and references
+
+- [Standard Bridges spec](/base-chain/specs/protocol/bridging/bridges) explains the protocol bridge model.
+- [Deposits spec](/base-chain/specs/protocol/bridging/deposits) describes Ethereum-to-Base deposits.
+- [Withdrawals spec](/base-chain/specs/protocol/bridging/withdrawals) describes Base-to-Ethereum withdrawals.
+- [Base contracts](/base-chain/network-information/base-contracts) lists deployed bridge contract addresses.
+- [Transaction Finality](/base-chain/network-information/transaction-finality) explains withdrawal finality.
 
 ## Disclaimer
 
@@ -126,7 +135,7 @@ Superchain Bridges are operated by third parties, not by Coinbase Technologies, 
 </Accordion>
 
 <Accordion title="How does the Base-Solana bridge work?">
-The Base-Solana bridge uses validators to verify cross-chain messages. When bridging from Solana to Base, tokens are locked on Solana and minted on Base. When bridging from Base to Solana, tokens are burned on Base and unlocked on Solana. See the [full documentation](/base-chain/quickstart/base-solana-bridge) for implementation details.
+The Base-Solana bridge uses validators to verify cross-chain messages. When bridging from Solana to Base, tokens are locked on Solana and minted on Base. When bridging from Base to Solana, tokens are burned on Base and unlocked on Solana. See the [full documentation](/base-chain/network-information/base-solana-bridge) for implementation details.
 </Accordion>
 
 <Accordion title="What if I have a question, issue, or problem?">
