@@ -10,7 +10,7 @@ x402 is a payment protocol built on HTTP status code `402 Payment Required` — 
 
 ## Mock Demo
 
-<X402PayDemo/>
+<X402PayDemo />
 
 ## Payment flow
 
@@ -20,19 +20,17 @@ x402 is a payment protocol built on HTTP status code `402 Payment Required` — 
   </Step>
 
   <Step title="The server responds with 402 Payment Required">
-    Instead of returning data, the server responds with a `402` status code and includes payment requirements in the `PAYMENT-REQUIRED` header: how much it costs, which token, and on which network.
+    Instead of returning data, the server responds with a `402` status code and includes payment requirements in the `PAYMENT-REQUIRED` header.
   </Step>
 
   <Step title="Your agent pays">
-    Your agent's wallet constructs a signed payment payload and resubmits the request with a `PAYMENT-SIGNATURE` header. No human approval needed.
+    Your agent's wallet constructs a signed payment payload and resubmits the request with a `PAYMENT-SIGNATURE` header.
   </Step>
 
   <Step title="The server delivers the data">
-    The server verifies the payment via a facilitator, settles onchain, and returns the requested data. The entire flow takes seconds.
+    The server verifies the payment via a facilitator and returns the requested data.
   </Step>
 </Steps>
-
-Any agent with a funded wallet can pay for any x402-enabled API — no pre-existing relationship or account required.
 
 [Learn more about x402 →](https://docs.cdp.coinbase.com/x402/docs/client-server-model)
 
@@ -40,118 +38,5 @@ Any agent with a funded wallet can pay for any x402-enabled API — no pre-exist
 
 ### CDP Agentic Wallet
 
-With the [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) skills installed, your agent handles x402 payments automatically:
-
-```bash Terminal
+```bash
 npx skills add coinbase/agentic-wallet-skills
-```
-
-**Discover available services** using the [`search-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/search-for-service) skill:
-
-```bash Terminal
-npx awal@latest x402 bazaar search "weather forecast"
-```
-
-**Call a paid service** using the [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skill:
-
-```bash Terminal
-npx awal@latest x402 pay https://example.com/api/weather \
-  -X POST \
-  -d '{"query": "New York"}'
-```
-
-Or prompt your agent directly:
-
-```text
-Find APIs for sentiment analysis
-Call that weather API and get the forecast for New York
-```
-
-The [`search-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/search-for-service) and [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skills handle discovery, payment, and retries.
-
-[CDP Agentic Wallet skills →](https://docs.cdp.coinbase.com/agentic-wallet/skills)
-
-### Sponge Wallet
-
-[Sponge Wallet](https://www.paysponge.com) has a built-in x402 proxy that discovers services and handles payment automatically:
-
-**Step 1 — Discover a service:**
-
-```bash Terminal
-curl "https://api.wallet.paysponge.com/api/discover?query=weather+forecast" \
-  -H "Authorization: Bearer $SPONGE_API_KEY" \
-  -H "Sponge-Version: 0.2.1"
-```
-
-**Step 2 — Get service details** (required — do not skip):
-
-```bash Terminal
-curl "https://api.wallet.paysponge.com/api/discover/{serviceId}" \
-  -H "Authorization: Bearer $SPONGE_API_KEY" \
-  -H "Sponge-Version: 0.2.1"
-```
-
-This returns the `baseUrl`, endpoint paths, parameters, and pricing.
-
-**Step 3 — Call the service** (payment is automatic):
-
-```bash Terminal
-curl -X POST "https://api.wallet.paysponge.com/api/x402/fetch" \
-  -H "Authorization: Bearer $SPONGE_API_KEY" \
-  -H "Sponge-Version: 0.2.1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://{baseUrl}/{endpointPath}",
-    "method": "POST",
-    "body": { "query": "New York" },
-    "preferred_chain": "base"
-  }'
-```
-
-[Sponge Wallet](https://www.paysponge.com) detects the `402`, pays in USDC from your wallet, and returns the API response.
-
-[Sponge Wallet docs →](https://wallet.paysponge.com/skill.md)
-
-## Error handling and retries
-
-| Status | Meaning | What to do |
-|--------|---------|------------|
-| `402` | Payment required | Parse `PAYMENT-REQUIRED` header and pay |
-| `402` with `X-Payment-Error` | Payment rejected | Check wallet balance and token approval |
-| `408` | Payment timeout | Retry with same or higher payment |
-| `429` | Rate limit | Back off and retry after the indicated delay |
-
-The [CDP Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wallet/) [`pay-for-service`](https://docs.cdp.coinbase.com/agentic-wallet/skills/pay-for-service) skill and [Sponge Wallet's](https://www.paysponge.com) x402 proxy handle retries automatically. If you're building a custom client, parse the `PAYMENT-REQUIRED` header, construct the signed payload, and retry with the `PAYMENT-SIGNATURE` header.
-
-<Note>
-  If you're using [Bankr](https://bankr.bot), no setup is required. Just prompt it directly:
-
-  ```text
-  Get the current ETH price from a paid data source
-  Find a weather API and get the forecast for New York
-  Get the token balances for 0xYourAddress on Base
-  ```
-
-  Bankr handles service discovery, payment, and data extraction automatically.
-</Note>
-
-## Video Tutorial
-<iframe
-  className="w-full aspect-video rounded-xl"
-  src="https://www.youtube.com/embed/b5Wx2NAeY2E?si=r1FumIsbGt6nAt29"
-  title="Payments and transactions for agents"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-></iframe>
-
-## Related
-
-<CardGroup cols={2}>
-  <Card title="Accepting payments" icon="money-bill" href="/ai-agents/payments/accepting-payments">
-    Gate your own endpoints and charge other agents per request.
-  </Card>
-
-  <Card title="x402 client-server model" icon="file-contract" href="https://docs.cdp.coinbase.com/x402/docs/client-server-model">
-    Facilitator endpoints and protocol addresses.
-  </Card>
-</CardGroup>
