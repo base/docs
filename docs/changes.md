@@ -27,7 +27,7 @@ These are **config and visible docs only** (not hidden MDX):
 | **`/apps/features/manifest`** (base-app minikit redirects) | **`/apps/core-concepts/manifest`**. |
 | **`/mini-apps/quickstart/new-apps/features`** → missing `features/overview` | **`/apps/featured-guidelines/overview`**. |
 
-Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-resources.mdx`](get-started/learning-resources.mdx), [`base-account/guides/verify-social-accounts.mdx`](base-account/guides/verify-social-accounts.mdx), [`base-chain/builder-codes/app-developers.mdx`](base-chain/builder-codes/app-developers.mdx), [`base-account/improve-ux/spend-permissions.mdx`](base-account/improve-ux/spend-permissions.mdx).
+Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-resources.mdx`](get-started/learning-resources.mdx), [`base-account/guides/verify-social-accounts.mdx`](base-account/guides/verify-social-accounts.mdx), [`apps/builder-codes/app-developers.mdx`](apps/builder-codes/app-developers.mdx), [`base-account/improve-ux/spend-permissions.mdx`](base-account/improve-ux/spend-permissions.mdx).
 
 ## Files touched
 
