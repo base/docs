@@ -1,0 +1,58 @@
+---
+title: "Compatibility Guide"
+description: "Version and framework compatibility guidance for Base Account SDK integrations."
+---
+
+This page summarizes the dependency combinations that the current Base Account docs assume.
+
+Use it when you are deciding which integration guide to follow or when you need to confirm whether a setup requires extra version pinning.
+
+## Recommended guide by app type
+
+| App type | Start here | Compatibility notes |
+| --- | --- | --- |
+| Plain HTML / JavaScript | [Web (HTML + JavaScript)](/base-account/quickstart/web) | Uses `@base-org/account` directly through the CDN or npm package. No React hooks or Wagmi required. |
+| Next.js app using Base Account UI components | [Web (Next.js)](/base-account/quickstart/web-react) | Uses `@base-org/account` and `@base-org/account-ui`. The guide is written for Next.js, but the React component can be adapted to other React frameworks. |
+| Wagmi-based wallet stack | [RainbowKit](/base-account/framework-integrations/rainbowkit), [Reown](/base-account/framework-integrations/reown), or [CDP Embedded Wallets](/base-account/framework-integrations/cdp) | These guides use the current Wagmi/Viem/React Query stack together. For Next.js apps, keep `ssr: true` in the Wagmi config to avoid hydration issues. |
+| Privy + Base Account | [Privy setup](/base-account/framework-integrations/privy/setup) | Privy may pin an older `@base-org/account` version transitively, so the docs require an override or resolution to the latest version or a specific supported version such as `2.2.0`. |
+
+## Package compatibility matrix
+
+| Integration pattern | Base Account packages | Companion packages used in the docs | Important notes |
+| --- | --- | --- | --- |
+| Plain HTML / JS | `@base-org/account` | None required | Use the CDN script for the smallest setup, or install the npm package locally. |
+| React / Next.js quickstart | `@base-org/account`, `@base-org/account-ui` | React / Next.js app | The quickstart is documented against Next.js. If you already have a React app, you can adapt the same component-based approach there. |
+| Wagmi-based integrations | `@base-org/account` | `wagmi`, `viem`, `@tanstack/react-query` | The Reown, RainbowKit, and CDP integration docs all assume this stack. Keep these packages on compatible current majors together instead of mixing old and new examples. |
+| Privy integration | `@base-org/account`, `@base-org/account-ui` | `@privy-io/react-auth`, `@privy-io/chains`, `@privy-io/wagmi-connector`, `wagmi`, `viem` | Add an override / resolution for `@base-org/account` before installing dependencies if Privy pulls an older pinned version. |
+
+## Version guidance from the current docs
+
+| Package | Guidance | Source in docs |
+| --- | --- | --- |
+| `@base-org/account` | Use the latest version by default. If you need an explicit pin for Privy, the docs show `2.2.0` as a known-good override example. | [Privy setup](/base-account/framework-integrations/privy/setup) |
+| `wagmi` | Follow the current Wagmi-based integration guides and keep the same major across your app and examples. | [Reown](/base-account/framework-integrations/reown), [RainbowKit](/base-account/framework-integrations/rainbowkit), [CDP](/base-account/framework-integrations/cdp) |
+| `viem` | Keep it aligned with the Wagmi-based integration guides instead of mixing versions from older examples. | [Reown](/base-account/framework-integrations/reown), [Privy setup](/base-account/framework-integrations/privy/setup), [CDP](/base-account/framework-integrations/cdp) |
+| `@tanstack/react-query` | Required by the documented Wagmi-based React integrations. | [Reown](/base-account/framework-integrations/reown), [CDP](/base-account/framework-integrations/cdp) |
+
+## Framework-specific notes
+
+### Next.js
+
+If you are following a Wagmi-based integration in Next.js, set `ssr: true` in the Wagmi config. The RainbowKit guide calls this out explicitly to avoid hydration issues.
+
+### Plain HTML / JavaScript
+
+If you do not need React, hooks, or external wallet frameworks, use the HTML + JavaScript quickstart. It is the lowest-friction path and avoids unnecessary compatibility concerns.
+
+### Privy
+
+Apply the `@base-org/account` override first, then reinstall dependencies so the lockfile reflects the intended version.
+
+## How to choose safely
+
+1. Pick the guide that matches your app architecture first: plain HTML, React / Next.js, Wagmi-based wallet stack, or Privy.
+2. Install the exact package family that guide uses instead of mixing snippets from multiple integration guides.
+3. If you are using Privy, add the `@base-org/account` override before your install.
+4. If you are using Next.js with Wagmi, confirm `ssr: true` is enabled.
+
+If you are unsure which path to follow, start with the [Base Account overview](/base-account/overview/what-is-base-account) and then choose the closest integration from the table above.
