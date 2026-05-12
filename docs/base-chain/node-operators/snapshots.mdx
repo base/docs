@@ -19,14 +19,14 @@ These steps assume you are in the cloned `node` directory (the one containing `d
         ```
     - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./reth-data/*`), and proceed.
 
-2. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below. Use `wget` (or similar) to download it into the `node` directory.
+2. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below. Download it into the `node` directory.
 
-    | Network  | Snapshot Type | Download Command (`wget …`)                                                                                       |
-    | -------- | ------------- | ----------------------------------------------------------------------------------------------------------------- |
-    | Testnet  | Archive (recommended)| `wget -c https://sepolia-reth-archive-snapshots.base.org/$(curl https://sepolia-reth-archive-snapshots.base.org/latest)` |
-    | Testnet  | Pruned               | `wget -c https://sepolia-reth-pruned-snapshots.base.org/$(curl https://sepolia-reth-pruned-snapshots.base.org/latest)` |
-    | Mainnet  | Archive (recommended)| `wget -c https://mainnet-reth-archive-snapshots.base.org/$(curl https://mainnet-reth-archive-snapshots.base.org/latest)` |
-    | Mainnet  | Pruned               | `wget -c https://mainnet-reth-pruned-snapshots.base.org/$(curl https://mainnet-reth-pruned-snapshots.base.org/latest)` |
+    | Network  | Snapshot Type | Download Command |
+    | -------- | ------------- | ---------------- |
+    | Testnet  | Archive (recommended)| `aria2c -c -x 16 -s 16 "https://sepolia-reth-archive-snapshots.base.org/$(curl -s https://sepolia-reth-archive-snapshots.base.org/latest)"` |
+    | Testnet  | Pruned               | `aria2c -c -x 16 -s 16 "https://sepolia-reth-pruned-snapshots.base.org/$(curl -s https://sepolia-reth-pruned-snapshots.base.org/latest)"` |
+    | Mainnet  | Archive (recommended)| `aria2c -c -x 16 -s 16 "https://mainnet-reth-archive-snapshots.base.org/$(curl -s https://mainnet-reth-archive-snapshots.base.org/latest)"` |
+    | Mainnet  | Pruned               | `aria2c -c -x 16 -s 16 "https://mainnet-reth-pruned-snapshots.base.org/$(curl -s https://mainnet-reth-pruned-snapshots.base.org/latest)"` |
 
     <Note>
     Ensure you have enough free disk space to download the snapshot archive (`.tar.gz` / `.tar.zst` file) _and_ extract its contents. The extracted data will be significantly larger than the archive.
@@ -67,9 +67,9 @@ These steps assume you are in the cloned `node` directory (the one containing `d
 
 If you are running the [historical proofs ExEx](/base-chain/node-operators/run-a-base-node#enable-historical-proofs-rpcs), snapshots of the proofs database are available to skip the 24-48 hour backfill.
 
-| Network | Download Command (`wget …`) |
-| ------- | --------------------------- |
-| Testnet | `wget -c https://sepolia-reth-proofs-snapshots.base.org/$(curl https://sepolia-reth-proofs-snapshots.base.org/latest)` |
-| Mainnet | `wget -c https://mainnet-reth-proofs-snapshots.base.org/$(curl https://mainnet-reth-proofs-snapshots.base.org/latest)` |
+| Network | Download Command |
+| ------- | ---------------- |
+| Testnet | `aria2c -c -x 16 -s 16 "https://sepolia-reth-proofs-snapshots.base.org/$(curl -s https://sepolia-reth-proofs-snapshots.base.org/latest)"` |
+| Mainnet | `aria2c -c -x 16 -s 16 "https://mainnet-reth-proofs-snapshots.base.org/$(curl -s https://mainnet-reth-proofs-snapshots.base.org/latest)"` |
 
 The restore process is the same as above — follow the [Restoring from Snapshot](#restoring-from-snapshot) steps using this archive instead.
