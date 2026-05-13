@@ -79,7 +79,7 @@ npx skills add base/base-skills
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
 |base-chain/flashblocks:app-integration,architecture,faq,overview
-|base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,ecosystem-contracts,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
+|base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
 |base-chain/node-operators:base-v1-upgrade,node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
@@ -102,6 +102,5 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|base-chain/specs/upgrades/pectra-blob-schedule:derivation,overview
 |get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,prompt-library,resources-for-ai-agents
 |root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
