@@ -12,14 +12,26 @@ If you're a prospective or current Base node operator, you can restore from a sn
 
 These steps assume you are in the cloned `node` directory (the one containing `docker-compose.yml`).
 
-1. **Prepare Data Directory**:
+1. **Install aria2c**: Snapshot downloads require `aria2c`, a resumable downloader that handles the periodic connection interruptions imposed by Cloudflare. If you don't have it installed:
+
+    <CodeGroup>
+    ```bash macOS
+    brew install aria2
+    ```
+
+    ```bash Ubuntu / Debian
+    sudo apt-get install aria2
+    ```
+    </CodeGroup>
+
+2. **Prepare Data Directory**:
     - **Before running Docker for the first time**, create the data directory on your host machine that will be mapped into the Docker container. This directory must match the `volumes` mapping in the `docker-compose.yml` file.
         ```bash
         mkdir ./reth-data
         ```
     - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./reth-data/*`), and proceed.
 
-2. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below. Download it into the `node` directory.
+3. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below. Download it into the `node` directory.
 
     | Network  | Snapshot Type | Download Command |
     | -------- | ------------- | ---------------- |
@@ -32,7 +44,7 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     Ensure you have enough free disk space to download the snapshot archive (`.tar.gz` / `.tar.zst` file) _and_ extract its contents. The extracted data will be significantly larger than the archive.
     </Note>
 
-3. **Extract Snapshot**: Untar the downloaded snapshot archive. Replace `snapshot-filename` with the actual downloaded filename:
+4. **Extract Snapshot**: Untar the downloaded snapshot archive. Replace `snapshot-filename` with the actual downloaded filename:
 
     ```bash
     tar -xzvf <snapshot-filename.tar.gz>
@@ -41,7 +53,7 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     tar -I zstd -xvf <snapshot-filename.tar.zst>
     ```
 
-4. **Move Data**: The extraction process will likely create a `reth` directory.
+5. **Move Data**: The extraction process will likely create a `reth` directory.
 
     * Move the *contents* of that directory into the data directory you created in Step 1:
 
@@ -52,7 +64,7 @@ These steps assume you are in the cloned `node` directory (the one containing `d
 
     * The goal is to have the chain data directories (e.g., `chaindata`, `nodes`, `segments`, etc.) directly inside `./reth-data`, not in a nested subfolder.
 
-5. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
+6. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
 
     ```bash
     cd ..
@@ -61,7 +73,7 @@ These steps assume you are in the cloned `node` directory (the one containing `d
 
   Your node should begin syncing from the last block in the snapshot.
 
-6. **Verify and Clean Up**: Monitor the node logs (`docker compose logs -f <service_name>`) or use the [sync monitoring](/base-chain/node-operators/run-a-base-node#syncing) command to ensure the node starts syncing from the snapshot's block height. Once confirmed, you can safely delete the downloaded snapshot archive (`.tar.gz` file) to free up disk space.
+7. **Verify and Clean Up**: Monitor the node logs (`docker compose logs -f <service_name>`) or use the [sync monitoring](/base-chain/node-operators/run-a-base-node#syncing) command to ensure the node starts syncing from the snapshot's block height. Once confirmed, you can safely delete the downloaded snapshot archive (`.tar.gz` file) to free up disk space.
 
 ## Proofs Snapshots
 
