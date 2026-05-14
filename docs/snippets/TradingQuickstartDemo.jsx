@@ -2,90 +2,57 @@ import { useState, useEffect, useRef } from "react";
 
 export const TradingQuickstartDemo = () => {
   const mono = "ui-monospace,'Cascadia Code','Source Code Pro',Menlo,Monaco,Consolas,monospace";
-  const col = {
-    dim:     "#3f3f46",
-    muted:   "#52525b",
-    active:  "#60a5fa",
-    success: "#34d399",
-    code:    "#d4d4d8",
-  };
+  const col = { dim: "#3f3f46", muted: "#52525b", active: "#60a5fa", success: "#34d399", code: "#d4d4d8", warn: "#fb923c" };
 
   const steps = [
-    { delay: 350, left: [{ t: "> install bankr skill from github.com/BankrBot/skills", c: "active" }], right: [
-      { t: "── Bankr Wallet ────────────────────────", c: "dim" },
-      { t: "GET /releases/latest", c: "muted" },
+    { delay: 400, lines: [{ t: "> Swap 100 USDC for ETH on Base", c: "active" }] },
+    { delay: 500, lines: [
+      { t: "  ── swap() ─────────────────────────────", c: "dim" },
+      { t: "  fromAsset: USDC  toAsset: ETH  amount: 100", c: "muted" },
     ]},
-    { delay: 700, left: [{ t: "  ✓ Bankr skill installed", c: "success" }], right: [
-      { t: "  tag: bankr-wallet-v2.1.0", c: "success" },
-      { t: "  chains: base, eth, solana", c: "muted" },
-      { t: "  gas:    sponsored", c: "muted" },
+    { delay: 700, lines: [
+      { t: "  ← quote ready", c: "muted" },
+      { t: "  0.03512 ETH  ·  price impact 0.09%", c: "code" },
     ]},
-    { delay: 500, left: [{ t: "  ✓ Bankr wallet connected   wlt_bankr_...", c: "success" }], right: [] },
-    { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [
-      { t: "", c: "dim" },
-      { t: "── Swap Quote ──────────────────────────", c: "dim" },
-      { t: "POST /v1/swap/quote", c: "code" },
-      { t: "Host: api.bankr.bot", c: "muted" },
+    { delay: 500, lines: [{ t: "", c: "dim" }, { t: "  ── approval required ──────────────────────", c: "warn" }] },
+    { delay: 400, lines: [
+      { t: '  approvalUrl: "keys.coinbase.com/..."', c: "warn" },
+      { t: '  requestId:   "req_swap01"', c: "muted" },
     ]},
-    { delay: 700, left: [{ t: "  fetching quote...", c: "muted" }], right: [
-      { t: "", c: "dim" },
-      { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-      { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-      { t: '  "priceImpact":"0.12%"}', c: "code" },
+    { delay: 500, lines: [{ t: "  Please approve: keys.coinbase.com/…", c: "warn" }] },
+    { delay: 1000, lines: [{ t: "  ← user approved ✓", c: "success" }] },
+    { delay: 500, lines: [
+      { t: "  ── get_request_status ─────────────────────", c: "dim" },
+      { t: '  status: "confirmed"  received: "0.03512 ETH"', c: "success" },
     ]},
-    { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-    { delay: 500, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-    { delay: 750, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
-      { t: "", c: "dim" },
-      { t: "── Transaction ─────────────────────────", c: "dim" },
-      { t: "  hash:   0xb4f2...91ca", c: "success" },
-      { t: "  status: confirmed", c: "success" },
-      { t: "  block:  28,419,042", c: "muted" },
-    ]},
-    { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success", bold: true }], right: [] },
+    { delay: 400, lines: [{ t: "", c: "dim" }, { t: "  ✓ 0.03512 ETH received", c: "success" }] },
   ];
 
-  const [leftLines, setLeftLines]   = useState([]);
-  const [rightLines, setRightLines] = useState([]);
-  const [running, setRunning]       = useState(false);
-  const [done, setDone]             = useState(false);
-  const [blink, setBlink]           = useState(true);
-  const leftRef  = useRef(null);
-  const rightRef = useRef(null);
+  const [lines, setLines]     = useState([]);
+  const [running, setRunning] = useState(false);
+  const [done, setDone]       = useState(false);
+  const [blink, setBlink]     = useState(true);
+  const ref = useRef(null);
 
-  useEffect(() => {
-    const t = setInterval(() => setBlink(b => !b), 530);
-    return () => clearInterval(t);
-  }, []);
+  useEffect(() => { const t = setInterval(() => setBlink(b => !b), 530); return () => clearInterval(t); }, []);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [lines]);
 
-  useEffect(() => { if (leftRef.current)  leftRef.current.scrollTop  = leftRef.current.scrollHeight; }, [leftLines]);
-
-  const play = () => {
-    setLeftLines([]);
-    setRightLines([]);
+  const reset = () => { setLines([]); setRunning(false); setDone(false); };
+  const run = () => {
+    if (running || done) return;
     setRunning(true);
-    setDone(false);
     let i = 0;
     const next = () => {
       if (i >= steps.length) { setRunning(false); setDone(true); return; }
       const s = steps[i];
-      setTimeout(() => {
-        if (s.left && s.left.length)   setLeftLines(prev  => [...prev, ...s.left]);
-        if (s.right && s.right.length) setRightLines(prev => [...prev, ...s.right]);
-        i++;
-        next();
-      }, s.delay);
+      setTimeout(() => { setLines(p => [...p, ...s.lines]); i++; next(); }, s.delay);
     };
     next();
   };
 
-  useEffect(() => { setTimeout(play, 350); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const renderLine = (item, i) => {
-    if (!item.t) return <div key={i} style={{ height: 6 }} />;
-    return (
-      <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: "20px", color: col[item.c] || col.code, fontWeight: item.bold ? 600 : 400, whiteSpace: "pre" }}>{item.t}</div>
-    );
+    if (!item.t) return <div key={i} style={{ height: 5 }} />;
+    return <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: "20px", color: col[item.c] || col.code, whiteSpace: "pre" }}>{item.t}</div>;
   };
 
   return (
@@ -94,34 +61,26 @@ export const TradingQuickstartDemo = () => {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "#1e1e20", border: "1px solid #27272a", marginRight: 10, flexShrink: 0 }}>
           <span style={{ fontFamily: mono, fontSize: 11, color: "#71717a", userSelect: "none" }}>{">"}_</span>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b" }}>Trading Quickstart</span>
+        <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b" }}>Swap Tokens</span>
         <div style={{ flex: 1 }} />
-        <button onClick={play} title="Reset" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: "1px solid transparent", cursor: "pointer", color: "#3f3f46", fontSize: 15, lineHeight: 1 }}
+        <button onClick={reset} title="Reset" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: "1px solid transparent", cursor: "pointer", color: "#3f3f46", fontSize: 15, lineHeight: 1 }}
           onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#1e1e20"; e.currentTarget.style.borderColor = "#27272a"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "#3f3f46"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}>
-          {"\u21ba"}
-        </button>
+          onMouseLeave={e => { e.currentTarget.style.color = "#3f3f46"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}>{"↺"}</button>
       </div>
-
-      <div style={{ height: 250, borderBottom: "1px solid #27272a", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ height: 260, borderBottom: "1px solid #27272a", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "7px 16px 5px", borderBottom: "1px solid #1c1c1e" }}>
-          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#3f3f46" }}>Agent</span>
+          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#3f3f46" }}>Terminal</span>
         </div>
-        <div ref={leftRef} style={{ flex: 1, overflowY: "hidden", padding: "12px 16px" }}>
-          {leftLines.map(renderLine)}
+        <div ref={ref} style={{ flex: 1, overflowY: "hidden", padding: "12px 16px" }}>
+          {lines.map(renderLine)}
           {running && <div style={{ fontFamily: mono, fontSize: 12, lineHeight: "20px", color: "#60a5fa", opacity: blink ? 1 : 0 }}>{"▋"}</div>}
         </div>
       </div>
-
       <div style={{ padding: "8px 16px", display: "flex", justifyContent: "center", minHeight: 37, alignItems: "center" }}>
-        {done && (
-          <button onClick={play}
-            style={{ fontFamily: mono, fontSize: 11, color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: "4px 10px", borderRadius: 4 }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#18181b"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "#52525b"; e.currentTarget.style.background = "none"; }}>
-            {"\u21ba"} Play again
-          </button>
-        )}
+        {!running && !done && <button onClick={run} style={{ fontFamily: mono, fontSize: 11, color: "#60a5fa", background: "#0c1824", border: "1px solid #1d3a5a", cursor: "pointer", padding: "4px 14px", borderRadius: 4 }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#0f2033"; }} onMouseLeave={e => { e.currentTarget.style.background = "#0c1824"; }}>▶ Run demo</button>}
+        {done && <button onClick={reset} style={{ fontFamily: mono, fontSize: 11, color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: "4px 10px", borderRadius: 4 }}
+          onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#18181b"; }} onMouseLeave={e => { e.currentTarget.style.color = "#52525b"; e.currentTarget.style.background = "none"; }}>{"↺"} Play again</button>}
       </div>
     </div>
   );

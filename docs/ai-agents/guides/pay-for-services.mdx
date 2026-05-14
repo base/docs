@@ -1,0 +1,90 @@
+---
+title: "Pay for Services (x402)"
+description: "Pay for API access per-request in USDC using the x402 protocol — no subscriptions, no API keys required"
+keywords: ["x402 payments AI", "pay for API AI", "pay-for-service skill", "x402 protocol Base", "USDC API payments AI agent"]
+---
+
+import { PaymentsQuickstartDemo } from "/snippets/PaymentsQuickstartDemo.jsx"
+
+<PaymentsQuickstartDemo />
+
+## What is x402?
+
+x402 is a payment protocol built on HTTP status `402 Payment Required`. When your agent calls an x402-enabled API without paying, the server responds with `402` and payment terms (amount, token, network). Your agent pays in USDC and retries — the entire flow is automatic.
+
+No subscriptions. No API keys. No pre-existing relationship with the provider.
+
+## What you can ask
+
+```text
+Find a weather API and get the forecast for New York
+```
+
+```text
+Get the current ETH price from a paid data source
+```
+
+```text
+Find APIs for sentiment analysis
+```
+
+```text
+Set up a paid endpoint for my market data at $0.01 per request
+```
+
+## x402 with CDP Agentic Wallet
+
+x402 payments currently require the **CDP Agentic Wallet** skill. Install it once and your agent handles discovery, payment, and retries automatically.
+
+```bash Terminal
+npx skills add coinbase/agentic-wallet-skills
+```
+
+Then authenticate:
+
+```text
+Sign in to my wallet with your@email.com
+```
+
+The `pay-for-service` skill handles the full flow: discovers the API, pays in USDC, retries with the payment signature, and returns the data.
+
+<Note>
+x402 support for the Base Account MCP is coming soon. Once available, no separate wallet skill will be needed — your Base Account will pay directly.
+</Note>
+
+## How the x402 flow works
+
+<Steps>
+  <Step title="Your agent makes a request">
+    A standard HTTP request to any x402-enabled endpoint.
+  </Step>
+  <Step title="Server responds with 402">
+    The response includes payment terms: how much, which token, which network.
+  </Step>
+  <Step title="Your agent pays">
+    The CDP Agentic Wallet constructs and signs a payment in USDC on Base.
+  </Step>
+  <Step title="Your agent retries">
+    The original request is retried with the `X-Payment-Signature` header. The server verifies and returns the data.
+  </Step>
+</Steps>
+
+## Discover x402 services
+
+Browse the x402 Bazaar to find APIs that accept per-request USDC payments:
+
+```bash Terminal
+npx awal@latest x402 bazaar search "price feed"
+npx awal@latest x402 bazaar list --network base
+```
+
+## Reference
+
+<CardGroup cols={2}>
+  <Card title="CDP Agentic Wallet" icon="coins" href="/ai-agents/skills/wallets/cdp-agentic-wallet">
+    Install the wallet skill needed for x402 payments today.
+  </Card>
+  <Card title="CDP Payment Skills" icon="bolt" href="/ai-agents/skills/payments/cdp-payment-skills">
+    search-for-service, pay-for-service, and monetize-service skills.
+  </Card>
+</CardGroup>

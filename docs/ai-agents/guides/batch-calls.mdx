@@ -1,0 +1,66 @@
+---
+title: "Execute Contract Calls"
+description: "Batch multiple contract interactions into a single user approval using send_calls and the Base Account MCP"
+keywords: ["send_calls MCP", "batch contract calls AI", "EIP-5792 AI", "DeFi AI agent", "Morpho AI Base", "batch transaction AI"]
+---
+
+import { AcceptingPaymentsDemo } from "/snippets/AcceptingPaymentsDemo.jsx"
+
+<AcceptingPaymentsDemo />
+
+## What it does
+
+`send_calls` submits a batch of EIP-5792 contract calls to your Base Account in a single approval. Use it for DeFi interactions, multi-step operations, and NFT mints that go beyond simple send or swap.
+
+The most common use case: protocol plugins like [Morpho](/ai-agents/plugins/morpho) prepare a `calls` array (including token approvals and deposits), and you pass it directly to `send_calls` — everything executes atomically in one approval.
+
+## What you can ask
+
+With the [Morpho plugin](/ai-agents/plugins/morpho) installed:
+
+```text
+Find the best USDC vault on Base and deposit 100 USDC
+```
+
+```text
+Supply 1 ETH as collateral on Morpho and borrow 2000 USDC
+```
+
+```text
+Repay all my Morpho debt
+```
+
+## How it works
+
+<Steps>
+  <Step title="A plugin prepares the calls">
+    Protocol plugins like Morpho return a `calls` array and `chainId` from their `prepare_*` tools. The calls include any required token approvals and the protocol interaction itself.
+  </Step>
+  <Step title="Your assistant calls send_calls()">
+    Passes the `calls` array and hex `chainId` to the Base Account MCP.
+  </Step>
+  <Step title="You review and approve">
+    Open the `keys.coinbase.com` link to review all calls in the batch before signing.
+  </Step>
+  <Step title="Calls execute onchain">
+    All calls in the batch execute atomically — if one fails, none go through.
+  </Step>
+</Steps>
+
+## Parameters
+
+| Parameter | Required | What it does |
+|-----------|----------|-------------|
+| `chainId` | Yes | Hex chain ID: `0x2105` for Base mainnet, `0x14a34` for Base Sepolia |
+| `calls` | Yes | Array of `{ to, value?, data? }` objects |
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Morpho plugin" icon="puzzle-piece" href="/ai-agents/plugins/morpho">
+    Full Morpho orchestration pattern — query, prepare, execute.
+  </Card>
+  <Card title="Sign messages" icon="pen-nib" href="/ai-agents/guides/sign-messages">
+    Sign individual messages and typed data.
+  </Card>
+</CardGroup>

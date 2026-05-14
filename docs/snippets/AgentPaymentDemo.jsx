@@ -8,199 +8,158 @@ export const AgentPaymentDemo = () => {
     active:  "#60a5fa",
     success: "#34d399",
     code:    "#d4d4d8",
+    warn:    "#fb923c",
   };
 
   const flows = {
-    wallet_cdp: [
-      { delay: 350, left: [{ t: "> npx skills add coinbase/agentic-wallet-skills", c: "active" }], right: [
-        { t: "── wallet.config.json ──────────────────", c: "dim" },
+    // Tab 0 — Connect: platform choice
+    connect_claude: [
+      { delay: 400, left: [{ t: "> claude mcp add --transport http base-account https://mcp.base.org", c: "active" }], right: [
+        { t: "── .claude/settings.json ───────────────", c: "dim" },
         { t: "{", c: "code" },
       ]},
-      { delay: 550, left: [{ t: "  ✓ skill installed", c: "success" }], right: [
-        { t: '  "provider": "coinbase",', c: "code" },
-        { t: '  "network": "base",', c: "code" },
-        { t: '  "skills": ["agentic-wallet"]', c: "code" },
+      { delay: 650, left: [{ t: "  ✓ MCP server added: base-account", c: "success" }], right: [
+        { t: '  "mcpServers": {', c: "code" },
+        { t: '    "base-account": {', c: "code" },
+        { t: '      "url": "https://mcp.base.org"', c: "code" },
+        { t: "    }", c: "code" },
+        { t: "  }", c: "code" },
         { t: "}", c: "code" },
       ]},
-      { delay: 500, left: [{ t: "> Sign in with your@email.com", c: "active" }], right: [] },
-      { delay: 650, left: [{ t: "  ← OTP sent · checking...", c: "muted" }], right: [] },
-      { delay: 600, left: [{ t: "  ✓ CDP wallet connected   0x4a3f...b7c1", c: "success" }], right: [
+      { delay: 600, left: [{ t: "> Show me my wallets", c: "active" }], right: [] },
+      { delay: 500, left: [{ t: "  ← Authorizing via keys.coinbase.com...", c: "warn" }], right: [
         { t: "", c: "dim" },
-        { t: "  address: 0x4a3f...b7c1", c: "success" },
-        { t: "  network: base-mainnet", c: "success" },
+        { t: "── OAuth ───────────────────────────────", c: "dim" },
+        { t: "  → keys.coinbase.com/authorize", c: "warn" },
+      ]},
+      { delay: 800, left: [{ t: "  ✓ Base Account connected  0x4a3f...b7c1", c: "success" }], right: [
+        { t: "", c: "dim" },
+        { t: '  address: "0x4a3f...b7c1"', c: "success" },
+        { t: '  network: "base-mainnet"', c: "success" },
+        { t: '  status:  "ready"', c: "success" },
       ]},
     ],
-    wallet_sponge: [
-      { delay: 350, left: [{ t: "> curl -X POST https://api.wallet.paysponge.com/...", c: "active" }], right: [
-        { t: "── POST /api/agents/register ───────────", c: "dim" },
-        { t: "Host: api.wallet.paysponge.com", c: "muted" },
-        { t: "Content-Type: application/json", c: "muted" },
-      ]},
-      { delay: 750, left: [{ t: '  ← {"apiKey": "sponge_live_..."}', c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── 200 OK ──────────────────────────────", c: "dim" },
+    connect_desktop: [
+      { delay: 400, left: [{ t: "> Edit claude_desktop_config.json", c: "active" }], right: [
+        { t: "── claude_desktop_config.json ──────────", c: "dim" },
         { t: "{", c: "code" },
-        { t: '  "apiKey": "sponge_live_abc...xyz",', c: "code" },
-        { t: '  "walletId": "wlt_a1b2c3d4"', c: "code" },
+      ]},
+      { delay: 600, left: [{ t: "  Adding base-account entry...", c: "muted" }], right: [
+        { t: '  "mcpServers": {', c: "code" },
+        { t: '    "base-account": {', c: "code" },
+        { t: '      "url": "https://mcp.base.org"', c: "code" },
+        { t: "    }", c: "code" },
+        { t: "  }", c: "code" },
         { t: "}", c: "code" },
       ]},
-      { delay: 450, left: [{ t: "> export SPONGE_API_KEY=sponge_live_...", c: "active" }], right: [] },
-      { delay: 450, left: [{ t: "  ✓ Sponge wallet ready", c: "success" }], right: [] },
-    ],
-    wallet_bankr: [
-      { delay: 350, left: [{ t: "> install bankr skill from github.com/BankrBot/skills", c: "active" }], right: [
-        { t: "── github.com/BankrBot/skills ──────────", c: "dim" },
-        { t: "GET /releases/latest", c: "muted" },
-      ]},
-      { delay: 700, left: [{ t: "  ✓ Bankr skill installed", c: "success" }], right: [
+      { delay: 550, left: [{ t: "  Restart Claude Desktop →", c: "muted" }], right: [] },
+      { delay: 700, left: [{ t: "  ✓ base-account MCP connected", c: "success" }], right: [
         { t: "", c: "dim" },
-        { t: "  tag: bankr-wallet-v2.1.0", c: "success" },
-        { t: "  size: 142 KB", c: "muted" },
-      ]},
-      { delay: 500, left: [{ t: "  ✓ Bankr wallet connected", c: "success" }], right: [
-        { t: "  ready: true", c: "success" },
+        { t: "── toolbar ─────────────────────────────", c: "dim" },
+        { t: "  [🔵 base-account]  connected", c: "success" },
       ]},
     ],
-    pay: [
-      { delay: 350, left: [{ t: "> Find and fetch ETH price from a paid source", c: "active" }], right: [
-        { t: "── Request ─────────────────────────────", c: "dim" },
-        { t: "GET /api/v3/simple/price?ids=ethereum", c: "code" },
-        { t: "Host: api.coingecko.com", c: "muted" },
+    connect_chatgpt: [
+      { delay: 400, left: [{ t: "> Settings → Connectors → Add MCP", c: "active" }], right: [
+        { t: "── ChatGPT Connectors ───────────────────", c: "dim" },
+        { t: "  Add custom connector", c: "muted" },
       ]},
-      { delay: 600, left: [{ t: "  → GET api.coingecko.com/simple/price", c: "muted" }], right: [] },
-      { delay: 650, left: [{ t: "  ← 402 Payment Required · 0.001 USDC", c: "muted" }], right: [
+      { delay: 550, left: [{ t: "  Enter: https://mcp.base.org", c: "muted" }], right: [
         { t: "", c: "dim" },
-        { t: "── Response 1 ──────────────────────────", c: "dim" },
-        { t: "HTTP/1.1 402 Payment Required", c: "muted" },
-        { t: 'X-Payment-Required: {', c: "muted" },
-        { t: '  "amount": "0.001", "asset": "USDC"', c: "code" },
-        { t: '}', c: "muted" },
+        { t: "  Server URL:", c: "muted" },
+        { t: "  https://mcp.base.org  [Save]", c: "active" },
       ]},
-      { delay: 650, left: [{ t: "  paying via wallet...", c: "muted" }], right: [] },
-      { delay: 600, left: [{ t: "  ✓ tx confirmed", c: "success" }], right: [] },
-      { delay: 500, left: [{ t: "  → retrying with payment signature", c: "muted" }], right: [
+      { delay: 700, left: [{ t: "  ✓ Base Account MCP saved", c: "success" }], right: [
         { t: "", c: "dim" },
-        { t: "── Request 2 ───────────────────────────", c: "dim" },
-        { t: "GET /api/v3/simple/price?ids=ethereum", c: "code" },
-        { t: "X-Payment-Sig: 0x1a9f...c4e2", c: "success" },
+        { t: "── Connectors ──────────────────────────", c: "dim" },
+        { t: "  ✓ base-account  mcp.base.org", c: "success" },
       ]},
-      { delay: 600, left: [{ t: "  ← 200 OK", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Response 2 ──────────────────────────", c: "dim" },
-        { t: "HTTP/1.1 200 OK", c: "success" },
-        { t: '{"ethereum":{"usd":2847.32}}', c: "code" },
-      ]},
-      { delay: 300, left: [{ t: "  ETH  $2,847.32  ↑ 2.3%", c: "code", bold: true }], right: [] },
     ],
-    getpaid: [
-      { delay: 350, left: [{ t: "> Set up a paid endpoint at $0.01 per request", c: "active" }], right: [
-        { t: "── x402 middleware config ──────────────", c: "dim" },
-        { t: "{", c: "code" },
-        { t: '  "path": "/market-data",', c: "code" },
-        { t: '  "price": "0.01",', c: "code" },
-        { t: '  "asset": "USDC"', c: "code" },
-        { t: "}", c: "code" },
+
+    // Tab 1 — Wallets & Balances: linear
+    balances: [
+      { delay: 400, left: [{ t: "> Show me my wallets", c: "active" }], right: [
+        { t: "── get_wallets ─────────────────────────", c: "dim" },
+        { t: "tool: get_wallets()", c: "muted" },
       ]},
-      { delay: 600, left: [{ t: "  creating x402 middleware...", c: "muted" }], right: [] },
-      { delay: 500, left: [{ t: "  ✓ endpoint live: api.myagent.com/market-data", c: "success" }], right: [] },
-      { delay: 400, left: [{ t: "  ✓ payTo: 0x742d...c4f2", c: "success" }], right: [] },
-      { delay: 800, left: [{ t: "  waiting for requests...", c: "muted" }], right: [
+      { delay: 650, left: [{ t: "  ← 2 wallets", c: "muted" }], right: [
         { t: "", c: "dim" },
-        { t: "── Incoming request ────────────────────", c: "dim" },
-        { t: "GET /market-data", c: "code" },
-        { t: "X-Payment-Sig: 0xc3d1...f891", c: "success" },
+        { t: '  { type: "base-account",', c: "code" },
+        { t: '    address: "0x4a3f...b7c1",', c: "code" },
+        { t: '    inSession: true }', c: "code" },
       ]},
-      { delay: 700, left: [{ t: "  ← incoming payment · 0.01 USDC", c: "muted" }], right: [
+      { delay: 400, left: [{ t: "  Base Account: 0x4a3f...b7c1", c: "success" }], right: [
         { t: "", c: "dim" },
-        { t: "── Payment verified ────────────────────", c: "dim" },
-        { t: "  amount: 0.01 USDC ✓", c: "success" },
-        { t: "  sig valid: true ✓", c: "success" },
+        { t: '  { type: "agent-wallet",', c: "code" },
+        { t: '    address: "0x9c2d...e4f8",', c: "code" },
+        { t: '    inSession: false }', c: "code" },
       ]},
-      { delay: 450, left: [{ t: "  ✓ payment verified · serving data", c: "success" }], right: [] },
+      { delay: 600, left: [{ t: "> What's my balance on Base?", c: "active" }], right: [] },
+      { delay: 500, left: [{ t: "  ← get_portfolio(chain=base)", c: "muted" }], right: [
+        { t: "", c: "dim" },
+        { t: "── get_portfolio ────────────────────────", c: "dim" },
+        { t: "  USDC   245.80   $245.80", c: "success" },
+        { t: "  ETH    0.0412   $148.33", c: "success" },
+        { t: "  WETH   0.0100   $36.02 ", c: "success" },
+      ]},
+      { delay: 400, left: [{ t: "  Total: $430.15 on Base", c: "success" }], right: [] },
     ],
-    swap_cdp: [
-      { delay: 350, left: [{ t: "  ✓ using CDP wallet 0x4a3f...b7c1", c: "success" }], right: [
-        { t: "── Swap quote ───────────────────────────", c: "dim" },
-        { t: "POST /v1/swap/quote", c: "code" },
-        { t: "Host: api.developer.coinbase.com", c: "muted" },
+
+    // Tab 2 — Send & Swap: choice
+    send: [
+      { delay: 400, left: [{ t: "> Send 10 USDC to alice.base.eth", c: "active" }], right: [
+        { t: "── send() ──────────────────────────────", c: "dim" },
+        { t: "  recipient: alice.base.eth", c: "muted" },
+        { t: "  amount:    10", c: "muted" },
+        { t: "  asset:     USDC", c: "muted" },
+        { t: "  chain:     base", c: "muted" },
       ]},
-      { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [] },
-      { delay: 600, left: [{ t: "  fetching quote...", c: "muted" }], right: [
+      { delay: 650, left: [{ t: "  ← approval required", c: "warn" }], right: [
         { t: "", c: "dim" },
-        { t: "── Quote response ───────────────────────", c: "dim" },
-        { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-        { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-        { t: '  "priceImpact":"0.12%"}', c: "code" },
+        { t: "── approval mode ────────────────────────", c: "warn" },
+        { t: '  approvalUrl: "keys.coinbase.com/..."', c: "warn" },
+        { t: '  requestId:   "req_abc123"', c: "muted" },
       ]},
-      { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-      { delay: 550, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-      { delay: 700, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
+      { delay: 500, left: [{ t: "  Please approve: keys.coinbase.com/…", c: "warn" }], right: [] },
+      { delay: 900, left: [{ t: "  ← user approved ✓", c: "success" }], right: [
         { t: "", c: "dim" },
-        { t: "── Transaction ──────────────────────────", c: "dim" },
-        { t: "  hash: 0xb4f2...91ca", c: "success" },
-        { t: "  status: confirmed", c: "success" },
-        { t: "  block: 28,419,042", c: "muted" },
+        { t: "── get_request_status ──────────────────", c: "dim" },
+        { t: '  status: "confirmed"', c: "success" },
+        { t: '  txHash: "0xf7e3...9a12"', c: "success" },
       ]},
-      { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success" }], right: [] },
+      { delay: 400, left: [{ t: "  ✓ 10 USDC sent to alice.base.eth", c: "success" }], right: [] },
     ],
-    swap_sponge: [
-      { delay: 350, left: [{ t: "  ✓ using Sponge wallet", c: "success" }], right: [
-        { t: "── Swap quote ───────────────────────────", c: "dim" },
-        { t: "POST /swap/quote", c: "code" },
-        { t: "Host: api.wallet.paysponge.com", c: "muted" },
+    swap: [
+      { delay: 400, left: [{ t: "> Swap 100 USDC for ETH on Base", c: "active" }], right: [
+        { t: "── swap() ──────────────────────────────", c: "dim" },
+        { t: "  fromAsset: USDC", c: "muted" },
+        { t: "  toAsset:   ETH", c: "muted" },
+        { t: "  amount:    100", c: "muted" },
+        { t: "  chain:     base", c: "muted" },
       ]},
-      { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [] },
-      { delay: 600, left: [{ t: "  fetching quote...", c: "muted" }], right: [
+      { delay: 650, left: [{ t: "  ← approval required", c: "warn" }], right: [
         { t: "", c: "dim" },
-        { t: "── Quote response ───────────────────────", c: "dim" },
-        { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-        { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-        { t: '  "priceImpact":"0.12%"}', c: "code" },
+        { t: "── approval mode ────────────────────────", c: "warn" },
+        { t: '  approvalUrl: "keys.coinbase.com/..."', c: "warn" },
+        { t: '  requestId:   "req_def456"', c: "muted" },
       ]},
-      { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-      { delay: 550, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-      { delay: 700, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
+      { delay: 500, left: [{ t: "  Please approve: keys.coinbase.com/…", c: "warn" }], right: [] },
+      { delay: 900, left: [{ t: "  ← user approved ✓", c: "success" }], right: [
         { t: "", c: "dim" },
-        { t: "── Transaction ──────────────────────────", c: "dim" },
-        { t: "  hash: 0xb4f2...91ca", c: "success" },
-        { t: "  status: confirmed", c: "success" },
-        { t: "  block: 28,419,042", c: "muted" },
+        { t: "── get_request_status ──────────────────", c: "dim" },
+        { t: '  status:   "confirmed"', c: "success" },
+        { t: '  received: "0.03512 ETH"', c: "success" },
       ]},
-      { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success" }], right: [] },
-    ],
-    swap_bankr: [
-      { delay: 350, left: [{ t: "  ✓ using Bankr wallet", c: "success" }], right: [
-        { t: "── Swap quote ───────────────────────────", c: "dim" },
-        { t: "POST /swap/quote", c: "code" },
-        { t: "Host: api.bankr.bot", c: "muted" },
-      ]},
-      { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [] },
-      { delay: 600, left: [{ t: "  fetching quote...", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Quote response ───────────────────────", c: "dim" },
-        { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-        { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-        { t: '  "priceImpact":"0.12%"}', c: "code" },
-      ]},
-      { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-      { delay: 550, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-      { delay: 700, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Transaction ──────────────────────────", c: "dim" },
-        { t: "  hash: 0xb4f2...91ca", c: "success" },
-        { t: "  status: confirmed", c: "success" },
-        { t: "  block: 28,419,042", c: "muted" },
-      ]},
-      { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success" }], right: [] },
+      { delay: 400, left: [{ t: "  ✓ received 0.03512 ETH", c: "success" }], right: [] },
     ],
   };
 
-  const tabs        = ["Setup Wallet", "Pay & Get Paid", "Swap"];
-  const rightLabels = ["Wallet Config", "HTTP Trace", "Quote Details"];
+  const tabs        = ["Connect", "Wallets & Balances", "Send & Swap"];
+  const rightLabels = ["Config", "MCP Response", "Approval Flow"];
   const intros      = [
-    "> Setting up your agent wallet...",
-    "> Choose a flow:",
-    "> Which wallet should execute the swap?",
+    "> Choose your platform:",
+    "> Checking your Base Account...",
+    "> Choose an action:",
   ];
 
   const [activeTab, setActiveTab] = useState(0);
@@ -240,7 +199,13 @@ export const AgentPaymentDemo = () => {
     setChoice2(null);
     setRunning(false);
     setDone(false);
-    const t = setTimeout(() => setLeftLines([{ t: intros[activeTab], c: "muted" }]), 350);
+    const t = setTimeout(() => {
+      setLeftLines([{ t: intros[activeTab], c: "muted" }]);
+      // Tab 1 is linear — auto-start
+      if (activeTab === 1) {
+        setTimeout(() => animateFlow("balances"), 300);
+      }
+    }, 350);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -264,35 +229,27 @@ export const AgentPaymentDemo = () => {
     next();
   };
 
-  const pickWallet = (w) => {
+  const pickConnect = (p) => {
     if (choice1) return;
-    setChoice1(w);
-    setLeftLines(prev => [...prev, { t: "  [" + w.toUpperCase() + "]", c: "active" }]);
-    setTimeout(() => animateFlow("wallet_" + w), 150);
+    setChoice1(p);
+    const labels = { claude: "Claude Code", desktop: "Claude Desktop", chatgpt: "ChatGPT" };
+    setLeftLines(prev => [...prev, { t: "  [" + labels[p] + "]", c: "active" }]);
+    setTimeout(() => animateFlow("connect_" + p), 150);
   };
 
-  const pickPay = (p) => {
+  const pickAction = (a) => {
     if (choice2) return;
-    setChoice2(p);
-    const label = p === "pay" ? "Pay for a service" : "Get paid";
-    setLeftLines(prev => [...prev, { t: "  [" + label + "]", c: "active" }]);
-    setTimeout(() => animateFlow(p), 150);
-  };
-
-  const pickSwap = (w) => {
-    if (choice1) return;
-    setChoice1(w);
-    setLeftLines(prev => [...prev, { t: "  [" + w.toUpperCase() + "]", c: "active" }]);
-    setTimeout(() => animateFlow("swap_" + w), 150);
+    setChoice2(a);
+    const labels = { send: "Send", swap: "Swap" };
+    setLeftLines(prev => [...prev, { t: "  [" + labels[a] + "]", c: "active" }]);
+    setTimeout(() => animateFlow(a), 150);
   };
 
   const renderLine = (item, i) => {
     if (!item.t) return <div key={i} style={{ height: 6 }} />;
     return (
       <div key={i} style={{
-        fontFamily: mono,
-        fontSize: 12,
-        lineHeight: "20px",
+        fontFamily: mono, fontSize: 12, lineHeight: "20px",
         color: col[item.c] || col.code,
         fontWeight: item.bold ? 600 : 400,
         whiteSpace: "pre",
@@ -309,130 +266,97 @@ export const AgentPaymentDemo = () => {
     cursor: "pointer", padding: "1px 8px",
     marginRight: 6, lineHeight: "20px",
   };
-  const onBtnEnter = (e) => {
-    e.currentTarget.style.color = "#e4e4e7";
-    e.currentTarget.style.background = "#1c1c1e";
-    e.currentTarget.style.borderColor = "#3f3f46";
-  };
-  const onBtnLeave = (e) => {
-    e.currentTarget.style.color = "#60a5fa";
-    e.currentTarget.style.background = "transparent";
-    e.currentTarget.style.borderColor = "#27272a";
-  };
+  const onBtnEnter = (e) => { e.currentTarget.style.color = "#e4e4e7"; e.currentTarget.style.background = "#1c1c1e"; e.currentTarget.style.borderColor = "#3f3f46"; };
+  const onBtnLeave = (e) => { e.currentTarget.style.color = "#60a5fa"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#27272a"; };
 
-  const showWalletBtns = activeTab === 0 && !choice1 && leftLines.length > 0;
-  const showPayBtns    = activeTab === 1 && !choice2 && leftLines.length > 0;
-  const showSwapBtns   = activeTab === 2 && !choice1 && leftLines.length > 0;
-  const isLastTab      = activeTab === 2;
-  const footerLabel    = isLastTab ? "\u21ba Play again" : "Next: " + tabs[activeTab + 1] + " \u2192";
+  const showConnectBtns = activeTab === 0 && !choice1 && leftLines.length > 0;
+  const showActionBtns  = activeTab === 2 && !choice2 && leftLines.length > 0;
+  const isLastTab       = activeTab === 2;
+  const footerLabel     = isLastTab ? "↺ Play again" : "Next: " + tabs[activeTab + 1] + " →";
 
   return (
     <div style={{ margin: "28px 0", borderRadius: 12, overflow: "hidden", border: "1px solid #27272a", background: "#09090b" }}>
 
       {/* Tab bar */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", padding: "8px 12px", background: "#111113", borderBottom: "1px solid #27272a" }}>
-
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 28, height: 24, borderRadius: 6,
-          background: "#1e1e20", border: "1px solid #27272a", marginRight: 10, flexShrink: 0,
-        }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "#1e1e20", border: "1px solid #27272a", marginRight: 10, flexShrink: 0 }}>
           <span style={{ fontFamily: mono, fontSize: 11, color: "#71717a", userSelect: "none" }}>{">"}_</span>
         </div>
-
         {tabs.map((tab, i) => {
           const active = i === activeTab;
           return (
-            <button
-              key={tab}
-              onClick={() => reset(i)}
-              style={{
-                fontFamily: mono, fontSize: 12,
-                fontWeight: active ? 600 : 400,
-                color: active ? "#e4e4e7" : "#52525b",
-                background: active ? "#1e1e20" : "transparent",
-                border: active ? "1px solid #27272a" : "1px solid transparent",
-                borderRadius: 6, cursor: "pointer",
-                padding: "3px 12px", marginRight: 2,
-              }}
+            <button key={tab} onClick={() => reset(i)} style={{
+              fontFamily: mono, fontSize: 12,
+              fontWeight: active ? 600 : 400,
+              color: active ? "#e4e4e7" : "#52525b",
+              background: active ? "#1e1e20" : "transparent",
+              border: active ? "1px solid #27272a" : "1px solid transparent",
+              borderRadius: 6, cursor: "pointer",
+              padding: "3px 12px", marginRight: 2,
+            }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#a1a1aa"; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#52525b"; }}
-            >
+              onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#52525b"; }}>
               {tab}
             </button>
           );
         })}
-
         <div style={{ flex: 1 }} />
-
-        <button
-          onClick={() => reset(activeTab)}
-          title="Reset"
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 28, height: 24, borderRadius: 6,
-            background: "transparent", border: "1px solid transparent",
-            cursor: "pointer", color: "#3f3f46", fontSize: 15, lineHeight: 1,
-          }}
+        <button onClick={() => reset(activeTab)} title="Reset" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: "1px solid transparent", cursor: "pointer", color: "#3f3f46", fontSize: 15, lineHeight: 1 }}
           onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#1e1e20"; e.currentTarget.style.borderColor = "#27272a"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "#3f3f46"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
-        >
-          {"\u21ba"}
+          onMouseLeave={e => { e.currentTarget.style.color = "#3f3f46"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}>
+          {"↺"}
         </button>
       </div>
 
-      {/* Terminal pane */}
-      <div style={{ height: 290, borderBottom: "1px solid #27272a", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "7px 16px 5px", borderBottom: "1px solid #1c1c1e" }}>
-          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#3f3f46" }}>Agent</span>
+      {/* Split pane */}
+      <div style={{ height: 290, borderBottom: "1px solid #27272a", overflow: "hidden", display: "flex" }}>
+        {/* Left — Agent */}
+        <div style={{ flex: 1, borderRight: "1px solid #27272a", display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ padding: "7px 16px 5px", borderBottom: "1px solid #1c1c1e" }}>
+            <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#3f3f46" }}>Agent</span>
+          </div>
+          <div ref={leftRef} style={{ flex: 1, overflowY: "hidden", padding: "12px 16px" }}>
+            {leftLines.map(renderLine)}
+            {showConnectBtns && (
+              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
+                <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickConnect("claude")}>Claude Code</button>
+                <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickConnect("desktop")}>Claude Desktop</button>
+                <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickConnect("chatgpt")}>ChatGPT</button>
+              </div>
+            )}
+            {showActionBtns && (
+              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
+                <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickAction("send")}>Send USDC</button>
+                <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickAction("swap")}>Swap tokens</button>
+              </div>
+            )}
+            {running && <div style={{ fontFamily: mono, fontSize: 12, lineHeight: "20px", color: "#60a5fa", opacity: blink ? 1 : 0 }}>{"▋"}</div>}
+          </div>
         </div>
-        <div ref={leftRef} style={{ flex: 1, overflowY: "hidden", padding: "12px 16px" }}>
-          {leftLines.map(renderLine)}
-
-          {showWalletBtns && (
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickWallet("cdp")}>CDP</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickWallet("sponge")}>Sponge</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickWallet("bankr")}>Bankr</button>
-            </div>
-          )}
-          {showPayBtns && (
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickPay("pay")}>Pay for a service</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickPay("getpaid")}>Get paid</button>
-            </div>
-          )}
-          {showSwapBtns && (
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickSwap("cdp")}>CDP</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickSwap("sponge")}>Sponge</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickSwap("bankr")}>Bankr</button>
-            </div>
-          )}
-
-          {running && (
-            <div style={{ fontFamily: mono, fontSize: 12, lineHeight: "20px", color: "#60a5fa", opacity: blink ? 1 : 0 }}>{"▋"}</div>
-          )}
+        {/* Right — Config/Response */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ padding: "7px 16px 5px", borderBottom: "1px solid #1c1c1e" }}>
+            <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#3f3f46" }}>{rightLabels[activeTab]}</span>
+          </div>
+          <div ref={rightRef} style={{ flex: 1, overflowY: "hidden", padding: "12px 16px" }}>
+            {rightLines.map(renderLine)}
+          </div>
         </div>
       </div>
 
       {/* Footer */}
       <div style={{ padding: "8px 16px", display: "flex", justifyContent: "center", minHeight: 37, alignItems: "center" }}>
         {done && (
-          <button
-            onClick={() => isLastTab ? reset(0) : reset(activeTab + 1)}
+          <button onClick={() => isLastTab ? reset(0) : reset(activeTab + 1)}
             style={{ fontFamily: mono, fontSize: 11, color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: "4px 10px", borderRadius: 4 }}
             onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#18181b"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "#52525b"; e.currentTarget.style.background = "none"; }}
-          >
+            onMouseLeave={e => { e.currentTarget.style.color = "#52525b"; e.currentTarget.style.background = "none"; }}>
             {footerLabel}
           </button>
         )}
       </div>
-
     </div>
   );
 };

@@ -1,0 +1,60 @@
+---
+title: "Sign Messages"
+description: "Sign EIP-712 typed data and plain messages with your Base Account using the Base Account MCP"
+keywords: ["sign message AI", "EIP-712 sign AI", "personal_sign AI", "Base Account MCP sign", "sign typed data AI assistant"]
+---
+
+import { X402PayDemo } from "/snippets/x402PayDemo.jsx"
+
+<X402PayDemo />
+
+## What it does
+
+The `sign` tool requests a cryptographic signature from your Base Account. Like all write tools, it requires your approval at `keys.coinbase.com`.
+
+Two signature types are supported:
+
+| Type | Standard | Use case |
+|------|----------|---------|
+| `0x45` | personal_sign (EIP-191) | Simple text messages, SIWE auth challenges |
+| `0x01` | EIP-712 typed data | Structured data, permit signatures, protocol auth |
+
+## What you can ask
+
+```text
+Sign this message: "I agree to the terms of service"
+```
+
+```text
+Sign in to this app using my Base Account
+```
+
+Signing is usually invoked by protocols or integrations, not directly prompted by users. Your assistant will handle the signing flow when a service requests it.
+
+## How it works
+
+<Steps>
+  <Step title="Your assistant calls sign()">
+    Passes the message type and payload to the Base Account MCP.
+  </Step>
+  <Step title="You receive an approval link">
+    Open `keys.coinbase.com` to review what you're signing — the message content is shown in full.
+  </Step>
+  <Step title="You approve">
+    Confirm the signature in the approval UI.
+  </Step>
+  <Step title="Signature returned">
+    Your assistant polls `get_request_status` to retrieve the completed signature, then passes it to the requesting service.
+  </Step>
+</Steps>
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Execute contract calls" icon="code" href="/ai-agents/guides/batch-calls">
+    Batch multiple contract interactions into one approval.
+  </Card>
+  <Card title="Morpho plugin" icon="puzzle-piece" href="/ai-agents/plugins/morpho">
+    Example of signing-in-the-flow with a DeFi protocol.
+  </Card>
+</CardGroup>

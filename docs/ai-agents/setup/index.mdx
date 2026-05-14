@@ -1,0 +1,178 @@
+---
+title: "Setup"
+description: "Connect the Base Account MCP to Claude Desktop, ChatGPT, Claude Code, Codex, Cursor, VS Code, and more"
+keywords: ["mcp.base.org setup", "Base Account MCP install", "Claude Desktop MCP config", "ChatGPT MCP connector", "Claude Code MCP"]
+---
+
+import { X402PayDemo } from "/snippets/x402PayDemo.jsx"
+
+The Base Account MCP server lives at `https://mcp.base.org`. Add it to your AI assistant once and your wallet tools are available in every conversation.
+
+## Authentication
+
+Connecting `mcp.base.org` requires a **Coinbase account** with a Base Account (smart wallet). When you first use a transactional tool (send, swap, sign), your assistant will return an `approvalUrl` — open it at `keys.coinbase.com` to authorize your Base Account and approve the transaction.
+
+<Note>
+Every individual transaction requires approval at `keys.coinbase.com`. Your assistant never has unilateral access to your funds.
+</Note>
+
+## Platform setup
+
+### Claude Desktop
+
+Open your config file and add the `base-account` server:
+
+| Platform | Config path |
+|----------|-------------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+```json claude_desktop_config.json
+{
+  "mcpServers": {
+    "base-account": {
+      "url": "https://mcp.base.org"
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The wallet MCP will show as connected in the toolbar.
+
+---
+
+### ChatGPT
+
+1. Open the **ChatGPT** app
+2. Go to **Settings → Connectors**
+3. Click **Add custom connector**
+4. Enter `https://mcp.base.org` as the server URL
+5. Save
+
+On first use, ChatGPT will prompt you to authorize your Coinbase account.
+
+---
+
+### Claude Code
+
+```bash Terminal
+claude mcp add --transport http base-account https://mcp.base.org
+```
+
+This writes to your project's `.claude/settings.json`. To add globally (all projects):
+
+```bash Terminal
+claude mcp add --transport http --scope user base-account https://mcp.base.org
+```
+
+Verify the connection:
+
+```bash Terminal
+claude mcp list
+```
+
+---
+
+### Codex
+
+```bash Terminal
+codex mcp add base-account --url https://mcp.base.org/
+```
+
+Or add to `codex.toml`:
+
+```toml codex.toml
+[mcp_servers.base-account]
+url = "https://mcp.base.org/"
+```
+
+---
+
+### Cursor
+
+<a href="cursor://anysphere.cursor-deeplink/mcp/install?name=base-account&config=eyJ1cmwiOiJodHRwczovL21jcC5iYXNlLm9yZyJ9">
+  One-click install in Cursor
+</a>
+
+Or add manually to `~/.cursor/mcp.json`:
+
+```json ~/.cursor/mcp.json
+{
+  "mcpServers": {
+    "base-account": {
+      "url": "https://mcp.base.org"
+    }
+  }
+}
+```
+
+---
+
+### VS Code
+
+<a href="https://vscode.dev/redirect/mcp/install?name=base-account&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.base.org%22%7D">
+  Install in VS Code
+</a>
+
+Or add to your VS Code MCP settings:
+
+```json settings.json
+{
+  "servers": {
+    "base-account": {
+      "type": "http",
+      "url": "https://mcp.base.org"
+    }
+  }
+}
+```
+
+---
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json mcp_config.json
+{
+  "mcpServers": {
+    "base-account": {
+      "url": "https://mcp.base.org"
+    }
+  }
+}
+```
+
+---
+
+## Approval mode
+
+<X402PayDemo />
+
+All write operations (send, swap, sign, send_calls) work in **approval mode**:
+
+<Steps>
+  <Step title="Your assistant calls the tool">
+    You ask your assistant to send funds, swap tokens, or sign a message.
+  </Step>
+  <Step title="You receive an approval link">
+    Your assistant returns an `approvalUrl` (at `keys.coinbase.com`) and a `requestId`.
+  </Step>
+  <Step title="You approve">
+    Open the link, review the transaction details, and confirm. Nothing is signed until you do.
+  </Step>
+  <Step title="Transaction completes">
+    Your assistant polls `get_request_status` with the `requestId` and confirms completion once you've approved.
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Guides" icon="book-open" href="/ai-agents/guides">
+    Step-by-step guides for sending, swapping, checking balance, and more.
+  </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="/ai-agents/plugins/morpho">
+    Add Morpho for lending and vault operations on Base.
+  </Card>
+</CardGroup>
