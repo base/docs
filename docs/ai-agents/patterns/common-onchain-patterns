@@ -1,0 +1,149 @@
+---
+title: Common Onchain Patterns for AI Agents
+description: Reusable patterns for reliable autonomous agents on Base — wallet signing, transactions with Flashblocks, payments, error handling, and identity.
+---
+
+# Common Onchain Patterns for AI Agents
+
+Build reliable, production-ready autonomous agents by applying these battle-tested patterns. They focus on Base-specific strengths like low-latency execution, x402 payments, and Base Account integration.
+
+Use these patterns with [viem](https://viem.sh), [wagmi](https://wagmi.sh), or your preferred agent framework. All examples are complete and runnable.
+
+## Wallet and Signing Patterns
+
+Give your agent secure, autonomous signing capabilities.
+
+### Use session keys or smart accounts for delegated actions
+
+```ts
+// agent-wallet.ts
+import { createWalletClient, http } from 'viem';
+import { base } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount('0x...'); // Use secure storage in production
+
+const client = createWalletClient({
+  account,
+  chain: base,
+  transport: http(),
+});
+
+export async function signAndSend(tx: any) {
+  return client.sendTransaction(tx);
+}
+```
+ **Tip**: For production agents, integrate Base Account (/base-account) or a smart wallet for gas sponsorship and better security.
+
+### Send transactions with retry and Flashblocks awareness
+
+```ts
+// agent-tx.ts
+import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
+import { baseSepolia } from 'viem/chains'; // Use base for mainnet
+
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(),
+});
+
+const walletClient = createWalletClient({ /* ... */ });
+
+async function sendWithRetry(txParams: any, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Optional: Simulate first for better UX
+      const simulation = await publicClient.simulateContract(txParams);
+      
+      const hash = await walletClient.sendTransaction({
+        ...txParams,
+        ...simulation.request,
+      });
+      
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      return { hash, receipt };
+    } catch (error: any) {
+      if (attempt === maxRetries - 1) throw error;
+      // Exponential backoff
+      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+    }
+  }
+}
+
+// Example usage
+const hash = await sendWithRetry({
+  to: '0x...',
+  value: parseEther('0.001'),
+});
+console.log('Transaction confirmed:', hash);
+```
+**Tip**: Flashblocks on Base enable near-instant inclusion. Monitor via [Basescan](https://basescan.org) or your preferred indexer.
+
+### Integrate x402 for per-request payments
+
+```ts
+// agent-payments.ts
+async function payForService(endpoint: string, amount: string) {
+  // Use agent wallet from earlier
+  const response = await fetch(endpoint, {
+    headers: {
+      'x-402-payment': JSON.stringify({
+        amount,
+        token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+      }),
+    },
+  });
+  
+  if (response.status === 402) {
+    // Handle payment required flow (your agent skill can automate this)
+    console.log('Payment required — handling automatically...');
+  }
+  
+  return response.json();
+}
+```
+**Cross-reference**: See Get Started with Payments (/ai-agents/quickstart/payments) for full setup.
+
+## Error Handling and Monitoring
+Always include robust error recovery.
+
+- **Common errors**: Insufficient gas, nonce issues, rate limits.
+
+- **Best practice**: Log to your agent’s observability stack and retry intelligently.
+
+- Verify onchain state with public clients before acting.
+
+## Agent Identity and Interoperability
+Register your agent for trust with other agents and services. 
+
+Follow the Agent Registration guide (/ai-agents/setup/agent-registration) and use ERC-8004 for onchain identity.
+
+## Full Minimal Agent Loop Example
+
+```ts
+// minimal-agent.ts
+async function agentLoop() {
+  while (true) {
+    try {
+      // 1. Check for opportunities (e.g., via skills or API)
+      const opportunity = await checkMarketOpportunity();
+      
+      if (opportunity) {
+        // 2. Sign and execute with retry
+        const result = await sendWithRetry(opportunity.tx);
+        console.log('Executed:', result.hash);
+        
+        // 3. Record or pay for service
+        await payForService('https://api.example.com/data', '0.01');
+      }
+      
+      await new Promise(r => setTimeout(r, 10000)); // 10s poll
+    } catch (e) {
+      console.error('Agent cycle error:', e);
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+}
+
+agentLoop();
+```
