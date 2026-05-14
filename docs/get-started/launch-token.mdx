@@ -245,10 +245,6 @@ contract DeployToken is Script {
 
 ### Environment Configuration
 
-<Warning>
-Never commit your `.env` file or share your `PRIVATE_KEY`. Always add `.env` to your `.gitignore` to prevent accidental key commits. The raw private key approach shown below is intended for **local development and testing only**. For production deployments, use the more secure keystore method with `cast wallet import deployer --interactive` as described in the [Deploy Smart Contracts guide](https://docs.base.org/get-started/deploy-smart-contracts).
-</Warning>
-
 Create a `.env` file with your configuration:
 
 ```bash .env
@@ -257,6 +253,10 @@ BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 BASE_MAINNET_RPC_URL=https://mainnet.base.org
 BASESCAN_API_KEY=your_basescan_api_key_here
 ```
+
+<Warning>
+**Security:** Never commit your `.env` file to version control. Add `.env` to `.gitignore` immediately after creating it. Storing a raw `PRIVATE_KEY` in `.env` is acceptable for local testing only — **never use this approach for production deployments**. For production, use the keystore method instead: `cast wallet import deployer --interactive`. See the [Deploy Smart Contracts guide](/get-started/deploy-smart-contracts) for the recommended secure approach.
+</Warning>
 
 Update `foundry.toml` for Base network configuration:
 
@@ -301,7 +301,6 @@ contract MyTokenTest is Test {
     }
     
     function testInitialState() public {
-        // Verify token was deployed with correct parameters
         assertEq(token.name(), "Test Token");
         assertEq(token.symbol(), "TEST");
         assertEq(token.totalSupply(), INITIAL_SUPPLY);
@@ -310,36 +309,27 @@ contract MyTokenTest is Test {
     
     function testMinting() public {
         uint256 mintAmount = 1000 * 10**18;
-        
-        // Only owner should be able to mint
         vm.prank(owner);
         token.mint(user, mintAmount);
-        
         assertEq(token.balanceOf(user), mintAmount);
         assertEq(token.totalSupply(), INITIAL_SUPPLY + mintAmount);
     }
     
     function testBurning() public {
         uint256 burnAmount = 1000 * 10**18;
-        
-        // Owner burns their own tokens
         vm.prank(owner);
         token.burn(burnAmount);
-        
         assertEq(token.balanceOf(owner), INITIAL_SUPPLY - burnAmount);
         assertEq(token.totalSupply(), INITIAL_SUPPLY - burnAmount);
     }
     
     function testFailMintExceedsMaxSupply() public {
-        // This test should fail when trying to mint more than max supply
         uint256 excessiveAmount = token.MAX_SUPPLY() + 1;
-        
         vm.prank(owner);
         token.mint(user, excessiveAmount);
     }
     
     function testFailUnauthorizedMinting() public {
-        // This test should fail when non-owner tries to mint
         vm.prank(user);
         token.mint(user, 1000 * 10**18);
     }
@@ -349,7 +339,6 @@ contract MyTokenTest is Test {
 Run your tests:
 
 ```bash Terminal
-# Run all tests with verbose output
 forge test -vv
 ```
 
@@ -358,10 +347,8 @@ forge test -vv
 Deploy to Base Sepolia testnet:
 
 ```bash Terminal
-# Load environment variables
 source .env
 
-# Deploy to Base Sepolia with automatic verification
 forge script script/DeployToken.s.sol:DeployToken \
     --rpc-url base_sepolia \
     --broadcast \
