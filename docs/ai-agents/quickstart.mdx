@@ -1,7 +1,7 @@
 ---
 title: "Quickstart"
 description: "Connect the Base Account MCP to your AI assistant in under 2 minutes"
-keywords: ["Base Account MCP quickstart", "mcp.base.org setup", "Claude Desktop MCP", "ChatGPT MCP", "Claude Code MCP wallet"]
+keywords: ["Base Account MCP quickstart", "mcp.base.org setup", "Claude Desktop MCP", "ChatGPT MCP", "Claude Code MCP wallet", "Cursor MCP", "VS Code MCP", "Windsurf MCP"]
 ---
 
 import { WalletSetupDemo } from "/snippets/WalletSetupDemo.jsx"
@@ -15,11 +15,24 @@ Connect `mcp.base.org` to your AI assistant, then send your first prompt.
 ## Step 1 — Connect
 
 <Tabs>
-  <Tab title="Claude Desktop">
-    Open your Claude Desktop config file and add the Base Account MCP server:
+  <Tab title="Claude">
+    <a href="https://claude.ai/customize/connectors?modal=add-custom-connector">
+      <img src="https://img.shields.io/badge/Add_to_Claude-D97757?logo=anthropic&logoColor=white&style=flat-square" alt="Add to Claude" />
+    </a>
 
-    **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-    **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+    Paste `https://mcp.base.org` as the server URL and save. Works in Claude.ai (web, iOS, Android) and Claude Desktop.
+
+    <Note>
+      Remote MCP integrations require a Claude Pro, Max, Team, or Enterprise plan.
+    </Note>
+
+    **Claude Desktop config file** — if you prefer to configure manually, open **Settings → Developer → Edit Config** and add:
+
+    | Platform | Config path |
+    |----------|-------------|
+    | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+    | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+    | Linux | `~/.config/Claude/claude_desktop_config.json` |
 
     ```json claude_desktop_config.json
     {
@@ -31,34 +44,49 @@ Connect `mcp.base.org` to your AI assistant, then send your first prompt.
     }
     ```
 
-    Restart Claude Desktop. A wallet icon will appear when the MCP is connected.
+    Save and restart Claude Desktop. A wallet icon will appear in the toolbar when connected.
   </Tab>
   <Tab title="ChatGPT">
-    1. Open the ChatGPT app
-    2. Go to **Settings → Connectors**
-    3. Click **Add custom connector**
-    4. Enter the server URL:
+    <a href="https://chatgpt.com/#settings/Connectors">
+      <img src="https://img.shields.io/badge/Add_to_ChatGPT-74AA9C?logo=openai&logoColor=white&style=flat-square" alt="Add to ChatGPT" />
+    </a>
 
-    ```
+    Then:
+
+    1. Enable **Developer Mode** if prompted (under Advanced)
+    2. Click **Add custom connector**
+    3. Enter the server URL:
+
+    ```text
     https://mcp.base.org
     ```
 
-    5. Save and return to a conversation. ChatGPT will prompt you to authorize when you first use a wallet tool.
+    4. Save. ChatGPT will prompt you to authorize when you first use a wallet tool.
+
+    <Note>
+      MCP connectors require a ChatGPT Plus or Pro plan.
+    </Note>
   </Tab>
   <Tab title="Claude Code">
-    Run this command in your terminal:
+    Run this in your terminal to add the server to the current project:
 
     ```bash Terminal
     claude mcp add --transport http base-account https://mcp.base.org
     ```
 
-    Then start a Claude Code session. The `base-account` MCP will be available immediately.
+    To install globally (available across all your projects):
 
-    To verify it's connected:
+    ```bash Terminal
+    claude mcp add --transport http --scope user base-account https://mcp.base.org
+    ```
+
+    Verify it connected:
 
     ```bash Terminal
     claude mcp list
     ```
+
+    The `base-account` server will show with a tool count once active. You can also run `/mcp` inside a Claude Code session to see server status.
   </Tab>
   <Tab title="Codex">
     ```bash Terminal
@@ -73,15 +101,13 @@ Connect `mcp.base.org` to your AI assistant, then send your first prompt.
     ```
   </Tab>
   <Tab title="Cursor">
-    Click to install automatically:
-
     <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=base-account&config=eyJ1cmwiOiJodHRwczovL21jcC5iYXNlLm9yZyJ9">
-      <img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add to Cursor" />
+      <img src="https://img.shields.io/badge/Add_to_Cursor-000000?logo=cursor&logoColor=white&style=flat-square" alt="Add to Cursor" />
     </a>
 
-    Or add manually to `~/.cursor/mcp.json`:
+    Or add manually to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
 
-    ```json ~/.cursor/mcp.json
+    ```json mcp.json
     {
       "mcpServers": {
         "base-account": {
@@ -90,15 +116,17 @@ Connect `mcp.base.org` to your AI assistant, then send your first prompt.
       }
     }
     ```
+
+    Restart Cursor, then open **Settings → MCP** to confirm `base-account` shows as active.
   </Tab>
   <Tab title="VS Code">
     <a href="https://vscode.dev/redirect/mcp/install?name=base-account&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.base.org%22%7D">
-      Install in VS Code
+      <img src="https://img.shields.io/badge/Add_to_VS_Code-007ACC?logo=visualstudiocode&logoColor=white&style=flat-square" alt="Add to VS Code" />
     </a>
 
-    Or add to your VS Code MCP config:
+    Or add manually to `.vscode/mcp.json` (workspace) or your user MCP settings:
 
-    ```json settings.json
+    ```json .vscode/mcp.json
     {
       "servers": {
         "base-account": {
@@ -108,8 +136,33 @@ Connect `mcp.base.org` to your AI assistant, then send your first prompt.
       }
     }
     ```
+
+    Open **Copilot Chat** in agent mode and confirm the wallet tools appear in the tool picker.
+  </Tab>
+  <Tab title="Windsurf">
+    Add to `~/.codeium/windsurf/mcp_config.json`:
+
+    ```json mcp_config.json
+    {
+      "mcpServers": {
+        "base-account": {
+          "url": "https://mcp.base.org"
+        }
+      }
+    }
+    ```
+
+    Restart Windsurf. Open **Cascade** — the MCP tools will be available once connected.
+
+    <Tip>
+      You can also add MCP servers from the UI: open **Cascade** → click the **hammer icon** → **Add MCP Server**.
+    </Tip>
   </Tab>
 </Tabs>
+
+<Note>
+  **Other clients** — Any MCP client that supports remote HTTP (Streamable HTTP) servers works with `https://mcp.base.org`. See the [setup guide](/ai-agents/setup) for Zed, JetBrains, Le Chat (Mistral), Warp, and others. On mobile, the Claude connector above works in the iOS and Android apps.
+</Note>
 
 ## Step 2 — Authorize
 
@@ -142,7 +195,7 @@ Morpho lets your assistant query vaults, check APYs, and execute lending operati
 Add both MCPs to your config:
 
 <Tabs>
-  <Tab title="Claude Desktop">
+  <Tab title="Claude">
     ```json claude_desktop_config.json
     {
       "mcpServers": {
@@ -162,7 +215,7 @@ Add both MCPs to your config:
     claude mcp add morpho --transport http https://mcp.morpho.org/
     ```
   </Tab>
-  <Tab title="Cursor / VS Code / Codex">
+  <Tab title="Cursor / VS Code / Windsurf / Codex">
     Add a second entry alongside `base-account`:
 
     ```json
