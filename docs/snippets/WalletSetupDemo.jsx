@@ -24,66 +24,78 @@ export const WalletSetupDemo = () => {
     success:      "#a3c585",
   };
 
+  // Each example is a sequence of events. Each event reveals one block.
+  // Block types: thinking, tool, text, rows, approval, confirm
+  // (thinking auto-hides once the next event renders)
   const examples = [
     {
-      prompt: "What's my USDC balance on Base?",
-      tool:   { server: "base-account", action: "get_portfolio", args: { chain: "base" } },
-      reply:  {
-        intro: "Here's your portfolio on Base:",
-        rows: [
-          { token: "USDC",     amount: "245.80",  value: "$245.80" },
-          { token: "ETH",      amount: "0.0412",  value: "$148.33" },
-        ],
-        total: "$394.13",
-      },
+      prompt: "Send 5 USDC to vitalik.base.eth",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "vitalik.base.eth", asset: "USDC", amount: "5" } } },
+        { delay: 550, type: "text", text: "Resolved vitalik.base.eth → 0xd8dA…6045. Approve to send:" },
+        { delay: 250, type: "approval", url: "keys.coinbase.com/approve/req_a4f7c2" },
+        { delay: 1100, type: "confirm", text: "Sent 5 USDC to vitalik.base.eth" },
+      ],
     },
     {
-      prompt: "Send 1 USDC to coinbase.base.eth",
-      tool:   { server: "base-account", action: "send", args: { to: "coinbase.base.eth", amount: "1 USDC" } },
-      reply:  {
-        intro: "I prepared the transaction. Approve it to send:",
-        approval: "keys.coinbase.com/approve/req_a4f7c2",
-        confirm:  "Sent 1 USDC to coinbase.base.eth",
-      },
+      prompt: "Swap 0.05 ETH to USDC on Base — best rate",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 600, type: "tool", tool: { server: "aerodrome", action: "get_quote", args: { from: "0.05 ETH", to: "USDC" } } },
+        { delay: 700, type: "tool", tool: { server: "uniswap-v3", action: "get_quote", args: { from: "0.05 ETH", to: "USDC" } } },
+        { delay: 600, type: "text", text: "Routed across two Base DEXes — Uniswap v3 has the better fill:" },
+        { delay: 250, type: "rows", rows: [
+          { token: "Aerodrome",         amount: "178.92 USDC", value: "0.30% fee · slippage 0.18%" },
+          { token: "Uniswap v3 (best)", amount: "179.41 USDC", value: "0.05% fee · slippage 0.12%" },
+        ]},
+        { delay: 700, type: "tool", tool: { server: "uniswap-v3", action: "prepare_swap", args: { route: "ETH→USDC", min_out: "179.20 USDC" } } },
+        { delay: 450, type: "approval", url: "keys.coinbase.com/approve/req_8c2e4d" },
+        { delay: 1100, type: "confirm", text: "Swapped 0.05 ETH → 179.41 USDC on Uniswap v3" },
+      ],
     },
     {
-      prompt: "Find the best USDC vault on Base by APY",
-      tool:   { server: "morpho", action: "find_best_vault", args: { asset: "USDC", chain: "base" } },
-      reply:  {
-        intro: "Top USDC vaults on Base right now:",
-        rows: [
-          { token: "Steakhouse USDC", amount: "8.42% APY", value: "$24.1M TVL" },
-          { token: "Re7 USDC",        amount: "7.91% APY", value: "$18.7M TVL" },
-        ],
-        total: null,
-      },
+      prompt: "Find the best USDC yield on Base and deposit 100",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 600, type: "tool", tool: { server: "morpho", action: "list_vaults", args: { asset: "USDC", chain: "base" } } },
+        { delay: 700, type: "tool", tool: { server: "moonwell", action: "list_markets", args: { asset: "USDC", chain: "base" } } },
+        { delay: 600, type: "text", text: "Compared Morpho vaults and Moonwell markets — top USDC yields on Base:" },
+        { delay: 250, type: "rows", rows: [
+          { token: "Morpho · Steakhouse USDC", amount: "8.42% APY", value: "$24.1M TVL · winner" },
+          { token: "Morpho · Re7 USDC",        amount: "7.91% APY", value: "$18.7M TVL" },
+          { token: "Moonwell · USDC market",   amount: "5.13% APY", value: "$41.2M supplied" },
+        ]},
+        { delay: 700, type: "tool", tool: { server: "morpho", action: "prepare_deposit", args: { vault: "Steakhouse USDC", amount: "100 USDC" } } },
+        { delay: 450, type: "approval", url: "keys.coinbase.com/approve/req_b9f2a1" },
+        { delay: 1100, type: "confirm", text: "Deposited 100 USDC into Steakhouse USDC · earning 8.42% APY" },
+      ],
     },
   ];
 
-  const [activeIdx, setActiveIdx] = useState(null);   // which example is playing
-  const [step, setStep]           = useState(0);      // 0=just user msg, 1=thinking, 2=tool, 3=intro, 4=details, 5=done
+  const [activeIdx, setActiveIdx] = useState(null);
+  const [eventIdx, setEventIdx]   = useState(0);
   const scrollRef = useRef(null);
   const timersRef = useRef([]);
 
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [step, activeIdx]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [eventIdx, activeIdx]);
   useEffect(() => () => clearTimers(), []);
 
   const pick = (idx) => {
     if (activeIdx !== null) return;
     setActiveIdx(idx);
-    setStep(0);
+    setEventIdx(0);
     clearTimers();
-    const seq = [[350, 1], [600, 2], [800, 3], [600, 4], [500, 5]];
     let cumulative = 0;
-    seq.forEach(([d, s]) => {
-      cumulative += d;
-      timersRef.current.push(setTimeout(() => setStep(s), cumulative));
+    examples[idx].events.forEach((e, i) => {
+      cumulative += e.delay;
+      timersRef.current.push(setTimeout(() => setEventIdx(i + 1), cumulative));
     });
   };
 
-  const reset = () => { clearTimers(); setActiveIdx(null); setStep(0); };
+  const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); };
 
   const ex = activeIdx !== null ? examples[activeIdx] : null;
 
@@ -98,29 +110,34 @@ export const WalletSetupDemo = () => {
   );
 
   const UserBubble = ({ children }) => (
-    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 24 }}>
-      <div style={{
-        maxWidth: "78%", background: c.bubble, color: c.bubbleText, padding: "12px 16px",
-        borderRadius: 14, fontFamily: sans, fontSize: 14, lineHeight: 1.45,
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+      <div className="wsd-bubble" style={{
+        background: c.bubble, color: c.bubbleText, padding: "12px 16px",
+        borderRadius: 14, fontFamily: sans, lineHeight: 1.45,
         border: `1px solid ${c.toolBorder}`,
       }}>{children}</div>
     </div>
   );
 
-  const ToolCall = ({ tool }) => (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{
-        display: "inline-flex", alignItems: "center", gap: 8,
+  const ToolCall = ({ tool, completed }) => (
+    <div style={{ marginBottom: 10 }}>
+      <div className="wsd-tool-chip" style={{
+        display: "inline-flex", alignItems: "flex-start", gap: 8,
         background: c.toolBg, border: `1px solid ${c.toolBorder}`,
         borderRadius: 8, padding: "6px 11px",
+        opacity: completed ? 0.85 : 1,
       }}>
-        <span style={{ width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14.7 6.3a4 4 0 0 0-5.4 0l-7 7a3.5 3.5 0 0 0 5 5l5.5-5.5"/>
-            <path d="m11 8 5 5"/>
-          </svg>
+        <span style={{ width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+          {completed ? (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a4 4 0 0 0-5.4 0l-7 7a3.5 3.5 0 0 0 5 5l5.5-5.5"/>
+              <path d="m11 8 5 5"/>
+            </svg>
+          )}
         </span>
-        <span style={{ fontFamily: mono, fontSize: 12, color: c.muted }}>
+        <span className="wsd-tool-text" style={{ fontFamily: mono, color: c.muted }}>
           <span style={{ color: c.accent }}>{tool.server}</span>
           <span style={{ color: c.dim }}> · </span>
           <span style={{ color: c.body }}>{tool.action}</span>
@@ -139,7 +156,7 @@ export const WalletSetupDemo = () => {
   );
 
   const Thinking = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontFamily: sans, fontSize: 13, color: c.muted }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontFamily: sans, fontSize: 13, color: c.muted }}>
       <span style={{ display: "inline-flex", gap: 3 }}>
         {[0, 1, 2].map(i => (
           <span key={i} style={{
@@ -152,22 +169,22 @@ export const WalletSetupDemo = () => {
     </div>
   );
 
-  const ResponseText = ({ children }) => (
-    <div style={{ fontFamily: serif, fontSize: 15, lineHeight: 1.55, color: c.body, marginBottom: 12 }}>{children}</div>
+  const ResponseText = ({ children, top }) => (
+    <div style={{ fontFamily: serif, fontSize: 15, lineHeight: 1.55, color: c.body, marginBottom: 12, marginTop: top ? 8 : 0 }}>{children}</div>
   );
 
   const ResponseRows = ({ rows }) => (
-    <div style={{ marginBottom: 12 }}>
+    <div style={{ marginBottom: 14 }}>
       {rows.map((r, i) => (
-        <div key={i} style={{
-          display: "flex", alignItems: "baseline", gap: 12, padding: "5px 0",
+        <div key={i} className="wsd-row" style={{
+          display: "flex", alignItems: "baseline", padding: "5px 0",
           fontFamily: serif, fontSize: 14, color: c.body,
         }}>
-          <span style={{ minWidth: 12, color: c.dim }}>•</span>
-          <span style={{ flex: "0 0 auto", minWidth: 130, fontWeight: 500 }}>{r.token}</span>
+          <span style={{ minWidth: 12, color: c.dim, flexShrink: 0 }}>•</span>
+          <span className="wsd-row-token" style={{ fontWeight: 500 }}>{r.token}</span>
           <span style={{
             fontFamily: mono, fontSize: 12.5, color: c.code,
-            background: c.codeBg, padding: "1px 6px", borderRadius: 4,
+            background: c.codeBg, padding: "1px 6px", borderRadius: 4, whiteSpace: "nowrap",
           }}>{r.amount}</span>
           <span style={{ color: c.muted, fontSize: 13 }}>{r.value}</span>
         </div>
@@ -176,18 +193,20 @@ export const WalletSetupDemo = () => {
   );
 
   const ApprovalLink = ({ url }) => (
-    <div style={{ marginBottom: 10 }}>
-      <span style={{
-        display: "inline-flex", alignItems: "center", gap: 8,
-        background: c.toolBg, border: `1px solid ${c.toolBorder}`,
-        borderRadius: 8, padding: "8px 12px",
-        fontFamily: mono, fontSize: 12.5, color: c.accent,
+    <div style={{ marginBottom: 10, marginTop: 4 }}>
+      <span className="wsd-approval" style={{
+        display: "inline-flex", alignItems: "flex-start", gap: 8,
+        background: c.toolBg, border: `1px solid ${c.accent}`,
+        borderRadius: 8, padding: "9px 13px",
+        fontFamily: mono, color: c.accent,
+        boxShadow: `0 0 0 3px rgba(217,119,87,0.08)`,
+        maxWidth: "100%",
       }}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
           <rect x="3" y="11" width="18" height="11" rx="2"/>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
-        {url}
+        <span>{url}</span>
       </span>
     </div>
   );
@@ -204,17 +223,6 @@ export const WalletSetupDemo = () => {
     </div>
   );
 
-  const Total = ({ value }) => (
-    <div style={{
-      fontFamily: serif, fontSize: 14.5, color: c.text, fontWeight: 600,
-      paddingTop: 8, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between",
-      maxWidth: 360,
-    }}>
-      <span>Total</span>
-      <span style={{ color: c.success }}>{value}</span>
-    </div>
-  );
-
   const ChipBtn = ({ onClick, children }) => {
     const [hover, setHover] = useState(false);
     return (
@@ -222,18 +230,47 @@ export const WalletSetupDemo = () => {
         onClick={onClick}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
+        className="wsd-chip"
         style={{
-          fontFamily: sans, fontSize: 13, lineHeight: 1.35,
+          fontFamily: serif, lineHeight: 1.4,
           color: hover ? c.text : c.body,
-          background: hover ? c.toolBg : "transparent",
+          background: hover ? c.toolBg : c.header,
           border: `1px solid ${hover ? c.accent : c.toolBorder}`,
-          borderRadius: 12, padding: "10px 14px",
+          borderRadius: 14,
           textAlign: "left", cursor: "pointer",
           transition: "all 0.15s ease",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 14, width: "100%",
         }}>
-        {children}
+        <span style={{ flex: 1 }}>{children}</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke={hover ? c.accent : c.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease, transform 0.15s ease", transform: hover ? "translateX(2px)" : "translateX(0)" }}>
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
       </button>
     );
+  };
+
+  // Render the events shown so far for the active example
+  const renderEvents = () => {
+    if (!ex) return null;
+    const shown = ex.events.slice(0, eventIdx);
+    return shown.map((event, i) => {
+      // Hide thinking once any later event has appeared
+      if (event.type === "thinking") {
+        if (i < shown.length - 1) return null;
+        return <Thinking key={i} />;
+      }
+      if (event.type === "tool") {
+        // Mark as completed once any later non-thinking event has appeared
+        const hasLater = shown.slice(i + 1).some(e => e.type !== "thinking");
+        return <ToolCall key={i} tool={event.tool} completed={hasLater} />;
+      }
+      if (event.type === "text")     return <ResponseText key={i} top>{event.text}</ResponseText>;
+      if (event.type === "rows")     return <ResponseRows key={i} rows={event.rows} />;
+      if (event.type === "approval") return <ApprovalLink key={i} url={event.url} />;
+      if (event.type === "confirm")  return <Confirm key={i} text={event.text} />;
+      return null;
+    });
   };
 
   return (
@@ -242,8 +279,38 @@ export const WalletSetupDemo = () => {
       border: `1px solid ${c.border}`, background: c.bg,
       boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
     }}>
-      {/* keyframes */}
-      <style>{`@keyframes wsd-pulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}`}</style>
+      {/* keyframes + responsive */}
+      <style>{`
+        @keyframes wsd-pulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+
+        .wsd-chat       { height: 400px; padding: 24px 28px 16px; }
+        .wsd-input-row  { padding: 10px 16px 14px; }
+        .wsd-tool-text  { white-space: nowrap; font-size: 12px; line-height: 1.4; }
+        .wsd-tool-chip  { max-width: 100%; }
+        .wsd-row        { gap: 12px; flex-wrap: nowrap; }
+        .wsd-row-token  { min-width: 200px; }
+        .wsd-bubble     { max-width: 78%; font-size: 14px; }
+        .wsd-approval   { font-size: 12.5px; }
+        .wsd-chip       { padding: 16px 18px; font-size: 15px; }
+        .wsd-empty-text { font-size: 16px; }
+        .wsd-footnote   { font-size: 11px; }
+
+        @media (max-width: 640px) {
+          .wsd-chat       { height: 460px; padding: 16px 14px 12px; }
+          .wsd-input-row  { padding: 8px 10px 10px; }
+          .wsd-tool-chip  { display: block; }
+          .wsd-tool-text  { white-space: normal; word-break: break-word; font-size: 11px; }
+          .wsd-row        { flex-wrap: wrap; gap: 4px 10px; }
+          .wsd-row-token  { min-width: 100%; flex: 1 1 100%; }
+          .wsd-bubble     { max-width: 88%; font-size: 13.5px; }
+          .wsd-approval   { font-size: 11.5px; word-break: break-all; }
+          .wsd-chip       { padding: 14px 14px; font-size: 14px; }
+          .wsd-empty-text { font-size: 14.5px; }
+          .wsd-footnote   { font-size: 10.5px; }
+          .wsd-input-placeholder { font-size: 13px !important; }
+          .wsd-model-label { font-size: 12px !important; margin-right: 8px !important; }
+        }
+      `}</style>
 
       {/* Header */}
       <div style={{
@@ -271,13 +338,13 @@ export const WalletSetupDemo = () => {
       </div>
 
       {/* Chat area */}
-      <div ref={scrollRef} style={{ height: 360, overflowY: "auto", padding: "24px 28px 16px" }}>
+      <div ref={scrollRef} className="wsd-chat" style={{ overflowY: "auto" }}>
         {!ex && (
           <div>
-            <div style={{ fontFamily: serif, fontSize: 16, color: c.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              Try asking your assistant once <span style={{ fontFamily: mono, fontSize: 13, color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected:
+            <div className="wsd-empty-text" style={{ fontFamily: serif, color: c.muted, marginBottom: 20, lineHeight: 1.5 }}>
+              Try asking your assistant once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected:
             </div>
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "grid", gap: 10 }}>
               {examples.map((e, i) => (
                 <ChipBtn key={i} onClick={() => pick(i)}>{e.prompt}</ChipBtn>
               ))}
@@ -288,22 +355,13 @@ export const WalletSetupDemo = () => {
         {ex && (
           <>
             <UserBubble>{ex.prompt}</UserBubble>
-
-            {step >= 1 && step < 3 && <Thinking />}
-            {step >= 2 && <ToolCall tool={ex.tool} />}
-
-            {step >= 3 && <ResponseText>{ex.reply.intro}</ResponseText>}
-
-            {step >= 4 && ex.reply.rows && <ResponseRows rows={ex.reply.rows} />}
-            {step >= 4 && ex.reply.total && <Total value={ex.reply.total} />}
-            {step >= 4 && ex.reply.approval && <ApprovalLink url={ex.reply.approval} />}
-            {step >= 5 && ex.reply.confirm && <Confirm text={ex.reply.confirm} />}
+            {renderEvents()}
           </>
         )}
       </div>
 
       {/* Input area */}
-      <div style={{ padding: "10px 16px 14px" }}>
+      <div className="wsd-input-row">
         <div style={{
           display: "flex", alignItems: "center",
           background: c.inputBg, border: `1px solid ${c.toolBorder}`,
@@ -312,26 +370,27 @@ export const WalletSetupDemo = () => {
           <button style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 26, height: 26, borderRadius: 8, border: "none",
-            background: "transparent", color: c.muted, cursor: "default", padding: 0,
+            background: "transparent", color: c.muted, cursor: "default", padding: 0, flexShrink: 0,
           }}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
-          <span style={{
+          <span className="wsd-input-placeholder" style={{
             flex: 1, marginLeft: 8, fontFamily: sans, fontSize: 14, color: c.dim,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             Write a message...
           </span>
-          <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, marginRight: 12 }}>
+          <span className="wsd-model-label" style={{ fontFamily: sans, fontSize: 13, color: c.muted, marginRight: 12, flexShrink: 0 }}>
             Sonnet 4.6 <span style={{ color: c.dim }}>▾</span>
           </span>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
             <path d="M19 11a7 7 0 0 1-14 0"/>
             <line x1="12" y1="18" x2="12" y2="22"/>
           </svg>
         </div>
-        <div style={{
-          textAlign: "center", marginTop: 8, fontFamily: sans, fontSize: 11, color: c.dim,
+        <div className="wsd-footnote" style={{
+          textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim,
         }}>
           Demo · Your assistant approves every transaction at <span style={{ color: c.muted }}>keys.coinbase.com</span>
         </div>
