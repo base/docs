@@ -6,7 +6,7 @@ keywords: ["Morpho MCP", "Base lending AI", "Morpho vault agent", "mcp.morpho.or
 
 import { AcceptingPaymentsDemo } from "/snippets/AcceptingPaymentsDemo.jsx"
 
-[Morpho](https://morpho.org) is a lending protocol on Base. The Morpho MCP server gives your assistant tools to query vaults, check markets, and prepare lending operations — which are then signed and sent through your Base Account MCP.
+[Morpho](https://morpho.org) is a lending protocol on Base. The Morpho MCP server gives your assistant tools to query vaults, check markets, and prepare lending operations — which are then signed and sent through Base MCP.
 
 ## Demo
 
@@ -21,7 +21,7 @@ sequenceDiagram
     participant User
     participant AI as AI Assistant
     participant Morpho as Morpho MCP
-    participant BA as Base Account MCP
+    participant BA as Base MCP
 
     User->>AI: "Deposit 100 USDC into the best vault"
     AI->>Morpho: morpho_query_vaults(asset=USDC, sortBy=APY)
@@ -108,7 +108,7 @@ Add both MCPs to your assistant:
 
 ### Prepare (write via `send_calls`)
 
-These tools return unsigned call data. Pass the result to Base Account MCP's `send_calls` to execute.
+These tools return unsigned call data. Pass the result to Base MCP's `send_calls` to execute.
 
 | Tool | What it does |
 |------|-------------|
@@ -165,7 +165,7 @@ Every Morpho write operation follows the same pattern:
     Call a `prepare_*` tool. Morpho simulates the operation and returns `{ calls, chainId }`.
   </Step>
   <Step title="Execute via Base Account">
-    Pass `calls` and `chainId` to Base Account MCP's `send_calls`. You'll get an `approvalUrl`.
+    Pass `calls` and `chainId` to Base MCP's `send_calls`. You'll get an `approvalUrl`.
   </Step>
   <Step title="Approve and confirm">
     Open the `approvalUrl`, approve the transaction, then your assistant polls `get_request_status`.
