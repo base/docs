@@ -10,6 +10,7 @@ From the repo root:
 ./githooks/install.sh
 ```
 
+
 Idempotent — safe to re-run. The script sets `core.hooksPath=githooks` (local to this `.git/config` only) and marks the hooks executable.
 
 These hooks are scoped to this repo only:
