@@ -24,9 +24,7 @@ export const AuthApprovalDemo = ({ client = "Claude" }) => {
 
   const permissions = [
     { label: "View address, balances & activity." },
-    { label: "Request approval for sends and swaps." },
-    { label: "Sign messages and typed data on request." },
-    { label: "Read onchain data on Base." },
+    { label: "Request approval for transactions." }
   ];
 
   const EyeIcon = () => (
