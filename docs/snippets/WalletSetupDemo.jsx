@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from "react";
 
 export const WalletSetupDemo = () => {
   const sans  = "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
@@ -29,13 +28,13 @@ export const WalletSetupDemo = () => {
   // (thinking auto-hides once the next event renders)
   const examples = [
     {
-      prompt: "Send 5 USDC to vitalik.base.eth",
+      prompt: "Send 5 USDC to jesse.base.eth",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "vitalik.base.eth", asset: "USDC", amount: "5" } } },
-        { delay: 550, type: "text", text: "Resolved vitalik.base.eth → 0xd8dA…6045. Approve to send:" },
+        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "jesse.base.eth", asset: "USDC", amount: "5" } } },
+        { delay: 550, type: "text", text: "Resolved jesse.base.eth → 0xd8dA…6045. Approve to send:" },
         { delay: 250, type: "approval", url: "keys.coinbase.com/approve/req_a4f7c2" },
-        { delay: 1100, type: "confirm", text: "Sent 5 USDC to vitalik.base.eth" },
+        { delay: 1100, type: "confirm", text: "Sent 5 USDC to jesse.base.eth" },
       ],
     },
     {

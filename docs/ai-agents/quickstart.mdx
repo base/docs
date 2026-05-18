@@ -1,10 +1,11 @@
 ---
 title: "Quickstart"
 description: "Connect Base MCP to your AI assistant in under 2 minutes"
-keywords: ["Base MCP quickstart", "mcp.base.org setup", "Claude Desktop MCP", "ChatGPT MCP", "Claude Code MCP wallet", "Cursor MCP", "VS Code MCP", "Windsurf MCP"]
+keywords: ["Base MCP quickstart", "mcp.base.org setup", "Claude Desktop MCP", "ChatGPT MCP", "Claude Code MCP wallet", "Cursor MCP", "Codex MCP", "Hermes MCP"]
 ---
 
 import { WalletSetupDemo } from "/snippets/WalletSetupDemo.jsx"
+import { AuthApprovalDemo } from "/snippets/AuthApprovalDemo.jsx"
 
 Connect `mcp.base.org` to your AI assistant, then send your first prompt.
 
@@ -12,239 +13,216 @@ Connect `mcp.base.org` to your AI assistant, then send your first prompt.
 
 <WalletSetupDemo />
 
-## Step 1 — Connect
+## Steps
 
-<Tabs>
-  <Tab title="Claude">
-    <a href="https://claude.ai/customize/connectors?modal=add-custom-connector">
-      <img src="https://img.shields.io/badge/Add_to_Claude-D97757?logo=anthropic&logoColor=white&style=flat-square" alt="Add to Claude" />
-    </a>
+<Steps>
+  <Step title="Connect the MCP">
+    <Tabs>
+      <Tab title="Claude">
+        [![Add to Claude](https://img.shields.io/badge/Add%20to%20Claude-1F1F1F?style=for-the-badge)](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Base&connectorUrl=https%3A%2F%2Fmcp.base.org)
 
-    Paste `https://mcp.base.org` as the server URL and save. Works in Claude.ai (web, iOS, Android) and Claude Desktop.
+        Works in Claude.ai (web, iOS, Android) and Claude Desktop. Click the button above, or:
 
-    <Note>
-      Remote MCP integrations require a Claude Pro, Max, Team, or Enterprise plan.
-    </Note>
+        1. Open **Settings → Connectors → Add custom connector**
+        2. The **Add custom connector** modal opens
+        3. Fill in:
+           - **Name**: `Base`
+           - **Remote MCP server URL**: `https://mcp.base.org`
+        4. Click **Add**
 
-    **Claude Desktop config file** — if you prefer to configure manually, open **Settings → Developer → Edit Config** and add:
+        **Claude Desktop config file** — if you prefer to configure manually, open **Settings → Developer → Edit Config** and add:
 
-    | Platform | Config path |
-    |----------|-------------|
-    | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-    | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
-    | Linux | `~/.config/Claude/claude_desktop_config.json` |
+        | Platform | Config path |
+        |----------|-------------|
+        | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+        | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+        | Linux | `~/.config/Claude/claude_desktop_config.json` |
 
-    ```json claude_desktop_config.json
-    {
-      "mcpServers": {
-        "base-account": {
-          "url": "https://mcp.base.org"
+        ```json claude_desktop_config.json
+        {
+          "mcpServers": {
+            "base": {
+              "url": "https://mcp.base.org"
+            }
+          }
         }
-      }
-    }
-    ```
+        ```
 
-    Save and restart Claude Desktop. A wallet icon will appear in the toolbar when connected.
-  </Tab>
-  <Tab title="ChatGPT">
-    <a href="https://chatgpt.com/#settings/Connectors">
-      <img src="https://img.shields.io/badge/Add_to_ChatGPT-74AA9C?logo=openai&logoColor=white&style=flat-square" alt="Add to ChatGPT" />
-    </a>
+        Save and restart Claude Desktop.
+      </Tab>
+      <Tab title="ChatGPT">
+        [![Add to ChatGPT](https://img.shields.io/badge/Add%20to%20ChatGPT-1F1F1F?style=for-the-badge)](https://chatgpt.com/#settings/Connectors)
 
-    Then:
+        Click the button above, or open **Settings → Connectors** manually. Then:
 
-    1. Enable **Developer Mode** if prompted (under Advanced)
-    2. Click **Add custom connector**
-    3. Enter the server URL:
+        1. Enable **Developer Mode** if prompted (under Advanced)
+        2. Click **Create** to open the **New App** modal
+        3. Fill in:
+           - **Name**: `Base`
+           - **Description** (optional): `Wallet and onchain tools for Base`
+           - **MCP Server URL**: `https://mcp.base.org`
+           - **Authentication**: `OAuth`
+        4. Check **I understand and want to continue** on the risk warning
+        5. Click **Create**
+
+        ChatGPT will prompt you to authorize when you first use a wallet tool.
+      </Tab>
+      <Tab title="Claude Code">
+        Run this in your terminal to add the server to the current project:
+
+        ```bash Terminal
+        claude mcp add --transport http base https://mcp.base.org
+        ```
+
+        To install globally (available across all your projects):
+
+        ```bash Terminal
+        claude mcp add --transport http --scope user base https://mcp.base.org
+        ```
+
+        Verify it connected:
+
+        ```bash Terminal
+        claude mcp list
+        ```
+
+        The `base` server will show with a tool count once active. You can also run `/mcp` inside a Claude Code session to see server status.
+      </Tab>
+      <Tab title="Codex">
+        ```bash Terminal
+        codex mcp add base --url https://mcp.base.org/
+        ```
+
+        Or add to your `codex.toml`:
+
+        ```toml codex.toml
+        [mcp_servers.base]
+        url = "https://mcp.base.org/"
+        ```
+      </Tab>
+      <Tab title="Cursor">
+        [![Add to Cursor](https://img.shields.io/badge/Add%20to%20Cursor-1F1F1F?style=for-the-badge)](cursor://anysphere.cursor-deeplink/mcp/install?name=base&config=eyJ1cmwiOiJodHRwczovL21jcC5iYXNlLm9yZyJ9)
+
+        Or add manually to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+        ```json mcp.json
+        {
+          "mcpServers": {
+            "base": {
+              "url": "https://mcp.base.org"
+            }
+          }
+        }
+        ```
+
+        Restart Cursor, then open **Settings → MCP** to confirm `base` shows as active.
+      </Tab>
+      <Tab title="Hermes">
+        Hand the agent this quickstart and let it install itself:
+
+        ```text Prompt
+        Install the Base MCP server from https://docs.base.org/ai-agents/quickstart
+        ```
+
+        Hermes will fetch the page, write the entry to `~/.hermes/config.yaml`, and reload — no manual editing needed.
+
+        **Manual install** — if you'd rather edit the config yourself:
+
+        ```yaml ~/.hermes/config.yaml
+        mcp_servers:
+          base:
+            url: "https://mcp.base.org"
+        ```
+
+        Then start a Hermes chat (or run `/reload-mcp` inside an existing session) and Hermes will discover the tools automatically.
+      </Tab>
+    </Tabs>
+
+  </Step>
+
+  <Step title="Install the skill">
+    The `base-mcp` skill extends your assistant with pre-built prompts and workflows for wallet operations, token transfers, and DeFi interactions on Base.
+
+    <Tabs>
+      <Tab title="Claude">
+        [![Download for Claude](https://img.shields.io/badge/Download%20skill-1F1F1F?style=for-the-badge&logo=download&logoColor=white)](https://github.com/base/skills/releases/download/base-mcp-v0.1.0/base-mcp.zip)
+
+        1. Click the button above to download `base-mcp.zip`
+        2. In Claude Desktop or Claude.ai, open **Settings → Capabilities → Skills**
+        3. Click **Upload skill** and select the downloaded `base-mcp.zip`
+        4. Toggle the skill on
+
+        Claude activates the skill automatically when relevant to your prompt. See [Use skills in Claude](https://support.claude.com/en/articles/12512180-use-skills-in-claude) for details.
+      </Tab>
+      <Tab title="ChatGPT">
+        [![Download for ChatGPT](https://img.shields.io/badge/Download%20skill-1F1F1F?style=for-the-badge&logo=download&logoColor=white)](https://github.com/base/skills/releases/download/base-mcp-v0.1.0/base-mcp.zip)
+
+        1. Click the button above to download `base-mcp.zip`
+        2. In ChatGPT, open **Settings → Skills**
+        3. Click **Add skill** and upload the downloaded `base-mcp.zip`
+        4. Enable the skill for the conversations where you want it active
+
+        See [Skills in ChatGPT](https://help.openai.com/en/articles/20001066-skills-in-chatgpt) for details.
+      </Tab>
+      <Tab title="Claude Code">
+        Install the skill to your global skills directory:
+
+        ```bash Terminal
+        curl -o ~/.claude/skills/base-mcp.md \
+          https://raw.githubusercontent.com/base/skills/main/base-mcp.md
+        ```
+
+        The skill loads automatically in your next session. Invoke it with `/base-mcp` inside any Claude Code conversation.
+      </Tab>
+      <Tab title="Codex">
+        Install from the community skill registry:
+
+        ```bash Terminal
+        $skill-installer base-mcp
+        ```
+      </Tab>
+      <Tab title="Cursor">
+        Add the skill as a global Cursor rule:
+
+        ```bash Terminal
+        curl -o ~/.cursor/rules/base-mcp.mdc \
+          https://raw.githubusercontent.com/base/skills/main/base-mcp.mdc
+        ```
+      </Tab>
+      <Tab title="Hermes">
+        Install the skill to your Hermes skills directory:
+
+        ```bash Terminal
+        curl -o ~/.hermes/skills/base-mcp.md \
+          https://raw.githubusercontent.com/base/skills/main/base-mcp.md
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Try it">
+    The first time you call a wallet tool, your assistant opens an auth modal at `keys.coinbase.com` to connect your Base Account. Click **Allow** once to authorize:
+
+    <AuthApprovalDemo />
+
+    Then ask your assistant:
 
     ```text
-    https://mcp.base.org
+    Show me my wallets
     ```
 
-    4. Save. ChatGPT will prompt you to authorize when you first use a wallet tool.
-
-    <Note>
-      MCP connectors require a ChatGPT Plus or Pro plan.
-    </Note>
-  </Tab>
-  <Tab title="Claude Code">
-    Run this in your terminal to add the server to the current project:
-
-    ```bash Terminal
-    claude mcp add --transport http base-account https://mcp.base.org
+    ```text
+    What's my USDC balance on Base?
     ```
 
-    To install globally (available across all your projects):
-
-    ```bash Terminal
-    claude mcp add --transport http --scope user base-account https://mcp.base.org
+    ```text
+    Send 1 USDC to jesse.base.eth
     ```
 
-    Verify it connected:
-
-    ```bash Terminal
-    claude mcp list
+    ```text
+    Find the best USDC vault on Base by APY and deposit 100 USDC
     ```
 
-    The `base-account` server will show with a tool count once active. You can also run `/mcp` inside a Claude Code session to see server status.
-  </Tab>
-  <Tab title="Codex">
-    ```bash Terminal
-    codex mcp add base-account --url https://mcp.base.org/
-    ```
-
-    Or add to your `codex.toml`:
-
-    ```toml codex.toml
-    [mcp_servers.base-account]
-    url = "https://mcp.base.org/"
-    ```
-  </Tab>
-  <Tab title="Cursor">
-    <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=base-account&config=eyJ1cmwiOiJodHRwczovL21jcC5iYXNlLm9yZyJ9">
-      <img src="https://img.shields.io/badge/Add_to_Cursor-000000?logo=cursor&logoColor=white&style=flat-square" alt="Add to Cursor" />
-    </a>
-
-    Or add manually to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
-
-    ```json mcp.json
-    {
-      "mcpServers": {
-        "base-account": {
-          "url": "https://mcp.base.org"
-        }
-      }
-    }
-    ```
-
-    Restart Cursor, then open **Settings → MCP** to confirm `base-account` shows as active.
-  </Tab>
-  <Tab title="VS Code">
-    <a href="https://vscode.dev/redirect/mcp/install?name=base-account&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.base.org%22%7D">
-      <img src="https://img.shields.io/badge/Add_to_VS_Code-007ACC?logo=visualstudiocode&logoColor=white&style=flat-square" alt="Add to VS Code" />
-    </a>
-
-    Or add manually to `.vscode/mcp.json` (workspace) or your user MCP settings:
-
-    ```json .vscode/mcp.json
-    {
-      "servers": {
-        "base-account": {
-          "type": "http",
-          "url": "https://mcp.base.org"
-        }
-      }
-    }
-    ```
-
-    Open **Copilot Chat** in agent mode and confirm the wallet tools appear in the tool picker.
-  </Tab>
-  <Tab title="Windsurf">
-    Add to `~/.codeium/windsurf/mcp_config.json`:
-
-    ```json mcp_config.json
-    {
-      "mcpServers": {
-        "base-account": {
-          "url": "https://mcp.base.org"
-        }
-      }
-    }
-    ```
-
-    Restart Windsurf. Open **Cascade** — the MCP tools will be available once connected.
-
-    <Tip>
-      You can also add MCP servers from the UI: open **Cascade** → click the **hammer icon** → **Add MCP Server**.
-    </Tip>
-  </Tab>
-</Tabs>
-
-<Note>
-  **Other clients** — Any MCP client that supports remote HTTP (Streamable HTTP) servers works with `https://mcp.base.org`. See the [setup guide](/ai-agents/setup) for Zed, JetBrains, Le Chat (Mistral), Warp, and others. On mobile, the Claude connector above works in the iOS and Android apps.
-</Note>
-
-## Step 2 — Authorize
-
-The first time you use a wallet tool, your assistant will redirect you to `keys.coinbase.com` to connect your Base Account. You'll need a Coinbase account. Once authorized, all transactions still require individual approval at that same URL.
-
-## Step 3 — Try it
-
-Ask your assistant:
-
-```text
-Show me my wallets
-```
-
-```text
-What's my USDC balance on Base?
-```
-
-```text
-Send 1 USDC to vitalik.base.eth
-```
-
-Every send, swap, or sign operation will give you an approval link. Open it, review the transaction, and confirm.
-
----
-
-## Add a plugin — Morpho lending
-
-Morpho lets your assistant query vaults, check APYs, and execute lending operations on Base — then sign them through your Base Account.
-
-Add both MCPs to your config:
-
-<Tabs>
-  <Tab title="Claude">
-    ```json claude_desktop_config.json
-    {
-      "mcpServers": {
-        "base-account": {
-          "url": "https://mcp.base.org"
-        },
-        "morpho": {
-          "url": "https://mcp.morpho.org/"
-        }
-      }
-    }
-    ```
-  </Tab>
-  <Tab title="Claude Code">
-    ```bash Terminal
-    claude mcp add --transport http base-account https://mcp.base.org
-    claude mcp add morpho --transport http https://mcp.morpho.org/
-    ```
-  </Tab>
-  <Tab title="Cursor / VS Code / Windsurf / Codex">
-    Add a second entry alongside `base-account`:
-
-    ```json
-    "morpho": { "url": "https://mcp.morpho.org/" }
-    ```
-  </Tab>
-</Tabs>
-
-Then try:
-
-```text
-Find the best USDC vault on Base by APY and deposit 100 USDC
-```
-
-Morpho prepares the transaction; your Base Account signs it. See [Morpho plugin →](/ai-agents/plugins/morpho)
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Guides" icon="book-open" href="/ai-agents/guides">
-    Step-by-step guides for sending, swapping, checking balance, and more.
-  </Card>
-  <Card title="Morpho plugin" icon="puzzle-piece" href="/ai-agents/plugins/morpho">
-    Query vaults, check APYs, and execute lending operations on Base.
-  </Card>
-  <Card title="Setup guide" icon="gear" href="/ai-agents/setup">
-    Detailed platform setup, auth flow, and approval mode explained.
-  </Card>
-  <Card title="Skills" icon="graduation-cap" href="/ai-agents/skills">
-    Install the base-mcp skill for your coding assistant.
-  </Card>
-</CardGroup>
+    Every send, swap, or sign operation will give you an approval link. Open it, review the transaction, and confirm.
+  </Step>
+</Steps>
