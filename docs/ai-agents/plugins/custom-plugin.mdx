@@ -1,0 +1,219 @@
+---
+title: "Custom Plugin"
+description: "Build your own plugin that produces unsigned calldata and executes through Base MCP's send_calls"
+keywords: ["custom Base MCP plugin", "AI agent plugin Base", "send_calls custom protocol", "Base MCP web_request plugin", "build MCP plugin"]
+---
+
+A plugin is a markdown spec that teaches your assistant how to call an external API (or another MCP server), translate the response into a `calls` array, and execute it through Base MCP's `send_calls`. The official [Moonwell](/ai-agents/plugins/moonwell), [Morpho](/ai-agents/plugins/morpho), [Uniswap](/ai-agents/plugins/uniswap), and [Avantis](/ai-agents/plugins/avantis) plugins all follow the same shape — this page shows how to write your own.
+
+## When you need one
+
+Write a plugin when your protocol either has an HTTP "tx-builder" that returns unsigned calldata, or exposes its own MCP server. If it has neither, you can still write one — point your assistant at any JSON-RPC node and have it encode the call directly.
+
+## Anatomy of a plugin
+
+Every plugin file contains four sections:
+
+<Steps>
+  <Step title="Onboarding gate">
+    A `STOP` notice that forces the assistant to complete Base MCP onboarding (`get_wallets`, disclaimer) before doing anything else. The user's wallet address — needed for every prepare call — is only confirmed during detection.
+  </Step>
+  <Step title="Read endpoints">
+    Document the GET endpoints that return state — balances, positions, market data — and the units they use.
+  </Step>
+  <Step title="Prepare endpoints">
+    Document the endpoints (or MCP tools) that return unsigned calldata. State the exact response shape so the assistant knows which fields map to `to`, `value`, and `data`.
+  </Step>
+  <Step title="send_calls mapping">
+    Show the assistant how to convert the prepare response into the `calls` array passed to `send_calls`.
+  </Step>
+</Steps>
+
+<Note>
+Custom plugin hostnames are not in the Base MCP `web_request` allowlist — only the native plugins are. When `web_request` rejects your domain, construct the prepare endpoint as a GET URL with all parameters in the query string, then either fetch it through whatever capability your harness exposes, or ask the user to paste the response into the chat. Once you have the JSON, the rest of the flow is identical.
+</Note>
+
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant AI as AI Assistant
+    participant API as Your API
+    participant BA as Base MCP
+
+    User->>AI: "Do <action> on <protocol>"
+    AI->>API: GET /read (validate state)
+    API-->>AI: state
+    AI->>API: GET /prepare/<action>?from=<address>&...
+    API-->>AI: { to, value, data, chainId }
+    AI->>BA: send_calls(chainId, calls=[...])
+    BA-->>AI: { approvalUrl, requestId }
+    AI-->>User: "Please approve: [link]"
+    User-->>AI: approved
+    AI->>BA: get_request_status(requestId)
+    BA-->>AI: confirmed
+```
+
+## Build it
+
+### 1. Pick a response shape
+
+Your prepare endpoint should return a single object with the fields `send_calls` needs. Two common shapes:
+
+**Envelope** (Avantis-style):
+
+```json
+{
+  "ok": true,
+  "data": {
+    "to": "0x...",
+    "value": "0x0",
+    "data": "0x...",
+    "chainId": 8453
+  }
+}
+```
+
+**Ordered batch** (Moonwell-style) — for when approval, enter-market, and the action are separate calls:
+
+```json
+{
+  "transactions": [
+    { "step": "approve", "to": "0x...", "data": "0x...", "value": "0x0", "chainId": 8453 },
+    { "step": "action",  "to": "0x...", "data": "0x...", "value": "0x0", "chainId": 8453 }
+  ]
+}
+```
+
+Either works. The batch shape is preferable when allowance or registration steps must run before the action — `send_calls` executes them atomically in one approval.
+
+### 2. Write the plugin spec
+
+Use this template as `plugins/my-protocol.md` in your skill, or as an `.mdx` page if you're publishing docs.
+
+````markdown
+# My Protocol Plugin
+
+> [!IMPORTANT]
+> ## STOP — COMPLETE ONBOARDING BEFORE USING THIS PLUGIN
+>
+> Before calling any My Protocol endpoint, you MUST complete the Base MCP onboarding flow:
+> 1. Call `get_wallets` (Detection)
+> 2. Present wallet status and disclaimer (Onboarding)
+>
+> The user's wallet address — required by every prepare call — is only confirmed during Detection.
+
+My Protocol is a <one-line description>. Fetch unsigned calldata from the My Protocol API, then execute via Base MCP's `send_calls`.
+
+**Fetching calldata:** the My Protocol API is not on the Base MCP `web_request` allowlist. Construct the prepare URL as a GET with all parameters in the query string. If `web_request` rejects it, fetch through whatever capability the harness exposes, or ask the user to paste the response into the chat. Then continue with `send_calls`.
+
+**Supported chain:** Base mainnet (`8453` / `0x2105`).
+
+---
+
+## Read endpoints
+
+```
+GET https://api.myprotocol.xyz/v1/state/<address>
+```
+
+## Prepare endpoint
+
+```
+GET https://api.myprotocol.xyz/v1/prepare/<action>?from=<address>&amount=<decimal>
+```
+
+Response:
+
+```json
+{
+  "transactions": [
+    { "step": "approve", "to": "0x...", "data": "0x...", "value": "0x0", "chainId": 8453 },
+    { "step": "action",  "to": "0x...", "data": "0x...", "value": "0x0", "chainId": 8453 }
+  ]
+}
+```
+
+## send_calls mapping
+
+Pass every `transactions[*]` to `send_calls`:
+
+```json
+{
+  "chainId": "0x2105",
+  "calls": [
+    { "to": "<tx.to>", "value": "<tx.value>", "data": "<tx.data>" }
+  ]
+}
+```
+
+## Orchestration pattern
+
+```
+1. get_wallets -> address
+2. Fetch GET /state/<address> -> validate balances/preconditions
+3. Fetch GET /prepare/<action>?from=<address>&amount=<decimal>
+   (if web_request rejects the host, fetch directly or ask the user to paste the JSON)
+4. send_calls(chainId=0x2105, calls from transactions[])
+5. User approves -> get_request_status(requestId)
+```
+````
+
+### 3. Wire it into `send_calls`
+
+The contract between your prepare endpoint and Base MCP is exactly this object:
+
+```json
+{
+  "chainId": "0x2105",
+  "calls": [
+    { "to": "0x...", "value": "0x0", "data": "0x..." }
+  ]
+}
+```
+
+`chainId` is hex (`0x2105` for Base mainnet, `0x14a34` for Base Sepolia). `value` defaults to `0x0` if omitted. The assistant calls `send_calls` once with the full batch — the user approves once, and all calls execute atomically.
+
+## Working example: a simple ERC-20 transfer plugin
+
+A minimal plugin that wraps an ERC-20 `transfer(address,uint256)` call. The prepare step is encoding the calldata; there's no external API.
+
+```text
+1. get_wallets -> from
+2. Encode transfer(to, amount):
+     0xa9059cbb
+     + to padded to 32 bytes
+     + amount padded to 32 bytes
+3. send_calls(chainId=0x2105, calls=[{ to: <token>, value: "0x0", data: <encoded> }])
+```
+
+In your plugin spec, document the token addresses, the encoding rule, and the `send_calls` mapping. The assistant does the encoding inline.
+
+## Patterns to copy
+
+| Pattern | When to use | Example |
+|---------|-------------|---------|
+| Single-call envelope | One action, one tx | [Avantis](/ai-agents/plugins/avantis) |
+| Ordered batch | Approval + action must be atomic | [Moonwell](/ai-agents/plugins/moonwell) |
+| Sibling MCP server | Protocol already runs an MCP server with `prepare_*` tools | [Morpho](/ai-agents/plugins/morpho) |
+| Multi-endpoint flow | Quote, approve, swap as separate calls | [Uniswap](/ai-agents/plugins/uniswap) |
+
+## Rules to follow
+
+- **Never sign or submit on behalf of the user.** Generating calldata and `send_calls` approval links is safe; the user must approve any real transaction.
+- **Validate before preparing.** Tx-builders can encode calldata for invalid state (non-existent positions, insufficient balance) without erroring. Read state first.
+- **Document units.** Spell out whether amounts are human decimals or base units. Mismatched units are the most common failure mode.
+- **Keep approval before action.** When batching, the approval call must come first.
+- **Don't combine chains in one batch.** `send_calls` executes on a single chain.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Execute contract calls" icon="code" href="/ai-agents/guides/batch-calls">
+    Full guide to `send_calls` and batching.
+  </Card>
+  <Card title="Moonwell plugin" icon="puzzle-piece" href="/ai-agents/plugins/moonwell">
+    Reference implementation using the ordered-batch pattern.
+  </Card>
+</CardGroup>
