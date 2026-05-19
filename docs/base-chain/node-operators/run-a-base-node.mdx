@@ -33,15 +33,26 @@ See the [Node Performance guide](/base-chain/node-operators/performance-tuning#h
 
 ### Networking
 
-Ensure the following ports are accessible (not blocked by firewall) for peer discovery and sync:
+Configure your firewall to allow the following inbound and outbound traffic. Operators with strict egress rules must open the outbound ports to connect to Base bootnodes.
+
+**Ingress (inbound)**
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| `30303` | TCP/UDP | P2P Discovery (discv4) & RLPx |
 | `9222` | TCP/UDP | Reth Discovery v5 (discv5) |
+| `30303` | TCP/UDP | P2P Discovery (discv4) & RLPx |
+
+**Egress (outbound)**
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| `9200` | UDP | Bootnode connectivity |
+| `9222` | TCP/UDP | Reth Discovery v5 (discv5) |
+| `30301` | TCP/UDP | Bootnode connectivity |
+| `30303` | TCP/UDP | P2P Discovery (discv4) & RLPx |
 
 <Note>
-Port `9222` is critical for Reth peer discovery. If this port is blocked, your node may have difficulty finding peers and syncing.
+Egress ports `9200` (UDP) and `30301` (TCP/UDP) are required to reach Base bootnodes. If outbound traffic to these ports is blocked, your node will fail to establish initial peer connections.
 </Note>
 
 ### Docker
