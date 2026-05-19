@@ -1,4 +1,3 @@
-
 export const X402PayDemo = () => {
   const sans  = "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
   const serif = "'Tiempos Headline','Iowan Old Style','Source Serif Pro',ui-serif,Georgia,serif";
@@ -12,6 +11,494 @@ export const X402PayDemo = () => {
     toolBg: "#272622", toolBorder: "#3a3835", success: "#a3c585",
   };
 
+
+
+
+  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // across the ai-agents demos. Supports asset-transfer previews (send, swap,
+  // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
+  // sign-permit). Positioned absolute inside the parent demo container so it
+  // doesn't fight with the Mintlify navbar's z-index.
+
+  const ACCENT = "#D97757";
+
+  const tokenBg = (ticker) => {
+    if (!ticker) return ACCENT;
+    const t = ticker.toUpperCase();
+    if (t === "USDC")  return "#2775CA";
+    if (t === "ETH" || t === "WETH") return "#627EEA";
+    if (t === "CBBTC" || t === "BTC") return "#F7931A";
+    if (t === "DEGEN") return "#A06CFF";
+    if (t === "POL")   return "#8247E5";
+    return ACCENT;
+  };
+
+  const tokenGlow = (ticker) => {
+    if (!ticker) return "rgba(217,119,87,0.14)";
+    const t = ticker.toUpperCase();
+    if (t === "USDC")  return "rgba(39,117,202,0.14)";
+    if (t === "ETH" || t === "WETH") return "rgba(98,126,234,0.14)";
+    if (t === "CBBTC" || t === "BTC") return "rgba(247,147,26,0.14)";
+    if (t === "DEGEN") return "rgba(160,108,255,0.14)";
+    return "rgba(217,119,87,0.14)";
+  };
+
+  const BigTokenAvatar = ({ ticker }) => (
+    <div style={{
+      width: 46, height: 46, borderRadius: "50%",
+      background: tokenBg(ticker),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: "1.5px solid rgba(255,255,255,0.10)",
+      boxShadow: `0 0 0 5px ${tokenGlow(ticker)}`,
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: sans, fontSize: 12, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>
+        {(ticker || "??").slice(0, 2).toUpperCase()}
+      </span>
+    </div>
+  );
+
+  const SmallTokenAvatar = ({ ticker }) => (
+    <div style={{
+      width: 30, height: 30, borderRadius: "50%",
+      background: tokenBg(ticker),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: "1.5px solid rgba(255,255,255,0.08)",
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: sans, fontSize: 9, fontWeight: 800, color: "#fff", letterSpacing: "-0.2px" }}>
+        {(ticker || "??").slice(0, 2).toUpperCase()}
+      </span>
+    </div>
+  );
+
+  // Wallet avatar — wow-face emoji style in a blue gradient circle
+  const CBAvatar = () => (
+    <div style={{
+      width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+      background: "radial-gradient(circle at 35% 30%, #5d8cff 0%, #2949d8 80%)",
+      position: "relative", overflow: "hidden",
+    }}>
+      <span style={{ position: "absolute", top: 6, left: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
+      <span style={{ position: "absolute", top: 6, right: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
+      <span style={{ position: "absolute", bottom: 3.5, left: "50%", transform: "translateX(-50%)", width: 3.5, height: 4, borderRadius: "50%", background: "#1a1208" }} />
+    </div>
+  );
+
+  // Sign-icon avatar for signing flows — pen-on-paper in a purple gradient circle
+  const SignAvatar = () => (
+    <div style={{
+      width: 46, height: 46, borderRadius: "50%",
+      background: "linear-gradient(135deg, #a796f7 0%, #7c5ae8 100%)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: "1.5px solid rgba(255,255,255,0.10)",
+      boxShadow: "0 0 0 5px rgba(167,150,247,0.14)",
+      flexShrink: 0,
+    }}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+      </svg>
+    </div>
+  );
+
+  const ApprovalButton = ({ preview, onApprove, label }) => {
+    const [hover, setHover] = useState(false);
+    return (
+      <div style={{ marginBottom: 10, marginTop: 4 }}>
+        <button
+          onClick={() => onApprove(preview)}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: hover ? "rgba(217,119,87,0.18)" : "rgba(217,119,87,0.10)",
+            border: `1px solid ${ACCENT}`,
+            borderRadius: 8, padding: "9px 14px",
+            cursor: "pointer", color: ACCENT,
+            fontFamily: sans, fontSize: 13.5, fontWeight: 600,
+            boxShadow: hover ? `0 0 0 3px rgba(217,119,87,0.18)` : `0 0 0 3px rgba(217,119,87,0.08)`,
+            transition: "all 0.15s ease",
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          {label || (preview && preview.type && preview.type.startsWith("sign") ? "Approve Signature" : "Approve Transaction")}
+        </button>
+      </div>
+    );
+  };
+
+  const TxModal = ({ preview, onConfirm, onCancel }) => {
+    const mbg     = "#0a0a0a";
+    const mcard   = "#1a1816";
+    const mhair   = "#1f1d1b";
+    const mwhite  = "#ffffff";
+    const mvalue  = "#a09b95";
+    const msub    = "#7a7470";
+
+    const isSign = preview.type && preview.type.startsWith("sign");
+
+    const renderPreview = () => {
+      if (preview.type === "send") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <BigTokenAvatar ticker={preview.asset} />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 700, color: mwhite, lineHeight: 1.1, letterSpacing: "-0.4px" }}>
+            {preview.amount} {preview.asset}
+          </div>
+          {preview.usdValue && (
+            <div style={{ fontFamily: sans, fontSize: 12, color: msub, marginTop: 3 }}>
+              {preview.usdValue}
+            </div>
+          )}
+          <div style={{ height: 1, background: mhair, margin: "12px 0 10px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>To</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.to}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "swap") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.fromAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You send</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.fromAmount} {preview.fromAsset}
+              </div>
+            </div>
+            {preview.fromUsd && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.fromUsd}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", height: 0 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              background: mbg, border: `1px solid ${mhair}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginTop: -11, position: "relative", zIndex: 2,
+            }}>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={mvalue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderTop: `1px solid ${mhair}` }}>
+            <SmallTokenAvatar ticker={preview.toAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You receive</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: "#a3c585", letterSpacing: "-0.2px" }}>
+                {preview.toAmount} {preview.toAsset}
+              </div>
+            </div>
+            {preview.toUsd && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.toUsd}</div>
+            )}
+          </div>
+        </div>
+      );
+
+      if (preview.type === "deposit") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.asset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You deposit</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.amount} {preview.asset}
+              </div>
+            </div>
+            {preview.usdValue && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.usdValue}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderTop: `1px solid ${mhair}` }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>Into</span>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.vault}</div>
+              {preview.apy && (
+                <div style={{ fontFamily: sans, fontSize: 11, color: "#a3c585", marginTop: 1, fontWeight: 600 }}>{preview.apy} APY</div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "borrow") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.collateralAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>Supply collateral</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.collateralAmount} {preview.collateralAsset}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderTop: `1px solid ${mhair}` }}>
+            <SmallTokenAvatar ticker={preview.loanAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You borrow</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: "#a3c585", letterSpacing: "-0.2px" }}>
+                {preview.loanAmount} {preview.loanAsset}
+              </div>
+            </div>
+          </div>
+          {preview.healthFactor && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderTop: `1px solid ${mhair}` }}>
+              <span style={{ fontFamily: sans, fontSize: 12.5, color: msub }}>Health factor</span>
+              <span style={{ fontFamily: sans, fontSize: 13, color: "#a3c585", fontWeight: 600 }}>{preview.healthFactor}</span>
+            </div>
+          )}
+        </div>
+      );
+
+      if (preview.type === "repay") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.asset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You repay</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.amount} {preview.asset}
+              </div>
+            </div>
+            {preview.usdValue && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.usdValue}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderTop: `1px solid ${mhair}` }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>To market</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.market}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "sign-message") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <SignAvatar />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+            Sign message
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
+            personal_sign
+          </div>
+          <div style={{
+            marginTop: 12, padding: "10px 12px",
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid ${mhair}`,
+            borderRadius: 8, textAlign: "left",
+            fontFamily: mono, fontSize: 12, color: mvalue,
+            lineHeight: 1.45, wordBreak: "break-word",
+          }}>
+            "{preview.message}"
+          </div>
+        </div>
+      );
+
+      if (preview.type === "sign-siwe") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <SignAvatar />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+            Sign in with Ethereum
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
+            EIP-4361 · session login
+          </div>
+          <div style={{ height: 1, background: mhair, margin: "12px 0 10px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>Domain</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.domain}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "sign-permit") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <SignAvatar />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+            Approve token spending
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
+            EIP-712 · Permit2
+          </div>
+          <div style={{ height: 1, background: mhair, margin: "12px 0 8px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+            <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>Token</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <SmallTokenAvatar ticker={preview.token} />
+              <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.token}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+            <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>Spender</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.spender}</span>
+          </div>
+          {preview.amount && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+              <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>Allowance</span>
+              <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.amount}</span>
+            </div>
+          )}
+        </div>
+      );
+
+      return null;
+    };
+
+    const FieldRow = ({ label, right }) => (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 16px",
+      }}>
+        <span style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 500, color: mwhite }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{right}</div>
+      </div>
+    );
+
+    return (
+      <div
+        onClick={onCancel}
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 50,
+          background: "rgba(0,0,0,0.78)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(3px)",
+          padding: 14,
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: mbg,
+            borderRadius: 16,
+            border: `1px solid #1f1d1b`,
+            width: 320, maxWidth: "100%",
+            maxHeight: "calc(100% - 8px)",
+            overflowY: "auto",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.85)",
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${mhair}`,
+          }}>
+            <span style={{ fontFamily: sans, fontSize: 17, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+              {isSign ? "Sign" : "Review"}
+            </span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#d4d0ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+
+          {/* Demo banner */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 16px",
+            background: "rgba(217,119,87,0.10)",
+            borderBottom: `1px solid rgba(217,119,87,0.18)`,
+          }}>
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={ACCENT} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+            <span style={{ fontFamily: sans, fontSize: 10.5, color: ACCENT, fontWeight: 700, letterSpacing: "0.3px", whiteSpace: "nowrap" }}>
+              DEMO · Not a real {isSign ? "signature" : "transaction"}
+            </span>
+          </div>
+
+          {/* Preview */}
+          <div style={{ background: mcard, borderBottom: `1px solid ${mhair}` }}>
+            {renderPreview()}
+          </div>
+
+          {/* Field rows */}
+          <div style={{ padding: "4px 0" }}>
+            <FieldRow
+              label="Signing with"
+              right={
+                <>
+                  <CBAvatar />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
+                </>
+              }
+            />
+            {!isSign && (
+              <FieldRow
+                label="Payment methods"
+                right={
+                  <>
+                    <CBAvatar />
+                    <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={msub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}><path d="m9 18 6-6-6-6"/></svg>
+                  </>
+                }
+              />
+            )}
+            <FieldRow
+              label="Network"
+              right={
+                <>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, background: "#0052FF", flexShrink: 0 }} />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>Base</span>
+                </>
+              }
+            />
+            {!isSign && (
+              <FieldRow
+                label="Network fee (est.)"
+                right={<span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{"< $0.01"}</span>}
+              />
+            )}
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 8, padding: "12px 16px 16px" }}>
+            <button
+              onClick={onCancel}
+              onMouseEnter={e => { e.currentTarget.style.background = "#3a3835"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#2a2826"; }}
+              style={{
+                flex: 1, padding: "12px 0",
+                background: "#2a2826", border: "none",
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#ffffff",
+                transition: "background 0.15s ease",
+              }}
+            >Cancel</button>
+            <button
+              onClick={onConfirm}
+              onMouseEnter={e => { e.currentTarget.style.background = "#1a4fd6"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#0052FF"; }}
+              style={{
+                flex: 1, padding: "12px 0",
+                background: "#0052FF", border: "none",
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#fff",
+                transition: "background 0.15s ease",
+              }}
+            >Confirm</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
   const examples = [
     {
       prompt: "Sign this message: I accept the terms of service",
@@ -19,7 +506,7 @@ export const X402PayDemo = () => {
         { delay: 380, type: "thinking" },
         { delay: 600, type: "tool", tool: { server: "base-account", action: "sign", args: { type: "personal_sign", message: "I accept the terms of service" } } },
         { delay: 500, type: "text", text: "Signing with your Base Account. Approve to generate signature:" },
-        { delay: 250, type: "approval", url: "keys.coinbase.com/approve/req_sign01" },
+        { delay: 250, type: "approval", preview: { type: "sign-message", message: "I accept the terms of service" } },
         { delay: 1100, type: "confirm", text: "Signed · sig 0x4f2a…c38e9b…8c91" },
       ],
     },
@@ -29,7 +516,7 @@ export const X402PayDemo = () => {
         { delay: 380, type: "thinking" },
         { delay: 600, type: "tool", tool: { server: "base-account", action: "sign", args: { type: "personal_sign", standard: "EIP-4361", domain: "app.example.com" } } },
         { delay: 500, type: "text", text: "Signing in to app.example.com using Sign-In with Ethereum (SIWE):" },
-        { delay: 250, type: "approval", url: "keys.coinbase.com/approve/req_siwe01" },
+        { delay: 250, type: "approval", preview: { type: "sign-siwe", domain: "app.example.com" } },
         { delay: 1100, type: "confirm", text: "Signed in to app.example.com · session valid" },
       ],
     },
@@ -39,14 +526,15 @@ export const X402PayDemo = () => {
         { delay: 380, type: "thinking" },
         { delay: 600, type: "tool", tool: { server: "base-account", action: "sign", args: { type: "EIP-712", standard: "permit2", token: "USDC", spender: "Uniswap" } } },
         { delay: 500, type: "text", text: "Signing typed permit2 data for Uniswap. Review and approve:" },
-        { delay: 250, type: "approval", url: "keys.coinbase.com/approve/req_permit01" },
+        { delay: 250, type: "approval", preview: { type: "sign-permit", token: "USDC", spender: "Uniswap", amount: "1000 USDC" } },
         { delay: 1100, type: "confirm", text: "Permit2 signed · Uniswap can spend up to 1000 USDC" },
       ],
     },
   ];
 
-  const [activeIdx, setActiveIdx] = useState(null);
-  const [eventIdx, setEventIdx]   = useState(0);
+  const [activeIdx, setActiveIdx]     = useState(null);
+  const [eventIdx, setEventIdx]       = useState(0);
+  const [modalPreview, setModalPreview] = useState(null);
   const scrollRef = useRef(null);
   const timersRef = useRef([]);
 
@@ -61,13 +549,22 @@ export const X402PayDemo = () => {
     setEventIdx(0);
     clearTimers();
     let cumulative = 0;
-    examples[idx].events.forEach((e, i) => {
-      cumulative += e.delay;
+    const events = examples[idx].events;
+    for (let i = 0; i < events.length; i++) {
+      cumulative += events[i].delay;
       timersRef.current.push(setTimeout(() => setEventIdx(i + 1), cumulative));
-    });
+      if (events[i].type === "approval") break;
+    }
   };
 
-  const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); };
+  const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); setModalPreview(null); };
+
+  const handleConfirm = () => {
+    setModalPreview(null);
+    clearTimers();
+    if (activeIdx !== null) setEventIdx(examples[activeIdx].events.length);
+  };
+
   const ex = activeIdx !== null ? examples[activeIdx] : null;
 
   const TrafficLights = () => (
@@ -119,15 +616,6 @@ export const X402PayDemo = () => {
     <div style={{ fontFamily: serif, fontSize: 15, lineHeight: 1.55, color: c.body, marginBottom: 12, marginTop: top ? 8 : 0 }}>{children}</div>
   );
 
-  const ApprovalLink = ({ url }) => (
-    <div style={{ marginBottom: 10, marginTop: 4 }}>
-      <span className="xpd-approval" style={{ display: "inline-flex", alignItems: "flex-start", gap: 8, background: c.toolBg, border: `1px solid ${c.accent}`, borderRadius: 8, padding: "9px 13px", fontFamily: mono, color: c.accent, boxShadow: `0 0 0 3px rgba(217,119,87,0.08)`, maxWidth: "100%" }}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>{url}</span>
-      </span>
-    </div>
-  );
-
   const Confirm = ({ text }) => (
     <div style={{ fontFamily: serif, fontSize: 14, color: c.success, display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={c.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -159,14 +647,15 @@ export const X402PayDemo = () => {
         return <ToolCall key={i} tool={event.tool} completed={hasLater} />;
       }
       if (event.type === "text")     return <ResponseText key={i} top>{event.text}</ResponseText>;
-      if (event.type === "approval") return <ApprovalLink key={i} url={event.url} />;
+      if (event.type === "approval") return <ApprovalButton key={i} preview={event.preview} onApprove={setModalPreview} />;
       if (event.type === "confirm")  return <Confirm key={i} text={event.text} />;
       return null;
     });
   };
 
   return (
-    <div style={{ margin: "28px 0", borderRadius: 14, overflow: "hidden", border: `1px solid ${c.border}`, background: c.bg, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+    <div style={{ position: "relative", margin: "28px 0", borderRadius: 14, overflow: "hidden", border: `1px solid ${c.border}`, background: c.bg, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+      {modalPreview && <TxModal preview={modalPreview} onConfirm={handleConfirm} onCancel={() => setModalPreview(null)} />}
       <style>{`
         @keyframes xpd-pulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
         .xpd-chat{height:380px;padding:24px 28px 16px}
