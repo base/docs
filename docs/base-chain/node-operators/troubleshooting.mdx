@@ -105,8 +105,9 @@ Refer to the [Snapshots](/base-chain/node-operators/snapshots) guide for the cor
     - **Check**: L2 client logs. Did it fail to start the RPC server?  
     - **Check**: Are the `--http.addr` and `--ws.addr` flags set to `0.0.0.0` in the client config/entrypoint to allow external connections (within the Docker network)?
 
-- **Issue**: Node has low peer count.  
-    - **Check**: P2P port accessibility. Ensure `30303` (TCP/UDP) and `9222` (TCP/UDP for Reth discv5) are not blocked by a firewall on the host or network.  
+- **Issue**: Node has low peer count or cannot connect to any peers.  
+    - **Check**: Ingress ports `30303` (TCP/UDP) and `9222` (TCP/UDP for Reth discv5) are open on your firewall.  
+    - **Check**: Egress ports `30301` (TCP/UDP) and `9200` (UDP) are open for outbound traffic. These are required to reach Base bootnodes — if outbound connections to these ports are blocked, your node cannot initiate peer discovery and will find zero peers regardless of ingress rules.  
     - **Check**: Node logs for P2P errors.  
     - **Action**: If behind NAT, configure the `--nat=extip:<your-ip>` flag via `ADDITIONAL_ARGS` in the `.env` file (see [Networking](/base-chain/node-operators/run-a-base-node#networking)).
 
