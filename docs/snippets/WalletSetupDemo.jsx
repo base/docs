@@ -802,7 +802,7 @@ export const WalletSetupDemo = () => {
       }}>
         <TrafficLights />
         <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, fontWeight: 500 }}>
-          Base wallet
+          Base MCP
         </span>
         <span style={{ fontFamily: sans, fontSize: 12, color: c.dim, marginLeft: 8 }}>▾</span>
         <div style={{ flex: 1 }} />

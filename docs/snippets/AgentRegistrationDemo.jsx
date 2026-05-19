@@ -213,7 +213,7 @@ export const AgentRegistrationDemo = () => {
 
       <div style={{ display: "flex", alignItems: "center", padding: "11px 14px", background: c.header, borderBottom: `1px solid ${c.border}` }}>
         <TrafficLights />
-        <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, fontWeight: 500 }}>Base wallet</span>
+        <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, fontWeight: 500 }}>Base MCP</span>
         <span style={{ fontFamily: sans, fontSize: 12, color: c.dim, marginLeft: 8 }}>▾</span>
         <div style={{ flex: 1 }} />
         {activeIdx !== null && (
