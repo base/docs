@@ -23,9 +23,6 @@ export const WalletSetupDemo = () => {
     success:      "#a3c585",
   };
 
-  // Each example is a sequence of events. Each event reveals one block.
-  // Block types: thinking, tool, text, rows, approval, confirm
-  // (thinking auto-hides once the next event renders)
   const examples = [
     {
       prompt: "Send 5 USDC to jesse.base.eth",
@@ -33,7 +30,7 @@ export const WalletSetupDemo = () => {
         { delay: 380, type: "thinking" },
         { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "jesse.base.eth", asset: "USDC", amount: "5" } } },
         { delay: 550, type: "text", text: "Resolved jesse.base.eth → 0xd8dA…6045. Approve to send:" },
-        { delay: 250, type: "approval", url: "keys.coinbase.com/approve/req_a4f7c2" },
+        { delay: 250, type: "approval", preview: { type: "send", asset: "USDC", amount: "5", usdValue: "$5.00", to: "jesse.base.eth" } },
         { delay: 1100, type: "confirm", text: "Sent 5 USDC to jesse.base.eth" },
       ],
     },
@@ -49,7 +46,7 @@ export const WalletSetupDemo = () => {
           { token: "Uniswap v3 (best)", amount: "179.41 USDC", value: "0.05% fee · slippage 0.12%" },
         ]},
         { delay: 700, type: "tool", tool: { server: "uniswap-v3", action: "prepare_swap", args: { route: "ETH→USDC", min_out: "179.20 USDC" } } },
-        { delay: 450, type: "approval", url: "keys.coinbase.com/approve/req_8c2e4d" },
+        { delay: 450, type: "approval", preview: { type: "swap", fromAsset: "ETH", fromAmount: "0.05", fromUsd: "~$127.00", toAsset: "USDC", toAmount: "179.41", toUsd: "~$179.41" } },
         { delay: 1100, type: "confirm", text: "Swapped 0.05 ETH → 179.41 USDC on Uniswap v3" },
       ],
     },
@@ -66,16 +63,17 @@ export const WalletSetupDemo = () => {
           { token: "Moonwell · USDC market",   amount: "5.13% APY", value: "$41.2M supplied" },
         ]},
         { delay: 700, type: "tool", tool: { server: "morpho", action: "prepare_deposit", args: { vault: "Steakhouse USDC", amount: "100 USDC" } } },
-        { delay: 450, type: "approval", url: "keys.coinbase.com/approve/req_b9f2a1" },
+        { delay: 450, type: "approval", preview: { type: "deposit", asset: "USDC", amount: "100", usdValue: "~$100.00", vault: "Steakhouse USDC", apy: "8.42%" } },
         { delay: 1100, type: "confirm", text: "Deposited 100 USDC into Steakhouse USDC · earning 8.42% APY" },
       ],
     },
   ];
 
-  const [activeIdx, setActiveIdx] = useState(null);
-  const [eventIdx, setEventIdx]   = useState(0);
-  const scrollRef = useRef(null);
-  const timersRef = useRef([]);
+  const [activeIdx, setActiveIdx]     = useState(null);
+  const [eventIdx, setEventIdx]       = useState(0);
+  const [modalPreview, setModalPreview] = useState(null);
+  const scrollRef  = useRef(null);
+  const timersRef  = useRef([]);
 
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
 
@@ -94,9 +92,38 @@ export const WalletSetupDemo = () => {
     });
   };
 
-  const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); };
+  const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); setModalPreview(null); };
+
+  const handleConfirm = () => {
+    setModalPreview(null);
+    clearTimers();
+    if (activeIdx !== null) setEventIdx(examples[activeIdx].events.length);
+  };
 
   const ex = activeIdx !== null ? examples[activeIdx] : null;
+
+  // ----- Token avatars -----
+
+  const tokenColor = (ticker) => {
+    if (!ticker) return c.accent;
+    const t = ticker.toUpperCase();
+    if (t === "USDC") return "#2775CA";
+    if (t === "ETH")  return "#627EEA";
+    return c.accent;
+  };
+
+  const TokenAvatar = ({ ticker }) => (
+    <div style={{
+      width: 30, height: 30, borderRadius: "50%",
+      background: tokenColor(ticker),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, border: "1.5px solid rgba(255,255,255,0.15)",
+    }}>
+      <span style={{ fontFamily: sans, fontSize: 9, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px" }}>
+        {(ticker || "??").slice(0, 2).toUpperCase()}
+      </span>
+    </div>
+  );
 
   // ----- UI bits -----
 
@@ -191,24 +218,34 @@ export const WalletSetupDemo = () => {
     </div>
   );
 
-  const ApprovalLink = ({ url }) => (
-    <div style={{ marginBottom: 10, marginTop: 4 }}>
-      <span className="wsd-approval" style={{
-        display: "inline-flex", alignItems: "flex-start", gap: 8,
-        background: c.toolBg, border: `1px solid ${c.accent}`,
-        borderRadius: 8, padding: "9px 13px",
-        fontFamily: mono, color: c.accent,
-        boxShadow: `0 0 0 3px rgba(217,119,87,0.08)`,
-        maxWidth: "100%",
-      }}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-          <rect x="3" y="11" width="18" height="11" rx="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <span>{url}</span>
-      </span>
-    </div>
-  );
+  const ApprovalButton = ({ preview, onApprove }) => {
+    const [hover, setHover] = useState(false);
+    return (
+      <div style={{ marginBottom: 10, marginTop: 4 }}>
+        <button
+          onClick={() => onApprove(preview)}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: hover ? "rgba(217,119,87,0.18)" : "rgba(217,119,87,0.10)",
+            border: `1px solid ${c.accent}`,
+            borderRadius: 8, padding: "9px 14px",
+            cursor: "pointer", color: c.accent,
+            fontFamily: sans, fontSize: 13.5, fontWeight: 600,
+            boxShadow: hover ? `0 0 0 3px rgba(217,119,87,0.18)` : `0 0 0 3px rgba(217,119,87,0.08)`,
+            transition: "all 0.15s ease",
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Approve Transaction
+        </button>
+      </div>
+    );
+  };
 
   const Confirm = ({ text }) => (
     <div style={{
@@ -249,24 +286,291 @@ export const WalletSetupDemo = () => {
     );
   };
 
+  // ----- Transaction modal (compact, high-fidelity Coinbase Wallet "Review") -----
+
+  const TxModal = ({ preview, onConfirm, onCancel }) => {
+    const mbg     = "#0a0a0a";
+    const mcard   = "#1a1816";
+    const mhair   = "#1f1d1b";
+    const mwhite  = "#ffffff";
+    const mvalue  = "#a09b95";
+    const msub    = "#7a7470";
+
+    // Wallet avatar — wow-face emoji style in a blue gradient circle
+    const CBAvatar = () => (
+      <div style={{
+        width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+        background: "radial-gradient(circle at 35% 30%, #5d8cff 0%, #2949d8 80%)",
+        position: "relative", overflow: "hidden",
+      }}>
+        <span style={{ position: "absolute", top: 6, left: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
+        <span style={{ position: "absolute", top: 6, right: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
+        <span style={{ position: "absolute", bottom: 3.5, left: "50%", transform: "translateX(-50%)", width: 3.5, height: 4, borderRadius: "50%", background: "#1a1208" }} />
+      </div>
+    );
+
+    const BigTokenAvatar = ({ ticker }) => (
+      <div style={{
+        width: 46, height: 46, borderRadius: "50%",
+        background: ticker === "USDC" ? "#2775CA" : ticker === "ETH" ? "#627EEA" : c.accent,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        border: "1.5px solid rgba(255,255,255,0.10)",
+        boxShadow: `0 0 0 5px ${ticker === "USDC" ? "rgba(39,117,202,0.14)" : "rgba(98,126,234,0.14)"}`,
+        flexShrink: 0,
+      }}>
+        <span style={{ fontFamily: sans, fontSize: 12, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>
+          {(ticker || "??").slice(0, 2).toUpperCase()}
+        </span>
+      </div>
+    );
+
+    const SmallTokenAvatar = ({ ticker }) => (
+      <div style={{
+        width: 30, height: 30, borderRadius: "50%",
+        background: ticker === "USDC" ? "#2775CA" : ticker === "ETH" ? "#627EEA" : c.accent,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        border: "1.5px solid rgba(255,255,255,0.08)",
+        flexShrink: 0,
+      }}>
+        <span style={{ fontFamily: sans, fontSize: 9, fontWeight: 800, color: "#fff", letterSpacing: "-0.2px" }}>
+          {(ticker || "??").slice(0, 2).toUpperCase()}
+        </span>
+      </div>
+    );
+
+    const renderPreview = () => {
+      if (preview.type === "send") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <BigTokenAvatar ticker={preview.asset} />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 700, color: mwhite, lineHeight: 1.1, letterSpacing: "-0.4px" }}>
+            {preview.amount} {preview.asset}
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 12, color: msub, marginTop: 3 }}>
+            {preview.usdValue}
+          </div>
+          <div style={{ height: 1, background: mhair, margin: "12px 0 10px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>To</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.to}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "swap") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.fromAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You send</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.fromAmount} {preview.fromAsset}
+              </div>
+            </div>
+            <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.fromUsd}</div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", height: 0 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              background: mbg, border: `1px solid ${mhair}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginTop: -11, position: "relative", zIndex: 2,
+            }}>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={mvalue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderTop: `1px solid ${mhair}` }}>
+            <SmallTokenAvatar ticker={preview.toAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You receive</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: "#a3c585", letterSpacing: "-0.2px" }}>
+                {preview.toAmount} {preview.toAsset}
+              </div>
+            </div>
+            <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.toUsd}</div>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "deposit") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.asset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You deposit</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.amount} {preview.asset}
+              </div>
+            </div>
+            <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.usdValue}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderTop: `1px solid ${mhair}` }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>Into</span>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.vault}</div>
+              <div style={{ fontFamily: sans, fontSize: 11, color: "#a3c585", marginTop: 1, fontWeight: 600 }}>{preview.apy} APY</div>
+            </div>
+          </div>
+        </div>
+      );
+
+      return null;
+    };
+
+    const FieldRow = ({ label, right }) => (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 16px",
+      }}>
+        <span style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 500, color: mwhite }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{right}</div>
+      </div>
+    );
+
+    return (
+      <div
+        onClick={onCancel}
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 50,
+          background: "rgba(0,0,0,0.78)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(3px)",
+          padding: 14,
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: mbg,
+            borderRadius: 16,
+            border: `1px solid #1f1d1b`,
+            width: 320, maxWidth: "100%",
+            maxHeight: "calc(100vh - 32px)",
+            overflowY: "auto",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.85)",
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${mhair}`,
+          }}>
+            <span style={{ fontFamily: sans, fontSize: 17, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>Review</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#d4d0ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+
+          {/* Demo banner — single line */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 16px",
+            background: "rgba(217,119,87,0.10)",
+            borderBottom: `1px solid rgba(217,119,87,0.18)`,
+          }}>
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={c.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+            <span style={{ fontFamily: sans, fontSize: 10.5, color: c.accent, fontWeight: 700, letterSpacing: "0.3px", whiteSpace: "nowrap" }}>
+              DEMO · Not a real transaction
+            </span>
+          </div>
+
+          {/* Asset preview card */}
+          <div style={{ background: mcard, borderBottom: `1px solid ${mhair}` }}>
+            {renderPreview()}
+          </div>
+
+          {/* Field rows */}
+          <div style={{ padding: "4px 0" }}>
+            <FieldRow
+              label="Signing with"
+              right={
+                <>
+                  <CBAvatar />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
+                </>
+              }
+            />
+            <FieldRow
+              label="Payment methods"
+              right={
+                <>
+                  <CBAvatar />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={msub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}><path d="m9 18 6-6-6-6"/></svg>
+                </>
+              }
+            />
+            <FieldRow
+              label="Network"
+              right={
+                <>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, background: "#0052FF", flexShrink: 0 }} />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>Base</span>
+                </>
+              }
+            />
+            <FieldRow
+              label="Network fee (est.)"
+              right={<span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{"< $0.01"}</span>}
+            />
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 8, padding: "12px 16px 16px" }}>
+            <button
+              onClick={onCancel}
+              onMouseEnter={e => { e.currentTarget.style.background = "#3a3835"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#2a2826"; }}
+              style={{
+                flex: 1, padding: "12px 0",
+                background: "#2a2826", border: "none",
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#ffffff",
+                transition: "background 0.15s ease",
+              }}
+            >Cancel</button>
+            <button
+              onClick={onConfirm}
+              onMouseEnter={e => { e.currentTarget.style.background = "#1a4fd6"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#0052FF"; }}
+              style={{
+                flex: 1, padding: "12px 0",
+                background: "#0052FF", border: "none",
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#fff",
+                transition: "background 0.15s ease",
+              }}
+            >Confirm</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render the events shown so far for the active example
   const renderEvents = () => {
     if (!ex) return null;
     const shown = ex.events.slice(0, eventIdx);
     return shown.map((event, i) => {
-      // Hide thinking once any later event has appeared
       if (event.type === "thinking") {
         if (i < shown.length - 1) return null;
         return <Thinking key={i} />;
       }
       if (event.type === "tool") {
-        // Mark as completed once any later non-thinking event has appeared
         const hasLater = shown.slice(i + 1).some(e => e.type !== "thinking");
         return <ToolCall key={i} tool={event.tool} completed={hasLater} />;
       }
       if (event.type === "text")     return <ResponseText key={i} top>{event.text}</ResponseText>;
       if (event.type === "rows")     return <ResponseRows key={i} rows={event.rows} />;
-      if (event.type === "approval") return <ApprovalLink key={i} url={event.url} />;
+      if (event.type === "approval") return <ApprovalButton key={i} preview={event.preview} onApprove={setModalPreview} />;
       if (event.type === "confirm")  return <Confirm key={i} text={event.text} />;
       return null;
     });
@@ -274,6 +578,7 @@ export const WalletSetupDemo = () => {
 
   return (
     <div style={{
+      position: "relative",
       margin: "28px 0", borderRadius: 14, overflow: "hidden",
       border: `1px solid ${c.border}`, background: c.bg,
       boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
@@ -289,7 +594,6 @@ export const WalletSetupDemo = () => {
         .wsd-row        { gap: 12px; flex-wrap: nowrap; }
         .wsd-row-token  { min-width: 200px; }
         .wsd-bubble     { max-width: 78%; font-size: 14px; }
-        .wsd-approval   { font-size: 12.5px; }
         .wsd-chip       { padding: 16px 18px; font-size: 15px; }
         .wsd-empty-text { font-size: 16px; }
         .wsd-footnote   { font-size: 11px; }
@@ -302,7 +606,6 @@ export const WalletSetupDemo = () => {
           .wsd-row        { flex-wrap: wrap; gap: 4px 10px; }
           .wsd-row-token  { min-width: 100%; flex: 1 1 100%; }
           .wsd-bubble     { max-width: 88%; font-size: 13.5px; }
-          .wsd-approval   { font-size: 11.5px; word-break: break-all; }
           .wsd-chip       { padding: 14px 14px; font-size: 14px; }
           .wsd-empty-text { font-size: 14.5px; }
           .wsd-footnote   { font-size: 10.5px; }
@@ -310,6 +613,15 @@ export const WalletSetupDemo = () => {
           .wsd-model-label { font-size: 12px !important; margin-right: 8px !important; }
         }
       `}</style>
+
+      {/* Transaction approval modal */}
+      {modalPreview && (
+        <TxModal
+          preview={modalPreview}
+          onConfirm={handleConfirm}
+          onCancel={() => setModalPreview(null)}
+        />
+      )}
 
       {/* Header */}
       <div style={{
