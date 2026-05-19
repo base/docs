@@ -28,16 +28,18 @@ export const DataFetchingDemo = () => {
       ],
     },
     {
-      prompt: "Check the balance of jesse.base.eth",
+      prompt: "What tokens do I have in my wallet?",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { address: "jesse.base.eth", chain: "base" } } },
-        { delay: 600, type: "text", text: "Balances for jesse.base.eth (0xd8dA…6045) on Base:" },
+        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_wallets", args: {} } },
+        { delay: 600, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { chain: "base" } } },
+        { delay: 500, type: "text", text: "Tokens in your wallet on Base:" },
         { delay: 250, type: "rows", rows: [
-          { token: "ETH",   amount: "1,842.14",  value: "$6.63M" },
-          { token: "USDC",  amount: "28,450.00", value: "$28.4K" },
-          { token: "DAI",   amount: "10,000.00", value: "$10.0K" },
+          { token: "USDC",  amount: "245.80",  value: "$245.80" },
+          { token: "ETH",   amount: "0.0412",  value: "$148.33" },
+          { token: "WETH",  amount: "0.0100",  value: "$36.02" },
         ]},
+        { delay: 400, type: "confirm", text: "3 tokens found on Base" },
       ],
     },
     {
@@ -226,7 +228,7 @@ export const DataFetchingDemo = () => {
         {!ex && (
           <div>
             <div className="dfd-empty-text" style={{ fontFamily: serif, color: c.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              Check any wallet's balance once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected:
+              Check your wallet balance once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected:
             </div>
             <div style={{ display: "grid", gap: 10 }}>
               {examples.map((e, i) => <ChipBtn key={i} onClick={() => pick(i)}>{e.prompt}</ChipBtn>)}
