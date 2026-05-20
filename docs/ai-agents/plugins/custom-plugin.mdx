@@ -1,14 +1,14 @@
 ---
-title: "Custom Plugin"
+title: "Build a Custom Plugin"
 description: "Build your own plugin that produces unsigned calldata and executes through Base MCP's send_calls"
 keywords: ["custom Base MCP plugin", "AI agent plugin Base", "send_calls custom protocol", "Base MCP web_request plugin", "build MCP plugin"]
 ---
 
-A plugin is a markdown spec that teaches your assistant how to call an external API (or another MCP server), translate the response into a `calls` array, and execute it through Base MCP's `send_calls`. The official [Moonwell](/ai-agents/plugins/moonwell), [Morpho](/ai-agents/plugins/morpho), [Uniswap](/ai-agents/plugins/uniswap), and [Avantis](/ai-agents/plugins/avantis) plugins all follow the same shape — this page shows how to write your own.
+A plugin is a markdown spec that teaches your assistant how to call an external API (or another MCP server), translate the response into a `calls` array, and execute it through Base MCP's `send_calls`. Examples include [Moonwell](/ai-agents/plugins/moonwell), [Morpho](/ai-agents/plugins/morpho), [Uniswap](/ai-agents/plugins/uniswap), and [Avantis](/ai-agents/plugins/avantis) plugins that follow the same shape — this page shows how to write your own.
 
 ## When you need one
 
-Write a plugin when your protocol either has an HTTP "tx-builder" that returns unsigned calldata, or exposes its own MCP server. If it has neither, you can still write one — point your assistant at any JSON-RPC node and have it encode the call directly.
+Write a plugin when your protocol either has an HTTP "tx-builder" that returns unsigned calldata, or exposes its own MCP server. If it has neither, you can still use SDKs to encode the call directly, but it might not be useful for Claude and ChatGPT consumer apps.
 
 ## Anatomy of a plugin
 
@@ -20,6 +20,9 @@ Every plugin file contains four sections:
   </Step>
   <Step title="Read endpoints">
     Document the GET endpoints that return state — balances, positions, market data — and the units they use.
+    <Note>
+    POST endpoints are not supported in Claude and ChatGPT consumer apps.
+    </Note>
   </Step>
   <Step title="Prepare endpoints">
     Document the endpoints (or MCP tools) that return unsigned calldata. State the exact response shape so the assistant knows which fields map to `to`, `value`, and `data`.
@@ -30,7 +33,8 @@ Every plugin file contains four sections:
 </Steps>
 
 <Note>
-Custom plugin hostnames are not in the Base MCP `web_request` allowlist — only the native plugins are. When `web_request` rejects your domain, construct the prepare endpoint as a GET URL with all parameters in the query string, then either fetch it through whatever capability your harness exposes, or ask the user to paste the response into the chat. Once you have the JSON, the rest of the flow is identical.
+Native plugins have access to the `web_request` tool from Base MCP, which allows them to make GET and POST requests to any hostname.
+Custom plugins do not have access to the `web_request` tool, so they must use GET endpoints to be compatible with Claude and ChatGPT consumer apps.
 </Note>
 
 ## How it works
@@ -175,21 +179,6 @@ The contract between your prepare endpoint and Base MCP is exactly this object:
 
 `chainId` is hex (`0x2105` for Base mainnet, `0x14a34` for Base Sepolia). `value` defaults to `0x0` if omitted. The assistant calls `send_calls` once with the full batch — the user approves once, and all calls execute atomically.
 
-## Working example: a simple ERC-20 transfer plugin
-
-A minimal plugin that wraps an ERC-20 `transfer(address,uint256)` call. The prepare step is encoding the calldata; there's no external API.
-
-```text
-1. get_wallets -> from
-2. Encode transfer(to, amount):
-     0xa9059cbb
-     + to padded to 32 bytes
-     + amount padded to 32 bytes
-3. send_calls(chainId=0x2105, calls=[{ to: <token>, value: "0x0", data: <encoded> }])
-```
-
-In your plugin spec, document the token addresses, the encoding rule, and the `send_calls` mapping. The assistant does the encoding inline.
-
 ## Patterns to copy
 
 | Pattern | When to use | Example |
@@ -198,15 +187,6 @@ In your plugin spec, document the token addresses, the encoding rule, and the `s
 | Ordered batch | Approval + action must be atomic | [Moonwell](/ai-agents/plugins/moonwell) |
 | Sibling MCP server | Protocol already runs an MCP server with `prepare_*` tools | [Morpho](/ai-agents/plugins/morpho) |
 | Multi-endpoint flow | Quote, approve, swap as separate calls | [Uniswap](/ai-agents/plugins/uniswap) |
-
-## Rules to follow
-
-- **Never sign or submit on behalf of the user.** Generating calldata and `send_calls` approval links is safe; the user must approve any real transaction.
-- **Validate before preparing.** Tx-builders can encode calldata for invalid state (non-existent positions, insufficient balance) without erroring. Read state first.
-- **Document units.** Spell out whether amounts are human decimals or base units. Mismatched units are the most common failure mode.
-- **Keep approval before action.** When batching, the approval call must come first.
-- **Don't combine chains in one batch.** `send_calls` executes on a single chain.
-
 ## Related
 
 <CardGroup cols={2}>
