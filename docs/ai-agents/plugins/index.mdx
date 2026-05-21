@@ -19,19 +19,19 @@ The MCP server exposes capabilities. Without context, models misuse them — cal
 
 ## How SKILL.md is loaded
 
-Skills use progressive disclosure. The model loads `SKILL.md` at session start (cheap — ~100 lines) and fetches reference and plugin files on demand only when a relevant task arises. Each reference and plugin is a standalone markdown file hosted at a stable `docs.base.org` URL; the model pulls them in with `web_request`.
+Skills use progressive disclosure. The model loads `SKILL.md` at session start (cheap — ~100 lines) and reads `references/*.md` and `plugins/*.md` only when a relevant task arises.
 
-The skill itself is just one file. The references and plugins it points at live in the Base docs:
+The shape of the Base MCP skill:
 
 <Tree>
-  <Tree.File name="SKILL.md" />
-  <Tree.Folder name="docs.base.org/ai-agents/skills" defaultOpen>
+  <Tree.Folder name="skills/base-mcp" defaultOpen>
+    <Tree.File name="SKILL.md" />
     <Tree.Folder name="references">
       <Tree.File name="install.md" />
       <Tree.File name="tone.md" />
+      <Tree.File name="tools.md" />
       <Tree.File name="approval-mode.md" />
       <Tree.File name="batch-calls.md" />
-      <Tree.File name="custom-plugins.md" />
     </Tree.Folder>
     <Tree.Folder name="plugins">
       <Tree.File name="morpho.md" />
@@ -42,7 +42,7 @@ The skill itself is just one file. The references and plugins it points at live 
   </Tree.Folder>
 </Tree>
 
-`SKILL.md` itself defines the session flow: **Detection → Tone → Onboarding → Tools table → Plugins table**. When the user asks about batched calls, the model fetches `references/batch-calls.md`. When they ask about a Morpho vault, the model fetches `plugins/morpho.md`. Nothing else is in context.
+`SKILL.md` itself defines the session flow: **Detection → Tone → Onboarding → Tools table → Plugins table**. When the user asks to swap tokens, the model pulls in `references/tools.md`. When they ask about a Morpho vault, the model pulls in `plugins/morpho.md`. Nothing else is in context.
 
 Read the canonical file at [`skills/base-mcp/SKILL.md`](https://github.com/base/skills/blob/main/skills/base-mcp/SKILL.md).
 
