@@ -554,6 +554,25 @@ export const WalletSetupDemo = () => {
         { delay: 1100, type: "confirm", text: "Deposited 100 USDC into Steakhouse USDC · earning 8.42% APY" },
       ],
     },
+    {
+      prompt: "What chains are supported by Base MCP?",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 500, type: "text", text: "Base MCP supports 8 mainnets and 2 testnets:" },
+        { delay: 200, type: "rows", rows: [
+          { token: "Base",         amount: "Mainnet", value: "" },
+          { token: "Arbitrum",     amount: "Mainnet", value: "" },
+          { token: "Optimism",     amount: "Mainnet", value: "" },
+          { token: "Zora",         amount: "Mainnet", value: "" },
+          { token: "Polygon",      amount: "Mainnet", value: "" },
+          { token: "BNB Chain",    amount: "Mainnet", value: "" },
+          { token: "Avalanche",    amount: "Mainnet", value: "" },
+          { token: "Ethereum",     amount: "Mainnet", value: "" },
+          { token: "Base Sepolia", amount: "Testnet", value: "" },
+          { token: "Sepolia",      amount: "Testnet", value: "" },
+        ]},
+      ],
+    },
   ];
 
   const [activeIdx, setActiveIdx]     = useState(null);

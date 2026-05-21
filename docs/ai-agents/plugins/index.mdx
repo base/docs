@@ -1,0 +1,102 @@
+---
+title: "Overview"
+description: "How the Base MCP Skill works and how plugins extend it"
+keywords: ["Base MCP skill", "Anthropic Skills", "SKILL.md", "Base MCP plugins", "send_calls plugin pattern"]
+---
+
+<Tip>
+This page describes how the Base MCP Skill and Plugins work under the hood. If you just want to install it in Claude Desktop, ChatGPT, Cursor, or Claude Code, head to the [Quickstart](/ai-agents/quickstart).
+</Tip>
+
+## Why a skill on top of the MCP server
+
+The MCP server exposes capabilities. Without context, models misuse them — calling write tools without warning the user, skipping approval, inventing parameters, or failing to detect that the server isn't connected at all. The skill closes that gap. Specifically, `SKILL.md` adds:
+
+- **Detection and onboarding** — every session starts with `get_wallets` so the assistant knows whether the MCP is connected and which Base account it's working with.
+- **Approval mode** — write tools (`send`, `swap`, `sign`, `send_calls`) return `{ approvalUrl, requestId }`. The skill tells the model to present the link, wait, then poll `get_request_status` — never to claim success before confirmation.
+- **Tone rules** — load-bearing language conventions (e.g. "onchain", never "web3") and a beginner/sophisticated detection heuristic so responses match the user.
+- **A plugin contract** — a documented prepare → `send_calls` pattern that lets external protocols extend the skill without modifying the MCP server.
+
+## How SKILL.md is loaded
+
+Skills use progressive disclosure. The model loads `SKILL.md` at session start (cheap — ~100 lines) and reads `references/*.md` and `plugins/*.md` only when a relevant task arises.
+
+The shape of the Base MCP skill:
+
+<Tree>
+  <Tree.Folder name="skills/base-mcp" defaultOpen>
+    <Tree.File name="SKILL.md" />
+    <Tree.Folder name="references">
+      <Tree.File name="install.md" />
+      <Tree.File name="tone.md" />
+      <Tree.File name="tools.md" />
+      <Tree.File name="approval-mode.md" />
+      <Tree.File name="batch-calls.md" />
+    </Tree.Folder>
+    <Tree.Folder name="plugins">
+      <Tree.File name="morpho.md" />
+      <Tree.File name="moonwell.md" />
+      <Tree.File name="uniswap.md" />
+      <Tree.File name="avantis.md" />
+    </Tree.Folder>
+  </Tree.Folder>
+</Tree>
+
+`SKILL.md` itself defines the session flow: **Detection → Tone → Onboarding → Tools table → Plugins table**. When the user asks to swap tokens, the model pulls in `references/tools.md`. When they ask about a Morpho vault, the model pulls in `plugins/morpho.md`. Nothing else is in context.
+
+Read the canonical file at [`skills/base-mcp/SKILL.md`](https://github.com/base/skills/blob/main/skills/base-mcp/SKILL.md).
+
+## How plugins extend the skill
+
+A plugin is a markdown spec — one file in `plugins/` — that teaches the assistant how to drive an external protocol through `send_calls`. The contract is the same whether the protocol exposes an HTTP "tx-builder" or its own sibling MCP server:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant AI as AI Assistant
+    participant Protocol as Protocol API / MCP
+    participant BA as Base MCP
+
+    User->>AI: "Do <action> on <protocol>"
+    AI->>Protocol: read state (balances, markets, positions)
+    Protocol-->>AI: state
+    AI->>Protocol: prepare <action> (unsigned calldata)
+    Protocol-->>AI: { to, value, data, chainId }
+    AI->>BA: send_calls(chainId, calls=[...])
+    BA-->>AI: { approvalUrl, requestId }
+    AI-->>User: "Please approve: [link]"
+    User-->>AI: approved
+    AI->>BA: get_request_status(requestId)
+    BA-->>AI: confirmed
+```
+
+Every plugin file follows the same four-section shape:
+
+<Steps>
+  <Step title="Onboarding gate">
+    A `STOP` notice forcing the assistant to complete Base MCP detection and onboarding before touching the plugin's tools.
+  </Step>
+  <Step title="Read endpoints">
+    The GET endpoints (or read tools) that return state — balances, positions, market data.
+  </Step>
+  <Step title="Prepare endpoints">
+    The endpoints (or `prepare_*` tools) that return unsigned calldata, with the exact response shape so the model knows which fields map to `to`, `value`, and `data`.
+  </Step>
+  <Step title="send_calls mapping">
+    How to turn the prepare response into the `calls` array passed to Base MCP's `send_calls`.
+  </Step>
+</Steps>
+
+Base MCP signs and submits. The protocol never touches keys.
+
+## Native vs custom plugins
+
+<CardGroup cols={2}>
+  <Card title="Native plugins" icon="puzzle-piece" href="/ai-agents/plugins/native-plugins">
+    Morpho, Moonwell, Uniswap, Avantis — authored by the Base team and shipped with the skill.
+  </Card>
+  <Card title="Build a custom plugin" icon="code" href="/ai-agents/plugins/custom-plugin">
+    Write your own markdown spec for any protocol with an HTTP tx-builder or MCP server.
+  </Card>
+</CardGroup>
+

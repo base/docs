@@ -1,0 +1,68 @@
+---
+title: "Native Plugins"
+description: "Plugins authored by the Base team that ship with the Base MCP skill"
+keywords: ["Base MCP plugins", "Morpho plugin", "Moonwell plugin", "Uniswap plugin", "Avantis plugin"]
+---
+
+Four plugins ship in the Base MCP skill — Morpho, Moonwell, Uniswap, and Avantis. They're authored by the Base team and live alongside `SKILL.md` in [`github.com/base/skills`](https://github.com/base/skills/tree/main/skills/base-mcp/plugins). The assistant loads each spec on demand when a relevant request comes in.
+
+All four follow the same prepare → `send_calls` contract described in the [Overview](/ai-agents/plugins). The plugin spec is the single source of truth; the cards below are pointers, not duplicates.
+
+## The plugins
+
+<CardGroup cols={2}>
+  <Card title="Morpho" icon="puzzle-piece" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/morpho.md">
+    Lending and vaults on Base. Uses Morpho's sibling MCP server at `mcp.morpho.org` for `prepare_*` tools that return simulated, unsigned calldata. 17 tools across read, write, and simulate.
+  </Card>
+  <Card title="Moonwell" icon="puzzle-piece" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/moonwell.md">
+    Lending on Base and Optimism. Uses `web_request` against `api.moonwell.fi` to fetch ordered transactions — approve, enter-market, action — executed atomically through `send_calls`.
+  </Card>
+  <Card title="Uniswap" icon="puzzle-piece" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/uniswap.md">
+    Token swaps and V2/V3/V4 LP positions on Base. Uses `web_request` against the Uniswap trade API for quote, approval, and swap calldata.
+  </Card>
+  <Card title="Avantis" icon="puzzle-piece" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/avantis.md">
+    Perpetual futures on Base. Uses `web_request` against the Avantis tx-builder for open, close, update, and limit-order calldata.
+  </Card>
+</CardGroup>
+
+## Using a native plugin
+
+<Steps>
+  <Step title="Install the skill">
+    Connect `mcp.base.org` and load the skill in your client. See the [Quickstart](/ai-agents/quickstart) for Claude Desktop, ChatGPT, Cursor, and Claude Code.
+  </Step>
+  <Step title="Prompt the assistant">
+    Just describe what you want. The assistant pulls the relevant plugin spec into context automatically.
+
+    ```text Morpho
+    Find the best USDC vault on Base by APY and deposit 100 USDC
+    ```
+
+    ```text Moonwell
+    Borrow 500 USDC against my collateral on Moonwell
+    ```
+
+    ```text Uniswap
+    Swap 100 USDC for ETH on Base
+    ```
+
+    ```text Avantis
+    Open a 10x long BTC/USD with 100 USDC collateral
+    ```
+  </Step>
+  <Step title="Approve">
+    The plugin returns unsigned calldata; Base MCP's `send_calls` wraps it into a single approval. Open the `approvalUrl` at `keys.coinbase.com`, approve, and the assistant polls `get_request_status` until confirmed.
+  </Step>
+</Steps>
+
+<Note>
+Plugins that use `web_request` only reach protocols whose hostnames are on the Base MCP allowlist. The four native plugins above are already covered. To call a protocol that isn't, see [Build a custom plugin](/ai-agents/plugins/custom-plugin).
+</Note>
+
+## Build your own
+
+<CardGroup cols={1}>
+  <Card title="Build a custom plugin" icon="code" href="/ai-agents/plugins/custom-plugin">
+    Same prepare → `send_calls` pattern, written as a markdown spec for any protocol with an HTTP tx-builder or MCP server.
+  </Card>
+</CardGroup>
