@@ -2,7 +2,7 @@
 title: "Base MCP Skill"
 description: "Base MCP — gives your AI assistant access to a Base account via the Base MCP server (mcp.base.org). Wallet, portfolio, sending, swapping, signing, batched contract calls, and transaction history on Base."
 name: base-mcp
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Base MCP
@@ -12,11 +12,17 @@ version: 0.1.0
 >
 > Including conversations that jump straight to a plugin topic. Onboarding is short — see below.
 
+## How this skill loads references and plugins
+
+This skill is intentionally lightweight. The detailed reference and plugin files are **not bundled** — fetch them on demand from the Base docs site using `web_request` (or the harness's HTTP tool, if available). Always fetch the URLs exactly as written below — they end in `.md` so you get clean markdown instead of rendered HTML.
+
+Only fetch a reference or plugin file the first time you need it in a session; once loaded, its contents are in your context.
+
 ## Detection
 
-The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to https://docs.base.org/ai-agents/quickstart (or load [references/install.md](references/install.md) for app-specific steps) and stop.
+The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to `https://docs.base.org/ai-agents/quickstart` (or fetch `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/install.md` for app-specific steps) and stop.
 
-If Base MCP tools are available, load [references/tone.md](references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding.
+If Base MCP tools are available, fetch `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/tone.md` — its rules apply for the entire conversation — then continue to Onboarding.
 
 ## Onboarding
 
@@ -34,15 +40,15 @@ Keep it short. Do this once per session, before doing real work:
 
 The Base MCP advertises its own tool catalog to the harness. Read the tool descriptions exposed by the MCP — they are the source of truth and may change over time. Do not assume a fixed list; do not preload a tool catalog from this skill.
 
-Two patterns deserve their own references because they span multiple tools:
+Two patterns deserve their own references because they span multiple tools. Fetch each one only when you need it:
 
-| Topic | Reference |
+| Topic | Fetch from |
 |-------|-----------|
-| Approval flow (for any write tool that returns an approval URL) | [references/approval-mode.md](references/approval-mode.md) |
-| Batched contract calls (EIP-5792) | [references/batch-calls.md](references/batch-calls.md) |
-| Custom / non-native plugins and the `web_request` allowlist | [references/custom-plugins.md](references/custom-plugins.md) |
-| Platform install steps | [references/install.md](references/install.md) |
-| Tone and language rules | [references/tone.md](references/tone.md) |
+| Approval flow (for any write tool that returns an approval URL) | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/approval-mode.md` |
+| Batched contract calls (EIP-5792) | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/batch-calls.md` |
+| Custom / non-native plugins and the `web_request` allowlist | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/custom-plugins.md` |
+| Platform install steps | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/install.md` |
+| Tone and language rules | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/tone.md` |
 
 ## Plugins
 
@@ -50,21 +56,15 @@ Plugins extend Base MCP with partner-specific functionality (lending, swaps, per
 
 Plugins currently maintained alongside this skill (the **native plugins**):
 
-| Plugin | Reference |
+| Plugin | Fetch from |
 |--------|-----------|
-| Morpho | [plugins/morpho.md](plugins/morpho.md) |
-| Moonwell | [plugins/moonwell.md](plugins/moonwell.md) |
-| Uniswap | [plugins/uniswap.md](plugins/uniswap.md) |
-| Avantis | [plugins/avantis.md](plugins/avantis.md) |
+| Morpho | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/plugins/morpho.md` |
+| Moonwell | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/plugins/moonwell.md` |
+| Uniswap | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/plugins/uniswap.md` |
+| Avantis | `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/plugins/avantis.md` |
 
-Load a plugin reference only when the user's request matches it. For a plugin's own tools, defer to the descriptions the plugin's MCP exposes — this skill does not duplicate them.
+Fetch a plugin reference only when the user's request matches it. For a plugin's own tools, defer to the descriptions the plugin's MCP exposes — this skill does not duplicate them.
 
 ### Native plugins vs. custom / user-supplied plugins
 
-Native plugins are allowlisted in the Base MCP `web_request` tool and work everywhere. Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
-
-## Installation
-
-```bash
-npx skills add base/skills --skill base-mcp
-```
+Native plugins are allowlisted in the Base MCP `web_request` tool and work everywhere. Custom or user-supplied plugins usually aren't allowlisted — fetch `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/custom-plugins.md` for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
