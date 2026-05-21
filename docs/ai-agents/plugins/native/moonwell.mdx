@@ -1,0 +1,39 @@
+---
+title: "Moonwell"
+description: "Compound v2 lending on Base and Optimism via the Moonwell HTTP API"
+keywords: ["Moonwell plugin", "Base MCP Moonwell", "Moonwell lending", "Compound v2 Base", "Moonwell borrow"]
+---
+
+Moonwell is a Compound v2 lending protocol on Base and Optimism. The plugin reads positions and rates from `api.moonwell.fi` and prepares unsigned calldata that Base MCP executes atomically through `send_calls` — including the `approve` and `enter-market` steps that precede each action.
+
+**Chains:** Base (8453), Optimism (10).
+
+**Operations:** supply, withdraw, borrow, repay, plus reads for markets, rates, positions, health, rewards, and token balances.
+
+## Try it
+
+```text Supply
+Supply 100 USDC on Moonwell
+```
+
+```text Borrow
+Borrow 500 USDC against my collateral on Moonwell
+```
+
+```text Health check
+What's my Moonwell health factor on Base?
+```
+
+## Pattern
+
+The Moonwell API returns an ordered `transactions[]` array — `approve`, `enter-market`, then the protocol action. The plugin maps all entries into a single `send_calls` batch so the user approves once.
+
+<Note>
+`api.moonwell.fi` must be on the Base MCP `web_request` allowlist. It already is for the hosted MCP at `mcp.base.org`.
+</Note>
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/moonwell.md">
+  Endpoint inventory, response shapes, mToken notes, and health factor guide.
+</Card>

@@ -1,0 +1,48 @@
+---
+title: "Morpho"
+description: "Lending and vaults on Base via Morpho's sibling MCP server"
+keywords: ["Morpho plugin", "Base MCP Morpho", "Morpho lending", "Morpho vaults", "Base lending"]
+---
+
+Morpho is a lending protocol on Base. The plugin drives the [Morpho MCP server](https://mcp.morpho.org/) for vault discovery, position queries, and prepare-style tools that return unsigned calldata. Base MCP's `send_calls` wraps the calldata into a single approval.
+
+**Chain:** Base mainnet.
+
+**Operations:** deposit, withdraw, supply, borrow, repay, supply/withdraw collateral, plus reads for vaults, markets, and positions.
+
+## Install alongside Base MCP
+
+```json mcp.json
+{
+  "mcpServers": {
+    "base-account": { "url": "https://mcp.base.org" },
+    "morpho":       { "url": "https://mcp.morpho.org/" }
+  }
+}
+```
+
+Claude Code: `claude mcp add morpho --transport http https://mcp.morpho.org/`
+
+## Try it
+
+```text Find a vault
+Find the best USDC vault on Base by APY and deposit 100 USDC
+```
+
+```text Check positions
+Show all my Morpho positions on Base
+```
+
+```text Health check
+Check if my Morpho borrow position is healthy
+```
+
+## Pattern
+
+Morpho's `prepare_*` tools return `{ calls, chainId }` — passed straight to `send_calls`, which returns an approval URL. The assistant polls `get_request_status` once you confirm.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/morpho.md">
+  Tool inventory, response shapes, and orchestration details.
+</Card>
