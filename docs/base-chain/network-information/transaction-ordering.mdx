@@ -1,0 +1,116 @@
+---
+title: Transaction Ordering
+description: How Base orders transactions, preconfirms transactions with Flashblocks, and applies active inclusion constraints.
+---
+
+Transaction ordering describes how a valid transaction moves from submission to an ordered Base L2 block. On Base, the sequencer validates transactions, incrementally orders them into Flashblocks while building the next L2 block, then seals the full L2 block.
+
+Ordering is separate from finality. A transaction can be preconfirmed before the full L2 block seals, included in a sealed L2 block, batched to Ethereum, and then finalized after the Ethereum batch reaches L1 finality. For the guarantees at each stage, see [Transaction Finality](/base-chain/network-information/transaction-finality).
+
+## Active ordering configuration
+
+| Network      | Current Configuration       | Upcoming Deployments   |
+|--------------|-----------------------------|------------------------|
+| Base Mainnet | [Flashblocks](#flashblocks-ordering) + [Per-Transaction Gas Max](#per-transaction-gas-maximum) | |
+| Base Sepolia | [Flashblocks](#flashblocks-ordering) + [Per-Transaction Gas Max](#per-transaction-gas-maximum) | |
+
+See the [Configuration Changelog](/base-chain/network-information/configuration-changelog) for a history of changes to transaction ordering and other network parameters.
+
+## Sequencer role
+
+The sequencer receives signed transactions, validates them against current account state and network rules, chooses which valid transactions to include, and produces ordered L2 blocks. Validators can independently derive and verify the resulting L2 chain from data posted to Ethereum.
+
+## Flashblocks ordering
+
+The Base sequencer produces Flashblocks every **200ms**, committing to transaction ordering incrementally while the next L2 block is being built. Flashblocks provide preconfirmation signals before the full L2 block seals.
+
+<Info>
+For how preconfirmed state is exposed to applications, see the [Base RPC Overview](/base-chain/api-reference/rpc-overview#flashblocks-behavior-matrix). For the protocol-level sequencer role, see the [Protocol Overview](/base-chain/specs/protocol/overview#sequencers).
+</Info>
+
+There are three important ordering mechanics:
+
+1. **Timing** — Flashblocks are built every 200ms, each ordering a portion of the block. Once built and broadcast, transaction ordering is locked. Later-arriving transactions with higher priority fees cannot be included in earlier Flashblocks.
+
+2. **Gas Allocation** — Each Flashblock has an incrementally increasing gas budget. Flashblock `j` can use up to `j/10` of the full block gas limit, minus gas already consumed by earlier Flashblocks in the same block.
+
+   <Info>
+   **Current parameters, last verified 2026-05-08**
+
+   | Network | Full block gas limit | Flashblock 1 cumulative budget |
+   |---------|----------------------|--------------------------------|
+   | Base Mainnet | 400M gas | 40M gas |
+   | Base Sepolia | 1.2B gas | 120M gas |
+
+   Base Sepolia's block gas limit is scheduled to increase every 2 weeks. See the [Configuration Changelog](/base-chain/network-information/configuration-changelog) for network parameter history.
+   </Info>
+
+   For example, on Base Mainnet, Flashblock 1 can use up to 40M gas, Flashblock 2 can use up to 80M gas minus gas already consumed by Flashblock 1, and Flashblock 10 can use up to the full 400M gas limit minus gas already consumed.
+
+3. **Incremental ordering** — Flashblocks commit to transaction ordering as the L2 block is being built. Do not assume the sequencer performs one global fee-ranked ordering pass over every transaction that arrives during the full 2 second L2 block interval.
+
+## Inclusion constraints
+
+Transaction inclusion is affected by several constraints:
+
+- **Transaction validity:** invalid nonce, insufficient balance, gas-limit violations, or reverted execution can prevent inclusion.
+- **Fee settings:** transactions must satisfy the active fee market. Priority fees can affect inclusion and relative ordering.
+- **Arrival timing:** once a Flashblock has been produced, later-arriving transactions should not be assumed to reorder that earlier Flashblock, even if they pay a higher priority fee.
+- **Block and Flashblock capacity:** each block and each Flashblock has a finite gas budget.
+- **Per-transaction gas maximum:** transactions above the active per-transaction gas cap are rejected before inclusion.
+
+<Note>
+Priority fees can affect transaction inclusion and ordering, but Flashblocks are not a formalized priority-fee auction mechanism. For latency-sensitive workflows, arrival timing and propagation path matter alongside fee settings.
+</Note>
+
+## What preconfirmation means
+
+When a transaction appears in Flashblocks data, it has been sequencer-ordered into the current block-in-progress. This is a strong preconfirmation signal, not the same thing as sealed L2 block inclusion or finality.
+
+Applications can use Flashblocks-aware RPC endpoints and subscriptions to display faster state updates, pending logs, transaction status, or preconfirmed receipts. They should still reconcile against sealed L2 block data before treating the transaction as fully included.
+
+## Per-transaction gas maximum
+
+Base enforces a per-transaction gas maximum. Transactions that specify a gas limit above the active maximum are **rejected by the mempool before inclusion**. `eth_sendTransaction` or `eth_sendRawTransaction` will return a JSON-RPC error (for example: `exceeds maximum per-transaction gas limit`). This cap does **not** change the block gas limit or the block validity conditions.
+
+| Network | Active per-transaction gas maximum |
+|---------|------------------------------------|
+| Base Mainnet | 25,000,000 gas until Azul activates on May 28, 2026 at 18:00 UTC; 16,777,216 gas after activation |
+| Base Sepolia | 16,777,216 gas, active since April 20, 2026 at 18:00 UTC |
+
+For the Azul protocol change that enforces the 16,777,216 gas cap, see the [Azul execution engine specification](/base-chain/specs/upgrades/azul/exec-engine#transaction-gas-limit-cap).
+
+Bundler operators for smart contract wallets must configure their systems to limit the bundle size to fit within this cap.
+
+## Practical guidance
+
+Apps and wallets should:
+
+- Submit transactions with realistic fee settings and handle RPC rejection errors clearly.
+- Track transactions by hash until a sealed receipt is available.
+- If using preconfirmed state, label optimistic UI states and reconcile after L2 inclusion.
+
+Market makers and latency-sensitive systems should:
+
+- Account for transaction propagation and arrival time, not only priority fee.
+- Monitor both preconfirmation signals and sealed block receipts.
+- Avoid assuming that a later high-fee transaction can reorder already-built Flashblocks.
+
+Infrastructure providers should:
+
+- Expose Standard and Flashblocks endpoint behavior clearly to users.
+- Document whether by-hash lookups can return preconfirmed cache data.
+- Keep raw Flashblocks stream dependencies separate from application-facing RPC behavior.
+
+## Client support
+
+Azul requires Base-native clients. For operator migration guidance and supported client combinations, see [Base Azul Upgrade](/base-chain/node-operators/base-v1-upgrade) and [Run a Base Node](/base-chain/node-operators/run-a-base-node#supported-client-combinations).
+
+## Related references
+
+- [Transaction Finality](/base-chain/network-information/transaction-finality) explains preconfirmation, L2 inclusion, L1 batching, and finality.
+- [Throughput and Limits](/base-chain/network-information/throughput-and-limits) explains how capacity limits affect inclusion under load.
+- [Base RPC Overview](/base-chain/api-reference/rpc-overview) explains how preconfirmed state is exposed over RPC.
+- [eth_sendRawTransaction](/base-chain/api-reference/ethereum-json-rpc-api/eth_sendRawTransaction) documents transaction submission behavior.
+- [eth_getTransactionReceipt](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) documents sealed and preconfirmed receipt lookups.
+- [Protocol Overview](/base-chain/specs/protocol/overview) describes sequencer and validator roles at the specification layer.

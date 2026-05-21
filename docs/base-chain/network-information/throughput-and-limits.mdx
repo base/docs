@@ -1,24 +1,48 @@
 ---
 title: Throughput and Limits
-description: Entry point for Base block capacity, per-transaction gas limits, fee limits, endpoint rate limits, and related configuration.
+description: How Base capacity, gas limits, fee limits, data availability, and endpoint limits constrain transaction throughput.
 ---
 
-This page collects the current destinations for Base throughput and limit topics. Keep live values on the canonical reference pages below.
+Throughput on Base is constrained by several limits at once. There is no single transactions-per-second value that applies to every workload, because transactions consume different amounts of gas, write different amounts of data, and interact with different RPC and infrastructure paths.
 
-## Capacity and gas limits
+## Capacity model
 
-- [Block Building](/base-chain/network-information/block-building) documents block building mode, Flashblocks gas allocation, and the active per-transaction gas maximum.
-- [Network Fees](/base-chain/network-information/network-fees) documents L2 execution fees, L1 security fees, minimum base fee, and EIP-1559 parameters.
-- [Configuration Changelog](/base-chain/network-information/configuration-changelog) tracks changes to block building, fees, and other network parameters.
+Base capacity is primarily bounded by:
+
+- **L2 block gas limit:** the total gas that can fit in a sealed L2 block.
+- **Flashblock gas budget:** the portion of the next L2 block that can be used by each Flashblock while the block is being built.
+- **Per-transaction gas maximum:** the maximum gas limit a single transaction can request before it is rejected by the mempool.
+- **L1 data availability cost:** the cost and throughput of posting Base transaction data to Ethereum.
+- **RPC and provider limits:** rate limits, method availability, and backend capacity on public or hosted endpoints.
+
+Gas-heavy transactions reduce the number of transactions that fit in a block. Data-heavy transactions can also be constrained by L1 data availability costs even when L2 execution gas is available.
+
+## Gas limits
+
+Exact active gas parameters live in [Transaction Ordering](/base-chain/network-information/transaction-ordering). Use that page for the current full block gas limit, Flashblock gas budget, and per-transaction gas maximum.
+
+This page uses those limits to explain throughput planning. When active parameters change, the practical questions stay the same: how much gas each transaction consumes, how much data it posts to L1, and whether the RPC path can handle the requested method volume.
+
+## Fee limits under load
+
+When demand approaches available capacity, fees become the mechanism that controls inclusion. Base transactions pay both an L2 execution fee and an L1 data fee. The L2 base fee adjusts with demand, and Base also uses a minimum base fee that prevents the L2 base fee from dropping below the configured floor.
+
+Current fee parameters, including minimum base fee and EIP-1559 settings, are documented in [Network Fees](/base-chain/network-information/network-fees). The important throughput implication is that low fees can delay inclusion when demand is high, while realistic priority fees can improve inclusion chances without guaranteeing a specific ordering outcome.
 
 ## API and endpoint limits
 
-- [Networks and Endpoints](/base-chain/network-information/networks-and-endpoints) lists public Standard and Flashblocks endpoints.
-- [Base RPC Overview](/base-chain/api-reference/rpc-overview) documents method behavior across Standard and Flashblocks endpoints.
-- [Node Providers](/base-chain/node-operators/node-providers) lists infrastructure providers for production traffic.
-- [Run a Base Node](/base-chain/node-operators/run-a-base-node) explains how to operate your own RPC infrastructure.
+Public endpoints are rate-limited and are not designed for production traffic. Hosted RPC providers may apply request-per-second limits, compute-unit limits, method restrictions, archive-data limits, or WebSocket subscription limits. Those endpoint limits do not change Base protocol capacity, but they can become the practical bottleneck for apps, wallets, indexers, and monitoring systems.
 
-## Troubleshooting
+Production systems should use a hosted [RPC Provider](/base-chain/network-information/rpc-providers) or [run a Base node](/base-chain/node-operators/run-a-base-node), then size traffic for the methods they call most often. Heavy methods such as debug traces, large log ranges, and archive reads usually need separate capacity planning from ordinary reads and transaction submission.
 
-- [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions) covers transaction inclusion, rejection, nonce, and confirmation issues.
-- [Node Troubleshooting](/base-chain/node-operators/troubleshooting) covers node setup, sync, snapshot, and performance issues.
+## Practical implications
+
+- Split large operations into transactions that fit under the active per-transaction gas maximum.
+- Do not estimate throughput by transaction count alone; estimate by gas, data footprint, and RPC method mix.
+- Treat Flashblock preconfirmation as lower-latency feedback, not additional final capacity beyond the sealed L2 block.
+- Plan separate capacity for user-facing transaction submission, read-heavy app traffic, indexing, and operational monitoring.
+- Use [Transaction Ordering](/base-chain/network-information/transaction-ordering) for the exact Flashblock and per-transaction gas mechanics.
+
+## Technical details
+
+For protocol-level capacity rules, see the [Execution specification](/base-chain/specs/protocol/execution/index), the [Batcher specification](/base-chain/specs/protocol/batcher), and the current [upgrade specifications](/base-chain/specs/upgrades/azul/overview) where relevant.

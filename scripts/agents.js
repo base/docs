@@ -89,6 +89,8 @@ function scanDocs(dir, basePath = '', ignored) {
       if (CONSTANTS.skipFilePatterns.some(p => p.test(baseName))) continue;
       if (ignored.bareFiles.has(baseName)) continue;
       if (ignored.files.has(basePath ? `${basePath}/${baseName}` : baseName)) continue;
+      const { frontmatter } = parseFrontmatter(fs.readFileSync(fullPath, 'utf8'));
+      if (frontmatter.hidden === true || frontmatter.draft === true) continue;
       files.push(baseName);
     }
   }
