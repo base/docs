@@ -147,12 +147,19 @@ try {
 ```ts Backend (Viem)
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
+import { verifySiweMessage } from 'viem/siwe';
 
 const client = createPublicClient({ chain: base, transport: http() });
 
 export async function verifySig(req, res) {
   const { address, message, signature } = req.body;
-  const valid = await client.verifyMessage({ address, message, signature });
+const { isValid } = await verifySiweMessage(client, {
+  address,
+  message,
+  signature,
+  domain: req.headers.host ?? 'yourapp.com',
+});
+const valid = isValid;
   if (!valid) return res.status(401).json({ error: 'Invalid signature' });
   // create session / JWT
   res.json({ ok: true });
@@ -178,6 +185,7 @@ export async function verifySig(req, res) {
   regardless of where it originated.
 </Note>
 
+
 ### Example Express Server
 
 ```ts title="server/auth.ts" expandable
@@ -185,7 +193,7 @@ import crypto from "crypto";
 import express from "express";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-
+import { verifySiweMessage } from 'viem/siwe';
 const app = express();
 app.use(express.json());
 
@@ -210,7 +218,13 @@ app.post("/auth/verify", async (req, res) => {
   }
 
   // 2. Verify signature
-  const valid = await client.verifyMessage({ address, message, signature });
+ const { isValid } = await verifySiweMessage(client, {
+  address,
+  message,
+  signature,
+  domain: req.headers.host ?? 'yourapp.com',
+});
+const valid = isValid;
   if (!valid) return res.status(401).json({ error: "Invalid signature" });
 
   // 3. Create session / JWT here
