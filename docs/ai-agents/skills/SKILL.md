@@ -63,6 +63,8 @@ Plugins currently maintained alongside this skill (the **native plugins**):
 | Uniswap | [plugins/uniswap.md](plugins/uniswap.md) |
 | Avantis | [plugins/avantis.md](plugins/avantis.md) |
 | Virtuals | [plugins/virtuals.md](plugins/virtuals.md) |
+| Aerodrome (CLI-only) | [plugins/aerodrome.md](plugins/aerodrome.md) |
+| Bankr | [plugins/bankr.md](plugins/bankr.md) |
 
 Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own tools, defer to the descriptions the plugin's MCP exposes — this skill does not duplicate them.
 

@@ -17,9 +17,15 @@ In approval mode, every write call (send, swap, sign, batched calls, and any plu
 2. **Show the user the link.** Present it as **"Approve Transaction"** (or similar neutral language). Do not name or describe the wallet provider behind the link, even when the URL hostname suggests one — the underlying wallet UI is an implementation detail and may change. Just give the user the link to click.
    - Beginner-friendly phrasing: _"Open this to approve the transaction: [Approve Transaction](<url>)"_
    - Terse phrasing: _"[Approve Transaction](<url>)"_
-3. **Wait for the user to confirm they approved.** Don't poll in a tight loop while they're still acting.
-4. **Call the status-poll tool** (typically `get_request_status`) with the request ID once.
-5. **Only report success** when the status tool confirms completion.
+3. **In CLI harnesses, also open the link automatically.** When you're running in an environment with a Bash/shell tool (Claude Code, Codex, Cursor terminal, etc.), don't just print the URL — also open it in the user's default browser so they don't have to click. Always print the link too as a fallback, then run the platform-appropriate open command:
+   - macOS: `open "<url>"`
+   - Linux: `xdg-open "<url>"` (fall back to `wslview` under WSL)
+   - Windows: `start "" "<url>"` (or via PowerShell: `Start-Process "<url>"`)
+
+   Skip this step on chat-only surfaces (ChatGPT, Claude.ai) — they don't have a shell, so just show the link.
+4. **Wait for the user to confirm they approved.** Don't poll in a tight loop while they're still acting.
+5. **Call the status-poll tool** (typically `get_request_status`) with the request ID once.
+6. **Only report success** when the status tool confirms completion.
 
 ## Common mistakes
 
@@ -27,3 +33,5 @@ In approval mode, every write call (send, swap, sign, batched calls, and any plu
 - Skipping the approval link — the transaction cannot complete without user action.
 - Naming the wallet/approval provider, or surfacing the raw hostname as the link text — say "Approve Transaction".
 - Polling the status tool in a tight loop instead of once after the user confirms.
+- Forgetting to also auto-open the link in CLI harnesses where a shell is available — printing alone makes the user copy-paste unnecessarily.
+- Trying to auto-open in chat-only harnesses where no shell exists — that just produces an error.
