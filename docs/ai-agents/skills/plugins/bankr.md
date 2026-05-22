@@ -65,6 +65,46 @@ Field notes:
 
 The API returns roughly 50 launches per call. There is no pagination parameter; if you need older launches, you'll see them shift out as new ones land.
 
+### `GET /token-launches/{tokenAddress}`
+
+Returns a single launch's metadata by token contract address. The address is case-insensitive (the API lowercases it on the response). No auth required.
+
+```text Example
+GET https://api.bankr.bot/token-launches/0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3
+```
+
+```json
+{
+  "launch": {
+    "activityId": "69b0716db2c1b3e9b71c7290",
+    "status": "deployed",
+    "launchType": "doppler",
+    "tokenName": "AGNT SOCIAL",
+    "tokenSymbol": "AGNT",
+    "chain": "base",
+    "imageUri": "ipfs://bafkrei...",
+    "tokenAddress": "0x32f66ec2ffb26d262058965cf294f951e47f8ba3",
+    "poolId": "0xebe171fc...",
+    "txHash": "0x58155b40...",
+    "deployer": {
+      "walletAddress": "0x58584e...",
+      "xUsername": "SirKekius67",
+      "xProfileImageUrl": "https://pbs.twimg.com/..."
+    },
+    "feeRecipient": { "walletAddress": "0xe8737f...", "xUsername": "Tuteth_" },
+    "tweetUrl": "https://x.com/...",
+    "metadataUri": "ipfs://bafkrei...",
+    "timestamp": 1773171053648
+  }
+}
+```
+
+Same field shape as items in the list endpoint, with one addition:
+
+- `imageUri` — IPFS URI for the token's image/logo (only returned by the single-launch endpoint, not the list endpoint).
+
+Use this endpoint when the user names a token by **address** (instead of picking from the latest-launches list) — for confirmation before swapping, or to enrich an address the user pasted from elsewhere. If the address isn't in Bankr's index the API returns a 404; fall back to a regular swap and warn that the token wasn't found in the Bankr launches feed.
+
 ---
 
 ## Orchestration
@@ -156,6 +196,17 @@ The `swap` tool returns an `approvalUrl` and `requestId` like any other write ca
 1. `web_request` GET `https://api.bankr.bot/token-launches`.
 2. Filter by `deployer.xUsername === "0xtinylabs"` and `timestamp` within the last hour (use the array's relative ordering — the feed is newest first).
 3. List matches with symbol, name, address, tweet/website.
+
+**What is this token? 0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3**
+1. `web_request` GET `https://api.bankr.bot/token-launches/0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3`.
+2. If 200: summarize `tokenName`, `tokenSymbol`, deployer handle, tweet/website, and launch age from `timestamp`.
+3. If 404: tell the user the address isn't in Bankr's launches index; offer to swap anyway via the regular `swap` flow with extra confirmation.
+
+**Buy 0.001 ETH of 0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3**
+1. `web_request` GET `https://api.bankr.bot/token-launches/0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3` to confirm symbol/name/deployer.
+2. Show those details and ask the user to confirm — "Buy 0.001 ETH of `<SYMBOL>` (`<address>`)?".
+3. On confirmation: `swap` with `tokenFrom=ETH`, `tokenTo=<address>`, `amount="1000000000000000"`, `slippage=0.05`.
+4. Open the approval URL; poll.
 
 ---
 
