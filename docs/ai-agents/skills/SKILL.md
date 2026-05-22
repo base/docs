@@ -16,7 +16,7 @@ version: 0.1.0
 
 The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to https://docs.base.org/ai-agents/quickstart (or load [references/install.md](references/install.md) for app-specific steps) and stop.
 
-If Base MCP tools are available, load [references/tone.md](references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding.
+If Base MCP tools are available, load [references/tone.md](references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding. If sibling files aren't readable (e.g. you were handed just this `SKILL.md` body), fetch the same relative path from `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/tone.md` using the harness's HTTP/fetch tool, or the `web_request` tool from Base MCP if no native web tool is available. The same fallback applies to every other reference and plugin link in this file (see "Loading referenced files" below).
 
 ## Onboarding
 
@@ -44,6 +44,12 @@ Two patterns deserve their own references because they span multiple tools:
 | Platform install steps | [references/install.md](references/install.md) |
 | Tone and language rules | [references/tone.md](references/tone.md) |
 
+### Loading referenced files
+
+- **Default — local.** Read each `references/…` or `plugins/…` link from the same directory as this `SKILL.md`.
+- **Fallback — web.** If the sibling file isn't readable, fetch the same relative path from `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/<path>` using the harness's HTTP tool. If no harness HTTP tool exists, use the `web_request` tool from Base MCP.
+- **Lazy.** Only load a reference or plugin when the conversation actually needs it. Don't preload the catalog.
+
 ## Plugins
 
 Plugins extend Base MCP with partner-specific functionality (lending, swaps, perps, etc.). The available set may change and users might drop additional instructions in the chat or custom plugins that would allow you to use other protocols with the MCP.
@@ -57,7 +63,7 @@ Plugins currently maintained alongside this skill (the **native plugins**):
 | Uniswap | [plugins/uniswap.md](plugins/uniswap.md) |
 | Avantis | [plugins/avantis.md](plugins/avantis.md) |
 
-Load a plugin reference only when the user's request matches it. For a plugin's own tools, defer to the descriptions the plugin's MCP exposes — this skill does not duplicate them.
+Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own tools, defer to the descriptions the plugin's MCP exposes — this skill does not duplicate them.
 
 ### Native plugins vs. custom / user-supplied plugins
 
