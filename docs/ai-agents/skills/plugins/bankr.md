@@ -120,7 +120,7 @@ Use this endpoint when the user names a token by **address** (instead of picking
 8. get_request_status only after the user acts
 ```
 
-Do not auto-buy. Always require an explicit "buy X amount of <symbol>" confirmation from the user before calling `swap` — the launches feed contains low-liquidity and meme tokens, and the swap is irreversible.
+Do not auto-buy. Always require an explicit "buy X amount of `<symbol>`" confirmation from the user before calling `swap` — the launches feed contains low-liquidity and meme tokens, and the swap is irreversible.
 
 ### Discovery call
 
