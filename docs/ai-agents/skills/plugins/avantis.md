@@ -270,7 +270,7 @@ Parameters:
 | `orderType` | no | `market`, `limit`, `stop_limit`, or `market_zero_fee`; default is `market` |
 | `collateralUsdc` | yes | Human-decimal USDC, must be greater than zero |
 | `leverage` | yes | Human multiplier; pair envelope is enforced |
-| `slippagePercent` | no | Human percent, default `1`; must be greater than 0 and <= 100 |
+| `slippagePercent` | no | Human percent, default `1`; must be greater than 0 and `<= 100` |
 | `openPrice` | required for limit/stop_limit | Human-decimal price; optional market override |
 | `takeProfit` | no | Human-decimal TP price |
 | `stopLoss` | no | Human-decimal SL price |
