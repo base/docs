@@ -14,9 +14,9 @@ version: 0.1.0
 
 ## Detection
 
-The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to https://docs.base.org/ai-agents/quickstart (or load [references/install.md](references/install.md) for app-specific steps) and stop.
+The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/quickstart (or load [references/install.md](references/install.md) for app-specific steps) and stop.
 
-If Base MCP tools are available, load [references/tone.md](references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding. If sibling files aren't readable (e.g. you were handed just this `SKILL.md` body), fetch the same relative path from `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/tone.md` using the harness's HTTP/fetch tool, or the `web_request` tool from Base MCP if no native web tool is available. The same fallback applies to every other reference and plugin link in this file (see "Loading referenced files" below).
+If Base MCP tools are available, load [references/tone.md](references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding. If — and only if — sibling files aren't readable (e.g. you were handed just this `SKILL.md` body and have no local filesystem access to the skill directory), fetch the same relative path from `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/references/tone.md` using the `web_request` tool from Base MCP. The same fallback applies to every other reference and plugin link in this file (see "Loading referenced files" below).
 
 ## Onboarding
 
@@ -46,8 +46,8 @@ Two patterns deserve their own references because they span multiple tools:
 
 ### Loading referenced files
 
-- **Default — local.** Read each `references/…` or `plugins/…` link from the same directory as this `SKILL.md`.
-- **Fallback — web.** If the sibling file isn't readable, fetch the same relative path from `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/<path>` using the harness's HTTP tool. If no harness HTTP tool exists, use the `web_request` tool from Base MCP.
+- **Default — local.** Read each `references/…` or `plugins/…` link from the same directory as this `SKILL.md` (filesystem read, e.g. `Read`/`cat`). This is the canonical source — always try this first.
+- **Fallback — web (only when local read fails).** If — and only if — the local file is genuinely unreadable (e.g. you were handed `SKILL.md` as a pasted body with no skill directory on disk, or the filesystem read errors), then fetch the same relative path from `https://base-a060aa97-youssef-update-agents.mintlify.app/ai-agents/skills/<path>` (replace `<path>` with the relative link, e.g. `references/tone.md`, `plugins/morpho.md`). Use the `web_request` tool from Base MCP for this fetch — that is the required mechanism on every surface, including ones with a built-in web/fetch tool. Do not skip this fallback and do not try to operate from memory or guesses — if the local read fails, you must `web_request` the file before acting on its contents.
 - **Lazy.** Only load a reference or plugin when the conversation actually needs it. Don't preload the catalog.
 
 ## Plugins
