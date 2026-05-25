@@ -17,7 +17,7 @@ export const AgentRegistrationDemo = () => {
       prompt: "Show my last 5 transactions on Base",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_transaction_history", args: { chain: "base", limit: "5" } } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_transaction_history", args: { chain: "base", limit: "5" } } },
         { delay: 600, type: "text", text: "Here are your 5 most recent transactions:" },
         { delay: 250, type: "rows", rows: [
           { token: "Sent 10 USDC",   amount: "−$10.00",  value: "alice.base.eth · 2 min ago" },
@@ -29,11 +29,11 @@ export const AgentRegistrationDemo = () => {
       ],
     },
     {
-      prompt: "Show all my USDC sends from the last week",
+      prompt: "Show my last 10 USDC transactions",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_transaction_history", args: { asset: "USDC", type: "send", limit: "10" } } },
-        { delay: 600, type: "text", text: "3 USDC sends in the last 7 days:" },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_transaction_history", args: { chain: "base", asset: "USDC", limit: "10" } } },
+        { delay: 600, type: "text", text: "Recent USDC activity includes 3 sends:" },
         { delay: 250, type: "rows", rows: [
           { token: "alice.base.eth",    amount: "−10 USDC",  value: "2 min ago" },
           { token: "bob.eth",           amount: "−5 USDC",   value: "1 day ago" },
@@ -43,18 +43,18 @@ export const AgentRegistrationDemo = () => {
       ],
     },
     {
-      prompt: "What did I receive this month?",
+      prompt: "Show me the next page of Base transactions",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_transaction_history", args: { type: "receive", limit: "50" } } },
-        { delay: 600, type: "text", text: "You received funds across 4 transactions this month:" },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_transaction_history", args: { chain: "base", cursor: "nextCursor", limit: "4" } } },
+        { delay: 600, type: "text", text: "Here are 4 more Base transactions:" },
         { delay: 250, type: "rows", rows: [
           { token: "coinbase.com",    amount: "+150 USDC",  value: "3 hr ago" },
           { token: "0x9f3a…2e01",   amount: "+100 USDC",  value: "2 days ago" },
           { token: "merchant.base",  amount: "+27.40 USDC", value: "5 days ago" },
           { token: "friend.base",    amount: "+25 USDC",   value: "8 days ago" },
         ]},
-        { delay: 400, type: "confirm", text: "Total received: 302.40 USDC this month" },
+        { delay: 400, type: "confirm", text: "Loaded the next page of transaction history" },
       ],
     },
   ];

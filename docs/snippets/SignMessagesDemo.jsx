@@ -14,7 +14,7 @@ export const SignMessagesDemo = () => {
 
 
 
-  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // Shared Base Account "Review" modal + Approve Transaction button used
   // across the ai-agents demos. Supports asset-transfer previews (send, swap,
   // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
   // sign-permit). Positioned absolute inside the parent demo container so it
@@ -504,7 +504,7 @@ export const SignMessagesDemo = () => {
       prompt: "Sign this message: I accept the terms of service",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "sign", args: { type: "personal_sign", message: "I accept the terms of service" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "sign", args: { type: "personal_sign", data: { message: "I accept the terms of service" } } } },
         { delay: 500, type: "text", text: "Signing with your Base Account. Approve to generate signature:" },
         { delay: 250, type: "approval", preview: { type: "sign-message", message: "I accept the terms of service" } },
         { delay: 1100, type: "confirm", text: "Signed · sig 0x4f2a…c38e9b…8c91" },
@@ -514,7 +514,7 @@ export const SignMessagesDemo = () => {
       prompt: "Sign in to this app with my Base Account",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "sign", args: { type: "personal_sign", standard: "EIP-4361", domain: "app.example.com" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "sign", args: { type: "personal_sign", data: { message: "SIWE challenge for app.example.com" } } } },
         { delay: 500, type: "text", text: "Signing in to app.example.com using Sign-In with Ethereum (SIWE):" },
         { delay: 250, type: "approval", preview: { type: "sign-siwe", domain: "app.example.com" } },
         { delay: 1100, type: "confirm", text: "Signed in to app.example.com · session valid" },
@@ -524,10 +524,10 @@ export const SignMessagesDemo = () => {
       prompt: "Sign a Uniswap permit2 authorization",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "sign", args: { type: "EIP-712", standard: "permit2", token: "USDC", spender: "Uniswap" } } },
-        { delay: 500, type: "text", text: "Signing typed permit2 data for Uniswap. Review and approve:" },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "sign", args: { type: "typed_data", data: { primaryType: "PermitSingle", domain: { name: "Permit2", chainId: 8453 }, types: "{...}", message: "1000 USDC to Uniswap" } } } },
+        { delay: 500, type: "text", text: "Signing typed Permit2 data for Uniswap. Review and approve:" },
         { delay: 250, type: "approval", preview: { type: "sign-permit", token: "USDC", spender: "Uniswap", amount: "1000 USDC" } },
-        { delay: 1100, type: "confirm", text: "Permit2 signed · Uniswap can spend up to 1000 USDC" },
+        { delay: 1100, type: "confirm", text: "Permit2 signature returned for Uniswap" },
       ],
     },
   ];
@@ -581,6 +581,10 @@ export const SignMessagesDemo = () => {
     </div>
   );
 
+  const formatArgValue = (value) => (
+    value && typeof value === "object" ? JSON.stringify(value) : `"${value}"`
+  );
+
   const ToolCall = ({ tool, completed }) => (
     <div style={{ marginBottom: 10 }}>
       <div className="xpd-tool-chip" style={{ display: "inline-flex", alignItems: "flex-start", gap: 8, background: c.toolBg, border: `1px solid ${c.toolBorder}`, borderRadius: 8, padding: "6px 11px", opacity: completed ? 0.85 : 1 }}>
@@ -595,7 +599,7 @@ export const SignMessagesDemo = () => {
           <span style={{ color: c.body }}>{tool.action}</span>
           <span style={{ color: c.dim }}>(</span>
           {Object.entries(tool.args).map(([k, v], i, arr) => (
-            <span key={k}><span style={{ color: c.muted }}>{k}: </span><span style={{ color: c.code }}>"{v}"</span>{i < arr.length - 1 && <span style={{ color: c.dim }}>, </span>}</span>
+            <span key={k}><span style={{ color: c.muted }}>{k}: </span><span style={{ color: c.code }}>{formatArgValue(v)}</span>{i < arr.length - 1 && <span style={{ color: c.dim }}>, </span>}</span>
           ))}
           <span style={{ color: c.dim }}>)</span>
         </span>
@@ -718,7 +722,7 @@ export const SignMessagesDemo = () => {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
         </div>
         <div className="xpd-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
-          Demo · Every signature requires your approval at <span style={{ color: c.muted }}>keys.coinbase.com</span>
+          Demo · Every signature requires your approval in <span style={{ color: c.muted }}>Base Account</span>
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ description: "Skill reference for Base MCP's EIP-5792 batched contract calls."
 
 # Batched Contract Calls (EIP-5792)
 
-Base MCP exposes a batched-calls tool (typically `send_calls`) that submits multiple EIP-5792 `wallet_sendCalls` for a single user approval. Use it for arbitrary contract interactions, multi-step transactions, or any flow that combines an approval with a follow-up action.
+Base MCP exposes a batched-calls tool (typically `send_calls`) that submits multiple contract calls for a single user approval. Use it for arbitrary contract interactions, multi-step transactions, or any flow that combines an approval with a follow-up action.
 
 > **Batching is preferred whenever a flow involves a token approval followed by a protocol action** (approve + deposit, approve + supply, approve + swap, etc.). Also batch whenever a plugin or protocol endpoint returns multiple transactions in a single response. Don't split these into sequential single-`send` calls when one batched approval can execute them atomically.
 
@@ -19,7 +19,7 @@ Base MCP exposes a batched-calls tool (typically `send_calls`) that submits mult
 
 The MCP advertises the exact parameter names and types — defer to its tool description. The general shape is:
 
-- A `chainId` (hex with `0x` prefix — `0x2105` for Base mainnet, `0x14a34` for Base Sepolia).
+- A `chain` string (`base`, `base-sepolia`, `ethereum`, `optimism`, `polygon`, `arbitrum`, `bsc`, or `avalanche`).
 - A `calls` array of `{ to, value, data }` objects:
   - `to` — target address, `0x`-prefixed (required)
   - `value` — hex ETH in wei (e.g. `0x0`), optional
@@ -34,7 +34,7 @@ Same as any write tool: the response returns an approval URL and request ID. See
 ```
 plugin or protocol API → { transactions: [...] } (or equivalent)
    ↓ map each transaction to a { to, value, data } call
-batched-calls tool (chainId, calls) → approval URL + request ID
+batched-calls tool (chain, calls) → approval URL + request ID
    ↓ user approves
 status-poll tool (request ID) → confirmed
 ```

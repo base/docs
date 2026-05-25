@@ -1,5 +1,5 @@
 
-// Auth approval demo — mock of the keys.coinbase.com Allow modal shown
+// Auth approval demo — mock of the Base Account Allow modal shown
 // on first wallet-tool use. The client name is hardcoded because Mintlify
 // does not expose the active <Tab> selection to JSX snippets. (Cross-tab
 // sync would require wrapping this in another visible Tabs block.)
@@ -195,7 +195,7 @@ export const AuthApprovalDemo = ({ client = "Claude" }) => {
         textAlign: "center", marginTop: 12,
         fontFamily: sans, fontSize: 12, color: c.dim,
       }}>
-        Preview · Shown at <span style={{ color: c.muted }}>keys.coinbase.com</span> on first wallet-tool use
+        Preview · Shown in <span style={{ color: c.muted }}>Base Account</span> on first wallet-tool use
       </div>
     </div>
   );

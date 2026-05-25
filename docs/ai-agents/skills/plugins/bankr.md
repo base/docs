@@ -56,7 +56,7 @@ Returns the most recent token launches on Base, newest first. No auth required, 
 
 Field notes:
 
-- `tokenAddress` — the ERC-20 contract on Base. Pass this verbatim to `swap` as `tokenTo`.
+- `tokenAddress` — the ERC-20 contract on Base. Pass this verbatim to `swap` as `toAsset`.
 - `status` — always `"deployed"` in the current feed; treat anything else as a non-tradable preview and skip.
 - `chain` — always `"base"` in the current feed; skip anything else.
 - `launchType` — currently `"doppler"` (Doppler v3/v4 pools). Other values may appear later; the swap path is the same as long as the token has a tradeable pool.
@@ -115,7 +115,7 @@ Use this endpoint when the user names a token by **address** (instead of picking
 3. Show the user a compact list (symbol — name, deployer @handle, age)
 4. Wait for the user to pick one and confirm an amount
 5. get_wallets → address (only if not already cached)
-6. swap (Base MCP) with tokenFrom=ETH (or USDC), tokenTo=<tokenAddress>, amount=<base units>
+6. swap (Base MCP) with fromAsset=ETH (or USDC), toAsset=<tokenAddress>, amount=<human-readable amount>
 7. Open the approvalUrl
 8. get_request_status only after the user acts
 ```
@@ -156,16 +156,15 @@ The actual purchase is a regular Base MCP `swap` call. Read the `swap` tool's ow
 ```json
 {
   "chain": "base",
-  "tokenFrom": "0x0000000000000000000000000000000000000000",
-  "tokenTo": "<launch.tokenAddress>",
-  "amount": "<base units of tokenFrom>",
-  "slippage": 0.05
+  "fromAsset": "ETH",
+  "toAsset": "<launch.tokenAddress>",
+  "amount": "0.001"
 }
 ```
 
-- `tokenFrom`: native ETH = `0x0000000000000000000000000000000000000000`; USDC on Base = `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
-- `amount`: base units. For 0.001 ETH pass `"1000000000000000"`; for 1 USDC pass `"1000000"`.
-- `slippage`: see [Slippage Warnings](#slippage-warnings). New launches frequently need elevated slippage — warn before submitting.
+- `fromAsset`: use a supported symbol like `ETH` or `USDC`, or a contract address when needed.
+- `toAsset`: use the launch token contract address.
+- `amount`: human-readable decimal amount of `fromAsset`. For 0.001 ETH pass `"0.001"`; for 5 USDC pass `"5"`.
 
 The `swap` tool returns an `approvalUrl` and `requestId` like any other write call. Surface the URL to the user neutrally ("Approve Swap"), then poll `get_request_status` once they've acted. The full approval/polling pattern is in [`../references/approval-mode.md`](../references/approval-mode.md).
 
@@ -183,13 +182,13 @@ The `swap` tool returns an `approvalUrl` and `requestId` like any other write ca
 1. `web_request` GET `https://api.bankr.bot/token-launches`.
 2. Take `launches[0]` (or the first one matching `status="deployed"`).
 3. Show: symbol, name, address, deployer. Ask the user to confirm — "Buy 0.001 ETH of `<SYMBOL>` (`<address>`)?".
-4. On confirmation: `swap` with `tokenFrom=ETH`, `tokenTo=<launch.tokenAddress>`, `amount="1000000000000000"`, `slippage=0.05`.
+4. On confirmation: `swap` with `fromAsset=ETH`, `toAsset=<launch.tokenAddress>`, `amount="0.001"`, `chain="base"`.
 5. Open the approval URL; poll `get_request_status` once the user has approved.
 
 **Buy 5 USDC of $WHOP**
 1. `web_request` GET `https://api.bankr.bot/token-launches`.
 2. Find the entry with `tokenSymbol="WHOP"`; if multiple, prefer the most recent and confirm the contract address with the user.
-3. `swap` with `tokenFrom=USDC`, `tokenTo=<launch.tokenAddress>`, `amount="5000000"`, `slippage=0.05`.
+3. `swap` with `fromAsset=USDC`, `toAsset=<launch.tokenAddress>`, `amount="5"`, `chain="base"`.
 4. Open the approval URL; poll.
 
 **Are there any launches from @0xtinylabs in the last hour?**
@@ -205,23 +204,14 @@ The `swap` tool returns an `approvalUrl` and `requestId` like any other write ca
 **Buy 0.001 ETH of 0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3**
 1. `web_request` GET `https://api.bankr.bot/token-launches/0x32F66Ec2Ffb26d262058965cf294F951e47F8ba3` to confirm symbol/name/deployer.
 2. Show those details and ask the user to confirm — "Buy 0.001 ETH of `<SYMBOL>` (`<address>`)?".
-3. On confirmation: `swap` with `tokenFrom=ETH`, `tokenTo=<address>`, `amount="1000000000000000"`, `slippage=0.05`.
+3. On confirmation: `swap` with `fromAsset=ETH`, `toAsset=<address>`, `amount="0.001"`, `chain="base"`.
 4. Open the approval URL; poll.
 
 ---
 
-## Slippage Warnings
+## Execution Warnings
 
-New launches commonly have thin liquidity and volatile prices. Use the same thresholds as other DEX plugins, but be more vocal about elevated values for Bankr launches specifically:
-
-| Tolerance | Level | Action |
-| --- | --- | --- |
-| ≤ 1% | Normal | Often **not enough** for fresh launches — the swap may revert. |
-| > 1% and ≤ 5% | Elevated | Reasonable default for newly launched tokens. Mention the value. |
-| > 5% and ≤ 20% | High | Warn that the trade may fill significantly below quote and is a likely sandwich target. Require explicit confirmation. |
-| > 20% | Very high | Strongly warn; do not submit without the user re-confirming the exact number. |
-
-If the user did not specify a slippage, default to `0.05` (5%) for Bankr launches and call that out before submitting.
+New launches commonly have thin liquidity and volatile prices. Base MCP's core `swap` tool does not expose a slippage parameter, so do not invent one. Warn the user that fresh-launch swaps may revert or fill at a materially worse price, then require explicit confirmation of the token address and amount before calling `swap`.
 
 ---
 
@@ -240,6 +230,6 @@ If the user did not specify a slippage, default to `0.05` (5%) for Bankr launche
 - Native ETH address: `0x0000000000000000000000000000000000000000`
 - USDC on Base: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
 - WETH on Base: `0x4200000000000000000000000000000000000006`
-- Token amounts are base units: USDC = 1e6 per token, ETH/WETH = 1e18 per token. Base units for arbitrary launched tokens depend on the token's `decimals()` — most Doppler launches use 18, but if a swap returns a quote that's wildly off, fetch the token's decimals from the Base MCP portfolio or via an `eth_call` before retrying.
+- Swap amounts are human-readable decimals for `fromAsset`. If you ever use a contract address as `fromAsset`, include that token's `fromDecimals`.
 - Always use `chain: "base"` (string) with `swap`, not the numeric chainId.
 - The feed updates frequently (new launches every few minutes during peak hours). If the user asks "what's brand new", fetch again rather than reusing an earlier response.

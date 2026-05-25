@@ -25,7 +25,7 @@ export const WalletSetupDemo = () => {
 
 
 
-  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // Shared Base Account "Review" modal + Approve Transaction button used
   // across the ai-agents demos. Supports asset-transfer previews (send, swap,
   // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
   // sign-permit). Positioned absolute inside the parent demo container so it
@@ -515,26 +515,20 @@ export const WalletSetupDemo = () => {
       prompt: "Send 5 USDC to jesse.base.eth",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "jesse.base.eth", asset: "USDC", amount: "5" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "send", args: { recipient: "jesse.base.eth", asset: "USDC", amount: "5", chain: "base" } } },
         { delay: 550, type: "text", text: "Resolved jesse.base.eth → 0xd8dA…6045. Approve to send:" },
         { delay: 250, type: "approval", preview: { type: "send", asset: "USDC", amount: "5", usdValue: "$5.00", to: "jesse.base.eth" } },
         { delay: 1100, type: "confirm", text: "Sent 5 USDC to jesse.base.eth" },
       ],
     },
     {
-      prompt: "Swap 0.05 ETH to USDC on Base — best rate",
+      prompt: "Swap 0.05 ETH to USDC on Base",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "aerodrome", action: "get_quote", args: { from: "0.05 ETH", to: "USDC" } } },
-        { delay: 700, type: "tool", tool: { server: "uniswap-v3", action: "get_quote", args: { from: "0.05 ETH", to: "USDC" } } },
-        { delay: 600, type: "text", text: "Routed across two Base DEXes — Uniswap v3 has the better fill:" },
-        { delay: 250, type: "rows", rows: [
-          { token: "Aerodrome",         amount: "178.92 USDC", value: "0.30% fee · slippage 0.18%" },
-          { token: "Uniswap v3 (best)", amount: "179.41 USDC", value: "0.05% fee · slippage 0.12%" },
-        ]},
-        { delay: 700, type: "tool", tool: { server: "uniswap-v3", action: "prepare_swap", args: { route: "ETH→USDC", min_out: "179.20 USDC" } } },
-        { delay: 450, type: "approval", preview: { type: "swap", fromAsset: "ETH", fromAmount: "0.05", fromUsd: "~$127.00", toAsset: "USDC", toAmount: "179.41", toUsd: "~$179.41" } },
-        { delay: 1100, type: "confirm", text: "Swapped 0.05 ETH → 179.41 USDC on Uniswap v3" },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "swap", args: { fromAsset: "ETH", toAsset: "USDC", amount: "0.05", chain: "base" } } },
+        { delay: 600, type: "text", text: "Swap request ready: estimated 179.41 USDC. Approve to swap:" },
+        { delay: 450, type: "approval", preview: { type: "swap", fromAsset: "ETH", fromAmount: "0.05", fromUsd: "~$179.50", toAsset: "USDC", toAmount: "179.41", toUsd: "~$179.41" } },
+        { delay: 1100, type: "confirm", text: "Swapped 0.05 ETH → 179.41 USDC" },
       ],
     },
     {
@@ -550,6 +544,7 @@ export const WalletSetupDemo = () => {
           { token: "Moonwell · USDC market",   amount: "5.13% APY", value: "$41.2M supplied" },
         ]},
         { delay: 700, type: "tool", tool: { server: "morpho", action: "prepare_deposit", args: { vault: "Steakhouse USDC", amount: "100 USDC" } } },
+        { delay: 500, type: "tool", tool: { server: "base-mcp", action: "send_calls", args: { chain: "base", calls: "[approve, deposit]" } } },
         { delay: 450, type: "approval", preview: { type: "deposit", asset: "USDC", amount: "100", usdValue: "~$100.00", vault: "Steakhouse USDC", apy: "8.42%" } },
         { delay: 1100, type: "confirm", text: "Deposited 100 USDC into Steakhouse USDC · earning 8.42% APY" },
       ],
@@ -558,18 +553,17 @@ export const WalletSetupDemo = () => {
       prompt: "What chains are supported by Base MCP?",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 500, type: "text", text: "Base MCP supports 8 mainnets and 2 testnets:" },
+        { delay: 500, type: "tool", tool: { server: "base-mcp", action: "get_wallets", args: {} } },
+        { delay: 500, type: "text", text: "Base MCP currently supports 7 mainnets and 1 testnet:" },
         { delay: 200, type: "rows", rows: [
           { token: "Base",         amount: "Mainnet", value: "" },
           { token: "Arbitrum",     amount: "Mainnet", value: "" },
           { token: "Optimism",     amount: "Mainnet", value: "" },
-          { token: "Zora",         amount: "Mainnet", value: "" },
           { token: "Polygon",      amount: "Mainnet", value: "" },
           { token: "BNB Chain",    amount: "Mainnet", value: "" },
           { token: "Avalanche",    amount: "Mainnet", value: "" },
           { token: "Ethereum",     amount: "Mainnet", value: "" },
           { token: "Base Sepolia", amount: "Testnet", value: "" },
-          { token: "Sepolia",      amount: "Testnet", value: "" },
         ]},
       ],
     },
@@ -882,7 +876,7 @@ export const WalletSetupDemo = () => {
             Write a message...
           </span>
           <span className="wsd-model-label" style={{ fontFamily: sans, fontSize: 13, color: c.muted, marginRight: 12, flexShrink: 0 }}>
-            Sonnet 4.6 <span style={{ color: c.dim }}>▾</span>
+            Base MCP <span style={{ color: c.dim }}>▾</span>
           </span>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
@@ -893,7 +887,7 @@ export const WalletSetupDemo = () => {
         <div className="wsd-footnote" style={{
           textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim,
         }}>
-          Demo · Your assistant approves every transaction at <span style={{ color: c.muted }}>keys.coinbase.com</span>
+          Demo · Every write action requires your approval in <span style={{ color: c.muted }}>Base Account</span>
         </div>
       </div>
     </div>

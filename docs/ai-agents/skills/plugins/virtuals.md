@@ -67,11 +67,11 @@ Reuse `token` as the `token` parameter on every subsequent Virtuals tool call.
 
 ## Troubleshooting
 
-The Base MCP wallet is a Coinbase Smart Wallet (contract account, not a plain EOA). The SIWE signing path has a few sharp edges — these are the failure modes we've observed.
+The Base MCP wallet is a Base Account smart wallet (contract account, not a plain EOA). The SIWE signing path has a few sharp edges — these are the failure modes we've observed.
 
 ### 1. `Invalid SIWE signature` (401) on `login_complete`
 
-**Start with wallet identity, not signature format.** The most frequent root cause is that the user is approving the sign-in with a different wallet than the one named in the SIWE `message` — not signature wrapping. Virtuals fully supports Coinbase Smart Wallets (contract accounts), so smart-wallet support is **not** the issue.
+**Start with wallet identity, not signature format.** The most frequent root cause is that the user is approving the sign-in with a different wallet than the one named in the SIWE `message` — not signature wrapping. Virtuals fully supports Base Account smart wallets (contract accounts), so smart-wallet support is **not** the issue.
 
 Typical address-mismatch scenarios:
 
@@ -89,7 +89,7 @@ Only after ruling out wallet mismatch, consider the signature-format cause below
 
 #### Less common: ERC-6492 wrapped signature
 
-In some Coinbase Smart Wallet flows, Base MCP `sign` returns an **ERC-6492 wrapped** signature (used for counterfactual or contract-deployment-attached signing), and the Virtuals verifier expects a plain **ERC-1271** signature.
+In some Base Account smart wallet flows, Base MCP `sign` returns an **ERC-6492 wrapped** signature (used for counterfactual or contract-deployment-attached signing), and the Virtuals verifier expects a plain **ERC-1271** signature.
 
 Recognize ERC-6492 wrapped signatures by:
 - Length: thousands of hex characters (the inner ERC-1271 signature is much shorter).
@@ -97,7 +97,7 @@ Recognize ERC-6492 wrapped signatures by:
 
 **Recovery:** restart the auth flow from `login_start`. Subsequent approvals from the same wallet can produce a plain ERC-1271 signature that Virtuals accepts; the wrapping behavior isn't deterministic from one approval to the next. If it keeps returning ERC-6492 wrapped signatures, ask the user to confirm via the same approval URL again — repeated retries typically resolve to a plain ERC-1271 signature within a few attempts.
 
-Do **not** try to unwrap the ERC-6492 envelope manually and submit just the inner bytes — Virtuals rejects that too, because the inner Coinbase Smart Wallet signature format isn't a vanilla ERC-1271 `(r, s, v)` either.
+Do **not** try to unwrap the ERC-6492 envelope manually and submit just the inner bytes — Virtuals rejects that too, because the inner Base Account smart wallet signature format isn't a vanilla ERC-1271 `(r, s, v)` either.
 
 ### 2. Address case mismatch
 
@@ -117,7 +117,7 @@ The SIWE `message` field in `sign` (as `data.message`) and the `message` field i
 
 ### 5. Wallet not deployed on Base
 
-ERC-1271 verification calls the wallet contract on Base. If the Coinbase Smart Wallet has never been activated on Base mainnet, the contract isn't deployed and verification will fail even with a structurally correct signature. Confirm deployment by checking `eth_getCode` for the address on Base mainnet — non-empty bytecode means it's deployed. Most Base MCP users will already have a deployed wallet; if not, ask the user to perform a no-op transaction first (any Base transaction will deploy the wallet).
+ERC-1271 verification calls the wallet contract on Base. If the Base Account smart wallet has never been activated on Base mainnet, the contract isn't deployed and verification will fail even with a structurally correct signature. Confirm deployment by checking `eth_getCode` for the address on Base mainnet — non-empty bytecode means it's deployed. Most Base MCP users will already have a deployed wallet; if not, ask the user to perform a no-op transaction first (any Base transaction will deploy the wallet).
 
 ### 6. Token expired mid-session
 
@@ -156,4 +156,4 @@ Create a Virtuals agent with email and a payment card
 - **Session scope.** Only one wallet can be authenticated per token. To switch wallets, run the full SIWE flow again with the new address.
 - **No onchain operations through Base MCP after auth.** The Base MCP wallet is only used for the SIWE signature. Virtuals' tools (card issuance, email, agent ops) operate against Virtuals' own backend.
 - **Sensitive outputs.** Agent card details and email contents can include private information. Don't echo card numbers, 3DS codes, OTPs, or email bodies to chat unless the user has clearly asked for them.
-- **Wallet vs base account.** Use `baseAccount.address` from `get_wallets` for SIWE — not the agent wallets (`agentWallets[]`), which are session-scoped delegations for transactional flows.
+- **Wallet vs Base Account.** Use `baseAccount.address` from `get_wallets` for SIWE — not the agent wallets (`agentWallets[]`), which are session-scoped delegations for transactional flows.

@@ -6,7 +6,7 @@ keywords: ["Base MCP", "AI agent wallet", "mcp.base.org", "AI assistant wallet",
 
 import { WalletSetupDemo } from "/snippets/WalletSetupDemo.jsx"
 
-Base MCP gives your AI assistant direct access to your [Base Account](https://base.org/account) — a smart wallet. Connect once and your assistant can check balances, send funds, swap tokens, sign messages, execute contract calls, and pay x402-enabled APIs across multiple networks. Every transaction requires your approval.
+Base MCP gives your AI assistant direct access to your [Base Account](https://base.org/account) — a smart wallet. Connect once and your assistant can check balances, send funds, swap tokens, sign messages, execute contract calls, and pay x402-enabled APIs across multiple networks. Every write action requires your approval.
 
 ## Demo
 
@@ -19,16 +19,15 @@ sequenceDiagram
     participant User
     participant AI as AI Assistant
     participant MCP as Base MCP
-    participant BA as Base Account
-    participant Approve as keys.coinbase.com
+    participant Account as Base Account
 
     User->>AI: "Send 10 USDC to alice.base.eth"
     AI->>MCP: send(recipient, amount, asset, chain)
-    MCP->>BA: Construct transaction
-    BA-->>MCP: approvalUrl + requestId
+    MCP->>Account: Request user approval
+    Account-->>MCP: approvalUrl + requestId
     MCP-->>AI: { approvalUrl, requestId }
     AI-->>User: "Please approve: [link]"
-    User->>Approve: Opens link, approves
+    User->>Account: Opens link, reviews, approves
     AI->>MCP: get_request_status(requestId)
     MCP-->>AI: confirmed
     AI-->>User: "Done — 10 USDC sent"
@@ -38,10 +37,10 @@ sequenceDiagram
 
 <CardGroup cols={2}>
   <Card title="Send & receive" icon="paper-plane">
-    Send ETH or any ERC-20 token to addresses, ENS names, basenames, and cb.id names.
+    Send native tokens or ERC-20 tokens to addresses, ENS names, basenames, and cb.id names.
   </Card>
   <Card title="Swap tokens" icon="arrows-rotate">
-    Swap between any tokens via the Coinbase swap service directly from your assistant.
+    Swap supported tokens on supported mainnet chains directly from your assistant.
   </Card>
   <Card title="Sign messages and typed data" icon="pen-nib">
     Sign EIP-712 typed data and plain messages for authentication and protocol interactions.
@@ -66,7 +65,7 @@ sequenceDiagram
   <Card title="Plugins" icon="puzzle-piece" href="/ai-agents/plugins">
     How the Base MCP skill works and how plugins like Morpho, Moonwell, Uniswap, and Avantis extend it.
   </Card>
-  <Card title="Custom plugins" icon="puzzle-piece" href="/ai-agents/plugins/custom-plugin">
+  <Card title="Custom plugins" icon="puzzle-piece" href="/ai-agents/plugins/custom-plugins">
     Build your own plugin that produces unsigned calldata and executes through Base MCP's send_calls.
   </Card>
 </CardGroup>

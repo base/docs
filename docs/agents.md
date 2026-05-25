@@ -38,7 +38,7 @@ npx skills add base/base-skills
 
 [Docs]|root:./docs
 |ai-agents:index,quickstart
-|ai-agents/guides:agent-builder-codes,batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
+|ai-agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
 |ai-agents/plugins:custom-plugins,index
 |ai-agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
 |ai-agents/skills:SKILL

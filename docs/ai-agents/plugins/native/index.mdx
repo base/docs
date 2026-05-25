@@ -6,7 +6,7 @@ keywords: ["Base MCP plugins", "Morpho plugin", "Moonwell plugin", "Uniswap plug
 
 Seven plugins ship in the Base MCP skill — Morpho, Moonwell, Uniswap, Avantis, Aerodrome, Virtuals, and Bankr. They're authored by the Base team and live alongside `SKILL.md` in [`github.com/base/skills`](https://github.com/base/skills/tree/main/skills/base-mcp/plugins). The assistant loads each spec on demand when a relevant request comes in.
 
-All follow the same prepare → `send_calls` (or `swap`) contract described in the [Overview](/ai-agents/plugins). The plugin spec is the single source of truth; the cards below are pointers, not duplicates.
+Most transaction plugins follow the prepare → `send_calls` pattern described in the [Overview](/ai-agents/plugins). Bankr uses Base MCP's `swap` tool for the purchase, and Virtuals uses Base MCP's `sign` tool only for SIWE login before continuing with a Virtuals session token. The plugin spec is the single source of truth; the cards below are pointers, not duplicates.
 
 ## The plugins
 
@@ -60,18 +60,18 @@ All follow the same prepare → `send_calls` (or `swap`) contract described in t
     ```
   </Step>
   <Step title="Approve">
-    The plugin returns unsigned calldata; Base MCP's `send_calls` wraps it into a single approval. Open the `approvalUrl` at `keys.coinbase.com`, approve, and prompt the assistant again and it will poll `get_request_status` until confirmed.
+    For onchain actions, the plugin prepares a Base MCP `send_calls`, `swap`, or `sign` request. Open the approval link, review the action in Base Account, approve, and prompt the assistant again so it can poll `get_request_status` until confirmed.
   </Step>
 </Steps>
 
 <Note>
-Plugins that use `web_request` only reach protocols whose hostnames are on the Base MCP allowlist. The four native plugins above are already covered. To call a protocol that isn't, see [Build a custom plugin](/ai-agents/plugins/custom-plugin).
+Plugins that use `web_request` only reach protocols whose hostnames are on the Base MCP allowlist. Native plugin hostnames are covered for the hosted MCP. To call a protocol that isn't allowlisted, see [Build a custom plugin](/ai-agents/plugins/custom-plugins).
 </Note>
 
 ## Build your own
 
 <CardGroup cols={1}>
-  <Card title="Build a custom plugin" icon="code" href="/ai-agents/plugins/custom-plugin">
-    Same prepare → `send_calls` pattern, written as a markdown spec for any protocol with an HTTP tx-builder or MCP server.
+  <Card title="Build a custom plugin" icon="code" href="/ai-agents/plugins/custom-plugins">
+    Write a markdown spec for a protocol with an HTTP tx-builder, sibling MCP server, or other Base MCP-compatible flow.
   </Card>
 </CardGroup>

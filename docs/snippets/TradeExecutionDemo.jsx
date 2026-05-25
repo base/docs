@@ -14,7 +14,7 @@ export const TradeExecutionDemo = () => {
 
 
 
-  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // Shared Base Account "Review" modal + Approve Transaction button used
   // across the ai-agents demos. Supports asset-transfer previews (send, swap,
   // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
   // sign-permit). Positioned absolute inside the parent demo container so it
@@ -504,7 +504,7 @@ export const TradeExecutionDemo = () => {
       prompt: "Send 10 USDC to alice.base.eth",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "alice.base.eth", asset: "USDC", amount: "10", chain: "base" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "send", args: { recipient: "alice.base.eth", asset: "USDC", amount: "10", chain: "base" } } },
         { delay: 500, type: "text", text: "Resolved alice.base.eth → 0x71C7…976F. Approve to send:" },
         { delay: 250, type: "approval", preview: { type: "send", asset: "USDC", amount: "10", usdValue: "~$10.00", to: "alice.base.eth" } },
         { delay: 1100, type: "confirm", text: "Sent 10 USDC to alice.base.eth" },
@@ -514,9 +514,9 @@ export const TradeExecutionDemo = () => {
       prompt: "Send 50 DEGEN to bob.base.eth",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "search_tokens", args: { query: "DEGEN", chain: "base" } } },
-        { delay: 500, type: "text", text: "Found DEGEN at 0x4ed4…9fa2. Sending to bob.base.eth..." },
-        { delay: 400, type: "tool", tool: { server: "base-account", action: "send", args: { to: "bob.base.eth", asset: "0x4ed4…9fa2", amount: "50", chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "search_tokens", args: { query: "DEGEN", chain: "base" } } },
+        { delay: 500, type: "text", text: "Found DEGEN at 0x4ed4…9fa2 with 18 decimals. Sending to bob.base.eth..." },
+        { delay: 400, type: "tool", tool: { server: "base-mcp", action: "send", args: { recipient: "bob.base.eth", asset: "0x4ed4…9fa2", decimals: "18", amount: "50", chain: "base" } } },
         { delay: 250, type: "approval", preview: { type: "send", asset: "DEGEN", amount: "50", usdValue: "~$0.45", to: "bob.base.eth" } },
         { delay: 1100, type: "confirm", text: "Sent 50 DEGEN to bob.base.eth" },
       ],
@@ -525,7 +525,7 @@ export const TradeExecutionDemo = () => {
       prompt: "Send 0.01 ETH to jesse.base.eth",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "jesse.base.eth", asset: "ETH", amount: "0.01", chain: "base" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "send", args: { recipient: "jesse.base.eth", asset: "ETH", amount: "0.01", chain: "base" } } },
         { delay: 500, type: "text", text: "Resolved jesse.base.eth → 0xd8dA…6045. Approve to send:" },
         { delay: 250, type: "approval", preview: { type: "send", asset: "ETH", amount: "0.01", usdValue: "~$25.40", to: "jesse.base.eth" } },
         { delay: 1100, type: "confirm", text: "Sent 0.01 ETH to jesse.base.eth" },
@@ -719,7 +719,7 @@ export const TradeExecutionDemo = () => {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
         </div>
         <div className="ted-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
-          Demo · Every send requires your approval at <span style={{ color: c.muted }}>keys.coinbase.com</span>
+          Demo · Every send requires your approval in <span style={{ color: c.muted }}>Base Account</span>
         </div>
       </div>
     </div>

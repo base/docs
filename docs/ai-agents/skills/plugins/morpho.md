@@ -31,12 +31,12 @@ After install, ask the user to reconnect or restart the session so the new tools
 
 ## Orchestration Pattern
 
-Morpho's prepare-style tools (deposit, withdraw, supply, borrow, repay, supply/withdraw collateral) return an unsigned `calls` array plus a `chainId`. Pass them straight to Base MCP's batched-calls tool.
+Morpho's prepare-style tools (deposit, withdraw, supply, borrow, repay, supply/withdraw collateral) return an unsigned `calls` array plus a `chainId`. Map the `chainId` to Base MCP's `chain` string and pass the calls to Base MCP's batched-calls tool.
 
 ```
 morpho prepare tool → { calls: [...], chainId }
    ↓
-batched-calls tool (chainId, calls) → approval URL + request ID
+batched-calls tool (chain, calls) → approval URL + request ID
    ↓ user approves
 status-poll tool (request ID) → confirmed
 ```
@@ -50,7 +50,7 @@ Find the best USDC vault on Base by APY and deposit 100 USDC
 ```
 1. Query Morpho vaults filtered by USDC, sorted by APY.
 2. Call the Morpho prepare-deposit tool for the chosen vault and amount.
-3. Pass the returned `calls` + `chainId` to Base MCP's batched-calls tool.
+3. Pass the returned `calls` and mapped `chain` to Base MCP's batched-calls tool.
 4. Hand the user the approval link; once they confirm, poll the request status.
 
 ```

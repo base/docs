@@ -14,7 +14,7 @@ export const AcceptingPaymentsDemo = () => {
 
 
 
-  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // Shared Base Account "Review" modal + Approve Transaction button used
   // across the ai-agents demos. Supports asset-transfer previews (send, swap,
   // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
   // sign-permit). Positioned absolute inside the parent demo container so it
@@ -512,7 +512,7 @@ export const AcceptingPaymentsDemo = () => {
           { token: "Morpho · Flagship USDC",   amount: "7.34% APY", value: "$42.1M TVL" },
         ]},
         { delay: 500, type: "tool", tool: { server: "morpho", action: "prepare_deposit", args: { vault: "Steakhouse USDC", amount: "100 USDC" } } },
-        { delay: 350, type: "tool", tool: { server: "base-account", action: "send_calls", args: { chainId: "0x2105", calls: "[approve, deposit]" } } },
+        { delay: 350, type: "tool", tool: { server: "base-mcp", action: "send_calls", args: { chain: "base", calls: "[approve, deposit]" } } },
         { delay: 450, type: "approval", preview: { type: "deposit", asset: "USDC", amount: "100", usdValue: "~$100.00", vault: "Steakhouse USDC", apy: "8.42%" } },
         { delay: 1100, type: "confirm", text: "Deposited 100 USDC into Steakhouse USDC · earning 8.42% APY" },
       ],
@@ -524,7 +524,7 @@ export const AcceptingPaymentsDemo = () => {
         { delay: 550, type: "tool", tool: { server: "morpho", action: "get_market", args: { collateral: "ETH", loan: "USDC", chain: "base" } } },
         { delay: 500, type: "text", text: "Found Morpho ETH/USDC market on Base. Batching supply + borrow..." },
         { delay: 500, type: "tool", tool: { server: "morpho", action: "prepare_supply_collateral", args: { asset: "ETH", amount: "0.5", borrow: "1000 USDC" } } },
-        { delay: 350, type: "tool", tool: { server: "base-account", action: "send_calls", args: { chainId: "0x2105", calls: "[supplyCollateral, borrow]" } } },
+        { delay: 350, type: "tool", tool: { server: "base-mcp", action: "send_calls", args: { chain: "base", calls: "[supplyCollateral, borrow]" } } },
         { delay: 450, type: "approval", preview: { type: "borrow", collateralAsset: "ETH", collateralAmount: "0.5", loanAsset: "USDC", loanAmount: "1000", healthFactor: "2.1" } },
         { delay: 1100, type: "confirm", text: "Supplied 0.5 ETH · borrowed 1000 USDC · health factor 2.1" },
       ],
@@ -536,7 +536,7 @@ export const AcceptingPaymentsDemo = () => {
         { delay: 550, type: "tool", tool: { server: "morpho", action: "get_position", args: { market: "ETH/USDC", chain: "base" } } },
         { delay: 500, type: "text", text: "You owe 1002.14 USDC including accrued interest. Preparing full repayment..." },
         { delay: 500, type: "tool", tool: { server: "morpho", action: "prepare_repay", args: { amount: "1002.14 USDC", market: "ETH/USDC" } } },
-        { delay: 350, type: "tool", tool: { server: "base-account", action: "send_calls", args: { chainId: "0x2105", calls: "[approve, repayAll]" } } },
+        { delay: 350, type: "tool", tool: { server: "base-mcp", action: "send_calls", args: { chain: "base", calls: "[approve, repayAll]" } } },
         { delay: 450, type: "approval", preview: { type: "repay", asset: "USDC", amount: "1002.14", usdValue: "~$1,002.14", market: "Morpho ETH/USDC" } },
         { delay: 1100, type: "confirm", text: "Repaid 1002.14 USDC · Morpho position closed" },
       ],
@@ -747,7 +747,7 @@ export const AcceptingPaymentsDemo = () => {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
         </div>
         <div className="apd-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
-          Demo · Morpho prepares calls, Base Account signs them
+          Demo · Morpho prepares calls, then you approve them in <span style={{ color: c.muted }}>Base Account</span>
         </div>
       </div>
     </div>

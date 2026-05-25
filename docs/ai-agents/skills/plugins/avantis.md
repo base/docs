@@ -8,11 +8,11 @@ description: "Skill plugin reference for trading perpetual futures on Avantis th
 > [!IMPORTANT]
 > Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any Avantis endpoint. The user's wallet address — used as `trader` in every tx-builder call — is fetched lazily when needed.
 
-Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). Use `web_request` to fetch unsigned calldata from the Avantis tx-builder, then preview or execute it with account MCP `send_calls`.
+Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). Use `web_request` to fetch unsigned calldata from the Avantis tx-builder, then preview or execute it with Base MCP `send_calls`.
 
 Do not sign, approve, or submit transactions unless the user explicitly asks. Generating calldata and `send_calls` approval links is safe, but the user must approve any real transaction.
 
-Prerequisite: `tx-builder.avantisfi.com`, `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` must be in the account MCP `web_request` allowlist.
+Prerequisite: `tx-builder.avantisfi.com`, `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` must be in the Base MCP `web_request` allowlist.
 
 No API key or Authorization header is required for the documented public endpoints.
 
@@ -72,7 +72,7 @@ All calldata-producing tx-builder endpoints return an envelope:
 }
 ```
 
-Only `response.data.to`, `response.data.value`, and `response.data.data` are passed to account MCP `send_calls`.
+Only `response.data.to`, `response.data.value`, and `response.data.data` are passed to Base MCP `send_calls`.
 
 ```json
 {
@@ -544,4 +544,3 @@ Present the user with concrete options: increase collateral to `minCollateral`, 
 | `GET /token/approve` | Yes | Approve USDC |
 | `GET /docs` | No | Swagger UI |
 | `GET /openapi.json` | No | OpenAPI spec |
-

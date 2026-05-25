@@ -14,7 +14,7 @@ export const AgentPaymentDemo = () => {
 
 
 
-  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // Shared Base Account "Review" modal + Approve Transaction button used
   // across the ai-agents demos. Supports asset-transfer previews (send, swap,
   // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
   // sign-permit). Positioned absolute inside the parent demo container so it
@@ -504,7 +504,7 @@ export const AgentPaymentDemo = () => {
       prompt: "Show me my wallets",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_wallets", args: {} } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_wallets", args: {} } },
         { delay: 600, type: "text", text: "You have 2 wallets connected to Base MCP:" },
         { delay: 250, type: "rows", rows: [
           { token: "Base Account",  amount: "0x4a3f…b7c1", value: "in session · approval mode" },
@@ -517,7 +517,7 @@ export const AgentPaymentDemo = () => {
       prompt: "What's my USDC balance on Base?",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_portfolio", args: { chain: "base" } } },
         { delay: 600, type: "text", text: "Your current portfolio on Base:" },
         { delay: 250, type: "rows", rows: [
           { token: "USDC",  amount: "245.80",  value: "$245.80" },
@@ -531,7 +531,7 @@ export const AgentPaymentDemo = () => {
       prompt: "Send 5 USDC to alice.base.eth",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "send", args: { to: "alice.base.eth", asset: "USDC", amount: "5", chain: "base" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "send", args: { recipient: "alice.base.eth", asset: "USDC", amount: "5", chain: "base" } } },
         { delay: 500, type: "text", text: "Resolved alice.base.eth → 0x71C7…976F. Approve to send:" },
         { delay: 250, type: "approval", preview: { type: "send", asset: "USDC", amount: "5", usdValue: "~$5.00", to: "alice.base.eth" } },
         { delay: 1100, type: "confirm", text: "Sent 5 USDC to alice.base.eth" },
@@ -743,7 +743,7 @@ export const AgentPaymentDemo = () => {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
         </div>
         <div className="agd-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
-          Demo · Your assistant approves every transaction at <span style={{ color: c.muted }}>keys.coinbase.com</span>
+          Demo · Every write action requires your approval in <span style={{ color: c.muted }}>Base Account</span>
         </div>
       </div>
     </div>

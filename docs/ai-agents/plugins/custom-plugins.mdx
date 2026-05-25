@@ -4,7 +4,7 @@ description: "Build your own plugin that produces unsigned calldata and executes
 keywords: ["custom Base MCP plugin", "AI agent plugin Base", "send_calls custom protocol", "Base MCP web_request plugin", "build MCP plugin"]
 ---
 
-A plugin is a markdown spec that teaches your assistant how to call an external API (or another MCP server), translate the response into a `calls` array, and execute it through Base MCP's `send_calls`. The [native plugins](/ai-agents/plugins/native-plugins) — Morpho, Moonwell, Uniswap, and Avantis — all follow the same shape. This page shows how to write your own.
+A plugin is a markdown spec that teaches your assistant how to call an external API (or another MCP server), translate the response into a Base MCP action, and execute it through tools like `send_calls`, `swap`, or `sign`. The calldata-based [native plugins](/ai-agents/plugins/native) follow the same shape. This page shows how to write your own `send_calls`-based plugin.
 
 ## When you need one
 
@@ -12,7 +12,7 @@ Write a plugin when your protocol either has an HTTP "tx-builder" that returns u
 
 ## Anatomy of a plugin
 
-Every plugin file contains four sections:
+A `send_calls`-based plugin file contains four sections:
 
 <Steps>
   <Step title="Onboarding gate">
@@ -33,8 +33,7 @@ Every plugin file contains four sections:
 </Steps>
 
 <Note>
-Native plugins have access to the `web_request` tool from Base MCP, which allows them to make GET and POST requests to any hostname.
-Custom plugins do not have access to the `web_request` tool, so they must use GET endpoints to be compatible with Claude and ChatGPT consumer apps.
+Base MCP's `web_request` tool can make GET and POST requests only to whitelisted partner APIs. Native plugin hosts are allowlisted for the hosted MCP. Custom plugin hosts usually are not, so custom plugins should expose GET endpoints to remain usable in Claude and ChatGPT consumer apps.
 </Note>
 
 ## How it works
@@ -51,7 +50,7 @@ sequenceDiagram
     API-->>AI: state
     AI->>API: GET /prepare/<action>?from=<address>&...
     API-->>AI: { to, value, data, chainId }
-    AI->>BA: send_calls(chainId, calls=[...])
+    AI->>BA: send_calls(chain, calls=[...])
     BA-->>AI: { approvalUrl, requestId }
     AI-->>User: "Please approve: [link]"
     User-->>AI: approved
@@ -145,7 +144,7 @@ Pass every `transactions[*]` to `send_calls`:
 
 ```json
 {
-  "chainId": "0x2105",
+  "chain": "base",
   "calls": [
     { "to": "<tx.to>", "value": "<tx.value>", "data": "<tx.data>" }
   ]
@@ -159,7 +158,7 @@ Pass every `transactions[*]` to `send_calls`:
 2. Fetch GET /state/<address> -> validate balances/preconditions
 3. Fetch GET /prepare/<action>?from=<address>&amount=<decimal>
    (if web_request rejects the host, fetch directly or ask the user to paste the JSON)
-4. send_calls(chainId=0x2105, calls from transactions[])
+4. send_calls(chain="base", calls from transactions[])
 5. User approves -> get_request_status(requestId)
 ```
 ````
@@ -170,14 +169,14 @@ The contract between your prepare endpoint and Base MCP is exactly this object:
 
 ```json
 {
-  "chainId": "0x2105",
+  "chain": "base",
   "calls": [
     { "to": "0x...", "value": "0x0", "data": "0x..." }
   ]
 }
 ```
 
-`chainId` is hex (`0x2105` for Base mainnet, `0x14a34` for Base Sepolia). `value` defaults to `0x0` if omitted. The assistant calls `send_calls` once with the full batch — the user approves once, and all calls execute atomically.
+Use Base MCP's chain names (`base`, `base-sepolia`, `ethereum`, `optimism`, `polygon`, `arbitrum`, `bsc`, or `avalanche`) when calling `send_calls`. If a prepare endpoint returns a numeric or hex `chainId`, map it to the corresponding chain name before calling Base MCP. `value` defaults to `0x0` if omitted. The assistant calls `send_calls` once with the full batch — the user approves once, and all calls execute atomically.
 
 ## Patterns to copy
 
@@ -193,7 +192,7 @@ The contract between your prepare endpoint and Base MCP is exactly this object:
   <Card title="Execute contract calls" icon="code" href="/ai-agents/guides/batch-calls">
     Full guide to `send_calls` and batching.
   </Card>
-  <Card title="Native plugins" icon="puzzle-piece" href="/ai-agents/plugins/native-plugins">
+  <Card title="Native plugins" icon="puzzle-piece" href="/ai-agents/plugins/native">
     Reference implementations for the ordered-batch, sibling-MCP, and multi-endpoint patterns.
   </Card>
 </CardGroup>

@@ -14,7 +14,7 @@ export const TradingQuickstartDemo = () => {
 
 
 
-  // Shared Coinbase Wallet "Review" modal + Approve Transaction button used
+  // Shared Base Account "Review" modal + Approve Transaction button used
   // across the ai-agents demos. Supports asset-transfer previews (send, swap,
   // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
   // sign-permit). Positioned absolute inside the parent demo container so it
@@ -504,34 +504,28 @@ export const TradingQuickstartDemo = () => {
       prompt: "Swap 100 USDC for ETH on Base",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "swap", args: { fromAsset: "USDC", toAsset: "ETH", amount: "100", chain: "base" } } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "swap", args: { fromAsset: "USDC", toAsset: "ETH", amount: "100", chain: "base" } } },
         { delay: 500, type: "text", text: "Quote ready: 0.03512 ETH · price impact 0.09%. Approve to swap:" },
         { delay: 250, type: "approval", preview: { type: "swap", fromAsset: "USDC", fromAmount: "100", fromUsd: "~$100.00", toAsset: "ETH", toAmount: "0.03512", toUsd: "~$100.00" } },
         { delay: 1100, type: "confirm", text: "Swapped 100 USDC → 0.03512 ETH" },
       ],
     },
     {
-      prompt: "Swap 0.05 ETH to USDC — best rate",
+      prompt: "Swap 0.05 ETH to USDC on Base",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "aerodrome", action: "get_quote", args: { from: "0.05 ETH", to: "USDC" } } },
-        { delay: 700, type: "tool", tool: { server: "uniswap-v3", action: "get_quote", args: { from: "0.05 ETH", to: "USDC" } } },
-        { delay: 600, type: "text", text: "Routed across two Base DEXes — Uniswap v3 has the better fill:" },
-        { delay: 250, type: "rows", rows: [
-          { token: "Aerodrome",         amount: "178.92 USDC", value: "0.30% fee · slippage 0.18%" },
-          { token: "Uniswap v3 (best)", amount: "179.41 USDC", value: "0.05% fee · slippage 0.12%" },
-        ]},
-        { delay: 700, type: "tool", tool: { server: "base-account", action: "swap", args: { route: "ETH→USDC", min_out: "179.20 USDC" } } },
-        { delay: 450, type: "approval", preview: { type: "swap", fromAsset: "ETH", fromAmount: "0.05", fromUsd: "~$127.00", toAsset: "USDC", toAmount: "179.41", toUsd: "~$179.41" } },
-        { delay: 1100, type: "confirm", text: "Swapped 0.05 ETH → 179.41 USDC on Uniswap v3" },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "swap", args: { fromAsset: "ETH", toAsset: "USDC", amount: "0.05", chain: "base" } } },
+        { delay: 600, type: "text", text: "Swap request ready: estimated 179.41 USDC. Approve to swap:" },
+        { delay: 450, type: "approval", preview: { type: "swap", fromAsset: "ETH", fromAmount: "0.05", fromUsd: "~$179.50", toAsset: "USDC", toAmount: "179.41", toUsd: "~$179.41" } },
+        { delay: 1100, type: "confirm", text: "Swapped 0.05 ETH → 179.41 USDC" },
       ],
     },
     {
       prompt: "Convert 200 USDC to cbBTC",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "search_tokens", args: { query: "cbBTC", chain: "base" } } },
-        { delay: 500, type: "tool", tool: { server: "base-account", action: "swap", args: { fromAsset: "USDC", toAsset: "cbBTC", amount: "200", chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "search_tokens", args: { query: "cbBTC", chain: "base" } } },
+        { delay: 500, type: "tool", tool: { server: "base-mcp", action: "swap", args: { fromAsset: "USDC", toAsset: "cbBTC", amount: "200", chain: "base" } } },
         { delay: 500, type: "text", text: "Quote ready: 0.00210 cbBTC at current rates. Approve to swap:" },
         { delay: 250, type: "approval", preview: { type: "swap", fromAsset: "USDC", fromAmount: "200", fromUsd: "~$200.00", toAsset: "cbBTC", toAmount: "0.00210", toUsd: "~$199.50" } },
         { delay: 1100, type: "confirm", text: "Swapped 200 USDC → 0.00210 cbBTC" },
@@ -743,7 +737,7 @@ export const TradingQuickstartDemo = () => {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
         </div>
         <div className="tqd-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
-          Demo · Every swap requires your approval at <span style={{ color: c.muted }}>keys.coinbase.com</span>
+          Demo · Every swap requires your approval in <span style={{ color: c.muted }}>Base Account</span>
         </div>
       </div>
     </div>

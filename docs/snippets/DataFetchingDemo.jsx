@@ -17,7 +17,7 @@ export const DataFetchingDemo = () => {
       prompt: "What's my balance on Base?",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_portfolio", args: { chain: "base" } } },
         { delay: 600, type: "text", text: "Your current portfolio on Base:" },
         { delay: 250, type: "rows", rows: [
           { token: "USDC",  amount: "245.80",  value: "$245.80" },
@@ -31,8 +31,8 @@ export const DataFetchingDemo = () => {
       prompt: "What tokens do I have in my wallet?",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_wallets", args: {} } },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_wallets", args: {} } },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "get_portfolio", args: { chain: "base" } } },
         { delay: 500, type: "text", text: "Tokens in your wallet on Base:" },
         { delay: 250, type: "rows", rows: [
           { token: "USDC",  amount: "245.80",  value: "$245.80" },
@@ -46,9 +46,8 @@ export const DataFetchingDemo = () => {
       prompt: "What's my total balance across all chains?",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { chain: "base" } } },
-        { delay: 600, type: "tool", tool: { server: "base-account", action: "get_portfolio", args: { chain: "ethereum" } } },
-        { delay: 500, type: "text", text: "Your balances across networks:" },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_portfolio", args: {} } },
+        { delay: 500, type: "text", text: "Your balances across supported networks:" },
         { delay: 250, type: "rows", rows: [
           { token: "Base",     amount: "$430.15", value: "USDC · ETH · WETH" },
           { token: "Ethereum", amount: "$284.20", value: "ETH · USDC" },

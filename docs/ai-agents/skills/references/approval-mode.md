@@ -7,14 +7,14 @@ description: "Skill reference for how Base MCP returns approval URLs and request
 
 # Approval Mode
 
-In approval mode, every write call (send, swap, sign, batched calls, and any plugin-prepared transaction routed through Base MCP) returns an **approval URL** plus a **request ID**. The user opens the URL, approves the transaction in their wallet UI, and then the agent polls the request ID for completion.
+In approval mode, every write call (send, swap, sign, batched calls, and any plugin-prepared transaction routed through Base MCP) returns an **approval URL** plus a **request ID**. The user opens the URL, approves the action in Base Account, and then the agent polls the request ID for completion.
 
 ## Flow
 
 1. **Call the write tool.** The response includes:
    - an approval URL (the field name is on the MCP response — typically `approvalUrl`)
    - a request ID (typically `requestId`)
-2. **Show the user the link.** Present it as **"Approve Transaction"** (or similar neutral language). Do not name or describe the wallet provider behind the link, even when the URL hostname suggests one — the underlying wallet UI is an implementation detail and may change. Just give the user the link to click.
+2. **Show the user the link.** Present it as **"Approve Transaction"** (or similar neutral language). Refer to the approval destination as Base Account, not as the raw URL hostname or an implementation-specific provider. Just give the user the link to click.
    - Beginner-friendly phrasing: _"Open this to approve the transaction: [Approve Transaction](URL)"_
    - Terse phrasing: _"[Approve Transaction](URL)"_
 3. **In CLI harnesses, also open the link automatically.** When you're running in an environment with a Bash/shell tool (Claude Code, Codex, Cursor terminal, etc.), don't just print the URL — also open it in the user's default browser so they don't have to click. Always print the link too as a fallback, then run the platform-appropriate open command:

@@ -5,9 +5,9 @@ description: "Skill reference for how Base MCP routes plugin HTTP calls and whic
 
 # Custom / Non-Native Plugins and the `web_request` Allowlist
 
-The native plugins shipped with this skill (Morpho, Moonwell, Uniswap, Avantis) have their HTTP APIs **allowlisted in the Base MCP `web_request` tool**. This matters because Claude and ChatGPT restrict which APIs an agent can call directly from their surface — `web_request` is what makes those calls possible.
+The native plugins shipped with this skill that rely on HTTP APIs have their hosts **allowlisted in the Base MCP `web_request` tool**. This matters because Claude and ChatGPT restrict which APIs an agent can call directly from their surface — `web_request` is what makes those calls possible.
 
-Custom or user-supplied plugins (anything outside the four native ones) are almost certainly **not** in the allowlist and will be rejected by `web_request`.
+Custom or user-supplied plugins are almost certainly **not** in the allowlist and will be rejected by `web_request`.
 
 ## Priority order for HTTP calls
 

@@ -24,7 +24,7 @@ No additional MCP server required — everything goes through `web_request` + `s
 web_request(https://api.moonwell.fi/v1/prepare/<verb>?...)
   → { data: { transactions: [ { to, data, value, chainId }, ... ] } }
       ↓
-send_calls(chainId, calls mapped from transactions[])
+send_calls(chain, calls mapped from transactions[])
   → approvalUrl + requestId
       ↓
 User approves at the returned approval URL (present as "Approve Transaction" — see ../references/approval-mode.md)
@@ -101,7 +101,7 @@ Both return identical response shapes. Use GET when simpler; use POST when the b
 }
 ```
 
-Pass all items as the `calls` array to `send_calls`, using `chainId` from any transaction item (`0x2105` for Base mainnet).
+Pass all items as the `calls` array to `send_calls`, mapping `chainId` from any transaction item to the Base MCP chain string (`base` for Base mainnet, `optimism` for Optimism).
 
 ---
 
@@ -113,7 +113,7 @@ Pass all items as the `calls` array to `send_calls`, using `chainId` from any tr
 1. get_wallets → address
 2. web_request GET /token-balance/<address>?chain=base&asset=USDC  → confirm balance ≥ 100
 3. web_request GET /prepare/supply?chain=base&asset=USDC&amountDecimal=100&from=<address>
-4. send_calls(chainId=0x2105, calls from transactions[])
+4. send_calls(chain="base", calls from transactions[])
 5. User approves → get_request_status(requestId)
 ```
 
@@ -123,7 +123,7 @@ Pass all items as the `calls` array to `send_calls`, using `chainId` from any tr
 1. get_wallets → address
 2. web_request GET /health/<address>?chain=base    → verify health > 1.5
 3. web_request GET /prepare/borrow?chain=base&asset=USDC&amountDecimal=50&from=<address>
-4. send_calls(chainId=0x2105, calls from transactions[])
+4. send_calls(chain="base", calls from transactions[])
 5. User approves → get_request_status(requestId)
 ```
 
@@ -155,9 +155,9 @@ Pass all items as the `calls` array to `send_calls`, using `chainId` from any tr
 
 ---
 
-## Chain IDs for send_calls
+## Chain IDs from Moonwell
 
-| Chain | chainId param |
-|-------|--------------|
-| Base mainnet | `0x2105` |
-| Optimism | `0xa` |
+| Chain | Moonwell chainId | Base MCP `chain` |
+|-------|------------------|------------------|
+| Base mainnet | `0x2105` | `base` |
+| Optimism | `0xa` | `optimism` |
