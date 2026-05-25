@@ -16,18 +16,18 @@ The exact list of Virtuals tools, their parameters, and the capabilities they ex
 
 URL: `https://mcp.acp.virtuals.io/`
 
-## Installation (alongside Base MCP)
+## Detection
 
-```json
-{
-  "mcpServers": {
-    "base-account": { "url": "https://mcp.base.org" },
-    "virtuals":     { "url": "https://mcp.acp.virtuals.io/" }
-  }
-}
-```
+If no Virtuals tools (e.g. `login_start`, `agent_list`, `agent_card_*`, `agent_email_*`) are exposed to the harness, the Virtuals MCP isn't installed — don't try to reach Virtuals' HTTP API directly, the SIWE auth and most tool paths require the MCP. Instead, help the user install it for their current surface. Detect the harness from environment signals (available CLIs like `claude` / `codex` / `cursor`, working directory, tool names) and walk through the matching step:
 
-Claude Code: `claude mcp add virtuals --transport http https://mcp.acp.virtuals.io/`
+- **Claude Code:** `claude mcp add virtuals --transport http https://mcp.acp.virtuals.io/`
+- **Codex:** `codex mcp add virtuals --url https://mcp.acp.virtuals.io/` (or add `[mcp_servers.virtuals] url = "https://mcp.acp.virtuals.io/"` to `codex.toml`)
+- **Cursor / JSON-config harnesses:** add the snippet from [Installation](#installation-alongside-base-mcp) to the harness's MCP config (e.g. `~/.cursor/mcp.json` or the project's `.cursor/mcp.json`) and restart it.
+- **Claude.ai web / Claude Desktop / iOS / Android:** Customize → Connectors → Add custom connector, name `virtuals`, URL `https://mcp.acp.virtuals.io/`.
+- **ChatGPT:** Settings → Connectors → Create, name `virtuals`, MCP Server URL `https://mcp.acp.virtuals.io/`, Authentication `OAuth` (enable Developer Mode if prompted).
+- **Other / unknown harness:** show the JSON snippet from [Installation](#installation-alongside-base-mcp) and ask the user where their MCP config lives.
+
+After install, ask the user to reconnect or restart the session so the new tools register, then run the [Auth flow](#auth-flow) and retry.
 
 ## Capabilities Overview
 
@@ -71,9 +71,27 @@ The Base MCP wallet is a Coinbase Smart Wallet (contract account, not a plain EO
 
 ### 1. `Invalid SIWE signature` (401) on `login_complete`
 
-The most common cause: the signature returned by Base MCP `sign` is an **ERC-6492 wrapped** signature (used for counterfactual or contract-deployment-attached signing), and the Virtuals verifier expects a plain **ERC-1271** signature.
+**Start with wallet identity, not signature format.** The most frequent root cause is that the user is approving the sign-in with a different wallet than the one named in the SIWE `message` — not signature wrapping. Virtuals fully supports Coinbase Smart Wallets (contract accounts), so smart-wallet support is **not** the issue.
 
-You can recognize ERC-6492 wrapped signatures by:
+Typical address-mismatch scenarios:
+
+- **Cross-device cache drift.** Base MCP was authenticated on one device (e.g. desktop) and `get_wallets` returned the address cached there, but the user is approving the sign-in popup on another device (e.g. phone) — or vice versa. The wallet that actually signs is different from the one named in the SIWE message.
+- **Multiple wallets in the same client.** The active wallet in the approval popup isn't the one Base MCP `get_wallets` returned.
+- **Stale `get_wallets` result.** You fetched the address earlier in the session and the user has since switched the active wallet in Base MCP, so `login_start` was called with a stale address.
+
+**Recovery — always try this first:**
+
+1. Re-run `get_wallets` (Base MCP) to refresh `baseAccount.address`.
+2. Confirm with the user *which* wallet and *which* device they intend to sign with. If they don't match the refreshed address, ask them to switch to the right wallet/device before retrying.
+3. Restart from `login_start` with the confirmed address so the SIWE message names the wallet the user will actually approve.
+
+Only after ruling out wallet mismatch, consider the signature-format cause below.
+
+#### Less common: ERC-6492 wrapped signature
+
+In some Coinbase Smart Wallet flows, Base MCP `sign` returns an **ERC-6492 wrapped** signature (used for counterfactual or contract-deployment-attached signing), and the Virtuals verifier expects a plain **ERC-1271** signature.
+
+Recognize ERC-6492 wrapped signatures by:
 - Length: thousands of hex characters (the inner ERC-1271 signature is much shorter).
 - They end with the magic suffix `6492649264926492649264926492649264926492649264926492649264926492`.
 

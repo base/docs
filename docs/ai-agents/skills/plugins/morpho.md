@@ -16,18 +16,18 @@ The exact list of Morpho tools, their parameters, and supported chains are expos
 
 URL: `https://mcp.morpho.org/`
 
-## Installation (alongside Base MCP)
+## Detection
 
-```json
-{
-  "mcpServers": {
-    "base-account": { "url": "https://mcp.base.org" },
-    "morpho":       { "url": "https://mcp.morpho.org/" }
-  }
-}
-```
+If no `morpho` tools are exposed to the harness, the Morpho MCP isn't installed — don't try to reach the Morpho API directly (the prepare/simulate flows require the MCP). Instead, help the user install it for their current surface. Detect the harness from environment signals (available CLIs like `claude` / `codex` / `cursor`, working directory, tool names) and walk through the matching step:
 
-Claude Code: `claude mcp add morpho --transport http https://mcp.morpho.org/`
+- **Claude Code:** `claude mcp add morpho --transport http https://mcp.morpho.org/`
+- **Codex:** `codex mcp add morpho --url https://mcp.morpho.org/` (or add `[mcp_servers.morpho] url = "https://mcp.morpho.org/"` to `codex.toml`)
+- **Cursor / JSON-config harnesses:** add the snippet from [Installation](#installation-alongside-base-mcp) to the harness's MCP config (e.g. `~/.cursor/mcp.json` or the project's `.cursor/mcp.json`) and restart it.
+- **Claude.ai web / Claude Desktop / iOS / Android:** Customize → Connectors → Add custom connector, name `morpho`, URL `https://mcp.morpho.org/`.
+- **ChatGPT:** Settings → Connectors → Create, name `morpho`, MCP Server URL `https://mcp.morpho.org/`, Authentication `OAuth` (enable Developer Mode if prompted).
+- **Other / unknown harness:** show the JSON snippet from [Installation](#installation-alongside-base-mcp) and ask the user where their MCP config lives.
+
+After install, ask the user to reconnect or restart the session so the new tools register, then retry the original request.
 
 ## Orchestration Pattern
 
