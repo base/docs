@@ -1,0 +1,187 @@
+---
+title: 'Registering an Agent Identity (ERC-8004)'
+description: 'How to register a trustless agent identity on Base using the ERC-8004 IdentityRegistry'
+sidebarTitle: 'Agent Identity (ERC-8004)'
+---
+
+[ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) defines on-chain registries for autonomous agents. Registering gives your agent an ERC-721 `agentId`, an optional `agentURI` pointing to a machine-readable registration file, and an `agentWallet` for signing transactions on behalf of the agent.
+
+## Contract Addresses
+
+| Network | IdentityRegistry | Chain ID |
+| :------ | :--------------- | :------- |
+| Base Mainnet | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | 8453 |
+| Base Sepolia | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | 84532 |
+
+## Registration File
+
+The `agentURI` must resolve to a JSON document with this structure:
+
+```json agent.json
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "MyAgent",
+  "description": "What the agent does and how to interact with it",
+  "image": "https://example.com/agent.png",
+  "services": [
+    { "name": "A2A", "endpoint": "https://agent.example/.well-known/agent-card.json", "version": "0.3.0" }
+  ],
+  "x402Support": false,
+  "active": true,
+  "registrations": [
+    {
+      "agentId": 42,
+      "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    }
+  ],
+  "supportedTrust": ["reputation"]
+}
+```
+
+The `agentRegistry` field uses the format `eip155:{chainId}:{identityRegistryAddress}`. If the `agentId` is not known yet, use `0` as a placeholder and update it with `setAgentURI()` after minting.
+
+### Hosting Options
+
+| Option | URI Format | Notes |
+| :----- | :--------- | :---- |
+| IPFS | `ipfs://{cid}` | Recommended — immutable, content-addressed |
+| HTTPS | `https://example.com/agent.json` | Simple; endpoint must stay live |
+| On-chain | `data:application/json;base64,{base64}` | Maximum censorship-resistance; higher gas |
+
+## Register On-Chain
+
+### viem (TypeScript)
+
+<CodeGroup>
+```typescript Register with URI
+import { createWalletClient, createPublicClient, http, parseAbi } from "viem";
+import { baseSepolia } from "viem/chains"; // use `base` for Mainnet
+import { privateKeyToAccount } from "viem/accounts";
+
+const IDENTITY_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e";
+
+const abi = parseAbi([
+  "function register() returns (uint256 agentId)",
+  "function register(string agentURI) returns (uint256 agentId)",
+  "function setAgentURI(uint256 agentId, string newURI) external",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function tokenURI(uint256 tokenId) view returns (string)",
+  "function getAgentWallet(uint256 agentId) view returns (address)",
+]);
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const client  = createWalletClient({ account, chain: baseSepolia, transport: http() });
+
+// Register and set URI in one step
+const hash = await client.writeContract({
+  address: IDENTITY_REGISTRY,
+  abi,
+  functionName: "register",
+  args: ["ipfs://your-cid"],
+});
+```
+
+```typescript Register then set URI
+// Step 1 — mint the agentId
+const hash = await client.writeContract({
+  address: IDENTITY_REGISTRY,
+  abi,
+  functionName: "register",
+  args: [],
+});
+
+// Step 2 — get agentId from the Registered event, then:
+await client.writeContract({
+  address: IDENTITY_REGISTRY,
+  abi,
+  functionName: "setAgentURI",
+  args: [agentId, "ipfs://final-cid"],
+});
+```
+</CodeGroup>
+
+### cast (Foundry)
+
+<CodeGroup>
+```bash Sepolia
+cast send 0x8004A818BFB912233c491871b3d84c89A494BD9e \
+  "register(string)(uint256)" "ipfs://your-cid" \
+  --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY
+```
+
+```bash Mainnet
+cast send 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 \
+  "register(string)(uint256)" "ipfs://your-cid" \
+  --rpc-url https://mainnet.base.org \
+  --private-key $PRIVATE_KEY
+```
+</CodeGroup>
+
+The returned value is your `agentId` — store it, every subsequent call requires it.
+
+## Read Agent Data
+
+```typescript
+const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
+
+const owner  = await publicClient.readContract({ address: IDENTITY_REGISTRY, abi, functionName: "ownerOf",        args: [agentId] });
+const uri    = await publicClient.readContract({ address: IDENTITY_REGISTRY, abi, functionName: "tokenURI",       args: [agentId] });
+const wallet = await publicClient.readContract({ address: IDENTITY_REGISTRY, abi, functionName: "getAgentWallet", args: [agentId] });
+```
+
+You can also look up any agent on [basescan.org](https://basescan.org) (Mainnet) or [sepolia.basescan.org](https://sepolia.basescan.org) (Sepolia).
+
+## Bind agentWallet (Optional)
+
+By default, `agentWallet` is set to the owner's address on registration. To change it, `newWallet` must sign an EIP-712 message:
+
+```typescript
+import { signTypedData } from "viem/accounts";
+
+const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+const signature = await signTypedData({
+  privateKey: newWalletPrivateKey,
+  domain: {
+    name: "ERC8004IdentityRegistry",
+    version: "1",
+    chainId: 84532,                          // 8453 for Mainnet
+    verifyingContract: IDENTITY_REGISTRY,
+  },
+  types: {
+    AgentWalletSet: [
+      { name: "agentId",   type: "uint256" },
+      { name: "newWallet", type: "address" },
+      { name: "owner",     type: "address" },
+      { name: "deadline",  type: "uint256" },
+    ],
+  },
+  primaryType: "AgentWalletSet",
+  message: { agentId: BigInt(agentId), newWallet, owner: agentOwnerAddress, deadline },
+});
+
+await client.writeContract({
+  address: IDENTITY_REGISTRY,
+  abi: parseAbi(["function setAgentWallet(uint256,address,uint256,bytes) external"]),
+  functionName: "setAgentWallet",
+  args: [BigInt(agentId), newWallet, deadline, signature],
+});
+```
+
+<Note>
+On transfer, `agentWallet` is automatically cleared and must be re-set by the new owner.
+</Note>
+
+## Key Facts
+
+- `agentId` is an ERC-721 `tokenId` — an auto-incremented integer, not a wallet address.
+- An agent can be registered on multiple chains simultaneously; include each chain in the `registrations` array of the registration file.
+- Do not pass `agentWallet` in the metadata array of `register()` — that field is reserved and the call will revert.
+- ERC-4337 smart wallets are supported for `agentWallet`: the contract calls `isValidSignature` on `newWallet` instead of ECDSA recovery.
+
+## Resources
+
+- [ERC-8004 Specification](https://eips.ethereum.org/EIPS/eip-8004)
+- [ERC-8004 Contracts](https://github.com/erc-8004/erc-8004-contracts)
+- [8004.org/build](https://www.8004.org/build)
