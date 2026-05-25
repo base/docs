@@ -1,6 +1,6 @@
 ---
 title: "Base MCP Skill"
-description: "Base MCP — gives your AI assistant access to a Base account via the Base MCP server (mcp.base.org). Wallet, portfolio, sending, swapping, signing, batched contract calls, and transaction history on Base."
+description: "Base MCP — gives your AI assistant access to a Base account via the Base MCP server (mcp.base.org). Wallet, portfolio, sending, swapping, signing, x402 payments, batched contract calls, and transaction history on Base."
 name: base-mcp
 version: 0.1.0
 ---
@@ -22,7 +22,7 @@ If Base MCP tools are available, load [references/tone.md](references/tone.md) �
 
 Keep it short. Do this once per session, before doing real work:
 
-1. **Briefly mention what's available** — one or two sentences. The user has a Base account wallet and can do things like check balances, send and swap tokens, sign messages, batch contract calls, and (if installed) use partner plugins for DeFi, swaps, and other onchain actions. Do not enumerate every tool — the agent discovers tools and plugins directly from the MCP.
+1. **Briefly mention what's available** — one or two sentences. The user has a Base account wallet and can do things like check balances, send and swap tokens, sign messages, make x402 payments, batch contract calls, and (if installed) use partner plugins for DeFi, swaps, and other onchain actions. Do not enumerate every tool — the agent discovers tools and plugins directly from the MCP.
 
 2. **Show this disclaimer verbatim** before proceeding:
 
