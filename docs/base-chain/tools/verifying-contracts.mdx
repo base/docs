@@ -1,0 +1,132 @@
+---
+title: 'Verifying Contracts'
+description: How to verify smart contracts on Base using the Etherscan V2 API.
+---
+
+Contract verification publishes your source code on a block explorer so anyone can read it, audit it, and interact with it directly. Base Mainnet and Base Sepolia both use the [unified Etherscan V2 API](https://docs.etherscan.io/v2-migration).
+
+<Warning>
+The legacy V1 endpoint (`api.basescan.org/api`) was deactivated on August 15, 2025. All tools must use the Etherscan V2 endpoint with a `chainid` parameter.
+</Warning>
+
+## Etherscan V2 Endpoints
+
+| Network | V2 URL |
+| :------ | :----- |
+| Base Mainnet | `https://api.etherscan.io/v2/api?chainid=8453` |
+| Base Sepolia | `https://api.etherscan.io/v2/api?chainid=84532` |
+
+Get an API key at [etherscan.io/myaccount](https://etherscan.io/myaccount). The same key works for both networks.
+
+## Foundry
+
+Use `forge verify-contract` with the V2 `--verifier-url`:
+
+<CodeGroup>
+```bash Mainnet
+forge verify-contract \
+  --verifier-url "https://api.etherscan.io/v2/api?chainid=8453" \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  --watch \
+  <CONTRACT_ADDRESS> \
+  src/MyContract.sol:MyContract
+```
+
+```bash Sepolia
+forge verify-contract \
+  --verifier-url "https://api.etherscan.io/v2/api?chainid=84532" \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  --watch \
+  <CONTRACT_ADDRESS> \
+  src/MyContract.sol:MyContract
+```
+</CodeGroup>
+
+To verify in the same step as deployment, add `--verify` and `--verifier-url` to `forge create`:
+
+```bash
+forge create src/MyContract.sol:MyContract \
+  --rpc-url https://mainnet.base.org \
+  --private-key $PRIVATE_KEY \
+  --verify \
+  --verifier-url "https://api.etherscan.io/v2/api?chainid=8453" \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+```
+
+If verification returns `already verified. Skipping verification`, the contract is already verified — no action needed.
+
+## Hardhat
+
+Add Base to `customChains` in your Hardhat config and use the V2 URL:
+
+```typescript hardhat.config.ts
+import { HardhatUserConfig } from "hardhat/config";
+
+const config: HardhatUserConfig = {
+  etherscan: {
+    apiKey: {
+      base: process.env.ETHERSCAN_API_KEY!,
+      baseSepolia: process.env.ETHERSCAN_API_KEY!,
+    },
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=8453",
+          browserURL: "https://basescan.org",
+        },
+      },
+      {
+        network: "baseSepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=84532",
+          browserURL: "https://sepolia.basescan.org",
+        },
+      },
+    ],
+  },
+};
+
+export default config;
+```
+
+Then run:
+
+```bash
+npx hardhat verify --network base <CONTRACT_ADDRESS> [constructor args...]
+```
+
+## Manual UI Verification
+
+1. Open [basescan.org](https://basescan.org) (Mainnet) or [sepolia.basescan.org](https://sepolia.basescan.org) (Sepolia).
+2. Search for your contract address.
+3. Go to the **Contract** tab and click **Verify and Publish**.
+4. Select the compiler version that matches your deployment exactly — a mismatch causes bytecode verification to fail.
+5. Paste the flattened source (`forge flatten src/MyContract.sol`) or use the multi-file upload.
+6. Submit and wait for confirmation.
+
+## Sourcify
+
+[Sourcify](https://sourcify.dev/) offers decentralized, metadata-based verification without an API key:
+
+```bash
+forge verify-contract \
+  --verifier sourcify \
+  <CONTRACT_ADDRESS> \
+  src/MyContract.sol:MyContract \
+  --chain-id 84532
+```
+
+Verified contracts appear on the [Sourcify repository](https://sourcify.dev/#/lookup) and on Blockscout.
+
+## Common Errors
+
+| Error | Cause | Fix |
+| :---- | :---- | :-- |
+| `You are using a deprecated V1 endpoint` | Tool is hitting `api.basescan.org` instead of the V2 URL | Set `--verifier-url "https://api.etherscan.io/v2/api?chainid=8453"` |
+| `Bytecode does not match` | Compiler version or optimizer settings differ from deployment | Verify using the exact settings in `foundry.toml` or `hardhat.config.ts` |
+| `already verified. Skipping verification` | Contract is already verified | No action needed — the contract source is already live |
+| `Invalid API key` | Key missing or from the wrong account | Generate a key at [etherscan.io/myaccount](https://etherscan.io/myaccount) |
+| `Contract source code not verified` (read) | Querying before verification completes | Wait 30–60 seconds and retry |
