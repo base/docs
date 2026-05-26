@@ -24,7 +24,7 @@ export const AuthApprovalDemo = ({ client = "Claude" }) => {
 
   const permissions = [
     { label: "View address, balances & activity." },
-    { label: "Request approval for transactions." }
+    { label: "Prepare transactions for you to review." }
   ];
 
   const EyeIcon = () => (
