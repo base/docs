@@ -1,0 +1,121 @@
+---
+title: Practices & Common Pitfalls
+description: Production tips, security considerations, error handling, and testing strategies for Base Account integrations.
+---
+
+import {Note} from "mintlify/components";
+
+## Security Best Practices
+
+Always validate payments and user data server-side. Never trust client-side results. [](grok_render_citation_card_json={"cardIds":["33a393"]})
+
+**Cross-reference**: [Server-side verification in Accept Payments](/base-account/guides/accept-payments#server-side).
+
+### Prevent Replay & Impersonation Attacks
+Use the comprehensive verification pattern (expanded from payments guide):
+
+```typescript
+// Example (expand your verifyAndFulfillPayment)
+import { getPaymentStatus } from '@base-org/account';
+
+async function secureVerifyPayment(txId: string, orderId: string, expectedPayer: string, testnet = false) {
+  // 1. Deduplication check (DB)
+  if (await isTxProcessed(txId)) throw new Error('Already processed');
+
+  const result = await getPaymentStatus({ id: txId, testnet });
+  
+  if (result.status !== 'completed') throw new Error(`Invalid status: ${result.status}`);
+  
+  if (result.sender.toLowerCase() !== expectedPayer.toLowerCase()) {
+    throw new Error('Sender mismatch - possible impersonation');
+  }
+  
+  // Additional checks: amount, recipient, timestamp freshness
+  await markTxProcessed(txId, orderId, result.sender);
+  return result;
+}
+```
+
+**Key rules**:
+
+- Store transaction IDs with unique constraints.
+
+- Tie payments to authenticated user sessions (e.g., after Sign in with Base).
+
+- Use short expiration windows for pending payments.
+
+### Error Handling & User Experience
+
+Handle common errors gracefully for higher conversion.
+
+```ts
+import { pay } from '@base-org/account';
+
+async function safePay(params) {
+  try {
+    const payment = await pay(params);
+    return { success: true, payment };
+  } catch (error: any) {
+    console.error('Payment error:', error);
+    
+    if (error.message.includes('User rejected')) {
+      // User closed popup - gentle retry prompt
+      showUserMessage("Payment cancelled. Try again?");
+    } else if (error.code === 'INSUFFICIENT_FUNDS' || error.message.includes('USDC')) {
+      // Suggest funding or testnet faucet
+    } else if (error.message.includes('testnet')) {
+      console.warn('Mismatch in testnet flag - ensure consistent across pay() and getPaymentStatus()');
+    }
+    
+    return { success: false, error: error.message };
+  }
+}
+```
+
+**Recommended patterns**:
+
+- Use `try/catch` around all SDK calls.
+
+- Provide clear user feedback (toasts, modals).
+
+- Log non-sensitive details for debugging (avoid full error objects in production).
+
+### Testing Strategies
+
+1. **Local/Testnet First**: Always start with `testnet: true`. Use Base Sepolia + Circle faucet. 
+
+2. **Mock Where Possible**: For unit tests, mock SDK responses or use the official playground.
+
+3. **End-to-End**: Test full flows (auth → payerInfo collection → payment → server verification).
+
+4. **Multi-Chain**: Verify addresses and supported tokens behave consistently across full-support networks.
+
+**Supported Networks Reminder**: Full support on Base, Arbitrum, Optimism, etc. Test basic-support chains carefully (limited to web surface transfers). See [Overview](/base-account/overview/what-is-base-account).
+
+### Performance & UX Tips
+
+- Initialize SDK once and reuse the provider.
+
+- Pre-fetch user capabilities (e.g., available payerInfo) after authentication.
+
+- For React apps: Use the provided UI components (`BasePayButton`, `SignInWithBaseButton`) and follow brand guidelines.
+
+- Monitor for popup blockers and provide fallbacks.
+
+- Consider gas sponsorship implications for user-funded accounts.
+
+### Migration & Upgrades
+
+- Regularly check SDK version (`npm outdated @base-org/account`).
+
+- Review [Migration Guide](https://github.com/base/docs/blob/master/docs/base-account/guides/migration-guide.mdx) when upgrading major versions.
+
+- Test payments and auth flows after updates.
+
+### Next Steps & Resources
+
+- [Quickstart](/base-account/quickstart/web)
+
+- [API Reference](/base-account/reference)
+
+- [Framework Integrations](/base-account/framework-integrations)
