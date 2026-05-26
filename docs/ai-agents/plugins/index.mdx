@@ -53,13 +53,13 @@ Read the canonical file at [`skills/base-mcp/SKILL.md`](https://github.com/base/
 
 A plugin is a markdown spec — one file in `plugins/` — that teaches the assistant how to drive an external protocol with Base MCP. Most onchain-action plugins prepare unsigned calldata and execute it through `send_calls`; others use a core tool such as `swap` or `sign`.
 
-For calldata-based plugins, the contract is the same whether the protocol exposes an HTTP "tx-builder" or its own sibling MCP server:
+For calldata-based plugins, the contract is the same whether the protocol exposes an HTTP tx-builder, a CLI, or its own sibling MCP server:
 
 ```mermaid
 sequenceDiagram
     participant User
     participant AI as AI Assistant
-    participant Protocol as Protocol API / MCP
+    participant Protocol as Protocol API / CLI / MCP
     participant BA as Base MCP
 
     User->>AI: "Do <action> on <protocol>"
@@ -82,10 +82,10 @@ Most calldata-based plugin files follow the same four-section shape:
     A `STOP` notice forcing the assistant to complete Base MCP detection and onboarding before touching the plugin's tools.
   </Step>
   <Step title="Read endpoints">
-    The GET endpoints (or read tools) that return state — balances, positions, market data.
+    The GET endpoints, CLI commands, or read tools that return state — balances, positions, market data.
   </Step>
   <Step title="Prepare endpoints">
-    The endpoints (or `prepare_*` tools) that return unsigned calldata, with the exact response shape so the model knows which fields map to `to`, `value`, and `data`.
+    The endpoints, CLI commands, or `prepare_*` tools that return unsigned calldata, with the exact response shape so the model knows which fields map to `to`, `value`, and `data`.
   </Step>
   <Step title="send_calls mapping">
     How to turn the prepare response into the `calls` array passed to Base MCP's `send_calls`.
@@ -101,6 +101,6 @@ Base MCP passes the calldata to Base Account for user approval. The protocol nev
     Morpho, Moonwell, Uniswap, Avantis, Aerodrome, Virtuals, and Bankr — authored by the Base team and shipped with the skill.
   </Card>
   <Card title="Build a custom plugin" icon="code" href="/ai-agents/plugins/custom-plugins">
-    Write your own markdown spec for any protocol with an HTTP tx-builder or MCP server.
+    Write your own markdown spec for any protocol with an HTTP tx-builder, CLI, or MCP server.
   </Card>
 </CardGroup>

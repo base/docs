@@ -35,9 +35,9 @@
 ### Plugins
 - [Native Plugins](https://docs.base.org/ai-agents/plugins/native/index.md) — Morpho, Moonwell, Uniswap, Avantis, Aerodrome, Virtuals, and Bankr plugin overview
 - [Moonwell](https://docs.base.org/ai-agents/plugins/native/moonwell.md) — Supply, borrow, and claim on Moonwell using `web_request` + Base MCP; no extra MCP server required
-- [Morpho](https://docs.base.org/ai-agents/plugins/native/morpho.md) — Vaults and Morpho Blue markets via the Morpho MCP at `mcp.morpho.org`; prepare unsigned calldata and execute through Base MCP
+- [Morpho](https://docs.base.org/ai-agents/plugins/native/morpho.md) — Vaults and Morpho Blue markets via Morpho CLI when shell access exists, or Morpho MCP on chat-only surfaces; prepare unsigned transactions and execute through Base MCP
 - [Uniswap](https://docs.base.org/ai-agents/plugins/native/uniswap.md) — Swaps and LP position management on Base via the Uniswap API; no extra MCP server required
-- [Avantis](https://docs.base.org/ai-agents/plugins/native/avantis.md) — Perpetual futures trading on Base via Avantis; no extra MCP server required
+- [Avantis](https://docs.base.org/ai-agents/plugins/native/avantis.md) — CLI-only perpetual futures trading on Base via Avantis tx-builder; no extra MCP server required
 - [Custom Plugins](https://docs.base.org/ai-agents/plugins/custom-plugins.md) — Author a plugin that returns unsigned calldata for Base MCP's `send_calls` to execute under one approval
 
 ## Key Concepts (excerpts)
@@ -85,12 +85,12 @@ Base MCP pays for x402-enabled HTTPS API requests in two steps. First call `init
 Source: `https://docs.base.org/ai-agents/plugins/native/morpho.md`
 
 Morpho handles the protocol layer; Base MCP handles the approval request. Flow:
-1. Assistant queries the Morpho MCP for vaults/markets/positions
-2. Assistant asks Morpho to *prepare* a deposit/withdraw/borrow/repay — returns unsigned calldata
-3. Assistant passes the calldata to Base MCP's `send_calls`
-4. User approves in Base Account; tx broadcasts
+1. Assistant detects the harness. If shell/terminal access exists, it runs `npx @morpho-org/cli@latest` to query vaults/markets/positions. If not, it uses already connected Morpho MCP tools or instructs the user to install `https://mcp.morpho.org/`.
+2. Assistant prepares the operation with the Morpho CLI or Morpho MCP — returns simulated unsigned transactions or calls.
+3. Assistant passes the transactions/calls to Base MCP's `send_calls`.
+4. User approves in Base Account; tx broadcasts.
 
-This pattern generalizes to calldata-based plugins: the protocol MCP or API produces calldata, and Base MCP submits it through `send_calls` for user approval.
+This pattern generalizes to calldata-based plugins: the protocol CLI, API, or MCP produces unsigned transaction data, and Base MCP submits it through `send_calls` for user approval. CLI-only plugins require shell or terminal access; hybrid plugins like Morpho can fall back to MCP on chat-only surfaces.
 
 Source: `https://docs.base.org/ai-agents/plugins/custom-plugins.md`
 

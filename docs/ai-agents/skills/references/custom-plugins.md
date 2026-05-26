@@ -5,25 +5,27 @@ description: "Skill reference for how Base MCP routes plugin HTTP calls and whic
 
 # Custom / Non-Native Plugins and the `web_request` Allowlist
 
-The native plugins shipped with this skill that rely on HTTP APIs have their hosts **allowlisted in the Base MCP `web_request` tool**. This matters because Claude and ChatGPT restrict which APIs an agent can call directly from their surface — `web_request` is what makes those calls possible.
+The native plugins shipped with this skill that rely on HTTP APIs may have their hosts **allowlisted in the Base MCP `web_request` tool**. This matters because Claude and ChatGPT restrict which APIs an agent can call directly from their surface — `web_request` is what makes those calls possible.
+
+CLI-only native plugins are different: Avantis and Aerodrome require a harness with shell or terminal access. Do not route those plugins through `web_request`, do not use a user-paste fallback, and do not recommend installing a separate protocol MCP to make them work on chat-only surfaces. If there is no shell, tell the user the plugin requires CLI access and stop. Morpho is not CLI-only: use Morpho CLI when shell access exists, otherwise use or install Morpho MCP.
 
 Custom or user-supplied plugins are almost certainly **not** in the allowlist and will be rejected by `web_request`.
 
 ## Priority order for HTTP calls
 
-Use this order **for every plugin call — native or not**:
+Use this order **for every HTTP-based plugin call — native or not**. CLI-only plugins follow their plugin file and require shell access. Morpho follows its hybrid CLI/MCP routing in [../plugins/morpho.md](../plugins/morpho.md).
 
 ### 1. Harness HTTP tool (preferred whenever available)
 
-If the current environment lets you call HTTP APIs directly — e.g. Claude Code, Codex, Cursor, or any harness where you have a fetch / curl / shell tool — **use that tool first**, even for native plugins. It supports any HTTP method (GET, POST, etc.), avoids the allowlist entirely, and gives you the full response without round-tripping through the MCP.
+If the current environment lets you call HTTP APIs directly — e.g. Claude Code, Codex, Cursor, or any harness where you have a fetch / curl / shell tool — **use that tool first** for HTTP-based plugins, even for native plugins. It supports any HTTP method (GET, POST, etc.), avoids the allowlist entirely, and gives you the full response without round-tripping through the MCP.
 
 Only fall back to `web_request` if you don't have a usable HTTP tool in the current harness.
 
 ### 2. `web_request` (when no harness HTTP tool exists)
 
-If the harness has no direct HTTP capability, route the call through Base MCP's `web_request`:
+If the harness has no direct HTTP capability, first check whether the plugin is CLI-only. If it is, stop and tell the user it requires a CLI harness. Otherwise, route the call through Base MCP's `web_request`:
 
-- **Native plugin host** — works out of the box (the host is allowlisted).
+- **Native HTTP plugin host** — works if the host is allowlisted.
 - **Non-native plugin host** — will be rejected. Do not silently retry. Move to path 3.
 
 ### 3. User-paste fallback (Claude / ChatGPT consumer surfaces, non-native hosts)
@@ -44,6 +46,8 @@ So for non-native plugins on Claude / ChatGPT consumer surfaces:
 
 | Situation | What to do |
 |-----------|------------|
-| Any plugin, harness has an HTTP tool (Claude Code, Codex, Cursor, …) | **Use the harness's HTTP tool first.** Any method is fine. Don't route through `web_request` when a direct call is available. |
-| Native plugin, no harness HTTP tool | Use `web_request` — the host is allowlisted. |
+| HTTP-based plugin, harness has an HTTP tool (Claude Code, Codex, Cursor, …) | **Use the harness's HTTP tool first.** Any method is fine. Don't route through `web_request` when a direct call is available. |
+| CLI-only native plugin, no shell/terminal tool | Tell the user this plugin requires CLI access and stop. |
+| Morpho, no shell/terminal tool | Use already exposed Morpho MCP tools, or help the user install `https://mcp.morpho.org/` for their current surface. |
+| Native HTTP plugin, no harness HTTP tool | Use `web_request` if the host is allowlisted. |
 | Non-native plugin, no harness HTTP tool (Claude / ChatGPT consumer apps) | GET only. Construct the URL, ask the user to paste it into the chat so you're allowed to fetch it, then parse the response. If the API needs POST, tell the user this surface can't support it. |

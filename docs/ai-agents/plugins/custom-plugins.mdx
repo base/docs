@@ -4,11 +4,11 @@ description: "Build your own plugin that produces unsigned calldata and executes
 keywords: ["custom Base MCP plugin", "AI agent plugin Base", "send_calls custom protocol", "Base MCP web_request plugin", "build MCP plugin"]
 ---
 
-A plugin is a markdown spec that teaches your assistant how to call an external API (or another MCP server), translate the response into a Base MCP action, and execute it through tools like `send_calls`, `swap`, or `sign`. The calldata-based [native plugins](/ai-agents/plugins/native) follow the same shape. This page shows how to write your own `send_calls`-based plugin.
+A plugin is a markdown spec that teaches your assistant how to call an external API, run a CLI, or call another MCP server, translate the response into a Base MCP action, and execute it through tools like `send_calls`, `swap`, or `sign`. The calldata-based [native plugins](/ai-agents/plugins/native) follow the same shape. This page shows how to write your own `send_calls`-based plugin.
 
 ## When you need one
 
-Write a plugin when your protocol either has an HTTP "tx-builder" that returns unsigned calldata, or exposes its own MCP server. If it has neither, you can still use SDKs to encode the call directly, but it might not be useful for Claude and ChatGPT consumer apps.
+Write a plugin when your protocol has an HTTP tx-builder, a CLI/SDK that can produce unsigned transactions, or its own MCP server. CLI/SDK-only plugins require a harness with shell access; hybrid plugins can prefer a CLI in coding harnesses and fall back to an MCP server in chat-only Claude or ChatGPT consumer apps.
 
 ## Anatomy of a plugin
 
@@ -19,13 +19,13 @@ A `send_calls`-based plugin file contains four sections:
     A `STOP` notice that forces the assistant to complete Base MCP onboarding (`get_wallets`, disclaimer) before doing anything else. The user's wallet address — needed for every prepare call — is only confirmed during detection.
   </Step>
   <Step title="Read endpoints">
-    Document the GET endpoints that return state — balances, positions, market data — and the units they use.
+    Document the GET endpoints or CLI commands that return state — balances, positions, market data — and the units they use.
     <Note>
     POST endpoints are not supported in Claude and ChatGPT consumer apps.
     </Note>
   </Step>
   <Step title="Prepare endpoints">
-    Document the endpoints (or MCP tools) that return unsigned calldata. State the exact response shape so the assistant knows which fields map to `to`, `value`, and `data`.
+    Document the endpoints, CLI commands, or MCP tools that return unsigned calldata. State the exact response shape so the assistant knows which fields map to `to`, `value`, and `data`.
   </Step>
   <Step title="send_calls mapping">
     Show the assistant how to convert the prepare response into the `calls` array passed to `send_calls`.
@@ -33,7 +33,7 @@ A `send_calls`-based plugin file contains four sections:
 </Steps>
 
 <Note>
-Base MCP's `web_request` tool can make GET and POST requests only to whitelisted partner APIs. Native plugin hosts are allowlisted for the hosted MCP. Custom plugin hosts usually are not, so custom plugins should expose GET endpoints to remain usable in Claude and ChatGPT consumer apps.
+Base MCP's `web_request` tool can make GET and POST requests only to whitelisted partner APIs. Native plugins that rely on HTTP hosts may be allowlisted for the hosted MCP, while CLI-only plugins require shell access unless they document an MCP fallback. Custom plugin hosts usually are not allowlisted, so custom plugins should expose GET endpoints only if they need to remain usable in Claude and ChatGPT consumer apps.
 </Note>
 
 ## How it works
@@ -184,7 +184,7 @@ Use Base MCP's chain names (`base`, `base-sepolia`, `ethereum`, `optimism`, `pol
 |---------|-------------|---------|
 | Single-call envelope | One action, one tx | [Avantis](https://github.com/base/skills/blob/main/skills/base-mcp/plugins/avantis.md) |
 | Ordered batch | Approval + action must be atomic | [Moonwell](https://github.com/base/skills/blob/main/skills/base-mcp/plugins/moonwell.md) |
-| Sibling MCP server | Protocol already runs an MCP server with `prepare_*` tools | [Morpho](https://github.com/base/skills/blob/main/skills/base-mcp/plugins/morpho.md) |
+| CLI or MCP prepared batch | Prefer a protocol CLI when shell access exists; fall back to an MCP server on chat-only surfaces | [Morpho](https://github.com/base/skills/blob/main/skills/base-mcp/plugins/morpho.md) |
 | Multi-endpoint flow | Quote, approve, swap as separate calls | [Uniswap](https://github.com/base/skills/blob/main/skills/base-mcp/plugins/uniswap.md) |
 ## Related
 
@@ -193,6 +193,6 @@ Use Base MCP's chain names (`base`, `base-sepolia`, `ethereum`, `optimism`, `pol
     Full guide to `send_calls` and batching.
   </Card>
   <Card title="Native plugins" icon="puzzle-piece" href="/ai-agents/plugins/native">
-    Reference implementations for the ordered-batch, sibling-MCP, and multi-endpoint patterns.
+    Reference implementations for ordered-batch, CLI/MCP-prepared, and multi-endpoint patterns.
   </Card>
 </CardGroup>

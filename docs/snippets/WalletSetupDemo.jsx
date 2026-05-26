@@ -535,7 +535,7 @@ export const WalletSetupDemo = () => {
       prompt: "Find the best USDC yield on Base and deposit 100",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "morpho", action: "list_vaults", args: { asset: "USDC", chain: "base" } } },
+        { delay: 600, type: "tool", tool: { server: "morpho", action: "query_vaults", args: { chain: "base", asset: "USDC", sort: "apy_desc" } } },
         { delay: 700, type: "tool", tool: { server: "moonwell", action: "list_markets", args: { asset: "USDC", chain: "base" } } },
         { delay: 600, type: "text", text: "Compared Morpho vaults and Moonwell markets — top USDC yields on Base:" },
         { delay: 250, type: "rows", rows: [

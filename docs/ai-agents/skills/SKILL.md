@@ -61,16 +61,16 @@ Plugins currently maintained alongside this skill (the **native plugins**):
 | Morpho | [plugins/morpho.md](plugins/morpho.md) |
 | Moonwell | [plugins/moonwell.md](plugins/moonwell.md) |
 | Uniswap | [plugins/uniswap.md](plugins/uniswap.md) |
-| Avantis | [plugins/avantis.md](plugins/avantis.md) |
+| Avantis (CLI-only) | [plugins/avantis.md](plugins/avantis.md) |
 | Virtuals | [plugins/virtuals.md](plugins/virtuals.md) |
 | Aerodrome (CLI-only) | [plugins/aerodrome.md](plugins/aerodrome.md) |
 | Bankr | [plugins/bankr.md](plugins/bankr.md) |
 
-Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own tools, defer to the descriptions the plugin's MCP exposes — this skill does not duplicate them.
+Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own external tools, defer to the plugin file first, then to any CLI help, API schema, or MCP tool descriptions it explicitly tells you to use.
 
 ### Native plugins vs. custom / user-supplied plugins
 
-Native plugin HTTP hosts are allowlisted in the Base MCP `web_request` tool; CLI-only plugins still require a harness with shell access. Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
+Native plugin HTTP hosts may be allowlisted in the Base MCP `web_request` tool; CLI-only plugins (Avantis, Aerodrome) require a harness with shell access and do not work from chat-only surfaces. Morpho is hybrid: use Morpho CLI when shell access exists, otherwise use or install the Morpho MCP as described in [plugins/morpho.md](plugins/morpho.md). Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
 
 ## Installation
 

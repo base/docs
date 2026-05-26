@@ -12,7 +12,7 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
 
 <CardGroup cols={2}>
   <Card title="Morpho" icon="puzzle-piece" href="/ai-agents/plugins/native/morpho">
-    Lending and vaults on Base via Morpho's sibling MCP server. Deposit, borrow, withdraw, supply/withdraw collateral.
+    Lending and vaults on Base via Morpho CLI when available, with Morpho MCP fallback on chat-only surfaces.
   </Card>
   <Card title="Moonwell" icon="puzzle-piece" href="/ai-agents/plugins/native/moonwell">
     Compound v2 lending on Base and Optimism. Supply, borrow, withdraw, repay — approval and action batched into one approval.
@@ -20,8 +20,8 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
   <Card title="Uniswap" icon="puzzle-piece" href="/ai-agents/plugins/native/uniswap">
     Token swaps (proxy-approval, no Permit2) and V2/V3/V4 LP position management on Base.
   </Card>
-  <Card title="Avantis" icon="puzzle-piece" href="/ai-agents/plugins/native/avantis">
-    Perpetual futures on Base. Open, close, manage margin, set TP/SL, plus market, limit, stop-limit, and zero-fee orders.
+  <Card title="Avantis (CLI-only)" icon="puzzle-piece" href="/ai-agents/plugins/native/avantis">
+    Perpetual futures on Base via tx-builder HTTP calls from a CLI harness. Open, close, manage margin, and set TP/SL.
   </Card>
   <Card title="Aerodrome (CLI-only)" icon="puzzle-piece" href="/ai-agents/plugins/native/aerodrome">
     Token swaps and basic-pool liquidity on Aerodrome via sugar-sdk. Requires a CLI harness (Claude Code, Codex, Cursor terminal).
@@ -39,6 +39,7 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
 <Steps>
   <Step title="Install the skill">
     Connect `mcp.base.org` and load the skill in your client. See the [Quickstart](/ai-agents/quickstart) for Claude, Claude Desktop, ChatGPT, Cursor, and Claude Code.
+    CLI-only plugins require shell or terminal access and do not run from chat-only surfaces such as ChatGPT or Claude.ai. Morpho is environment-aware: CLI-capable harnesses use Morpho CLI, while chat-only harnesses use Morpho MCP.
   </Step>
   <Step title="Prompt the assistant">
     Just describe what you want. The assistant pulls the relevant plugin spec into context automatically.
@@ -65,13 +66,13 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
 </Steps>
 
 <Note>
-Plugins that use `web_request` only reach protocols whose hostnames are on the Base MCP allowlist. Native plugin hostnames are covered for the hosted MCP. To call a protocol that isn't allowlisted, see [Build a custom plugin](/ai-agents/plugins/custom-plugins).
+Plugins that use `web_request` only reach protocols whose hostnames are on the Base MCP allowlist. CLI-only plugins use the harness shell or local CLI instead of `web_request`; Morpho uses CLI when shell access exists and Morpho MCP otherwise. To call a protocol that isn't allowlisted, see [Build a custom plugin](/ai-agents/plugins/custom-plugins).
 </Note>
 
 ## Build your own
 
 <CardGroup cols={1}>
   <Card title="Build a custom plugin" icon="code" href="/ai-agents/plugins/custom-plugins">
-    Write a markdown spec for a protocol with an HTTP tx-builder, sibling MCP server, or other Base MCP-compatible flow.
+    Write a markdown spec for a protocol with an HTTP tx-builder, CLI, sibling MCP server, or other Base MCP-compatible flow.
   </Card>
 </CardGroup>

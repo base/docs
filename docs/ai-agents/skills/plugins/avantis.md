@@ -1,6 +1,6 @@
 ---
 title: "Avantis Plugin"
-description: "Skill plugin reference for trading perpetual futures on Avantis through Base MCP."
+description: "Skill plugin reference for trading perpetual futures on Avantis from CLI harnesses through Base MCP."
 ---
 
 # Avantis Plugin
@@ -8,11 +8,16 @@ description: "Skill plugin reference for trading perpetual futures on Avantis th
 > [!IMPORTANT]
 > Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any Avantis endpoint. The user's wallet address — used as `trader` in every tx-builder call — is fetched lazily when needed.
 
-Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). Use `web_request` to fetch unsigned calldata from the Avantis tx-builder, then preview or execute it with Base MCP `send_calls`.
+> [!WARNING]
+> ## CLI-only plugin
+>
+> This plugin fetches Avantis tx-builder calldata from a CLI-capable harness, then submits the unsigned call through Base MCP's `send_calls`. It only works in harnesses with shell/terminal or direct HTTP access, such as Codex, Claude Code, Cursor terminal, or similar CLI-enabled environments. It does not work on chat-only surfaces such as ChatGPT or Claude.ai. If the current surface has no shell or direct HTTP tool, tell the user this Avantis plugin requires CLI access and stop.
+
+Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). Use a harness HTTP tool such as `curl`, `fetch`, or a shell command to fetch unsigned calldata from the Avantis tx-builder, then preview or execute it with Base MCP `send_calls`.
 
 Do not sign, approve, or submit transactions unless the user explicitly asks. Generating calldata and `send_calls` approval links is safe, but the user must approve any real transaction.
 
-Prerequisite: `tx-builder.avantisfi.com`, `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` must be in the Base MCP `web_request` allowlist.
+Prerequisite: the harness must be able to call `tx-builder.avantisfi.com`, `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` directly. Do not route Avantis through Base MCP `web_request` or a user-paste fallback.
 
 No API key or Authorization header is required for the documented public endpoints.
 
@@ -113,12 +118,12 @@ For an open trade:
 
 ```
 get_wallets -> trader address
-web_request GET /v2/trading -> validate pair, market status, leverage, and min position
-web_request GET /user-data?trader=... -> inspect existing positions/orders
-web_request GET /token/approve if allowance may be missing -> send_calls preview
-web_request GET /trade/open -> send_calls preview
+HTTP GET /v2/trading -> validate pair, market status, leverage, and min position
+HTTP GET /user-data?trader=... -> inspect existing positions/orders
+HTTP GET /token/approve if allowance may be missing -> send_calls preview
+HTTP GET /trade/open -> send_calls preview
 poll /v2/market-order-initiated/status/<txHash> only after a real tx is submitted
-web_request GET /user-data?trader=... -> confirm final state only after execution
+HTTP GET /user-data?trader=... -> confirm final state only after execution
 ```
 
 For management actions (close, cancel, margin, TP/SL), always read `core /user-data` first and use a real `positions[].index` or `limitOrders[].index`. The tx-builder can encode calldata for a requested index even if that position/order does not exist, so preflight is required to avoid likely reverts.

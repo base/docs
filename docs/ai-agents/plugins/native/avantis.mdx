@@ -1,14 +1,18 @@
 ---
 title: "Avantis"
-description: "Perpetual futures on Base via the Avantis tx-builder"
+description: "Perpetual futures on Base via the Avantis tx-builder. CLI-only."
 keywords: ["Avantis plugin", "Base MCP Avantis", "perpetual futures Base", "Avantis perps", "Base perps trading"]
 ---
 
-Avantis is a perpetual futures DEX on Base mainnet. The plugin fetches unsigned calldata from the Avantis tx-builder (`tx-builder.avantisfi.com`) and executes it through Base MCP's `send_calls`. Collateral is USDC; ETH is used only for gas and execution fees.
+Avantis is a perpetual futures DEX on Base mainnet. The plugin fetches unsigned calldata from the Avantis tx-builder (`tx-builder.avantisfi.com`) from a CLI-capable harness and executes it through Base MCP's `send_calls`. Collateral is USDC; ETH is used only for gas and execution fees.
 
 **Chain:** Base mainnet.
 
 **Operations:** open trade (market, limit, stop-limit, zero-fee), close, cancel, update margin, set TP/SL, approve USDC, set/remove delegate, plus reads for pairs, positions, limit orders, and PnL history.
+
+<Warning>
+**CLI-only plugin.** This plugin requires shell or terminal access for tx-builder HTTP calls. It works in **Claude Code, Codex, Cursor terminal**, and similar CLI harnesses. It does **not** work in chat-only environments such as ChatGPT or Claude.ai.
+</Warning>
 
 ## Try it
 
@@ -33,7 +37,7 @@ Set TP to 100000 and SL to 80000 on my BTC long
 Every prepare endpoint returns a single-call envelope (`{ ok, data: { to, value, data, chainId } }`) that maps to a Base MCP `send_calls` call with `chain: "base"`. Approval and trade can be batched into one approval. The plugin reads `/v2/trading` to validate pair, leverage, and minimum notional before building the open call, and reads `core /user-data` to resolve real position/order indices for management actions.
 
 <Note>
-`tx-builder.avantisfi.com`, `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` must be on the Base MCP `web_request` allowlist. They already are for the hosted MCP at `mcp.base.org`.
+No additional MCP server is required. Use the harness shell or direct HTTP capability for Avantis reads and tx-builder requests, then submit the unsigned calldata through Base MCP.
 </Note>
 
 ## Reference

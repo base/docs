@@ -504,8 +504,8 @@ export const AcceptingPaymentsDemo = () => {
       prompt: "Find the best USDC vault on Base and deposit 100 USDC",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 600, type: "tool", tool: { server: "morpho", action: "list_vaults", args: { asset: "USDC", chain: "base", sortBy: "APY" } } },
-        { delay: 500, type: "text", text: "Steakhouse USDC has the best yield. Preparing deposit via send_calls..." },
+        { delay: 600, type: "tool", tool: { server: "morpho", action: "query_vaults", args: { chain: "base", asset: "USDC", sort: "apy_desc" } } },
+        { delay: 500, type: "text", text: "Steakhouse USDC has the best yield. Preparing deposit through the available Morpho path..." },
         { delay: 300, type: "rows", rows: [
           { token: "Morpho · Steakhouse USDC", amount: "8.42% APY", value: "$24.1M TVL · winner" },
           { token: "Morpho · Re7 USDC",        amount: "7.91% APY", value: "$18.7M TVL" },
@@ -521,7 +521,7 @@ export const AcceptingPaymentsDemo = () => {
       prompt: "Supply 0.5 ETH as collateral and borrow 1000 USDC",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "morpho", action: "get_market", args: { collateral: "ETH", loan: "USDC", chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "morpho", action: "query_markets", args: { chain: "base", collateral: "ETH", loan: "USDC" } } },
         { delay: 500, type: "text", text: "Found Morpho ETH/USDC market on Base. Batching supply + borrow..." },
         { delay: 500, type: "tool", tool: { server: "morpho", action: "prepare_supply_collateral", args: { asset: "ETH", amount: "0.5", borrow: "1000 USDC" } } },
         { delay: 350, type: "tool", tool: { server: "base-mcp", action: "send_calls", args: { chain: "base", calls: "[supplyCollateral, borrow]" } } },
@@ -533,7 +533,7 @@ export const AcceptingPaymentsDemo = () => {
       prompt: "Repay all my Morpho USDC debt",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 550, type: "tool", tool: { server: "morpho", action: "get_position", args: { market: "ETH/USDC", chain: "base" } } },
+        { delay: 550, type: "tool", tool: { server: "morpho", action: "get_positions", args: { market: "ETH/USDC", chain: "base" } } },
         { delay: 500, type: "text", text: "You owe 1002.14 USDC including accrued interest. Preparing full repayment..." },
         { delay: 500, type: "tool", tool: { server: "morpho", action: "prepare_repay", args: { amount: "1002.14 USDC", market: "ETH/USDC" } } },
         { delay: 350, type: "tool", tool: { server: "base-mcp", action: "send_calls", args: { chain: "base", calls: "[approve, repayAll]" } } },
@@ -727,7 +727,7 @@ export const AcceptingPaymentsDemo = () => {
         {!ex && (
           <div>
             <div className="apd-empty-text" style={{ fontFamily: serif, color: c.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              Try asking once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> and <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.morpho.org</span> are connected:
+              Try asking once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected and Morpho MCP is available:
             </div>
             <div style={{ display: "grid", gap: 10 }}>
               {examples.map((e, i) => <ChipBtn key={i} onClick={() => pick(i)}>{e.prompt}</ChipBtn>)}
