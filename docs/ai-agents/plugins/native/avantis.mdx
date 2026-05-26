@@ -1,47 +1,64 @@
 ---
 title: "Avantis"
-description: "Perpetual futures on Base via the Avantis tx-builder. CLI-only."
+description: "Perpetual futures on Base via the Avantis tx-builder. Reads work on every surface; trade-building uses a CLI harness or the Avantis web UI."
 keywords: ["Avantis plugin", "Base MCP Avantis", "perpetual futures Base", "Avantis perps", "Base perps trading"]
 ---
 
-Avantis is a perpetual futures DEX on Base mainnet. The plugin fetches unsigned calldata from the Avantis tx-builder (`tx-builder.avantisfi.com`) from a CLI-capable harness and executes it through Base MCP's `send_calls`. Collateral is USDC; ETH is used only for gas and execution fees.
+Avantis is a perpetual futures DEX on Base mainnet. The plugin reads market data, positions, and PnL from `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` (allowlisted for Base MCP `web_request`), and builds unsigned trade calldata from `tx-builder.avantisfi.com` for execution through Base MCP's `send_calls`. Collateral is USDC; ETH is used only for gas and execution fees.
 
 **Chain:** Base mainnet.
 
 **Operations:** open trade (market, limit, stop-limit, zero-fee), close, cancel, update margin, set TP/SL, approve USDC, set/remove delegate, plus reads for pairs, positions, limit orders, and PnL history.
 
-<Warning>
-**CLI-only plugin.** This plugin requires shell or terminal access for tx-builder HTTP calls. It works in **Claude Code, Codex, Cursor terminal**, and similar CLI harnesses. It does **not** work in chat-only environments such as ChatGPT or Claude.ai.
-</Warning>
+## Surface routing
+
+<CardGroup cols={2}>
+  <Card title="Reads work everywhere" icon="circle-check">
+    Pair info, leverage rules, fees, open positions, limit orders, and PnL history are fetched through Base MCP `web_request` on chat-only surfaces (ChatGPT, Claude.ai) or directly via the harness HTTP tool in Claude Code, Codex, and Cursor terminal.
+  </Card>
+  <Card title="Trade-building splits by surface" icon="route">
+    In CLI harnesses, the plugin calls the Avantis tx-builder and submits unsigned calldata through `send_calls`. On chat-only surfaces, it links the user to the Avantis web UI for the relevant pair instead.
+  </Card>
+</CardGroup>
+
+<Note>
+  Only `tx-builder.avantisfi.com` is gated to CLI harnesses. View-only Avantis APIs (`data`, `core`, `history`) are on the Base MCP `web_request` allowlist and work on every supported surface.
+</Note>
 
 ## Try it
 
-```text Open long
+```text Read pairs and PnL (any surface)
+What's my Avantis open positions and PnL on Base?
+```
+
+```text Open long (CLI harness)
 Open a 10x long BTC/USD with 100 USDC collateral on Avantis
 ```
 
-```text Limit order
+```text Limit order (CLI harness)
 Place a limit long on ETH/USD at 3000 with 50 USDC at 5x
 ```
 
-```text Close
+```text Manage trade (CLI harness)
 Close my BTC/USD position on Avantis
 ```
 
-```text Set TP/SL
-Set TP to 100000 and SL to 80000 on my BTC long
+```text Chat-only fallback
+Take me to the ETH/USD market on Avantis
 ```
+
+When the request needs tx-builder calldata and the current surface is chat-only, the assistant summarizes what you'd be signing and hands you a deep link of the form `https://www.avantisfi.com/trade?asset=<SYMBOL>-USD` (for example, `https://www.avantisfi.com/trade?asset=ETH-USD`) to complete the trade in the Avantis UI.
 
 ## Pattern
 
 Every prepare endpoint returns a single-call envelope (`{ ok, data: { to, value, data, chainId } }`) that maps to a Base MCP `send_calls` call with `chain: "base"`. Approval and trade can be batched into one approval. The plugin reads `/v2/trading` to validate pair, leverage, and minimum notional before building the open call, and reads `core /user-data` to resolve real position/order indices for management actions.
 
 <Note>
-No additional MCP server is required. Use the harness shell or direct HTTP capability for Avantis reads and tx-builder requests, then submit the unsigned calldata through Base MCP.
+No additional MCP server is required. View-only Avantis APIs are reached through Base MCP `web_request` on chat-only surfaces (or directly from the harness shell in CLI environments). Tx-builder calldata is built and submitted from CLI harnesses; on chat-only surfaces the assistant links to the Avantis UI instead.
 </Note>
 
 ## Reference
 
 <Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/avantis.md">
-  Endpoint inventory, parameters, unit/scaling rules, batching guidance, and error handling.
+  Endpoint inventory, parameters, unit/scaling rules, batching guidance, chat-only UI fallback, and error handling.
 </Card>

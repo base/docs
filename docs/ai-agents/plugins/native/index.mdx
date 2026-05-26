@@ -46,12 +46,13 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
     on Base.
   </Card>
   <Card
-    title="Avantis (CLI-only)"
+    title="Avantis"
     icon="puzzle-piece"
     href="/ai-agents/plugins/native/avantis"
   >
-    Perpetual futures on Base via tx-builder HTTP calls from a CLI harness.
-    Open, close, manage margin, and set TP/SL.
+    Perpetual futures on Base. Reads (pairs, positions, PnL) work on every
+    surface; trade-building uses a CLI harness, or the Avantis web UI on
+    chat-only surfaces.
   </Card>
   <Card
     title="Aerodrome (CLI-only)"
@@ -80,9 +81,10 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
 </CardGroup>
 
     <Note>
-      CLI-only plugins (Avantis, Aerodrome) require shell or terminal access and do not run from chat-only surfaces such as ChatGPT or Claude.ai.
-      
+      Aerodrome is CLI-only and requires shell or terminal access — it does not run from chat-only surfaces such as ChatGPT or Claude.ai.
+
       Some plugins are environment-aware:
+      - Avantis splits by capability: view-only reads work everywhere via `web_request`; tx-builder calls run from a CLI harness, with an Avantis web UI fallback on chat-only surfaces.
       - Morpho uses CLI when shell access exists, otherwise uses Morpho MCP.
       - Virtuals requires installing an MCP server and running the auth flow once per session.
     </Note>
@@ -120,9 +122,11 @@ Most transaction plugins follow the prepare → `send_calls` pattern described i
 
 <Note>
   Plugins that use `web_request` only reach protocols whose hostnames are on the
-  Base MCP allowlist. CLI-only plugins use the harness shell or local CLI
-  instead of `web_request`; Morpho uses CLI when shell access exists and Morpho
-  MCP otherwise. To call a protocol that isn't allowlisted, see [Build a custom
+  Base MCP allowlist. Aerodrome (CLI-only) uses the harness shell instead of
+  `web_request`. Avantis uses `web_request` for view-only reads and a CLI
+  harness (or the Avantis web UI on chat-only surfaces) for trade-building.
+  Morpho uses CLI when shell access exists and Morpho MCP otherwise. To call a
+  protocol that isn't allowlisted, see [Build a custom
   plugin](/ai-agents/plugins/custom-plugins).
 </Note>
 

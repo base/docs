@@ -1,6 +1,6 @@
 ---
 title: "Avantis Plugin"
-description: "Skill plugin reference for trading perpetual futures on Avantis from CLI harnesses through Base MCP."
+description: "Skill plugin reference for reading Avantis market data and positions on any surface, and building perpetual-futures transactions from CLI harnesses (with an Avantis UI fallback on chat-only surfaces)."
 ---
 
 # Avantis Plugin
@@ -8,29 +8,37 @@ description: "Skill plugin reference for trading perpetual futures on Avantis fr
 > [!IMPORTANT]
 > Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any Avantis endpoint. The user's wallet address — used as `trader` in every tx-builder call — is fetched lazily when needed.
 
-> [!WARNING]
-> ## CLI-only plugin
->
-> This plugin fetches Avantis tx-builder calldata from a CLI-capable harness, then submits the unsigned call through Base MCP's `send_calls`. It only works in harnesses with shell/terminal or direct HTTP access, such as Codex, Claude Code, Cursor terminal, or similar CLI-enabled environments. It does not work on chat-only surfaces such as ChatGPT or Claude.ai. If the current surface has no shell or direct HTTP tool, tell the user this Avantis plugin requires CLI access and stop.
+Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). This plugin has two routing modes:
 
-Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). Use a harness HTTP tool such as `curl`, `fetch`, or a shell command to fetch unsigned calldata from the Avantis tx-builder, then preview or execute it with Base MCP `send_calls`.
+| Capability | API hosts | Where it runs |
+| --- | --- | --- |
+| **View-only reads** — pair configs, leverage rules, fees, market status, open positions, limit orders, trade history, PnL | `data.avantisfi.com`, `core.avantisfi.com`, `api.avantisfi.com` | Works on every surface. Use the harness HTTP tool when available; otherwise call Base MCP `web_request` — these hosts are on the allowlist. |
+| **Transaction-builder** — open/close trades, cancel orders, deposit/withdraw margin, set TP/SL, approve USDC, set/remove delegate | `tx-builder.avantisfi.com` | CLI harnesses only (Claude Code, Codex, Cursor terminal). On chat-only surfaces (ChatGPT, Claude.ai), direct the user to the Avantis UI instead — see [Chat-only surfaces: Avantis UI fallback](#chat-only-surfaces-avantis-ui-fallback). |
 
 Do not sign, approve, or submit transactions unless the user explicitly asks. Generating calldata and `send_calls` approval links is safe, but the user must approve any real transaction.
 
-Prerequisite: the harness must be able to call `tx-builder.avantisfi.com`, `data.avantisfi.com`, `core.avantisfi.com`, and `api.avantisfi.com` directly. Do not route Avantis through Base MCP `web_request` or a user-paste fallback.
-
 No API key or Authorization header is required for the documented public endpoints.
+
+## Surface routing for HTTP calls
+
+Use this order for every Avantis HTTP call:
+
+1. **Harness HTTP tool** (preferred when available) — `curl`, `fetch`, or a shell command in Claude Code, Codex, Cursor terminal, etc. Works for both view-only and tx-builder hosts. Any HTTP method, no allowlist.
+2. **Base MCP `web_request`** (chat-only surfaces) — use for the **view-only hosts only** (`data.avantisfi.com`, `core.avantisfi.com`, `api.avantisfi.com`). These are on the Base MCP `web_request` allowlist.
+3. **Avantis UI fallback** (chat-only surfaces, tx-builder operations only) — when the user wants to open, close, or manage a trade and there is no CLI, do not attempt `web_request` against `tx-builder.avantisfi.com`. Link the user to the Avantis trading UI for the relevant pair. See [Chat-only surfaces: Avantis UI fallback](#chat-only-surfaces-avantis-ui-fallback).
+
+Do not use the user-paste GET fallback for `tx-builder.avantisfi.com`; tx-builder calldata is wallet-specific and chain-of-trust matters — the UI is the right path on chat-only surfaces.
 
 ---
 
 ## API Services
 
-| Service | Base URL | Purpose |
-| --- | --- | --- |
-| tx-builder | `https://tx-builder.avantisfi.com` | GET-only unsigned calldata builder for Avantis Trading and USDC calls |
-| data | `https://data.avantisfi.com/v2/trading` | Pair configs, leverage rules, fees, open interest, market status |
-| core | `https://core.avantisfi.com` | Current open positions, limit orders, and open interest |
-| history | `https://api.avantisfi.com` | Closed/all trade history, PnL, referral stats, market-order settlement status |
+| Service | Base URL | Routing | Purpose |
+| --- | --- | --- | --- |
+| tx-builder | `https://tx-builder.avantisfi.com` | CLI only; UI fallback on chat-only surfaces | GET-only unsigned calldata builder for Avantis Trading and USDC calls |
+| data | `https://data.avantisfi.com/v2/trading` | CLI or `web_request` | Pair configs, leverage rules, fees, open interest, market status |
+| core | `https://core.avantisfi.com` | CLI or `web_request` | Current open positions, limit orders, and open interest |
+| history | `https://api.avantisfi.com` | CLI or `web_request` | Closed/all trade history, PnL, referral stats, market-order settlement status |
 
 Source of truth for tx-builder shape:
 
@@ -527,6 +535,34 @@ minLeverage     = ceil(minPositionUsdc / requestedCollateral)
 ```
 
 Present the user with concrete options: increase collateral to `minCollateral`, increase leverage to `minLeverage` (within the pair envelope), or both. Do not silently adjust parameters without user confirmation.
+
+---
+
+## Chat-only surfaces: Avantis UI fallback
+
+When the user wants a tx-builder action (open, close, cancel, margin update, TP/SL change, USDC approval, delegate set/remove) and there is **no shell, terminal, or direct HTTP tool** in the current surface (typical for ChatGPT, Claude.ai, and other chat-only apps), do not attempt to call `tx-builder.avantisfi.com` through `web_request` — that host is not allowlisted for tx-builder calls and the calldata path is wallet-specific.
+
+Instead, do the view-only homework first, then hand off to the Avantis web UI:
+
+1. Use `web_request` against `data.avantisfi.com` / `core.avantisfi.com` / `api.avantisfi.com` to answer the user's question (pair info, available pairs, the user's current positions, recent PnL, etc.).
+2. Tell the user plainly that signing and submitting Avantis trades from this surface requires the Avantis web UI (or a CLI harness like Claude Code, Codex, or Cursor terminal).
+3. Build a deep link to the relevant market and surface it as a clickable link. URL pattern:
+
+   ```
+   https://www.avantisfi.com/trade?asset=<SYMBOL>-USD
+   ```
+
+   The `asset` query parameter uses the pair `from` symbol joined to `USD` with a hyphen. Examples:
+
+   - `https://www.avantisfi.com/trade?asset=ETH-USD`
+   - `https://www.avantisfi.com/trade?asset=BTC-USD`
+   - `https://www.avantisfi.com/trade?asset=SNDK-USD`
+
+   Resolve the symbol from `pairInfos["<pairIndex>"].from` returned by `GET https://data.avantisfi.com/v2/trading`. If the user named a pair like `BTC/USD`, the `from` is `BTC`.
+
+4. If you already have concrete trade parameters (side, leverage, collateral, TP/SL), summarize them in your message so the user can reproduce the intent inside the UI. Do not claim a position was opened or modified — the UI flow is user-driven.
+
+Only follow this fallback for tx-builder operations. Pair lookups, positions, and history reads continue to work in chat via `web_request`.
 
 ---
 

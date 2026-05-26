@@ -61,7 +61,7 @@ Plugins currently maintained alongside this skill (the **native plugins**):
 | Morpho | [plugins/morpho.md](plugins/morpho.md) |
 | Moonwell | [plugins/moonwell.md](plugins/moonwell.md) |
 | Uniswap | [plugins/uniswap.md](plugins/uniswap.md) |
-| Avantis (CLI-only) | [plugins/avantis.md](plugins/avantis.md) |
+| Avantis (hybrid) | [plugins/avantis.md](plugins/avantis.md) |
 | Virtuals | [plugins/virtuals.md](plugins/virtuals.md) |
 | Aerodrome (CLI-only) | [plugins/aerodrome.md](plugins/aerodrome.md) |
 | Bankr | [plugins/bankr.md](plugins/bankr.md) |
@@ -70,7 +70,7 @@ Load a plugin reference only when the user's request matches it, following the s
 
 ### Native plugins vs. custom / user-supplied plugins
 
-Native plugin HTTP hosts may be allowlisted in the Base MCP `web_request` tool; CLI-only plugins (Avantis, Aerodrome) require a harness with shell access and do not work from chat-only surfaces. Morpho is hybrid: use Morpho CLI when shell access exists, otherwise use or install the Morpho MCP as described in [plugins/morpho.md](plugins/morpho.md). Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
+Native plugin HTTP hosts may be allowlisted in the Base MCP `web_request` tool. Aerodrome is CLI-only and requires a harness with shell access. Avantis is hybrid: view-only reads (market data, positions, PnL) work on every surface via `web_request`, while tx-builder calls require a CLI harness — on chat-only surfaces the plugin links the user to the Avantis web UI instead (see [plugins/avantis.md](plugins/avantis.md)). Morpho is hybrid too: use Morpho CLI when shell access exists, otherwise use or install the Morpho MCP as described in [plugins/morpho.md](plugins/morpho.md). Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
 
 ## Installation
 
