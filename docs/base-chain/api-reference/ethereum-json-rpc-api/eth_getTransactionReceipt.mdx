@@ -36,8 +36,16 @@ Receipts are only available for mined transactions. To monitor a transaction bef
     <ResponseField name="logsBloom" type="string">256-byte bloom filter for the logs in this receipt.</ResponseField>
     <ResponseField name="type" type="string">Transaction type: `"0x0"` Legacy, `"0x1"` Access List, `"0x2"` EIP-1559, `"0x7e"` Deposit (L1→L2).</ResponseField>
     <ResponseField name="status" type="string">`"0x1"` for success, `"0x0"` for failure (revert).</ResponseField>
-    <ResponseField name="blobGasUsed" type="string">Blob gas consumed by this transaction (EIP-4844). `null` for non-blob transactions. Accurately propagated in both finalized and pre-confirmed Flashblock state.</ResponseField>
-    <ResponseField name="blobGasPrice" type="string">Blob gas price at the time of this transaction (EIP-4844). `null` for non-blob transactions.</ResponseField>
+    <ResponseField name="blobGasUsed" type="string">Blob gas consumed by this transaction (EIP-4844). `null` for non-blob transactions.</ResponseField>
+    <ResponseField name="l1Fee" type="string">Total L1 data fee paid for this transaction (hex). OP Stack L2 field.</ResponseField>
+    <ResponseField name="l1GasUsed" type="string">Amount of L1 gas used for the L1 data portion of this transaction (hex). OP Stack L2 field.</ResponseField>
+    <ResponseField name="l1GasPrice" type="string">L1 gas price at the time of inclusion (hex). OP Stack L2 field.</ResponseField>
+    <ResponseField name="l1BlobBaseFee" type="string">Blob base fee on L1 at the time of inclusion (hex). OP Stack L2 field.</ResponseField>
+    <ResponseField name="l1BlobBaseFeeScalar" type="string">Scalar applied to the blob base fee for L1 fee calculation (hex). OP Stack L2 field.</ResponseField>
+    <ResponseField name="l1BaseFeeScalar" type="string">Scalar applied to the L1 base fee for L1 fee calculation (hex). OP Stack L2 field.</ResponseField>
+    <ResponseField name="daFootprintGasScalar" type="string">Base-specific DA footprint scalar (hex).</ResponseField>
+    <ResponseField name="depositNonce" type="string">Nonce used for the deposit transaction (hex). Present on type `0x7e` transactions only.</ResponseField>
+    <ResponseField name="depositReceiptVersion" type="string">Deposit receipt version (hex). Present on type `0x7e` transactions only.</ResponseField>
   </Expandable>
 </ResponseField>
 
@@ -72,25 +80,35 @@ The Flashblocks infrastructure stream includes pre-confirmed receipt data inside
 }
 ```
 
-```json Response
+```json Response (type 0x7e deposit)
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
-    "transactionIndex": "0x0",
-    "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
-    "blockNumber": "0x12ced28",
-    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
-    "to": "0x4200000000000000000000000000000000000006",
-    "cumulativeGasUsed": "0x5208",
-    "effectiveGasPrice": "0x3b9aca00",
-    "gasUsed": "0x5208",
+    "blobGasUsed": "0x4154",
+    "blockHash": "0x491bca01d4bc076d60833dbd973fe031a74e7ae31866bf70d077619e09edb6ff",
+    "blockNumber": "0x2c31b0b",
     "contractAddress": null,
+    "cumulativeGasUsed": "0xb48a",
+    "daFootprintGasScalar": "0x94",
+    "depositNonce": "0x2c31b0e",
+    "depositReceiptVersion": "0x1",
+    "effectiveGasPrice": "0x0",
+    "from": "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001",
+    "gasUsed": "0xb48a",
+    "l1BaseFeeScalar": "0x8dd",
+    "l1BlobBaseFee": "0x582765",
+    "l1BlobBaseFeeScalar": "0x101c12",
+    "l1Fee": "0x0",
+    "l1GasPrice": "0x6bdbf6f",
+    "l1GasUsed": "0x71d",
     "logs": [],
-    "logsBloom": "0x00000000000000000000000000000000...",
+    "logsBloom": "0x000...000",
     "status": "0x1",
-    "type": "0x2"
+    "to": "0x4200000000000000000000000000000000000015",
+    "transactionHash": "0x03c8f106f18ad94190e763e21b584c5825b2f4c61f1274c0e8abe65b4476cd51",
+    "transactionIndex": "0x0",
+    "type": "0x7e"
   }
 }
 ```

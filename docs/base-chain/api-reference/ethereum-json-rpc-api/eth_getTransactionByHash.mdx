@@ -28,17 +28,26 @@ Returns information about a transaction given its hash. Returns `null` for unkno
     <ResponseField name="value" type="string">ETH value transferred in wei (hex).</ResponseField>
     <ResponseField name="gas" type="string">Gas provided by the sender (hex).</ResponseField>
     <ResponseField name="gasPrice" type="string">Gas price in wei. For EIP-1559 transactions, this is the effective gas price paid (hex).</ResponseField>
-    <ResponseField name="maxFeePerGas" type="string">EIP-1559 maximum total fee per gas (hex). Present for type `0x2` transactions only.</ResponseField>
-    <ResponseField name="maxPriorityFeePerGas" type="string">EIP-1559 maximum priority fee per gas (hex). Present for type `0x2` transactions only.</ResponseField>
+    <ResponseField name="maxFeePerGas" type="string">EIP-1559 maximum total fee per gas (hex). Present for type `0x2` transactions only. Not present on type `0x7e`.</ResponseField>
+    <ResponseField name="maxPriorityFeePerGas" type="string">EIP-1559 maximum priority fee per gas (hex). Present for type `0x2` transactions only. Not present on type `0x7e`.</ResponseField>
     <ResponseField name="input" type="string">ABI-encoded call data. `"0x"` for plain ETH transfers.</ResponseField>
     <ResponseField name="type" type="string">Transaction type: `"0x0"` Legacy, `"0x1"` Access List, `"0x2"` EIP-1559, `"0x7e"` Deposit (L1→L2).</ResponseField>
-    <ResponseField name="chainId" type="string">Chain ID the transaction is valid for. `"0x2105"` for Base Mainnet, `"0x14a34"` for Base Sepolia.</ResponseField>
-    <ResponseField name="accessList" type="array">List of addresses and storage keys pre-declared by the transaction (EIP-2930). Present for type `0x1` and `0x2` transactions.</ResponseField>
+    <ResponseField name="chainId" type="string">Chain ID the transaction is valid for. `"0x2105"` for Base Mainnet, `"0x14a34"` for Base Sepolia. Not present on type `0x7e`.</ResponseField>
+    <ResponseField name="accessList" type="array">List of addresses and storage keys pre-declared by the transaction (EIP-2930). Present for type `0x1` and `0x2` transactions. Not present on type `0x7e`.</ResponseField>
     <ResponseField name="v" type="string">ECDSA recovery ID (hex).</ResponseField>
-    <ResponseField name="r" type="string">32-byte ECDSA signature component r (hex).</ResponseField>
-    <ResponseField name="s" type="string">32-byte ECDSA signature component s (hex).</ResponseField>
+    <ResponseField name="r" type="string">32-byte ECDSA signature component r (hex). Always `"0x0"` for type `0x7e`.</ResponseField>
+    <ResponseField name="s" type="string">32-byte ECDSA signature component s (hex). Always `"0x0"` for type `0x7e`.</ResponseField>
+    <ResponseField name="sourceHash" type="string">Identifies the deposit source (bytes32 hex). Present on type `0x7e` only.</ResponseField>
+    <ResponseField name="mint" type="string">ETH minted on L2 as part of this deposit (hex). Usually `"0x0"`. Present on type `0x7e` only.</ResponseField>
+    <ResponseField name="depositReceiptVersion" type="string">Version of the deposit receipt format (hex). Present on type `0x7e` only.</ResponseField>
+    <ResponseField name="yParity" type="string">Signature parity (hex). Always `"0x0"` for type `0x7e` deposits.</ResponseField>
   </Expandable>
+
 </ResponseField>
+
+<Note>
+**Transaction types on Base:** Base supports Ethereum-standard types (`0x0` legacy, `0x1` EIP-2930, `0x2` EIP-1559) as well as OP Stack deposit transactions (`0x7e`). Deposit transactions are injected by the sequencer at the start of each block. Fields like `maxFeePerGas`, `accessList`, and `chainId` are not present on `0x7e` transactions; instead they carry `sourceHash`, `mint`, `depositReceiptVersion`, and `yParity`.
+</Note>
 
 ## Example
 
@@ -47,35 +56,35 @@ Returns information about a transaction given its hash. Returns `null` for unkno
 {
   "jsonrpc": "2.0",
   "method": "eth_getTransactionByHash",
-  "params": ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],
+  "params": ["0x03c8f106f18ad94190e763e21b584c5825b2f4c61f1274c0e8abe65b4476cd51"],
   "id": 1
 }
 ```
 
-```json Response
+```json Response (type 0x7e deposit)
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "hash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
-    "nonce": "0x1b",
-    "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
-    "blockNumber": "0x12ced28",
+    "blockHash": "0x491bca01d4bc076d60833dbd973fe031a74e7ae31866bf70d077619e09edb6ff",
+    "blockNumber": "0x2c31b0b",
+    "depositReceiptVersion": "0x1",
+    "from": "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001",
+    "gas": "0xf4240",
+    "gasPrice": "0x0",
+    "hash": "0x03c8f106f18ad94190e763e21b584c5825b2f4c61f1274c0e8abe65b4476cd51",
+    "input": "0x3db6be2b...",
+    "mint": "0x0",
+    "nonce": "0x2c31b0e",
+    "r": "0x0",
+    "s": "0x0",
+    "sourceHash": "0xe40ffb1b9f98a24b21e90e3a3cfe49de1eed195618e943da4d029881d3b3e055",
+    "to": "0x4200000000000000000000000000000000000015",
     "transactionIndex": "0x0",
-    "from": "0xd3CdA913deB6f4967b2Ef66ae97DE114a83bcc01",
-    "to": "0x4200000000000000000000000000000000000006",
-    "value": "0x2c68af0bb14000",
-    "gas": "0x5208",
-    "gasPrice": "0x3b9aca00",
-    "maxFeePerGas": "0x77359400",
-    "maxPriorityFeePerGas": "0x3b9aca00",
-    "input": "0x",
-    "type": "0x2",
-    "chainId": "0x2105",
-    "accessList": [],
-    "v": "0x1",
-    "r": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
-    "s": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+    "type": "0x7e",
+    "v": "0x0",
+    "value": "0x0",
+    "yParity": "0x0"
   }
 }
 ```
