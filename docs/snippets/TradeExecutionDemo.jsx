@@ -11,12 +11,12 @@ export const TradeExecutionDemo = () => {
   };
 
   const steps = [
-    { delay: 350, left: [{ t: "> Connect to mainnet-preconf.base.org...", c: "active" }], right: [
+    { delay: 350, left: [{ t: "> Connect to mainnet.base.org...", c: "active" }], right: [
       { t: "── Flashblocks State ───────────────────", c: "dim" },
       { t: "eth_getBlockByNumber(\"pending\")", c: "code" },
-      { t: "Host: mainnet-preconf.base.org", c: "muted" },
+      { t: "Host: mainnet.base.org", c: "muted" },
     ]},
-    { delay: 650, left: [{ t: "  ✓ preconf endpoint connected (200ms)", c: "success" }], right: [
+    { delay: 650, left: [{ t: "  ✓ Flashblocks endpoint connected (200ms)", c: "success" }], right: [
       { t: "", c: "dim" },
       { t: '{"pending": {', c: "code" },
       { t: '  "number": "0x1B2A4F2",', c: "code" },

@@ -47,13 +47,13 @@ curl -X POST "https://api.wallet.paysponge.com/api/swap" \
 
 ## Execution patterns
 
-### Use the preconf endpoint for all reads and submissions
+### Use Flashblocks endpoints for all reads and submissions
 
-Always connect to `mainnet-preconf.base.org` (or `sepolia-preconf.base.org` for testnet) rather than the standard endpoint. This is the only way to access Flashblocks `pending` state, preconfirmed transaction streams, and `base_transactionStatus`. See [Flashblocks endpoints](/base-chain/flashblocks/app-integration#rpc-endpoints) for the full list.
+All Base public endpoints (`mainnet.base.org` / `sepolia.base.org`) are Flashblocks-enabled. This gives you access to Flashblocks `pending` state, preconfirmed transaction streams, and `base_transactionStatus`. See [Flashblocks endpoints](/base-chain/flashblocks/app-integration#rpc-endpoints) for details.
 
 ### Simulate against preconfirmed state before signing
 
-Call [`eth_simulateV1`](/base-chain/api-reference/flashblocks-api/eth_simulateV1) against the preconf endpoint with `"blockStateCalls"` targeting the `pending` block before signing any transaction. This catches reverts against current Flashblocks state rather than the last sealed block — which may be up to 2 seconds stale by the time your transaction lands.
+Call [`eth_simulateV1`](/base-chain/api-reference/flashblocks-api/eth_simulateV1) with `"blockStateCalls"` targeting the `pending` block before signing any transaction. This catches reverts against current Flashblocks state rather than the last sealed block — which may be up to 2 seconds stale by the time your transaction lands.
 
 ### Poll `base_transactionStatus` instead of blocking on a receipt
 
@@ -96,7 +96,7 @@ Base exposes data that most chains don't provide at this resolution:
 
 | Signal | How to access | Opportunity category |
 | ------ | ------------- | -------------------- |
-| Preconfirmed pending block state (200ms early) | `eth_getBlockByNumber("pending")` on preconf endpoint | Detect price impact before block seals |
+| Preconfirmed pending block state (200ms early) | `eth_getBlockByNumber("pending")` | Detect price impact before block seals |
 | Preconfirmed transaction stream | `eth_subscribe("newFlashblockTransactions")` | First-mover on large trades entering the block |
 | Preconfirmed logs | `eth_subscribe("pendingLogs", { address, topics })` | Detect liquidation thresholds, oracle updates before finality |
 | Fee spike detection | `eth_feeHistory` trend over last 5 blocks | Identify congestion onset; adjust routing or pause |
