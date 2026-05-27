@@ -1,0 +1,66 @@
+---
+title: "Execute Contract Calls"
+description: "Batch multiple contract interactions into a single user approval using send_calls and Base MCP"
+keywords: ["send_calls MCP", "batch contract calls AI", "EIP-5792 AI", "DeFi AI agent", "Moonwell AI Base", "batch transaction AI"]
+---
+
+import { AcceptingPaymentsDemo } from "/snippets/AcceptingPaymentsDemo.jsx"
+
+<AcceptingPaymentsDemo />
+
+## What it does
+
+`send_calls` submits a batch of raw contract calls for a single Base Account approval. Use it for DeFi interactions, multi-step operations, and NFT mints that go beyond simple send or swap.
+
+The most common use case: [protocol plugins](/ai-agents/plugins/native) like Moonwell prepare a `calls` array (including token approvals and deposits), and you pass it directly to `send_calls` — everything executes atomically in one approval. Moonwell works entirely via `web_request`, with no additional MCP server required.
+
+## What you can ask
+
+With the [Moonwell plugin](/ai-agents/plugins/native):
+
+```text
+Find the best USDC market on Base and supply 100 USDC
+```
+
+```text
+Borrow 500 USDC against my collateral on Moonwell
+```
+
+```text
+Repay all my Moonwell debt
+```
+
+## How it works
+
+<Steps>
+  <Step title="A plugin prepares the calls">
+    Protocol plugins like Moonwell return a `calls` array, often with a chain ID from their prepare endpoints. The calls include any required token approvals and the protocol interaction itself.
+  </Step>
+  <Step title="Your assistant calls send_calls()">
+    Passes the `calls` array and Base MCP chain name to Base MCP.
+  </Step>
+  <Step title="You review and approve">
+    Open the approval link to review all calls in Base Account before signing.
+  </Step>
+  <Step title="Calls execute onchain">
+    All calls in the batch execute atomically — if one fails, none go through.
+  </Step>
+</Steps>
+
+## Parameters
+
+| Parameter | Required | What it does |
+|-----------|----------|-------------|
+| `chain` | Yes | Chain name, e.g. `base`, `base-sepolia`, `ethereum`, `optimism`, `polygon`, `arbitrum`, `bsc`, or `avalanche` |
+| `calls` | Yes | Array of `{ to, value?, data? }` objects |
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Native plugins" icon="puzzle-piece" href="/ai-agents/plugins/native">
+    Morpho, Moonwell, Uniswap, Avantis, Aerodrome, Virtuals, and Bankr plugin overview.
+  </Card>
+  <Card title="Sign messages" icon="pen-nib" href="/ai-agents/guides/sign-messages">
+    Sign individual messages and typed data.
+  </Card>
+</CardGroup>

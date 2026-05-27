@@ -1,438 +1,751 @@
-import { useState, useEffect, useRef } from "react";
-
 export const AgentPaymentDemo = () => {
-  const mono = "ui-monospace,'Cascadia Code','Source Code Pro',Menlo,Monaco,Consolas,monospace";
-  const col = {
-    dim:     "#3f3f46",
-    muted:   "#52525b",
-    active:  "#60a5fa",
-    success: "#34d399",
-    code:    "#d4d4d8",
+  const sans  = "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+  const serif = "'Tiempos Headline','Iowan Old Style','Source Serif Pro',ui-serif,Georgia,serif";
+  const mono  = "ui-monospace,'SF Mono','Cascadia Code',Menlo,Monaco,Consolas,monospace";
+
+  const c = {
+    bg: "#1f1e1d", header: "#262624", border: "#34322f", inputBg: "#2a2926",
+    text: "#f5f4ed", body: "#e8e4dc", muted: "#a8a39d", dim: "#6b6663",
+    accent: "#D97757", bubble: "#2c2b28", bubbleText: "#f5f4ed",
+    code: "#e89972", codeBg: "rgba(217,119,87,0.12)",
+    toolBg: "#272622", toolBorder: "#3a3835", success: "#a3c585",
   };
 
-  const flows = {
-    wallet_cdp: [
-      { delay: 350, left: [{ t: "> npx skills add coinbase/agentic-wallet-skills", c: "active" }], right: [
-        { t: "── wallet.config.json ──────────────────", c: "dim" },
-        { t: "{", c: "code" },
-      ]},
-      { delay: 550, left: [{ t: "  ✓ skill installed", c: "success" }], right: [
-        { t: '  "provider": "coinbase",', c: "code" },
-        { t: '  "network": "base",', c: "code" },
-        { t: '  "skills": ["agentic-wallet"]', c: "code" },
-        { t: "}", c: "code" },
-      ]},
-      { delay: 500, left: [{ t: "> Sign in with your@email.com", c: "active" }], right: [] },
-      { delay: 650, left: [{ t: "  ← OTP sent · checking...", c: "muted" }], right: [] },
-      { delay: 600, left: [{ t: "  ✓ CDP wallet connected   0x4a3f...b7c1", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "  address: 0x4a3f...b7c1", c: "success" },
-        { t: "  network: base-mainnet", c: "success" },
-      ]},
-    ],
-    wallet_sponge: [
-      { delay: 350, left: [{ t: "> curl -X POST https://api.wallet.paysponge.com/...", c: "active" }], right: [
-        { t: "── POST /api/agents/register ───────────", c: "dim" },
-        { t: "Host: api.wallet.paysponge.com", c: "muted" },
-        { t: "Content-Type: application/json", c: "muted" },
-      ]},
-      { delay: 750, left: [{ t: '  ← {"apiKey": "sponge_live_..."}', c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── 200 OK ──────────────────────────────", c: "dim" },
-        { t: "{", c: "code" },
-        { t: '  "apiKey": "sponge_live_abc...xyz",', c: "code" },
-        { t: '  "walletId": "wlt_a1b2c3d4"', c: "code" },
-        { t: "}", c: "code" },
-      ]},
-      { delay: 450, left: [{ t: "> export SPONGE_API_KEY=sponge_live_...", c: "active" }], right: [] },
-      { delay: 450, left: [{ t: "  ✓ Sponge wallet ready", c: "success" }], right: [] },
-    ],
-    wallet_bankr: [
-      { delay: 350, left: [{ t: "> install bankr skill from github.com/BankrBot/skills", c: "active" }], right: [
-        { t: "── github.com/BankrBot/skills ──────────", c: "dim" },
-        { t: "GET /releases/latest", c: "muted" },
-      ]},
-      { delay: 700, left: [{ t: "  ✓ Bankr skill installed", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "  tag: bankr-wallet-v2.1.0", c: "success" },
-        { t: "  size: 142 KB", c: "muted" },
-      ]},
-      { delay: 500, left: [{ t: "  ✓ Bankr wallet connected", c: "success" }], right: [
-        { t: "  ready: true", c: "success" },
-      ]},
-    ],
-    pay: [
-      { delay: 350, left: [{ t: "> Find and fetch ETH price from a paid source", c: "active" }], right: [
-        { t: "── Request ─────────────────────────────", c: "dim" },
-        { t: "GET /api/v3/simple/price?ids=ethereum", c: "code" },
-        { t: "Host: api.coingecko.com", c: "muted" },
-      ]},
-      { delay: 600, left: [{ t: "  → GET api.coingecko.com/simple/price", c: "muted" }], right: [] },
-      { delay: 650, left: [{ t: "  ← 402 Payment Required · 0.001 USDC", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Response 1 ──────────────────────────", c: "dim" },
-        { t: "HTTP/1.1 402 Payment Required", c: "muted" },
-        { t: 'X-Payment-Required: {', c: "muted" },
-        { t: '  "amount": "0.001", "asset": "USDC"', c: "code" },
-        { t: '}', c: "muted" },
-      ]},
-      { delay: 650, left: [{ t: "  paying via wallet...", c: "muted" }], right: [] },
-      { delay: 600, left: [{ t: "  ✓ tx confirmed", c: "success" }], right: [] },
-      { delay: 500, left: [{ t: "  → retrying with payment signature", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Request 2 ───────────────────────────", c: "dim" },
-        { t: "GET /api/v3/simple/price?ids=ethereum", c: "code" },
-        { t: "X-Payment-Sig: 0x1a9f...c4e2", c: "success" },
-      ]},
-      { delay: 600, left: [{ t: "  ← 200 OK", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Response 2 ──────────────────────────", c: "dim" },
-        { t: "HTTP/1.1 200 OK", c: "success" },
-        { t: '{"ethereum":{"usd":2847.32}}', c: "code" },
-      ]},
-      { delay: 300, left: [{ t: "  ETH  $2,847.32  ↑ 2.3%", c: "code", bold: true }], right: [] },
-    ],
-    getpaid: [
-      { delay: 350, left: [{ t: "> Set up a paid endpoint at $0.01 per request", c: "active" }], right: [
-        { t: "── x402 middleware config ──────────────", c: "dim" },
-        { t: "{", c: "code" },
-        { t: '  "path": "/market-data",', c: "code" },
-        { t: '  "price": "0.01",', c: "code" },
-        { t: '  "asset": "USDC"', c: "code" },
-        { t: "}", c: "code" },
-      ]},
-      { delay: 600, left: [{ t: "  creating x402 middleware...", c: "muted" }], right: [] },
-      { delay: 500, left: [{ t: "  ✓ endpoint live: api.myagent.com/market-data", c: "success" }], right: [] },
-      { delay: 400, left: [{ t: "  ✓ payTo: 0x742d...c4f2", c: "success" }], right: [] },
-      { delay: 800, left: [{ t: "  waiting for requests...", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Incoming request ────────────────────", c: "dim" },
-        { t: "GET /market-data", c: "code" },
-        { t: "X-Payment-Sig: 0xc3d1...f891", c: "success" },
-      ]},
-      { delay: 700, left: [{ t: "  ← incoming payment · 0.01 USDC", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Payment verified ────────────────────", c: "dim" },
-        { t: "  amount: 0.01 USDC ✓", c: "success" },
-        { t: "  sig valid: true ✓", c: "success" },
-      ]},
-      { delay: 450, left: [{ t: "  ✓ payment verified · serving data", c: "success" }], right: [] },
-    ],
-    swap_cdp: [
-      { delay: 350, left: [{ t: "  ✓ using CDP wallet 0x4a3f...b7c1", c: "success" }], right: [
-        { t: "── Swap quote ───────────────────────────", c: "dim" },
-        { t: "POST /v1/swap/quote", c: "code" },
-        { t: "Host: api.developer.coinbase.com", c: "muted" },
-      ]},
-      { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [] },
-      { delay: 600, left: [{ t: "  fetching quote...", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Quote response ───────────────────────", c: "dim" },
-        { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-        { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-        { t: '  "priceImpact":"0.12%"}', c: "code" },
-      ]},
-      { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-      { delay: 550, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-      { delay: 700, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Transaction ──────────────────────────", c: "dim" },
-        { t: "  hash: 0xb4f2...91ca", c: "success" },
-        { t: "  status: confirmed", c: "success" },
-        { t: "  block: 28,419,042", c: "muted" },
-      ]},
-      { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success" }], right: [] },
-    ],
-    swap_sponge: [
-      { delay: 350, left: [{ t: "  ✓ using Sponge wallet", c: "success" }], right: [
-        { t: "── Swap quote ───────────────────────────", c: "dim" },
-        { t: "POST /swap/quote", c: "code" },
-        { t: "Host: api.wallet.paysponge.com", c: "muted" },
-      ]},
-      { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [] },
-      { delay: 600, left: [{ t: "  fetching quote...", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Quote response ───────────────────────", c: "dim" },
-        { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-        { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-        { t: '  "priceImpact":"0.12%"}', c: "code" },
-      ]},
-      { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-      { delay: 550, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-      { delay: 700, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Transaction ──────────────────────────", c: "dim" },
-        { t: "  hash: 0xb4f2...91ca", c: "success" },
-        { t: "  status: confirmed", c: "success" },
-        { t: "  block: 28,419,042", c: "muted" },
-      ]},
-      { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success" }], right: [] },
-    ],
-    swap_bankr: [
-      { delay: 350, left: [{ t: "  ✓ using Bankr wallet", c: "success" }], right: [
-        { t: "── Swap quote ───────────────────────────", c: "dim" },
-        { t: "POST /swap/quote", c: "code" },
-        { t: "Host: api.bankr.bot", c: "muted" },
-      ]},
-      { delay: 500, left: [{ t: "> Buy $50 of ETH on Base", c: "active" }], right: [] },
-      { delay: 600, left: [{ t: "  fetching quote...", c: "muted" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Quote response ───────────────────────", c: "dim" },
-        { t: '{"fromAmount":"50.00 USDC",', c: "code" },
-        { t: '  "toAmount":"0.01756 ETH",', c: "code" },
-        { t: '  "priceImpact":"0.12%"}', c: "code" },
-      ]},
-      { delay: 500, left: [{ t: "  ← 0.01756 ETH · price impact 0.12%", c: "muted" }], right: [] },
-      { delay: 550, left: [{ t: "  impact below 1% — executing...", c: "muted" }], right: [] },
-      { delay: 700, left: [{ t: "  ✓ tx 0xb4f2...91ca confirmed", c: "success" }], right: [
-        { t: "", c: "dim" },
-        { t: "── Transaction ──────────────────────────", c: "dim" },
-        { t: "  hash: 0xb4f2...91ca", c: "success" },
-        { t: "  status: confirmed", c: "success" },
-        { t: "  block: 28,419,042", c: "muted" },
-      ]},
-      { delay: 400, left: [{ t: "  ✓ received 0.01756 ETH", c: "success" }], right: [] },
-    ],
+
+
+
+  // Shared Base Account "Review" modal + Approve Transaction button used
+  // across the ai-agents demos. Supports asset-transfer previews (send, swap,
+  // deposit, borrow, repay) and signing previews (sign-message, sign-siwe,
+  // sign-permit). Positioned absolute inside the parent demo container so it
+  // doesn't fight with the Mintlify navbar's z-index.
+
+  const ACCENT = "#D97757";
+
+  const tokenBg = (ticker) => {
+    if (!ticker) return ACCENT;
+    const t = ticker.toUpperCase();
+    if (t === "USDC")  return "#2775CA";
+    if (t === "ETH" || t === "WETH") return "#627EEA";
+    if (t === "CBBTC" || t === "BTC") return "#F7931A";
+    if (t === "DEGEN") return "#A06CFF";
+    if (t === "POL")   return "#8247E5";
+    return ACCENT;
   };
 
-  const tabs        = ["Setup Wallet", "Pay & Get Paid", "Swap"];
-  const rightLabels = ["Wallet Config", "HTTP Trace", "Quote Details"];
-  const intros      = [
-    "> Setting up your agent wallet...",
-    "> Choose a flow:",
-    "> Which wallet should execute the swap?",
-  ];
-
-  const [activeTab, setActiveTab] = useState(0);
-  const [choice1,   setChoice1]   = useState(null);
-  const [choice2,   setChoice2]   = useState(null);
-  const [leftLines, setLeftLines] = useState([]);
-  const [rightLines,setRightLines]= useState([]);
-  const [running,   setRunning]   = useState(false);
-  const [done,      setDone]      = useState(false);
-  const [blink,     setBlink]     = useState(true);
-  const leftRef  = useRef(null);
-  const rightRef = useRef(null);
-
-  useEffect(() => {
-    const t = setInterval(() => setBlink(b => !b), 530);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => { if (leftRef.current)  leftRef.current.scrollTop  = leftRef.current.scrollHeight; }, [leftLines]);
-  useEffect(() => { if (rightRef.current) rightRef.current.scrollTop = rightRef.current.scrollHeight; }, [rightLines]);
-
-  const reset = (tab) => {
-    const next = tab !== undefined ? tab : activeTab;
-    setActiveTab(next);
-    setChoice1(null);
-    setChoice2(null);
-    setLeftLines([]);
-    setRightLines([]);
-    setRunning(false);
-    setDone(false);
+  const tokenGlow = (ticker) => {
+    if (!ticker) return "rgba(217,119,87,0.14)";
+    const t = ticker.toUpperCase();
+    if (t === "USDC")  return "rgba(39,117,202,0.14)";
+    if (t === "ETH" || t === "WETH") return "rgba(98,126,234,0.14)";
+    if (t === "CBBTC" || t === "BTC") return "rgba(247,147,26,0.14)";
+    if (t === "DEGEN") return "rgba(160,108,255,0.14)";
+    return "rgba(217,119,87,0.14)";
   };
 
-  useEffect(() => {
-    setLeftLines([]);
-    setRightLines([]);
-    setChoice1(null);
-    setChoice2(null);
-    setRunning(false);
-    setDone(false);
-    const t = setTimeout(() => setLeftLines([{ t: intros[activeTab], c: "muted" }]), 350);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  const BigTokenAvatar = ({ ticker }) => (
+    <div style={{
+      width: 46, height: 46, borderRadius: "50%",
+      background: tokenBg(ticker),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: "1.5px solid rgba(255,255,255,0.10)",
+      boxShadow: `0 0 0 5px ${tokenGlow(ticker)}`,
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: sans, fontSize: 12, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>
+        {(ticker || "??").slice(0, 2).toUpperCase()}
+      </span>
+    </div>
+  );
 
-  const animateFlow = (key) => {
-    const steps = flows[key];
-    if (!steps) return;
-    setRunning(true);
-    setDone(false);
-    let i = 0;
-    const next = () => {
-      if (i >= steps.length) { setRunning(false); setDone(true); return; }
-      const s = steps[i];
-      setTimeout(() => {
-        if (s.left && s.left.length)  setLeftLines(prev  => [...prev, ...s.left]);
-        if (s.right && s.right.length) setRightLines(prev => [...prev, ...s.right]);
-        i++;
-        next();
-      }, s.delay);
-    };
-    next();
-  };
+  const SmallTokenAvatar = ({ ticker }) => (
+    <div style={{
+      width: 30, height: 30, borderRadius: "50%",
+      background: tokenBg(ticker),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: "1.5px solid rgba(255,255,255,0.08)",
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: sans, fontSize: 9, fontWeight: 800, color: "#fff", letterSpacing: "-0.2px" }}>
+        {(ticker || "??").slice(0, 2).toUpperCase()}
+      </span>
+    </div>
+  );
 
-  const pickWallet = (w) => {
-    if (choice1) return;
-    setChoice1(w);
-    setLeftLines(prev => [...prev, { t: "  [" + w.toUpperCase() + "]", c: "active" }]);
-    setTimeout(() => animateFlow("wallet_" + w), 150);
-  };
+  // Wallet avatar — wow-face emoji style in a blue gradient circle
+  const CBAvatar = () => (
+    <div style={{
+      width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+      background: "radial-gradient(circle at 35% 30%, #5d8cff 0%, #2949d8 80%)",
+      position: "relative", overflow: "hidden",
+    }}>
+      <span style={{ position: "absolute", top: 6, left: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
+      <span style={{ position: "absolute", top: 6, right: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
+      <span style={{ position: "absolute", bottom: 3.5, left: "50%", transform: "translateX(-50%)", width: 3.5, height: 4, borderRadius: "50%", background: "#1a1208" }} />
+    </div>
+  );
 
-  const pickPay = (p) => {
-    if (choice2) return;
-    setChoice2(p);
-    const label = p === "pay" ? "Pay for a service" : "Get paid";
-    setLeftLines(prev => [...prev, { t: "  [" + label + "]", c: "active" }]);
-    setTimeout(() => animateFlow(p), 150);
-  };
+  // Sign-icon avatar for signing flows — pen-on-paper in a purple gradient circle
+  const SignAvatar = () => (
+    <div style={{
+      width: 46, height: 46, borderRadius: "50%",
+      background: "linear-gradient(135deg, #a796f7 0%, #7c5ae8 100%)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: "1.5px solid rgba(255,255,255,0.10)",
+      boxShadow: "0 0 0 5px rgba(167,150,247,0.14)",
+      flexShrink: 0,
+    }}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+      </svg>
+    </div>
+  );
 
-  const pickSwap = (w) => {
-    if (choice1) return;
-    setChoice1(w);
-    setLeftLines(prev => [...prev, { t: "  [" + w.toUpperCase() + "]", c: "active" }]);
-    setTimeout(() => animateFlow("swap_" + w), 150);
-  };
-
-  const renderLine = (item, i) => {
-    if (!item.t) return <div key={i} style={{ height: 6 }} />;
+  const ApprovalButton = ({ preview, onApprove, label }) => {
+    const [hover, setHover] = useState(false);
     return (
-      <div key={i} style={{
-        fontFamily: mono,
-        fontSize: 12,
-        lineHeight: "20px",
-        color: col[item.c] || col.code,
-        fontWeight: item.bold ? 600 : 400,
-        whiteSpace: "pre",
-      }}>
-        {item.t}
+      <div style={{ marginBottom: 10, marginTop: 4 }}>
+        <button
+          onClick={() => onApprove(preview)}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: hover ? "rgba(217,119,87,0.18)" : "rgba(217,119,87,0.10)",
+            border: `1px solid ${ACCENT}`,
+            borderRadius: 8, padding: "9px 14px",
+            cursor: "pointer", color: ACCENT,
+            fontFamily: sans, fontSize: 13.5, fontWeight: 600,
+            boxShadow: hover ? `0 0 0 3px rgba(217,119,87,0.18)` : `0 0 0 3px rgba(217,119,87,0.08)`,
+            transition: "all 0.15s ease",
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          {label || (preview && preview.type && preview.type.startsWith("sign") ? "Approve Signature" : "Approve Transaction")}
+        </button>
       </div>
     );
   };
 
-  const btnBase = {
-    fontFamily: mono, fontSize: 12,
-    color: "#60a5fa", background: "transparent",
-    border: "1px solid #27272a", borderRadius: 4,
-    cursor: "pointer", padding: "1px 8px",
-    marginRight: 6, lineHeight: "20px",
-  };
-  const onBtnEnter = (e) => {
-    e.currentTarget.style.color = "#e4e4e7";
-    e.currentTarget.style.background = "#1c1c1e";
-    e.currentTarget.style.borderColor = "#3f3f46";
-  };
-  const onBtnLeave = (e) => {
-    e.currentTarget.style.color = "#60a5fa";
-    e.currentTarget.style.background = "transparent";
-    e.currentTarget.style.borderColor = "#27272a";
+  const TxModal = ({ preview, onConfirm, onCancel }) => {
+    const mbg     = "#0a0a0a";
+    const mcard   = "#1a1816";
+    const mhair   = "#1f1d1b";
+    const mwhite  = "#ffffff";
+    const mvalue  = "#a09b95";
+    const msub    = "#7a7470";
+
+    const isSign = preview.type && preview.type.startsWith("sign");
+
+    const renderPreview = () => {
+      if (preview.type === "send") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <BigTokenAvatar ticker={preview.asset} />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 700, color: mwhite, lineHeight: 1.1, letterSpacing: "-0.4px" }}>
+            {preview.amount} {preview.asset}
+          </div>
+          {preview.usdValue && (
+            <div style={{ fontFamily: sans, fontSize: 12, color: msub, marginTop: 3 }}>
+              {preview.usdValue}
+            </div>
+          )}
+          <div style={{ height: 1, background: mhair, margin: "12px 0 10px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>To</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.to}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "swap") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.fromAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You send</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.fromAmount} {preview.fromAsset}
+              </div>
+            </div>
+            {preview.fromUsd && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.fromUsd}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", height: 0 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              background: mbg, border: `1px solid ${mhair}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginTop: -11, position: "relative", zIndex: 2,
+            }}>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={mvalue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderTop: `1px solid ${mhair}` }}>
+            <SmallTokenAvatar ticker={preview.toAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You receive</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: "#a3c585", letterSpacing: "-0.2px" }}>
+                {preview.toAmount} {preview.toAsset}
+              </div>
+            </div>
+            {preview.toUsd && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.toUsd}</div>
+            )}
+          </div>
+        </div>
+      );
+
+      if (preview.type === "deposit") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.asset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You deposit</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.amount} {preview.asset}
+              </div>
+            </div>
+            {preview.usdValue && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.usdValue}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderTop: `1px solid ${mhair}` }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>Into</span>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.vault}</div>
+              {preview.apy && (
+                <div style={{ fontFamily: sans, fontSize: 11, color: "#a3c585", marginTop: 1, fontWeight: 600 }}>{preview.apy} APY</div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "borrow") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.collateralAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>Supply collateral</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.collateralAmount} {preview.collateralAsset}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderTop: `1px solid ${mhair}` }}>
+            <SmallTokenAvatar ticker={preview.loanAsset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You borrow</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: "#a3c585", letterSpacing: "-0.2px" }}>
+                {preview.loanAmount} {preview.loanAsset}
+              </div>
+            </div>
+          </div>
+          {preview.healthFactor && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderTop: `1px solid ${mhair}` }}>
+              <span style={{ fontFamily: sans, fontSize: 12.5, color: msub }}>Health factor</span>
+              <span style={{ fontFamily: sans, fontSize: 13, color: "#a3c585", fontWeight: 600 }}>{preview.healthFactor}</span>
+            </div>
+          )}
+        </div>
+      );
+
+      if (preview.type === "repay") return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+            <SmallTokenAvatar ticker={preview.asset} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginBottom: 1 }}>You repay</div>
+              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 700, color: mwhite, letterSpacing: "-0.2px" }}>
+                {preview.amount} {preview.asset}
+              </div>
+            </div>
+            {preview.usdValue && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub }}>{preview.usdValue}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderTop: `1px solid ${mhair}` }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>To market</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.market}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "sign-message") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <SignAvatar />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+            Sign message
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
+            personal_sign
+          </div>
+          <div style={{
+            marginTop: 12, padding: "10px 12px",
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid ${mhair}`,
+            borderRadius: 8, textAlign: "left",
+            fontFamily: mono, fontSize: 12, color: mvalue,
+            lineHeight: 1.45, wordBreak: "break-word",
+          }}>
+            "{preview.message}"
+          </div>
+        </div>
+      );
+
+      if (preview.type === "sign-siwe") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <SignAvatar />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+            Sign in with Ethereum
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
+            EIP-4361 · session login
+          </div>
+          <div style={{ height: 1, background: mhair, margin: "12px 0 10px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 500, color: mwhite }}>Domain</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.domain}</span>
+          </div>
+        </div>
+      );
+
+      if (preview.type === "sign-permit") return (
+        <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <SignAvatar />
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+            Approve token spending
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
+            EIP-712 · Permit2
+          </div>
+          <div style={{ height: 1, background: mhair, margin: "12px 0 8px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+            <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>Token</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <SmallTokenAvatar ticker={preview.token} />
+              <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.token}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+            <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>Spender</span>
+            <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.spender}</span>
+          </div>
+          {preview.amount && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0" }}>
+              <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>Allowance</span>
+              <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.amount}</span>
+            </div>
+          )}
+        </div>
+      );
+
+      return null;
+    };
+
+    const FieldRow = ({ label, right }) => (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 16px",
+      }}>
+        <span style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 500, color: mwhite }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{right}</div>
+      </div>
+    );
+
+    return (
+      <div
+        onClick={onCancel}
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 50,
+          background: "rgba(0,0,0,0.78)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(3px)",
+          padding: 14,
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: mbg,
+            borderRadius: 16,
+            border: `1px solid #1f1d1b`,
+            width: 320, maxWidth: "100%",
+            maxHeight: "calc(100% - 8px)",
+            overflowY: "auto",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.85)",
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${mhair}`,
+          }}>
+            <span style={{ fontFamily: sans, fontSize: 17, fontWeight: 700, color: mwhite, letterSpacing: "-0.3px" }}>
+              {isSign ? "Sign" : "Review"}
+            </span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#d4d0ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+
+          {/* Demo banner */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 16px",
+            background: "rgba(217,119,87,0.10)",
+            borderBottom: `1px solid rgba(217,119,87,0.18)`,
+          }}>
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={ACCENT} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+            <span style={{ fontFamily: sans, fontSize: 10.5, color: ACCENT, fontWeight: 700, letterSpacing: "0.3px", whiteSpace: "nowrap" }}>
+              DEMO · Not a real {isSign ? "signature" : "transaction"}
+            </span>
+          </div>
+
+          {/* Preview */}
+          <div style={{ background: mcard, borderBottom: `1px solid ${mhair}` }}>
+            {renderPreview()}
+          </div>
+
+          {/* Field rows */}
+          <div style={{ padding: "4px 0" }}>
+            <FieldRow
+              label="Signing with"
+              right={
+                <>
+                  <CBAvatar />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
+                </>
+              }
+            />
+            {!isSign && (
+              <FieldRow
+                label="Payment methods"
+                right={
+                  <>
+                    <CBAvatar />
+                    <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={msub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}><path d="m9 18 6-6-6-6"/></svg>
+                  </>
+                }
+              />
+            )}
+            <FieldRow
+              label="Network"
+              right={
+                <>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, background: "#0052FF", flexShrink: 0 }} />
+                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>Base</span>
+                </>
+              }
+            />
+            {!isSign && (
+              <FieldRow
+                label="Network fee (est.)"
+                right={<span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{"< $0.01"}</span>}
+              />
+            )}
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 8, padding: "12px 16px 16px" }}>
+            <button
+              onClick={onCancel}
+              onMouseEnter={e => { e.currentTarget.style.background = "#3a3835"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#2a2826"; }}
+              style={{
+                flex: 1, padding: "12px 0",
+                background: "#2a2826", border: "none",
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#ffffff",
+                transition: "background 0.15s ease",
+              }}
+            >Cancel</button>
+            <button
+              onClick={onConfirm}
+              onMouseEnter={e => { e.currentTarget.style.background = "#1a4fd6"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#0052FF"; }}
+              style={{
+                flex: 1, padding: "12px 0",
+                background: "#0052FF", border: "none",
+                borderRadius: 12, cursor: "pointer",
+                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#fff",
+                transition: "background 0.15s ease",
+              }}
+            >Confirm</button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  const showWalletBtns = activeTab === 0 && !choice1 && leftLines.length > 0;
-  const showPayBtns    = activeTab === 1 && !choice2 && leftLines.length > 0;
-  const showSwapBtns   = activeTab === 2 && !choice1 && leftLines.length > 0;
-  const isLastTab      = activeTab === 2;
-  const footerLabel    = isLastTab ? "\u21ba Play again" : "Next: " + tabs[activeTab + 1] + " \u2192";
+
+  const examples = [
+    {
+      prompt: "Show me my wallets",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_wallets", args: {} } },
+        { delay: 600, type: "text", text: "You have 2 wallets connected to Base MCP:" },
+        { delay: 250, type: "rows", rows: [
+          { token: "Base Account",  amount: "0x4a3f…b7c1", value: "in session · approval mode" },
+          { token: "Agent Wallet",  amount: "0x9c2d…e4f8", value: "not in session" },
+        ]},
+        { delay: 400, type: "confirm", text: "Connected · ready to send, swap, and sign" },
+      ],
+    },
+    {
+      prompt: "What's my USDC balance on Base?",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "get_portfolio", args: { chain: "base" } } },
+        { delay: 600, type: "text", text: "Your current portfolio on Base:" },
+        { delay: 250, type: "rows", rows: [
+          { token: "USDC",  amount: "245.80",  value: "$245.80" },
+          { token: "ETH",   amount: "0.0412",  value: "$148.33" },
+          { token: "WETH",  amount: "0.0100",  value: "$36.02" },
+        ]},
+        { delay: 400, type: "confirm", text: "Total: $430.15 on Base" },
+      ],
+    },
+    {
+      prompt: "Send 5 USDC to alice.base.eth",
+      events: [
+        { delay: 380, type: "thinking" },
+        { delay: 600, type: "tool", tool: { server: "base-mcp", action: "send", args: { recipient: "alice.base.eth", asset: "USDC", amount: "5", chain: "base" } } },
+        { delay: 500, type: "text", text: "Resolved alice.base.eth → 0x71C7…976F. Approve to send:" },
+        { delay: 250, type: "approval", preview: { type: "send", asset: "USDC", amount: "5", usdValue: "~$5.00", to: "alice.base.eth" } },
+        { delay: 1100, type: "confirm", text: "Sent 5 USDC to alice.base.eth" },
+      ],
+    },
+  ];
+
+  const [activeIdx, setActiveIdx]     = useState(null);
+  const [eventIdx, setEventIdx]       = useState(0);
+  const [modalPreview, setModalPreview] = useState(null);
+  const scrollRef = useRef(null);
+  const timersRef = useRef([]);
+
+  const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
+
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [eventIdx, activeIdx]);
+  useEffect(() => () => clearTimers(), []);
+
+  const pick = (idx) => {
+    if (activeIdx !== null) return;
+    setActiveIdx(idx);
+    setEventIdx(0);
+    clearTimers();
+    let cumulative = 0;
+    const events = examples[idx].events;
+    for (let i = 0; i < events.length; i++) {
+      cumulative += events[i].delay;
+      timersRef.current.push(setTimeout(() => setEventIdx(i + 1), cumulative));
+      if (events[i].type === "approval") break;
+    }
+  };
+
+  const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); setModalPreview(null); };
+
+  const handleConfirm = () => {
+    setModalPreview(null);
+    clearTimers();
+    if (activeIdx !== null) setEventIdx(examples[activeIdx].events.length);
+  };
+
+  const ex = activeIdx !== null ? examples[activeIdx] : null;
+
+  const TrafficLights = () => (
+    <div style={{ display: "flex", gap: 6, marginRight: 14 }}>
+      <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#ed6a5e", display: "inline-block" }} />
+      <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#f5bf4f", display: "inline-block" }} />
+      <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#61c554", display: "inline-block" }} />
+    </div>
+  );
+
+  const UserBubble = ({ children }) => (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+      <div className="agd-bubble" style={{ background: c.bubble, color: c.bubbleText, padding: "12px 16px", borderRadius: 14, fontFamily: sans, lineHeight: 1.45, border: `1px solid ${c.toolBorder}` }}>{children}</div>
+    </div>
+  );
+
+  const ToolCall = ({ tool, completed }) => (
+    <div style={{ marginBottom: 10 }}>
+      <div className="agd-tool-chip" style={{ display: "inline-flex", alignItems: "flex-start", gap: 8, background: c.toolBg, border: `1px solid ${c.toolBorder}`, borderRadius: 8, padding: "6px 11px", opacity: completed ? 0.85 : 1 }}>
+        <span style={{ width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+          {completed
+            ? <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 0l-7 7a3.5 3.5 0 0 0 5 5l5.5-5.5"/><path d="m11 8 5 5"/></svg>}
+        </span>
+        <span className="agd-tool-text" style={{ fontFamily: mono, color: c.muted }}>
+          <span style={{ color: c.accent }}>{tool.server}</span>
+          <span style={{ color: c.dim }}> · </span>
+          <span style={{ color: c.body }}>{tool.action}</span>
+          <span style={{ color: c.dim }}>(</span>
+          {Object.entries(tool.args).map(([k, v], i, arr) => (
+            <span key={k}><span style={{ color: c.muted }}>{k}: </span><span style={{ color: c.code }}>"{v}"</span>{i < arr.length - 1 && <span style={{ color: c.dim }}>, </span>}</span>
+          ))}
+          <span style={{ color: c.dim }}>)</span>
+        </span>
+      </div>
+    </div>
+  );
+
+  const Thinking = () => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontFamily: sans, fontSize: 13, color: c.muted }}>
+      <span style={{ display: "inline-flex", gap: 3 }}>
+        {[0, 1, 2].map(i => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: c.muted, opacity: 0.4, animation: `agd-pulse 1.2s infinite ${i * 0.18}s` }} />)}
+      </span>
+      <span style={{ fontStyle: "italic" }}>Thinking</span>
+    </div>
+  );
+
+  const ResponseText = ({ children, top }) => (
+    <div style={{ fontFamily: serif, fontSize: 15, lineHeight: 1.55, color: c.body, marginBottom: 12, marginTop: top ? 8 : 0 }}>{children}</div>
+  );
+
+  const ResponseRows = ({ rows }) => (
+    <div style={{ marginBottom: 14 }}>
+      {rows.map((r, i) => (
+        <div key={i} className="agd-row" style={{ display: "flex", alignItems: "baseline", padding: "5px 0", fontFamily: serif, fontSize: 14, color: c.body }}>
+          <span style={{ minWidth: 12, color: c.dim, flexShrink: 0 }}>•</span>
+          <span className="agd-row-token" style={{ fontWeight: 500 }}>{r.token}</span>
+          <span style={{ fontFamily: mono, fontSize: 12.5, color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>{r.amount}</span>
+          <span style={{ color: c.muted, fontSize: 13 }}>{r.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const Confirm = ({ text }) => (
+    <div style={{ fontFamily: serif, fontSize: 14, color: c.success, display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={c.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      {text}
+    </div>
+  );
+
+  const ChipBtn = ({ onClick, children }) => {
+    const [hover, setHover] = useState(false);
+    return (
+      <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="agd-chip"
+        style={{ fontFamily: serif, lineHeight: 1.4, color: hover ? c.text : c.body, background: hover ? c.toolBg : c.header, border: `1px solid ${hover ? c.accent : c.toolBorder}`, borderRadius: 14, textAlign: "left", cursor: "pointer", transition: "all 0.15s ease", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, width: "100%" }}>
+        <span style={{ flex: 1 }}>{children}</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke={hover ? c.accent : c.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease, transform 0.15s ease", transform: hover ? "translateX(2px)" : "translateX(0)" }}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    );
+  };
+
+  const renderEvents = () => {
+    if (!ex) return null;
+    const shown = ex.events.slice(0, eventIdx);
+    return shown.map((event, i) => {
+      if (event.type === "thinking") {
+        if (i < shown.length - 1) return null;
+        return <Thinking key={i} />;
+      }
+      if (event.type === "tool") {
+        const hasLater = shown.slice(i + 1).some(e => e.type !== "thinking");
+        return <ToolCall key={i} tool={event.tool} completed={hasLater} />;
+      }
+      if (event.type === "text")     return <ResponseText key={i} top>{event.text}</ResponseText>;
+      if (event.type === "rows")     return <ResponseRows key={i} rows={event.rows} />;
+      if (event.type === "approval") return <ApprovalButton key={i} preview={event.preview} onApprove={setModalPreview} />;
+      if (event.type === "confirm")  return <Confirm key={i} text={event.text} />;
+      return null;
+    });
+  };
 
   return (
-    <div style={{ margin: "28px 0", borderRadius: 12, overflow: "hidden", border: "1px solid #27272a", background: "#09090b" }}>
+    <div style={{ position: "relative", margin: "28px 0", borderRadius: 14, overflow: "hidden", border: `1px solid ${c.border}`, background: c.bg, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+      {modalPreview && <TxModal preview={modalPreview} onConfirm={handleConfirm} onCancel={() => setModalPreview(null)} />}
+      <style>{`
+        @keyframes agd-pulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+        .agd-chat{height:400px;padding:24px 28px 16px}
+        .agd-input-row{padding:10px 16px 14px}
+        .agd-tool-text{white-space:nowrap;font-size:12px;line-height:1.4}
+        .agd-tool-chip{max-width:100%}
+        .agd-row{gap:12px;flex-wrap:nowrap}
+        .agd-row-token{min-width:140px}
+        .agd-bubble{max-width:78%;font-size:14px}
+        .agd-approval{font-size:12.5px}
+        .agd-chip{padding:16px 18px;font-size:15px}
+        .agd-empty-text{font-size:16px}
+        .agd-footnote{font-size:11px}
+        @media(max-width:640px){
+          .agd-chat{height:460px;padding:16px 14px 12px}
+          .agd-input-row{padding:8px 10px 10px}
+          .agd-tool-chip{display:block}
+          .agd-tool-text{white-space:normal;word-break:break-word;font-size:11px}
+          .agd-row{flex-wrap:wrap;gap:4px 10px}
+          .agd-row-token{min-width:100%;flex:1 1 100%}
+          .agd-bubble{max-width:88%;font-size:13.5px}
+          .agd-approval{font-size:11.5px;word-break:break-all}
+          .agd-chip{padding:14px 14px;font-size:14px}
+          .agd-empty-text{font-size:14.5px}
+          .agd-footnote{font-size:10.5px}
+        }
+      `}</style>
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", padding: "8px 12px", background: "#111113", borderBottom: "1px solid #27272a" }}>
-
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 28, height: 24, borderRadius: 6,
-          background: "#1e1e20", border: "1px solid #27272a", marginRight: 10, flexShrink: 0,
-        }}>
-          <span style={{ fontFamily: mono, fontSize: 11, color: "#71717a", userSelect: "none" }}>{">"}_</span>
-        </div>
-
-        {tabs.map((tab, i) => {
-          const active = i === activeTab;
-          return (
-            <button
-              key={tab}
-              onClick={() => reset(i)}
-              style={{
-                fontFamily: mono, fontSize: 12,
-                fontWeight: active ? 600 : 400,
-                color: active ? "#e4e4e7" : "#52525b",
-                background: active ? "#1e1e20" : "transparent",
-                border: active ? "1px solid #27272a" : "1px solid transparent",
-                borderRadius: 6, cursor: "pointer",
-                padding: "3px 12px", marginRight: 2,
-              }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.color = "#a1a1aa"; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.color = "#52525b"; }}
-            >
-              {tab}
-            </button>
-          );
-        })}
-
+      <div style={{ display: "flex", alignItems: "center", padding: "11px 14px", background: c.header, borderBottom: `1px solid ${c.border}` }}>
+        <TrafficLights />
+        <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, fontWeight: 500 }}>Base MCP</span>
+        <span style={{ fontFamily: sans, fontSize: 12, color: c.dim, marginLeft: 8 }}>▾</span>
         <div style={{ flex: 1 }} />
-
-        <button
-          onClick={() => reset(activeTab)}
-          title="Reset"
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 28, height: 24, borderRadius: 6,
-            background: "transparent", border: "1px solid transparent",
-            cursor: "pointer", color: "#3f3f46", fontSize: 15, lineHeight: 1,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#1e1e20"; e.currentTarget.style.borderColor = "#27272a"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "#3f3f46"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
-        >
-          {"\u21ba"}
-        </button>
-      </div>
-
-      {/* Terminal pane */}
-      <div style={{ height: 290, borderBottom: "1px solid #27272a", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "7px 16px 5px", borderBottom: "1px solid #1c1c1e" }}>
-          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#3f3f46" }}>Agent</span>
-        </div>
-        <div ref={leftRef} style={{ flex: 1, overflowY: "hidden", padding: "12px 16px" }}>
-          {leftLines.map(renderLine)}
-
-          {showWalletBtns && (
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickWallet("cdp")}>CDP</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickWallet("sponge")}>Sponge</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickWallet("bankr")}>Bankr</button>
-            </div>
-          )}
-          {showPayBtns && (
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickPay("pay")}>Pay for a service</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickPay("getpaid")}>Get paid</button>
-            </div>
-          )}
-          {showSwapBtns && (
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: mono, fontSize: 12, color: "#52525b", marginRight: 6 }}>  pick:</span>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickSwap("cdp")}>CDP</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickSwap("sponge")}>Sponge</button>
-              <button style={btnBase} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave} onClick={() => pickSwap("bankr")}>Bankr</button>
-            </div>
-          )}
-
-          {running && (
-            <div style={{ fontFamily: mono, fontSize: 12, lineHeight: "20px", color: "#60a5fa", opacity: blink ? 1 : 0 }}>{"▋"}</div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ padding: "8px 16px", display: "flex", justifyContent: "center", minHeight: 37, alignItems: "center" }}>
-        {done && (
-          <button
-            onClick={() => isLastTab ? reset(0) : reset(activeTab + 1)}
-            style={{ fontFamily: mono, fontSize: 11, color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: "4px 10px", borderRadius: 4 }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "#18181b"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "#52525b"; e.currentTarget.style.background = "none"; }}
-          >
-            {footerLabel}
+        {activeIdx !== null && (
+          <button onClick={reset} title="Reset" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: "1px solid transparent", cursor: "pointer", color: c.dim }}
+            onMouseEnter={e => { e.currentTarget.style.color = c.text; e.currentTarget.style.borderColor = c.toolBorder; }}
+            onMouseLeave={e => { e.currentTarget.style.color = c.dim; e.currentTarget.style.borderColor = "transparent"; }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
           </button>
         )}
       </div>
 
+      <div ref={scrollRef} className="agd-chat" style={{ overflowY: "auto" }}>
+        {!ex && (
+          <div>
+            <div className="agd-empty-text" style={{ fontFamily: serif, color: c.muted, marginBottom: 20, lineHeight: 1.5 }}>
+              Try asking your assistant once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected:
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {examples.map((e, i) => <ChipBtn key={i} onClick={() => pick(i)}>{e.prompt}</ChipBtn>)}
+            </div>
+          </div>
+        )}
+        {ex && <><UserBubble>{ex.prompt}</UserBubble>{renderEvents()}</>}
+      </div>
+
+      <div className="agd-input-row">
+        <div style={{ display: "flex", alignItems: "center", background: c.inputBg, border: `1px solid ${c.toolBorder}`, borderRadius: 14, padding: "10px 14px" }}>
+          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, border: "none", background: "transparent", color: c.muted, cursor: "default", padding: 0, flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <span style={{ flex: 1, marginLeft: 8, fontFamily: sans, fontSize: 14, color: c.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Write a message...</span>
+          <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, marginRight: 12, flexShrink: 0 }}>Sonnet 4.6 <span style={{ color: c.dim }}>▾</span></span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+        </div>
+        <div className="agd-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
+          Demo · Every write action requires your approval in <span style={{ color: c.muted }}>Base Account</span>
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,0 +1,62 @@
+---
+title: "Virtuals"
+description: "Create and operate Virtuals (ACP) AI agents — payment cards, email identities, agent management — signed in via Base MCP."
+keywords: ["Virtuals plugin", "ACP", "Agent Commerce Protocol", "Virtuals MCP", "Base MCP Virtuals", "agent cards", "agent email"]
+---
+
+The Virtuals plugin connects Base MCP to the [Virtuals](https://virtuals.io) Agent Commerce Protocol (ACP) MCP server. ACP is a platform for creating and operating autonomous AI agents that transact onchain, hold payment cards, and own email identities. Base MCP's wallet is used only to sign the SIWE login challenge — every subsequent Virtuals tool call carries a session JWT.
+
+**Server:** `https://mcp.acp.virtuals.io/`
+
+**Operations:** agent management (create / list / prepare-launch), agent cards (signup, issue, set limits, 3DS), agent email (identity, inbox, search, compose, reply, OTP/link extraction).
+
+## Try it
+
+```text Sign in
+Log me into Virtuals
+```
+
+```text List agents
+List all my Virtuals agents
+```
+
+```text Create everything
+Create a Virtuals agent with email and a payment card
+```
+
+## Pattern
+
+Virtuals is **session-authenticated**: every tool requires a `token` parameter obtained via SIWE. The plugin orchestrates the round trip — `get_wallets` → `login_start` → `sign` (Base MCP) → user approves → `get_request_status` → `login_complete` — then reuses the JWT for the rest of the session. Use `login_refresh` when the ~1 hour token expires.
+
+<Warning>
+The Base Account smart wallet sometimes returns an ERC-6492 wrapped signature instead of a plain ERC-1271 one, which Virtuals rejects with `Invalid SIWE signature`. Re-run the auth flow — repeated approvals typically resolve to a plain ERC-1271 signature within a few attempts. Don't try to unwrap the envelope manually.
+</Warning>
+
+<Note>
+After auth, Virtuals operations route through the Virtuals backend (card issuance, email, agent ops) — not through Base MCP. Only the SIWE signature uses Base MCP. Don't echo card numbers, 3DS codes, OTPs, or email bodies to chat unless the user explicitly asks.
+</Note>
+
+## Installation
+
+Run Base MCP and Virtuals side by side:
+
+```json
+{
+  "mcpServers": {
+    "base-mcp": { "url": "https://mcp.base.org" },
+    "virtuals":     { "url": "https://mcp.acp.virtuals.io/" }
+  }
+}
+```
+
+Claude Code:
+
+```bash Terminal
+claude mcp add virtuals --transport http https://mcp.acp.virtuals.io/
+```
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/virtuals.md">
+  Step-by-step SIWE auth flow, troubleshooting for the six common signature-verification failure modes, and orchestration recipes for agent / card / email operations.
+</Card>

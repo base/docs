@@ -1,0 +1,73 @@
+---
+title: "Send Tokens"
+description: "Send native tokens or ERC-20 tokens to an address, ENS name, basename, or cb.id using Base MCP"
+keywords: ["send tokens AI", "send USDC AI assistant", "send ETH AI", "Base MCP send", "ENS basename send AI"]
+---
+
+import { TradeExecutionDemo } from "/snippets/TradeExecutionDemo.jsx"
+
+<TradeExecutionDemo />
+
+## What you can ask
+
+```text
+Send 10 USDC to alice.base.eth
+```
+
+```text
+Transfer 0.01 ETH to 0x1234...abcd
+```
+
+```text
+Pay bob.eth 5 USDC
+```
+
+```text
+Send 50 DEGEN to vitalik.eth
+```
+
+## How it works
+
+The `send` tool constructs a transfer and requires your approval in Base Account. Nothing is sent until you confirm.
+
+| Parameter | Required | What it does |
+|-----------|----------|-------------|
+| `recipient` | Yes | Address, ENS name, basename (e.g. `alice.base.eth`), or cb.id name |
+| `amount` | Yes | Human-readable decimal (e.g. `"10.5"`) |
+| `asset` | Yes | Known symbol (`ETH`, `USDC`, `POL`, `AVAX`, `BNB`) or ERC-20 contract address |
+| `chain` | Yes | Network to send on, e.g. `base`, `base-sepolia`, `ethereum`, `arbitrum`, `optimism`, `polygon`, `bsc`, or `avalanche` |
+| `decimals` | When using contract address | Required when `asset` is a contract address |
+
+<Tip>
+For known assets like ETH, USDC, POL, AVAX, and BNB, just use the symbol — no contract address needed. For less common tokens, your assistant will call `search_tokens` first to resolve the address and decimals automatically.
+</Tip>
+
+## Approval flow
+
+Every send requires a manual approval:
+
+<Steps>
+  <Step title="Your assistant calls send()">
+    The transaction is constructed but not yet broadcast.
+  </Step>
+  <Step title="You receive an approval link">
+    Open the approval link to review the recipient, amount, and fee in Base Account.
+  </Step>
+  <Step title="You approve">
+    Confirm the transaction in the approval UI. Nothing is sent without your explicit confirmation.
+  </Step>
+  <Step title="Transaction confirms">
+    Your assistant polls `get_request_status` and reports success once the transaction is confirmed onchain.
+  </Step>
+</Steps>
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Swap tokens" icon="arrows-rotate" href="/ai-agents/guides/swap-tokens">
+    Exchange one token for another.
+  </Card>
+  <Card title="Check balance" icon="wallet" href="/ai-agents/guides/check-balance">
+    Verify your balance before sending.
+  </Card>
+</CardGroup>

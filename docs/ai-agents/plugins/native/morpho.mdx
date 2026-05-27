@@ -1,0 +1,52 @@
+---
+title: "Morpho"
+description: "Lending and vaults on Base via Morpho CLI, with Morpho MCP fallback for chat-only surfaces."
+keywords: ["Morpho plugin", "Base MCP Morpho", "Morpho lending", "Morpho vaults", "Base lending"]
+---
+
+Morpho is a lending protocol on Base. The plugin chooses the right execution path for the current environment: use the Morpho CLI (`npx @morpho-org/cli@latest`) in CLI-capable harnesses, and use the Morpho MCP server (`https://mcp.morpho.org/`) when the user is in a chat-only Claude or ChatGPT-style surface. Base MCP's `send_calls` wraps prepared transactions into a single user approval.
+
+**Chain:** Base mainnet.
+
+**Operations:** deposit, withdraw, supply, borrow, repay, supply/withdraw collateral, plus reads for vaults, markets, and positions.
+
+<Tip>
+**Environment-aware plugin.** If the harness has shell or terminal access, use Morpho CLI. If it does not, use already connected Morpho MCP tools, or help the user install Morpho MCP for Claude or ChatGPT.
+</Tip>
+
+## Install Morpho MCP when no CLI is available
+
+Claude / Claude Desktop: Customize → Connectors → Add custom connector, name `morpho`, URL `https://mcp.morpho.org/`.
+
+ChatGPT: Settings → Connectors → Create, name `morpho`, MCP Server URL `https://mcp.morpho.org/`, Authentication `OAuth`.
+
+## Try it
+
+```text Find a vault
+Find the best USDC vault on Base by APY and deposit 100 USDC
+```
+
+```text Check positions
+Show all my Morpho positions on Base
+```
+
+```text Health check
+Check if my Morpho borrow position is healthy
+```
+
+## Pattern
+
+In CLI-capable harnesses, run Morpho CLI:
+
+```bash
+npx @morpho-org/cli@latest query-vaults --chain base --asset-symbol USDC --sort apy_desc --limit 5
+npx @morpho-org/cli@latest prepare-deposit --chain base --vault-address 0x... --user-address 0x... --amount 100
+```
+
+In chat-only harnesses, use Morpho MCP tools for the same vault/market reads and prepare actions. The assistant reviews the CLI JSON or MCP response (`summary`, `transactions`/`calls`, simulation status, `outcome`, and `warnings`), passes the unsigned calls to Base MCP `send_calls` with `chain: "base"`, and polls `get_request_status` once you approve in Base Account.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/morpho.md">
+  Environment detection, CLI and MCP paths, response shapes, safety checks, and orchestration details.
+</Card>

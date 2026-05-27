@@ -1,0 +1,39 @@
+---
+title: "Uniswap"
+description: "Token swaps and V2/V3/V4 LP positions on Base via the Uniswap trade and liquidity APIs"
+keywords: ["Uniswap plugin", "Base MCP Uniswap", "Uniswap swap Base", "Uniswap LP", "Uniswap V4 Base"]
+---
+
+The Uniswap plugin covers token swaps (proxy-approval flow, no Permit2 signing) and LP position management for V2, V3, and V4 on Base. It fetches unsigned calldata from Uniswap's trade and liquidity APIs and executes it through Base MCP's `send_calls`.
+
+**Chain:** Base mainnet.
+
+**Operations:** swap quote/approval/execute; create, increase, decrease V3/V4 positions; create V2 positions; collect LP fees.
+
+## Try it
+
+```text Swap
+Swap 100 USDC for ETH on Base
+```
+
+```text Create LP
+Create a V4 ETH/USDC LP position on Base with 0.1 ETH
+```
+
+```text Collect fees
+Collect fees from my Uniswap LP positions
+```
+
+## Pattern
+
+Swap flow is three calls — `/check_approval`, `/quote`, `/swap` — batched into one `send_calls` so approval and swap execute together. LP flow follows the same shape: `/lp/pool_info` (if needed), `/lp/check_approval`, then the action endpoint (`/lp/create`, `/lp/increase`, `/lp/decrease`, `/lp/claim_fees`).
+
+<Note>
+`trade-api.gateway.uniswap.org` and `liquidity.api.uniswap.org` must be on the Base MCP `web_request` allowlist. They already are for the hosted MCP at `mcp.base.org`.
+</Note>
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/uniswap.md">
+  Endpoint inventory, headers, response shapes, and orchestration for swap and LP flows.
+</Card>

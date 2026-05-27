@@ -8,7 +8,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
-- [AI Agents](./ai-agents/llms.txt) — Build AI agents that trade, earn, and transact autonomously on Base
+- [AI Agents](./ai-agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account — check balances, send funds, swap tokens, sign messages, and pay x402 APIs.
 - [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
 - [Base Account](./base-account/llms.txt)
 - [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
@@ -37,15 +37,13 @@ npx skills add base/base-skills
 ## Compact docs index
 
 [Docs]|root:./docs
-|ai-agents:index
-|ai-agents/payments:accepting-payments,pay-for-services-with-x402
-|ai-agents/quickstart:payments,trading
-|ai-agents/setup:agent-builder-codes,agent-registration,wallet-setup
-|ai-agents/skills:index
-|ai-agents/skills/payments:cdp-payment-skills,sponge-x402
-|ai-agents/skills/trading:alchemy-agentic-gateway,coingecko,swap-execution
-|ai-agents/skills/wallets:bankr,cdp-agentic-wallet,sponge-wallet
-|ai-agents/trading:data-fetching,trade-execution
+|ai-agents:index,quickstart
+|ai-agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
+|ai-agents/plugins:custom-plugins,index
+|ai-agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
+|ai-agents/skills:SKILL
+|ai-agents/skills/plugins:aerodrome,avantis,bankr,moonwell,morpho,uniswap,virtuals
+|ai-agents/skills/references:approval-mode,batch-calls,custom-plugins,install,tone
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards

@@ -1,0 +1,60 @@
+---
+title: "Sign Messages"
+description: "Sign EIP-712 typed data and plain messages with your Base Account using Base MCP"
+keywords: ["sign message AI", "EIP-712 sign AI", "personal_sign AI", "Base MCP sign", "sign typed data AI assistant"]
+---
+
+import { SignMessagesDemo } from "/snippets/SignMessagesDemo.jsx"
+
+<SignMessagesDemo />
+
+## What it does
+
+The `sign` tool requests a cryptographic signature from your Base Account. Like all write tools, it requires your approval in Base Account.
+
+Two signature types are supported:
+
+| Type | Standard | Use case |
+|------|----------|---------|
+| `personal_sign` / `0x45` | EIP-191 | Simple text messages, SIWE auth challenges |
+| `typed_data` / `0x01` | EIP-712 | Structured data, permit signatures, protocol auth |
+
+## What you can ask
+
+```text
+Sign this message: "I agree to the terms of service"
+```
+
+```text
+Sign in to this app using my Base Account
+```
+
+Signing is usually invoked by protocols or integrations, not directly prompted by users. Your assistant will handle the signing flow when a service requests it.
+
+## How it works
+
+<Steps>
+  <Step title="Your assistant calls sign()">
+    Passes the message type and payload to Base MCP.
+  </Step>
+  <Step title="You receive an approval link">
+    Open the approval link to review what you're signing in Base Account — the message content is shown in full.
+  </Step>
+  <Step title="You approve">
+    Confirm the signature in the approval UI.
+  </Step>
+  <Step title="Signature returned">
+    Your assistant polls `get_request_status` to retrieve the completed signature, then passes it to the requesting service.
+  </Step>
+</Steps>
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Execute contract calls" icon="code" href="/ai-agents/guides/batch-calls">
+    Batch multiple contract interactions into one approval.
+  </Card>
+  <Card title="Native plugins" icon="puzzle-piece" href="/ai-agents/plugins/native">
+    Moonwell, Uniswap, Avantis, and other protocol plugins — approval and signing patterns in the skill repo.
+  </Card>
+</CardGroup>
