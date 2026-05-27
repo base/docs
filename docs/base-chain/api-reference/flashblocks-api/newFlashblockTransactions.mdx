@@ -11,7 +11,7 @@ Only available on Flashblocks WebSocket endpoints: `wss://mainnet.flashblocks.ba
 </Info>
 
 <Note>
-Requires [base/base](https://github.com/base/base) minimum client version v0.3.1.
+Requires [base/base](https://github.com/base/base) minimum client version v0.8.0.
 </Note>
 
 <Warning>
@@ -25,19 +25,47 @@ Each subscription emits **one item per WebSocket message**. Events arrive approx
 </ParamField>
 
 <ParamField body="full" type="boolean">
-  If `true`, each notification includes the full transaction object and associated logs. Defaults to `false` (minimal data only).
+  If `true`, each notification includes the full transaction object and associated receipt fields. Defaults to `false` (transaction hash only).
 </ParamField>
 
 ## Returns
 
 <ResponseField name="result" type="string">
-  Hex-encoded subscription ID.
+  Hex-encoded subscription ID. Each event notification delivers one transaction per message.
+
+  When `full` is `false` (default), each notification is a transaction hash string.
+
+  When `full` is `true`, each notification is an object with the following fields:
+
+  <Expandable title="Full notification fields (full: true)">
+    <ResponseField name="hash" type="string">32-byte transaction hash.</ResponseField>
+    <ResponseField name="nonce" type="string">Sender nonce (hex).</ResponseField>
+    <ResponseField name="blockHash" type="string">Hash of the Flashblock containing this transaction.</ResponseField>
+    <ResponseField name="blockNumber" type="string">Block number (hex).</ResponseField>
+    <ResponseField name="transactionIndex" type="string">Index of this transaction in the block (hex).</ResponseField>
+    <ResponseField name="from" type="string">20-byte sender address.</ResponseField>
+    <ResponseField name="to" type="string">20-byte recipient address. `null` for contract deployments.</ResponseField>
+    <ResponseField name="value" type="string">ETH value in wei (hex).</ResponseField>
+    <ResponseField name="gas" type="string">Gas limit (hex).</ResponseField>
+    <ResponseField name="gasPrice" type="string">Gas price in wei (hex).</ResponseField>
+    <ResponseField name="input" type="string">ABI-encoded call data.</ResponseField>
+    <ResponseField name="type" type="string">Transaction type: `"0x0"`, `"0x1"`, `"0x2"`, or `"0x7e"` (deposit).</ResponseField>
+    <ResponseField name="gasUsed" type="string">Gas used by this transaction (hex). Added in v0.8.0.</ResponseField>
+    <ResponseField name="status" type="string">Transaction status: `"0x1"` success, `"0x0"` failure.</ResponseField>
+    <ResponseField name="logs" type="array">Array of log objects emitted by this transaction.</ResponseField>
+    <ResponseField name="logsBloom" type="string">Bloom filter for the logs in this receipt.</ResponseField>
+    <ResponseField name="cumulativeGasUsed" type="string">Cumulative gas used in the block up to this transaction (hex).</ResponseField>
+  </Expandable>
 </ResponseField>
+
+<Warning>
+**Breaking change in v0.8.0:** The `gasUsed` field changed from a decimal integer to a hexadecimal string. If you parse `gasUsed` as a number, update your code to handle hex strings (e.g. `parseInt(gasUsed, 16)`).
+</Warning>
 
 ## Example
 
 <CodeGroup>
-```json Subscribe
+```json Subscribe (hash only)
 {"jsonrpc": "2.0", "id": 1, "method": "eth_subscribe", "params": ["newFlashblockTransactions"]}
 ```
 
@@ -47,5 +75,45 @@ Each subscription emits **one item per WebSocket message**. Events arrive approx
 
 ```json Subscription ID Response
 {"jsonrpc": "2.0", "id": 1, "result": "0x1887ec8b9589ccad00000000000532da"}
+```
+
+```json Event notification (full: false)
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": "0x03c8f106f18ad94190e763e21b584c5825b2f4c61f1274c0e8abe65b4476cd51"
+  }
+}
+```
+
+```json Event notification (full: true)
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": {
+      "blockHash": "0x491bca01d4bc076d60833dbd973fe031a74e7ae31866bf70d077619e09edb6ff",
+      "blockNumber": "0x2c31b0b",
+      "cumulativeGasUsed": "0xb48a",
+      "from": "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001",
+      "gas": "0xf4240",
+      "gasPrice": "0x0",
+      "gasUsed": "0xb48a",
+      "hash": "0x03c8f106f18ad94190e763e21b584c5825b2f4c61f1274c0e8abe65b4476cd51",
+      "input": "0x3db6be2b...",
+      "logs": [],
+      "logsBloom": "0x000...000",
+      "nonce": "0x2c31b0e",
+      "status": "0x1",
+      "to": "0x4200000000000000000000000000000000000015",
+      "transactionIndex": "0x0",
+      "type": "0x7e",
+      "value": "0x0"
+    }
+  }
+}
 ```
 </CodeGroup>
