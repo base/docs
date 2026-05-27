@@ -198,6 +198,62 @@ console.log(`Time difference: ${confirmTime - submissionTime}ms`);
 
 You should see the confirmation time significantly lower than the standard RPC endpoint.
 
+### Ethers.js (v6) Integration
+
+To read state or simulate transactions against real-time Flashblocks using **Ethers.js (v6)**, you must route calls through a Flashblocks-enabled RPC provider using the `"pending"` block tag. 
+
+Because Flashblocks accumulate gas sequentially over 10 sub-blocks per canonical 2-second block, invoking the `"pending"` tag ensures your backend reads the most state-progressive data available every 200ms.
+
+#### 1. Reading Preconfirmed State (HTTP)
+
+Use the `"pending"` block tag within `JsonRpcProvider` execution contexts to read balance updates, nonces, or smart contract states immediately as Flashblocks stream.
+
+```typescript
+import { JsonRpcProvider, ethers } from 'ethers';
+
+// Connect to a Flashblocks-aware RPC endpoint
+const FLASHBLOCKS_RPC_URL = '[https://mainnet.base.org](https://mainnet.base.org)'; // Or your dedicated node provider
+const provider = new JsonRpcProvider(FLASHBLOCKS_RPC_URL);
+
+async function getFlashblockData(userAddress: string) {
+  try {
+    // 1. Fetch the latest preconfirmed account balance 
+    const pendingBalance = await provider.getBalance(userAddress, "pending");
+    console.log(`Preconfirmed Balance: ${ethers.formatEther(pendingBalance)} ETH`);
+
+    // 2. Fetch the updated transaction count (nonce) to prevent pool collisions
+    const pendingNonce = await provider.getTransactionCount(userAddress, "pending");
+    console.log(`Preconfirmed Nonce: ${pendingNonce}`);
+  } catch (error) {
+    console.error("Error querying Flashblock state:", error);
+  }
+}
+```
+
+#### 2. Streaming Real-Time Logs (WebSocket)
+For low-latency indexers or trading frontends requiring instant event tracking (such as spotting raw DEX swaps), establish a persistent WebSocket provider connection.
+
+```ts
+import { WebSocketProvider, Contract } from 'ethers';
+
+const FLASHBLOCKS_WS_URL = 'wss://mainnet.base.org/ws'; // Replace with a Flashblocks-supported WS endpoint
+const wsProvider = new WebSocketProvider(FLASHBLOCKS_WS_URL);
+
+// Standard ERC-20 Transfer Event ABI snippet
+const filterAbi = ["event Transfer(address indexed from, address indexed to, uint256 value)"];
+const targetTokenAddress = "0x..."; // Target token contract on Base
+
+const tokenContract = new Contract(targetTokenAddress, filterAbi, wsProvider);
+
+console.log("Listening for ultra-fast preconfirmed token transfers...");
+
+// Listen directly to incoming live events streamed by Flashblocks
+tokenContract.on("Transfer", (from, to, value, event) => {
+  console.log(`[Preconfirmed Event] From: ${from} | To: ${to} | Value: ${ethers.formatUnits(value, 18)}`);
+  console.log(`Transaction Hash: ${event.log.transactionHash}`);
+});
+```
+
 ## Support
 
 For feedback, support or questions about Flashblocks, please don't hesitate to contact us in the `#developer-chat` channel in the [Base Discord](https://base.org/discord).
