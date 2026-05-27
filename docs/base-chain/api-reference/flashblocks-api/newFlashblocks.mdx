@@ -7,7 +7,7 @@ description: 'Subscribe to receive full Flashblock payload stream as each pre-co
 Subscribe via `eth_subscribe` to receive full block state updates as each Flashblock is built. Each message contains the accumulated pre-confirmed state for the block in progress.
 
 <Info>
-Only available on Flashblocks WebSocket endpoints: `wss://mainnet.flashblocks.base.org/ws` and `wss://sepolia.flashblocks.base.org/ws`.
+Only available on Flashblocks WebSocket endpoints: `wss://mainnet-preconf.base.org` and `wss://sepolia-preconf.base.org`.
 </Info>
 
 <Note>
@@ -17,10 +17,6 @@ Requires [base/base](https://github.com/base/base) minimum client version v0.3.1
 <Warning>
 Each subscription emits **one Flashblock Object per WebSocket message**. Events arrive approximately every 200ms. If your handler performs heavy processing per event, throttle or debounce it to avoid blocking.
 </Warning>
-
-<Note>
-**Binary frames:** All WebSocket frames on the Flashblocks endpoint, including subscription acknowledgements, are sent as binary (opcode `0x2`). Tools that expect JSON text frames (such as `wscat` in default mode) will not be able to parse responses. Use a binary-capable WebSocket client. Additionally, the server begins broadcasting binary Flashblock payload frames immediately upon connection. Data arrives before you send a subscription message.
-</Note>
 
 ## Parameters
 
@@ -49,7 +45,7 @@ Each subscription emits **one Flashblock Object per WebSocket message**. Events 
 import WebSocket from 'ws';
 
 // Use a Flashblocks-enabled provider WSS endpoint in production
-const ws = new WebSocket('wss://mainnet.flashblocks.base.org/ws');
+const ws = new WebSocket('wss://mainnet-preconf.base.org');
 
 ws.on('open', () => {
   ws.send(JSON.stringify({
