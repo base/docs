@@ -88,8 +88,7 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/consensus:derivation,index,p2p,rpc
 |base-chain/specs/protocol/execution:index
 |base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
-|base-chain/specs/protocol/fault-proof:cannon-fault-proof-vm,index,proposer
-|base-chain/specs/protocol/fault-proof/stage-one:anchor-state-registry,bond-incentives,bridge-integration,dispute-game-interface,fault-dispute-game,honest-challenger-fdg,index,optimism-portal
+|base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
 |base-chain/specs/reference:configurability,glossary
 |base-chain/specs/upgrades/azul:exec-engine,overview,proofs
 |base-chain/specs/upgrades/canyon:overview
