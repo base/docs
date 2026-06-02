@@ -82,7 +82,6 @@ npx skills add base/base-skills
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
 |base-chain/specs:overview
-|base-chain/specs/bcps:bcp-0000,index
 |base-chain/specs/protocol:batcher,overview
 |base-chain/specs/protocol/bridging:bridges,deposits,messengers,withdrawals
 |base-chain/specs/protocol/consensus:derivation,index,p2p,rpc
