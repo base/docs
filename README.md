@@ -5,7 +5,7 @@
 <!-- Badge row 1 - status -->
 
 [![GitHub contributors](https://img.shields.io/github/contributors/base/docs)](https://github.com/base/docs/graphs/contributors)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/base/docs)](https://github.com/base/docs/graphs/contributors)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/base/docs)](https://github.com/base/docs/graphs/commit-activity)
 [![GitHub Stars](https://img.shields.io/github/stars/base/docs.svg)](https://github.com/base/docs/stargazers)
 ![GitHub repo size](https://img.shields.io/github/repo-size/base/docs)
 [![GitHub](https://img.shields.io/github/license/base/docs?color=blue)](https://github.com/base/docs/blob/main/LICENSE.md)
