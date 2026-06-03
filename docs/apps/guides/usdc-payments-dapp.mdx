@@ -1,0 +1,227 @@
+---
+  title: "Build a USDC Payments dApp on Base"
+  description: "Full walkthrough: send USDC, create payment requests, run batch transfers, hold escrow, and set up recurring payments — all on Base Mainnet using wagmi v2, viem, and Solidity smart contracts."
+  sidebarTitle: "USDC Payments dApp"
+  ---
+
+  This guide walks through building **BasePay** — a production USDC payments dApp on Base Mainnet. It demonstrates wallet connection, on-chain USDC transfers, QR-code payment requests, batch sending, trustless escrow, and recurring subscriptions.
+
+  <Note>
+  **Live reference app**: [base-pay.replit.app](https://base-pay.replit.app) — full source at [github.com/osr21/basepay-dapp](https://github.com/osr21/basepay-dapp)
+  </Note>
+
+  ## What you'll build
+
+  - Send USDC to any address with a 0.30% protocol fee collected on-chain
+  - Shareable payment request links with QR codes
+  - Batch pay up to 200 recipients in a single transaction
+  - Trustless escrow: lock USDC for a payee with a refund timeout
+  - Recurring subscriptions: daily, weekly, or monthly USDC pulls
+  - Contact book backed by a Postgres API
+
+  ---
+
+  ## Stack
+
+  | Layer | Technology |
+  | --- | --- |
+  | Frontend | React 18 + Vite, wagmi v2, viem, TailwindCSS |
+  | Contracts | Solidity 0.8.20 on Base Mainnet |
+  | Backend | Express 5 + Drizzle ORM + PostgreSQL |
+  | Monorepo | pnpm workspaces, TypeScript 5.9, Zod v4, Orval codegen |
+
+  ---
+
+  ## Smart contracts
+
+  All four contracts are deployed on Base Mainnet and source-verified on BaseScan.
+
+  | Contract | Address | BaseScan |
+  | --- | --- | --- |
+  | BasePayRouter | `0x2d7ba7ed34f8fa16fe4d0d11b51306dc753812c8` | [View](https://basescan.org/address/0x2d7ba7ed34f8fa16fe4d0d11b51306dc753812c8#code) |
+  | BatchPay | `0x82569caf7847040a03ad2c6545ade5af2bdcf47c` | [View](https://basescan.org/address/0x82569caf7847040a03ad2c6545ade5af2bdcf47c#code) |
+  | Escrow | `0x5b3241a47acfda41f15dfd7260339e2a88d52318` | [View](https://basescan.org/address/0x5b3241a47acfda41f15dfd7260339e2a88d52318#code) |
+  | SubscriptionManager | `0x546093b0476b4b7909cd84f3a0fef813c421d14a` | [View](https://basescan.org/address/0x546093b0476b4b7909cd84f3a0fef813c421d14a#code) |
+
+  The fee formula is the same across all contracts:
+
+  ```
+  fee = grossAmount × feeBps / 10_000   // feeBps = 30 → 0.30%
+  net = grossAmount − fee
+  ```
+
+  ---
+
+  ## 1. Project setup
+
+  ```bash
+  pnpm create vite my-payments-app --template react-ts
+  cd my-payments-app
+  pnpm add wagmi viem @tanstack/react-query
+  ```
+
+  Configure wagmi for Base Mainnet only:
+
+  ```ts
+  // src/lib/wagmi.ts
+  import { createConfig, http } from "wagmi";
+  import { base } from "viem/chains";
+  import { injected } from "wagmi/connectors";
+
+  export const config = createConfig({
+    chains: [base],
+    connectors: [injected()],
+    transports: { [base.id]: http() },
+  });
+
+  export const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+  export const USDC_DECIMALS = 6;
+
+  export function parseUSDC(amount: string): bigint {
+    const [whole = "0", frac = ""] = amount.split(".");
+    const padded = frac.padEnd(USDC_DECIMALS, "0").slice(0, USDC_DECIMALS);
+    return BigInt(whole) * BigInt(10 ** USDC_DECIMALS) + BigInt(padded);
+  }
+  ```
+
+  ---
+
+  ## 2. Send USDC via the router
+
+  The `BasePayRouter` contract handles fee deduction atomically — the user signs one transaction, the contract splits the gross amount between the fee collector and the recipient.
+
+  ```ts
+  // One-transaction send: approve router, then call router.send()
+  const { writeContract } = useWriteContract();
+
+  function handleSend(to: string, amount: string, memo: string) {
+    writeContract({
+      address: ROUTER_ADDRESS,
+      abi: ROUTER_ABI,
+      functionName: "send",
+      args: [USDC_ADDRESS, to as `0x${string}`, parseUSDC(amount), memo],
+    });
+  }
+  ```
+
+  <Tip>
+  Always check the user's USDC allowance before calling the router. Use `useReadContract` to read `allowance(userAddress, routerAddress)` and prompt an `approve` if it is less than the send amount.
+  </Tip>
+
+  ---
+
+  ## 3. Batch payments
+
+  BatchPay deducts the per-recipient fee inside a loop — one `batchSend` call covers up to 200 recipients.
+
+  ```ts
+  function handleBatchSend(recipients: string[], amounts: string[], memo: string) {
+    const totalGross = amounts.reduce((s, a) => s + parseUSDC(a), 0n);
+
+    // Approve the exact gross total first, then call batchSend
+    writeApprove({
+      address: USDC_ADDRESS, abi: USDC_ABI, functionName: "approve",
+      args: [BATCH_PAY_ADDRESS, totalGross],
+    });
+
+    // After approval confirms:
+    writeSend({
+      address: BATCH_PAY_ADDRESS, abi: BATCH_PAY_ABI, functionName: "batchSend",
+      args: [USDC_ADDRESS, recipients as `0x${string}`[], amounts.map(parseUSDC), memo],
+    });
+  }
+  ```
+
+  ---
+
+  ## 4. Payment requests with QR codes
+
+  Payment requests live in a Postgres table (off-chain). Each request generates a shareable URL the payer opens to complete a one-click USDC transfer.
+
+  ```ts
+  // Create a request and share the link
+  const payUrl = `${window.location.origin}/pay/${createdRequest.id}`;
+  <QRCodeSVG value={payUrl} size={180} />
+  ```
+
+  On the pay page, read the request by ID and call `USDC.transfer` directly — no router needed for request fulfillment.
+
+  ---
+
+  ## 5. Escrow
+
+  Escrow locks USDC in the contract until the payee claims it (or the payer refunds after expiry).
+
+  ```solidity
+  // Payer: approve Escrow, then create
+  escrow.create(USDC, payeeAddress, amount, 7 days, "milestone 1");
+
+  // Payee: claim within the window
+  escrow.release(escrowId);
+
+  // Payer: refund after expiry if unclaimed
+  escrow.refund(escrowId);
+  ```
+
+  The 0.30% fee is deducted **on release** (not on deposit), so refunds are fee-free.
+
+  ---
+
+  ## 6. Recurring subscriptions
+
+  `SubscriptionManager` records a standing authorisation. The payee (or any caller) executes `charge(id)` once per interval.
+
+  ```solidity
+  // Payer: approve one period's gross amount, then subscribe
+  usdc.approve(SUB_MANAGER, amount);               // exact cap — one period only
+  subManager.subscribe(USDC, payee, amount, 30 days, "SaaS plan");
+
+  // Payee backend: charge when due
+  subManager.charge(subId);
+
+  // Payer: cancel anytime
+  subManager.cancel(subId);
+  ```
+
+  <Warning>
+  Approve only the per-charge amount, not `type(uint256).max`. Wallet security scanners (e.g. Blockaid) flag unlimited approvals on pull-payment contracts. A bounded approval limits exposure to a single charge and can be re-approved before each period.
+  </Warning>
+
+  ---
+
+  ## 7. Security checklist
+
+  Before deploying your own version:
+
+  - [ ] **Fee cap** — `feeBps <= 1000` is enforced in all contracts (max 10%)
+  - [ ] **Bounded approvals** — never approve more than the user needs for the current action
+  - [ ] **Zero-address checks** — all contracts reject `address(0)` recipients
+  - [ ] **CEI pattern** — Escrow and SubscriptionManager update state before external calls
+  - [ ] **Pause mechanism** — Router and BatchPay have owner-controlled pause
+  - [ ] **Source-verify contracts** — use the BaseScan API or Foundry `--verify`
+
+  ---
+
+  ## Deploy your own contracts
+
+  ```bash
+  # Requires DEPLOYER_PRIVATE_KEY with ETH on Base for gas
+  forge create --rpc-url https://mainnet.base.org \
+    --private-key $DEPLOYER_PRIVATE_KEY \
+    contracts/BasePayRouter.sol:BasePayRouter \
+    --constructor-args $FEE_COLLECTOR_ADDRESS 30
+
+  # Verify on BaseScan (requires BASESCAN_API_KEY)
+  forge verify-contract <DEPLOYED_ADDRESS> \
+    contracts/BasePayRouter.sol:BasePayRouter \
+    --chain base
+  ```
+
+  ---
+
+  ## Next steps
+
+  - Add [Base Account](https://docs.base.org/base-account/overview/what-is-base-account) for smart wallet support and gasless transactions
+  - Enable [builder codes](https://docs.base.org/apps/builder-codes/builder-codes) to surface your app inside the Base ecosystem
+  - Explore the [Base Notifications API](https://docs.base.org/apps/technical-guides/base-notifications) for payment confirmations
+  
