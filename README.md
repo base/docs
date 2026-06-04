@@ -164,6 +164,3 @@ The core team will review opened PRs. The SLA is 2 weeks, generally on a first-c
 ## Storybook for UI components
 
 See `storybook/README.md` for details on local Storybook and component docs.
-## Additional Note
-
-When building on Base, always ensure that you are using the correct RPC endpoint for the intended network (mainnet or testnet). Misconfiguration can lead to failed transactions or unexpected behavior.
