@@ -29,23 +29,29 @@ If you are already running OP Reth via [base/node](https://github.com/base/node)
 
 1. Stop your node:
 
-   ```bash
+```bash
    docker compose down
-   ```
+```
 
 2. Update to the latest version of [base/node](https://github.com/base/node):
 
-   ```bash
+```bash
    git pull origin main
-   ```
+```
 
 3. Start your node:
 
-   ```bash
+```bash
    docker compose up
-   ```
+```
 
-4. Verify client version: `web3_clientVersion` should include `base` in the version string (e.g. `reth/v1.11.3-.../base/v0.9.0`)
+4. Verify client version: `web3_clientVersion` should include `base` in the version string (e.g. `reth/v1.11.3-.../base/v0.9.0`):
+
+```bash
+   curl -s -X POST http://localhost:8545 \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}'
+```
 
 ### Migrating from another client
 
@@ -53,15 +59,15 @@ If you are already running OP Reth via [base/node](https://github.com/base/node)
 
 1. Stop your node:
 
-   ```bash
+```bash
    docker compose down
-   ```
+```
 
 2. Update to the latest version of [base/node](https://github.com/base/node):
 
-   ```bash
+```bash
    git pull origin main
-   ```
+```
 
 3. Remove your old data directory (e.g. `./geth-data` or `./nethermind-data`).
 
@@ -71,9 +77,9 @@ If you are already running OP Reth via [base/node](https://github.com/base/node)
 
 6. Start your node:
 
-   ```bash
+```bash
    docker compose up
-   ```
+```
 
 ## Migrating Consensus Layer
 
@@ -85,19 +91,28 @@ Replace `op-node` with `base-consensus` by updating your environment variables.
 
 3. Restart your node:
 
-   ```bash
+```bash
    docker compose up
-   ```
+```
 
-4. Verify:
-   - Check consensus logs: `docker compose logs -f node`
-   - Confirm sync status: `optimism_syncStatus` continues to work
+4. Verify sync status:
+
+```bash
+   # Check consensus logs
+   docker compose logs -f node
+
+   # Confirm sync status via RPC
+   curl -s -X POST http://localhost:7545 \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","method":"optimism_syncStatus","params":[],"id":1}'
+```
 
 ### Environment Variable Mapping
 
 If you use [base/node](https://github.com/base/node), most variables are already set in `.env.mainnet` and `.env.sepolia`. If you build from [base/base](https://github.com/base/base), use the table below to map your `op-node` environment variables to `base-consensus`. Most are optional. Run `base-consensus node --help` for the full list.
+
 | `op-node` | `base-consensus` |
-|-----------|-------------------|
+|-----------|------------------|
 | `OP_NODE_NETWORK` | `BASE_NODE_NETWORK` |
 | `OP_NODE_ROLLUP_CONFIG` | `BASE_NODE_ROLLUP_CONFIG` |
 | — | `BASE_NODE_LOG_VERBOSITY` |
@@ -140,9 +155,86 @@ If you use [base/node](https://github.com/base/node), most variables are already
 | `OP_NODE_P2P_DISABLE` | — |
 | `OP_NODE_P2P_NAT` | — |
 
+## Post-Upgrade Health Check
+
+After migrating, confirm your node is operating correctly:
+
+```bash
+# 1. Check both containers are running
+docker compose ps
+
+# 2. Verify EL client version includes 'base'
+curl -s -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' \
+  | jq '.result'
+
+# 3. Check sync status (unsafe_l2 block number should be advancing)
+curl -s -X POST http://localhost:7545 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"optimism_syncStatus","params":[],"id":1}' \
+  | jq '{unsafe: .result.unsafe_l2.number, safe: .result.safe_l2.number}'
+
+# 4. Check peer count (should be > 0)
+curl -s -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' \
+  | jq '.result'
+```
+
+## Rollback
+
+If you need to revert to your previous setup before activation:
+
+```bash
+# 1. Stop the node
+docker compose down
+
+# 2. Roll back to previous git state
+git checkout <previous-commit-or-tag>
+
+# 3. Restart
+docker compose up
+```
+
+<Warning>
+Rollback is only possible **before** the Azul activation timestamp. After activation, nodes running pre-Azul clients will not follow the canonical chain.
+</Warning>
+
+## Troubleshooting
+
+**Node fails to start after update**
+
+Check logs for configuration errors:
+```bash
+docker compose logs node | tail -50
+```
+Ensure `USE_BASE_CONSENSUS=true` is set and all required `BASE_NODE_*` variables are present in your `.env` file.
+
+**`web3_clientVersion` does not include `base`**
+
+You may still be running `op-reth`. Confirm `git pull origin main` completed cleanly and re-run `docker compose up --build`.
+
+**Sync stalled or `unsafe_l2` not advancing**
+
+Check L1 RPC connectivity and confirm `BASE_NODE_L1_ETH_RPC` is reachable. A peer count of 0 suggests a network or firewall issue on your P2P port.
+
+**`BASE_NODE_L2_ENGINE_AUTH_RAW` not set**
+
+Generate a secure value and add it to your `.env` file:
+```bash
+echo "BASE_NODE_L2_ENGINE_AUTH_RAW=$(openssl rand -hex 32)" >> .env
+```
+
+**`optimism_syncStatus` returns an error**
+
+Confirm the consensus RPC port (default `7545`) is exposed and `BASE_NODE_RPC_PORT` matches your configuration.
+
 ## FAQ
 
 - **Do I need to set `BASE_NODE_L2_ENGINE_AUTH_RAW`?** Yes — this must be set to a secure random hex string shared between the execution and consensus containers. Generate one with `openssl rand -hex 32`. Nodes using host networking or custom port mappings that rely on the default placeholder value are exposed to unauthenticated Engine API access.
 - **Do I need to re-sync?** Not if you are already running OP Reth. Existing data is compatible.
 - **What if I'm on `op-geth` or `nethermind`?** You need to switch to `base-reth-node`. Use a [Reth snapshot](/base-chain/node-operators/snapshots) to bootstrap.
 - **Do OP namespace RPCs still work?** Yes, all existing RPCs are supported.
+- **Can I run `base-reth-node` and `op-node` together temporarily?** No. `op-node` will not support Azul. Both layers must be migrated together before activation.
+- **Where do I get help?** Join the [Base Discord](https://discord.gg/buildonbase) and post in `🛠｜node-operators`, or open an issue on [base/node](https://github.com/base/node/issues).
