@@ -44,9 +44,65 @@ After `renounceLastAdmin()` (or for tokens deployed with `initialAdmin == addres
 - Roles already granted to other addresses (`MINT_ROLE`, `BURN_ROLE`, etc.) continue to function independently.
 - Admin resurrection is blocked: `grantRole`, `revokeRole`, and `setRoleAdmin` all revert with `AccessControlUnauthorizedAccount` even if the caller holds a custom role.
 
+## Policy Registry
+
+The PolicyRegistry is a singleton precompile that manages allowlists and blocklists. B20 tokens reference policies by `uint64` ID. Any caller can create a policy and nominate its admin.
+
+<Note>
+State-changing functions on the PolicyRegistry are gated by the ActivationRegistry, which tracks which Base features are live. Read functions (`isAuthorized`, `policyExists`, `policyAdmin`, `pendingPolicyAdmin`) are always callable.
+</Note>
+
+### Policy Types
+
+| Type | Default | Behavior |
+|------|---------|----------|
+| `BLOCKLIST` | Authorized | All accounts authorized by default; explicitly listed accounts are denied. |
+| `ALLOWLIST` | Denied | All accounts denied by default; explicitly listed accounts are authorized. |
+
+### Policy IDs
+
+Policy IDs are `uint64` values. The top byte encodes the `PolicyType`; the low 56 bits are a global counter starting at `2`.
+
+Two built-in IDs require no creation:
+
+| Constant | ID | Behavior |
+|----------|----|----------|
+| `ALWAYS_ALLOW` | `0` | Authorizes every account unconditionally. Default scope value on new B20 tokens. |
+| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) << 56) \| 1` | Denies every account unconditionally. |
+
+`isAuthorized` never reverts on a non-existent policy ID - it collapses to empty-member-set semantics (non-existent `BLOCKLIST` authorizes everyone; non-existent `ALLOWLIST` denies everyone).
+
+<Warning>
+Consumers that write a policy ID (e.g. `updatePolicy`) MUST validate `policyExists(policyId)` at write time to avoid silently binding to an unintended empty-set policy.
+</Warning>
+
+### Admin Model
+
+Each policy has one admin. Admin transfers are two-step: the current admin calls `transferPolicyAdmin(policyId, newAdmin)`, then the pending admin calls `acceptPolicyAdmin(policyId)`. `renouncePolicyAdmin(policyId)` permanently freezes the policy - membership can never be changed again.
+
+### Creating and Managing Policies
+
+```solidity
+// Create a policy
+uint64 policyId = policyRegistry.createPolicy(PolicyType.BLOCKLIST, adminAddress);
+
+// Update membership (batched)
+policyRegistry.addToPolicy(policyId, accounts);
+policyRegistry.removeFromPolicy(policyId, accounts);
+```
+
+### Read Interface
+
+| Method | Description |
+|--------|-------------|
+| `isAuthorized(policyId, account)` | Whether `account` is authorized under `policyId`. Never reverts. |
+| `policyExists(policyId)` | Whether a policy with this ID has been created. |
+| `policyAdmin(policyId)` | Current admin address. |
+| `pendingPolicyAdmin(policyId)` | Pending admin during a two-step transfer. |
+
 ## Policy Integration
 
-B20 declares a fixed set of policy scopes. Each scope stores a `uint64` policy ID pointing into the `PolicyRegistry`. On every gated operation, B20 calls `isAuthorized` against the relevant scope and reverts with `PolicyForbids` if the account is not authorized.
+B20 declares a fixed set of policy scopes. Each scope stores a `uint64` policy ID pointing into the PolicyRegistry. On every gated operation, B20 calls `isAuthorized` against the relevant scope and reverts with `PolicyForbids` if the account is not authorized.
 
 | Scope | Gates |
 |-------|-------|
@@ -103,15 +159,79 @@ B20 implements ERC-2612 (signed approvals) using an EIP-712 domain shaped as `(n
 - `updateName(newName)` - updates `name` and rotates the EIP-712 domain separator. Emits `NameUpdated` and `EIP712DomainChanged`.
 - `updateSymbol(newSymbol)` - updates `symbol` only. Emits `SymbolUpdated`.
 
+## Factory
+
+All B20 tokens are created through the singleton `IB20Factory` precompile via `createB20(variant, params, initCalls, salt)`.
+
+| Parameter | Description |
+|-----------|-------------|
+| `variant` | `ASSET` or `STABLECOIN` |
+| `params` | ABI-encoded, variant-specific creation struct (versioned by leading byte) |
+| `initCalls` | Optional array of ABI-encoded calls dispatched post-creation with admin privilege bypass |
+| `salt` | Caller-chosen entropy for address derivation |
+
+### Address Derivation
+
+B20 addresses are deterministic and encode the variant directly:
+
+```
+[10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
+```
+
+The variant is recoverable from the address alone without an RPC call. Helper functions `getB20Address(variant, deployer, salt)`, `isB20(addr)`, and `isB20Initialized(addr)` are available on the factory.
+
+### initCalls Semantics
+
+`initCalls` are dispatched after token creation with admin privilege bypass, allowing configuration (e.g. setting policies, granting roles) in the same transaction as deployment. The bypass is partial:
+
+- `MINT_RECEIVER_POLICY` is always enforced even during `initCalls`.
+- Pause state is never bypassed.
+- Token invariants (supply cap, etc.) are never bypassed.
+
 ## Variants
 
 ### Asset
 
-The general-purpose variant for assets of all kinds. Decimals are configurable between 6 and 18 at deployment time. Adds: rebase multiplier, onchain announcements, and batched issuance.
+The general-purpose variant for assets of all kinds. Decimals are configurable between 6 and 18 at deployment time and are immutable after creation.
+
+In addition to the base B20 surface, Asset tokens add an `OPERATOR_ROLE` that gates the following capabilities:
+
+#### Multiplier
+
+A WAD-precision rebase multiplier applied to all balance reads. Raw balances are stored unchanged; the multiplier scales the view returned to callers.
+
+| Method | Description |
+|--------|-------------|
+| `multiplier()` | Current WAD-precision multiplier |
+| `scaledBalanceOf(account)` | Raw balance × multiplier |
+| `toScaledBalance(raw)` | Convert raw amount to scaled |
+| `toRawBalance(scaled)` | Convert scaled amount to raw |
+| `updateMultiplier(newMultiplier)` | Update the multiplier. Gated by `OPERATOR_ROLE`. |
+
+#### Announcements
+
+On-chain disclosure brackets that wrap sensitive operations (e.g. batch mints, multiplier updates) with a public notice period. Gated by `OPERATOR_ROLE`.
+
+`announce(internalCalls, id, description, uri)` emits an `Announcement` event, executes `internalCalls`, then emits `EndAnnouncement`. The `id` must be unique and is enforced forever. Inner call reverts are wrapped in `InternalCallFailed`.
+
+#### Batch Mint
+
+`batchMint(recipients, amounts)` mints to multiple recipients in a single call. Gated by `MINT_ROLE`. Should be wrapped in `announce()` for transparency.
+
+#### Extra Metadata
+
+An arbitrary key/value store for issuer-defined on-chain metadata.
+
+| Method | Description |
+|--------|-------------|
+| `extraMetadata(key)` | Read a value by key |
+| `updateExtraMetadata(key, value)` | Write a value. Gated by `METADATA_ROLE`. Setting an empty value removes the entry. |
 
 ### Stablecoin
 
-The fixed-decimals, fiat-backed carveout. Decimals are fixed at 6. Adds a self-declared fiat currency code for use by compliant stablecoin issuers.
+The fixed-decimals, fiat-backed carveout. Decimals are hard-wired to `6` and are not configurable.
+
+Adds `currency()`, which returns an ISO-style currency code string (e.g. `"USD"`, `"EUR"`). The code is set once at creation via `B20StablecoinCreateParams.currency`, restricted to characters `A`-`Z` only. It is self-declared and not verified against any external registry.
 
 ## Roadmap
 
