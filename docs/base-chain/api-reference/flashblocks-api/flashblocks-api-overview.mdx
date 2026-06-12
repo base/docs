@@ -27,6 +27,64 @@ On a Flashblocks WSS endpoint, `eth_subscribe` with `newHeads` emits a new event
 | [pendingLogs](/base-chain/api-reference/flashblocks-api/pendingLogs) | Stream filtered event logs from pre-confirmed transactions |
 | [newFlashblocks](/base-chain/api-reference/flashblocks-api/newFlashblocks) | Stream full Flashblock payload objects from the sequencer |
 
+## Library Examples
+
+Use a Flashblocks-aware RPC endpoint from a [node provider](/base-chain/network-information/rpc-providers) to consume Flashblocks data in your app.
+
+### Wagmi
+
+```tsx config.ts
+import { createConfig, http } from "wagmi";
+import { baseSepoliaPreconf } from "wagmi/chains";
+import { baseAccount } from "wagmi/connectors";
+
+export const config = createConfig({
+  chains: [baseSepoliaPreconf],
+  connectors: [baseAccount()],
+  transports: {
+    [baseSepoliaPreconf.id]: http(),
+  },
+});
+```
+
+### Viem
+
+```ts
+import { createWalletClient, http, parseEther, publicActions } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepoliaPreconf } from "viem/chains";
+
+const account = privateKeyToAccount(`0x${process.env.PRIVATE_KEY}`);
+const client = createWalletClient({
+  account,
+  chain: baseSepoliaPreconf,
+  transport: http(),
+}).extend(publicActions);
+
+const hash = await client.sendTransaction({ to: "0x...", value: parseEther("0.0001") });
+const receipt = await client.waitForTransactionReceipt({ hash });
+```
+
+### Ethers
+
+```ts
+const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+const tx = await wallet.sendTransaction({ to: "0x...", value: ethers.parseEther("0.0001") });
+await tx.wait(0); // pass 0 confirmations to resolve on preconfirmation
+```
+
+## FAQ
+
+<Accordion title="What encoding format is the transaction data in?">
+Transaction data in the `diff.transactions` array is [Recursive Length Prefix (RLP)](https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/) encoded.
+</Accordion>
+
+<Accordion title="Why am I getting rate limited on the WebSocket stream?">
+The infrastructure stream has a maximum connection limit and is intended for node operators only. For production use, run your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks) or use a third-party node provider with Flashblocks support.
+</Accordion>
+
 ## Infrastructure Stream
 
 The raw Flashblocks infrastructure stream is the upstream WebSocket feed consumed by Flashblocks-aware RPC nodes. It emits a new message approximately every 200ms as the sequencer pre-confirms transactions.

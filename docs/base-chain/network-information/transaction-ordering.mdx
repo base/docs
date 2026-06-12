@@ -24,6 +24,20 @@ The sequencer receives signed transactions, validates them against current accou
 
 The Base sequencer produces Flashblocks every **200ms**, committing to transaction ordering incrementally while the next L2 block is being built. Flashblocks provide preconfirmation signals before the full L2 block seals.
 
+| Term | Definition |
+|------|------------|
+| **Flashblock** | A 200ms sub-block containing a portion of the full block's transactions |
+| **Preconfirmation** | A strong signal that a transaction will be included, before the full L2 block seals |
+| **Full Block** | Ten Flashblocks combined to form the complete 2-second L2 block |
+
+| Metric | Value |
+|--------|-------|
+| Flashblock cadence | ~200ms |
+| Flashblock build time (P50) | ~10ms |
+| Full block time | 2 seconds |
+| Flashblocks per block | 10 |
+| Reorg rate | < 0.1% |
+
 <Info>
 For how preconfirmed state is exposed to applications, see the [Base RPC Overview](/base-chain/api-reference/rpc-overview#flashblocks-behavior-matrix). For the protocol-level sequencer role, see the [Protocol Overview](/base-chain/specs/protocol/overview#sequencers).
 </Info>
@@ -75,8 +89,8 @@ Base enforces a per-transaction gas maximum. Transactions that specify a gas lim
 
 | Network | Active per-transaction gas maximum |
 |---------|------------------------------------|
-| Base Mainnet | 25,000,000 gas until Azul activates on May 28, 2026 at 18:00 UTC; 16,777,216 gas after activation |
-| Base Sepolia | 16,777,216 gas, active since April 20, 2026 at 18:00 UTC |
+| Base Mainnet | 16,777,216 gas (2^24), active since Azul (May 28, 2026 at 18:00 UTC) |
+| Base Sepolia | 16,777,216 gas (2^24), active since Azul (April 20, 2026 at 18:00 UTC) |
 
 For the Azul protocol change that enforces the 16,777,216 gas cap, see the [Azul execution engine specification](/base-chain/specs/upgrades/azul/exec-engine#transaction-gas-limit-cap).
 
@@ -104,7 +118,45 @@ Infrastructure providers should:
 
 ## Client support
 
-Azul requires Base-native clients. For operator migration guidance and supported client combinations, see [Base Azul Upgrade](/base-chain/node-operators/base-v1-upgrade) and [Run a Base Node](/base-chain/node-operators/run-a-base-node#supported-client-combinations).
+Base uses `base-reth-node` (EL) and `base-consensus` (CL). For setup instructions, see [Run a Base Node](/base-chain/node-operators/run-a-base-node).
+
+## FAQ
+
+<Accordion title="Are Flashblocks optional?">
+All Base blocks are built by the Flashblocks builder — Flashblocks are always live. Apps may choose not to rely on preconfirmations and can continue using standard RPCs without any Flashblocks integration.
+</Accordion>
+
+<Accordion title="Can the sequencer stop publishing Flashblocks?">
+The sequencer will not stop publishing Flashblocks unless an extreme circumstance makes running them unsafe. If this happens, preconfirmations are disabled network-wide and confirmations fall back to standard 2-second blocks. The sequencer continues operating normally.
+</Accordion>
+
+<Accordion title="Why do transactions sometimes appear out of order by fee?">
+The builder uses an incremental mempool that continuously accepts new transactions while building each Flashblock. Transactions are ordered by fee *at the time they are selected*, not globally across all transactions that arrive during the full 2-second block interval. A later-arriving high-fee transaction may appear after an already-committed lower-fee transaction. This is a deliberate tradeoff — faster inclusion at the cost of occasionally breaking strict priority-gas-auction ordering within a Flashblock.
+</Accordion>
+
+<Accordion title="How frequently do Flashblock reorgs happen?">
+Base targets a reorg rate of less than 0.1%. A reorg means a transaction appeared in a Flashblock preconfirmation but was not included in the final sealed block. While rare, applications should implement fallback logic for critical operations. Current metrics are available at [base.org/stats](https://base.org/stats).
+</Accordion>
+
+<Accordion title="Why is my transaction not landing in the first Flashblock?">
+Flashblock 1 can only use 1/10 of the block gas limit. Transactions with large gas limits must wait for a later Flashblock where enough cumulative capacity exists. To maximize chances of early inclusion, keep individual transaction gas limits under 1/10 of the block gas limit.
+</Accordion>
+
+<Accordion title="Is there any difference in transaction inclusion for Flashblocks vs. 2-second blocks?">
+No significant differences — both order transactions by fee. The main difference is timing: Flashblocks occur every 200ms instead of every 2 seconds.
+</Accordion>
+
+<Accordion title="Why are there 11 Flashblock indices (0–10)?">
+Index 0 contains only system transactions and does not use any gas limit. Indexes 1–10 are the actual Flashblocks that pull pending transactions from the mempool.
+</Accordion>
+
+<Accordion title="Why are there sometimes fewer than 10 Flashblocks?">
+This is expected. When the previous block takes longer to build, the system compensates by allocating less time to the next block, resulting in fewer Flashblocks.
+</Accordion>
+
+<Accordion title="Can the Flashblock index exceed 10? Is that a bug?">
+No, it is not a bug. Seeing indices of 11 or higher is expected behavior caused by sequencer timing drift or slight delays in block finalization. Do not hardcode 10 as the final index — use `payloadId` changes or standard RPC block confirmation as the signal that the block has advanced.
+</Accordion>
 
 ## Related references
 

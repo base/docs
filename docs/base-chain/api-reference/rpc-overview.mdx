@@ -11,7 +11,7 @@ Base exposes an EVM-compatible JSON-RPC API through two RPC tiers:
 - **Standard RPC** for normal Ethereum-compatible reads, writes, logs, and debugging against sealed blocks and standard pending state.
 - **Flashblocks RPC** for apps that need preconfirmed state and transaction signals before the next L2 block seals.
 
-Most apps should start with Standard RPC. Use Flashblocks RPC when faster state reads, transaction feedback, or realtime subscriptions materially improve the user experience.
+Most apps should start with Standard RPC. Use Flashblocks RPC when faster state reads, transaction feedback, or realtime subscriptions materially improve the user experience. For endpoint URLs and chain IDs, see [Connecting to Base](/base-chain/quickstart/connecting-to-base).
 
 ## Choose an RPC Tier
 
@@ -44,33 +44,25 @@ Preconfirmed responses are reorg-able until the full L2 block seals. For finalit
 ## Common Tasks
 
 <CardGroup cols={2}>
-  <Card title="Read state" icon="database" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_call">
-    Use `eth_call`, `eth_getBalance`, `eth_getStorageAt`, `eth_getCode`, and `eth_getTransactionCount`. Add `"pending"` on Flashblocks RPC to read preconfirmed state.
+  <Card title="Read state" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_call">
+    Query balances, storage, bytecode, and nonces. Use `"pending"` on Flashblocks RPC for preconfirmed state.
   </Card>
-  <Card title="Send transactions" icon="paper-plane" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_sendRawTransaction">
-    Broadcast signed transactions with `eth_sendRawTransaction`, then choose Standard or Flashblocks reads depending on the confirmation signal your app needs.
+  <Card title="Send transactions" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_sendRawTransaction">
+    Broadcast signed transactions to the network.
   </Card>
-  <Card title="Track confirmations" icon="receipt" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt">
-    Use transaction and receipt lookups for sealed data. On Flashblocks RPC, by-hash lookups can also return preconfirmed cache data before the L2 block seals.
+  <Card title="Track confirmations" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt">
+    Poll for receipts on sealed blocks, or get preconfirmed data on Flashblocks RPC.
   </Card>
-  <Card title="Stream realtime data" icon="radio" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe">
-    Use WebSocket subscriptions such as `eth_subscribe`, `newFlashblockTransactions`, `pendingLogs`, and `newFlashblocks` when polling is too slow.
+  <Card title="Stream realtime data" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe">
+    WebSocket subscriptions for new blocks, logs, and preconfirmed transaction data.
   </Card>
-  <Card title="Simulate preconfirmed bundles" icon="flask-conical" href="/base-chain/api-reference/flashblocks-api/eth_simulateV1">
-    Use `eth_simulateV1` to simulate bundles against preconfirmed state on Flashblocks endpoints.
+  <Card title="Simulate preconfirmed bundles" href="/base-chain/api-reference/flashblocks-api/eth_simulateV1">
+    Run transaction bundles against preconfirmed state before they land on-chain.
   </Card>
-  <Card title="Debug execution" icon="bug" href="/base-chain/api-reference/debug-api/debug_traceTransaction">
-    Use debug methods for local development, transaction traces, and block replay. Availability and rate limits vary by provider.
+  <Card title="Debug execution" href="/base-chain/api-reference/debug-api/debug_traceTransaction">
+    Full EVM traces and block replay. Availability varies by provider.
   </Card>
 </CardGroup>
-
-## Endpoint URLs
-
-Most readers can use their provider's Base endpoint directly. Expand this section when you need the public Base RPC URLs, chain IDs, explorers, or Flashblocks endpoint URLs.
-
-<Accordion title="View endpoint details">
-  <BaseNetworks />
-</Accordion>
 
 ## API Surfaces
 
@@ -79,17 +71,17 @@ Most readers can use their provider's Base endpoint directly. Expand this sectio
 Core Ethereum protocol methods for account queries, contract calls, block and transaction data, gas estimation, log filtering, transaction submission, and WebSocket subscriptions. These methods work on both Standard and Flashblocks endpoints.
 
 <CardGroup cols={2}>
-  <Card title="State and contract reads" icon="braces" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_call">
-    `eth_call`, `eth_getBalance`, `eth_getStorageAt`, `eth_getCode`, `eth_getTransactionCount`
+  <Card title="State and contract reads" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_call">
+    Account balances, storage slots, bytecode, nonces, and contract simulation.
   </Card>
-  <Card title="Blocks and transactions" icon="blocks" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber">
-    `eth_getBlockByNumber`, `eth_getBlockByHash`, transaction count methods, transaction lookups, receipts
+  <Card title="Blocks and transactions" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber">
+    Block data, transaction lookups, and receipts by hash, number, or index.
   </Card>
-  <Card title="Fees and gas" icon="fuel" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_estimateGas">
-    `eth_estimateGas`, `eth_gasPrice`, `eth_maxPriorityFeePerGas`, `eth_feeHistory`
+  <Card title="Fees and gas" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_estimateGas">
+    Gas estimation, current gas price, priority fee, and fee history.
   </Card>
-  <Card title="Logs and subscriptions" icon="activity" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_getLogs">
-    `eth_getLogs`, `eth_subscribe`, `eth_unsubscribe`
+  <Card title="Logs and subscriptions" href="/base-chain/api-reference/ethereum-json-rpc-api/eth_getLogs">
+    Filter and query event logs, or subscribe to events over WebSocket.
   </Card>
 </CardGroup>
 
@@ -98,17 +90,17 @@ Core Ethereum protocol methods for account queries, contract calls, block and tr
 Flashblocks methods provide preconfirmation-specific capabilities on Flashblocks endpoints. Use them when your app needs sub-second transaction status, filtered pending logs, preconfirmed transaction streams, or bundle simulation.
 
 <CardGroup cols={2}>
-  <Card title="Transaction status" icon="circle-dot" href="/base-chain/api-reference/flashblocks-api/base_transactionStatus">
-    Check whether a transaction has reached the mempool before it is sealed into an L2 block.
+  <Card title="Transaction status" href="/base-chain/api-reference/flashblocks-api/base_transactionStatus">
+    Check if a transaction has reached the mempool before it seals into an L2 block.
   </Card>
-  <Card title="Pending logs" icon="list-filter" href="/base-chain/api-reference/flashblocks-api/pendingLogs">
-    Subscribe to filtered logs from preconfirmed transactions.
+  <Card title="Pending logs" href="/base-chain/api-reference/flashblocks-api/pendingLogs">
+    Subscribe to filtered event logs from preconfirmed transactions.
   </Card>
-  <Card title="New Flashblock transactions" icon="radio-tower" href="/base-chain/api-reference/flashblocks-api/newFlashblockTransactions">
-    Subscribe to individual preconfirmed transactions.
+  <Card title="New Flashblock transactions" href="/base-chain/api-reference/flashblocks-api/newFlashblockTransactions">
+    Subscribe to individual transactions as they are preconfirmed.
   </Card>
-  <Card title="Flashblock stream" icon="server" href="/base-chain/api-reference/flashblocks-api/newFlashblocks">
-    Subscribe to Flashblock payloads. Most apps should prefer higher-level RPC methods unless they need the raw payload shape.
+  <Card title="Flashblock stream" href="/base-chain/api-reference/flashblocks-api/newFlashblocks">
+    Subscribe to full Flashblock payloads for apps that need the raw block shape.
   </Card>
 </CardGroup>
 
@@ -117,11 +109,11 @@ Flashblocks methods provide preconfirmation-specific capabilities on Flashblocks
 Debug methods replay transactions and blocks for development and incident analysis. They are computationally expensive, so availability and rate limits vary by [RPC provider](/base-chain/network-information/rpc-providers).
 
 <CardGroup cols={2}>
-  <Card title="Trace a transaction" icon="search-code" href="/base-chain/api-reference/debug-api/debug_traceTransaction">
-    Inspect full EVM execution for a transaction.
+  <Card title="Trace a transaction" href="/base-chain/api-reference/debug-api/debug_traceTransaction">
+    Full EVM execution trace for a single transaction.
   </Card>
-  <Card title="Trace a block" icon="scan-search" href="/base-chain/api-reference/debug-api/debug_traceBlockByNumber">
-    Replay all transactions in a block by number or hash.
+  <Card title="Trace a block" href="/base-chain/api-reference/debug-api/debug_traceBlockByNumber">
+    Replay and trace all transactions in a block by number or hash.
   </Card>
 </CardGroup>
 

@@ -50,7 +50,7 @@ If you submit a transaction with a nonce that has already been used, it will be 
 
 ### Gas Limit Exceeds Maximum
 
-Base enforces a [per-transaction gas maximum](/base-chain/network-information/transaction-ordering#per-transaction-gas-maximum). The active cap is network- and activation-dependent: Base Sepolia uses 16,777,216 gas, while Base Mainnet uses 25,000,000 gas until Azul activates on May 28, 2026 at 18:00 UTC and 16,777,216 gas after activation. Transactions specifying a higher gas limit are rejected by the mempool before inclusion.
+Base enforces a [per-transaction gas maximum](/base-chain/network-information/transaction-ordering#per-transaction-gas-maximum) of **16,777,216 gas (2^24)** on both Mainnet and Sepolia. Transactions specifying a higher gas limit are rejected by the mempool before inclusion.
 
 **Error**: `exceeds maximum per-transaction gas limit`
 
@@ -90,6 +90,14 @@ To get the fastest possible confirmation, use a Flashblocks-aware RPC endpoint:
 These endpoints return transaction receipts as soon as a transaction is included in a Flashblock, rather than waiting for the full L2 block.
 
 If a transaction appears on a Flashblocks-aware endpoint but not yet on a standard RPC endpoint, continue polling the standard endpoint before treating it as a regular L2 block inclusion. If neither endpoint returns a receipt, continue with the fee, nonce, and gas-limit checks above.
+
+### eth_call with `pending` reports a block number behind tip
+
+This is expected behavior. Flashblocks-aware nodes store up to 5 historical blocks worth of Flashblocks state to prevent race conditions. When `eth_call "pending"` is called, it operates on top of that historical base, so `block.number` may appear several blocks behind the current chain tip. The call result is correct — it reflects all received Flashblocks state applied on top — but contracts that rely on `block.number`, `block.timestamp`, or `block.basefee` should account for this offset.
+
+### Preconfirmation Reorgs
+
+A Flashblock reorg means a transaction appeared in a preconfirmation but was not included in the final sealed block. This is rare (Base targets less than 0.1%) but can happen. If your app displayed optimistic state based on a preconfirmation that was then reorged, reconcile against the sealed block and update accordingly. Treat preconfirmations as strong signals, not guarantees.
 
 ## Debugging Tools
 
