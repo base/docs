@@ -234,7 +234,8 @@ const permission = await fetchPermission({
 try {
   const { isActive, remainingSpend } = await getPermissionStatus(permission);
   const amount = 1000n;
-
+// Note: remainingSpend and amount are both in the token's smallest unit
+// (e.g. for USDC with 6 decimals, 1_000_000n = $1.00)
   if (!isActive || remainingSpend < amount) {
     throw new Error("No spend permission available");
   }
@@ -243,10 +244,8 @@ try {
 }
 
 // 3. prepare the calls
-const [approveCall, spendCall] = await prepareSpendCallData({
-  permission,
-  amount,
-});
+const spendCalls = await prepareSpendCallData({ permission, amount });
+calls: spendCalls
 
 // 4. execute the calls using your app's spender account
 // this is an example using wallet_sendCalls, in production it could be using eth_sendTransaction.
