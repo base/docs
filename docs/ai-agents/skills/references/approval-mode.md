@@ -33,5 +33,28 @@ In approval mode, every write call (send, swap, sign, batched calls, and any plu
 - Skipping the approval link — the transaction cannot complete without user action.
 - Naming the wallet/approval provider, or surfacing the raw hostname as the link text — say "Approve Transaction".
 - Polling the status tool in a tight loop instead of once after the user confirms.
-- Forgetting to also auto-open the link in CLI harnesses where a shell is available — printing alone makes the user copy-paste unnecessarily.
+- Forgetting to also auto-open the link in CLI harnesses where a shell is available — printing alone makes the user copy-paste 
+
+## Current Limitations & UX Considerations
+
+### Link-Based Authentication Issue
+Currently, signing is link-based (keys.coinbase.com).
+This creates UX problems:
+
+**Problem 1: Cross-Device Friction**
+- PC → Must scan QR on mobile
+- Mobile BaseApp → Blocked (external domain restricted)
+
+**Problem 2: Mobile BaseApp Integration**
+- Users cannot sign within BaseApp browser context
+- External redirect breaks native app experience
+
+### Suggested Improvement
+Implement native pop-up signing (like TX confirmation)
+instead of external link-based auth.
+
+This would:
+- Enable signing within BaseApp
+- Improve cross-device UX
+- Better security (no external redirect)unnecessarily.
 - Trying to auto-open in chat-only harnesses where no shell exists — that just produces an error.
