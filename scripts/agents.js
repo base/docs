@@ -163,8 +163,7 @@ function generateAgentsMd() {
     throw new Error(`agents.md description exceeds 200 chars (${description.length})`);
   }
 
-  const sections = discoverTopLevelSections(CONFIG.docsDir)
-    .filter(section => fs.existsSync(path.join(CONFIG.docsDir, section.dirName, 'llms.txt')));
+  const sections = discoverTopLevelSections(CONFIG.docsDir);
   const featured = discoverFeaturedPages();
 
   const blocks = [
