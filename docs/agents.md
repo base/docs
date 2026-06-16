@@ -8,11 +8,12 @@ description: Look up Base documentation with a compact directory-grouped index b
 
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
-- [AI Agents](./ai-agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account — check balances, send funds, swap tokens, sign messages, and pay x402 APIs.
+- [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
 - [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
 - [Base Account](./base-account/llms.txt)
 - [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
 - [Get Started](./get-started/llms.txt)
+- [Static](./static/llms.txt)
 
 ## Tools available for AI assistants
 
@@ -37,13 +38,13 @@ npx skills add base/base-skills
 ## Compact docs index
 
 [Docs]|root:./docs
-|ai-agents:index,quickstart
-|ai-agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
-|ai-agents/plugins:custom-plugins,index
-|ai-agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
-|ai-agents/skills:SKILL
-|ai-agents/skills/plugins:aerodrome,avantis,bankr,moonwell,morpho,uniswap,virtuals
-|ai-agents/skills/references:approval-mode,batch-calls,custom-plugins,install,tone
+|agents:index,quickstart
+|agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
+|agents/plugins:custom-plugins,index
+|agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
+|agents/skills:SKILL
+|agents/skills/plugins:aerodrome,avantis,bankr,moonwell,morpho,uniswap,virtuals
+|agents/skills/references:approval-mode,batch-calls,custom-plugins,install,tone
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
@@ -78,7 +79,7 @@ npx skills add base/base-skills
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
 |base-chain/flashblocks:app-integration,architecture,faq,overview
 |base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
-|base-chain/node-operators:base-v1-upgrade,node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
+|base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
 |base-chain/specs:overview
@@ -89,7 +90,8 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
 |base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
 |base-chain/specs/reference:configurability,glossary
-|base-chain/specs/upgrades/azul:exec-engine,overview,proofs
+|base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
+|base-chain/specs/upgrades/beryl:b20,overview
 |base-chain/specs/upgrades/canyon:overview
 |base-chain/specs/upgrades/delta:overview,span-batches
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
