@@ -8,7 +8,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
-- [Agents](./agents/llms.txt)
+- [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
 - [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
 - [Base Account](./base-account/llms.txt)
 - [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
@@ -38,7 +38,7 @@ npx skills add base/base-skills
 ## Compact docs index
 
 [Docs]|root:./docs
-|agents:base-mcp,quickstart
+|agents:index,quickstart
 |agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
 |agents/plugins:custom-plugins,index
 |agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
