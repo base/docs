@@ -101,4 +101,4 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
 |get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,prompt-library,resources-for-ai-agents
-|root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
+|root:changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice

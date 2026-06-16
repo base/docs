@@ -37,7 +37,7 @@ Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-res
 - [`docs/llms.txt`](llms.txt), [`docs/llms-full.txt`](llms-full.txt).
 - [`claude.md`](../claude.md) — repo structure diagram.
 - [`scripts/agents.js`](../scripts/agents.js) — comments.
-- [`docs/agents.md`](agents.md) — regenerated.
+- [`docs/AGENTS.md`](AGENTS.md) — regenerated.
 
 ## Verification
 

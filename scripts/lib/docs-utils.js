@@ -23,7 +23,8 @@ const CONSTANTS = {
   skipFiles: [
     'README.md', 'CHANGELOG.md', 'LICENSE.md', '.DS_Store',
     'docs.json', 'package-lock.json', 'llms.txt', 'llms-full.txt',
-    'iframe-theme.js', 'style.css', 'instructions.md', 'writing.md', 'CLAUDE.md'
+    'iframe-theme.js', 'style.css', 'instructions.md', 'writing.md', 'CLAUDE.md',
+    'AGENTS.md'
   ],
 
   skipFilePatterns: [/-vid$/, /-video$/, /-sbs$/],
