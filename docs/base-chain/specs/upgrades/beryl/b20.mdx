@@ -34,7 +34,7 @@ B20 role-based access control extends OpenZeppelin `AccessControl` with a fixed 
 | `UNPAUSE_ROLE` | `unpause` |
 | `METADATA_ROLE` | `updateName`, `updateSymbol`, `updateContractURI` |
 
-User-defined roles are supported via `setRoleAdmin` and `grantRole`. They carry no built-in effect - B20 only enforces gates against the seven roles above.
+User-defined roles are supported via `setRoleAdmin` and `grantRole`. They carry no built-in effect - B20 only enforces gates against the seven base-surface roles above. The Asset variant adds an eighth role, `OPERATOR_ROLE` (see [Variants](#variants)).
 
 ### Admin Renunciation
 
@@ -82,17 +82,20 @@ Consumers that write a policy ID (e.g. `updatePolicy`) MUST validate `policyExis
 
 ### Admin Model
 
-Each policy has one admin. Admin transfers are two-step: the current admin calls `transferPolicyAdmin(policyId, newAdmin)`, then the pending admin calls `acceptPolicyAdmin(policyId)`. `renouncePolicyAdmin(policyId)` permanently freezes the policy - membership can never be changed again.
+Each policy has one admin. Admin transfers are two-step: the current admin calls `stageUpdateAdmin(policyId, newAdmin)`, then the pending admin calls `finalizeUpdateAdmin(policyId)`. `renounceAdmin(policyId)` permanently freezes the policy - membership can never be changed again.
 
 ### Creating and Managing Policies
 
 ```solidity
-// Create a policy
-uint64 policyId = policyRegistry.createPolicy(PolicyType.BLOCKLIST, adminAddress);
+// Create a policy (admin first, then type)
+uint64 policyId = policyRegistry.createPolicy(adminAddress, PolicyType.BLOCKLIST);
+// Or seed the initial member set in one call:
+// uint64 policyId = policyRegistry.createPolicyWithAccounts(adminAddress, PolicyType.BLOCKLIST, accounts);
 
-// Update membership (batched)
-policyRegistry.addToPolicy(policyId, accounts);
-policyRegistry.removeFromPolicy(policyId, accounts);
+// Update membership (batched). The setter is type-specific; the bool sets membership state.
+policyRegistry.updateBlocklist(policyId, true, accounts);   // block these accounts
+policyRegistry.updateBlocklist(policyId, false, accounts);  // unblock these accounts
+// For ALLOWLIST policies: policyRegistry.updateAllowlist(policyId, allowed, accounts)
 ```
 
 ### Read Interface
@@ -112,7 +115,7 @@ B20 declares a fixed set of policy scopes. Each scope stores a `uint64` policy I
 |-------|-------|
 | `TRANSFER_SENDER_POLICY` | The `from` of `transfer` / `transferFrom` |
 | `TRANSFER_RECEIVER_POLICY` | The `to` of `transfer` / `transferFrom` |
-| `TRANSFER_EXECUTOR_POLICY` | The `msg.sender` of `transferFrom` (not checked on `transfer`) |
+| `TRANSFER_EXECUTOR_POLICY` | The `msg.sender` of `transferFrom`, when distinct from `from` (not checked on `transfer`) |
 | `MINT_RECEIVER_POLICY` | The `to` of `mint` |
 
 `approve` is not policy-gated - only actual balance movement via `transfer` / `transferFrom` is checked.
@@ -136,7 +139,7 @@ Two burn paths exist:
 
 ## Supply Cap
 
-The supply cap is optional. The sentinel `type(uint256).max` indicates no cap (the default at creation). `updateSupplyCap(newCap)` is admin-gated and emits `SupplyCapUpdated`. Lowering below the current `totalSupply` reverts with `InvalidSupplyCap`.
+The supply cap is optional. The sentinel `type(uint128).max` indicates no cap (the default at creation); it is also the maximum permitted cap, so `totalSupply` can never exceed it. `updateSupplyCap(newCap)` is admin-gated and emits `SupplyCapUpdated`. It reverts with `InvalidSupplyCap` if `newCap` is below the current `totalSupply` or above `type(uint128).max`.
 
 ## Memos
 
@@ -165,20 +168,22 @@ B20 implements ERC-2612 (signed approvals) using an EIP-712 domain shaped as `(n
 
 ## Factory
 
-All B20 tokens are created through the singleton `IB20Factory` precompile via `createB20(variant, params, initCalls, salt)`.
+All B20 tokens are created through the singleton `IB20Factory` precompile via `createB20(variant, salt, params, initCalls)`.
 
 | Parameter | Description |
 |-----------|-------------|
 | `variant` | `ASSET` or `STABLECOIN` |
-| `params` | ABI-encoded, variant-specific creation struct (versioned by leading byte) |
-| `initCalls` | Optional array of ABI-encoded calls dispatched post-creation with admin privilege bypass |
 | `salt` | Caller-chosen entropy for address derivation |
+| `params` | ABI-encoded, variant-specific creation struct (versioned by leading byte) |
+| `initCalls` | Optional array of ABI-encoded calls dispatched post-creation; factory-originated calls bypass role gates and transfer-side policy gates during this window |
+
+`createB20` reverts with `IActivationRegistry.FeatureNotActivated` if the requested variant's feature is not yet activated on the chain.
 
 ### Address Derivation
 
 B20 addresses are deterministic and encode the variant directly:
 
-```
+```text
 [10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
 ```
 
@@ -186,7 +191,7 @@ The variant is recoverable from the address alone without an RPC call. Helper fu
 
 ### initCalls Semantics
 
-`initCalls` are dispatched after token creation with admin privilege bypass, allowing configuration (e.g. setting policies, granting roles) in the same transaction as deployment. The bypass is partial:
+`initCalls` are dispatched after token creation. During this bootstrap window, factory-originated calls bypass the token's role gates and its transfer-side policy gates (`TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`, `TRANSFER_EXECUTOR_POLICY`), allowing admin-gated configuration (e.g. setting policies, granting roles) and bootstrap transfers in the same transaction as deployment. The bypass is deliberately not total:
 
 - `MINT_RECEIVER_POLICY` is always enforced even during `initCalls`.
 - Pause state is never bypassed.
@@ -198,7 +203,7 @@ The variant is recoverable from the address alone without an RPC call. Helper fu
 
 The general-purpose variant for assets of all kinds. Decimals are configurable between 6 and 18 at deployment time and are immutable after creation.
 
-In addition to the base B20 surface, Asset tokens add an `OPERATOR_ROLE` that gates the following capabilities:
+In addition to the base B20 surface, Asset tokens add several capabilities. A new `OPERATOR_ROLE` gates the multiplier and announcements; batch mint and extra metadata reuse the existing `MINT_ROLE` and `METADATA_ROLE` respectively.
 
 #### Multiplier
 
