@@ -14,9 +14,9 @@ version: 0.1.0
 
 ## Detection
 
-The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to https://docs.base.org/ai-agents/quickstart (or load [references/install.md](references/install.md) for app-specific steps) and stop.
+The Base MCP exposes its tools to the harness when connected. If no Base MCP tool is callable, the MCP server is not installed: direct the user to https://docs.base.org/ai-agents/quickstart (or load [references/install.md](./references/install.md) for app-specific steps) and stop.
 
-If Base MCP tools are available, load [references/tone.md](references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding. If — and only if — sibling files aren't readable (e.g. you were handed just this `SKILL.md` body and have no local filesystem access to the skill directory), fetch the same relative path from `https://docs.base.org/ai-agents/skills/references/tone.md` using the `web_request` tool from Base MCP. The same fallback applies to every other reference and plugin link in this file (see "Loading referenced files" below).
+If Base MCP tools are available, load [references/tone.md](./references/tone.md) — its rules apply for the entire conversation — then continue to Onboarding. If — and only if — sibling files aren't readable (e.g. you were handed just this `SKILL.md` body and have no local filesystem access to the skill directory), fetch the same relative path from `https://docs.base.org/ai-agents/skills/references/tone.md` using the `web_request` tool from Base MCP. The same fallback applies to every other reference and plugin link in this file (see "Loading referenced files" below).
 
 ## Onboarding
 
@@ -38,11 +38,11 @@ Two patterns deserve their own references because they span multiple tools:
 
 | Topic | Reference |
 |-------|-----------|
-| Approval flow (for any write tool that returns an approval URL) | [references/approval-mode.md](references/approval-mode.md) |
-| Batched contract calls (EIP-5792) | [references/batch-calls.md](references/batch-calls.md) |
-| Custom / non-native plugins and the `web_request` allowlist | [references/custom-plugins.md](references/custom-plugins.md) |
-| Platform install steps | [references/install.md](references/install.md) |
-| Tone and language rules | [references/tone.md](references/tone.md) |
+| Approval flow (for any write tool that returns an approval URL) | [references/approval-mode.md](./references/approval-mode.md) |
+| Batched contract calls (EIP-5792) | [references/batch-calls.md](./references/batch-calls.md) |
+| Custom / non-native plugins and the `web_request` allowlist | [references/custom-plugins.md](./references/custom-plugins.md) |
+| Platform install steps | [references/install.md](./references/install.md) |
+| Tone and language rules | [references/tone.md](./references/tone.md) |
 
 ### Loading referenced files
 
@@ -58,19 +58,19 @@ Plugins currently maintained alongside this skill (the **native plugins**):
 
 | Plugin | Reference |
 |--------|-----------|
-| Morpho | [plugins/morpho.md](plugins/morpho.md) |
-| Moonwell | [plugins/moonwell.md](plugins/moonwell.md) |
-| Uniswap | [plugins/uniswap.md](plugins/uniswap.md) |
-| Avantis (hybrid) | [plugins/avantis.md](plugins/avantis.md) |
-| Virtuals | [plugins/virtuals.md](plugins/virtuals.md) |
-| Aerodrome (CLI-only) | [plugins/aerodrome.md](plugins/aerodrome.md) |
-| Bankr | [plugins/bankr.md](plugins/bankr.md) |
+| Morpho | [plugins/morpho.md](./plugins/morpho.md) |
+| Moonwell | [plugins/moonwell.md](./plugins/moonwell.md) |
+| Uniswap | [plugins/uniswap.md](./plugins/uniswap.md) |
+| Avantis (hybrid) | [plugins/avantis.md](./plugins/avantis.md) |
+| Virtuals | [plugins/virtuals.md](./plugins/virtuals.md) |
+| Aerodrome (CLI-only) | [plugins/aerodrome.md](./plugins/aerodrome.md) |
+| Bankr | [plugins/bankr.md](./plugins/bankr.md) |
 
 Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own external tools, defer to the plugin file first, then to any CLI help, API schema, or MCP tool descriptions it explicitly tells you to use.
 
 ### Native plugins vs. custom / user-supplied plugins
 
-Native plugin HTTP hosts may be allowlisted in the Base MCP `web_request` tool. Aerodrome is CLI-only and requires a harness with shell access. Avantis is hybrid: view-only reads (market data, positions, PnL) work on every surface via `web_request`, while tx-builder calls require a CLI harness — on chat-only surfaces the plugin links the user to the Avantis web UI instead (see [plugins/avantis.md](plugins/avantis.md)). Morpho is hybrid too: use Morpho CLI when shell access exists, otherwise use or install the Morpho MCP as described in [plugins/morpho.md](plugins/morpho.md). Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
+Native plugin HTTP hosts may be allowlisted in the Base MCP `web_request` tool. Aerodrome is CLI-only and requires a harness with shell access. Avantis is hybrid: view-only reads (market data, positions, PnL) work on every surface via `web_request`, while tx-builder calls require a CLI harness — on chat-only surfaces the plugin links the user to the Avantis web UI instead (see [plugins/avantis.md](./plugins/avantis.md)). Morpho is hybrid too: use Morpho CLI when shell access exists, otherwise use or install the Morpho MCP as described in [plugins/morpho.md](./plugins/morpho.md). Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](./references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
 
 ## Installation
 

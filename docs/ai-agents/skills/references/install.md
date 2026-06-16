@@ -134,7 +134,7 @@ Then start a new chat (or `/reload-mcp` in an existing one).
 
 ## Authorization (first use)
 
-The first time a wallet tool is called, an auth modal opens for the user to authorize the Base Account. Click **Allow** once. (See the live demo on the quickstart page.) After that, write operations still require per-transaction approval — see [approval-mode.md](approval-mode.md).
+The first time a wallet tool is called, an auth modal opens for the user to authorize the Base Account. Click **Allow** once. (See the live demo on the quickstart page.) After that, write operations still require per-transaction approval — see [approval-mode.md](./approval-mode.md).
 
 ---
 
@@ -155,5 +155,5 @@ If it replies with a wallet address, the MCP is connected. If it says it doesn't
 | No browser tab for sign-in | Open `https://mcp.base.org` directly, sign in, then re-add the server. |
 | "Integration not found" / "Tool not available" | Restart the app — the server may not have finished loading. |
 | Integrations / Connectors tab missing | App version is too old — update to the latest. |
-| `web_request` rejects a hostname | The hostname isn't in the allowlist. For native HTTP plugins, use the harness HTTP tool if one is available; for custom plugins see [custom-plugins.md](custom-plugins.md). CLI-only plugins do not use `web_request`. |
+| `web_request` rejects a hostname | The hostname isn't in the allowlist. For native HTTP plugins, use the harness HTTP tool if one is available; for custom plugins see [custom-plugins.md](./custom-plugins.md). CLI-only plugins do not use `web_request`. |
 | Anything else | Send the user to [https://docs.base.org/ai-agents/quickstart](https://docs.base.org/ai-agents/quickstart). |
