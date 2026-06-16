@@ -1,0 +1,33 @@
+---
+title: "Deposit flow"
+keywords: ["Base Ledger deposit", "encrypted recipient deposit", "Portal contract deposit", "private deposit Base", "confidential deposit onchain"]
+description: "How deposits move funds from Base into a Base Ledger through the Portal contract, encrypting the recipient so deposits stay unlinkable while the asset, amount, and sender settle publicly onchain."
+---
+
+A deposit moves funds from Base into the Portal contract. The offchain system behind your ledger records the deposit as a credit. The ledger stays agnostic to that system: another chain, a ledger, or any offchain system.
+
+<Frame>
+![Deposit flow: create an encrypted deposit address, deposit through the Portal contract on Base, then the ingress watcher decrypts and credits the ledger.](/images/ledger/deposit-flow.png)
+</Frame>
+
+## How a deposit works
+
+1. **Prepare.** The recipient is encrypted to prevent onchain observers from knowing who the funds are flowing to.
+2. **Deposit.** The sender calls `deposit()` on the Portal contract with the encrypted recipient.
+3. **Credit.** The ledger consumes the event, decrypts the recipient, and credits the recipient in the ledger.
+
+Encryption allows the recipient to receive many deposits to the same address without linking each deposit together. Only the ledger operator can decrypt the recipient and resolve it to an account. Observers and the public chain never see it.
+
+## What is exposed
+
+| Data | Public? | Why |
+| --- | --- | --- |
+| Asset | Public | The Portal settles the transfer on Base. |
+| Amount | Public | The Portal settles the transfer on Base. |
+| Sender | Public | The address that submits the deposit. |
+| Recipient | Hidden | Encrypted so deposits to one account cannot be linked or attributed. |
+
+A deposit can also require an attestation or permission, for example to gate who can deposit.
+
+Onchain, observers see only the `deposit()` call and a `Deposit` event with an encrypted recipient. Neither links to the recipient.
+

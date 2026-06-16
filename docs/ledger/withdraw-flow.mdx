@@ -1,0 +1,30 @@
+---
+title: "Withdraw flow"
+keywords: ["Base Ledger withdrawal", "Portal contract withdraw", "private withdrawal Base", "withdrawal authorization onchain", "operator-signed withdrawal"]
+description: "How withdrawals move funds from a Base Ledger back to Base through the Portal contract, with operator-signed authorization and validation you choose, while keeping the sender account private."
+---
+
+Funds leave a Base Ledger through the Portal contract on Base. The ledger keeps recipients and balances private.
+
+<Frame>
+![Withdrawal flow: request an operator-signed withdrawal authorization from the Ledger API, submit the withdrawal to the Portal contract on Base, which releases funds and debits the ledger.](/images/ledger/withdraw-flow.png)
+</Frame>
+
+Withdrawals move funds from the ledger back to a recipient on Base. You choose how the Portal validates a withdrawal onchain, from a simple signature check to full state-transition proofs. The ledger debits the account when you commit the withdrawal; you then submit the authorization onchain and the Portal releases the funds.
+
+## What is exposed
+
+| Data | Public? | Why |
+| --- | --- | --- |
+| Asset | Public | Required to be public to settle on Base. |
+| Amount | Public | Required to be public to settle on Base. |
+| Sender | Hidden | Not revealed by the ledger Portal. |
+| Recipient | Public | Required to be public to settle on Base. |
+
+A withdrawal can also require an attestation or permission, for example to gate who can withdraw.
+
+## Composability
+
+`withdraw()` is an ordinary Base contract call. An integration can batch it with other Base actions in one atomic transaction. The actions share one transaction, so they settle together or not at all. Funds never sit in an intermediate state.
+
+
