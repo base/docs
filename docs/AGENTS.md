@@ -14,7 +14,6 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
 - [Get Started](./get-started/llms.txt)
 - [Ledger](./ledger/llms.txt) — Base Ledgers let enterprises launch their own private payments products on Base. It allows you to build a private payments environment connected to Base. Balances, transactions, and transfers stay off public block explorers, while funds settle on Base.
-- [Static](./static/llms.txt)
 
 ## Tools available for AI assistants
 

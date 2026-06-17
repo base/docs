@@ -27,7 +27,7 @@ The MCP advertises the exact parameter names and types — defer to its tool des
 
 ## Approval flow
 
-Same as any write tool: the response returns an approval URL and request ID. See [approval-mode.md](approval-mode.md).
+Same as any write tool: the response returns an approval URL and request ID. See [approval-mode.md](./approval-mode.md).
 
 ## Generic orchestration
 

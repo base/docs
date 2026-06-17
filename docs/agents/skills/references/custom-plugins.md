@@ -44,7 +44,7 @@ So for non-native plugins on Claude / ChatGPT consumer surfaces:
 - For GET endpoints:
   1. Construct the full URL with every query parameter encoded inline (address, amount, slippage, chain, etc.).
   2. Show the URL to the user and ask them to paste it back into the chat. Once pasted, you can fetch it yourself — that's the security model these surfaces enforce.
-  3. Parse the response and continue the flow (e.g. map returned calldata into the batched-calls tool, then walk through the approval flow — see [approval-mode.md](approval-mode.md) and [batch-calls.md](batch-calls.md)).
+  3. Parse the response and continue the flow (e.g. map returned calldata into the batched-calls tool, then walk through the approval flow — see [approval-mode.md](./approval-mode.md) and [batch-calls.md](./batch-calls.md)).
 
 ## Decision summary
 
