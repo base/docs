@@ -1,18 +1,58 @@
-# Base Docs Index
-IMPORTANT: Prefer retrieval-led reasoning. Read relevant docs before generating code.
-Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainKit, MiniKit.
+---
+title: Base Docs Index
+description: Look up Base documentation with a compact directory-grouped index built for AI coding agents. Lists every markdown page by parent directory so agents find context before generating code.
+---
+# https://docs.base.org/llms.txt
+
+## Base Documentation — LLM Entry Point
+
+> High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
+
+- [AI Agents](./ai-agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
+- [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
+- [Base Account](./base-account/llms.txt)
+- [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
+- [Get Started](./get-started/llms.txt)
+- [Ledger](./ledger/llms.txt) — Base Ledgers let enterprises launch their own private payments products on Base. It allows you to build a private payments environment connected to Base. Balances, transactions, and transfers stay off public block explorers, while funds settle on Base.
+
+## Tools available for AI assistants
+
+These resources give AI assistants direct access to Base documentation and reusable workflows.
+
+### Base MCP server
+
+`https://docs.base.org/mcp`
+
+### Base skills
+
+AI agents can use Base skills to perform onchain actions directly from their tool loop — no custom integration required. Available skills include:
+
+[https://github.com/base/skills](https://github.com/base/skills)
+
+Install Base skills for your AI assistant:
+
+```
+npx skills add base/base-skills
+```
+
+## Compact docs index
+
 [Docs]|root:./docs
-|ai-agents:index
-|ai-agents/guides:agent-builder-codes
-|ai-agents/payments:accepting-payments,pay-for-services-with-x402
-|ai-agents/quickstart:payments,trading
-|ai-agents/setup:agent-registration,wallet-setup
-|ai-agents/skills:index
-|ai-agents/skills/base-account:building-with-base-account
-|ai-agents/skills/base-chain:adding-builder-codes,connecting-to-base-network,deploying-contracts,running-a-base-node
-|ai-agents/skills/migrations:convert-farcaster-miniapp-to-app,converting-minikit-to-farcaster,migrating-an-onchainkit-app
-|ai-agents/trading:data-fetching,trade-execution
-|base-account/basenames:basename-transfer,basenames-faq,basenames-wagmi-tutorial
+|ai-agents:index,quickstart
+|ai-agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
+|ai-agents/plugins:custom-plugins,index
+|ai-agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
+|ai-agents/skills:SKILL
+|ai-agents/skills/plugins:aerodrome,avantis,bankr,moonwell,morpho,uniswap,virtuals
+|ai-agents/skills/references:approval-mode,batch-calls,custom-plugins,install,tone
+|apps:index
+|apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
+|apps/growth:rewards
+|apps/guides:migrate-to-standard-web-app
+|apps/quickstart:build-app
+|apps/resources:design-resources,templates
+|apps/technical-guides:base-notifications
+|base-account/basenames:basename-transfer,basenames-faq
 |base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
 |base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
 |base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
@@ -37,16 +77,29 @@ Base is an Ethereum L2 by Coinbase. Docs for: Base Chain, Smart Wallet, OnchainK
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
-|base-chain/builder-codes:app-developers,builder-codes,wallet-developers
-|base-chain/flashblocks:app-integration,architecture,faq,overview,run-a-flashblocks-node
-|base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,ecosystem-contracts,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
+|base-chain/flashblocks:app-integration,architecture,faq,overview
+|base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
 |base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
-|get-started:base-mentorship-program,base-services-hub,base,block-explorers,build-app,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,mistakes,prompt-library,resources-for-ai-agents
-|mini-apps/growth:rewards
-|mini-apps/quality-and-publishing:overview,quality-bar,submission-guidelines
-|mini-apps/quickstart:build-checklist,building-for-the-base-app,create-new-miniapp,migrate-existing-apps,migrate-to-standard-web-app,template
-|mini-apps/technical-guides:accept-payments,building-chat-agents,neynar-notifications,sharing-and-social-graph,sign-manifest
-|onchainkit:migrate-from-onchainkit
-|root:agents,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
+|base-chain/specs:overview
+|base-chain/specs/protocol:batcher,overview
+|base-chain/specs/protocol/bridging:bridges,deposits,messengers,withdrawals
+|base-chain/specs/protocol/consensus:derivation,index,p2p,rpc
+|base-chain/specs/protocol/execution:index
+|base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
+|base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
+|base-chain/specs/reference:configurability,glossary
+|base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
+|base-chain/specs/upgrades/beryl:b20,overview
+|base-chain/specs/upgrades/canyon:overview
+|base-chain/specs/upgrades/delta:overview,span-batches
+|base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
+|base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys
+|base-chain/specs/upgrades/granite:derivation,exec-engine,overview
+|base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
+|base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
+|base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
+|get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,prompt-library,resources-for-ai-agents
+|ledger:deposit-flow,how-it-works,overview,withdraw-flow
+|root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice

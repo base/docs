@@ -1,0 +1,173 @@
+#!/bin/sh
+# Regenerates docs index files after a commit. Two trigger paths:
+#
+#   AUTO  — if the commit added/deleted/renamed any docs/**/*.{md,mdx} file
+#           (excluding the generated outputs themselves), ALL configured
+#           generators run.
+#
+#   OPT-IN — if the commit message mentions a generator's trigger keyword,
+#           that generator runs even when no structural change happened
+#           (useful for content-only edits that affect llms.txt extraction).
+#
+# Triggers and generators are defined in githooks/config.json. Add your own
+# entry there to wire a custom keyword to your own script — the hook logic
+# below stays the same.
+#
+# If anything actually changed, a single follow-up commit is created with
+# the regenerated files. Subject includes the short SHA of the triggering
+# commit for traceability.
+#
+# Bypass once:  SKIP_DOCS_HOOK=1   git commit ...
+# Bypass via message:  include the literal SKIP_TOKEN from config (default "[skip-docs]")
+# Debug:        DEBUG_DOCS_HOOK=1  git commit ...
+
+log() {
+  [ -n "$DEBUG_DOCS_HOOK" ] && echo "[post-commit] $*" >&2
+}
+
+log "fired (pid=$$)"
+
+# User-facing skip — useful when you legitimately need to mention a trigger
+# token in a commit message ("fix link to agents.md") without regenerating.
+if [ -n "$SKIP_DOCS_HOOK" ]; then
+  log "SKIP_DOCS_HOOK set; exiting"
+  exit 0
+fi
+
+# Internal recursion guard: this hook re-fires on the follow-up commit below.
+if [ -n "$DOCS_HOOK_RUNNING" ]; then
+  log "recursion guard hit; exiting"
+  exit 0
+fi
+export DOCS_HOOK_RUNNING=1
+
+REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
+cd "$REPO_ROOT" || exit 0
+log "repo root: $REPO_ROOT"
+
+# Load triggers + outputs from githooks/config.json (with safe fallback).
+# shellcheck source=githooks/_lib.sh
+. "$REPO_ROOT/githooks/_lib.sh"
+load_hooks_config
+
+# Capture the SHA of the commit that triggered us, before we make any new
+# commits ourselves. Used in the follow-up subject for traceability.
+TRIGGER_SHA=$(git rev-parse --short HEAD)
+MSG=$(git log -1 --pretty=%B)
+log "last commit msg: $MSG"
+
+# Message-level skip token. Lets a single commit opt out without setting env.
+if printf '%s' "$MSG" | grep -qiF "$SKIP_TOKEN"; then
+  log "skip token '$SKIP_TOKEN' in commit message; exiting"
+  exit 0
+fi
+
+# Build a same-order list of generators we want to run, indexed by line number
+# in GENERATORS_TSV. -F treats trigger as a literal string (no regex surprises
+# if a config entry contains . / [ etc.).
+WANTED=$(
+  i=0
+  echo "$GENERATORS_TSV" | while IFS=$(printf '\t') read -r _name trigger _script _outputs; do
+    i=$((i + 1))
+    if [ -n "$trigger" ] && printf '%s' "$MSG" | grep -qiF -- "$trigger"; then
+      echo "$i"
+    fi
+  done | tr '\n' ' '
+)
+
+# Auto path: structural changes (added / deleted / renamed) to .md/.mdx under
+# docs/, excluding the configured generator outputs themselves so a manual
+# edit to docs/agents.md never auto-triggers another regen. M (modified) is
+# NOT a structural change — content-only edits should use the keyword opt-in.
+if [ -z "$WANTED" ]; then
+  if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    structural=$(git diff-tree -r --no-commit-id --name-status --diff-filter=ADR HEAD~1 HEAD -- 'docs/*.md' 'docs/*.mdx' 'docs/**/*.md' 'docs/**/*.mdx' \
+      | awk -v excl="$EXCLUDE_REGEX" '$2 !~ excl { print }')
+    if [ -n "$structural" ]; then
+      log "structural docs changes detected; auto-triggering all generators"
+      log "$structural"
+      # Want every generator (1..N).
+      n=$(echo "$GENERATORS_TSV" | wc -l | tr -d ' ')
+      WANTED=$(seq 1 "$n" | tr '\n' ' ')
+    fi
+  fi
+fi
+
+if [ -z "$WANTED" ]; then
+  log "no trigger (keyword or structural); exiting"
+  exit 0
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "post-commit: node not found; skipping docs regeneration." >&2
+  exit 0
+fi
+
+regenerated_files=""
+
+# Run each wanted generator in config order.
+for idx in $WANTED; do
+  line=$(echo "$GENERATORS_TSV" | sed -n "${idx}p")
+  name=$(printf '%s' "$line" | awk -F'\t' '{print $1}')
+  script=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
+  outputs=$(printf '%s' "$line" | awk -F'\t' '{print $4}')
+
+  if [ ! -f "$script" ]; then
+    log "[$name] $script NOT FOUND; skipping"
+    continue
+  fi
+  log "[$name] running: node $script"
+  if [ -n "$DEBUG_DOCS_HOOK" ]; then
+    node "$script"
+  else
+    node "$script" >/dev/null 2>&1
+  fi
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "post-commit: [$name] $script failed (exit $rc); skipping" >&2
+    continue
+  fi
+  regenerated_files="$regenerated_files $outputs"
+done
+
+regenerated_files=$(echo "$regenerated_files" | sed 's/^ *//;s/ *$//')
+if [ -z "$regenerated_files" ]; then
+  log "no generators ran successfully; nothing to commit"
+  exit 0
+fi
+
+# Compare against HEAD (not the index) so a pre-staged generated file can't
+# fool the check into thinking nothing changed.
+# shellcheck disable=SC2086
+changed_files=$(git diff --name-only HEAD -- $regenerated_files)
+if [ -z "$changed_files" ]; then
+  log "regenerated files unchanged; nothing to commit"
+  exit 0
+fi
+log "regenerated files changed: $(echo "$changed_files" | tr '\n' ' ')"
+
+# Subject lists the actual files that changed — accurate regardless of which
+# generators are configured. Falls back to a generic subject if the list is
+# unexpectedly empty.
+files_one_line=$(echo "$changed_files" | tr '\n' ',' | sed 's/,$//;s/,/, /g')
+if [ -z "$files_one_line" ]; then
+  subject="chore: regenerate docs indexes (post-commit of $TRIGGER_SHA)"
+else
+  subject="chore: regenerate $files_one_line (post-commit of $TRIGGER_SHA)"
+fi
+
+# Stage only the files that actually changed (xargs handles newline separator).
+echo "$changed_files" | xargs git add --
+
+# --no-verify is intentional: this commit is generated content, not human
+# work. Skipping pre-commit / commit-msg hooks here avoids (a) re-running
+# linters or formatters against generated files and (b) any future
+# conventional-commit / signoff hooks rejecting our chore: subject. The
+# DOCS_HOOK_RUNNING env guard above prevents this commit from re-firing
+# THIS hook regardless.
+git commit -m "$subject" --no-verify >/dev/null
+log "follow-up commit created: $subject"
+
+# Visible signal so the user sees the hook actually did work without
+# needing to enable DEBUG_DOCS_HOOK or scroll through `git log`.
+echo "[docs] $subject" >&2

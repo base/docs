@@ -1,0 +1,43 @@
+---
+title: "Aerodrome"
+description: "Token swaps and basic-pool liquidity on Aerodrome (the leading DEX on Base) via sugar-sdk + Base MCP. CLI-only."
+keywords: ["Aerodrome plugin", "Base MCP Aerodrome", "Aerodrome swap Base", "Aerodrome LP", "sugar-sdk", "Velodrome SDK"]
+---
+
+The Aerodrome plugin covers token swaps and basic-pool (vAMM/sAMM) liquidity provision on Base. It uses the [Velodrome sugar-sdk](https://github.com/velodrome-finance/sugar-sdk) Python library locally to discover pools, build swap routes, and prepare deposit/withdraw/stake/claim calldata. Calldata is then submitted through Base MCP's `send_calls` for user approval.
+
+**Chain:** Base mainnet.
+
+**Operations:** swap quote/execute (basic pools), basic pool deposit/withdraw, position queries, gauge stake/unstake, claim emissions/fees.
+
+<Warning>
+**CLI-only plugin.** This plugin runs Python locally via a Bash/shell tool. It works in **Claude Code, Codex, Cursor terminal**, and similar CLI harnesses — it does **not** work in chat-only environments (ChatGPT, Claude.ai) because there's no shell to run sugar-sdk in.
+</Warning>
+
+## Try it
+
+```text Swap
+Swap 0.001 ETH for USDC on Aerodrome
+```
+
+```text Provide liquidity
+Add 0.001 ETH and matching USDC to the vAMM-WETH/USDC pool on Aerodrome
+```
+
+```text Withdraw
+Withdraw all my Aerodrome basic LP positions
+```
+
+## Pattern
+
+sugar-sdk's write methods (`swap_from_quote`, `deposit`, `withdraw`, `stake`, `claim_emissions`) normally sign and broadcast transactions with a local private key. The plugin monkey-patches `sign_and_send_tx` to capture the unsigned `{to, data, value}` instead, then passes the captured calls to Base MCP's `send_calls` for user approval. The same bridge handles ERC-20 approvals (USDC/WETH), Universal Router swap execution, and Router LP operations.
+
+<Note>
+The public `https://mainnet.base.org` RPC enforces a 10-call-per-batch limit and rate-limits concurrent batches, which breaks sugar-sdk's default `asyncio.gather` pagination. The plugin reference includes a `patches.py` that switches to sequential batching to work around this. For production usage prefer a paid RPC (Alchemy, QuickNode).
+</Note>
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/aerodrome.md">
+  Setup, RPC compatibility patches, calldata-bridge code, swap/LP orchestration patterns, and what works vs. what doesn't on the public RPC.
+</Card>

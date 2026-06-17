@@ -1,0 +1,63 @@
+#!/bin/sh
+# Warns when a merge / pull brought in structural docs changes (A/D/R on
+# .md/.mdx under docs/) that may have drifted the generated indexes.
+#
+# By design this hook does NOT modify the working tree or auto-commit:
+# regenerating files mid-pull would surprise the user with uncommitted
+# changes. It only prints a heads-up.
+#
+# Triggers and outputs come from githooks/config.json (same source as
+# post-commit), so adding a custom generator there automatically extends
+# this hook's exclusion list and warning.
+#
+# Bypass once: SKIP_DOCS_HOOK=1 git pull / git merge ...
+# Debug:       DEBUG_DOCS_HOOK=1 git pull / git merge ...
+
+log() {
+  [ -n "$DEBUG_DOCS_HOOK" ] && echo "[post-merge] $*" >&2
+}
+
+log "fired (pid=$$)"
+
+if [ -n "$SKIP_DOCS_HOOK" ]; then
+  log "SKIP_DOCS_HOOK set; exiting"
+  exit 0
+fi
+
+REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
+cd "$REPO_ROOT" || exit 0
+
+# shellcheck source=githooks/_lib.sh
+. "$REPO_ROOT/githooks/_lib.sh"
+load_hooks_config
+
+# ORIG_HEAD is set by merge to the pre-merge tip — comparing it to HEAD shows
+# what the merge brought in.
+if ! git rev-parse --verify ORIG_HEAD >/dev/null 2>&1; then
+  log "no ORIG_HEAD; nothing to compare; exiting"
+  exit 0
+fi
+
+structural=$(git diff --name-status --diff-filter=ADR ORIG_HEAD HEAD -- 'docs/*.md' 'docs/*.mdx' 'docs/**/*.md' 'docs/**/*.mdx' \
+  | awk -v excl="$EXCLUDE_REGEX" '$2 !~ excl { print }')
+
+if [ -z "$structural" ]; then
+  log "no structural docs changes in this merge; exiting quietly"
+  exit 0
+fi
+
+# Build a "regenerate with: X, Y" suggestion list from configured generators.
+suggest=$(echo "$GENERATORS_TSV" | awk -F'\t' '{ printf "/%s ", $1 }' | sed 's/ $//')
+
+{
+  echo
+  echo "[docs] heads-up: this merge added/deleted/renamed docs files:"
+  echo "$structural" | sed 's/^/    /'
+  echo
+  echo "    Generated indexes ($ALL_OUTPUTS) may now be stale."
+  if [ -n "$suggest" ]; then
+    echo "    Regenerate with:  $suggest"
+  fi
+  echo "    (Or just make your next docs commit — post-commit will auto-regenerate.)"
+  echo
+} >&2

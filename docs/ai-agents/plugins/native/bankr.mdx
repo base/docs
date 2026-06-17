@@ -1,0 +1,43 @@
+---
+title: "Bankr"
+description: "Discover the latest token launches on Base via the Bankr API and buy them with Base MCP's swap tool."
+keywords: ["Bankr plugin", "Base MCP Bankr", "token launches Base", "buy new tokens Base", "Doppler launches"]
+---
+
+The Bankr plugin uses the [Bankr](https://bankr.bot) public API to surface the latest deployed token launches on Base, then routes the actual purchase through Base MCP's `swap` tool. Bankr is the discovery layer; the swap is a regular `swap` call paying ETH (or USDC) for the target ERC-20.
+
+**Chain:** Base mainnet.
+
+**Operations:** list latest launches, filter by deployer or recency, and buy a chosen token with `swap`.
+
+## Try it
+
+```text Browse
+Show me the latest token launches on Base
+```
+
+```text Filter
+Are there any launches from @0xtinylabs in the last hour?
+```
+
+```text Buy
+Buy 0.001 ETH worth of the newest token on Bankr
+```
+
+## Pattern
+
+The plugin makes one `web_request` to `https://api.bankr.bot/token-launches` for the discovery feed, filters/presents the results client-side, and waits for the user to pick a token and amount. The buy itself is a single Base MCP `swap` call (`fromAsset` as `ETH` or `USDC`, `toAsset` as the launch token address) — same approval flow as any other write.
+
+<Warning>
+The Bankr feed is unfiltered. Listed tokens are not vetted, audited, or endorsed by Base — many are low-liquidity meme launches. Always confirm symbol, address, and amount with the user before swapping.
+</Warning>
+
+<Note>
+`api.bankr.bot` must be on the Base MCP `web_request` allowlist. If a request is rejected, fall back to the harness's HTTP/fetch tool if one is available.
+</Note>
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/main/skills/base-mcp/plugins/bankr.md">
+  API response shape, orchestration steps, symbol-collision and adversarial-metadata safety notes for new launches.
+</Card>

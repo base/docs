@@ -4,10 +4,10 @@ sidebarTitle: 'Overview'
 description: 'Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema for Base pre-confirmations.'
 ---
 
-Flashblocks endpoints expose all standard Ethereum JSON-RPC methods plus a set of pre-confirmation-specific additions. These let you read state, simulate transactions, and stream events against sequencer-ordered data up to ~1.8 seconds before a block seals.
+All Base public endpoints (`mainnet.base.org` / `sepolia.base.org`) are Flashblocks-enabled, exposing all standard Ethereum JSON-RPC methods plus a set of pre-confirmation-specific additions. These let you read state, simulate transactions, and stream events against sequencer-ordered data up to ~1.8 seconds before a block seals.
 
 <Info>
-All [standard Ethereum JSON-RPC methods](/base-chain/api-reference/rpc-overview) work identically on Flashblocks endpoints. Use the `"pending"` block tag to resolve against pre-confirmed state instead of the transaction pool. See the [Overview](/base-chain/api-reference/rpc-overview#what-is-the-flashblocks-tier) for endpoint URLs and a full explanation of the two tiers.
+All [standard Ethereum JSON-RPC methods](/base-chain/api-reference/rpc-overview) support the `"pending"` block tag to resolve against pre-confirmed state instead of the transaction pool. See the [RPC Overview](/base-chain/api-reference/rpc-overview) for endpoint URLs.
 </Info>
 
 ## HTTP Methods
@@ -79,6 +79,7 @@ Contains full block header properties. **Only present in the `index: 0` message*
 <ParamField path="base_fee_per_gas" type="string">EIP-1559 base fee per gas (hex).</ParamField>
 <ParamField path="prev_randao" type="string">Previous RANDAO value used for on-chain randomness.</ParamField>
 <ParamField path="extra_data" type="string">Arbitrary data field set by the sequencer.</ParamField>
+<ParamField path="parent_beacon_block_root" type="string">Root of the parent beacon block (EIP-4788).</ParamField>
 </Card>
 
 ### Diff Object
@@ -103,15 +104,17 @@ Contains the incremental block state changes for this specific Flashblock. Prese
 **The `metadata` object is not stable.** Fields may be added, modified, or removed without prior notice. Do not build production dependencies on it — use the [`diff`](#diff-object) object or query finalized block data via standard RPC instead.
 </Warning>
 
+As of v0.8.0, `new_account_balances` and `receipts` are no longer present in the `metadata` object. `block_number` remains. The `access_list` field is present but always empty.
+
 <Card>
 <ParamField path="block_number" type="number">Block number as a decimal integer.</ParamField>
-<ParamField path="new_account_balances" type="object">Map of addresses to their updated ETH balances (hex). Only includes accounts whose balances changed in this Flashblock.</ParamField>
-<ParamField path="receipts" type="object">Map of transaction hashes to their [Receipt](#receipt-object) objects.</ParamField>
 </Card>
 
 ### Receipt Object
 
-The abbreviated transaction receipt included in `metadata.receipts`. Check the `type` field to determine transaction type.
+<Note>
+`metadata.receipts` was removed in v0.8.0. This schema is preserved for reference for older node versions. On v0.8.0+, use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) for polling-based receipt data, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) with `full: true` for a real-time stream of pre-confirmed transaction data including logs.
+</Note>
 
 <Card>
 <ParamField path="type" type="string">Transaction type: `0x0` Legacy, `0x1` Access List, `0x2` EIP-1559, `0x7e` Deposit (L1→L2).</ParamField>
@@ -128,6 +131,13 @@ The abbreviated transaction receipt included in `metadata.receipts`. Check the `
 <ParamField path="address" type="string">Contract address that emitted the event.</ParamField>
 <ParamField path="topics" type="string[]">Array of indexed event parameters. Topic 0 is typically the event signature hash.</ParamField>
 <ParamField path="data" type="string">ABI-encoded non-indexed event parameters.</ParamField>
+<ParamField path="blockHash" type="string">Hash of the block containing this log.</ParamField>
+<ParamField path="blockNumber" type="string">Block number in hex.</ParamField>
+<ParamField path="blockTimestamp" type="string">Unix timestamp of the block as a hex string. Base L2 extension to the standard Ethereum log schema.</ParamField>
+<ParamField path="transactionHash" type="string">Hash of the transaction that emitted this log.</ParamField>
+<ParamField path="transactionIndex" type="string">Index of the transaction in the block (hex).</ParamField>
+<ParamField path="logIndex" type="string">Log's index position within the block (hex).</ParamField>
+<ParamField path="removed" type="boolean">`true` if the log was removed due to a chain reorg.</ParamField>
 </Card>
 
 ### Complete Examples
@@ -144,7 +154,8 @@ The abbreviated transaction receipt included in `metadata.receipts`. Check the `
     "block_number": "0x158a0e9",
     "gas_limit": "0x3938700",
     "timestamp": "0x67bf8332",
-    "base_fee_per_gas": "0xfa"
+    "base_fee_per_gas": "0xfa",
+    "parent_beacon_block_root": "0x15b9e7c8ac4cbe92dafc849ed30a23e91624bbe5cbe199c0ccea3f7de7fc6d49"
   },
   "diff": {
     "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
@@ -154,20 +165,7 @@ The abbreviated transaction receipt included in `metadata.receipts`. Check the `
     "withdrawals": []
   },
   "metadata": {
-    "block_number": 22585577,
-    "new_account_balances": {
-      "0x000f3df6d732807ef1319fb7b8bb8522d0beac02": "0x0"
-    },
-    "receipts": {
-      "0x07d7f06b06fea714c1d1d446efa2790c6970aa74ee006186a32b5b7dd8ca2d82": {
-        "type": "0x7e",
-        "status": "0x1",
-        "cumulativeGasUsed": "0xab3f",
-        "logs": [],
-        "logsBloom": "0x00000000...",
-        "transactionIndex": "0x0"
-      }
-    }
+    "block_number": 22585577
   }
 }
 ```
@@ -186,20 +184,7 @@ The abbreviated transaction receipt included in `metadata.receipts`. Check the `
     "withdrawals": []
   },
   "metadata": {
-    "block_number": 22585577,
-    "new_account_balances": {
-      "0x4200000000000000000000000000000000000015": "0x1234"
-    },
-    "receipts": {
-      "0x7c69632dc315f13a...": {
-        "type": "0x2",
-        "status": "0x1",
-        "cumulativeGasUsed": "0x1234f",
-        "logs": [],
-        "logsBloom": "0x00000000...",
-        "transactionIndex": "0x1"
-      }
-    }
+    "block_number": 22585577
   }
 }
 ```

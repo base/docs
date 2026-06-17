@@ -17,16 +17,14 @@ Base exposes a single, fully EVM-compatible JSON-RPC API across two performance 
 
 <Tabs>
   <Tab title="Mainnet">
-    | Tier | HTTP | WSS |
-    | :--- | :--- | :--- |
-    | Standard | `https://mainnet.base.org` | `wss://mainnet.base.org` |
-    | Flashblocks | `https://mainnet-preconf.base.org` | `wss://mainnet-preconf.base.org` |
+    | | HTTP |
+    | :--- | :--- |
+    | RPC | `https://mainnet.base.org` |
   </Tab>
   <Tab title="Sepolia">
-    | Tier | HTTP | WSS |
-    | :--- | :--- | :--- |
-    | Standard | `https://sepolia.base.org` | `wss://sepolia.base.org` |
-    | Flashblocks | `https://sepolia-preconf.base.org` | `wss://sepolia-preconf.base.org` |
+    | | HTTP |
+    | :--- | :--- |
+    | RPC | `https://sepolia.base.org` |
   </Tab>
 </Tabs>
 
@@ -34,12 +32,13 @@ Base exposes a single, fully EVM-compatible JSON-RPC API across two performance 
 The public endpoints above are rate-limited and not suitable for production traffic. For production use, connect through a [node provider](/base-chain/node-operators/node-providers).
 </Info>
 
-## What is the Flashblocks Tier?
+<Note>
+The public Base endpoints are **HTTP only**. WebSocket RPC connections (`eth_subscribe`, `newHeads`, `logs`) are not available on public Base endpoints — use a [node provider](/base-chain/node-operators/node-providers) such as Alchemy or QuickNode for WebSocket support.
+</Note>
 
-Flashblocks endpoints are fully EVM-equivalent; every standard `eth_` method works identically. The difference is in what the `pending` block tag returns:
+## Flashblocks
 
-- On **Standard** endpoints, `pending` reflects the transaction pool (unmined state).
-- On **Flashblocks** endpoints, `pending` reflects the current **pre-confirmed block in progress**, updated every ~200ms with new batches of sequencer-ordered transactions.
+All Base public endpoints are Flashblocks-enabled. Every standard `eth_` method works identically, and the `pending` block tag reflects the current **pre-confirmed block in progress**, updated every ~200ms with new batches of sequencer-ordered transactions.
 
 Calls like `eth_getBalance`, `eth_getStorageAt`, and `eth_call` run against real sequencer state up to 1.8 seconds before the block seals, with sub-second latency.
 
@@ -47,10 +46,10 @@ Calls like `eth_getBalance`, `eth_getStorageAt`, and `eth_call` run against real
 
 ### Ethereum JSON-RPC API
 
-Core Ethereum protocol methods for account queries, block and transaction data, gas estimation, and log filtering. All methods work on both Standard and Flashblocks endpoints.
+Core Ethereum protocol methods for account queries, block and transaction data, gas estimation, and log filtering.
 
 <Info>
-Methods marked ✓ support the `"pending"` block tag on Flashblocks endpoints.
+Methods marked ✓ support the `"pending"` block tag, which reflects the current pre-confirmed Flashblock in progress.
 </Info>
 
 | Method | Description | Flashblocks `pending` |
@@ -85,7 +84,7 @@ Methods marked ✓ support the `"pending"` block tag on Flashblocks endpoints.
 
 ### Flashblocks API
 
-Pre-confirmation methods for sub-second transaction signals on Base. These methods are only available on Flashblocks endpoints and enable reading state, simulating bundles, and streaming events up to ~1.8 seconds before a block seals.
+Pre-confirmation methods for sub-second transaction signals on Base. These methods enable reading state, simulating bundles, and streaming events up to ~1.8 seconds before a block seals.
 
 | Method | Description |
 | --- | --- |
