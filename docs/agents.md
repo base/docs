@@ -13,7 +13,8 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Base Account](./base-account/llms.txt)
 - [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
 - [Get Started](./get-started/llms.txt)
-- [Ledger](./ledger/llms.txt) — Base Ledgers let enterprises launch their own private payments products on Base. It allows you to build a private payments environment connected to Base. Balances, transactions, and transfers stay off public block explorers, while funds settle on Base.
+- [Ledgers](./ledgers/llms.txt) — An introduction to Base Ledgers, the enterprise way to run confidential payments that settle on Base.
+- [Static](./static/llms.txt)
 
 ## Tools available for AI assistants
 
@@ -101,5 +102,5 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
 |get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,prompt-library,resources-for-ai-agents
-|ledger:deposit-flow,how-it-works,overview,withdraw-flow
+|ledgers:deposit-flow,how-it-works,overview,withdraw-flow
 |root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
