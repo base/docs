@@ -1,0 +1,413 @@
+---
+title: "Delegate Spending to Agents and Games"
+description: "Give AI agents and games a pre-approved USDC budget so they can act on a user's behalf — no popup for every action."
+---
+
+## Overview
+
+Spend Permissions let a user grant your application a budget to spend from their Base Account. Once granted, your backend can charge against that budget at will — no wallet popup, no signature request, no user present. The user keeps control: they can revoke the permission at any time from [account.base.app](https://account.base.app).
+
+This pattern powers two common autonomous use cases:
+
+- **AI agents** — charge per inference call, tool use, or completed task
+- **Games** — charge for in-game actions (crafting, respawning, loot) without interrupting gameplay
+
+<Note>
+Spend Permissions are built on the [SpendPermissionManager](https://github.com/coinbase/spend-permissions) contract on Base. For subscription/recurring billing use cases, see [Accept Recurring Payments](/base-account/guides/accept-recurring-payments). For the raw permission primitives, see [Use Spend Permissions](/base-account/improve-ux/spend-permissions).
+</Note>
+
+## How It Works
+
+<Steps>
+  <Step title="User approves a budget (once)">
+    Your frontend calls `subscribe()`. The user signs a single EIP-712 message that grants your app's server wallet permission to spend up to a defined USDC amount per period. You receive a **permission ID** (a hash) — store it.
+  </Step>
+  <Step title="Your backend charges as actions occur">
+    When the agent completes a task or the game processes an action, your server calls `charge()` with the permission ID and the amount. The transaction settles on Base in ~2 seconds. No user interaction needed.
+  </Step>
+  <Step title="User revokes when done">
+    The user can cancel at any time from their Base Account dashboard, or your app can call `revoke()` programmatically (e.g., when a session ends).
+  </Step>
+</Steps>
+
+## Prerequisites
+
+<CodeGroup>
+```bash npm
+npm install @base-org/account
+```
+
+```bash pnpm
+pnpm add @base-org/account
+```
+
+```bash yarn
+yarn add @base-org/account
+```
+</CodeGroup>
+
+Server-side charging requires CDP credentials. Get them from the [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys):
+
+```bash .env
+CDP_API_KEY_ID=your-api-key-id
+CDP_API_KEY_SECRET=your-api-key-secret
+CDP_WALLET_SECRET=your-wallet-secret
+```
+
+## Step 1 — User Grants a Budget (Client)
+
+Call `subscribe()` in your frontend. The user sees a single approval prompt. You choose the USDC limit per period and how long each period lasts.
+
+```ts client.ts
+import { subscribe } from '@base-org/account/payment';
+
+async function requestAgentBudget() {
+  const permission = await subscribe({
+    // Your app's CDP server wallet address (the spender)
+    subscriptionOwner: process.env.NEXT_PUBLIC_AGENT_WALLET_ADDRESS!,
+    // Maximum USDC the agent can spend per period
+    recurringCharge: '10.00',
+    // Period length — resets the spending allowance every 30 days
+    periodInDays: 30,
+    testnet: false,
+  });
+
+  // Store this ID — your backend needs it to charge the user
+  await savePermissionId(permission.id, permission.subscriptionPayer);
+
+  return permission.id;
+}
+```
+
+`permission.id` is the on-chain hash of the spend permission. Persist it alongside the user's address in your database.
+
+<Note>
+The `subscriptionOwner` is your app's **server-side** wallet address — the address that will execute charges. It must be the same wallet you configure with your CDP credentials. Create it once with [`getOrCreateSubscriptionOwnerWallet`](/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet) and reuse it across all users.
+</Note>
+
+## Step 2 — Agent or Game Charges (Server)
+
+When an action occurs, charge against the permission. This runs entirely on your backend — no user interaction.
+
+```ts server.ts (Node.js)
+import { charge, getSubscriptionStatus } from '@base-org/account/payment';
+
+async function chargeForAction(permissionId: string, amountUsd: string) {
+  // Optional: verify the permission is still active before charging
+  const status = await getSubscriptionStatus({ id: permissionId });
+  if (!status.isSubscribed) {
+    throw new Error('Permission revoked or expired');
+  }
+  if (Number(status.remainingChargeInPeriod) < Number(amountUsd)) {
+    throw new Error('Budget exhausted for this period');
+  }
+
+  const result = await charge({
+    id: permissionId,
+    amount: amountUsd,
+    // CDP credentials from env (CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET)
+  });
+
+  console.log(`Charged $${amountUsd} — tx: ${result.id}`);
+  return result;
+}
+```
+
+<Warning>
+`charge()` is a Node.js-only function — it must run on your server, not in the browser. It uses CDP to sign and broadcast the transaction.
+</Warning>
+
+## Step 3 — Revoke (Server or Client)
+
+```ts
+import { revoke } from '@base-org/account/payment';
+
+// Server-initiated revoke (e.g., when a user cancels in your UI)
+await revoke({ id: permissionId });
+```
+
+Users can also revoke independently at any time via [account.base.app](https://account.base.app). Always call `getSubscriptionStatus()` before charging to handle silently-revoked permissions.
+
+---
+
+## Full Example: AI Agent
+
+This example shows an AI assistant that charges $0.10 per message after the user approves a $5/month budget.
+
+<CodeGroup>
+```tsx app/agent/page.tsx (React)
+'use client';
+import { useState } from 'react';
+import { subscribe } from '@base-org/account/payment';
+
+const AGENT_WALLET = process.env.NEXT_PUBLIC_AGENT_WALLET_ADDRESS!;
+
+export default function AgentPage() {
+  const [permissionId, setPermissionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<string[]>([]);
+  const [input, setInput] = useState('');
+
+  async function grantBudget() {
+    const perm = await subscribe({
+      subscriptionOwner: AGENT_WALLET,
+      recurringCharge: '5.00',   // $5 per month
+      periodInDays: 30,
+      testnet: false,
+    });
+    // Persist to your backend
+    await fetch('/api/agent/grant', {
+      method: 'POST',
+      body: JSON.stringify({ permissionId: perm.id, payer: perm.subscriptionPayer }),
+    });
+    setPermissionId(perm.id);
+  }
+
+  async function sendMessage() {
+    if (!permissionId || !input.trim()) return;
+    const res = await fetch('/api/agent/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissionId, message: input }),
+    });
+    const data = await res.json();
+    setMessages(m => [...m, `You: ${input}`, `Agent ($0.10): ${data.reply}`]);
+    setInput('');
+  }
+
+  if (!permissionId) {
+    return (
+      <div>
+        <p>Approve a $5/month budget to start chatting with the AI agent.</p>
+        <button onClick={grantBudget}>Approve Budget</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div>{messages.map((m, i) => <p key={i}>{m}</p>)}</div>
+      <input value={input} onChange={e => setInput(e.target.value)} />
+      <button onClick={sendMessage}>Send ($0.10)</button>
+    </div>
+  );
+}
+```
+
+```ts app/api/agent/chat/route.ts (Next.js API route)
+import { charge, getSubscriptionStatus } from '@base-org/account/payment';
+import { NextRequest, NextResponse } from 'next/server';
+
+const COST_PER_MESSAGE = '0.10';
+
+export async function POST(req: NextRequest) {
+  const { permissionId, message } = await req.json();
+
+  // Check budget before processing
+  const status = await getSubscriptionStatus({ id: permissionId });
+  if (!status.isSubscribed) {
+    return NextResponse.json({ error: 'Budget revoked' }, { status: 402 });
+  }
+  if (Number(status.remainingChargeInPeriod ?? '0') < Number(COST_PER_MESSAGE)) {
+    return NextResponse.json({ error: 'Monthly budget exhausted' }, { status: 402 });
+  }
+
+  // Run your AI model
+  const reply = await runAIModel(message);
+
+  // Charge after successful response
+  await charge({ id: permissionId, amount: COST_PER_MESSAGE });
+
+  return NextResponse.json({ reply });
+}
+
+async function runAIModel(prompt: string): Promise<string> {
+  // Replace with your AI provider call (OpenAI, Anthropic, etc.)
+  return `Echo: ${prompt}`;
+}
+```
+</CodeGroup>
+
+---
+
+## Full Example: On-Chain Game
+
+This example shows a game where each crafting action costs $0.05. The player grants a $2/week budget when they start a session.
+
+<CodeGroup>
+```tsx app/game/page.tsx (React)
+'use client';
+import { useState } from 'react';
+import { subscribe } from '@base-org/account/payment';
+
+const GAME_WALLET = process.env.NEXT_PUBLIC_GAME_WALLET_ADDRESS!;
+
+export default function GamePage() {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [inventory, setInventory] = useState<string[]>([]);
+  const [status, setStatus] = useState('');
+
+  async function startSession() {
+    // User approves a $2 budget for the week
+    const perm = await subscribe({
+      subscriptionOwner: GAME_WALLET,
+      recurringCharge: '2.00',
+      periodInDays: 7,
+      testnet: false,
+    });
+    const res = await fetch('/api/game/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissionId: perm.id, player: perm.subscriptionPayer }),
+    });
+    const { sessionId } = await res.json();
+    setSessionId(sessionId);
+  }
+
+  async function craftItem(item: string, costUsd: string) {
+    if (!sessionId) return;
+    setStatus(`Crafting ${item}...`);
+    const res = await fetch('/api/game/craft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, item }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      setStatus(`Failed: ${err.error}`);
+      return;
+    }
+    setInventory(inv => [...inv, item]);
+    setStatus(`${item} crafted! ($${costUsd} charged)`);
+  }
+
+  if (!sessionId) {
+    return (
+      <div>
+        <p>Approve a $2/week game budget to start playing.</p>
+        <button onClick={startSession}>Start Session</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>{status}</p>
+      <p>Inventory: {inventory.join(', ') || 'empty'}</p>
+      <button onClick={() => craftItem('Iron Sword', '0.05')}>Craft Iron Sword ($0.05)</button>
+      <button onClick={() => craftItem('Health Potion', '0.03')}>Craft Health Potion ($0.03)</button>
+    </div>
+  );
+}
+```
+
+```ts app/api/game/craft/route.ts (Next.js API route)
+import { charge, getSubscriptionStatus } from '@base-org/account/payment';
+import { NextRequest, NextResponse } from 'next/server';
+
+const ITEM_COSTS: Record<string, string> = {
+  'Iron Sword':     '0.05',
+  'Health Potion':  '0.03',
+  'Dragon Armor':   '0.25',
+};
+
+// In production, look up the permissionId from your database using sessionId
+async function getPermissionId(sessionId: string): Promise<string> {
+  // return db.sessions.findUnique({ where: { id: sessionId } }).permissionId
+  return sessionId; // placeholder
+}
+
+export async function POST(req: NextRequest) {
+  const { sessionId, item } = await req.json();
+
+  const cost = ITEM_COSTS[item];
+  if (!cost) {
+    return NextResponse.json({ error: 'Unknown item' }, { status: 400 });
+  }
+
+  const permissionId = await getPermissionId(sessionId);
+
+  // Guard: check the player's budget
+  const status = await getSubscriptionStatus({ id: permissionId });
+  if (!status.isSubscribed) {
+    return NextResponse.json({ error: 'Session ended — budget revoked' }, { status: 402 });
+  }
+  if (Number(status.remainingChargeInPeriod ?? '0') < Number(cost)) {
+    return NextResponse.json({ error: 'Weekly budget exhausted' }, { status: 402 });
+  }
+
+  // Craft the item first, then charge
+  const craftedItem = await craftItemInGameEngine(item);
+
+  await charge({ id: permissionId, amount: cost });
+
+  return NextResponse.json({ item: craftedItem });
+}
+
+async function craftItemInGameEngine(item: string) {
+  // Your game logic here
+  return { name: item, rarity: 'common', durability: 100 };
+}
+```
+</CodeGroup>
+
+---
+
+## Testnet Development
+
+Use `testnet: true` and `overridePeriodInSecondsForTestnet` to speed up testing without waiting for multi-day periods:
+
+```ts
+// 5-minute period for fast iteration on testnet
+const perm = await subscribe({
+  subscriptionOwner: AGENT_WALLET,
+  recurringCharge: '0.01',
+  testnet: true,
+  overridePeriodInSecondsForTestnet: 300,
+});
+
+const result = await charge({
+  id: perm.id,
+  amount: '0.01',
+  testnet: true,
+});
+```
+
+---
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always check status before charging">
+    A user can revoke their permission at any time from their Base Account dashboard. Call `getSubscriptionStatus()` before every `charge()` to avoid errors and to surface budget-exhaustion messages gracefully in your UI.
+  </Accordion>
+
+  <Accordion title="Never charge more than you display">
+    Always show the user the cost before the action executes. The amount you pass to `charge()` must match what you showed. Charging unexpected amounts — even within the approved limit — breaks user trust and may violate app store and payment policies.
+  </Accordion>
+
+  <Accordion title="Store permission IDs securely">
+    A `permissionId` is not a secret — it is a public on-chain hash. However, you should associate it with an authenticated user session so that only your server (on behalf of that user) can trigger charges. Never expose `charge()` as an unauthenticated public endpoint.
+  </Accordion>
+
+  <Accordion title="Set conservative budgets in UI defaults">
+    Pre-fill the `recurringCharge` with the smallest amount that makes sense for your use case. Let users increase it if they want. A $10 default that a user never hits is fine; an unexpected $50 charge is not.
+  </Accordion>
+
+  <Accordion title="Handle exhausted budgets gracefully">
+    When `remainingChargeInPeriod` drops to zero, block the action and show a clear message with the period reset date (`nextPeriodStart`). Optionally offer a path to increase the budget — but never force it.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## API Reference
+
+| Function | Runtime | Description |
+|---|---|---|
+| [`subscribe()`](/base-account/reference/base-pay/subscribe) | Browser | Request a spend permission from the user |
+| [`charge()`](/base-account/reference/base-pay/charge) | Node.js | Charge against an active permission |
+| [`getSubscriptionStatus()`](/base-account/reference/base-pay/getStatus) | Both | Check remaining budget and active state |
+| [`revoke()`](/base-account/reference/base-pay/revoke) | Node.js | Revoke a permission from your server |
+| [`getOrCreateSubscriptionOwnerWallet()`](/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet) | Node.js | Create or retrieve your app's CDP spender wallet |
+
+For advanced cases (non-USDC tokens, custom signing logic), use the low-level [Spend Permission utilities](/base-account/improve-ux/spend-permissions) directly.
