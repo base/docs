@@ -49,7 +49,7 @@ npx skills add base/base-skills
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
-|apps/guides:migrate-to-standard-web-app
+|apps/guides:accept-b20-payments,migrate-to-standard-web-app
 |apps/quickstart:build-app
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
@@ -101,6 +101,6 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-token,learning-resources,prompt-library,resources-for-ai-agents
+|get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-b20-token,launch-token,learning-resources,prompt-library,resources-for-ai-agents
 |ledgers:deposit-flow,how-it-works,overview,withdraw-flow
 |root:agents,changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
