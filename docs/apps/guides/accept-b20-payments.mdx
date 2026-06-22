@@ -1,0 +1,60 @@
+---
+title: "Accept B20 payments"
+description: "Accept B20 token payments in your app and match each transaction to an order with onchain memos."
+---
+
+B20 is an ERC-20 superset. Standard `transfer`, `transferFrom`, `approve`, `balanceOf`, and ERC-2612 `permit` all work, so an app that accepts ERC-20 tokens accepts B20 with no code changes.
+
+B20's new features include transfer policies, pausing, supply caps, and memos. This guide uses the memo: `transferWithMemo` works like `transfer`, but also attaches a `bytes32` reference such as an order ID and emits a `Memo` event right after the standard `Transfer`. Read that event to tie each payment to an order.
+
+## Tag a payment with a memo
+
+This uses your configured viem `walletClient` and `publicClient`. It reads the token's decimals, sends a payment tagged with an order ID, then reads the memo back from the receipt:
+
+```js 
+import { parseUnits, stringToHex, hexToString, parseEventLogs } from 'viem';
+
+const TOKEN    = '0xB20f...'; // the B20 token you accept
+const MERCHANT = '0x...';     // where payments land
+
+const ABI = [
+  { type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
+  { type: 'function', name: 'transferWithMemo', stateMutability: 'nonpayable',
+    inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }, { name: 'memo', type: 'bytes32' }],
+    outputs: [{ type: 'bool' }] },
+  { type: 'event', name: 'Memo', inputs: [
+    { name: 'caller', type: 'address', indexed: true },
+    { name: 'memo',   type: 'bytes32', indexed: true },
+  ] },
+];
+
+// Read decimals because B20 tokens range from 6 to 18.
+const decimals = await publicClient.readContract({ address: TOKEN, abi: ABI, functionName: 'decimals' });
+
+// Pay 10 tokens, tagging the transfer with an order ID.
+const hash = await walletClient.writeContract({
+  address: TOKEN, abi: ABI, functionName: 'transferWithMemo',
+  args: [MERCHANT, parseUnits('10', decimals), stringToHex('order-42', { size: 32 })],
+});
+
+// The Memo event carries the order ID back. Read it from the receipt.
+const receipt = await publicClient.waitForTransactionReceipt({ hash });
+const [memo] = parseEventLogs({ abi: ABI, logs: receipt.logs, eventName: 'Memo' });
+console.log(hexToString(memo.args.memo, { size: 32 }).replace(/\0+$/, '')); // "order-42"
+```
+
+To collect with an allowance instead of a direct transfer, use `transferFromWithMemo`. It emits the same `Memo` event.
+
+## Handle B20-specific reverts
+
+A B20 transfer can revert where a standard ERC-20 would not. Surface these so a failed payment is visible, not silent:
+
+- `PolicyForbids`: the sender or recipient is not authorized by the token's transfer policy. Most tokens are open by default, but a regulated issuer can gate transfers with an allowlist or blocklist.
+- A paused transfer: the issuer paused the token's `TRANSFER` feature.
+
+Call `publicClient.simulateContract` with the same arguments before sending. It raises these as typed errors before the user signs, so you can show the reason instead of a failed transaction.
+
+## Related pages
+
+- [B20 token standard](/base-chain/specs/upgrades/beryl/b20): the full interface, including memos, policies, pausing, and roles.
+- [Launch a B20 Token](/get-started/launch-b20-token): create your own B20 token.

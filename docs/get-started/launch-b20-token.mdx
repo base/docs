@@ -1,0 +1,286 @@
+---
+title: "Launch a B20 Token"
+description: "Launch a B20 token on Base by calling the B20 Factory precompile."
+---
+
+B20 is an ERC-20 superset that runs as a native precompile on Base, which makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility. Roles, supply caps, pausing, policy gating, memos, and `permit` are built into the chain.
+
+A standard ERC-20 leaves that logic for you to build, audit, and maintain. With B20, you call the singleton **B20 Factory** to create a token, fully configured, in a single transaction.
+
+This guide creates an Asset token, mints its initial supply, and verifies the balance onchain. To accept the token as payment in an app, continue with [Accept B20 payments](/apps/guides/accept-b20-payments).
+
+## Before you begin
+
+You need **Base's Foundry build** (`base-forge`, `base-cast`, `base-anvil`). Install it via `base-foundryup`:
+
+  ```bash Terminal theme={null}
+  curl -L https://raw.githubusercontent.com/base/base-anvil/HEAD/foundryup/install | bash
+  base-foundryup --install v1.1.0
+  ```
+
+  <Note>
+  Standard `forge` cannot simulate calls to B20 precompile addresses (they hold no contract bytecode) and aborts with `call to non-contract address`. Base's `base-forge` registers the precompiles into its EVM. It installs alongside your existing Foundry toolchain without overwriting it — use `base-forge`, `base-cast`, and `base-anvil` for all commands in this guide.
+  </Note>
+
+## Set up your project
+
+```bash Terminal theme={null}
+base-forge init b20-quickstart && cd b20-quickstart
+base-forge install base/base-std --no-git
+```
+
+Add the remappings and the `base = true` flag to `foundry.toml` (under `[profile.default]`). `base = true` tells Base's `forge` build to run the B20 precompiles inside its EVM, so the deploy script's local simulation can call the factory:
+
+```toml foundry.toml theme={null}
+base = true
+remappings = [
+    "base-std/=lib/base-std/src/",
+    "base-std-test/=lib/base-std/test/",
+]
+```
+
+<Note>
+The interfaces compile with any Solidity `>=0.8.20 <0.9.0`.
+</Note>
+
+## Choose a network
+
+Pick a network with the B20 precompiles active, then create a `.env` **inside your `b20-quickstart` project directory**:
+
+<Tabs>
+  <Tab title="Base Sepolia">
+    | Setting | Value |
+    |---|---|
+    | RPC URL | `https://sepolia.base.org` |
+    | Chain ID | `84532` |
+    | Faucet | [CDP Faucet](https://portal.cdp.coinbase.com/products/faucet) or [other providers](/base-chain/network-information/network-faucets) |
+    | Explorer | [sepolia.basescan.org](https://sepolia.basescan.org) |
+
+    ```bash .env theme={null}
+    export RPC_URL="https://sepolia.base.org"
+    export PRIVATE_KEY="0x..."
+    export ACCOUNT_ADDRESS="0x..."
+    export CHAIN_ID="84532"
+    ```
+
+    <Note>
+    If you don't have an account, `base-cast wallet new` prints a fresh address and key.
+    </Note>
+
+    Request testnet ETH from the faucet, then confirm it arrived:
+
+    ```bash Terminal theme={null}
+    source .env
+    base-cast balance $ACCOUNT_ADDRESS --rpc-url $RPC_URL
+    ```
+
+    <Check>
+    The command prints a non-zero balance. This account signs the deploy and the mint, and receives the minted supply.
+    </Check>
+  </Tab>
+  <Tab title="Vibenet">
+    | Setting | Value |
+    |---|---|
+    | RPC URL | `https://rpc.vibes.base.org/` |
+    | Chain ID | `84538453` |
+    | Faucet | [faucet.vibes.base.org](https://faucet.vibes.base.org/) |
+    | Explorer | [explorer.vibes.base.org](https://explorer.vibes.base.org/) |
+
+    ```bash .env theme={null}
+    export RPC_URL="https://rpc.vibes.base.org/"
+    export PRIVATE_KEY="0x..."
+    export ACCOUNT_ADDRESS="0x..."
+    export CHAIN_ID="84538453"
+    ```
+
+    <Note>
+    If you don't have an account, `base-cast wallet new` prints a fresh address and key.
+    </Note>
+
+    Request testnet ETH from the faucet, then confirm it arrived:
+
+    ```bash Terminal theme={null}
+    source .env
+    base-cast balance $ACCOUNT_ADDRESS --rpc-url $RPC_URL
+    ```
+
+    <Check>
+    The command prints a non-zero balance. This account signs the deploy and the mint, and receives the minted supply.
+    </Check>
+  </Tab>
+  <Tab title="Local (base-anvil)">
+    Start a local Base node in a separate terminal:
+
+    ```bash Terminal theme={null}
+    base-anvil
+    ```
+
+    Create a `.env` using anvil's pre-funded account #0:
+
+    ```bash .env theme={null}
+    export RPC_URL="http://127.0.0.1:8545"
+    export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    export ACCOUNT_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    export CHAIN_ID="31337"
+    ```
+
+    Confirm the node is running:
+
+    ```bash Terminal theme={null}
+    source .env
+    base-cast balance $ACCOUNT_ADDRESS --rpc-url $RPC_URL
+    ```
+
+    <Check>
+    The command prints `10000000000000000000000` — anvil's default pre-funded balance of 10,000 ETH.
+    </Check>
+  </Tab>
+</Tabs>
+
+## Create your token
+
+The factory's single entry point is `createB20(variant, salt, params, initCalls)`:
+
+* `variant`: `ASSET` or `STABLECOIN`. This guide uses `ASSET`.
+* `salt`: caller-chosen entropy that fixes the deterministic token address.
+* `params`: ABI-encoded name, symbol, initial admin, and decimals.
+* `initCalls`: optional batch of config calls applied at creation.
+
+<Steps>
+<Step title="Write the create script">
+  Use `B20FactoryLib` to encode `params` and `initCalls`. Create `script/CreateToken.s.sol`:
+
+  ```solidity script/CreateToken.s.sol highlight={26} theme={null}
+  // SPDX-License-Identifier: MIT
+  pragma solidity ^0.8.20;
+
+  import {Script, console} from "forge-std/Script.sol";
+
+  import {B20Constants} from "base-std/lib/B20Constants.sol";
+  import {B20FactoryLib} from "base-std/lib/B20FactoryLib.sol";
+  import {IB20Factory} from "base-std/interfaces/IB20Factory.sol";
+  import {StdPrecompiles} from "base-std/StdPrecompiles.sol";
+
+  contract CreateToken is Script {
+      function run() external returns (address token) {
+          // For the quickstart, one account is admin + minter.
+          address account = vm.envAddress("ACCOUNT_ADDRESS");
+          bytes32 salt = keccak256("my-first-b20");
+
+          // Name, symbol, initial DEFAULT_ADMIN_ROLE holder, decimals (6-18).
+          bytes memory params = B20FactoryLib.encodeAssetCreateParams("My Token", "MYT", account, 18);
+
+          // Configuration applied atomically at creation.
+          bytes[] memory initCalls = new bytes[](2);
+          initCalls[0] = B20FactoryLib.encodeGrantRole(B20Constants.MINT_ROLE, account);
+          initCalls[1] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e18);
+
+          vm.startBroadcast();
+          token = StdPrecompiles.B20_FACTORY.createB20(IB20Factory.B20Variant.ASSET, salt, params, initCalls);
+          vm.stopBroadcast();
+
+          console.log("B20 token created at:", token);
+      }
+  }
+  ```
+
+  <Warning>
+  **Encode with `B20FactoryLib`.** The native implementation rejects non-canonical calldata with `AbiDecodeFailed`; the helpers produce canonical encoding.
+  </Warning>
+
+  <Info>
+  Asset decimals are fixed at creation and must be in `[6, 18]`. The supply cap is optional; the no-cap sentinel is `type(uint128).max` (the cap can never exceed `uint128.max`).
+  </Info>
+
+  <Accordion title="Want a stablecoin instead?">
+  Use the `STABLECOIN` variant and its params encoder. A stablecoin fixes decimals at 6 and carries an immutable ISO currency code (uppercase `A`–`Z`) instead of a configurable decimals value:
+
+  ```solidity theme={null}
+  bytes memory params = B20FactoryLib.encodeStablecoinCreateParams("My USD", "MUSD", account, "USD");
+
+  token = StdPrecompiles.B20_FACTORY.createB20(IB20Factory.B20Variant.STABLECOIN, salt, params, initCalls);
+  ```
+
+  Everything else in this guide — roles, supply cap, minting, and verification — works identically.
+  </Accordion>
+</Step>
+
+<Step title="Deploy the factory call">
+  ```bash Terminal theme={null}
+  source .env
+  base-forge script script/CreateToken.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+  ```
+
+  On success the script logs the new token's address. The factory's address starts `0xB20f...`. The tokens it creates start `0xB200...`:
+
+  <Note>
+  If you see `TokenAlreadyExists`, the salt `keccak256("my-first-b20")` is already registered on this network or anvil instance. Either restart `base-anvil` for a fresh state, or change the salt in the script to a unique value.
+  </Note>
+
+  ```text Output theme={null}
+  == Logs ==
+    B20 token created at: 0xB200...
+  ```
+</Step>
+
+<Step title="Capture the token address">
+  Save the address to an environment variable so the next step needs no copy-paste. The broadcast artifact holds the return value:
+
+  ```bash Terminal theme={null}
+  TOKEN_ADDRESS=$(jq -er '.returns.token.value' \
+    broadcast/CreateToken.s.sol/$CHAIN_ID/run-latest.json) \
+    && echo "export TOKEN_ADDRESS=$TOKEN_ADDRESS" >> .env \
+    && source .env \
+    && echo "TOKEN_ADDRESS=$TOKEN_ADDRESS"
+  ```
+
+  Appending to `.env` keeps `TOKEN_ADDRESS` available in later steps, even in a new terminal session.
+
+  <Note>
+  The broadcast path includes the chain ID, which the `CHAIN_ID` value in your `.env` supplies: `84532` for Sepolia, `84538453` for Vibenet, `31337` for local base-anvil.
+  </Note>
+</Step>
+</Steps>
+
+## Mint and verify
+
+Minting requires `MINT_ROLE`, which `initCalls` granted to your account.
+
+<Steps>
+<Step title="Mint supply">
+  ```bash Terminal theme={null}
+  base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $ACCOUNT_ADDRESS 1000000000000000000000 \
+    --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+  ```
+
+  `base-cast send` prints a receipt with `status 1 (success)`.
+</Step>
+
+<Step title="Confirm the balance">
+  ```bash Terminal theme={null}
+  base-cast call $TOKEN_ADDRESS "balanceOf(address)(uint256)" $ACCOUNT_ADDRESS --rpc-url $RPC_URL
+  # 1000000000000000000000 [1e21]
+  ```
+
+  <Check>
+  The token now holds minted supply onchain. Search `$TOKEN_ADDRESS` in the explorer to view it.
+  </Check>
+</Step>
+</Steps>
+
+## What you built
+
+In this guide you:
+
+* Created a B20 Asset token with one `createB20` call
+* Configured its admin, minter, and supply cap atomically via `initCalls`
+* Minted supply
+* Verified the balance onchain
+
+You did all of this without writing, deploying, or auditing a token contract.
+
+## Next steps
+
+* [Accept B20 payments in an app](/apps/guides/accept-b20-payments): wire this token into a checkout flow that tags each payment with an order ID and reconciles it from onchain events.
+* Gate transfers or mints with PolicyRegistry policies, add granular pause, or manage roles. See the [B20 token standard](/base-chain/specs/upgrades/beryl/b20).
+* Issue a stablecoin variant (fixed 6 decimals, immutable currency code).
