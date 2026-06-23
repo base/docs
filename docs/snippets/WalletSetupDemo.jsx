@@ -532,7 +532,7 @@ export const WalletSetupDemo = () => {
       ],
     },
     {
-      prompt: "Find the best USDC yield on Base and deposit 100",
+      prompt: "Find the highest paying USDC yield on Base and deposit 100",
       events: [
         { delay: 380, type: "thinking" },
         { delay: 600, type: "tool", tool: { server: "morpho", action: "query_vaults", args: { chain: "base", asset: "USDC", sort: "apy_desc" } } },
