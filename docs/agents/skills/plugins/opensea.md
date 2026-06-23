@@ -291,21 +291,41 @@ curl -s -X POST "https://api.opensea.io/api/v2/offers/fulfillment_data" \
 ## Value Conversion
 
 > [!IMPORTANT]
-> The OpenSea API returns `value` as a **decimal string** in swap and cross-chain fulfillment responses (e.g. `"20000000000000000"`). The `send_calls` tool expects `value` as a **hex string** (e.g. `"0x470de4df820000"`). You must convert before submitting.
+> The OpenSea API returns `value` as a **decimal string** in swap and cross-chain fulfillment responses (e.g. `"20000000000000000"`). The `send_calls` tool expects `value` as a **hex string** (e.g. `"0x470de4df820000"`). You **must** convert every `value` field to a `0x`-prefixed hex string before passing it to `send_calls`.
 >
-> Exception: The mint endpoint (`/drops/{slug}/mint`) returns `value` already as hex.
+> **Do NOT compute this conversion mentally.** LLMs frequently get large-number hex conversions wrong (e.g. converting `4600000000000` to `0x42E52B800` instead of the correct `0x42F055DB000`), which causes transactions to revert with `InsufficientNativeTokensSupplied`. Use a code execution tool or shell command if available. If neither is available, use the reference conversion table below to look up common values.
+>
+> Exception: The mint endpoint (`/drops/{slug}/mint`) returns `value` already as a hex string. No conversion needed for mint.
 
-Conversion:
+### Conversion rules
 
-```
-decimal "20000000000000000" → hex "0x470de4df820000"
-decimal "1000000000000000000" → hex "0xde0b6b3a7640000"
-decimal "0" → hex "0x0"
-```
+1. Extract `transactions` from the response (swap and fulfillment wrap them in `{"transactions": [...]}`; mint returns a single flat object).
+2. For each transaction, convert `value` from decimal to hex:
+   - If `value` is missing, null, empty, or `"0"`, use `"0x0"`.
+   - If `value` already starts with `"0x"`, pass it through unchanged.
+   - Otherwise, convert the decimal string to a `0x`-prefixed hex string.
+3. Map each transaction to `send_calls` using only `to`, `data`, and the converted `value`.
 
-In shell: `printf "0x%x" 20000000000000000`
+### Conversion methods
 
-In JavaScript: `"0x" + BigInt(value).toString(16)`
+In shell: `printf "0x%x" 20000000000000000` outputs `0x470de4df820000`
+
+In JavaScript: `"0x" + BigInt("20000000000000000").toString(16)` outputs `"0x470de4df820000"`
+
+In Python: `hex(20000000000000000)` outputs `"0x470de4df820000"`
+
+### Reference conversions
+
+| Decimal | Hex | ETH equivalent |
+|---------|-----|----------------|
+| `"0"` | `"0x0"` | 0 ETH |
+| `"1000000000000"` | `"0xe8d4a51000"` | 0.000001 ETH |
+| `"1000000000000000"` | `"0x38d7ea4c68000"` | 0.001 ETH |
+| `"4600000000000"` | `"0x42f055db000"` | 0.0000046 ETH |
+| `"10000000000000000"` | `"0x2386f26fc10000"` | 0.01 ETH |
+| `"20000000000000000"` | `"0x470de4df820000"` | 0.02 ETH |
+| `"100000000000000000"` | `"0x16345785d8a0000"` | 0.1 ETH |
+| `"1000000000000000000"` | `"0xde0b6b3a7640000"` | 1 ETH |
 
 ## Orchestration
 
@@ -319,10 +339,10 @@ In JavaScript: `"0x" + BigInt(value).toString(16)`
      --quantity <amount> --address <address>
    (or GET /api/v2/swap/quote?from_chain=...&quantity=<amount_in_wei>&...)
 4. Review quote with user: check price_impact, costs, total_price_usd
-5. For each transaction in response.transactions:
-     Convert value decimal→hex
-     send_calls(chain=<transaction.chain>, calls=[{to, value, data}])
-6. User approves → get_request_status(requestId)
+5. Convert each transaction's `value` from decimal to hex (see Value Conversion)
+6. For each transaction:
+     send_calls(chain=<transaction.chain>, calls=[{to, value (hex), data}])
+7. User approves → get_request_status(requestId)
 ```
 
 ### Mint
@@ -355,10 +375,10 @@ In JavaScript: `"0x" + BigInt(value).toString(16)`
 6. POST /api/v2/listings/cross_chain_fulfillment_data with:
    listings=[{hash, chain, protocol_address}], fulfiller={address}, payment={chain, address}
    (works for same-chain and cross-chain)
-7. For each transaction in response.transactions (in order):
-     Convert value decimal→hex
-     send_calls(chain=<transaction.chain>, calls=[{to, value, data}])
-8. User approves → get_request_status(requestId)
+7. Convert each transaction's `value` from decimal to hex (see Value Conversion)
+8. For each transaction (in order):
+     send_calls(chain=<transaction.chain>, calls=[{to, value (hex), data}])
+9. User approves → get_request_status(requestId)
 ```
 
 ### Sell NFT (accept offer — shell only)
@@ -377,22 +397,37 @@ In JavaScript: `"0x" + BigInt(value).toString(16)`
 
 Target tool: **`send_calls`**
 
-All OpenSea write operations produce unsigned transaction data. Convert `value` to hex before passing to `send_calls` (except mint which is already hex).
+All OpenSea write operations produce unsigned transaction data. Convert `value` from decimal to hex before passing to `send_calls` (see Value Conversion). Exception: mint returns `value` already as hex.
 
-**Swap** — iterate `response.transactions[]`:
+**Swap** — convert `value` in each `response.transactions[]` entry to hex, then iterate:
 
 ```json
 {
   "chain": "<transaction.chain>",
   "calls": [{
     "to": "<transaction.to>",
-    "value": "0x<hex(transaction.value)>",
+    "value": "<transaction.value (converted to hex)>",
     "data": "<transaction.data>"
   }]
 }
 ```
 
 If multiple transactions, submit them in order (each may be on a different chain).
+
+**Buy (cross-chain fulfillment)** — convert `value` in each `response.transactions[]` entry to hex, then iterate in order:
+
+```json
+{
+  "chain": "<transaction.chain>",
+  "calls": [{
+    "to": "<transaction.to>",
+    "value": "<transaction.value (converted to hex)>",
+    "data": "<transaction.data>"
+  }]
+}
+```
+
+Transactions may span multiple chains (e.g. approval on Base, then fulfill on Ethereum). Submit each `send_calls` in sequence, waiting for confirmation before the next.
 
 **Mint** — map response directly (value is already hex):
 
@@ -407,21 +442,6 @@ If multiple transactions, submit them in order (each may be on a different chain
 }
 ```
 
-**Buy (cross-chain fulfillment)** — iterate `response.transactions[]` in order:
-
-```json
-{
-  "chain": "<transaction.chain>",
-  "calls": [{
-    "to": "<transaction.to>",
-    "value": "0x<hex(transaction.value)>",
-    "data": "<transaction.data>"
-  }]
-}
-```
-
-Transactions may span multiple chains (e.g. approval on Base, then fulfill on Ethereum). Submit each `send_calls` in sequence, waiting for confirmation before the next.
-
 See [../references/batch-calls.md](../references/batch-calls.md) and [../references/approval-mode.md](../references/approval-mode.md).
 
 ## Example Prompts
@@ -433,7 +453,7 @@ Swap 0.02 ETH for USDC on Base
 2. Get wallet address via `get_wallets`.
 3. Run `opensea swaps quote --from-chain base --from-address 0x0000000000000000000000000000000000000000 --to-chain base --to-address 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 --quantity 0.02 --address <address>` (or GET `/api/v2/swap/quote` with `quantity=20000000000000000`).
 4. Review quote with user (price impact, fees).
-5. Convert `value` decimal→hex; map each transaction to `send_calls`.
+5. Convert each transaction's `value` from decimal to hex (see Value Conversion); map each to `send_calls`.
 
 ```
 Buy a Bored Ape on Ethereum
@@ -443,7 +463,7 @@ Buy a Bored Ape on Ethereum
 3. Run `opensea listings best boredapeyachtclub --limit 5` to show cheapest listings.
 4. User picks one; extract `order_hash`.
 5. POST to `/api/v2/listings/cross_chain_fulfillment_data` with listing hash, fulfiller, and payment (ETH on ethereum).
-6. Convert `value` decimal→hex; submit each transaction via `send_calls` in order.
+6. Convert each transaction's `value` from decimal to hex (see Value Conversion); submit each via `send_calls` in order.
 
 ```
 What drops are coming up on Base?
@@ -461,7 +481,7 @@ Buy an NFT on Ethereum using USDC from Base
 3. Find the listing: `opensea listings best-for-nft <slug> <token_id>`.
 4. Confirm price and payment token with user.
 5. POST to `/api/v2/listings/cross_chain_fulfillment_data` with payment `{chain: "base", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"}`.
-6. Convert values decimal→hex; submit each transaction via `send_calls` in order (approval on Base → bridge → fulfill on Ethereum).
+6. Convert each transaction's `value` from decimal to hex (see Value Conversion); submit each via `send_calls` in order (approval on Base → bridge → fulfill on Ethereum).
 
 ## Risks & Warnings
 
