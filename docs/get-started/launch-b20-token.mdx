@@ -29,6 +29,8 @@ base-forge init b20-quickstart && cd b20-quickstart
 base-forge install base/base-std --no-git
 ```
 
+This installs the [Base Standard Library](https://github.com/base/base-std/tree/main), which provides the B20 interfaces, constants, and encoding helpers used below.
+
 Add the remappings and the `base = true` flag to `foundry.toml` (under `[profile.default]`). `base = true` tells Base's `forge` build to run the B20 precompiles inside its EVM, so the deploy script's local simulation can call the factory:
 
 ```toml foundry.toml theme={null}
@@ -211,7 +213,7 @@ The factory's single entry point is `createB20(variant, salt, params, initCalls)
   base-forge script script/CreateToken.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
   ```
 
-  On success the script logs the new token's address. The factory's address starts `0xB20f...`. The tokens it creates start `0xB200...`:
+  On success the script logs the new token's address. The factory is the fixed precompile at `0xB20f000000000000000000000000000000000000` (the same on every network); the tokens it creates start `0xB200...`:
 
   <Note>
   If you see `TokenAlreadyExists`, the salt `keccak256("my-first-b20")` is already registered on this network or anvil instance. Either restart `base-anvil` for a fresh state, or change the salt in the script to a unique value.

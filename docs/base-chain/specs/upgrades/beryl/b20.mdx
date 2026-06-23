@@ -3,7 +3,7 @@ title: "B20 Native Token Standard"
 description: "B20 is Base's native token standard - designed for stablecoin issuers, real-world asset (RWA) and equity issuers, and long-tail token creators."
 ---
 
-B20 is the Base ecosystem's own version of [ERC-20](https://eips.ethereum.org/EIPS/eip-20). It ships with a built-in compliance toolkit: transfer policies, freeze-and-seize, role-based access control, memos, and supply caps. The full interface specs are available in the [Base Standard Library](https://github.com/base/base-std) repository.
+B20 is the Base ecosystem's own version of [ERC-20](https://eips.ethereum.org/EIPS/eip-20). It ships with a built-in compliance toolkit: transfer policies, freeze-and-seize, role-based access control, memos, and supply caps. The full interface specs are available in the [Base Standard Library](https://github.com/base/base-std/tree/main) repository.
 
 B20 supports two variants:
 
@@ -17,8 +17,10 @@ B20 supports two variants:
 B20 tokens are implemented as **Rust precompiles** rather than EVM smart contracts, making them faster, cheaper, and more native to the chain. All tokens are deployed via the singleton B20Factory precompile.
 
 <Check>
-B20 implements the full ERC-20 standard surface with complete selector parity - it is a drop-in replacement for existing tooling and integrations.
+B20 implements the **full ERC-20 standard surface** - every ERC-20 call (`transfer`, `transferFrom`, `approve`, `balanceOf`, `allowance`, and the standard events) works unchanged, so existing ERC-20 tooling and integrations are drop-in compatible.
 </Check>
+
+B20 is an **extension** of ERC-20, not a 1:1 mapping. It adds entrypoints that have no ERC-20 equivalent (memos, mint/burn, policy gating, granular pause, and ERC-2612 `permit`), so every ERC-20 method exists on B20 but not every B20 method exists on ERC-20. For the complete ABIs, see the [interface definitions](https://github.com/base/base-std/tree/main/src/interfaces) in the Base Standard Library.
 
 ## Roles Model
 
@@ -169,6 +171,16 @@ B20 implements ERC-2612 (signed approvals) using an EIP-712 domain shaped as `(n
 ## Factory
 
 All B20 tokens are created through the singleton B20Factory precompile via `createB20(variant, salt, params, initCalls)`.
+
+The B20Factory lives at a fixed precompile address:
+
+```text
+0xB20f000000000000000000000000000000000000
+```
+
+<Note>
+This is a precompile, not a deployed contract, so the address is identical on every network where B20 is active - mainnet, Base Sepolia, Vibenet, and local `base-anvil`. In `base-std` it is exposed as `StdPrecompiles.B20_FACTORY`.
+</Note>
 
 | Parameter | Description |
 |-----------|-------------|
