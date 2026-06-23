@@ -15,12 +15,26 @@ You need **Base's Foundry build** (`base-forge`, `base-cast`, `base-anvil`). Ins
 
   ```bash Terminal theme={null}
   curl -L https://raw.githubusercontent.com/base/base-anvil/HEAD/foundryup/install | bash
-  base-foundryup --install v1.1.0
+  base-foundryup
   ```
 
   <Note>
   Standard `forge` cannot simulate calls to B20 precompile addresses (they hold no contract bytecode) and aborts with `call to non-contract address`. Base's `base-forge` registers the precompiles into its EVM. It installs alongside your existing Foundry toolchain without overwriting it — use `base-forge`, `base-cast`, and `base-anvil` for all commands in this guide.
   </Note>
+
+## Verify the Activation Registry is enabled
+
+<Warning>
+**The Activation Registry must be enabled before you can deploy.** After the Beryl hardfork activates, the Activation Registry can take up to ~1 hour to be fully enabled. Attempting to deploy before it's ready will revert with `FeatureNotActivated`. Run the check for the variant you plan to deploy and confirm it returns `true` before proceeding:
+</Warning>
+
+```bash Terminal theme={null}
+REG=0x8453000000000000000000000000000000000001  # Activation Registry precompile
+RPC=https://mainnet.base.org  # replace with your target network (e.g. https://sepolia.base.org, https://rpc.vibes.base.org)
+
+base-cast call $REG "isActivated(bytes32)(bool)" $(base-cast keccak "base.b20_asset") --rpc-url $RPC
+base-cast call $REG "isActivated(bytes32)(bool)" $(base-cast keccak "base.b20_stablecoin") --rpc-url $RPC
+```
 
 ## Set up your project
 
@@ -47,9 +61,38 @@ The interfaces compile with any Solidity `>=0.8.20 <0.9.0`.
 
 ## Choose a network
 
-Pick a network with the B20 precompiles active, then create a `.env` **inside your `b20-quickstart` project directory**:
+Pick a network with the B20 precompiles active, then create a `.env` **inside your `b20-quickstart` project directory**. For full network details, see [Connecting to Base](/base-chain/quickstart/connecting-to-base).
 
 <Tabs>
+  <Tab title="Mainnet">
+    | Setting | Value |
+    |---|---|
+    | RPC URL | `https://mainnet.base.org` |
+    | Chain ID | `8453` |
+    | Explorer | [basescan.org](https://basescan.org) |
+
+    ```bash .env theme={null}
+    export RPC_URL="https://mainnet.base.org"
+    export PRIVATE_KEY="0x..."
+    export ACCOUNT_ADDRESS="0x..."
+    export CHAIN_ID="8453"
+    ```
+
+    <Note>
+    If you don't have an account, `base-cast wallet new` prints a fresh address and key.
+    </Note>
+
+    Confirm your account has ETH for gas:
+
+    ```bash Terminal theme={null}
+    source .env
+    base-cast balance $ACCOUNT_ADDRESS --rpc-url $RPC_URL
+    ```
+
+    <Check>
+    The command prints a non-zero balance. This account signs the deploy and the mint, and receives the minted supply.
+    </Check>
+  </Tab>
   <Tab title="Base Sepolia">
     | Setting | Value |
     |---|---|
@@ -279,10 +322,9 @@ In this guide you:
 * Minted supply
 * Verified the balance onchain
 
-You did all of this without writing, deploying, or auditing a token contract.
+All without writing, deploying, or auditing a token contract.
 
 ## Next steps
 
 * [Accept B20 payments in an app](/apps/guides/accept-b20-payments): wire this token into a checkout flow that tags each payment with an order ID and reconciles it from onchain events.
 * Gate transfers or mints with PolicyRegistry policies, add granular pause, or manage roles. See the [B20 token standard](/base-chain/specs/upgrades/beryl/b20).
-* Issue a stablecoin variant (fixed 6 decimals, immutable currency code).
