@@ -42,10 +42,10 @@ npx skills add base/base-skills
 |agents:index,quickstart
 |agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
 |agents/plugins:custom-plugins,index
-|agents/plugins/native:aerodrome,avantis,bankr,index,moonwell,morpho,uniswap,virtuals
+|agents/plugins/native:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,index,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
 |agents/skills:SKILL
-|agents/skills/plugins:aerodrome,avantis,bankr,moonwell,morpho,uniswap,virtuals
-|agents/skills/references:approval-mode,batch-calls,custom-plugins,install,tone
+|agents/skills/plugins:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
+|agents/skills/references:approval-mode,batch-calls,custom-plugins,install,plugin-spec,tone
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
