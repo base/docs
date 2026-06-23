@@ -5,6 +5,8 @@ description: "B20 is Base's native token standard - designed for stablecoin issu
 
 B20 is the Base ecosystem's own version of [ERC-20](https://eips.ethereum.org/EIPS/eip-20). It ships with a built-in compliance toolkit: transfer policies, freeze-and-seize, role-based access control, memos, and supply caps. The full interface specs are available in the [Base Standard Library](https://github.com/base/base-std/tree/main) repository.
 
+To deploy your first B20 token, see the [Launch a B20 Token](/get-started/launch-b20-token) quickstart.
+
 B20 supports two variants:
 
 | Variant | Decimals | Additional Features |
@@ -189,7 +191,7 @@ B20 addresses are deterministic and encode the variant directly:
 [10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
 ```
 
-The variant is recoverable from the address alone without an RPC call. Helper functions `getB20Address(variant, deployer, salt)`, `isB20(addr)`, and `isB20Initialized(addr)` are available on the factory.
+The variant is recoverable from the address alone without an RPC call — inspect byte 10 (zero-indexed) to identify the token type. Helper functions `getB20Address(variant, deployer, salt)`, `isB20(addr)`, and `isB20Initialized(addr)` are available on the factory.
 
 ### initCalls Semantics
 
@@ -200,6 +202,13 @@ The variant is recoverable from the address alone without an RPC call. Helper fu
 - Token invariants (supply cap, etc.) are never bypassed.
 
 ## Variants
+
+Each variant is identified by a 1-byte value encoded directly in the token's address (see [Address Derivation](#address-derivation)):
+
+| Variant | Byte |
+|---------|------|
+| `ASSET` | `0x00` |
+| `STABLECOIN` | `0x01` |
 
 ### Asset
 
