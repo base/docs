@@ -1,6 +1,18 @@
 ---
 title: "Uniswap Plugin"
-description: "Skill plugin reference for swapping and LPing on Uniswap through Base MCP."
+description: "Swap tokens and manage liquidity positions on Uniswap."
+tags: [dex, swap, liquidity]
+name: uniswap
+version: 0.2.0
+integration: http-api
+chains: [base]
+requires:
+  shell: none
+  allowlist: [trade-api.gateway.uniswap.org, liquidity.api.uniswap.org]
+  externalMcp: null
+  cliPackage: null
+auth: api-key
+risk: [slippage]
 ---
 
 # Uniswap Plugin
@@ -8,17 +20,13 @@ description: "Skill plugin reference for swapping and LPing on Uniswap through B
 > [!IMPORTANT]
 > Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any Uniswap endpoint. The user's wallet address — passed as `walletAddress` in every swap and LP call — is fetched lazily when needed.
 
-Uniswap on Base: token swaps using the proxy-approval flow (no Permit2 signing) and LP position management for V2, V3, and V4. Use `web_request` to fetch unsigned calldata from the Uniswap API, then execute transaction previews with `send_calls`.
+## Overview
 
-No additional MCP server is required.
+Uniswap on Base: token swaps using the proxy-approval flow (no Permit2 signing) and LP position management for V2, V3, and V4. The plugin fetches unsigned calldata from the Uniswap API, then executes transaction previews with `send_calls`. No additional MCP server is required.
 
-**Prerequisite:** `trade-api.gateway.uniswap.org` and `liquidity.api.uniswap.org` must be in the MCP server's `web_request` allowlist. If requests are rejected by the allowlist, inform the user.
+**Chain:** Base mainnet (chainId `8453`).
 
-**Chain:** Base mainnet (chainId `8453` / `0x2105`)
-
----
-
-## Auth Headers
+## Auth
 
 Use these headers for all requests:
 
@@ -39,9 +47,21 @@ For the swap proxy-approval flow, also include this header on **all** swap endpo
 
 Without `x-permit2-disabled`, Uniswap can return Permit2 or Universal Router behavior instead of the proxy-approval flow described here.
 
----
+## Surface Routing
 
-## Swap Flow: Proxy Approval, No Permit2
+Uniswap is HTTP-only; every capability follows the standard HTTP routing in [../references/custom-plugins.md](../references/custom-plugins.md).
+
+| Capability | Path |
+|-----------|------|
+| Swap quote / approval / calldata | Harness HTTP tool if available, else `web_request` POST against `trade-api.gateway.uniswap.org`. |
+| LP discovery / create / manage / claim | Harness HTTP tool or `web_request` POST against `liquidity.api.uniswap.org`. |
+| Execute the prepared calldata | Base MCP `send_calls` (works on every surface). |
+
+**Prerequisite:** `trade-api.gateway.uniswap.org` and `liquidity.api.uniswap.org` must be in the MCP server's `web_request` allowlist. If requests are rejected by the allowlist and no harness HTTP tool is available, inform the user.
+
+## Endpoints
+
+### Swap endpoints: proxy approval, no Permit2
 
 Base URL: `https://trade-api.gateway.uniswap.org/v1`
 
@@ -51,7 +71,7 @@ POST /quote           ->  get best route, read-only
 POST /swap            ->  get unsigned swap tx, include swap calldata in send_calls
 ```
 
-### 1. `POST /check_approval`
+#### 1. `POST /check_approval`
 
 Headers: auth headers plus `"x-permit2-disabled": "true"`.
 
@@ -80,7 +100,7 @@ Response:
 
 `approval` can be `null`, especially for native ETH. If it is non-null, pass it to `send_calls`. You can batch the approval and swap together after `/swap` returns.
 
-### 2. `POST /quote`
+#### 2. `POST /quote`
 
 Headers: auth headers plus `"x-permit2-disabled": "true"`.
 
@@ -99,11 +119,11 @@ Headers: auth headers plus `"x-permit2-disabled": "true"`.
 }
 ```
 
-Use `"slippageTolerance": <0-20>` instead of `autoSlippage` if the user specifies slippage. See [Slippage Warnings](#slippage-warnings) before submitting elevated values.
+Use `"slippageTolerance": <0-20>` instead of `autoSlippage` if the user specifies slippage. See [Risks & Warnings](#risks--warnings) before submitting elevated values.
 
 Response includes a top-level `quote` object plus metadata. Keep the response as a flat object for `/swap`; do not nest it under a `quote` key.
 
-### 3. `POST /swap`
+#### 3. `POST /swap`
 
 Headers: auth headers plus `"x-permit2-disabled": "true"`.
 
@@ -132,42 +152,13 @@ Response:
 }
 ```
 
-### Swap `send_calls`
-
-Approval and swap can be sent separately or batched in one `send_calls` preview:
-
-```json
-{
-  "chain": "base",
-  "calls": [
-    { "to": "<approval.to>", "value": "<approval.value>", "data": "<approval.data>" },
-    { "to": "<swap.to>", "value": "<swap.value>", "data": "<swap.data>" }
-  ]
-}
-```
-
-### Swap Orchestration
-
-```text
-1. get_wallets -> address; convert tokenIn amount to base units
-2. web_request POST /check_approval with x-permit2-disabled
-3. web_request POST /quote with x-permit2-disabled
-4. Build swapBody from quoteResponse and remove null permit fields
-5. web_request POST /swap with x-permit2-disabled
-6. send_calls("base", approval + swap calls if approval exists, otherwise swap only)
-7. Open the approvalUrl if requested; do not approve unless the user explicitly asks
-8. get_request_status only after the user acts
-```
-
----
-
-## LP Flow
+### LP endpoints
 
 Base URL: `https://liquidity.api.uniswap.org/lp`
 
 Use this host for LP endpoints in this plugin environment. Do not switch to `api.uniswap.org` or `trade-api.gateway.uniswap.org/v1/lp/...` unless that host is explicitly available to the API key and MCP allowlist.
 
-### Pool Discovery: `POST /lp/pool_info`
+#### Pool Discovery: `POST /lp/pool_info`
 
 Use pool discovery before creating V3/V4 LP positions. `poolReference` must be a valid pool address for V3 or pool ID for V4.
 
@@ -192,7 +183,7 @@ Known Base V4 ETH/USDC `fee=3000`, `tickSpacing=60` pool reference observed in t
 
 Pool references can change by pair, fee, tick spacing, and protocol. Prefer querying `/lp/pool_info` instead of hard-coding a pool reference unless the user explicitly selected a pool.
 
-### Approval Step: `POST /lp/check_approval`
+#### Approval Step: `POST /lp/check_approval`
 
 Use this before LP create/increase/decrease operations. The body uses `lpTokens` as an array of token/amount objects.
 
@@ -250,7 +241,7 @@ const approvalCalls = approvalResponse.transactions.map((entry) => ({
 }));
 ```
 
-### Create V3/V4 Position: `POST /lp/create`
+#### Create V3/V4 Position: `POST /lp/create`
 
 ```json
 {
@@ -303,7 +294,7 @@ Response:
 
 Prefer `tickBounds` when possible. `priceBounds` can be accepted by the API, but its price units are easy to misread; validate carefully before using it.
 
-### Manage Existing Positions
+#### Manage Existing Positions
 
 | Action | Endpoint | Key params |
 | --- | --- | --- |
@@ -312,11 +303,11 @@ Prefer `tickBounds` when possible. `priceBounds` can be accepted by the API, but
 | Collect fees | `POST /lp/claim_fees` | `walletAddress`, `chainId`, `protocol`, `tokenId`; optional `simulateTransaction` |
 | Create V2 position | `POST /lp/create_classic` | `walletAddress`, `poolParameters { token0Address, token1Address, chainId }`, `independentToken { tokenAddress, amount }` |
 
-Optional on LP operation endpoints: `"slippageTolerance": <decimal>` where `0.5` means 0.5%. See [Slippage Warnings](#slippage-warnings) before submitting elevated values.
+Optional on LP operation endpoints: `"slippageTolerance": <decimal>` where `0.5` means 0.5%. See [Risks & Warnings](#risks--warnings) before submitting elevated values.
 
 Important: LP APIs can return calldata for syntactically valid `nftTokenId` values even if the connected wallet may not own the position. Treat generated calldata as a transaction preview input, not proof of ownership or guaranteed execution.
 
-### Claim Fees: `POST /lp/claim_fees`
+#### Claim Fees: `POST /lp/claim_fees`
 
 ```json
 {
@@ -340,7 +331,7 @@ Response:
 
 No approval step is needed for fee collection.
 
-### Create V2 Position: `POST /lp/create_classic`
+#### Create V2 Position: `POST /lp/create_classic`
 
 ```json
 {
@@ -360,7 +351,53 @@ No approval step is needed for fee collection.
 
 For V2 create, `/lp/check_approval` may return multiple approval transactions. Batch all approvals plus the `create` transaction if you want one `send_calls` approval link.
 
-### LP `send_calls`
+## Orchestration
+
+### Swap orchestration
+
+```text
+1. get_wallets -> address; convert tokenIn amount to base units
+2. web_request POST /check_approval with x-permit2-disabled
+3. web_request POST /quote with x-permit2-disabled
+4. Build swapBody from quoteResponse and remove null permit fields
+5. web_request POST /swap with x-permit2-disabled
+6. send_calls("base", approval + swap calls if approval exists, otherwise swap only)
+7. Open the approvalUrl if requested; do not approve unless the user explicitly asks
+8. get_request_status only after the user acts
+```
+
+### LP orchestration
+
+```text
+1. get_wallets -> address
+2. For V3/V4 create, call /lp/pool_info to discover poolReference
+3. Build LP token amount list in base units
+4. web_request POST /lp/check_approval
+5. web_request POST /lp/create, /lp/increase, /lp/decrease, /lp/claim_fees, or /lp/create_classic
+6. send_calls("base", approval calls + operation call)
+7. Open the approvalUrl if requested; do not approve unless the user explicitly asks
+8. get_request_status only after the user acts
+```
+
+## Submission
+
+Target tool: **`send_calls`** (chain `"base"`). Open the returned `approvalUrl` only if the user asks, and poll `get_request_status` after they act (see [../references/approval-mode.md](../references/approval-mode.md) and [../references/batch-calls.md](../references/batch-calls.md)).
+
+### Swap send_calls
+
+Approval and swap can be sent separately or batched in one `send_calls` preview:
+
+```json
+{
+  "chain": "base",
+  "calls": [
+    { "to": "<approval.to>", "value": "<approval.value>", "data": "<approval.data>" },
+    { "to": "<swap.to>", "value": "<swap.value>", "data": "<swap.data>" }
+  ]
+}
+```
+
+### LP send_calls
 
 For any LP operation response field such as `create`, `increase`, `decrease`, or `claim`, map to:
 
@@ -396,21 +433,6 @@ const calls = [
 ];
 ```
 
-### LP Orchestration
-
-```text
-1. get_wallets -> address
-2. For V3/V4 create, call /lp/pool_info to discover poolReference
-3. Build LP token amount list in base units
-4. web_request POST /lp/check_approval
-5. web_request POST /lp/create, /lp/increase, /lp/decrease, /lp/claim_fees, or /lp/create_classic
-6. send_calls("base", approval calls + operation call)
-7. Open the approvalUrl if requested; do not approve unless the user explicitly asks
-8. get_request_status only after the user acts
-```
-
----
-
 ## Example Prompts
 
 **Swap 1 USDC to WETH on Base**
@@ -440,9 +462,7 @@ const calls = [
 2. `web_request POST /lp/claim_fees` with `tokenId`.
 3. `send_calls` claim transaction.
 
----
-
-## Slippage Warnings
+## Risks & Warnings
 
 High slippage tolerance exposes the user to worse fills and sandwich/MEV attacks. Before calling `/swap` or any LP endpoint with an elevated value, warn the user and get explicit confirmation:
 
@@ -454,8 +474,6 @@ High slippage tolerance exposes the user to worse fills and sandwich/MEV attacks
 | > 20% | Very high | Strongly warn; do not submit without the user re-confirming the exact number. |
 
 Apply the same thresholds to swap and LP slippage. If the user did not specify a value, prefer `autoSlippage: "DEFAULT"` on swaps rather than picking a high number.
-
----
 
 ## Notes
 

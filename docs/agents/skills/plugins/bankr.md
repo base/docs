@@ -1,6 +1,18 @@
 ---
 title: "Bankr Plugin"
-description: "Skill plugin reference for discovering the latest token launches on Base via the Bankr API and buying them with Base MCP's swap tool."
+description: "Discover and buy newly launched tokens on Bankr."
+tags: [token-launches, trading, memecoins, discovery]
+name: bankr
+version: 0.2.0
+integration: http-api
+chains: [base]
+requires:
+  shell: none
+  allowlist: [api.bankr.bot]
+  externalMcp: null
+  cliPackage: null
+auth: none
+risk: [low-liquidity, irreversible]
 ---
 
 # Bankr Plugin
@@ -8,17 +20,26 @@ description: "Skill plugin reference for discovering the latest token launches o
 > [!IMPORTANT]
 > Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any Bankr flow. This plugin reads from the Bankr public API and then routes the actual purchase through Base MCP's `swap` tool — there is no separate Bankr MCP server.
 
+## Overview
+
 [Bankr](https://bankr.bot) is a launch and discovery surface for tokens on Base. The public API exposes the latest deployed token launches (name, symbol, contract address, deployer, links). This plugin uses that feed to surface fresh launches to the user, then buys the selected token through Base MCP's `swap` tool — Bankr is only the discovery layer; the swap is a regular Base MCP `swap` call paying ETH (or USDC) for the target ERC-20.
 
 No additional MCP server is required.
 
+**Chain:** Base mainnet (chainId `8453`).
+
+## Surface Routing
+
+Bankr reads are plain HTTP; the buy is a Base MCP tool call. Follow the standard HTTP routing in [../references/custom-plugins.md](../references/custom-plugins.md).
+
+| Capability | Path |
+|-----------|------|
+| Read launches feed / single launch | Harness HTTP tool if available, else `web_request` GET against `api.bankr.bot`. |
+| Buy a token | Base MCP `swap` tool (works on every surface). |
+
 **Prerequisite:** `api.bankr.bot` must be on the Base MCP `web_request` allowlist. If requests are rejected, inform the user and fall back to the harness's HTTP/fetch tool if one is available.
 
-**Chain:** Base mainnet (chainId `8453` / `0x2105`)
-
----
-
-## API
+## Endpoints
 
 Base URL: `https://api.bankr.bot`
 
@@ -105,8 +126,6 @@ Same field shape as items in the list endpoint, with one addition:
 
 Use this endpoint when the user names a token by **address** (instead of picking from the latest-launches list) — for confirmation before swapping, or to enrich an address the user pasted from elsewhere. If the address isn't in Bankr's index the API returns a 404; fall back to a regular swap and warn that the token wasn't found in the Bankr launches feed.
 
----
-
 ## Orchestration
 
 ```text
@@ -149,7 +168,9 @@ WHOP — Whop · by @TheLordSherlock · launched 2m ago · whop.com
   0xe7d8e68525af7e10a16724bbd3001c0828828ba3
 ```
 
-### Swap call
+## Submission
+
+Target tool: **`swap`**.
 
 The actual purchase is a regular Base MCP `swap` call. Read the `swap` tool's own parameter descriptions from the MCP — they are the source of truth. Typical shape:
 
@@ -167,8 +188,6 @@ The actual purchase is a regular Base MCP `swap` call. Read the `swap` tool's ow
 - `amount`: human-readable decimal amount of `fromAsset`. For 0.001 ETH pass `"0.001"`; for 5 USDC pass `"5"`.
 
 The `swap` tool returns an `approvalUrl` and `requestId` like any other write call. Surface the URL to the user neutrally ("Approve Swap"), then poll `get_request_status` once they've acted. The full approval/polling pattern is in [`../references/approval-mode.md`](../references/approval-mode.md).
-
----
 
 ## Example Prompts
 
@@ -207,23 +226,16 @@ The `swap` tool returns an `approvalUrl` and `requestId` like any other write ca
 3. On confirmation: `swap` with `fromAsset=ETH`, `toAsset=<address>`, `amount="0.001"`, `chain="base"`.
 4. Open the approval URL; poll.
 
----
-
-## Execution Warnings
+## Risks & Warnings
 
 New launches commonly have thin liquidity and volatile prices. Base MCP's core `swap` tool does not expose a slippage parameter, so do not invent one. Warn the user that fresh-launch swaps may revert or fill at a materially worse price, then require explicit confirmation of the token address and amount before calling `swap`.
-
----
-
-## Safety Notes
 
 - **Symbol collisions.** Multiple launches can share the same symbol (the sample feed contains three `simstudioai` launches with different symbols and addresses). Always disambiguate by `tokenAddress` and confirm with the user before swapping.
 - **No endorsement.** The Bankr feed is unfiltered. The Base MCP and this plugin do not vet, endorse, or audit listed tokens — many are low-liquidity, short-lived, or meme tokens. Mention this once before the first buy of a session.
 - **Adversarial metadata.** Token names, symbols, deployer handles, and website URLs are user-supplied and can be misleading or impersonate legitimate projects. Don't follow links from the feed; surface them to the user for context only.
 - **Address case.** Pass `tokenAddress` to `swap` verbatim — lowercased addresses from the API work fine; do not re-checksum or modify them.
 - **Buy size.** Do not propose a default buy amount. The user must specify the amount.
-
----
+- **Irreversible.** A confirmed swap cannot be undone. Confirm token address and amount before submitting.
 
 ## Notes
 

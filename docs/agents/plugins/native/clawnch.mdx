@@ -1,0 +1,41 @@
+---
+title: "Clawnch"
+description: "Discover Base token launches, buy launched tokens, and prepare non-custodial token launches on Clawnch."
+keywords: ["Clawnch plugin", "Base MCP Clawnch", "token launches", "Base memecoins", "Clanker launch"]
+---
+
+Clawnch is a Base token launch and discovery surface. The plugin reads recent launches and top-volume tokens from the Clawnch public API, routes buys through Base MCP `swap`, and prepares non-custodial Clanker launch calldata for Base MCP `send_calls`.
+
+**Chain:** Base mainnet.
+
+**Operations:** recent launch discovery, top-volume discovery, token lookup, token buys, CLAWNCH burns, and token launch preparation.
+
+<Tip>
+Newly launched tokens can be illiquid or unsafe. The assistant should never auto-buy from discovery results; it confirms symbol, address, funding asset, and amount first.
+</Tip>
+
+## Try it
+
+```text Latest launches
+Show me the latest token launches on Clawnch
+```
+
+```text Buy
+Buy 0.001 ETH worth of the top volume token on Clawnch
+```
+
+```text Launch
+Launch a token called "Cool Project" with symbol COOL
+```
+
+## Pattern
+
+Discovery uses Clawnch GET endpoints through `web_request` or a harness HTTP tool. Buys map to Base MCP `swap` with `chain: "base"`, `fromAsset` as `ETH` or `USDC`, and `toAsset` as the discovered token contract.
+
+Launches call `/api/prepare/deploy`, then map the returned `data` object directly into `send_calls`: `{ chain: "base", calls: [{ to, value, data }] }`. The assistant shows launch details and only submits after confirmation.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/clawnch.md">
+  API endpoints, launch feeds, buy flow, deploy preparation, burn/vault flow, and risk checks.
+</Card>

@@ -1,6 +1,18 @@
 ---
 title: "Avantis Plugin"
-description: "Skill plugin reference for reading Avantis market data and positions on any surface, and building perpetual-futures transactions from CLI harnesses (with an Avantis UI fallback on chat-only surfaces). Aligned with the canonical Avantis-Labs/avantis-trading-skill spec."
+description: "Open and manage leveraged perpetual-futures positions on Avantis."
+tags: [perps, leverage, trading, derivatives]
+name: avantis
+version: 0.2.0
+integration: hybrid
+chains: [base]
+requires:
+  shell: optional
+  allowlist: [data.avantisfi.com, core.avantisfi.com, api.avantisfi.com]
+  externalMcp: null
+  cliPackage: null
+auth: none
+risk: [liquidation, slippage, irreversible]
 ---
 
 # Avantis Plugin
@@ -8,9 +20,11 @@ description: "Skill plugin reference for reading Avantis market data and positio
 > [!IMPORTANT]
 > Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any Avantis endpoint. The user's wallet address — used as `trader` in every tx-builder call — is fetched lazily when needed.
 
-Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). The plugin returns **unsigned** call data; signing and broadcasting are the wallet's job (Base MCP `send_calls`).
+## Overview
 
-## Surface routing
+Avantis is a perpetual futures DEX on Base mainnet (`chainId` 8453). The plugin returns **unsigned** call data; signing and broadcasting are the wallet's job (Base MCP `send_calls`). Collateral is USDC only; ETH is used only for gas and the Avantis execution-fee `value`. View-only reads work on every surface; transaction-building needs a CLI/HTTP harness, with an Avantis web UI fallback on chat-only surfaces. Aligned with the canonical `Avantis-Labs/avantis-trading-skill` spec.
+
+## Surface Routing
 
 | Capability | Hosts | Where it runs |
 | --- | --- | --- |
@@ -25,7 +39,7 @@ Routing order for any Avantis HTTP call:
 
 Do not sign, approve, or submit transactions unless the user explicitly asks. Generating call data and `send_calls` approval links is safe; the user approves any real transaction.
 
-No API key or Authorization header is required for the documented public endpoints.
+No API key or Authorization header is required for the documented public endpoints. The general HTTP routing rules also live in [../references/custom-plugins.md](../references/custom-plugins.md).
 
 > [!IMPORTANT]
 > **CORS caveat for `web_request`.** Most Avantis hosts return `Access-Control-Allow-Origin: *`, but two paths are **not** in the open-CORS prefix list:
@@ -34,9 +48,31 @@ No API key or Authorization header is required for the documented public endpoin
 >
 > Base MCP `web_request` is a server-side fetch and is not affected by browser CORS, so these still work from `web_request`. Only flag this if you ever proxy these requests from a browser context.
 
----
+### Chat-only fallback: Avantis UI
 
-## API Services
+When the user wants a tx-builder action (open, close, cancel, margin update, TP/SL change, USDC approval, delegate set/remove) and there is no shell, terminal, or direct HTTP tool in the current surface (typical for ChatGPT, Claude.ai):
+
+1. Use `web_request` against `data.avantisfi.com`, `core.avantisfi.com`, or `api.avantisfi.com` to answer the read side of the question (pair info, the user's open positions, recent PnL).
+2. Tell the user plainly that signing and submitting Avantis trades from this surface requires the Avantis web UI (or a CLI harness like Claude Code, Codex, or Cursor terminal).
+3. Build a deep link to the relevant market and surface it as a clickable link. URL pattern:
+
+   ```
+   https://www.avantisfi.com/trade?asset=<SYMBOL>-USD
+   ```
+
+   `<SYMBOL>` is the pair's `from` from `pairInfos["<pairIndex>"]` (e.g. `BTC`, `ETH`, `SNDK`). Examples:
+
+   - `https://www.avantisfi.com/trade?asset=ETH-USD`
+   - `https://www.avantisfi.com/trade?asset=BTC-USD`
+   - `https://www.avantisfi.com/trade?asset=SNDK-USD`
+
+4. If the user already supplied concrete trade parameters (side, leverage, collateral, TP, SL), summarize them in your message so they can reproduce the intent inside the UI. Do not claim the position was opened or modified — the UI flow is user-driven.
+
+Only use this fallback for tx-builder operations. View-only reads continue to work via `web_request` on the same surfaces.
+
+## Endpoints
+
+### API Services
 
 | Service | Base URL | Routing | Purpose |
 | --- | --- | --- | --- |
@@ -52,115 +88,7 @@ GET https://tx-builder.avantisfi.com/openapi.json
 GET https://tx-builder.avantisfi.com/docs
 ```
 
----
-
-## Base-Only Rules
-
-- All tx-builder call data targets Base mainnet (`chainId` 8453). There is no chain selector.
-- Collateral is USDC only. ETH is used only for gas and the Avantis execution-fee `value`.
-- Canonical Base USDC: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
-- Default USDC spender is Avantis `TradingStorage`: `0x8a311D7048c35985aa31C131B9A13e03a5f7422d`.
-
-Live contract addresses:
-
-```
-GET https://tx-builder.avantisfi.com/addresses
-# → { chainId, Trading, TradingStorage, USDC, PairStorage, PairInfos, PriceAggregator, Multicall, Referral }
-```
-
-| Contract | Mainnet address |
-| --- | --- |
-| `Trading` | `0x44914408af82bC9983bbb330e3578E1105e11d4e` |
-| `TradingStorage` | `0x8a311D7048c35985aa31C131B9A13e03a5f7422d` |
-| `PairStorage` | `0x5db3772136e5557EFE028Db05EE95C84D76faEC4` |
-| `PairInfos` | `0x81F22d0Cc22977c91bEfE648C9fddf1f2bd977e5` |
-| `PriceAggregator` | `0x64e2625621970F8cfA17B294670d61CB883dA511` |
-| `USDC` | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| `Multicall` | `0xA7cFc43872F4D7B0E6141ee8c36f1F7FEe5d099e` |
-| `Referral` | `0x1A110bBA13A1f16cCa4b79758BD39290f29De82D` |
-
----
-
-## tx-builder Response Envelope
-
-All calldata-producing tx-builder endpoints return:
-
-```json
-{
-  "ok": true,
-  "data": {
-    "to": "0x44914408af82bC9983bbb330e3578E1105e11d4e",
-    "from": "0x1111111111111111111111111111111111111111",
-    "data": "0x19cde9a1...",
-    "value": "0x13e52b9abe000",
-    "chainId": 8453,
-    "description": "Open long BTC/USD 10x with 100 USDC (market)",
-    "meta": {}
-  }
-}
-```
-
-| Field | Notes |
-| --- | --- |
-| `to`, `data`, `value` | Forwarded into Base MCP `send_calls`. `value` is `0x`-prefixed wei; convert with `BigInt(value)` if you need a numeric. |
-| `from` | Who must sign. With `&delegate=0x...`, `from` is the delegate. |
-| `chainId` | Always `8453`. |
-| `nonce`, `gas` | Never returned. The wallet manages them. |
-| `meta` | Endpoint-specific context. `/trade/open` includes a `validation` block; see [Pre-Trade Validation](#pre-trade-validation). |
-
-Errors:
-
-```json
-{ "ok": false, "error": { "code": "BAD_REQUEST", "message": "...", "details": { ... } } }
-```
-
-Modern codes: `BAD_REQUEST`, `VALIDATION_ERROR` (with `details.fieldErrors`), `UPSTREAM_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`.
-
-`send_calls` payload:
-
-```json
-{
-  "chain": "base",
-  "calls": [
-    { "to": "<data.to>", "value": "<data.value>", "data": "<data.data>" }
-  ]
-}
-```
-
----
-
-## Units And Scaling
-
-| Surface | Unit behavior |
-| --- | --- |
-| tx-builder request inputs (`collateralUsdc`, `amountUsdc`, `openPrice`, `takeProfit`, `stopLoss`, `leverage`, `slippagePercent`, `executionFeeEth`) | **Human decimals**, not raw scaled integers |
-| tx-builder response `value` | `0x`-prefixed wei (ETH) |
-| `data.avantisfi.com /v2/trading` | Human decimals everywhere |
-| `core /user-data` `positions[]` and `limitOrders[]` | Raw stringified ints — USDC `/1e6`, prices / leverage / percent / slippage `/1e10` |
-| `api.avantisfi.com /v2/history/portfolio/*` | Mixed; mostly human decimals — check each endpoint |
-| `api.avantisfi.com /v2/history/referral/stats/*` | USDC fields **already** divided by `1e6` |
-
-Do not pass `1e6` USDC or `1e10` price units into tx-builder query parameters — they take human decimals.
-
----
-
-## Orchestration Pattern (open trade)
-
-```
-get_wallets                                                -> trader address
-GET data /v2/trading                                       -> pair config, envelopes, OI, lazerFeed state
-GET core /user-data?trader=...                             -> existing positions / limit orders
-GET tx-builder /token/approve if allowance missing         -> send_calls preview
-GET tx-builder /trade/open                                 -> send_calls preview
-poll history /v2/market-order-initiated/status/<txHash>    -> only after a real tx is submitted
-GET core /user-data?trader=...                             -> confirm final state
-```
-
-For management actions (close, cancel, margin, TP/SL) always read `core /user-data` first and use the **real** `positions[i].index` (positions) or `limitOrders[i].index` (resting orders) as `tradeIndex`. tx-builder will encode call data for an index that does not exist, and the call will then revert on chain.
-
----
-
-## Step 1 — Pair, Leverage, Liquidity (data API)
+### Step 1 — Pair, Leverage, Liquidity (data API)
 
 ```
 GET https://data.avantisfi.com/v2/trading
@@ -223,9 +151,7 @@ minLeverage   = ceil(pair.pairMinLevPosUSDC / collateralUsdc)
 
 The data API is cached server-side (`~5 min` TTL). If you call it directly from a hot path, cache locally too.
 
----
-
-## Step 2 — Positions and Limit Orders (core backend)
+### Step 2 — Positions and Limit Orders (core backend)
 
 ```
 GET https://core.avantisfi.com/user-data?trader=<address>
@@ -315,9 +241,7 @@ Other core endpoints (rarely needed by agents):
 
 Rate-limited at the gateway (`HTTP 429` under load).
 
----
-
-## Step 3 — Approve USDC
+### Step 3 — Approve USDC
 
 Exact approval:
 
@@ -344,9 +268,7 @@ GET https://tx-builder.avantisfi.com/token/approve
 
 `spender` defaults to `TradingStorage`. `to` is USDC; `value` is `0x0`. Approval must be confirmed on chain before trade calls that require allowance can succeed, unless approval and action are submitted as a valid batch and the wallet/account contract supports the batch.
 
----
-
-## Step 4 — Open A Trade
+### Step 4 — Open A Trade
 
 ```
 GET https://tx-builder.avantisfi.com/trade/open
@@ -365,7 +287,7 @@ GET https://tx-builder.avantisfi.com/trade/open
   &skipValidation=true           # optional, default false; bypasses pre-trade checks
 ```
 
-### Order types (and on-chain enum)
+#### Order types (and on-chain enum)
 
 | `orderType` (skill) | On-chain enum | Numeric | Notes |
 | --- | --- | --- | --- |
@@ -406,13 +328,11 @@ GET https://tx-builder.avantisfi.com/trade/open
   &stopLoss=55000
 ```
 
-### Pair separators
+#### Pair separators
 
 `pair` accepts `/`, `-`, or `_`. `BTC/USD`, `btc-usd`, `eth_usd` all resolve. Use `&pairIndex=` directly if you already have the integer.
 
----
-
-## Pre-Trade Validation
+#### Pre-Trade Validation
 
 `tx-builder` enforces four checks on `/trade/open` before encoding. Each failure is `400 BAD_REQUEST` with a human-readable message:
 
@@ -442,13 +362,11 @@ Use this to surface concrete numbers to the user. Do not pass `&skipValidation=t
 
 `BELOW_MIN_POS` recovery: compute `minCollateral = ceil(pair.pairMinLevPosUSDC / leverage)` and `minLeverage = ceil(pair.pairMinLevPosUSDC / collateralUsdc)`, then present both options to the user (within the pair's leverage envelope). Do not silently adjust parameters.
 
----
-
-## Step 5 — Close, Cancel, Margin, TP/SL
+### Step 5 — Close, Cancel, Margin, TP/SL
 
 Always read `core /user-data` first and use real indices from the returned arrays.
 
-### Close
+#### Close
 
 ```
 GET https://tx-builder.avantisfi.com/trade/close
@@ -462,7 +380,7 @@ GET https://tx-builder.avantisfi.com/trade/close
 
 `value` is the execution fee in wei.
 
-### Cancel resting limit / stop-limit
+#### Cancel resting limit / stop-limit
 
 ```
 GET https://tx-builder.avantisfi.com/trade/cancel
@@ -474,7 +392,7 @@ GET https://tx-builder.avantisfi.com/trade/cancel
 
 `value` is `0x0`.
 
-### Deposit / withdraw margin
+#### Deposit / withdraw margin
 
 ```
 GET https://tx-builder.avantisfi.com/margin/update
@@ -490,7 +408,7 @@ GET https://tx-builder.avantisfi.com/margin/update
 
 `value` is `0x1`. When `priceUpdateData` is omitted, tx-builder fetches it from `feed-v3.avantisfi.com` and picks `priceSourcing` based on the pair's Lazer status (`lazerFeed.state === 'stable'` → `1`; otherwise `0`). To run fully offline supply **both** `priceUpdateData` and `priceSourcing`.
 
-### Set / update TP and SL
+#### Set / update TP and SL
 
 ```
 GET https://tx-builder.avantisfi.com/tpsl/update
@@ -508,9 +426,7 @@ GET https://tx-builder.avantisfi.com/tpsl/update
 
 To modify a resting limit order's parameters, cancel it via `/trade/cancel` and create a new `/trade/open` with `orderType=limit` (or `stop_limit`).
 
----
-
-## Delegated Trading
+### Delegated Trading
 
 ```
 GET https://tx-builder.avantisfi.com/delegate/set?trader=<address>&delegate=<delegateAddress>
@@ -521,9 +437,259 @@ GET https://tx-builder.avantisfi.com/delegate/remove?trader=<address>
 
 Only one delegate per trader; `/delegate/set` replaces any prior delegate.
 
----
+### History And PnL (history API)
 
-## Batching With send_calls
+All `api.avantisfi.com` endpoints return **HTTP 200 even on logical failure** and use the legacy envelope:
+
+```json
+{ "success": true, "data": ... }
+{ "success": false, "errorMessage": "..." }
+```
+
+Always check `success` before reading data. `userAddress` must be `0x`-prefixed; the service short-circuits otherwise.
+
+#### Endpoint reference
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /v2/history/portfolio/history/:userAddress/:page/:limit?` | Closed trades, paginated. **`page` is 1-indexed** (first page = `1`). `limit` capped at `20`. |
+| `GET /v2/history/portfolio/all/:userAddress/:page/:limit?` | All trades (open + closed). Same `page` / `limit` rules as above. |
+| `GET /v2/history/portfolio/top/:userAddress` | Top 3 closed trades by net PnL. |
+| `GET /v2/history/portfolio/top/:userAddress/:limit?/:timeStamp?` | Top N by net PnL, optionally from a **Unix-seconds** floor. Includes still-open market entries (filter differs from `/top/:userAddress`). |
+| `GET /v2/history/portfolio/profit-loss/:userAddress/:grouped?/:startDate?` | Aggregate PnL. `grouped` must be the literal string `grouped` to bucket per `pairIndex`; anything else (including omitted) returns a single combined bucket. `startDate` is anything `new Date(...)` can parse; omit (or pass `false`) for no time filter — internally compared in Unix seconds. |
+| `GET /v2/history/referral/stats/:userAddress` | Referral activity (as referrer and as trader). USDC fields here are **pre-divided by 1e6**. |
+| `GET /v2/market-order-initiated/status/:txHash` | See [Settlement Polling](#settlement-polling-history-api). |
+
+**Correct page index — examples:**
+
+```
+GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/1/20   # ✅ first page
+GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/0/20   # ❌ undefined behavior
+```
+
+#### `/history` response
+
+```json
+{
+  "success": true,
+  "portfolio": [
+    {
+      "event": {
+        "args": {
+          "t":                  { "trader": "0x...", "pairIndex": 1, "index": 0 },
+          "positionSizeUSDC":   0.98542,
+          "price":              112002.68,
+          "usdcSentToTrader":   0,
+          "_feeInfo":           { "closingFee": 0.147813, "r": 0.222313 }
+        }
+      },
+      "_grossPnl": -0.615294,
+      "timeStamp": "2025-09-23T02:54:35.000Z"
+    }
+  ],
+  "count": 70892,
+  "pageCount": 7090
+}
+```
+
+- `event.args.t` is the on-chain `Trade` struct at open time.
+- `event.args.positionSizeUSDC` is the **collateral closed in this event**, not the position notional.
+- `_grossPnl` is per-close gross PnL in USDC (negative = loss).
+
+#### `/all` response adds
+
+```json
+{
+  "trade":              { "trader": "0x...", "pairIndex": 1, "index": 0 },
+  "collateral":         100,
+  "positionSize":       1000,
+  "executionPrice":     112002.68,
+  "isPnl":              false,
+  "grossPnl":           -0.615294,
+  "netPnl":             -0.815294,
+  "openingFee":         0.045,
+  "open":               true,
+  "timestamp":          1758710931,
+  "longTimestamp":      "2025-09-23T02:54:35.000Z",
+  "orderId":            123,
+  "orderIdOfOpenTrade": 122
+}
+```
+
+`open` flips from `true` to `false` after the trade closes.
+
+#### `/profit-loss` response
+
+```json
+{
+  "success": true,
+  "data": [
+    { "total": 1234.56, "totalCollateral": 5000.00, "pairIndex": 1 },
+    { "total": -89.20,  "totalCollateral": 2500.00, "pairIndex": 5 }
+  ]
+}
+```
+
+Per-row PnL convention:
+
+- `_mapped_netPnl` when `event.args.isPnl === true` (ZFP).
+- `_mapped_grossPnl` otherwise (fixed-fee).
+
+In the **ungrouped** case `pairIndex` is `null`.
+
+#### `/referral/stats` response
+
+```json
+{
+  "success": true,
+  "data": {
+    "asReferrer": { "totalFees": 12345.67, "totalRebates": 1234.56, "totalTraders": 42 },
+    "asTrader":   { "totalVolume": 98765.43, "totalFeeDiscount": 234.56 }
+  }
+}
+```
+
+USDC fields here are already plain decimals (pre-divided by `1e6`).
+
+#### Rate limit
+
+History API: ~10 req/s per IP. Batch and cache when possible.
+
+### Current tx-builder Endpoint Inventory
+
+| Endpoint | Calldata? | Purpose | `value` |
+| --- | --- | --- | --- |
+| `GET /trade/open` | Yes | Open market, ZFP, limit, or stop-limit trade | execution fee wei |
+| `GET /trade/close` | Yes | Close (full or partial) | execution fee wei |
+| `GET /trade/cancel` | Yes | Cancel a resting limit / stop-limit | `0x0` |
+| `GET /margin/update` | Yes | Deposit / withdraw collateral | `0x1` |
+| `GET /tpsl/update` | Yes | Update TP and SL | `0x1` |
+| `GET /delegate/set` | Yes | Set delegate | `0x0` |
+| `GET /delegate/remove` | Yes | Remove delegate | `0x0` |
+| `GET /token/approve` | Yes | Approve USDC | `0x0` |
+| `GET /pairs` | No | Pair summaries (index + symbol + Lazer flag) | — |
+| `GET /pairs/<index>` | No | Single pair detail | — |
+| `GET /addresses` | No | Contract addresses on Base | — |
+| `GET /health` | No | `{ status:"ok", chainId:8453 }` | — |
+| `GET /docs` | No | Swagger UI | — |
+| `GET /openapi.json` | No | OpenAPI 3.1 spec | — |
+
+## Orchestration
+
+```
+get_wallets                                                -> trader address
+GET data /v2/trading                                       -> pair config, envelopes, OI, lazerFeed state
+GET core /user-data?trader=...                             -> existing positions / limit orders
+GET tx-builder /token/approve if allowance missing         -> send_calls preview
+GET tx-builder /trade/open                                 -> send_calls preview
+poll history /v2/market-order-initiated/status/<txHash>    -> only after a real tx is submitted
+GET core /user-data?trader=...                             -> confirm final state
+```
+
+For management actions (close, cancel, margin, TP/SL) always read `core /user-data` first and use the **real** `positions[i].index` (positions) or `limitOrders[i].index` (resting orders) as `tradeIndex`. tx-builder will encode call data for an index that does not exist, and the call will then revert on chain.
+
+### Portfolio Inspection Recipe
+
+To answer "show me my Avantis activity" combine three sources:
+
+| Source | What it returns |
+| --- | --- |
+| `GET core.avantisfi.com/user-data?trader=<addr>` | Current open positions + resting limit orders |
+| `GET api.avantisfi.com/v2/history/portfolio/all/<addr>/1/20` | Page of all trades (open + closed), chronological with PnL |
+| `GET api.avantisfi.com/v2/history/portfolio/profit-loss/<addr>/grouped` | Aggregate PnL per pair |
+
+Sketch:
+
+```ts
+const [open, history, pnl] = await Promise.all([
+  fetch(`https://core.avantisfi.com/user-data?trader=${trader}`).then(r => r.json()),
+  fetch(`https://api.avantisfi.com/v2/history/portfolio/all/${trader}/1/20`).then(r => r.json()),
+  fetch(`https://api.avantisfi.com/v2/history/portfolio/profit-loss/${trader}/grouped`).then(r => r.json()),
+]);
+
+if (!history.success) throw new Error(history.errorMessage);
+if (!pnl.success)     throw new Error(pnl.errorMessage);
+
+const openCount    = open.positions.length;
+const pendingCount = open.limitOrders.length;
+const pnlByPair    = pnl.data.reduce((acc, row) => { acc[row.pairIndex] = row.total; return acc; }, {});
+```
+
+Scaling reminders:
+
+- `/user-data` returns raw stringified ints (USDC `/1e6`, prices/leverage `/1e10`).
+- `/v2/history/portfolio/all` mixes — most numeric fields are already human decimals.
+- `/v2/history/portfolio/profit-loss` returns human decimals rounded to two places.
+
+For top trades, swap `profit-loss` for `/v2/history/portfolio/top/<addr>/5` (top 5 by net PnL).
+
+### Cross-Recipe Pattern: Agent Loop
+
+```
+loop:
+  - read intent (open / close / cancel / tp-sl / margin / approve / delegate)
+  - resolve any symbol → pairIndex (data API or tx-builder /pairs)
+  - read core /user-data when the action targets an existing position or order
+  - build call data (tx-builder /trade/* | /margin/update | /tpsl/update | /delegate/* | /token/approve)
+  - if response.ok === false → surface error.message, ask the user, do not silently retry
+  - hand { to, data, value } to send_calls; collect tx hash from the approval flow
+  - for market opens / closes: poll history /v2/market-order-initiated/status/<txHash> until non-pending
+  - re-read core /user-data to confirm state, summarize for the user
+```
+
+Every flow above (open, close, cancel, TP/SL, margin, delegate, approve) is one branch of this loop.
+
+## Submission
+
+Target tool: **`send_calls`** (chain `"base"`). tx-builder endpoints return unsigned calldata; forward `{ to, value, data }` into `send_calls`, walk the approval flow (see [../references/approval-mode.md](../references/approval-mode.md)), and for market opens/closes confirm settlement by polling the history API (below).
+
+### tx-builder Response Envelope
+
+All calldata-producing tx-builder endpoints return:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "to": "0x44914408af82bC9983bbb330e3578E1105e11d4e",
+    "from": "0x1111111111111111111111111111111111111111",
+    "data": "0x19cde9a1...",
+    "value": "0x13e52b9abe000",
+    "chainId": 8453,
+    "description": "Open long BTC/USD 10x with 100 USDC (market)",
+    "meta": {}
+  }
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `to`, `data`, `value` | Forwarded into Base MCP `send_calls`. `value` is `0x`-prefixed wei; convert with `BigInt(value)` if you need a numeric. |
+| `from` | Who must sign. With `&delegate=0x...`, `from` is the delegate. |
+| `chainId` | Always `8453`. |
+| `nonce`, `gas` | Never returned. The wallet manages them. |
+| `meta` | Endpoint-specific context. `/trade/open` includes a `validation` block; see [Pre-Trade Validation](#pre-trade-validation). |
+
+Errors:
+
+```json
+{ "ok": false, "error": { "code": "BAD_REQUEST", "message": "...", "details": { ... } } }
+```
+
+Modern codes: `BAD_REQUEST`, `VALIDATION_ERROR` (with `details.fieldErrors`), `UPSTREAM_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`.
+
+`send_calls` payload:
+
+```json
+{
+  "chain": "base",
+  "calls": [
+    { "to": "<data.to>", "value": "<data.value>", "data": "<data.data>" }
+  ]
+}
+```
+
+### Batching With send_calls
 
 ```json
 {
@@ -542,11 +708,9 @@ Useful preview batches:
 - Cancel resting order + create replacement limit order.
 - Multiple independent generated calls, all on Base, that are logically safe together.
 
-Keep approval before the action that needs allowance. Do not mix chains.
+Keep approval before the action that needs allowance. Do not mix chains. See [../references/batch-calls.md](../references/batch-calls.md).
 
----
-
-## Settlement Polling (history API)
+### Settlement Polling (history API)
 
 Market opens and closes settle after the submitted transaction emits a `MarketOrderInitiated` event. Only poll when you have a real tx hash from a submitted transaction.
 
@@ -626,153 +790,83 @@ async function waitForSettlement(txHash, maxMs = 60_000) {
 
 Limit fills are not observed through this endpoint. They become regular positions in `core /user-data` and emit `LimitExecuted` events on chain.
 
----
+## Example Prompts
 
-## History And PnL (history API)
+**Open a 10x long on BTC/USD with 100 USDC**
+1. `get_wallets` → `trader`.
+2. `GET data /v2/trading` → confirm `isPairListed`, market open, leverage envelope, and liquidity for BTC/USD.
+3. `GET core /user-data?trader=...` to check existing allowance/positions; if allowance missing, `GET tx-builder /token/approve?trader=...`.
+4. `GET tx-builder /trade/open?trader=...&pair=BTC/USD&side=long&orderType=market&collateralUsdc=100&leverage=10&slippagePercent=1` → review `meta.validation`.
+5. `send_calls(chain="base", calls=[approve?, open])`; approve; poll `/v2/market-order-initiated/status/<txHash>`; re-read `core /user-data`. (Chat-only surface: link the Avantis UI instead — see [Chat-only fallback](#chat-only-fallback-avantis-ui).)
 
-All `api.avantisfi.com` endpoints return **HTTP 200 even on logical failure** and use the legacy envelope:
+**Show me my open Avantis positions and PnL**
+1. `get_wallets` → `trader`.
+2. `GET core /user-data?trader=...` → open positions + resting limit orders (apply `/1e6` and `/1e10` scaling).
+3. `GET api /v2/history/portfolio/all/<addr>/1/20` and `GET .../profit-loss/<addr>/grouped` → summarize (see [Portfolio Inspection Recipe](#portfolio-inspection-recipe)).
 
-```json
-{ "success": true, "data": ... }
-{ "success": false, "errorMessage": "..." }
+**Close my BTC long**
+1. `get_wallets` → `trader`.
+2. `GET core /user-data?trader=...` → find the BTC position's `pairIndex` and `index`.
+3. `GET tx-builder /trade/close?trader=...&pairIndex=...&tradeIndex=...&collateralUsdc=<full collateral>`.
+4. `send_calls`; approve; poll settlement; re-read `core /user-data`.
+
+**Set a take-profit at 80000 on my ETH position**
+1. `get_wallets` → `trader`.
+2. `GET core /user-data?trader=...` → ETH position's `pairIndex` and `index`.
+3. `GET tx-builder /tpsl/update?trader=...&pairIndex=...&tradeIndex=...&takeProfit=80000&stopLoss=<keep or 0>`.
+4. `send_calls`; approve.
+
+## Risks & Warnings
+
+Perpetual futures are leveraged and can be fully liquidated. Build calldata freely, but never sign or submit without explicit user approval — opened/closed trades are irreversible onchain actions.
+
+- **Liquidation.** A position liquidates once loss exceeds ~85% of collateral (see [Key Thresholds](#key-thresholds)). Always read `core /user-data` and surface `liquidationPrice` before and after any change. Margin withdrawals must keep the position above ~20% effective collateral.
+- **Slippage.** `slippagePercent` defaults to `1`. Warn the user before submitting elevated values; the protocol max slippage is 80% (`_MAX_SLIPPAGE`). Don't silently raise it.
+- **Leverage.** Respect the per-pair envelope (`leverages.*`); the server sanity cap (`<= 1000`) is far looser than the per-pair max in `meta.validation.maxLeverage`.
+- **Irreversible.** Market opens/closes settle onchain and cannot be undone. Confirm side, pair, leverage, collateral, TP/SL with the user before submitting.
+- **Never silently retry** a `BAD_REQUEST` with adjusted parameters — present options and let the user choose.
+
+## Notes
+
+### Base-Only Rules
+
+- All tx-builder call data targets Base mainnet (`chainId` 8453). There is no chain selector.
+- Collateral is USDC only. ETH is used only for gas and the Avantis execution-fee `value`.
+- Canonical Base USDC: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- Default USDC spender is Avantis `TradingStorage`: `0x8a311D7048c35985aa31C131B9A13e03a5f7422d`.
+
+Live contract addresses:
+
+```
+GET https://tx-builder.avantisfi.com/addresses
+# → { chainId, Trading, TradingStorage, USDC, PairStorage, PairInfos, PriceAggregator, Multicall, Referral }
 ```
 
-Always check `success` before reading data. `userAddress` must be `0x`-prefixed; the service short-circuits otherwise.
-
-### Endpoint reference
-
-| Endpoint | Purpose |
+| Contract | Mainnet address |
 | --- | --- |
-| `GET /v2/history/portfolio/history/:userAddress/:page/:limit?` | Closed trades, paginated. **`page` is 1-indexed** (first page = `1`). `limit` capped at `20`. |
-| `GET /v2/history/portfolio/all/:userAddress/:page/:limit?` | All trades (open + closed). Same `page` / `limit` rules as above. |
-| `GET /v2/history/portfolio/top/:userAddress` | Top 3 closed trades by net PnL. |
-| `GET /v2/history/portfolio/top/:userAddress/:limit?/:timeStamp?` | Top N by net PnL, optionally from a **Unix-seconds** floor. Includes still-open market entries (filter differs from `/top/:userAddress`). |
-| `GET /v2/history/portfolio/profit-loss/:userAddress/:grouped?/:startDate?` | Aggregate PnL. `grouped` must be the literal string `grouped` to bucket per `pairIndex`; anything else (including omitted) returns a single combined bucket. `startDate` is anything `new Date(...)` can parse; omit (or pass `false`) for no time filter — internally compared in Unix seconds. |
-| `GET /v2/history/referral/stats/:userAddress` | Referral activity (as referrer and as trader). USDC fields here are **pre-divided by 1e6**. |
-| `GET /v2/market-order-initiated/status/:txHash` | See [Settlement Polling](#settlement-polling-history-api). |
+| `Trading` | `0x44914408af82bC9983bbb330e3578E1105e11d4e` |
+| `TradingStorage` | `0x8a311D7048c35985aa31C131B9A13e03a5f7422d` |
+| `PairStorage` | `0x5db3772136e5557EFE028Db05EE95C84D76faEC4` |
+| `PairInfos` | `0x81F22d0Cc22977c91bEfE648C9fddf1f2bd977e5` |
+| `PriceAggregator` | `0x64e2625621970F8cfA17B294670d61CB883dA511` |
+| `USDC` | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| `Multicall` | `0xA7cFc43872F4D7B0E6141ee8c36f1F7FEe5d099e` |
+| `Referral` | `0x1A110bBA13A1f16cCa4b79758BD39290f29De82D` |
 
-**Correct page index — examples:**
+### Units And Scaling
 
-```
-GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/1/20   # ✅ first page
-GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/0/20   # ❌ undefined behavior
-```
+| Surface | Unit behavior |
+| --- | --- |
+| tx-builder request inputs (`collateralUsdc`, `amountUsdc`, `openPrice`, `takeProfit`, `stopLoss`, `leverage`, `slippagePercent`, `executionFeeEth`) | **Human decimals**, not raw scaled integers |
+| tx-builder response `value` | `0x`-prefixed wei (ETH) |
+| `data.avantisfi.com /v2/trading` | Human decimals everywhere |
+| `core /user-data` `positions[]` and `limitOrders[]` | Raw stringified ints — USDC `/1e6`, prices / leverage / percent / slippage `/1e10` |
+| `api.avantisfi.com /v2/history/portfolio/*` | Mixed; mostly human decimals — check each endpoint |
+| `api.avantisfi.com /v2/history/referral/stats/*` | USDC fields **already** divided by `1e6` |
 
-### `/history` response
+Do not pass `1e6` USDC or `1e10` price units into tx-builder query parameters — they take human decimals.
 
-```json
-{
-  "success": true,
-  "portfolio": [
-    {
-      "event": {
-        "args": {
-          "t":                  { "trader": "0x...", "pairIndex": 1, "index": 0 },
-          "positionSizeUSDC":   0.98542,
-          "price":              112002.68,
-          "usdcSentToTrader":   0,
-          "_feeInfo":           { "closingFee": 0.147813, "r": 0.222313 }
-        }
-      },
-      "_grossPnl": -0.615294,
-      "timeStamp": "2025-09-23T02:54:35.000Z"
-    }
-  ],
-  "count": 70892,
-  "pageCount": 7090
-}
-```
-
-- `event.args.t` is the on-chain `Trade` struct at open time.
-- `event.args.positionSizeUSDC` is the **collateral closed in this event**, not the position notional.
-- `_grossPnl` is per-close gross PnL in USDC (negative = loss).
-
-### `/all` response adds
-
-```json
-{
-  "trade":              { "trader": "0x...", "pairIndex": 1, "index": 0 },
-  "collateral":         100,
-  "positionSize":       1000,
-  "executionPrice":     112002.68,
-  "isPnl":              false,
-  "grossPnl":           -0.615294,
-  "netPnl":             -0.815294,
-  "openingFee":         0.045,
-  "open":               true,
-  "timestamp":          1758710931,
-  "longTimestamp":      "2025-09-23T02:54:35.000Z",
-  "orderId":            123,
-  "orderIdOfOpenTrade": 122
-}
-```
-
-`open` flips from `true` to `false` after the trade closes.
-
-### `/profit-loss` response
-
-```json
-{
-  "success": true,
-  "data": [
-    { "total": 1234.56, "totalCollateral": 5000.00, "pairIndex": 1 },
-    { "total": -89.20,  "totalCollateral": 2500.00, "pairIndex": 5 }
-  ]
-}
-```
-
-Per-row PnL convention:
-
-- `_mapped_netPnl` when `event.args.isPnl === true` (ZFP).
-- `_mapped_grossPnl` otherwise (fixed-fee).
-
-In the **ungrouped** case `pairIndex` is `null`.
-
-### `/referral/stats` response
-
-```json
-{
-  "success": true,
-  "data": {
-    "asReferrer": { "totalFees": 12345.67, "totalRebates": 1234.56, "totalTraders": 42 },
-    "asTrader":   { "totalVolume": 98765.43, "totalFeeDiscount": 234.56 }
-  }
-}
-```
-
-USDC fields here are already plain decimals (pre-divided by `1e6`).
-
-### Rate limit
-
-History API: ~10 req/s per IP. Batch and cache when possible.
-
----
-
-## Chat-only fallback: Avantis UI
-
-When the user wants a tx-builder action (open, close, cancel, margin update, TP/SL change, USDC approval, delegate set/remove) and there is no shell, terminal, or direct HTTP tool in the current surface (typical for ChatGPT, Claude.ai):
-
-1. Use `web_request` against `data.avantisfi.com`, `core.avantisfi.com`, or `api.avantisfi.com` to answer the read side of the question (pair info, the user's open positions, recent PnL).
-2. Tell the user plainly that signing and submitting Avantis trades from this surface requires the Avantis web UI (or a CLI harness like Claude Code, Codex, or Cursor terminal).
-3. Build a deep link to the relevant market and surface it as a clickable link. URL pattern:
-
-   ```
-   https://www.avantisfi.com/trade?asset=<SYMBOL>-USD
-   ```
-
-   `<SYMBOL>` is the pair's `from` from `pairInfos["<pairIndex>"]` (e.g. `BTC`, `ETH`, `SNDK`). Examples:
-
-   - `https://www.avantisfi.com/trade?asset=ETH-USD`
-   - `https://www.avantisfi.com/trade?asset=BTC-USD`
-   - `https://www.avantisfi.com/trade?asset=SNDK-USD`
-
-4. If the user already supplied concrete trade parameters (side, leverage, collateral, TP, SL), summarize them in your message so they can reproduce the intent inside the UI. Do not claim the position was opened or modified — the UI flow is user-driven.
-
-Only use this fallback for tx-builder operations. View-only reads continue to work via `web_request` on the same surfaces.
-
----
-
-## Error Handling
+### Error Handling
 
 tx-builder error envelope:
 
@@ -803,9 +897,7 @@ Recommended handling:
 - For management actions, do not rely on tx-builder to prove the position/order exists. Verify via `core /user-data`.
 - Never silently retry a `BAD_REQUEST` with adjusted parameters; show options and ask the user.
 
----
-
-## Sanity Caps (tx-builder server-side)
+### Sanity Caps (tx-builder server-side)
 
 These are looser than per-pair envelopes — the per-pair check still applies.
 
@@ -818,9 +910,7 @@ These are looser than per-pair envelopes — the per-pair check still applies.
 
 EIP-55 address handling: `trader`, `delegate`, `spender` accept both checksummed and all-lowercase; the service normalizes to checksum in the response.
 
----
-
-## Scaling Quick Reference (on-chain side)
+### Scaling Quick Reference (on-chain side)
 
 | Domain | Scale | Example |
 | --- | --- | --- |
@@ -830,85 +920,7 @@ EIP-55 address handling: `trader`, `delegate`, `spender` accept both checksummed
 
 These apply when reading raw `core /user-data` strings or decoding on-chain logs. tx-builder inputs and `data.avantisfi.com` are always human-decimal.
 
----
-
-## Current tx-builder Endpoint Inventory
-
-| Endpoint | Calldata? | Purpose | `value` |
-| --- | --- | --- | --- |
-| `GET /trade/open` | Yes | Open market, ZFP, limit, or stop-limit trade | execution fee wei |
-| `GET /trade/close` | Yes | Close (full or partial) | execution fee wei |
-| `GET /trade/cancel` | Yes | Cancel a resting limit / stop-limit | `0x0` |
-| `GET /margin/update` | Yes | Deposit / withdraw collateral | `0x1` |
-| `GET /tpsl/update` | Yes | Update TP and SL | `0x1` |
-| `GET /delegate/set` | Yes | Set delegate | `0x0` |
-| `GET /delegate/remove` | Yes | Remove delegate | `0x0` |
-| `GET /token/approve` | Yes | Approve USDC | `0x0` |
-| `GET /pairs` | No | Pair summaries (index + symbol + Lazer flag) | — |
-| `GET /pairs/<index>` | No | Single pair detail | — |
-| `GET /addresses` | No | Contract addresses on Base | — |
-| `GET /health` | No | `{ status:"ok", chainId:8453 }` | — |
-| `GET /docs` | No | Swagger UI | — |
-| `GET /openapi.json` | No | OpenAPI 3.1 spec | — |
-
----
-
-## Portfolio Inspection Recipe
-
-To answer "show me my Avantis activity" combine three sources:
-
-| Source | What it returns |
-| --- | --- |
-| `GET core.avantisfi.com/user-data?trader=<addr>` | Current open positions + resting limit orders |
-| `GET api.avantisfi.com/v2/history/portfolio/all/<addr>/1/20` | Page of all trades (open + closed), chronological with PnL |
-| `GET api.avantisfi.com/v2/history/portfolio/profit-loss/<addr>/grouped` | Aggregate PnL per pair |
-
-Sketch:
-
-```ts
-const [open, history, pnl] = await Promise.all([
-  fetch(`https://core.avantisfi.com/user-data?trader=${trader}`).then(r => r.json()),
-  fetch(`https://api.avantisfi.com/v2/history/portfolio/all/${trader}/1/20`).then(r => r.json()),
-  fetch(`https://api.avantisfi.com/v2/history/portfolio/profit-loss/${trader}/grouped`).then(r => r.json()),
-]);
-
-if (!history.success) throw new Error(history.errorMessage);
-if (!pnl.success)     throw new Error(pnl.errorMessage);
-
-const openCount    = open.positions.length;
-const pendingCount = open.limitOrders.length;
-const pnlByPair    = pnl.data.reduce((acc, row) => { acc[row.pairIndex] = row.total; return acc; }, {});
-```
-
-Scaling reminders:
-
-- `/user-data` returns raw stringified ints (USDC `/1e6`, prices/leverage `/1e10`).
-- `/v2/history/portfolio/all` mixes — most numeric fields are already human decimals.
-- `/v2/history/portfolio/profit-loss` returns human decimals rounded to two places.
-
-For top trades, swap `profit-loss` for `/v2/history/portfolio/top/<addr>/5` (top 5 by net PnL).
-
----
-
-## Cross-Recipe Pattern: Agent Loop
-
-```
-loop:
-  - read intent (open / close / cancel / tp-sl / margin / approve / delegate)
-  - resolve any symbol → pairIndex (data API or tx-builder /pairs)
-  - read core /user-data when the action targets an existing position or order
-  - build call data (tx-builder /trade/* | /margin/update | /tpsl/update | /delegate/* | /token/approve)
-  - if response.ok === false → surface error.message, ask the user, do not silently retry
-  - hand { to, data, value } to send_calls; collect tx hash from the approval flow
-  - for market opens / closes: poll history /v2/market-order-initiated/status/<txHash> until non-pending
-  - re-read core /user-data to confirm state, summarize for the user
-```
-
-Every flow above (open, close, cancel, TP/SL, margin, delegate, approve) is one branch of this loop.
-
----
-
-## Pyth Feeds
+### Pyth Feeds
 
 Avantis prices flow through Pyth, never Chainlink directly for entry / settlement. Two paths:
 
@@ -919,9 +931,7 @@ Avantis prices flow through Pyth, never Chainlink directly for entry / settlemen
 
 Agents do not normally call Pyth directly — tx-builder fetches the update bytes for `/margin/update` and `/tpsl/update`. Override via `priceUpdateData` + `priceSourcing` only when you have a fresh blob cached and want a fully offline call.
 
----
-
-## On-Chain `Trade` Tuple
+### On-Chain `Trade` Tuple
 
 Order matches the on-chain `ITradingStorage.Trade` struct. Useful when reading raw events or debugging:
 
@@ -941,9 +951,7 @@ Order matches the on-chain `ITradingStorage.Trade` struct. Useful when reading r
 
 `Trading.openTrade(t, type, slippageP)` — `type` is the `OpenLimitOrderType` enum from [Step 4 — Open A Trade](#step-4--open-a-trade); `slippageP` is `× 10^10` percent.
 
----
-
-## Events Worth Indexing
+### Events Worth Indexing
 
 If your agent indexes Avantis logs (rather than polling APIs):
 
@@ -958,9 +966,7 @@ If your agent indexes Avantis logs (rather than polling APIs):
 
 `orderId` from `MarketOrderInitiated` (or just the `txHash`) is what to feed into `/v2/market-order-initiated/status/<txHash>`.
 
----
-
-## Key Thresholds
+### Key Thresholds
 
 | Constant | Value | Meaning |
 | --- | --- | --- |

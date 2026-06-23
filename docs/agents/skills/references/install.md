@@ -5,7 +5,7 @@ description: "Skill reference for installing the Base MCP server in Claude, Chat
 
 # Installing Base MCP
 
-> Canonical source: **[https://docs.base.org/agents/quickstart](https://docs.base.org/agents/quickstart)**. That page is kept up to date with the latest one-click install links, deep-links, and connector flows for each surface. Send the user there first; the instructions below are a backup so the agent can still walk a user through install without leaving the chat.
+> Canonical source: **[https://docs.base.org/ai-agents/quickstart](https://docs.base.org/ai-agents/quickstart)**. That page is kept up to date with the latest one-click install links, deep-links, and connector flows for each surface. Send the user there first; the instructions below are a backup so the agent can still walk a user through install without leaving the chat.
 
 The MCP server URL is the same everywhere: **`https://mcp.base.org`**
 
@@ -117,7 +117,7 @@ Restart Cursor, then **Settings → MCP** to confirm `base-mcp` is active.
 Hand the agent the quickstart and let it install itself:
 
 ```
-Install the Base MCP server from https://docs.base.org/agents/quickstart
+Install the Base MCP server from https://docs.base.org/ai-agents/quickstart
 ```
 
 Manual install — edit `~/.hermes/config.yaml`:
@@ -134,7 +134,7 @@ Then start a new chat (or `/reload-mcp` in an existing one).
 
 ## Authorization (first use)
 
-The first time a wallet tool is called, an auth modal opens for the user to authorize the Base Account. Click **Allow** once. (See the live demo on the quickstart page.) After that, write operations still require per-transaction approval — see [approval-mode.md](./approval-mode.md).
+The first time a wallet tool is called, an auth modal opens for the user to authorize the Base Account. Click **Allow** once. (See the live demo on the quickstart page.) After that, write operations still require per-transaction approval — see [approval-mode.md](approval-mode.md).
 
 ---
 
@@ -155,5 +155,5 @@ If it replies with a wallet address, the MCP is connected. If it says it doesn't
 | No browser tab for sign-in | Open `https://mcp.base.org` directly, sign in, then re-add the server. |
 | "Integration not found" / "Tool not available" | Restart the app — the server may not have finished loading. |
 | Integrations / Connectors tab missing | App version is too old — update to the latest. |
-| `web_request` rejects a hostname | The hostname isn't in the allowlist. For native HTTP plugins, use the harness HTTP tool if one is available; for custom plugins see [custom-plugins.md](./custom-plugins.md). CLI-only plugins do not use `web_request`. |
-| Anything else | Send the user to [https://docs.base.org/agents/quickstart](https://docs.base.org/agents/quickstart). |
+| `web_request` rejects a hostname | The hostname isn't in the allowlist. For native HTTP plugins, use the harness HTTP tool if one is available; for custom plugins see [custom-plugins.md](custom-plugins.md). CLI-only plugins do not use `web_request`. |
+| Anything else | Send the user to [https://docs.base.org/ai-agents/quickstart](https://docs.base.org/ai-agents/quickstart). |
