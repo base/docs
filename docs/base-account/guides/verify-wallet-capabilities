@@ -1,0 +1,195 @@
+---
+title: Verify Wallet Capabilities
+description: Learn how to verify wallet capabilities before using Base Account features to build more reliable applications.
+---
+
+import { Callout } from 'nextra/components'
+
+# Verify Wallet Capabilities
+
+Before using Base Account features such as batch transactions, spend permissions, paymasters, or other smart wallet functionality, verify that the connected wallet supports the capabilities your application requires.
+
+Checking capabilities before making wallet-specific RPC requests helps your application:
+
+- Avoid unsupported RPC method errors
+- Gracefully handle unsupported features
+- Improve user experience with clear fallback messaging
+- Reduce unnecessary network requests
+
+## Prerequisites
+
+Before following this guide, make sure you have:
+
+- Connected a wallet to your application
+- Access to the injected EIP-1193 provider
+- Basic familiarity with Base Account features
+
+## Why verify capabilities?
+
+Wallet implementations do not always expose the same functionality.
+
+For example, one wallet may support:
+
+- Batch transactions
+- Paymasters
+- Smart accounts
+
+Another wallet may only support standard Ethereum RPC methods.
+
+Rather than assuming support, query wallet capabilities immediately after the user connects.
+
+## Recommended workflow
+
+```text
+User connects wallet
+        │
+        ▼
+Retrieve wallet capabilities
+        │
+        ▼
+Cache capabilities
+        │
+        ▼
+Enable supported features
+        │
+        ▼
+Hide or disable unsupported features
+```
+
+This approach keeps feature availability consistent throughout the user's session.
+
+## Retrieve wallet capabilities
+
+After connecting a wallet, request its supported capabilities.
+
+```typescript
+const provider = window.ethereum;
+
+const capabilities = await provider.request({
+  method: "wallet_getCapabilities",
+});
+```
+
+Store the returned value in your application state so it can be reused without making repeated requests.
+
+## Enable features conditionally
+
+Once capabilities have been retrieved, check whether a feature is supported before calling wallet-specific methods.
+
+```typescript
+const supportsBatchTransactions =
+  capabilities?.atomicBatch?.supported === true;
+
+if (supportsBatchTransactions) {
+  await provider.request({
+    method: "wallet_sendCalls",
+    params: [
+      {
+        calls: [
+          {
+            to: recipient,
+            value,
+            data: "0x",
+          },
+        ],
+      },
+    ],
+  });
+}
+```
+
+## Handle unsupported features
+
+If a capability is unavailable, avoid making the RPC request.
+
+Instead, provide a clear explanation to users.
+
+```typescript
+if (!supportsBatchTransactions) {
+  setError(
+    "Your connected wallet does not currently support batch transactions."
+  );
+}
+```
+
+Providing actionable feedback is significantly better than displaying raw provider errors.
+
+## Cache capability information
+
+Capability support rarely changes during an active session.
+
+After retrieving capabilities once, cache them in your application's state.
+
+For example:
+
+```typescript
+const [walletCapabilities, setWalletCapabilities] = useState(null);
+
+async function loadCapabilities(provider) {
+  const capabilities = await provider.request({
+    method: "wallet_getCapabilities",
+  });
+
+  setWalletCapabilities(capabilities);
+}
+```
+
+Avoid requesting capabilities before every transaction.
+
+## Best practices
+
+- Retrieve capabilities immediately after wallet connection.
+- Cache capability information during the current session.
+- Check capability support before calling wallet-specific RPC methods.
+- Hide unsupported functionality from the user interface.
+- Display clear fallback messaging when features are unavailable.
+
+## Common mistakes
+
+### Assuming every wallet supports smart accounts
+
+Not every wallet implements smart account functionality.
+
+Always verify support before enabling account abstraction features.
+
+### Calling unsupported RPC methods
+
+Avoid this pattern:
+
+```typescript
+await provider.request({
+  method: "wallet_sendCalls",
+});
+```
+
+Instead:
+
+```typescript
+if (supportsBatchTransactions) {
+  await provider.request({
+    method: "wallet_sendCalls",
+  });
+}
+```
+
+### Showing raw provider errors
+
+Provider error messages are often difficult for end users to understand.
+
+Translate unsupported capability errors into user-friendly messages.
+
+<Callout type="info">
+Feature availability depends on the connected wallet implementation.
+Your application should always detect supported capabilities instead of
+assuming that every wallet behaves identically.
+</Callout>
+
+## Next steps
+
+After verifying wallet capabilities, continue with guides for the features your connected wallet supports:
+
+- Batch Transactions
+- Spend Permissions
+- Paymasters
+- Base Pay
+- Provider RPC Reference
