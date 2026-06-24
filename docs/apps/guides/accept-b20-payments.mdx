@@ -5,13 +5,13 @@ description: "Accept B20 token payments in your app and match each transaction t
 
 B20 is an ERC-20 superset. Standard `transfer`, `transferFrom`, `approve`, `balanceOf`, and ERC-2612 `permit` all work, so an app that accepts ERC-20 tokens accepts B20 with no code changes.
 
-B20's new features include transfer policies, pausing, supply caps, and memos. This guide uses the memo: `transferWithMemo` works like `transfer`, but also attaches a `bytes32` reference such as an order ID and emits a `Memo` event right after the standard `Transfer`. Read that event to tie each payment to an order.
+B20's new features include transfer policies, pausing, supply caps, and memos. This guide uses the memo: `transferWithMemo` works like `transfer`, but also attaches a `bytes32` reference such as an order ID and emits a `Memo` event immediately after the standard `Transfer` event. Your app can read that `Memo` event to tie each payment to an order.
 
 ## Tag a payment with a memo
 
-This uses your configured viem `walletClient` and `publicClient`. It reads the token's decimals, sends a payment tagged with an order ID, then reads the memo back from the receipt:
+This example reads the token's decimals, sends a payment tagged with an order ID, then reads the memo back from the receipt. It uses your configured viem `walletClient` and `publicClient`:
 
-```js 
+```js pay-with-memo.js lines highlight={22-23,28-29} wrap
 import { parseUnits, stringToHex, hexToString, parseEventLogs } from 'viem';
 
 const TOKEN    = '0xB200...'; // the B20 token you accept
@@ -57,4 +57,5 @@ Call `publicClient.simulateContract` with the same arguments before sending. It 
 ## Related pages
 
 - [B20 token standard](/base-chain/specs/upgrades/beryl/b20): the full interface, including memos, policies, pausing, and roles.
+- [Query B20 events](https://docs.cdp.coinbase.com/data/sql-api/b20-events): index `Transfer` and `Memo` events with the CDP SQL API to reconcile payments against orders at scale.
 - [Launch a B20 Token](/get-started/launch-b20-token): create your own B20 token.
