@@ -1,121 +1,143 @@
 ---
 title: 'Connecting to Base'
-description: Documentation about Base Mainnet and Base Testnet. This page covers network information for the Base network, including network names, descriptions, RPC endpoints, chain IDs, currency symbols, and block explorers.
+description: Network details and wallet setup for Base Mainnet, Base Testnet (Sepolia), and Base Vibenet.
 ---
 
-## Base Mainnet
+export const AddToMetaMask = ({ chainId, chainName, rpcUrl, blockExplorer }) => {
+  const addNetwork = async () => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      alert('MetaMask is not installed. Visit metamask.io to get started.');
+      return;
+    }
+    try {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [
+          {
+            chainId: '0x' + Number(chainId).toString(16),
+            chainName,
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: [rpcUrl],
+            blockExplorerUrls: [blockExplorer],
+          },
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to add network:', error);
+    }
+  };
+  return (
+    <button
+      onClick={addNetwork}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '8px 16px',
+        backgroundColor: '#0052FF',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontWeight: 600,
+        fontSize: '14px',
+      }}
+    >
+      Add {chainName}
+    </button>
+  );
+};
 
-| Name                        | Value                                                                                                                     |
-| :-------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| Network Name                | Base Mainnet                                                                                                              |
-| Description                 | The public mainnet for Base.                                                                                              |
-| RPC Endpoint                | [https://mainnet.base.org](https://mainnet.base.org)<br/>_Flashblocks-enabled. Rate limited and not for production systems._                   |
-| Chain ID                    | 8453                                                                                                                      |
-| Currency Symbol             | ETH                                                                                                                       |
-| Block Explorer              | [https://base.blockscout.com/](https://base.blockscout.com/)                                                              |
+Base is an EVM-compatible Layer 2 network. Use the details below to connect your wallet or application.
 
-## Base Testnet (Sepolia)
+## Network details
 
-| Name                        | Value                                                                                                                     |
-| :-------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| Network Name                | Base Sepolia                                                                                                              |
-| Description                 | A public testnet for Base.                                                                                                |
-| RPC Endpoint                | [https://sepolia.base.org](https://sepolia.base.org)<br/>_Flashblocks-enabled. Rate limited and not for production systems._                   |
-| Chain ID                    | 84532                                                                                                                     |
-| Currency Symbol             | ETH                                                                                                                       |
-| Block Explorer              | [https://sepolia-explorer.base.org](https://sepolia-explorer.base.org)                                                    |
+<Tabs>
+  <Tab title="Mainnet">
+    | | |
+    | :--- | :--- |
+    | **Network Name** | Base Mainnet |
+    | **RPC Endpoint** | [mainnet.base.org](https://mainnet.base.org) |
+    | **Chain ID** | 8453 |
+    | **Currency Symbol** | ETH |
+    | **Block Explorer** | [basescan.org](https://basescan.org) |
+
+
+  </Tab>
+  <Tab title="Sepolia (Testnet)">
+    | | |
+    | :--- | :--- |
+    | **Network Name** | Base Sepolia |
+    | **RPC Endpoint** | [sepolia.base.org](https://sepolia.base.org) |
+    | **Chain ID** | 84532 |
+    | **Currency Symbol** | ETH |
+    | **Block Explorer** | [sepolia.basescan.org](https://sepolia.basescan.org) |
+
+
+  </Tab>
+  <Tab title="Vibenet">
+    Vibenet is Base's experimental preview network where new chain-level features are available before they roll out to Sepolia or Mainnet. It currently hosts [B20 tokens](/get-started/launch-b20-token) — an ERC-20 superset with built-in roles, supply caps, pausing, policy gating, and `permit` implemented as a native precompile.
+
+    Use Vibenet to build against cutting-edge Base features. It is not intended for production or user-facing applications. Learn more at [vibes.base.org](https://vibes.base.org).
+
+    | | |
+    | :--- | :--- |
+    | **Network Name** | Base Vibenet |
+    | **RPC Endpoint** | [rpc.vibes.base.org](https://rpc.vibes.base.org) |
+    | **Chain ID** | 84538453 |
+    | **Currency Symbol** | ETH |
+    | **Faucet** | [faucet.vibes.base.org](https://faucet.vibes.base.org) |
+    | **Block Explorer** | [explorer.vibes.base.org](https://explorer.vibes.base.org) |
+
+  </Tab>
+</Tabs>
+
+<Info>
+The public endpoints above are rate-limited and not suitable for production traffic. For production use, connect through a [node provider](/base-chain/node-operators/node-providers).
+</Info>
 
 <Note>
-L1 & L2 protocol and network-related smart contract deployments can be found on the [Base Contracts](/base-chain/network-information/base-contracts) page.
+The public Base endpoints are **HTTP only**. WebSocket RPC connections (`eth_subscribe`, `newHeads`, `logs`) are not available on public Base endpoints — use a [node provider](/base-chain/node-operators/node-providers) such as Alchemy or QuickNode for WebSocket support.
 </Note>
 
+## Wallet setup
 
-<Note>
-For production systems, we recommend using a node from one of our [node partners](/base-chain/node-operators/node-providers), or [running your own Base node](/base-chain/node-operators/run-a-base-node).
-</Note>
+<Tabs>
+  <Tab title="Coinbase Wallet">
 
-# Using Base with your wallet
+    [Coinbase Wallet](https://chrome.google.com/webstore/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad?hl=en) supports Base networks by default.
 
-### Coinbase Wallet
+    **Mainnet**
 
-The [Coinbase Wallet](https://chrome.google.com/webstore/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad?hl=en) browser extension provides support for Base by default.
+    1. Open the Coinbase Wallet extension and log in.
+    2. Connect to your app.
+    3. Click the network icon in the upper right corner.
+    4. Select **Base**.
 
-To use Base with Coinbase Wallet:
+    **Base Sepolia**
 
-1. Open the Coinbase Wallet browser extension and log in to your account.
-2. Connect to an app using Coinbase Wallet.
-3. Open the network selection menu by clicking the network icon in the upper right-hand corner.
-4. Select **Base**.
+    1. Open the Coinbase Wallet extension and log in.
+    2. Connect to your app.
+    3. Click the network icon in the upper right corner.
+    4. Click **More networks** and go to the **Testnets** tab.
+    5. Select **Base Sepolia**.
 
-Your active network should now be switched to Base.
+  </Tab>
+  <Tab title="MetaMask">
 
+    Click a button to automatically add a Base network to [MetaMask](https://metamask.io):
 
-### Other wallets
+    <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+      <AddToMetaMask chainId="8453" chainName="Base Mainnet" rpcUrl="https://mainnet.base.org" blockExplorer="https://basescan.org" />
+      <AddToMetaMask chainId="84532" chainName="Base Sepolia" rpcUrl="https://sepolia.base.org" blockExplorer="https://sepolia.basescan.org" />
+      <AddToMetaMask chainId="84538453" chainName="Base Vibenet" rpcUrl="https://rpc.vibes.base.org" blockExplorer="https://explorer.vibes.base.org" />
+    </div>
 
-Base can be added as a custom network to any EVM-compatible wallet (i.e. [MetaMask](https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn)).
+    To add a network manually, use the details from the [Network details](#network-details) section above.
 
-#### MetaMask
+  </Tab>
+  <Tab title="Other EVM wallets">
 
-To add Base as a custom network to MetaMask:
+    Base can be added as a custom network to any EVM-compatible wallet. Use the connection details from the [Network details](#network-details) section above.
 
-1. Open the MetaMask browser extension.
-2. Open the network selection dropdown menu by clicking the dropdown button at the top of the extension.
-3. Click the **Add network** button.
-4. Click **Add a network manually**.
-5. In the **Add a network manually** dialog that appears, enter the following information for Base mainnet:
-
-   | Name            | Value                                                        |
-   | :-------------- | :----------------------------------------------------------- |
-   | Network Name    | Base Mainnet                                                 |
-   | Description     | The public mainnet for Base.                                 |
-   | RPC Endpoint    | [https://mainnet.base.org](https://mainnet.base.org)         |
-   | Chain ID        | 8453                                                         |
-   | Currency Symbol | ETH                                                          |
-   | Block Explorer  | [https://base.blockscout.com/](https://base.blockscout.com/) |
-
-6. Tap the Save button to save Base as a network.
-
-You should now be able to connect to the Base by selecting it from the network selection dropdown menu.
-
-
-
-## Testnet
-
-#### Coinbase Wallet browser extension provides support for Base Sepolia testnet by default.
-
-To use Base Sepolia with Coinbase Wallet:
-
-1. Open the Coinbase Wallet browser extension and log in to your account.
-2. Connect to an app using Coinbase Wallet.
-3. Open the network selection menu by clicking the network icon in the upper right-hand corner.
-4. Click the **More networks** button.
-5. Navigate to the **Testnets** tab.
-6. Select **Base Sepolia**.
-
-Your active network should now be switched to Base testnet.
-
-#### Other wallets
-
-Base Sepolia can be added as a custom network to any EVM-compatible wallet (e.g., [MetaMask](https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn)).
-
-#### MetaMask
-
-To add Base Sepolia as a custom network in MetaMask:
-
-1. Open the MetaMask browser extension.
-2. Open the network selection dropdown menu by clicking the dropdown button at the top of the extension.
-3. Click the **Add network** button.
-4. Click **Add a network manually**.
-5. In the **Add a network manually** dialog that appears, enter the following information for the Base Sepolia testnet:
-
-   | Name            | Sepolia                                                                |
-   | :-------------- | :--------------------------------------------------------------------- |
-   | Network Name    | Base Sepolia                                                           |
-   | RPC Endpoint    | [https://sepolia.base.org](https://sepolia.base.org)                   |
-   | Chain ID        | 84532                                                                  |
-   | Currency Symbol | ETH                                                                    |
-   | Block Explorer  | [https://sepolia-explorer.base.org](https://sepolia-explorer.base.org) |
-
-6. Tap the Save button to save Base Sepolia as a network.
-
-You should now be able to connect to the Base testnet by selecting it from the network selection dropdown menu.
+  </Tab>
+</Tabs>
