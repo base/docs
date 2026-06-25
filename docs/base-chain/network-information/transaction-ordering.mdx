@@ -1,7 +1,6 @@
 ---
-title: Block Building
-slug: /block-building
-description: This page outlines how Base blocks are built.
+title: Transaction Ordering
+description: This page outlines how Base transactions are ordered.
 ---
 
 ## Overview
@@ -13,20 +12,14 @@ The Base networks are currently configured in the following ways:
 
 | Network      | Current Configuration       | Upcoming Deployments   |
 |--------------|-----------------------------|------------------------|
-| Base Mainnet | [Flashblocks](#flashblocks) + [Per-Transaction Gas Max](#per-transaction-gas-maximum) | |
-| Base Sepolia | [Flashblocks](#flashblocks) + [Per-Transaction Gas Max](#per-transaction-gas-maximum) | |
-
-See the [Configuration Changelog](/base-chain/network-information/configuration-changelog) for a history of changes to block building and other network parameters.
+| Base Mainnet | [Flashblocks](#flashblocks) | |
+| Base Sepolia | [Flashblocks](#flashblocks) | |
 
 ## Configurations
 
 ### Flashblocks
 
 Blocks are built using [base-builder](https://github.com/base/base/tree/main/crates/builder) with priority fee auctions occurring every **200ms**. This reduces effective block times from 2 seconds to 200 milliseconds through preconfirmations.
-
-<Info>
-For a comprehensive technical deep dive into Flashblocks architecture, see the [Flashblocks Overview](/base-chain/flashblocks/overview).
-</Info>
 
 *There are three key differences from vanilla ordering:*
 
@@ -36,33 +29,22 @@ For a comprehensive technical deep dive into Flashblocks architecture, see the [
 
    | Flashblock | Available Gas |
    |------------|---------------|
-   | 1 | ~14M gas (1/10) |
-   | 2 | ~28M gas (2/10) |
-   | 3 | ~42M gas (3/10) |
+   | 1 | ~40M gas (1/10) |
+   | 2 | ~80M gas (2/10) |
+   | 3 | ~120M gas (3/10) |
    | ... | ... |
-   | 10 | ~140M gas (full) |
+   | 10 | ~400M gas (full) |
 
-   <Warning>
-   Transactions exceeding 14M gas cannot fit in Flashblock 1 and must wait for later Flashblocks. Monitor inclusion latency if your app creates large transactions.
-   </Warning>
+   <Note>
+   Because gas is allocated cumulatively, a transaction must fit within the budget available at the Flashblock it's selected for. Base's [per-transaction gas maximum](/base-chain/network-information/throughput-and-limits#per-transaction-gas-maximum) (~16.7M) is below Flashblock 1's ~40M budget, so any valid transaction can be included starting from the first Flashblock.
+   </Note>
 
 3. **Dynamic Mempool** — The builder continuously accepts new transactions while building each Flashblock. This minimizes inclusion latency but means transactions are ordered by fee *at the time of selection*, not globally across all transactions that arrive during the 200ms window. A late-arriving high-fee transaction may appear after an already-committed lower-fee transaction.
 
    <Note>
-   This is a deliberate tradeoff: faster inclusion at the cost of occasionally "breaking" expected priority gas auction (PGA) ordering within a Flashblock. See the [Flashblocks FAQ](/base-chain/flashblocks/faq) for more details.
+   This is a deliberate tradeoff: faster inclusion at the cost of occasionally "breaking" expected priority gas auction (PGA) ordering within a Flashblock.
    </Note>
-
-### Per-Transaction Gas Maximum
-
-As of the [Azul hardfork](/base-chain/specs/upgrades/azul/exec-engine#transaction-gas-limit-cap), Base enforces a protocol-level per-transaction gas maximum of **16,777,216 gas (2^24)** via [EIP-7825](https://eips.ethereum.org/EIPS/eip-7825). Transactions that specify a gas limit above this value are **rejected during block validation**. `eth_sendTransaction` or `eth_sendRawTransaction` will return a JSON-RPC error (for example: `exceeds maximum per-transaction gas limit`).
-
-<Note>
-Deposit transactions are exempt from this cap. They are limited by the maximum gas includable in an L1 block (20,000,000 gas).
-</Note>
-
-Bundler operators for smart contract wallets must configure their systems to limit the bundle size to fit within this cap.
 
 ### Vanilla
 
 Blocks are built every 2s by `base-reth-node`. Transactions within those blocks are ordered by priority fee.
-

@@ -11,7 +11,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
 - [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
 - [Base Account](./base-account/llms.txt)
-- [Base Chain](./base-chain/llms.txt) — Bridge tokens and messages between Base and Solana Mainnet
+- [Base Chain](./base-chain/llms.txt) — Start here for Base Chain docs, including concepts, network reference, node operation, APIs, and protocol specifications.
 - [Get Started](./get-started/llms.txt)
 - [Ledgers](./ledgers/llms.txt) — An introduction to Base Ledgers, the enterprise way to run confidential payments that settle on Base.
 - [Static](./static/llms.txt)
@@ -50,7 +50,7 @@ npx skills add base/base-skills
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
 |apps/guides:accept-b20-payments,migrate-to-standard-web-app
-|apps/quickstart:build-app
+|apps/quickstart:build-app,deploy-on-base
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
 |base-account/basenames:basename-transfer,basenames-faq
@@ -74,14 +74,15 @@ npx skills add base/base-skills
 |base-account/reference/prolink-utilities:createProlinkUrl,decodeProlink,encodeProlink
 |base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
 |base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button
+|base-chain:overview
 |base-chain/api-reference:rpc-overview
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
-|base-chain/flashblocks:app-integration,architecture,faq,overview
-|base-chain/network-information:base-contracts,block-building,bridges,configuration-changelog,diffs-ethereum-base,network-faucets,network-fees,transaction-finality,troubleshooting-transactions
+|base-chain/flashblocks:faq
+|base-chain/network-information:base-contracts,base-solana-bridge,bridging-and-withdrawals,ecosystem-bridges,network-faucets,network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
 |base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
-|base-chain/quickstart:base-solana-bridge,connecting-to-base,deploy-on-base,why-base
+|base-chain/quickstart:connecting-to-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
 |base-chain/specs:overview
 |base-chain/specs/protocol:batcher,overview

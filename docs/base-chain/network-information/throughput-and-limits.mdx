@@ -1,0 +1,68 @@
+---
+title: Throughput and Limits
+description: Gas limits and throughput-related network parameters on Base.
+---
+
+Base throughput is constrained by gas limits, data availability throughput, fee market parameters, and endpoint limits. There is no single transactions-per-second value that applies to every workload, because transactions consume different amounts of gas and data.
+
+Base has sustained multiple bursts of over 5,000 TPS, and throughput continues to increase as the chain scales. For more context, see [Introducing Base Azul](https://blog.base.dev/introducing-base-azul).
+
+## Current limits
+
+| Limit | Value |
+|-------|-------|
+| Full block gas budget | ~400M gas |
+| First Flashblock gas budget | ~40M gas |
+| Per-transaction gas maximum | 16,777,216 gas (2^24) |
+| Deposit transaction limit | Maximum gas includable in an L1 block (20,000,000 gas) |
+
+The full block gas budget is split across Flashblocks while the block is being built. Flashblock 1 can use 1/10 of the block gas limit, Flashblock 2 can use 2/10, and so on until Flashblock 10 has access to the full limit. See [Transaction Ordering](/base-chain/network-information/transaction-ordering#flashblocks) for how this affects transaction ordering.
+
+## Flashblock performance
+
+Flashblocks stream incremental block updates roughly every 200ms, giving apps sub-second preconfirmations within the standard 2-second block.
+
+| Metric | Value |
+|--------|-------|
+| Flashblock build time (P50) | ~10ms |
+| Preconfirmation latency | ~200ms |
+| Full block time | 2 seconds |
+| Flashblocks per block | 10 |
+| Reorg rate | < 0.1% |
+
+See the [Flashblocks Reference](/base-chain/flashblocks/faq) for reorg handling and other common questions.
+
+## Per-transaction gas maximum
+
+As of the [Azul hardfork](/base-chain/specs/upgrades/azul/exec-engine#transaction-gas-limit-cap), Base enforces a protocol-level per-transaction gas maximum of **16,777,216 gas (2^24)** via [EIP-7825](https://eips.ethereum.org/EIPS/eip-7825). Transactions that specify a gas limit above this value are **rejected during block validation**. `eth_sendTransaction` or `eth_sendRawTransaction` will return a JSON-RPC error (for example: `exceeds maximum per-transaction gas limit`).
+
+<Note>
+Deposit transactions are exempt from this cap. They are limited by the maximum gas includable in an L1 block (20,000,000 gas).
+</Note>
+
+Bundler operators for smart contract wallets must configure their systems to limit the bundle size to fit within this cap.
+
+## Fee parameters
+
+Fees affect practical throughput because they determine whether transactions can be included when demand approaches available capacity.
+
+| Parameter | Current value |
+|-----------|---------------|
+| Minimum base fee | 5,000,000 wei (0.005 gwei) |
+| EIP-1559 elasticity | 6 |
+| EIP-1559 denominator | 125 |
+| Maximum L2 base fee change per block | 4% |
+
+See [Network Fees](/base-chain/network-information/network-fees) for how Base transaction fees are structured, including the L2 execution fee and L1 security fee.
+
+## Data availability throughput
+
+Base transaction data is posted to Ethereum for data availability. If data availability throughput becomes constrained, the sequencer can limit L2 transaction throughput while the batcher catches up.
+
+During DA throttling, even transactions with high priority fees may be delayed. There is no RPC endpoint that calculates priority fee estimates with throttling in mind. See [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions#priority-fee-too-low) for the transaction-submission implications.
+
+## Endpoint limits
+
+Public endpoints are rate-limited and are not suitable for production traffic. Hosted RPC providers can also apply request-per-second limits, compute-unit limits, method restrictions, archive-data limits, or WebSocket subscription limits.
+
+Endpoint limits do not change Base protocol capacity, but they can become the practical bottleneck for apps, wallets, indexers, and monitoring systems. For production use, connect through a [node provider](/base-chain/node-operators/node-providers) or [run a Base node](/base-chain/node-operators/run-a-base-node).
