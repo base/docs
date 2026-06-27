@@ -1,7 +1,7 @@
 ---
 title: 'eth_getLogs'
 sidebarTitle: 'eth_getLogs'
-description: 'Returns logs matching a filter. Use pending on a Flashblocks endpoint to query logs from pre-confirmed transactions.'
+description: 'Returns logs matching a filter. Use pending to query logs from pre-confirmed transactions.'
 ---
 
 Returns an array of all logs matching a given filter object. Particularly useful for indexing on-chain events.
@@ -11,7 +11,7 @@ Queries spanning large block ranges or high-activity contracts can time out or b
 </Warning>
 
 <Tip>
-**Flashblocks:** Set `"fromBlock": "pending"` and `"toBlock": "pending"` on a `https://mainnet-preconf.base.org` endpoint to query logs from pre-confirmed transactions, updated every ~200ms. For a real-time stream, consider the [`pendingLogs`](/base-chain/api-reference/flashblocks-api/pendingLogs) WebSocket subscription instead.
+**Flashblocks:** Set `"fromBlock": "pending"` and `"toBlock": "pending"` to query logs from pre-confirmed transactions, updated every ~200ms. For a real-time stream, consider the [`pendingLogs`](/base-chain/api-reference/flashblocks-api/pendingLogs) WebSocket subscription instead.
 </Tip>
 
 ## Parameters
@@ -21,7 +21,7 @@ Queries spanning large block ranges or high-activity contracts can time out or b
 
   <Expandable title="Filter fields">
     <ParamField body="fromBlock" type="string">
-      Start of the block range. Block number in hex or a block tag. Use `"pending"` on a Flashblocks endpoint to include pre-confirmed logs. Defaults to `"latest"`.
+      Start of the block range. Block number in hex or a block tag. Use `"pending"` to include pre-confirmed logs. Defaults to `"latest"`.
     </ParamField>
     <ParamField body="toBlock" type="string">
       End of the block range. Block number in hex or a block tag. Defaults to `"latest"`.
@@ -48,6 +48,7 @@ Queries spanning large block ranges or high-activity contracts can time out or b
     <ResponseField name="topics" type="array">Array of 0–4 indexed 32-byte topics. Topic 0 is typically the event signature hash.</ResponseField>
     <ResponseField name="data" type="string">ABI-encoded non-indexed event parameters.</ResponseField>
     <ResponseField name="blockNumber" type="string">Block number in which this log was emitted (hex).</ResponseField>
+    <ResponseField name="blockTimestamp" type="string">Unix timestamp of the block containing this log as a hex string. Base L2 extension to the standard Ethereum log schema.</ResponseField>
     <ResponseField name="transactionHash" type="string">32-byte hash of the transaction that emitted this log.</ResponseField>
     <ResponseField name="transactionIndex" type="string">Index of the transaction in the block (hex).</ResponseField>
     <ResponseField name="blockHash" type="string">32-byte hash of the block.</ResponseField>
@@ -77,7 +78,7 @@ curl https://mainnet.base.org \
 ```
 
 ```bash Flashblocks (pending, ~200ms)
-curl https://mainnet-preconf.base.org \
+curl https://mainnet.base.org \
   -X POST \
   -H "Content-Type: application/json" \
   -d '{
@@ -99,19 +100,20 @@ curl https://mainnet-preconf.base.org \
   "id": 1,
   "result": [
     {
-      "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "address": "0x4200000000000000000000000000000000000006",
+      "blockHash": "0x89f4c9e23a2f706f0afa9ca8f770c4b7dcbcb73ba7e9b1c29c4a8c1b90c31d24",
+      "blockNumber": "0x2c31b0a",
+      "blockTimestamp": "0x6a1092f7",
+      "data": "0x00000000000000000000000000000000000000000000000080134424aad49d08",
+      "logIndex": "0x0",
+      "removed": false,
       "topics": [
         "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-        "0x000000000000000000000000d3cda913deb6f4967b2ef66ae97de114a83bcc01",
-        "0x0000000000000000000000004200000000000000000000000000000000000006"
+        "0x000000000000000000000000b2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
+        "0x00000000000000000000000051c72848c68a965f66fa7a88855f9f7784502a7f"
       ],
-      "data": "0x0000000000000000000000000000000000000000000000000000000005f5e100",
-      "blockNumber": "0x12ced28",
-      "transactionHash": "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238",
-      "transactionIndex": "0x0",
-      "blockHash": "0x3a4e8c5d7f2b1a6e9d0c4f8b3e7a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
-      "logIndex": "0x0",
-      "removed": false
+      "transactionHash": "0x2ca798df9d399b886fb3735414e8d35a20fec080e48eb5e2e75c0f6ec349a725",
+      "transactionIndex": "0x1"
     }
   ]
 }

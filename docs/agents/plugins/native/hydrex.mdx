@@ -1,0 +1,41 @@
+---
+title: "Hydrex"
+description: "Swaps and concentrated-liquidity position management on Hydrex via prepare-server calldata and Base MCP send_calls."
+keywords: ["Hydrex plugin", "Base MCP Hydrex", "Hydrex swap", "Hydrex liquidity", "Base MetaDEX"]
+---
+
+Hydrex is an Omni-Liquidity MetaDEX on Base. The plugin calls the Hydrex prepare server for quotes, portfolio state, pool data, and unsigned transaction calldata, then submits swaps and liquidity actions through Base MCP `send_calls`.
+
+**Chain:** Base mainnet.
+
+**Operations:** swap quotes, swaps, position reads, pool discovery, add liquidity, remove liquidity, and portfolio summaries.
+
+<Tip>
+On chat-only surfaces, the Hydrex prepare server may require a user-paste fallback: the assistant constructs a full GET URL, the user opens it, and the pasted JSON is mapped into `send_calls`.
+</Tip>
+
+## Try it
+
+```text Swap
+Swap 5 USDC for ETH on Hydrex
+```
+
+```text Positions
+Show my Hydrex liquidity positions
+```
+
+```text Add liquidity
+Add liquidity to the USDC/ETH pool on Hydrex: 100 USDC and 0.04 ETH
+```
+
+## Pattern
+
+Prepare endpoints return a `transactions[]` array. The assistant maps every transaction into one Base MCP `send_calls` batch with `{ to, value, data }` and `chain: "base"`. Approvals and actions stay in response order so the batch executes atomically.
+
+Reads and prepare calls need the user's wallet address as `from` or `recipient`. For liquidity actions, the assistant shows tick range, amounts, and position details before asking for approval.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/hydrex.md">
+  State endpoints, prepare endpoints, position handling, transaction mapping, and chat-only fallback.
+</Card>

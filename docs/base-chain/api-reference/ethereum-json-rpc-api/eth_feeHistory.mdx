@@ -25,8 +25,10 @@ Returns historical gas information for a range of blocks, including base fees an
 <ResponseField name="result" type="object">
   <Expandable title="Fee history fields">
     <ResponseField name="oldestBlock" type="string">The oldest block number in the result set (hex).</ResponseField>
-    <ResponseField name="baseFeePerGas" type="array">Array of base fees per gas for each block, plus one extra for the next pending block.</ResponseField>
-    <ResponseField name="gasUsedRatio" type="array">Array of gas used / gas limit ratios for each block (0.0 to 1.0).</ResponseField>
+    <ResponseField name="baseFeePerGas" type="array">Array of base fees per gas for each block, plus one extra entry for the next pending block. Length = `blockCount + 1`.</ResponseField>
+    <ResponseField name="gasUsedRatio" type="array">Array of gas used / gas limit ratios for each block (0.0 to 1.0). Length = `blockCount`.</ResponseField>
+    <ResponseField name="baseFeePerBlobGas" type="array">Array of base fees per blob gas for each block, plus one extra for the next pending block (EIP-4844). Always `"0x1"` on Base currently. Length = `blockCount + 1`.</ResponseField>
+    <ResponseField name="blobGasUsedRatio" type="array">Array of blob gas used ratios for each block (0.0 to 1.0). Used to adjust the blob base fee (EIP-4844). Length = `blockCount`.</ResponseField>
     <ResponseField name="reward" type="array">2D array of priority fee percentiles per block, matching the requested percentile values.</ResponseField>
   </Expandable>
 </ResponseField>
@@ -48,12 +50,33 @@ Returns historical gas information for a range of blocks, including base fees an
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "oldestBlock": "0x158a0e0",
-    "baseFeePerGas": ["0xf5", "0xf7", "0xfa", "0xfc", "0xf8", "0xf5", "0xf2", "0xf0", "0xef", "0xf1", "0xf3"],
-    "gasUsedRatio": [0.45, 0.62, 0.38, 0.71, 0.55, 0.49, 0.43, 0.37, 0.52, 0.64],
+    "baseFeePerBlobGas": [
+      "0x1",
+      "0x1",
+      "0x1",
+      "0x1",
+      "0x3"
+    ],
+    "baseFeePerGas": [
+      "0x4c4b40",
+      "0x4c4b40",
+      "0x4c4b40",
+      "0x4c4b40",
+      "0x4c4b40"
+    ],
+    "blobGasUsedRatio": [0, 0, 0, 0],
+    "gasUsedRatio": [
+      0.1180706525,
+      0.1370935325,
+      0.120803475,
+      0.0968808
+    ],
+    "oldestBlock": "0x2c31b05",
     "reward": [
-      ["0x1", "0x1", "0x2"],
-      ["0x1", "0x1", "0x1"]
+      ["0xf4240", "0x2191c0"],
+      ["0xf4240", "0x186a00"],
+      ["0x7a138", "0x4c4b40"],
+      ["0xf4240", "0x4c4b40"]
     ]
   }
 }

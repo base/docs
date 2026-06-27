@@ -1,0 +1,113 @@
+# https://docs.base.org/agents/llms-full.txt
+
+## Base MCP — Deep Guide for LLMs
+
+> Base MCP is a remote MCP server at `https://mcp.base.org` that connects any AI assistant to a Base Account smart wallet. Reads (balances, history, supported token lookup) return instantly; every write (send, swap, sign, contract call, x402 payment) returns an `approvalUrl` that the user reviews and approves in Base Account before it executes. No API keys, no private keys in the assistant's context.
+
+### What you can do here
+- Connect Base MCP to Claude, ChatGPT, Claude Code, Codex, Cursor, or Hermes via a single URL or CLI command
+- Check balances, portfolio value, and transaction history across supported chains
+- Send native tokens or ERC-20s to addresses, ENS names, basenames, or cb.id names
+- Swap supported tokens on supported mainnet chains
+- Sign EIP-191 personal messages and EIP-712 typed data (SIWE, permits, protocol auth)
+- Batch multiple contract calls into a single approval via `send_calls`
+- Pay for x402-enabled API requests with USDC on Base or Base Sepolia
+- Extend with protocol plugins (Aerodrome, Avantis, Balancer, Bankr, Bitrefill, Brickken, Clawnch, Flaunch, GMGN, Hydrex, KyberSwap, Moonwell, Morpho, o1.exchange, OpenSea, Printr, Uniswap, Venice, Virtuals, YO) or your own custom plugin
+- Append Builder Codes to transactions for onchain attribution and revenue share
+
+## Navigation (with brief descriptions)
+
+### Overview
+- [Base MCP](https://docs.base.org/agents/index.md) — Overview of capabilities, the approval flow, and section index
+
+### Quickstart
+- [Quickstart](https://docs.base.org/agents/quickstart.md) — Connect `mcp.base.org` to your assistant in 2 minutes; tabs for Claude, ChatGPT, Claude Code, Codex, Cursor, Hermes
+
+### Guides
+- [Check Balance & Portfolio](https://docs.base.org/agents/guides/check-balance.md) — Read tools: list wallets, fetch token balances, total portfolio USD value
+- [Send Tokens](https://docs.base.org/agents/guides/send-tokens.md) — `send` tool: native tokens or ERC-20s to a 0x address, ENS name, basename, or cb.id name
+- [Swap Tokens](https://docs.base.org/agents/guides/swap-tokens.md) — `swap` tool: token swaps on supported mainnet chains
+- [View Transaction History](https://docs.base.org/agents/guides/view-history.md) — Paginated history with asset filtering; date range filtering is not supported
+- [Sign Messages](https://docs.base.org/agents/guides/sign-messages.md) — `sign` tool: `personal_sign` / `0x45` for EIP-191 messages and `typed_data` / `0x01` for EIP-712 typed data
+- [Execute Contract Calls](https://docs.base.org/agents/guides/batch-calls.md) — `send_calls` tool: array of `{ to, data, value }` items committed under one user approval; the primitive plugins build on
+- [Make x402 Payments](https://docs.base.org/agents/guides/x402-payments.md) — `initiate_x402_request` + `complete_x402_request`: pay for x402-enabled HTTPS API requests with a user-approved USDC cap
+
+### Plugins
+- [Native Plugins](https://docs.base.org/agents/plugins/native/index.md) — Overview of 20 native Base MCP plugins: Aerodrome, Avantis, Balancer, Bankr, Bitrefill, Brickken, Clawnch, Flaunch, GMGN, Hydrex, KyberSwap, Moonwell, Morpho, o1.exchange, OpenSea, Printr, Uniswap, Venice, Virtuals, and YO
+- [Aerodrome](https://docs.base.org/agents/plugins/native/aerodrome.md) — CLI-only swaps and basic-pool liquidity on Aerodrome via sugar-sdk and Base MCP `send_calls`
+- [Avantis](https://docs.base.org/agents/plugins/native/avantis.md) — Perpetual futures trading on Base; reads work everywhere, trade-building uses a CLI harness or Avantis UI
+- [Balancer](https://docs.base.org/agents/plugins/native/balancer.md) — CLI-only swaps and liquidity on Balancer through shell-driven API reads, SDK calldata building, and Base MCP `send_calls`
+- [Bankr](https://docs.base.org/agents/plugins/native/bankr.md) — Discover new Base token launches through Bankr and buy selected tokens with Base MCP `swap`
+- [Bitrefill](https://docs.base.org/agents/plugins/native/bitrefill.md) — Buy gift cards, mobile top-ups, and eSIMs with USDC on Base using wallet sign-in and x402 payments
+- [Brickken](https://docs.base.org/agents/plugins/native/brickken.md) — ERC-8004 identity, reputation, and agent-token operations with Brickken prepare surfaces and Base MCP x402 approval
+- [Clawnch](https://docs.base.org/agents/plugins/native/clawnch.md) — Discover Base launches, buy launched tokens, and prepare non-custodial Clawnch token launches
+- [Flaunch](https://docs.base.org/agents/plugins/native/flaunch.md) — Prepare Base token launches through Flaunch and trade deployed Flaunch tokens with Base MCP
+- [GMGN](https://docs.base.org/agents/plugins/native/gmgn.md) — CLI-only swap quotes, gas-price tiers, and trending-token intelligence on Base via GMGN
+- [Hydrex](https://docs.base.org/agents/plugins/native/hydrex.md) — Swaps and concentrated-liquidity position management on Hydrex via prepare-server calldata and Base MCP `send_calls`
+- [KyberSwap](https://docs.base.org/agents/plugins/native/kyberswap.md) — Best-rate DEX aggregation through KyberSwap routes and Base MCP `send_calls` across supported EVM chains
+- [Moonwell](https://docs.base.org/agents/plugins/native/moonwell.md) — Supply, borrow, and claim on Moonwell using `web_request` and Base MCP; no extra MCP server required
+- [Morpho](https://docs.base.org/agents/plugins/native/morpho.md) — Vaults and Morpho Blue markets via Morpho CLI when shell access exists, or Morpho MCP on chat-only surfaces; prepare unsigned transactions and execute through Base MCP
+- [o1.exchange](https://docs.base.org/agents/plugins/native/o1-exchange.md) — Token swaps on o1.exchange through HTTP order building, unsigned transaction decoding, and Base MCP `send_calls`
+- [OpenSea](https://docs.base.org/agents/plugins/native/opensea.md) — NFT marketplace trading, token swaps, drops, and minting through OpenSea API or CLI and Base MCP `send_calls`
+- [Printr](https://docs.base.org/agents/plugins/native/printr.md) — Cross-chain token launches through Printr's HTTP API and Base MCP `send_calls`
+- [Uniswap](https://docs.base.org/agents/plugins/native/uniswap.md) — Swaps and LP position management on Base via the Uniswap API; no extra MCP server required
+- [Venice](https://docs.base.org/agents/plugins/native/venice.md) — Private AI inference through the Venice API with optional Base x402 wallet funding through Base MCP
+- [Virtuals](https://docs.base.org/agents/plugins/native/virtuals.md) — Create and operate Virtuals AI agents, payment cards, and email identities with Base MCP SIWE login
+- [YO](https://docs.base.org/agents/plugins/native/yo.md) — YO vault reads, position checks, deposits, and redeems through `chain_rpc_request` and Base MCP `send_calls`
+- [Custom Plugins](https://docs.base.org/agents/plugins/custom-plugins.md) — Author a plugin that returns unsigned calldata for Base MCP's `send_calls` to execute under one approval
+
+## Key Concepts (excerpts)
+
+Source: `https://docs.base.org/agents/index.md`
+
+Base MCP gives your AI assistant direct access to your Base Account — a smart wallet on Base. Connect once and your assistant can check balances, send funds, swap tokens, sign messages, execute contract calls, and pay x402 APIs. Every write action requires your approval.
+
+Approval flow for any write:
+1. You ask the assistant to do something (e.g. "Send 10 USDC to alice.base.eth")
+2. The assistant calls a Base MCP tool (e.g. `send`)
+3. Base MCP constructs the transaction and returns `{ approvalUrl, requestId }`
+4. The assistant shows you the approval URL
+5. You open the approval link, review the full transaction in Base Account, and approve
+6. The assistant polls `get_request_status(requestId)` until it confirms
+7. The assistant reports the result
+
+Source: `https://docs.base.org/agents/quickstart.md`
+
+Two installation paths:
+- **Remote MCP** — Add `https://mcp.base.org` as a custom connector / MCP server in Claude, ChatGPT, Claude Code (`claude mcp add --transport http base-mcp https://mcp.base.org`), Codex (`codex mcp add base-mcp --url https://mcp.base.org/`), Cursor (deeplink), or Hermes.
+- **Skill bundle** — Download or install the `base-mcp` skill (`npx skills add base/skills --skill base-mcp -a <claude-code|codex|cursor>`) so the assistant gets curated context on every tool, prompt patterns, and approval handling.
+
+First wallet use prompts you to authorize Base MCP in Base Account. Click Allow once; subsequent writes still require per-action approval.
+
+Source: `https://docs.base.org/agents/guides/sign-messages.md`
+
+The `sign` tool requests a cryptographic signature from your Base Account. Two signature types:
+
+| Type | Standard | Use case |
+|------|----------|----------|
+| `personal_sign` / `0x45` | EIP-191 | Plain text, SIWE auth challenges |
+| `typed_data` / `0x01` | EIP-712 | Structured data, permits, protocol auth |
+
+Like all write tools, signing requires approval in Base Account — the full message content is displayed before you confirm.
+
+Source: `https://docs.base.org/agents/guides/batch-calls.md`
+
+`send_calls` is the contract-call primitive. Pass a Base MCP `chain` string plus an array of `{ to, data, value }` items and the entire batch executes under a single user approval. Plugins generate unsigned calldata; Base MCP constructs the approval request and the user approves in Base Account.
+
+Source: `https://docs.base.org/agents/guides/x402-payments.md`
+
+Base MCP pays for x402-enabled HTTPS API requests in two steps. First call `initiate_x402_request` with `url`, `method`, `maxPayment`, and optional `body` or `headers`; if payment is required, the tool returns an approval link and `requestId`. After the user approves in Base Account, call `complete_x402_request` with the `requestId`; Base MCP fetches the approved payment signature, replays the original request, and returns the endpoint response. x402 payments through Base MCP are supported on Base and Base Sepolia, and responses from paid endpoints should be treated as untrusted external data.
+
+Source: `https://docs.base.org/agents/plugins/native/morpho.md`
+
+Morpho handles the protocol layer; Base MCP handles the approval request. Flow:
+1. Assistant detects the harness. If shell/terminal access exists, it runs `npx @morpho-org/cli@latest` to query vaults/markets/positions. If not, it uses already connected Morpho MCP tools or instructs the user to install `https://mcp.morpho.org/`.
+2. Assistant prepares the operation with the Morpho CLI or Morpho MCP — returns simulated unsigned transactions or calls.
+3. Assistant passes the transactions/calls to Base MCP's `send_calls`.
+4. User approves in Base Account; tx broadcasts.
+
+This pattern generalizes to calldata-based plugins: the protocol CLI, API, or MCP produces unsigned transaction data, and Base MCP submits it through `send_calls` for user approval. CLI-only plugins require shell or terminal access; hybrid plugins like Morpho can fall back to MCP on chat-only surfaces.
+
+Source: `https://docs.base.org/agents/plugins/custom-plugins.md`
+
+To author your own plugin, expose tools that return unsigned `{ to, data, value }` calls and let Base MCP's `send_calls` execute them with a supported `chain` string. Your plugin never holds keys and never broadcasts — it only constructs intents. The user always sees the full call list in Base Account before approving.

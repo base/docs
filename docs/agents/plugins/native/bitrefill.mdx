@@ -1,0 +1,51 @@
+---
+title: "Bitrefill"
+description: "Buy gift cards, mobile top-ups, and travel eSIMs with USDC on Base through Bitrefill."
+keywords: ["Bitrefill plugin", "Base MCP Bitrefill", "gift cards USDC", "mobile top-ups", "eSIM crypto"]
+---
+
+Bitrefill turns USDC on Base into everyday digital goods inside the conversation: gift cards, mobile refills, and travel eSIMs. The default path signs in once with the user's Base wallet, searches the catalog, creates an order, pays with USDC, then returns fulfillment details in chat.
+
+**Chain:** Base mainnet.
+
+**Operations:** catalog search, product details, checkout, invoice status, x402 payment, direct USDC payment for existing-account flows, and code or eSIM delivery.
+
+<Tip>
+**Wallet sign-in and bearer credentials.** The default flow uses SIWX/SIWE with Base MCP `sign`. Redemption codes, eSIM links, JWTs, and invoice details are sensitive and should only be shown when needed.
+</Tip>
+
+## Install Bitrefill MCP for existing accounts
+
+The default agent-commerce path uses Base MCP and the Bitrefill HTTP API. Existing Bitrefill account users can also connect the Bitrefill MCP:
+
+```bash
+claude mcp add bitrefill --url https://api.bitrefill.com/mcp
+```
+
+Keep `buy-products` out of auto-approval. The plugin also supports `npx @bitrefill/cli@latest` in shell-capable harnesses.
+
+## Try it
+
+```text Gift card
+Buy me a $25 Amazon US gift card with USDC on Base
+```
+
+```text Browse
+Show me Steam gift cards available in the US
+```
+
+```text Existing account
+Use my existing Bitrefill account to buy a travel eSIM
+```
+
+## Pattern
+
+Bitrefill uses Base MCP for `web_request`, `sign`, x402 payments, and direct `send` of USDC. It does not use `send_calls`. The assistant signs the SIWX payload, uses the returned JWT for catalog and checkout calls, confirms product, denomination, and total price, then pays the Base USDC x402 requirement or direct invoice destination.
+
+After payment, the assistant polls status and returns fulfillment data carefully because codes and QR links are bearer credentials.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/bitrefill.md">
+  Path selection, SIWX headers, x402 payments, account connector setup, and fulfillment safety notes.
+</Card>

@@ -1,0 +1,41 @@
+---
+title: "YO"
+description: "View YO vaults, check positions, deposit, and request redeems through onchain reads and Base MCP send_calls."
+keywords: ["YO plugin", "Base MCP YO", "YO Protocol", "ERC-4626 vaults", "yield vaults"]
+---
+
+YO Protocol is an ERC-4626 yield aggregator with async redemption. The plugin uses only onchain reads through `chain_rpc_request` and unsigned calldata submitted through Base MCP `send_calls`; no HTTP API, CLI, or allowlist is required.
+
+**Chains:** Base, Ethereum, and Arbitrum.
+
+**Operations:** vault listing, TVL reads, share-price reads, position checks, pending redeem checks, deposits, and redeems.
+
+<Tip>
+YO APY is not available from onchain data. The plugin reports onchain TVL and share price, and points users to the YO dapp when they need offchain yield data.
+</Tip>
+
+## Try it
+
+```text Vaults
+Show me the YO vaults
+```
+
+```text Position
+What's my position in yoUSD?
+```
+
+```text Deposit
+Deposit 1 USDC into yoUSD on Base
+```
+
+## Pattern
+
+Reads use `chain_rpc_request` with `eth_call` against the vault registry. Deposits batch `approve(underlying -> Gateway, amountIn)` before `Gateway.deposit(...)`. Redeems batch a share-token approval when needed before `Gateway.redeem(...)`.
+
+All calls use `chain` as `base`, `ethereum`, or `arbitrum`, and `value` is `0x0`. The assistant shows expected shares or assets and slippage-derived minimums before submitting `send_calls`.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/yo.md">
+  Vault registry, calldata selectors, position aggregation, deposit and redeem mapping, and onchain-read notes.
+</Card>

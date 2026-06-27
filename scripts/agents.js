@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Generates docs/agents.md — a human-readable LLM entry point followed by a
+ * Generates docs/AGENTS.md — a human-readable LLM entry point followed by a
  * compact, minified directory index of all documentation files.
  *
  * Pipeline:
@@ -15,7 +15,7 @@
  *   4. scanDocs — recursively groups .md/.mdx files by parent directory for
  *      the compact pipe-delimited index at the bottom of the file.
  *   5. generateAgentsMd — assembles frontmatter + LLM entry point + tools +
- *      featured pages + compact index, writes to docs/agents.md.
+ *      featured pages + compact index, writes to docs/AGENTS.md.
  *
  * Hardcoded values (per spec): docs URL, MCP URL, skills repo URL/install cmd.
  * Everything else is derived from the repo at run time.
@@ -41,7 +41,7 @@ const {
 
 const CONFIG = {
   docsDir: './docs',
-  outputFile: './docs/agents.md',
+  outputFile: './docs/AGENTS.md',
 
   // The only hardcoded external references allowed.
   docsUrl: 'https://docs.base.org',

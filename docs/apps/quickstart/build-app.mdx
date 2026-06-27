@@ -537,6 +537,29 @@ Base is a fast, low-cost Ethereum L2 built to bring the next billion users oncha
   </Step>
 </Steps>
 
+## Speed up confirmations with Flashblocks
+
+Base builds [Flashblocks](/base-chain/network-information/transaction-ordering#flashblocks) — 200ms incremental blocks that let your app reflect transaction confirmations roughly 10x faster than the standard 2-second block time. Flashblocks are always live; you opt in by pointing Wagmi at a Flashblocks-aware chain, with no other code changes. `useWaitForTransactionReceipt` then resolves against pre-confirmed state.
+
+Swap the standard chain for its `Preconf` variant in `config/wagmi.ts`:
+
+```typescript config/wagmi.ts highlight={2,5,8}
+import { http, createConfig } from 'wagmi'
+import { baseSepoliaPreconf } from 'wagmi/chains'
+
+export const config = createConfig({
+  chains: [baseSepoliaPreconf],
+  // ...connectors and storage unchanged
+  transports: {
+    [baseSepoliaPreconf.id]: http(),
+  },
+})
+```
+
+<Note>
+For production, the public endpoints are rate-limited — connect through a Flashblocks-enabled [node provider](/base-chain/node-operators/node-providers). For the underlying RPC behavior (the `pending` block tag and supported methods), see the [RPC Overview](/base-chain/api-reference/rpc-overview#flashblocks) and the [Flashblocks Reference](/base-chain/flashblocks/faq).
+</Note>
+
 ## Next steps
 
 - **Go to mainnet** — add `base` to your `chains` array and transports in `config/wagmi.ts`, redeploy your contract to Base mainnet, and update `COUNTER_ADDRESS`.

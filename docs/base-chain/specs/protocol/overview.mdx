@@ -91,7 +91,7 @@ graph LR
     subgraph "Ethereum L1"
         OptimismPortal(<a href="./bridging/withdrawals.html#the-optimism-portal-contract">OptimismPortal</a>)
         BatchInbox(<a href="../reference/glossary.html#batcher-transaction">Batch Inbox Address</a>)
-        DisputeGameFactory(<a href="./fault-proof/stage-one/dispute-game-interface.html#disputegamefactory-interface">DisputeGameFactory</a>)
+        DisputeGameFactory(<a href="./proofs/contracts.html#disputegamefactory">DisputeGameFactory</a>)
     end
 
     subgraph "L2 Node"
@@ -238,29 +238,29 @@ graph LR
 
 ### Proofs
 
-Output proposals and proofs allow permissionless verification of the L2 state. Anyone can propose an
-output root to the `DisputeGameFactory`, and anyone can challenge it. Disputes are resolved by the `FaultDisputeGame`
-contract using the Cannon VM for on-chain execution tracing of disputed state transitions. Valid withdrawals can
-only be finalized through `OptimismPortal` once the associated dispute game resolves in favor of the proposer.
+Output proposals and proofs allow verification of the L2 state. Proposers create checkpoint games
+through `DisputeGameFactory`, proof material is checked by the onchain verifier contracts, and
+challengers can dispute invalid claims. Valid withdrawals can only be finalized through
+`OptimismPortal` once the associated game resolves in favor of the proposer.
 
-[Proofs →](./fault-proof/)
+[Proofs →](./proofs/)
 
 ```mermaid
 graph LR
     Proposer(Proposer)
-    DGF(<a href="./fault-proof/stage-one/dispute-game-interface.html#disputegamefactory-interface">DisputeGameFactory</a>)
-    FDG(<a href="./fault-proof/stage-one/fault-dispute-game.html">FaultDisputeGame</a>)
+    DGF(<a href="./proofs/contracts.html#disputegamefactory">DisputeGameFactory</a>)
+    Game(<a href="./proofs/contracts.html#aggregateverifier">AggregateVerifier game</a>)
     Challengers(Challengers)
     OP(<a href="./bridging/withdrawals.html#the-optimism-portal-contract">OptimismPortal</a>)
 
-    Proposer -->|submit output root| DGF
-    DGF -->|create game| FDG
-    Challengers -->|challenge / defend| FDG
-    FDG -->|resolved result| OP
+    Proposer -->|submit checkpoint proof| DGF
+    DGF -->|create game| Game
+    Challengers -->|challenge invalid claims| Game
+    Game -->|resolved result| OP
 
     classDef l1 stroke:#bbf,stroke-width:2px;
     classDef systemUser stroke:#f9a,stroke-width:2px;
-    class DGF,FDG,OP l1;
+    class DGF,Game,OP l1;
     class Proposer,Challengers systemUser;
 ```
 
@@ -308,14 +308,14 @@ orders them into L2 blocks, and eventually posts the batch to L1.
 
 Users may also want to withdraw ETH or ERC20 tokens from Base back to Ethereum. Withdrawals are initiated
 as standard transactions on L2 but are then completed using transactions on L1. Withdrawals must reference a valid
-`FaultDisputeGame` contract that proposes the state of the L2 at a given point in time.
+proof game contract that proposes the state of the L2 at a given point in time.
 
 ```mermaid
 graph LR
     subgraph "Ethereum L1"
         BatchInbox(<a href="../reference/glossary.html#batcher-transaction">Batch Inbox Address</a>)
-        DisputeGameFactory(<a href="./fault-proof/stage-one/dispute-game-interface.html#disputegamefactory-interface">DisputeGameFactory</a>)
-        FaultDisputeGame(<a href="./fault-proof/stage-one/fault-dispute-game.html">FaultDisputeGame</a>)
+        DisputeGameFactory(<a href="./proofs/contracts.html#disputegamefactory">DisputeGameFactory</a>)
+        ProofGame(<a href="./proofs/contracts.html#aggregateverifier">AggregateVerifier game</a>)
         OptimismPortal(<a href="./bridging/withdrawals.html#the-optimism-portal-contract">OptimismPortal</a>)
         ExternalContracts(External Contracts)
     end
@@ -328,11 +328,11 @@ graph LR
     Users -->|<b>1.</b> send withdrawal initialization txn| Sequencer
     Sequencer -->|<b>2.</b> submit transaction batch| BatchInbox
     Proposers -->|<b>3.</b> submit output proposal| DisputeGameFactory
-    DisputeGameFactory -->|<b>4.</b> generate game| FaultDisputeGame
+    DisputeGameFactory -->|<b>4.</b> generate game| ProofGame
     Users -->|<b>5.</b> submit withdrawal proof| OptimismPortal
-    Users -->|<b>6.</b> wait for finalization| FaultDisputeGame
+    Users -->|<b>6.</b> wait for finalization| ProofGame
     Users -->|<b>7.</b> submit withdrawal finalization| OptimismPortal
-    OptimismPortal -->|<b>8.</b> check game validity| FaultDisputeGame
+    OptimismPortal -->|<b>8.</b> check game validity| ProofGame
     OptimismPortal -->|<b>9.</b> execute withdrawal transaction| ExternalContracts
 
     %% Styling
@@ -340,7 +340,7 @@ graph LR
     classDef l2Components stroke:#333,stroke-width:2px;
     classDef systemUser stroke:#f9a,stroke-width:2px;
 
-    class BatchInbox,DisputeGameFactory,FaultDisputeGame,OptimismPortal l1Contracts;
+    class BatchInbox,DisputeGameFactory,ProofGame,OptimismPortal l1Contracts;
     class Sequencer l2Components;
     class Users,Proposers systemUser;
 ```

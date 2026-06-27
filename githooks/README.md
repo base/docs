@@ -10,6 +10,7 @@ From the repo root:
 ./githooks/install.sh
 ```
 
+
 Idempotent — safe to re-run. The script sets `core.hooksPath=githooks` (local to this `.git/config` only) and marks the hooks executable.
 
 These hooks are scoped to this repo only:
@@ -32,7 +33,7 @@ Triggers, scripts, and outputs live in [`githooks/config.json`](./config.json). 
 {
   "skipToken": "[skip-docs]",
   "generators": [
-    { "name": "agents", "trigger": "agents.md", "script": "scripts/agents.js", "outputs": ["docs/agents.md"] },
+    { "name": "agents", "trigger": "agents.md", "script": "scripts/agents.js", "outputs": ["docs/AGENTS.md"] },
     { "name": "llms",   "trigger": "llms.txt",  "script": "scripts/llms.js",   "outputs": ["docs/llms.txt", "docs/llms-full.txt"] },
     { "name": "myindex", "trigger": "myindex.md", "script": "scripts/myindex.js", "outputs": ["docs/myindex.md"] }
   ]
@@ -56,7 +57,7 @@ Regenerates docs index files when either:
 
     | Token in commit message | Regenerates | Generator |
     |-------------------------|-------------|-----------|
-    | `agents.md`             | `docs/agents.md` | `scripts/agents.js` |
+    | `agents.md`             | `docs/AGENTS.md` | `scripts/agents.js` |
     | `llms.txt`              | `docs/llms.txt` + `docs/llms-full.txt` | `scripts/llms.js` |
 
 Both tokens may appear in the same message; both generators run. The auto path covers the "I added a new doc page and forgot the keyword" failure mode; the opt-in path covers content-only edits that affect `llms.txt` extraction without changing file structure.
@@ -64,7 +65,7 @@ Both tokens may appear in the same message; both generators run. The auto path c
 If a regeneration produces a real diff vs `HEAD`, a single follow-up commit is created:
 
 ```
-chore: regenerate docs/agents.md (post-commit of <short-sha>)
+chore: regenerate docs/AGENTS.md (post-commit of <short-sha>)
 ```
 
 The `(post-commit of <sha>)` suffix links the auto-commit back to the commit that triggered it. Recursion is guarded so the follow-up commit doesn't re-trigger the hook.
