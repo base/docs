@@ -1,0 +1,310 @@
+---
+title: "Debugging Mini Apps"
+description: "Diagnose and fix common issues when building Base Mini Apps, from local development to production."
+sidebarTitle: "Debugging"
+---
+
+## Overview
+
+Mini apps are harder to debug than regular web apps because they run inside Farcaster clients, not as standalone browser tabs. That means you need to debug iframe behavior, runtime context, manifest loading, and client wallet flows in addition to your app code. This guide shows you how to test local builds, inspect logs and network requests, validate your manifest, and fix the most common client-specific issues.
+
+## Development environment setup
+
+You cannot fully test a mini app by opening `http://localhost:3000` in a normal browser tab. Farcaster clients need a public HTTPS URL they can load inside their iframe-based runtime, so you need a tunnel during local development.
+
+<Info>
+Use your local browser for layout and basic UI checks, but use a public tunnel to test the real mini app runtime.
+</Info>
+
+<Tabs>
+  <Tab title="ngrok">
+    Install ngrok with npm:
+
+    ```bash Terminal
+    npm install -g ngrok
+    ```
+
+    Or install it with Homebrew:
+
+    ```bash Terminal
+    brew install ngrok
+    ```
+
+    Start a tunnel to your local app:
+
+    ```bash Terminal
+    ngrok http 3000
+    ```
+
+    Copy the generated `https://xxxx.ngrok-free.app` URL and paste it into **Warpcast Developer Tools > Preview Frames**.
+
+    <Warning>
+    ngrok free-tier URLs change every time you restart the tunnel. Update your manifest each time the public URL changes.
+    </Warning>
+  </Tab>
+  <Tab title="Cloudflare Tunnel">
+    Install `cloudflared` with Homebrew:
+
+    ```bash Terminal
+    brew install cloudflare/cloudflare/cloudflared
+    ```
+
+    Or download it directly from Cloudflare.
+
+    Start a quick tunnel:
+
+    ```bash Terminal
+    cloudflared tunnel --url http://localhost:3000
+    ```
+
+    Quick tunnels do not require an account for local testing.
+
+    <Tip>
+    Cloudflare tunnels stay stable during the session and do not require login, which makes them convenient for repeated debugging.
+    </Tip>
+  </Tab>
+</Tabs>
+
+## Using the Farcaster Mini App Playground
+
+The [Farcaster Mini App Playground](https://warpcast.com/~/developers/mini-apps) gives you a live preview of your mini app rendered inside a simulated Farcaster client.
+
+<Steps>
+  <Step title="Open the playground">
+    Go to [warpcast.com/~/developers/mini-apps](https://warpcast.com/~/developers/mini-apps). You must be logged in to Warpcast on desktop.
+  </Step>
+  <Step title="Paste your tunnel URL">
+    Paste your tunnel URL, such as `https://xxxx.ngrok-free.app`.
+  </Step>
+  <Step title="Preview the app">
+    Click **Preview**.
+  </Step>
+  <Step title="Inspect the rendered client">
+    The playground renders your app in an iframe that simulates the Farcaster mobile client.
+  </Step>
+  <Step title="Open DevTools">
+    With the playground open, press `F12`. Console logs from your app appear in the host page DevTools.
+  </Step>
+</Steps>
+
+<Note>
+The playground uses your live tunnel, so code changes that trigger hot reload are reflected in real time after a refresh.
+</Note>
+
+## Reading console logs and errors
+
+Mini apps run inside an iframe, so logs appear in the host page DevTools, not in a separate browser window.
+
+### Finding iframe logs in Chrome
+
+Open **DevTools > Console**, then either filter by your tunnel URL or select the iframe context from the JavaScript context dropdown. If you stay in the top-level page context, you can miss the error that blocked your app from loading.
+
+### Common console errors
+
+| Error | Likely cause | Fix |
+|---|---|---|
+| `sdk.actions is not defined` | `@farcaster/frame-sdk` not initialized | Call `sdk.actions.ready()` inside `useEffect` after mount |
+| `Missing fc:frame meta tag` | Head metadata not set | Add `fc:frame` meta tag to `<head>` |
+| `Failed to fetch manifest` | `farcaster.json` not accessible | Check `/.well-known/farcaster.json` returns `200` |
+| `Wallet not connected` | Using `getEthereumProvider` before ready | Wait for `sdk.actions.ready()` to resolve |
+| `CORS error on API route` | API not allowing iframe origin | Add CORS headers to your API routes |
+| `accountAssociation invalid` | Manifest signed with wrong wallet | Re-sign using your Farcaster custody wallet |
+
+## Inspecting network requests
+
+Mini apps make network requests inside an iframe, so inspect them from the browser Network tab while the playground is open.
+
+<Steps>
+  <Step title="Load the app in the playground">
+    Open the Warpcast playground with your app already loaded.
+  </Step>
+  <Step title="Open the Network tab">
+    Open **DevTools > Network**.
+  </Step>
+  <Step title="Filter requests">
+    Filter by **Fetch/XHR** to focus on API calls.
+  </Step>
+  <Step title="Inspect failures">
+    Look for failed requests in red, then click each one to inspect request and response details.
+  </Step>
+  <Step title="Check the manifest endpoint">
+    Verify that `/.well-known/farcaster.json` returns `200` with `Content-Type: application/json`.
+  </Step>
+</Steps>
+
+<Tip>
+Use **Preserve log** in DevTools to keep network logs across page navigations inside the iframe.
+</Tip>
+
+## Manifest validation
+
+The `farcaster.json` manifest is the most common source of bugs. Validate it directly before you debug anything more complex.
+
+```bash Terminal
+curl -s https://yourdomain.com/.well-known/farcaster.json | jq .
+```
+
+<Check>
+`accountAssociation.header` is present and non-empty
+</Check>
+
+<Check>
+`accountAssociation.payload` is present
+</Check>
+
+<Check>
+`accountAssociation.signature` is present
+</Check>
+
+<Check>
+`frame.name` is set
+</Check>
+
+<Check>
+`frame.homeUrl` matches your actual deployment URL exactly
+</Check>
+
+<Check>
+`frame.iconUrl` returns `200`
+</Check>
+
+<Check>
+`frame.primaryCategory` is set for search and discovery
+</Check>
+
+<Warning>
+`homeUrl` must exactly match the domain you used when signing the manifest. A mismatch causes `accountAssociation` validation to fail silently.
+</Warning>
+
+## setFrameReady / sdk.actions.ready() — the most common mistake
+
+The Farcaster client shows a splash screen until your app calls `ready()`. If you never call it, the splash screen stays visible forever.
+
+### MiniKit
+
+Use `setFrameReady()` from `useMiniKit()`.
+
+```tsx App.tsx lines expandable wrap highlight={2,4-8}
+import { useEffect } from 'react';
+import { useMiniKit } from '@coinbase/onchainkit/minikit';
+
+export function App() {
+  const { setFrameReady, isFrameReady } = useMiniKit();
+
+  useEffect(() => {
+    if (!isFrameReady) {
+      setFrameReady();
+    }
+  }, [setFrameReady, isFrameReady]);
+
+  return <div>Your app</div>;
+}
+```
+
+### Raw SDK
+
+Use `sdk.actions.ready()`.
+
+```tsx App.tsx lines wrap highlight={1,5}
+import sdk from '@farcaster/frame-sdk';
+import { useEffect } from 'react';
+
+export function App() {
+  useEffect(() => {
+    sdk.actions.ready();
+  }, []);
+
+  return <div>Your app</div>;
+}
+```
+
+<Warning>
+Do not call `setFrameReady()` conditionally or after an async operation without handling errors. If the call throws, the splash screen never dismisses.
+</Warning>
+
+## Context not available (testing outside Farcaster)
+
+`sdk.context` and `useMiniKit().context` return `null` when you open your app in a regular browser instead of inside Farcaster. That is expected. Mini apps are designed to run inside Farcaster clients.
+
+```tsx App.tsx lines wrap highlight={2-5}
+import { useMiniKit } from '@coinbase/onchainkit/minikit';
+
+export function App() {
+  const { context } = useMiniKit();
+
+  if (!context) {
+    return <div>Open this app inside Farcaster or the Warpcast playground.</div>;
+  }
+
+  return <div>Your app</div>;
+}
+```
+
+<Tip>
+Add a fallback UI for non-Farcaster environments. It also helps local development before you set up a tunnel.
+</Tip>
+
+## Wallet issues
+
+Wallet connection can work in a normal browser and still fail inside Farcaster because Coinbase Wallet in Farcaster uses a different provider than MetaMask or other injected wallets.
+
+Always use `sdk.wallet.getEthereumProvider()` or `@farcaster/frame-wagmi-connector`, not `window.ethereum` directly.
+
+```ts wagmi.ts lines wrap highlight={1,3}
+import { frameConnector } from '@farcaster/frame-wagmi-connector';
+
+const config = createConfig({
+  connectors: [frameConnector()],
+  // ...
+});
+```
+
+<Warning>
+Sign In with Farcaster inside Coinbase Wallet can require a deeplink back to Warpcast for accounts created there. Prefer wallet auth for a smoother user experience.
+</Warning>
+
+## Production checklist
+
+<Check>
+App is deployed at a public HTTPS URL
+</Check>
+
+<Check>
+`/.well-known/farcaster.json` returns `200` and valid JSON
+</Check>
+
+<Check>
+`setFrameReady()` or `sdk.actions.ready()` is called on mount
+</Check>
+
+<Check>
+Manifest `homeUrl` exactly matches the deployment URL
+</Check>
+
+<Check>
+Manifest is signed with your Farcaster custody wallet
+</Check>
+
+<Check>
+`primaryCategory` is set in the manifest
+</Check>
+
+<Check>
+The app handles `context === null` gracefully
+</Check>
+
+<Check>
+There are no `window.ethereum` references for mini app wallet flows
+</Check>
+
+<Check>
+CORS headers are set on API routes called from the iframe
+</Check>
+
+## Related guides
+
+- [Mini Apps quickstart](/mini-apps/quickstart/create-new-miniapp)
+- [Common Issues & Debugging](/mini-apps/troubleshooting/common-issues)
+- [MiniKit overview](/builderkits/minikit/overview)
+- [MiniKit quickstart](/builderkits/minikit/quickstart)
+- [Loading your app](https://miniapps.farcaster.xyz/docs/guides/loading)
