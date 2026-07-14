@@ -99,6 +99,10 @@ Your app uses the Farcaster SDK. The migration replaces Farcaster-specific auth,
 <Step title="Replace auth and identity">
   Farcaster sign-in and FID-based identity are not available in the Base App. Replace them with [SIWE](https://viem.sh/docs/siwe/utilities/createSiweMessage) for authentication and the connected wallet address for user identity.
 
+  <Warning>
+  The example below generates the SIWE nonce in the browser with `generateSiweNonce()`. A client-issued nonce provides **no replay protection**: any attacker who captures a valid SIWE message + signature pair can replay it against your server, because the server has no record of which nonces it issued. Only use this pattern if your app does not require server-side sessions or replay protection. For verified, server-issued nonces, follow the [Authenticate users](/base-account/guides/authenticate-users) guide and confirm nonces server-side before accepting the SIWE message.
+  </Warning>
+
   Build, sign, and verify the SIWE message:
 
   ```tsx SignIn.tsx lines expandable wrap highlight={1,9,14-18,33-34}
