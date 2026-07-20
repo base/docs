@@ -12,21 +12,33 @@ If you're a prospective or current Base node operator, you can restore from a sn
 
 These steps assume you are in the cloned `node` directory (the one containing `docker-compose.yml`).
 
-1. **Prepare Data Directory**:
+1. **Install aria2c**: Snapshot downloads require `aria2c`, a resumable downloader that handles the periodic connection interruptions imposed by Cloudflare. If you don't have it installed:
+
+    <CodeGroup>
+    ```bash macOS
+    brew install aria2
+    ```
+
+    ```bash Ubuntu / Debian
+    sudo apt-get install aria2
+    ```
+    </CodeGroup>
+
+2. **Prepare Data Directory**:
     - **Before running Docker for the first time**, create the data directory on your host machine that will be mapped into the Docker container. This directory must match the `volumes` mapping in the `docker-compose.yml` file.
         ```bash
         mkdir ./reth-data
         ```
     - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./reth-data/*`), and proceed.
 
-2. **Choosing the chain**: Use the `--chain` flag to select the network
+3. **Choosing the chain**: Use the `--chain` flag to select the network
 
     | Network       | `--chain` value |
     |---------------|-----------------|
     | Base Mainnet  | `base`          |
     | Base Sepolia  | `base-sepolia`  |
 
-3. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below.
+4. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below.
 
     | Config       | Flag        | What you get                                                                 | Use when                                                    |
     |--------------|-------------|------------------------------------------------------------------------------|-------------------------------------------------------------|
@@ -46,7 +58,7 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     base download --full --datadir ./reth-data --chain base-sepolia
     ```
 
-4. **(Optional) - tuning download concurrency:** 
+5. **(Optional) - tuning download concurrency:** 
 
 6. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
 
