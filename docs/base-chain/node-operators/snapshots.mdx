@@ -19,7 +19,14 @@ These steps assume you are in the cloned `node` directory (the one containing `d
         ```
     - If you have previously run the node and have an existing data directory, **stop the node** (`docker compose down`), remove the _contents_ of the existing directory (e.g. `rm -rf ./reth-data/*`), and proceed.
 
-2. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below.
+2. **Choosing the chain**: Use the `--chain` flag to select the network
+
+    | Network       | `--chain` value |
+    |---------------|-----------------|
+    | Base Mainnet  | `base`          |
+    | Base Sepolia  | `base-sepolia`  |
+
+3. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below.
 
     | Config       | Flag        | What you get                                                                 | Use when                                                    |
     |--------------|-------------|------------------------------------------------------------------------------|-------------------------------------------------------------|
@@ -31,12 +38,13 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     Ensure you have enough free disk space to download the snapshot _and_ extract its contents. The extracted data will be significantly larger than the archive.
     </Note>
 
-3. **Choosing the chain**: Use the `--chain` flag to select the network
+    ```bash
+    # Minimal node on Base Mainnet
+    base download --minimal --datadir ./reth-data --chain base
 
-    | Network       | `--chain` value |
-    |---------------|-----------------|
-    | Base Mainnet  | `base`          |
-    | Base Sepolia  | `base-sepolia`  |
+    # Full node on Base Sepolia
+    base download --full --datadir ./reth-data --chain base-sepolia
+    ```
 
 4. **(Optional) - tuning download concurrency:** 
 
@@ -50,7 +58,7 @@ These steps assume you are in the cloned `node` directory (the one containing `d
 
     ```bash
     # Example: a 16 physical-core machine
-    base download --full --chain base --download-concurrency 32
+    base download --full --datadir ./reth-data --chain base --download-concurrency 32
     ```
 
 7. **Verify and Clean Up**: Monitor the node logs (`docker compose logs -f <service_name>`) or use the [sync monitoring](/base-chain/node-operators/run-a-base-node#syncing) command to ensure the node starts syncing from the snapshot's block height. Once confirmed, you can safely delete the downloaded snapshot archive (`.tar.gz` file) to free up disk space.
