@@ -80,7 +80,7 @@ npx skills add base/base-skills
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
 |base-chain/flashblocks:faq
-|base-chain/network-information:base-contracts,base-solana-bridge,bridging-and-withdrawals,ecosystem-bridges,network-faucets,network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
+|base-chain/network-information:base-contracts,base-solana-bridge,bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets,network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
 |base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:connecting-to-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
@@ -93,7 +93,7 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
 |base-chain/specs/reference:configurability,glossary
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
-|base-chain/specs/upgrades/beryl:b20,overview
+|base-chain/specs/upgrades/beryl:b20-playground,b20,overview
 |base-chain/specs/upgrades/canyon:overview
 |base-chain/specs/upgrades/delta:overview,span-batches
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
