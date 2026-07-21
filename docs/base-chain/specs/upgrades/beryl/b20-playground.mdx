@@ -1,0 +1,86 @@
+---
+title: "B20 Playground"
+description: "Interactive playground for the B20 native token standard - simulate policies, roles, freeze-and-seize, supply caps, granular pause, memos, and permit in your browser."
+---
+
+import { B20PlaygroundDemo } from "/snippets/B20PlaygroundDemo.jsx"
+
+[B20](/base-chain/specs/upgrades/beryl/b20) is Base's native token standard: an ERC-20 superset with a built-in compliance toolkit. This page lets you create a simulated B20 token and exercise its compliance features tab by tab, from choosing a variant to freezing an account and seizing its balance.
+
+<Note>
+The playground simulates B20 semantics entirely client-side. Nothing touches a chain or wallet, and no state persists. To deploy a real token, see [Launch a B20 Token](/get-started/launch-b20-token).
+</Note>
+
+## Feature map at a glance
+
+| You want to… | B20 feature | Demo section |
+|--------------|-------------|--------------|
+| Choose a token type and predict its address | Variants + deterministic addresses | Create a token |
+| Restrict who can send, receive, or mint | Policy scopes + PolicyRegistry | Policy gating |
+| Freeze a bad actor and seize funds | `TRANSFER_SENDER_POLICY` + `burnBlocked` | Freeze and seize |
+| Separate operational duties or go admin-less | Roles + `renounceLastAdmin` | Roles and metadata |
+| Hard-limit issuance | Supply cap | Supply cap and mint |
+| Halt transfers without halting everything | Granular pause | Granular pause |
+| Attach references to transactions | Memos | Memos |
+| Gasless approvals | ERC-2612 `permit` | Permit |
+
+<Visibility for="humans">
+  <B20PlaygroundDemo />
+</Visibility>
+
+## Create a token
+
+Pick a variant and the demo derives everything else. An `ASSET` token takes configurable decimals from 6 to 18; a `STABLECOIN` is fixed at 6 decimals and carries a self-declared `currency()` code. You can set an optional supply cap and an initial admin, including `address(0)` for an admin-less launch that never grants `DEFAULT_ADMIN_ROLE`. The simulated address is deterministic: `[10-byte prefix][1-byte variant][9-byte keccak256(deployer, salt)]`, so you can read the variant straight off byte 10 without an RPC call. See [Address Derivation](/base-chain/specs/upgrades/beryl/b20#address-derivation) for the exact scheme.
+
+## Policy gating
+
+Attach allowlist or blocklist policies to the four transfer scopes and watch gated operations revert with `PolicyForbids`. `TRANSFER_SENDER_POLICY` checks the `from`, `TRANSFER_RECEIVER_POLICY` checks the `to`, `MINT_RECEIVER_POLICY` checks the recipient of a mint, and `TRANSFER_EXECUTOR_POLICY` checks the `msg.sender` of `transferFrom` only when the caller is not the sender. Note that `approve` is never policy-gated; only actual balance movement is checked. See [Policy Integration](/base-chain/specs/upgrades/beryl/b20#policy-integration).
+
+<Warning>
+Every scope defaults to `ALWAYS_ALLOW` at token creation. An unattended B20 deployment is fully open: token behavior must be intentionally constrained.
+</Warning>
+
+## Freeze and seize
+
+Freeze-and-seize is two steps. First, deny the target under `TRANSFER_SENDER_POLICY` so it can no longer send. Then call `burnBlocked` to burn from that account: the call requires the caller to hold `BURN_BLOCKED_ROLE` and requires the target to be denied by `TRANSFER_SENDER_POLICY`. Both conditions must hold, which is why the demo blocks the account before it can seize the balance. See [Burn](/base-chain/specs/upgrades/beryl/b20#burn).
+
+## Roles and metadata
+
+Grant and revoke the seven base roles (`DEFAULT_ADMIN_ROLE`, `MINT_ROLE`, `BURN_ROLE`, `BURN_BLOCKED_ROLE`, `PAUSE_ROLE`, `UNPAUSE_ROLE`, `METADATA_ROLE`) and trigger the one gated action behind each. `METADATA_ROLE` gates `updateName`, `updateSymbol`, and `updateContractURI`. Try to remove the last admin with `renounceRole` and it reverts with `LastAdminCannotRenounce`; the only path to an admin-less token is `renounceLastAdmin()`, which is permanent. See [Roles Model](/base-chain/specs/upgrades/beryl/b20#roles-model).
+
+## Supply cap and mint
+
+Mint with `MINT_ROLE` and push past the cap to see `SupplyCapExceeded`. Adjust the cap with `updateSupplyCap`, which reverts with `InvalidSupplyCap` when the new cap is below current `totalSupply` or above the `type(uint128).max` sentinel that marks no cap. When the simulated token is an Asset, extra controls appear: `batchMint`, the rebase `multiplier`, and `announce`. See [Supply Cap](/base-chain/specs/upgrades/beryl/b20#supply-cap).
+
+## Granular pause
+
+Pause `TRANSFER`, `MINT`, and `BURN` independently instead of freezing the whole token. Pausing transfers still lets minting continue, and vice versa. Pausing and unpausing are gated by distinct roles by design: `PAUSE_ROLE` and `UNPAUSE_ROLE`. See [Pause](/base-chain/specs/upgrades/beryl/b20#pause).
+
+## Memos
+
+Send a transaction with `transferWithMemo` (and the sibling `transferFromWithMemo`, `mintWithMemo`, `burnWithMemo`) to attach a `bytes32` reference. Each emits `Memo(caller, memo)` immediately after the operation's primary event, so an indexer joins the memo to its transaction via `(transactionHash, logIndex − 1)`. See [Memos](/base-chain/specs/upgrades/beryl/b20#memos).
+
+## Permit
+
+Sign an ERC-2612 approval offchain and submit it to grant an allowance without a prior `approve` transaction. The demo increments the account nonce on each use so a signature can't be replayed. Permit is ECDSA-only; ERC-1271 contract signatures are not accepted. See [ERC-2612 Permit / EIP-712](/base-chain/specs/upgrades/beryl/b20#erc-2612-permit--eip-712).
+
+<Note>
+The playground intentionally leaves out a few advanced behaviors: the `initCalls` bootstrap bypass, two-step policy admin transfer, and custom user-defined roles. For those, see [initCalls Semantics](/base-chain/specs/upgrades/beryl/b20#initcalls-semantics), the [Policy Registry](/base-chain/specs/upgrades/beryl/b20#policy-registry) admin model, and [Roles Model](/base-chain/specs/upgrades/beryl/b20#roles-model) in the spec.
+</Note>
+
+## Related docs
+
+<CardGroup cols={2}>
+  <Card title="B20 Native Token Standard" href="/base-chain/specs/upgrades/beryl/b20">
+    The full spec: variants, policies, roles, and the complete function surface.
+  </Card>
+  <Card title="Launch a B20 Token" href="/get-started/launch-b20-token">
+    Deploy a real B20 token onchain.
+  </Card>
+  <Card title="Accept B20 payments" href="/apps/guides/accept-b20-payments">
+    Match transactions to orders with onchain memos.
+  </Card>
+  <Card title="Beryl overview" href="/base-chain/specs/upgrades/beryl/overview">
+    The upgrade that introduces B20 and native token features.
+  </Card>
+</CardGroup>
