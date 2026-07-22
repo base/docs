@@ -52,15 +52,15 @@ These steps assume you are in the cloned `node` directory (the one containing `d
 
     ```bash
     # Minimal node on Base Mainnet
-    base download --minimal --datadir ./reth-data --chain base
+    base download --minimal --datadir ./reth-data --chain base --resumable
 
     # Full node on Base Sepolia
-    base download --full --datadir ./reth-data --chain base-sepolia
+    base download --full --datadir ./reth-data --chain base-sepolia --resumable
     ```
 
-5. **(Optional) - tuning download concurrency:** 
+    Alternatively, for archival nodes only, you may run `base db migrate-v2`. However, this is expected to take **much** longer than downloading. `--resumeable` is also not supported in `migrate-v2`.
 
-6. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
+5. **(Optional) - tuning download concurrency:** 
 
     The `--download-concurrency` flag controls how many simultaneous HTTP downloads run across the whole
     snapshot job. It defaults to `8`, which is a good baseline for most machines.
@@ -72,6 +72,15 @@ These steps assume you are in the cloned `node` directory (the one containing `d
     # Example: a 16 physical-core machine
     base download --full --datadir ./reth-data --chain base --download-concurrency 32
     ```
+
+6. **Start the Node**: Now that the snapshot data is in place, return the root of your Base node folder and start the node:
+
+    ```bash
+    cd ..
+    docker compose up --build
+    ```
+
+  Your node should begin syncing from the last block in the snapshot.
 
 7. **Verify and Clean Up**: Monitor the node logs (`docker compose logs -f <service_name>`) or use the [sync monitoring](/base-chain/node-operators/run-a-base-node#syncing) command to ensure the node starts syncing from the snapshot's block height. Once confirmed, you can safely delete the downloaded snapshot archive (`.tar.gz` file) to free up disk space.
 
