@@ -5,10 +5,12 @@ description: "B20 is Base's native token standard - designed for stablecoin issu
 
 B20 is the Base ecosystem's own version of [ERC-20](https://eips.ethereum.org/EIPS/eip-20). It ships with a built-in compliance toolkit: transfer policies, freeze-and-seize, role-based access control, memos, and supply caps. The full interface specs are available in the [Base Standard Library](https://github.com/base/base-std/tree/main) repository.
 
+B20 tokens are implemented as **Rust precompiles** rather than EVM smart contracts, making them faster, cheaper, and more native to the chain. All tokens are deployed via the singleton B20Factory precompile.
+
 To deploy your first B20 token, see the [Launch a B20 Token](/get-started/launch-b20-token) quickstart.
 
 <Warning>
-[Verify the Activation Registry is enabled](/get-started/launch-b20-token#verify-the-activation-registry-is-enabled) before attempting to deploy.
+[Verify the ActivationRegistry is enabled](/get-started/launch-b20-token#verify-the-activationregistry-is-enabled) before attempting to deploy.
 </Warning>
 
 B20 supports two variants:
@@ -19,8 +21,6 @@ B20 supports two variants:
 | **Stablecoin** | 6 (fixed) | Self-declared fiat currency code |
 
 ## ERC-20 compatibility
-
-B20 tokens are implemented as **Rust precompiles** rather than EVM smart contracts, making them faster, cheaper, and more native to the chain. All tokens are deployed via the singleton B20Factory precompile.
 
 <Check>
 B20 is a superset of ERC-20. Every ERC-20 call (`transfer`, `transferFrom`, `approve`, `balanceOf`, `allowance`, and the standard events) behaves exactly as the standard specifies, so existing ERC-20 tooling and integrations work against B20 with no changes.
@@ -44,7 +44,7 @@ B20 role-based access control extends OpenZeppelin `AccessControl` with a fixed 
 
 User-defined roles are supported via `setRoleAdmin` and `grantRole`. They carry no built-in effect - B20 only enforces gates against the seven base-surface roles above. The Asset variant adds an eighth role, `OPERATOR_ROLE` (see [Variants](#variants)).
 
-### Renounce the token admin
+### Run a token without an admin
 
 The last `DEFAULT_ADMIN_ROLE` holder cannot be removed via `renounceRole` or `revokeRole` (both revert with `LastAdminCannotRenounce`). The dedicated `renounceLastAdmin()` is the only path to permanently transition a token to admin-less.
 
@@ -56,7 +56,7 @@ After `renounceLastAdmin()` (or for tokens deployed with `initialAdmin == addres
 - Roles already granted to other addresses (`MINT_ROLE`, `BURN_ROLE`, etc.) continue to function independently.
 - Admin resurrection is blocked: `grantRole`, `revokeRole`, and `setRoleAdmin` all revert with `AccessControlUnauthorizedAccount` even if the caller holds a custom role.
 
-## Policy Registry
+## PolicyRegistry
 
 The PolicyRegistry is a singleton precompile that manages allowlists and blocklists. B20 tokens reference policies by `uint64` ID. Any caller can create a policy and nominate its admin.
 
@@ -106,7 +106,7 @@ policyRegistry.updateBlocklist(policyId, false, accounts);  // unblock these acc
 // For ALLOWLIST policies: policyRegistry.updateAllowlist(policyId, allowed, accounts)
 ```
 
-### PolicyRegistry read interface
+### Read a policy from the PolicyRegistry
 
 | Method | Description |
 |--------|-------------|
@@ -132,7 +132,7 @@ B20 declares a fixed set of policy scopes. Each scope stores a `uint64` policy I
 Every scope defaults to `ALWAYS_ALLOW` at token creation unless overridden in the bootstrap `initCalls`. An unattended B20 deployment is fully open - token behavior must be intentionally constrained.
 </Warning>
 
-### Read a token's policy configuration
+### Read a token's policy assignments
 
 Each B20 token exposes its scopes and their current policy IDs directly, so integrators can discover which policies apply without simulating a transfer.
 
@@ -140,11 +140,12 @@ Each B20 token exposes its scopes and their current policy IDs directly, so inte
 |--------|-------------|
 | `TRANSFER_SENDER_POLICY()`, `TRANSFER_RECEIVER_POLICY()`, `TRANSFER_EXECUTOR_POLICY()`, `MINT_RECEIVER_POLICY()` | The `bytes32` scope constants. |
 | `policyId(scope)` | The `uint64` policy ID configured for `scope`. Returns `0` (`ALWAYS_ALLOW`) for a scope that has never been assigned. Reverts with `UnsupportedPolicyType` if the scope is not recognized. |
-| `updatePolicy(scope, policyId)` | Sets the policy for `scope`. Admin-gated. Reverts if the scope is not recognized. |
+
+To change an assignment, the token admin calls `updatePolicy(scope, policyId)`, which emits `PolicyUpdated` and reverts if the scope is not recognized.
 
 ## Check if a transfer will succeed
 
-To confirm an account can move tokens, read each scope's policy ID from the token and check it against the [Policy Registry](#policy-registry), then check pause state:
+To confirm an account can move tokens, read each scope's policy ID from the token and check it against the [PolicyRegistry](#policyregistry), then check pause state:
 
 ```solidity Read-only transferability check
 // Will transferFrom(from, to, amount), executed by `executor`, pass policy and pause checks?
@@ -212,7 +213,7 @@ B20 implements ERC-2612 (signed approvals) using an EIP-712 domain shaped as `(n
 - `updateName(newName)` - updates `name` and rotates the EIP-712 domain separator. Emits `NameUpdated` and `EIP712DomainChanged`.
 - `updateSymbol(newSymbol)` - updates `symbol` only. Emits `SymbolUpdated`.
 
-## Factory
+## B20Factory
 
 All B20 tokens are created through the singleton B20Factory precompile via `createB20(variant, salt, params, initCalls)`. In `base-std` it is exposed as `StdPrecompiles.B20_FACTORY`.
 
@@ -364,7 +365,7 @@ These addresses are identical on every network where B20 is active (Mainnet, Bas
 
 | Precompile | Address |
 |---|---|
-| [B20Factory](#factory) | `0xB20f000000000000000000000000000000000000` |
-| Activation Registry | `0x8453000000000000000000000000000000000001` |
-| [Policy Registry](#policy-registry) | `0x8453000000000000000000000000000000000002` |
+| [B20Factory](#b20factory) | `0xB20f000000000000000000000000000000000000` |
+| ActivationRegistry | `0x8453000000000000000000000000000000000001` |
+| [PolicyRegistry](#policyregistry) | `0x8453000000000000000000000000000000000002` |
 
