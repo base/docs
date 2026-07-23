@@ -1,11 +1,11 @@
 ---
 title: "Launch a B20 Token"
-description: "Launch a B20 token on Base by calling the B20 Factory precompile."
+description: "Launch a B20 token on Base by calling the B20Factory precompile."
 ---
 
 B20 is an ERC-20 superset that runs as a native precompile on Base, which makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility. Roles, supply caps, pausing, policy gating, memos, and `permit` are built into the chain.
 
-A standard ERC-20 leaves that logic for you to build, audit, and maintain. With B20, you call the singleton [**B20 Factory**](/base-chain/specs/upgrades/beryl/b20#factory) to create a token, fully configured, in a single transaction.
+A standard ERC-20 leaves that logic for you to build, audit, and maintain. With B20, you call the singleton [**B20Factory**](/base-chain/specs/upgrades/beryl/b20#b20factory) to create a token, fully configured, in a single transaction.
 
 This guide creates an Asset token, mints its initial supply, and verifies the balance onchain. To accept the token as payment in an app, continue with [Accept B20 payments](/apps/guides/accept-b20-payments).
 
@@ -22,14 +22,14 @@ You need **Base's Foundry build** (`base-forge`, `base-cast`, [`base-anvil`](htt
   Standard `forge` cannot simulate calls to B20 precompile addresses (they hold no contract bytecode) and aborts with `call to non-contract address`. Base's `base-forge` registers the precompiles into its EVM. It installs alongside your existing Foundry toolchain without overwriting it — use `base-forge`, `base-cast`, and `base-anvil` for all commands in this guide.
   </Note>
 
-## Verify the Activation Registry is enabled
+## Verify the ActivationRegistry is enabled
 
 <Warning>
-Attempting to deploy before the Activation Registry is enabled will revert with `FeatureNotActivated`. Run the check for the variant you plan to deploy and confirm it returns `true` before proceeding:
+Attempting to deploy before the ActivationRegistry is enabled will revert with `FeatureNotActivated`. Run the check for the variant you plan to deploy and confirm it returns `true` before proceeding:
 </Warning>
 
 ```bash Terminal theme={null}
-REG=0x8453000000000000000000000000000000000001  # Activation Registry precompile
+REG=0x8453000000000000000000000000000000000001  # ActivationRegistry precompile
 RPC=https://mainnet.base.org  # replace with your target network (e.g. https://sepolia.base.org, https://rpc.vibes.base.org)
 
 base-cast call $REG "isActivated(bytes32)(bool)" $(base-cast keccak "base.b20_asset") --rpc-url $RPC
