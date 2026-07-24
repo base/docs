@@ -1,0 +1,123 @@
+---
+title: "Native Account Abstraction"
+description: "Build with native account abstraction on Base. EIP-8130 smart accounts send ordinary transactions, with no bundlers or relays."
+---
+
+[EIP-8130](https://eip.tools/eip/8130) builds account abstraction into the protocol. An account registers who can act for it, and how its signatures are checked, in an onchain system contract. The chain validates each transaction against that configuration, so smart accounts work without bundlers, relays, or a separate mempool.
+
+<Warning>
+EIP-8130 is experimental and currently runs only on the [vibenet devnet](https://vibes.base.org/build).
+</Warning>
+
+## Build with EIP-8130
+
+EIP-8130 is live on vibenet (chain ID `84538453`, RPC `https://rpc.vibes.base.org`). Client support lives in an experimental viem fork:
+
+```bash
+bun add "viem@github:chunter-cb/viem#feat/eip-8130"
+```
+
+The example below performs the full flow:
+
+1. Creates an account.
+2. Funds it from the faucet.
+3. Sends a batch of calls that succeed or revert together.
+4. Verifies that every phase succeeded.
+
+```ts create-and-send.ts highlight={19,30-40,43-44}
+import { createPublicClient, http, parseEther } from "viem";
+import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
+import {
+  newSmartAccount8130, sendCalls8130, estimateGas8130,
+  encodeWalletCalls, waitForTransactionReceipt8130, allPhasesSucceeded,
+} from "viem/experimental/eip8130";
+
+const RPC_URL = "https://rpc.vibes.base.org";
+const chain = {
+  id: 84538453,
+  name: "vibenet",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: [RPC_URL] } },
+};
+const client = createPublicClient({ chain, transport: http(RPC_URL) });
+
+// The account address is deterministic and exists before any deployment
+const signer = privateKeyToAccount(generatePrivateKey());
+const account = newSmartAccount8130({ signer });
+
+// Fund it from the vibenet faucet
+await fetch("https://vibes.base.org/api/vibenet/faucet/drip", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ address: account.address }),
+});
+
+// Estimate, then send a batch. Account creation rides along in the same transaction
+const calls = [{ to: "0x…recipient", value: parseEther("0.001") }];
+const gas = await estimateGas8130(client, {
+  sender: account.address,
+  accountChanges: [account.createChange],
+  calls: encodeWalletCalls({ account: account.address, calls: [calls] }),
+});
+const hash = await sendCalls8130(client, {
+  account,
+  accountChanges: [account.createChange],
+  calls,
+  gas: (gas * 120n) / 100n,
+});
+
+// An 8130 receipt reports per-phase results, so check all of them
+const receipt = await waitForTransactionReceipt8130(client, { hash });
+if (!allPhasesSucceeded(receipt)) throw new Error("a phase reverted");
+```
+
+One transaction creates the account, executes the batch, and pays for gas.
+
+## How it works
+
+Everything in the example maps to one of five concepts. An 8130 transaction names a sender account, proves the sender is authorized to act for it, and carries a batch of calls.
+
+### Account
+
+Account addresses are deterministic: viem computes them locally with `CREATE2`. That is why `account.address` exists before any deployment and `account.createChange` rides along in the first transaction. Each account is a small proxy contract that forwards calls to a shared implementation. `DefaultAccount` is the minimal building block and backs externally owned accounts (EOAs) upgraded via EIP-7702. A variant built for high transaction rates locks outbound ETH during execution in exchange for higher mempool rate limits.
+
+### Signer and Actor
+
+A **signer** produces the transaction's authorization (`privateKeyToAccount` above). An **actor** is the onchain identity that authorization resolves to, recorded in the `AccountConfiguration` system contract. An account can authorize many actors and revoke each independently.
+
+### Scope and Policy
+
+Each actor carries **scope** flags (`SCOPE_NONCE`, `SCOPE_POLICY`) that limit what it may do. It can also bind to an onchain **policy**: per-token spend limits and restrictions on which contracts and functions it may call. This is the native session-key model: an app gets an actor with exactly the permissions it needs, revocable at any time.
+
+### Authenticators
+
+Signature validation is pluggable. Authenticator contracts implement `IAuthenticator.authenticate(hash, data)`. The reference set covers secp256k1 (standard Ethereum keys), P-256, and WebAuthn. Passkeys therefore validate at the protocol level, not through wrapper contracts.
+
+### Payer
+
+A transaction can name a **payer** that covers gas on the sender's behalf. Draft [ERC-8168](https://eip.tools/eip/8168) standardizes the payer service flow: how apps discover and request sponsorship.
+
+## Why native account abstraction
+
+Smart accounts on Ethereum today are bolted on from outside the protocol. [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) requires an alternate mempool, bundlers, and an EntryPoint contract; every app inherits that infrastructure and its costs. [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) delegates an EOA to contract code, but the account still validates against its single original key.
+
+EIP-8130 moves the abstraction into the chain, so the features 4337 provides through external services come built into ordinary transactions:
+
+| | ERC-4337 | EIP-7702 | EIP-8130 |
+|---|---|---|---|
+| Validation | EntryPoint contract via bundlers | One fixed key | Protocol, against onchain configuration |
+| Infrastructure | Bundlers + alternate mempool | None | None - standard transactions |
+| Session keys | Per-wallet plugin systems | Not native | Native actors with scoped policies |
+| Gas sponsorship | Paymaster contracts | Not native | Native payers ([ERC-8168](https://eip.tools/eip/8168)) |
+| Batching | Via account contract | Via delegated code | Native, atomic, per-transaction |
+
+## Go deeper
+
+<CardGroup cols={2}>
+  <Card title="Reference contracts" href="https://github.com/base/eip-8130" icon="github">
+    `AccountConfiguration`, account implementations, and authenticators, with Foundry tests.
+  </Card>
+  <Card title="Specifications" href="https://eip.tools/eip/8130" icon="file-lines">
+    The EIP-8130 draft, and companion draft [ERC-8168](https://eip.tools/eip/8168) for payer services.
+  </Card>
+</CardGroup>

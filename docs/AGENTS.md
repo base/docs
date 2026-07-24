@@ -95,6 +95,7 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20-playground,b20,overview
 |base-chain/specs/upgrades/canyon:overview
+|base-chain/specs/upgrades/cobalt:eip-8130
 |base-chain/specs/upgrades/delta:overview,span-batches
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
 |base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys
