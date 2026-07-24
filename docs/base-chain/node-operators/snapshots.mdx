@@ -30,7 +30,7 @@ These steps use the `base-reth-node` CLI to download snapshots. If you don't alr
     | Base Mainnet  | `base`          |
     | Base Sepolia  | `base-sepolia`  |
 
-3. **Download Snapshot**: Choose the appropriate snapshot for your network and client from the table below.
+3. **Download Snapshot**: V2 snapshots are split into many small, segmented files rather than a single archive. The CLI lists one `archive` snapshot because it contains all available files. The `full` and `minimal` options select progressively smaller subsets of that archive:
 
     | Config       | Flag        | What you get                                                                 | Use when                                                    |
     |--------------|-------------|------------------------------------------------------------------------------|-------------------------------------------------------------|
@@ -41,6 +41,8 @@ These steps use the `base-reth-node` CLI to download snapshots. If you don't alr
     <Note>
     Ensure you have enough free disk space to download the snapshot _and_ extract its contents. The extracted data will be significantly larger than the archive.
     </Note>
+
+    The above presets are convenient defaults that are available at [chain.base.org/snapshots](https://chain.base.org/snapshots). You may still configure custom pruning flags with the [flag](https://github.com/base/node/blob/main/.env.mainnet#L55). It is required to download the archival snapshot and then configure your custom pruning args.
 
     ```bash
     # Minimal node on Base Mainnet
@@ -133,6 +135,14 @@ Then continue from [**Start the Node**](#start-the-node) in the section above.
 In Reth, a "full" node is just a pruned node with a specific preset rather than a distinct node type. Reth's `--full` preset retains the last **10,064 blocks** (~1.4 days on Ethereum; ~5-6 hours on Base due to faster block times).
 
 Base's `--full` snapshot uses a 31-day rolling retention window instead. If a smaller storage footprint is preferred, you can override `reth.toml` to match the 10,064-block preset.
+
+</Accordion>
+
+<Accordion title="I'm seeing: Archive extracted, but output verification failed.">
+
+This is caused due to a newer snapshot being uploaded during the time your download is happening. Please interrupt the download command and re-run it. 
+
+Note: The download is idempotent, so it will not re-download files that have already been downloaded; it will only fetch the diff.
 
 </Accordion>
 </AccordionGroup>
