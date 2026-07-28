@@ -60,10 +60,10 @@ export const B20FlowDemo = ({ flow }) => {
     const isEquity = kind === "EQUITY";
     s.token = {
       variant: isEquity ? "ASSET" : "STABLECOIN",
-      name: isEquity ? "Acme Corp Class A" : "Acme Dollar",
+      name: isEquity ? "Acme Asset" : "Acme Dollar",
       symbol: isEquity ? "ACME" : "aUSD",
       multiplier: 1.0,
-      extraMetadata: isEquity ? { cusip: "38259P508" } : {},
+      extraMetadata: isEquity ? { ref: "ACME-A-2024" } : {},
     };
     const roleMap = {};
     ["DEFAULT_ADMIN_ROLE", "MINT_ROLE", "BURN_BLOCKED_ROLE"].forEach(r => { roleMap[r] = ["Issuer"]; });
@@ -148,7 +148,7 @@ export const B20FlowDemo = ({ flow }) => {
       case "announceBatchMint": {
         const { recipients, amt, id } = op;
         if (!roleHas("OPERATOR_ROLE", me)) return entries.push(revert("AccessControlUnauthorizedAccount", `${me} lacks OPERATOR_ROLE`));
-        entries.push(emit("Announcement", `id ${id} · dividend batchMint`, 0));
+        entries.push(emit("Announcement", `id ${id} · distribution batchMint`, 0));
         recipients.forEach((r, i) => {
           s.balances[r] = (s.balances[r] || 0) + amt;
           entries.push(emit("Transfer", `0x0 → ${r} · ${amt}`, i + 1));
@@ -288,27 +288,27 @@ export const B20FlowDemo = ({ flow }) => {
     },
 
     equity: {
-      title: "A share of stock, onchain",
+      title: "An asset with a changing redemption ratio, onchain",
       erc20: "On plain ERC-20: a rebasing token is a custom contract, and disclosures live offchain.",
       readout: "scaled",
       steps: [
         {
-          label: "ACME lists onchain with its security identifiers.",
+          label: "ACME lists onchain with its reference identifiers.",
           action: "Create token",
           run: (s) => {
             createInSim(s, "EQUITY");
             return {
               entries: [
                 info("createB20", `asset · ACME · ${tokenAddress("ASSET", "ACME")}`),
-                info("initCalls", 'updateExtraMetadata("cusip", "38259P508")'),
+                info("initCalls", 'updateExtraMetadata("ref", "ACME-A-2024")'),
               ],
               caption: "One factory call, with no contract to write or audit.",
             };
           },
         },
         {
-          label: "Shareholders hold ACME.",
-          action: "Distribute shares",
+          label: "Holders receive ACME.",
+          action: "Distribute tokens",
           run: (s) => ({
             entries: runOps(s, [
               { as: "Issuer", type: "mint", to: "Alice", amt: 100 },
@@ -317,15 +317,15 @@ export const B20FlowDemo = ({ flow }) => {
           }),
         },
         {
-          label: "The board declares a 2-for-1 split.",
-          action: "Run the split",
+          label: "A corporate action changes the redemption ratio.",
+          action: "Update the multiplier",
           run: (s) => ({
             entries: runOps(s, [{ as: "Issuer", type: "updateMultiplier", value: 2.0 }]),
             caption: "Every balance doubles in one call, without a migration or a new contract.",
           }),
         },
         {
-          label: "A dividend goes out with public disclosure.",
+          label: "A distribution goes out with public disclosure.",
           action: "Announce & distribute",
           run: (s) => ({
             entries: runOps(s, [{ as: "Issuer", type: "announceBatchMint", recipients: ["Alice", "Bob"], amt: 10, id: 7 }]),
