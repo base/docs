@@ -1,0 +1,34 @@
+---
+title: "Restrict who can hold it"
+keywords: ["stablecoin allowlist", "KYC gated stablecoin", "B20 transfer policy", "restrict transfers Base"]
+description: "Limit transfers of your stablecoin to accounts your KYC program has approved, using B20 transfer policies."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Keep your stablecoin within a known set of holders with an **allowlist**: transfers only settle between accounts your KYC program has approved. You manage the list in the [Policy Registry](/base-chain/specs/upgrades/beryl/b20#policy-registry) and bind it to the token's transfer scopes.
+
+#### Demo
+
+<StablecoinDemo flow="restrict" />
+
+## Set the allowlist
+
+```bash Terminal
+REG=0x8453000000000000000000000000000000000002  # Policy Registry
+
+# Create an ALLOWLIST policy (type 1), add approved accounts, bind sender + receiver.
+base-cast send $REG "createPolicy(address,uint8)" $ADMIN 1 --rpc-url $RPC_URL --private-key $KEY
+base-cast send $REG "updateAllowlist(uint64,bool,address[])" $POLICY_ID true "[$A,$B]" --rpc-url $RPC_URL --private-key $ADMIN_KEY
+base-cast send $TOKEN_ADDRESS "updatePolicy(uint8,uint64)" $(base-cast keccak "TRANSFER_SENDER_POLICY") $POLICY_ID --rpc-url $RPC_URL --private-key $KEY
+base-cast send $TOKEN_ADDRESS "updatePolicy(uint8,uint64)" $(base-cast keccak "TRANSFER_RECEIVER_POLICY") $POLICY_ID --rpc-url $RPC_URL --private-key $KEY
+```
+
+<Warning>
+A B20 token is fully open by default. Confirm `policyExists(policyId)` before binding — an allowlist with no members denies everyone.
+</Warning>
+
+## See also
+
+- [Block an account](/build-on-base/issue-stablecoins/block-an-account)
+- [Policy integration](/base-chain/specs/upgrades/beryl/b20#policy-integration) in the B20 standard
