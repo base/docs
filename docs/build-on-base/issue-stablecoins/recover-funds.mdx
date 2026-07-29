@@ -1,0 +1,31 @@
+---
+title: "Recover funds"
+keywords: ["recover stablecoin funds", "B20 burnBlocked", "reissue stablecoin", "reclaim tokens Base"]
+description: "Reclaim and reissue stablecoin from a blocked account on Base, for lost keys or a legal hold."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Occasionally you need to move a balance out of a blocked account — a holder who lost their keys, or a balance you must reissue. Reclaim it with `burnBlocked`, then mint the same amount to the correct address. It's gated by its own `BURN_BLOCKED_ROLE` and only works on an account that is already blocked.
+
+#### Demo
+
+<StablecoinDemo flow="recover" />
+
+## Reclaim and reissue
+
+```bash Terminal
+# The account must already be blocked (see Block an account).
+base-cast send $TOKEN_ADDRESS "burnBlocked(address,uint256)" $BLOCKED 50000000 \
+  --rpc-url $RPC_URL --private-key $RECOVERY_KEY
+
+base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $NEW_ADDRESS 50000000 \
+  --rpc-url $RPC_URL --private-key $MINTER_KEY
+```
+
+Circulating supply is unchanged: you burn and remint the same amount. Tag both calls with a memo for an auditable trail.
+
+## See also
+
+- [Block an account](/build-on-base/issue-stablecoins/block-an-account) · [Reconcile with memos](/build-on-base/issue-stablecoins/reconcile-with-memos)
+- [Burn](/base-chain/specs/upgrades/beryl/b20#burn) in the B20 standard

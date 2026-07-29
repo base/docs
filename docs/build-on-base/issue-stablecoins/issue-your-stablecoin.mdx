@@ -1,0 +1,38 @@
+---
+title: "Issue your stablecoin"
+keywords: ["create B20 stablecoin", "issue stablecoin Base", "stablecoin variant B20", "createB20 stablecoin"]
+description: "Create a fiat-backed stablecoin on Base with one B20 factory call."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Create a fiat-backed token with one call to the [B20 Factory](/base-chain/specs/upgrades/beryl/b20#factory), using the `STABLECOIN` variant. Decimals are fixed at 6, and the token carries an immutable ISO currency code.
+
+#### Demo
+
+<StablecoinDemo flow="issue" />
+
+## Create it
+
+Encode the params with `B20FactoryLib`, then call `createB20`. Grant the minter role in the same transaction with `initCalls`:
+
+```solidity script/CreateStablecoin.s.sol
+bytes memory params =
+    B20FactoryLib.encodeStablecoinCreateParams("My USD", "MUSD", account, "USD");
+
+bytes[] memory initCalls = new bytes[](1);
+initCalls[0] = B20FactoryLib.encodeGrantRole(B20Constants.MINT_ROLE, account);
+
+token = StdPrecompiles.B20_FACTORY.createB20(
+    IB20Factory.B20Variant.STABLECOIN, salt, params, initCalls
+);
+```
+
+<Note>
+For toolchain, project, and network setup, complete the [Launch a B20 token](/get-started/launch-b20-token) quickstart first — it's identical for both variants.
+</Note>
+
+## See also
+
+- [Mint supply](/build-on-base/issue-stablecoins/mint-supply) · [Restrict who can hold it](/build-on-base/issue-stablecoins/restrict-who-can-hold)
+- [Stablecoin variant](/base-chain/specs/upgrades/beryl/b20#stablecoin) in the B20 standard
