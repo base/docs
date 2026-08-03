@@ -1,0 +1,93 @@
+---
+title: "Deployment & initCalls encoding"
+description: "Use B20FactoryLib to encode createB20 params and initCalls for atomic B20 token deployment."
+---
+
+Use `B20FactoryLib` to produce canonical factory params and initCalls. The factory rejects malformed or unsupported params, so avoid hand-encoding unless you are testing decoder failures.
+
+## Deploy an Asset token
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {Script} from "forge-std/Script.sol";
+import {IB20Factory} from "base-std/interfaces/IB20Factory.sol";
+import {B20Constants} from "base-std/lib/B20Constants.sol";
+import {B20FactoryLib} from "base-std/lib/B20FactoryLib.sol";
+import {StdPrecompiles} from "base-std/StdPrecompiles.sol";
+
+contract DeployB20 is Script {
+    function run() external returns (address token) {
+        address admin = vm.envAddress("ADMIN");
+        address minter = vm.envAddress("MINTER");
+        bytes32 salt = keccak256("my-token-v1");
+
+        bytes memory params = B20FactoryLib.encodeAssetCreateParams("My Token", "MYT", admin, 18);
+
+        bytes[] memory initCalls = new bytes[](3);
+        initCalls[0] = B20FactoryLib.encodeGrantRole(B20Constants.MINT_ROLE, minter);
+        initCalls[1] = B20FactoryLib.encodeGrantRole(B20Constants.PAUSE_ROLE, admin);
+        initCalls[2] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e18);
+
+        vm.broadcast();
+        token = StdPrecompiles.B20_FACTORY.createB20(
+            IB20Factory.B20Variant.ASSET,
+            salt,
+            params,
+            initCalls
+        );
+    }
+}
+```
+
+## Pre-derive the token address
+
+Some initCalls or offchain systems need the token address before deployment.
+
+```solidity
+address predicted = StdPrecompiles.B20_FACTORY.getB20Address(
+    IB20Factory.B20Variant.ASSET,
+    deployer,
+    salt
+);
+```
+
+After creation, verify with:
+
+```solidity
+require(StdPrecompiles.B20_FACTORY.isB20(predicted), "not B20-shaped");
+require(StdPrecompiles.B20_FACTORY.isB20Initialized(predicted), "not initialized");
+```
+
+## initCalls rules
+
+During initCalls, factory-originated calls bypass role gates and transfer-side policy gates. They do not bypass:
+
+- `MINT_RECEIVER_POLICY`
+- Pause state
+- Supply cap or other accounting invariants
+
+That means ordering matters. Configure mint receiver policy before minting only if the mint recipient is authorized by that policy.
+
+## Admin-less deployment
+
+To deploy admin-less from block one, set `initialAdmin` to `address(0)` and put all required role grants, policy bindings, and cap configuration into initCalls.
+
+```solidity
+bytes memory params = B20FactoryLib.encodeAssetCreateParams("Adminless", "ADL", address(0), 18);
+
+bytes[] memory initCalls = new bytes[](3);
+initCalls[0] = B20FactoryLib.encodeGrantRole(B20Constants.MINT_ROLE, minter);
+initCalls[1] = B20FactoryLib.encodeUpdatePolicy(B20Constants.MINT_RECEIVER_POLICY, mintPolicyId);
+initCalls[2] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e18);
+```
+
+<Warning>
+There is no later admin recovery path for an admin-less token. Missing policies or roles cannot be added after deployment.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Token lifecycle" href="/base-chain/specs/upgrades/beryl/b20/specification/concepts/token-lifecycle" />
+  <Card title="IB20Factory reference" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Factory" />
+</CardGroup>

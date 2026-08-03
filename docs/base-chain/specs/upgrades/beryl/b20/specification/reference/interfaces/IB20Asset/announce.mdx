@@ -1,0 +1,58 @@
+---
+title: "IB20Asset.announce"
+description: "Generated B20 reference for announce(bytes[],string,string,string)."
+---
+
+<Note>
+Generated from base-std commit `68a7a35ebfb8a0a8deb328d9762b9eb9dff06ba3`. Do not edit this page by hand; update NatSpec or generator overrides instead.
+</Note>
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/variants-asset-vs-stablecoin)
+
+## Signature
+
+```solidity
+function announce( bytes[] calldata internalCalls, string calldata id, string calldata description, string calldata uri ) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x595135dd` |
+| Canonical signature | `announce(bytes[],string,string,string)` |
+
+## Description
+
+Posts a holder-impacting announcement and atomically dispatches each entry in
+`internalCalls` via self-`delegatecall` (preserving `msg.sender`). Emits
+`Announcement` then `EndAnnouncement` with the same `id`. Pass an empty
+`internalCalls` for a pure disclosure.
+Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
+Dev: Reverts with `AnnouncementIdAlreadyUsed` when `id` has previously been consumed.
+Dev: Reverts with `InternalCallMalformed` when an entry in `internalCalls` is shorter than four bytes.
+Dev: Reverts with `AnnouncementInProgress` when an entry in `internalCalls` targets `announce` itself.
+Dev: An inner call that raises a Solidity `Panic` (e.g. arithmetic overflow) propagates the
+raw Panic unchanged; any other inner revert wraps as `InternalCallFailed(call)`. An inner
+out-of-gas halts the whole call.
+Param: internalCalls ABI-encoded calldata blobs executed in order via self-`delegatecall`; may be empty.
+Param: id            Caller-chosen announcement id; single-use over the token's lifetime.
+Param: description   Human-readable summary of the announcement.
+Param: uri           Off-chain URI containing the full announcement contents.
+
+## Access control
+
+`OPERATOR_ROLE` gates this Asset call.
+
+## Policy interaction
+
+No direct policy interaction.
+
+## Example
+
+```solidity
+IB20Asset(target).announce(arg0, arg1, arg2, arg3);
+```
+
+## Related
+
+- [IB20Asset reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

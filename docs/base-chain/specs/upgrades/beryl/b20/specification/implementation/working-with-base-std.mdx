@@ -1,0 +1,71 @@
+---
+title: "Working with base-std"
+description: "Install base-std and use StdPrecompiles, B20Constants, interfaces, and helper libraries for B20 development."
+---
+
+`base-std` is the Solidity source of truth for B20 interfaces, constants, factory encoders, and test mocks.
+
+## Install
+
+```bash
+forge install base/base-std
+```
+
+Add remappings for source and test helpers:
+
+```toml foundry.toml
+remappings = [
+  "base-std/=lib/base-std/src/",
+  "base-std-test/=lib/base-std/test/"
+]
+```
+
+Interfaces target `>=0.8.20 <0.9.0`. Reference implementations and tests in `base-std` pin Solidity `0.8.30`.
+
+## Use StdPrecompiles
+
+`StdPrecompiles.sol` exposes fixed precompile addresses and typed handles.
+
+```solidity
+import {StdPrecompiles} from "base-std/StdPrecompiles.sol";
+import {IB20Factory} from "base-std/interfaces/IB20Factory.sol";
+
+address predicted = StdPrecompiles.B20_FACTORY.getB20Address(
+    IB20Factory.B20Variant.ASSET,
+    deployer,
+    salt
+);
+```
+
+## Use canonical constants
+
+Use `B20Constants.sol` instead of redefining role and scope hashes.
+
+```solidity
+import {B20Constants} from "base-std/lib/B20Constants.sol";
+
+bytes32 mintRole = B20Constants.MINT_ROLE;
+bytes32 mintScope = B20Constants.MINT_RECEIVER_POLICY;
+```
+
+## Where things live
+
+| Path | Purpose |
+|---|---|
+| `src/StdPrecompiles.sol` | Fixed precompile addresses and typed handles |
+| `src/interfaces/` | Solidity interfaces for B20, variants, factory, and registries |
+| `src/lib/B20Constants.sol` | Role, policy-scope, feature, decimal, and supply-cap constants |
+| `src/lib/B20FactoryLib.sol` | Pure encoders for factory params and initCalls |
+| `test/lib/mocks/` | Solidity mocks for stock Foundry tests |
+
+## What not to do
+
+- Do not hardcode precompile addresses in application code when `StdPrecompiles` is available.
+- Do not copy interface files into your repo; import them to avoid version skew.
+- Do not assume explorer verification exists for B20 precompile token addresses.
+- Do not use stock `forge` alone when your test expects live precompile behavior.
+
+<CardGroup cols={2}>
+  <Card title="Testing against precompiles" href="/base-chain/specs/upgrades/beryl/b20/specification/implementation/testing-against-precompiles" />
+  <Card title="Constants & addresses" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses" />
+</CardGroup>

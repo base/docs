@@ -1,0 +1,223 @@
+---
+title: "B20 specification"
+description: "Normative Beryl specification for Base's B20 native token standard, precompile registries, policy scopes, factory, and variants."
+---
+
+<Note>
+This is the normative Beryl specification for B20. For developer-oriented concepts, implementation guides, and generated interface reference, start with the [B20 token standard docs](/base-chain/specs/upgrades/beryl/b20/specification/overview).
+</Note>
+
+B20 is Base's native ERC-20-compatible token standard implemented as Rust precompiles. It adds chain-native roles, policy scopes, memos, pausing, supply caps, ERC-2612 `permit`, deterministic factory creation, and variant-specific surfaces for Asset and Stablecoin tokens.
+
+## ERC-20 Compatibility
+
+B20 is a superset of ERC-20. Standard ERC-20 calls and events keep selector and behavior parity for `transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, `name`, `symbol`, `decimals`, `Transfer`, and `Approval`.
+
+B20-specific methods extend the standard without changing the ERC-20 surface.
+
+## Roles Model
+
+B20 uses an OpenZeppelin-style access-control model with fixed built-in roles.
+
+| Role | Gates |
+|---|---|
+| `DEFAULT_ADMIN_ROLE` | `grantRole`, `revokeRole`, `setRoleAdmin`, `updatePolicy`, `updateSupplyCap` |
+| `MINT_ROLE` | `mint`, `mintWithMemo` |
+| `BURN_ROLE` | `burn`, `burnWithMemo` |
+| `BURN_BLOCKED_ROLE` | Deprecated back-compat `burnBlocked` path |
+| `SEIZE_ROLE` | `seizeWithMemo` |
+| `PAUSE_ROLE` | `pause` |
+| `UNPAUSE_ROLE` | `unpause` |
+| `METADATA_ROLE` | `updateName`, `updateSymbol`, `updateContractURI` |
+| `OPERATOR_ROLE` | Asset-only multiplier and announcement operations |
+
+User-defined roles are supported by the role graph but have no built-in enforcement by B20 token functions.
+
+### Admin Renunciation
+
+The final `DEFAULT_ADMIN_ROLE` holder cannot be removed with normal `renounceRole` or `revokeRole`; both revert with `LastAdminCannotRenounce`. `renounceLastAdmin()` is the only normal path to permanently transition to admin-less operation.
+
+A token can launch admin-less by setting `initialAdmin == address(0)` at creation. After admin renunciation, `DEFAULT_ADMIN_ROLE`-gated functions are permanently uncallable and admin resurrection is blocked.
+
+## Policy Registry
+
+The PolicyRegistry is a singleton precompile that stores policies addressed by `uint64 policyId`. B20 tokens store policy IDs in fixed scopes and call `isAuthorized(policyId, account)` during gated operations.
+
+State-changing PolicyRegistry calls are ActivationRegistry-gated. Read functions are always callable.
+
+### Policy Types
+
+| PolicyType | Behavior |
+|---|---|
+| `BLOCKLIST` | Account is authorized unless listed. |
+| `ALLOWLIST` | Account is authorized only if listed. |
+| `UNION` | Composite: account is authorized if any child simple policy authorizes it. |
+| `INTERSECT` | Composite: account is authorized only if every child simple policy authorizes it. |
+
+Composite policies reference existing simple `ALLOWLIST` or `BLOCKLIST` child policies. They cannot reference composites or built-ins as children.
+
+### Policy IDs
+
+Policy IDs are laid out as:
+
+```text
+[top 8 bits: PolicyType][low 56 bits: counter]
+```
+
+Counters `0` and `1` are reserved for built-ins:
+
+| Built-in | Value | Behavior |
+|---|---:|---|
+| `ALWAYS_ALLOW` | `0` | Authorizes every account. |
+| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) &lt;&lt; 56) \| 1` | Denies every account. |
+
+Custom policy creation starts at counter `2`.
+
+### Admin Model
+
+Each policy has one admin. Admin transfer is two-step: `stageUpdateAdmin(policyId, newAdmin)` followed by `finalizeUpdateAdmin(policyId)` from the pending admin. `renounceAdmin(policyId)` permanently freezes membership or child-policy updates for that policy.
+
+### Read Interface
+
+| Method | Description |
+|---|---|
+| `isAuthorized(policyId, account)` | Returns authorization and never reverts for uncreated IDs. |
+| `policyExists(policyId)` | Returns whether a policy exists. |
+| `policyAdmin(policyId)` | Returns the current admin or zero. |
+| `pendingPolicyAdmin(policyId)` | Returns the staged admin or zero. |
+| `compositePolicyChildIds(policyId)` | Returns child policy IDs for composite policies. |
+
+`isAuthorized` collapses uncreated IDs to empty-set semantics. Callers that write policy IDs into token scopes must validate `policyExists` unless writing a built-in.
+
+## Policy Integration
+
+B20 tokens store one `uint64 policyId` per supported policy scope.
+
+| Scope | Checked account | Operation |
+|---|---|---|
+| `TRANSFER_SENDER_POLICY` | `from` | `transfer`, `transferFrom`, and memo variants |
+| `TRANSFER_RECEIVER_POLICY` | `to` | `transfer`, `transferFrom`, and memo variants |
+| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` when `msg.sender != from` |
+| `MINT_RECEIVER_POLICY` | `to` | `mint`, `mintWithMemo` |
+| `SEIZE_HOLDER_POLICY` | `from` | `seizeWithMemo`; holder is seizable only when not authorized |
+
+All scopes default to `ALWAYS_ALLOW` at creation. `approve` and `permit` are not policy-gated.
+
+## Mint
+
+`mint` and `mintWithMemo` are gated by `MINT_ROLE`, checked against `MINT_RECEIVER_POLICY`, and bounded by `supplyCap`.
+
+## Burn
+
+`burn` and `burnWithMemo` burn from the caller and are gated by `BURN_ROLE`.
+
+The legacy `burnBlocked` path is deprecated and retained for backwards compatibility. New seizure flows use `seizeWithMemo`.
+
+## Seize
+
+`seizeWithMemo(from, to, amount, memo)` transfers balance from `from` to `to` and emits `Transfer`, `Memo`, and `Seized`. It is gated by `SEIZE_ROLE`, skips allowance and transfer policies, and requires `from` to be denied by `SEIZE_HOLDER_POLICY`.
+
+## Supply Cap
+
+The supply cap is optional. The sentinel `type(uint128).max` indicates no practical cap and is also the maximum permitted `totalSupply`. `updateSupplyCap` is admin-gated and reverts with `InvalidSupplyCap` if the proposed cap is below current supply or above the maximum.
+
+## Memos
+
+Memo-enabled operations emit `Memo(address indexed caller, bytes32 indexed memo)` immediately after the primary operation event. Indexers join memo logs to the parent log with `(transactionHash, logIndex - 1)`.
+
+Memo entrypoints include `transferWithMemo`, `transferFromWithMemo`, `mintWithMemo`, `burnWithMemo`, and `seizeWithMemo`.
+
+## Pause
+
+B20 supports granular pausing by `PausableFeature`: `TRANSFER`, `MINT`, `BURN`, and `SEIZE`. The enum is append-only. `pause` is gated by `PAUSE_ROLE`; `unpause` is gated by `UNPAUSE_ROLE`.
+
+## ERC-2612 Permit / EIP-712
+
+B20 implements ERC-2612 signed approvals with an EIP-712 domain shaped as `(name, version, chainId, verifyingContract)`, with `version` fixed at `"1"`. `updateName` rotates the domain separator and emits `EIP712DomainChanged`. ERC-1271 contract signatures are not accepted.
+
+## Contract URI (ERC-7572)
+
+`contractURI()` returns offchain token metadata per ERC-7572. `updateContractURI(newURI)` is gated by `METADATA_ROLE`.
+
+## Metadata Updates
+
+`updateName` and `updateSymbol` are gated by `METADATA_ROLE`. `updateName` also rotates the EIP-712 domain separator.
+
+## Factory
+
+All B20 tokens are created through the singleton factory precompile:
+
+```solidity
+createB20(B20Variant variant, bytes32 salt, bytes params, bytes[] initCalls)
+```
+
+| Parameter | Description |
+|---|---|
+| `variant` | `ASSET` or `STABLECOIN` |
+| `salt` | Caller-chosen entropy for deterministic address derivation |
+| `params` | Versioned, variant-specific create params |
+| `initCalls` | ABI-encoded bootstrap calls dispatched to the new token |
+
+The factory reverts with `FeatureNotActivated` if the requested variant is not activated.
+
+### Address Derivation
+
+B20 token addresses are deterministic and encode the variant:
+
+```text
+[10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
+```
+
+`getB20Address`, `isB20`, and `isB20Initialized` are available on the factory.
+
+### initCalls Semantics
+
+During initCalls, factory-originated calls bypass token role gates and transfer-side policy gates: `TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`, and `TRANSFER_EXECUTOR_POLICY`.
+
+The bypass does not apply to `MINT_RECEIVER_POLICY`, pause state, supply cap, or balance accounting invariants. The bootstrap window closes when `createB20` returns.
+
+## Variants
+
+| Variant | Byte | Decimals | Additional surface |
+|---|---:|---|---|
+| `ASSET` | `0x00` | 6-18, configured at creation | Multiplier, announcements, batch mint, extra metadata |
+| `STABLECOIN` | `0x01` | Fixed 6 | `currency()` |
+
+### Asset
+
+Asset tokens add `OPERATOR_ROLE`, scaled UI balance support, scheduled and instant multiplier updates, announcements, batch minting, and extra metadata.
+
+#### Multiplier
+
+The multiplier is WAD-precision and scales UI balance reads while raw balances remain unchanged.
+
+#### Announcements
+
+`announce` emits `Announcement`, dispatches internal calls, and emits `EndAnnouncement`. Announcement IDs are unique forever. Non-panic inner reverts are wrapped in `InternalCallFailed`.
+
+#### Batch Mint
+
+`batchMint` mints to parallel recipient and amount arrays atomically and is gated by `MINT_ROLE`.
+
+#### Extra Metadata
+
+`extraMetadata(key)` reads issuer-defined metadata. `updateExtraMetadata(key, value)` writes it and deletes the entry when `value` is empty.
+
+### Stablecoin
+
+Stablecoin tokens add `currency()`, set once at creation. The value must contain uppercase `A`-`Z` characters only and is self-declared, not externally verified.
+
+## Precompile addresses
+
+| Precompile | Address |
+|---|---|
+| B20Factory | `0xB20f000000000000000000000000000000000000` |
+| ActivationRegistry | `0x8453000000000000000000000000000000000001` |
+| PolicyRegistry | `0x8453000000000000000000000000000000000002` |
+
+## Developer documentation
+
+- [B20 overview](/base-chain/specs/upgrades/beryl/b20/specification/overview)
+- [Policies & scopes](/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes)
+- [Policy configuration in code](/base-chain/specs/upgrades/beryl/b20/specification/implementation/policy-configuration-in-code)
+- [Generated reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20)

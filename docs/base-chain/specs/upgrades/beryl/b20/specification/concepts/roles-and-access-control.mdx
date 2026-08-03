@@ -1,0 +1,67 @@
+---
+title: "Roles & access control"
+description: "Understand B20 roles, access-control gates, user-defined roles, and irreversible admin renunciation."
+---
+
+B20 extends the OpenZeppelin `AccessControl` model with a fixed base surface. User-defined roles can exist, but B20 only enforces the built-in roles listed here.
+
+## Base roles
+
+| Role | Gates |
+|---|---|
+| `DEFAULT_ADMIN_ROLE` | Role grants/revokes, `setRoleAdmin`, `updatePolicy`, `updateSupplyCap` |
+| `MINT_ROLE` | `mint`, `mintWithMemo` |
+| `BURN_ROLE` | `burn`, `burnWithMemo` |
+| `BURN_BLOCKED_ROLE` | Deprecated back-compat `burnBlocked` implementation only |
+| `SEIZE_ROLE` | `seizeWithMemo` |
+| `PAUSE_ROLE` | `pause` |
+| `UNPAUSE_ROLE` | `unpause` |
+| `METADATA_ROLE` | `updateName`, `updateSymbol`, `updateContractURI` |
+| `OPERATOR_ROLE` | Asset-only multiplier and announcement operations |
+
+<Warning>
+User-defined roles have no built-in enforcement. You can create them with `setRoleAdmin` and grant them with `grantRole`, but B20 token functions only check the built-in roles.
+</Warning>
+
+## Admin renunciation
+
+B20 intentionally diverges from the default OpenZeppelin last-admin behavior. The last `DEFAULT_ADMIN_ROLE` holder cannot renounce or be revoked through normal role methods; those calls revert with `LastAdminCannotRenounce`.
+
+Use `renounceLastAdmin()` to permanently move the token to an admin-less state. A token can also launch admin-less by passing `initialAdmin == address(0)` at creation.
+
+After admin renunciation:
+
+- `DEFAULT_ADMIN_ROLE`-gated operations are permanently uncallable.
+- Existing operational role grants continue to work.
+- Admin resurrection is blocked; `grantRole`, `revokeRole`, and `setRoleAdmin` revert even through custom admin-role chains.
+
+## Pre-renunciation checklist
+
+Configure every surviving operational path before renouncing the last admin.
+
+```solidity
+IB20 token = IB20(tokenAddress);
+
+// 1. Grant roles that must survive admin renunciation.
+token.grantRole(B20Constants.MINT_ROLE, issuerOps);
+token.grantRole(B20Constants.PAUSE_ROLE, incidentResponder);
+token.grantRole(B20Constants.UNPAUSE_ROLE, governanceSafe);
+token.grantRole(B20Constants.SEIZE_ROLE, complianceSafe);
+
+// 2. Bind policies and supply cap while DEFAULT_ADMIN_ROLE still exists.
+token.updatePolicy(B20Constants.MINT_RECEIVER_POLICY, mintAllowlistPolicyId);
+token.updatePolicy(B20Constants.SEIZE_HOLDER_POLICY, seizeHolderPolicyId);
+token.updateSupplyCap(1_000_000e18);
+
+// 3. Permanently remove token administration.
+token.renounceLastAdmin();
+```
+
+<Note>
+For an admin-less launch from creation, put the required grants and policy updates in `initCalls`, then set `initialAdmin` to `address(0)` in the create params.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="Deployment & initCalls encoding" href="/base-chain/specs/upgrades/beryl/b20/specification/implementation/deployment-and-initcalls-encoding" />
+  <Card title="IB20 reference" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20" />
+</CardGroup>

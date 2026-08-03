@@ -1,0 +1,55 @@
+---
+title: "IPolicyRegistry.updateComposite"
+description: "Generated B20 reference for updateComposite(uint64,uint64[])."
+---
+
+<Note>
+Generated from base-std commit `68a7a35ebfb8a0a8deb328d9762b9eb9dff06ba3`. Do not edit this page by hand; update NatSpec or generator overrides instead.
+</Note>
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes)
+
+## Signature
+
+```solidity
+function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xbfe142c0` |
+| Canonical signature | `updateComposite(uint64,uint64[])` |
+
+## Description
+
+Replaces a composite policy's child-policy set in full with `childPolicyIds`.
+Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
+Dev: Reverts with `IncompatiblePolicyType` when `policyId` is not a composite (UNION or INTERSECT).
+Dev: Reverts with `Unauthorized` when the caller is not the current admin. A renounced composite
+(admin `address(0)`) can never be updated.
+Dev: Reverts with `ChildPoliciesOutsideOfRange(2, 4)` when `childPolicyIds.length` is not in `[2, 4]`;
+there is no clear-the-list path (the composite child-policy range, not the 64-account batch limit).
+Dev: Reverts with `PolicyNotFound` when any child policy does not exist.
+Dev: Reverts with `InvalidChildPolicy` when any child policy is itself a composite
+(not a simple policy).
+Param: policyId       Composite policy to update.
+Param: childPolicyIds Complete new set of existing simple policy IDs.
+
+## Access control
+
+Callable by the policy admin for the target policy.
+
+## Policy interaction
+
+This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+
+## Example
+
+```solidity
+IPolicyRegistry(target).updateComposite(arg0, arg1);
+```
+
+## Related
+
+- [IPolicyRegistry reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IPolicyRegistry)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

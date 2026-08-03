@@ -1,0 +1,62 @@
+---
+title: "Testing against precompiles"
+description: "Test B20 code with base-std mocks, base-forge in-process live precompiles, and forked base-anvil nodes."
+---
+
+B20 precompile tests run in three modes. Pick the lowest-cost mode that catches the behavior you need.
+
+## Mode 1: Solidity mocks with stock Forge
+
+Use this for fast unit tests that do not need the Rust precompile backend.
+
+```bash
+forge test
+```
+
+`base-std` provides mocks under `test/lib/mocks/`. Test bases can etch these mocks at the fixed precompile addresses so calls to `StdPrecompiles` work in stock Foundry.
+
+## Mode 2: Live precompiles in-process with base-forge
+
+Use this to run against the Rust precompile implementation without running a node.
+
+```bash
+curl -L https://raw.githubusercontent.com/base/base-anvil/HEAD/foundryup/install | bash
+base-foundryup
+base-forge test
+```
+
+`base-forge` hosts the precompiles inside Forge's EVM and seeds gated features active for the no-node path. `BaseTest` in `base-std` auto-detects whether it is running live precompiles or reference mocks.
+
+## Mode 3: Forked base-anvil node
+
+Use this when you need genuine RPC/fork behavior against a local node.
+
+```bash
+make smoke-setup
+ANVIL_BIN="$HOME/.foundry/versions/base-nightly/anvil" \
+FORGE_BIN="$HOME/.foundry/versions/base-nightly/forge" \
+  make fork-tests
+```
+
+A `base-anvil` node starts with gated features inactive, like a real chain before feature activation. Activate the needed features before testing deployment or state-changing registry paths.
+
+## Why LIVE_PRECOMPILES matters
+
+When a test etches mock bytecode at a precompile address, the EVM executes the etched bytecode before consulting native precompile dispatch. If you enable Base precompile dispatch but still etch mocks, tests can falsely pass against Solidity mocks while you think they are using Rust precompiles.
+
+Use `LIVE_PRECOMPILES=true` in fork profiles that should skip mock etching and call the native backend.
+
+```bash
+LIVE_PRECOMPILES=true FOUNDRY_PROFILE=fork forge test --fork-url http://localhost:8546
+```
+
+## Failure diagnosis
+
+1. **Activation:** Did the chain activate the relevant B20 or registry feature?
+2. **Deployment:** Is the target address a fixed precompile or an initialized B20 token?
+3. **Divergence:** If mocks pass and live precompiles fail, compare the failing selector, storage slot, and event/revert order against `base-std` tests.
+
+<CardGroup cols={2}>
+  <Card title="Working with base-std" href="/base-chain/specs/upgrades/beryl/b20/specification/implementation/working-with-base-std" />
+  <Card title="Architecture & precompiles" href="/base-chain/specs/upgrades/beryl/b20/specification/concepts/architecture-and-precompiles" />
+</CardGroup>

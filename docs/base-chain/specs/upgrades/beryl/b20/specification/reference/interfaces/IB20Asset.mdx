@@ -1,0 +1,58 @@
+---
+title: "IB20Asset reference"
+description: "Generated B20 reference for IB20Asset functions, events, and errors."
+---
+
+<Note>
+Generated from base-std commit `68a7a35ebfb8a0a8deb328d9762b9eb9dff06ba3`. Function child pages include selectors, access notes, policy notes, and examples.
+</Note>
+
+## Functions
+
+| Function | Selector | Summary |
+|---|---|---|
+| [`OPERATOR_ROLE`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/OPERATOR_ROLE) | `0xf5b541a6` | Required to call `announce`, `setUIMultiplier`, `cancelScheduledMultiplier`, and |
+| [`WAD_PRECISION`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/WAD_PRECISION) | `0x664808a8` | Fixed-point precision used to scale `multiplier`. Equal to `1e18`. |
+| [`announce`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/announce) | `0x595135dd` | Posts a holder-impacting announcement and atomically dispatches each entry in |
+| [`isAnnouncementIdUsed`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/isAnnouncementIdUsed) | `0xc0da474e` | Whether `id` has previously been consumed by `announce`. |
+| [`multiplier`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/multiplier) | `0x1b3ed722` | The current multiplier, scaled to `WAD_PRECISION`. Holder balances are stored |
+| [`toScaledBalance`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/toScaledBalance) | `0x04f04c99` | Converts a raw balance to its scaled view: `rawBalance * multiplier / WAD_PRECISION`. |
+| [`toRawBalance`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/toRawBalance) | `0x0ca06c44` | Converts a scaled balance back to its raw representation: |
+| [`scaledBalanceOf`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/scaledBalanceOf) | `0x1da24f3e` | Convenience for `toScaledBalance(balanceOf(account))`. |
+| [`setUIMultiplier`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/setUIMultiplier) | `0x93d32890` | Schedules a multiplier update to take effect at `effectiveAt` — the standard path |
+| [`cancelScheduledMultiplier`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/cancelScheduledMultiplier) | `0xc4b1e3e7` | Cancels the single live pending update, restoring the no-pending state |
+| [`updateMultiplier`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/updateMultiplier) | `0x5ffe6146` | Instant failsafe / emergency override — sets the current multiplier immediately and |
+| [`batchMint`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/batchMint) | `0x68573107` | Mints `amounts[i]` to `recipients[i]` in one call. All-or-nothing: any element |
+| [`extraMetadata`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/extraMetadata) | `0x4ddf9da0` | The value of the named metadata entry, or the empty string if not set. A |
+| [`updateExtraMetadata`](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset/updateExtraMetadata) | `0xb2851ef5` | Sets, updates, or removes an extra-metadata entry. An empty `value` removes the |
+
+## Events
+
+| Event | Topic0 | Summary |
+|---|---|---|
+| `MultiplierUpdateCancelled` | `0xf8929975f3e67bbd1e5ec70d4cceaa7cce7ea0e811720f29c96cf1724de09397` | A scheduled multiplier update was cancelled. Emitted by `cancelScheduledMultiplier`, |
+| `ExtraMetadataUpdated` | `0xd7bb345be29e78d635203d40fe0567e7ef19d5cd5cc5fcd25f768b8063e82aa1` | Emitted by `updateExtraMetadata`. An empty `value` indicates removal. |
+| `Announcement` | `0xccebf8218a62875909564adef86a6f4df81503cb617221e793357d62f8e813f7` | Emitted by `announce` to open an announcement bracket. |
+| `EndAnnouncement` | `0x96d64dafe2c790596430196b982ad1da3221cb3b0f4e6e2df77f2e4f71a90037` | Emitted by `announce` to close the bracket opened by the paired `Announcement` with the same `id`. |
+
+## Errors
+
+| Error | Selector | Summary |
+|---|---|---|
+| `AnnouncementIdAlreadyUsed` | `0xd10b3c9e` | `announce` was called with an `id` that has already been consumed. |
+| `InvalidMetadataKey` | `0x86ea3abb` | `updateExtraMetadata` was called with an empty `key`. |
+| `InvalidMultiplier` | `0x6f12f3dc` | A multiplier setter (`setUIMultiplier` or `updateMultiplier`) was called with a |
+| `EffectiveAtInPast` | `0x14119cf6` | `setUIMultiplier` was called with an `effectiveAt` that is not in the future |
+| `EffectiveAtTooFar` | `0x1ce214fa` | `setUIMultiplier` was called with an `effectiveAt` above `type(uint64).max`, the |
+| `ScheduleOverlap` | `0x91a52665` | `setUIMultiplier` was called while a live pending update already exists |
+| `NoScheduledMultiplier` | `0x002e806f` | `cancelScheduledMultiplier` was called when there is no live pending update |
+| `LengthMismatch` | `0xab8b67c6` | A batched function was called with parallel arrays of differing lengths. |
+| `EmptyBatch` | `0xc2e5347d` | A batched function was called with empty arrays. |
+| `AnnouncementInProgress` | `0x5c5f0829` | An inner call dispatched by `announce` tried to re-invoke `announce`. |
+| `InternalCallMalformed` | `0x4e2f143e` | An inner call dispatched by `announce` was shorter than four bytes. |
+| `InternalCallFailed` | `0xb288a127` | An inner call dispatched by `announce` reverted with an ordinary revert; its reason is |
+
+<CardGroup cols={2}>
+  <Card title="Errors & events index" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/errors-and-events-index" />
+  <Card title="Constants & addresses" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses" />
+</CardGroup>

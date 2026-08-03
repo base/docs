@@ -1,0 +1,49 @@
+---
+title: "IB20Asset.updateMultiplier"
+description: "Generated B20 reference for updateMultiplier(uint256)."
+---
+
+<Note>
+Generated from base-std commit `68a7a35ebfb8a0a8deb328d9762b9eb9dff06ba3`. Do not edit this page by hand; update NatSpec or generator overrides instead.
+</Note>
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/variants-asset-vs-stablecoin)
+
+## Signature
+
+```solidity
+function updateMultiplier(uint256 newMultiplier) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x5ffe6146` |
+| Canonical signature | `updateMultiplier(uint256)` |
+
+## Description
+
+Instant failsafe / emergency override — sets the current multiplier immediately and
+cancels any live pending update without a scheduling window.
+Prefer `setUIMultiplier` for routine corporate actions.
+Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
+Dev: Reverts with `InvalidMultiplier` when `newMultiplier` is zero or above `type(uint128).max`.
+Param: newMultiplier New multiplier scaled to `WAD_PRECISION`; must be in `(0, type(uint128).max]`.
+
+## Access control
+
+`OPERATOR_ROLE` gates this Asset call.
+
+## Policy interaction
+
+No direct policy interaction.
+
+## Example
+
+```solidity
+IB20Asset(target).updateMultiplier(arg0);
+```
+
+## Related
+
+- [IB20Asset reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

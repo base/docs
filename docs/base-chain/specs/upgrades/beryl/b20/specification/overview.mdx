@@ -1,0 +1,46 @@
+---
+title: "B20 token standard"
+description: "Build with Base-native B20 tokens: ERC-20 compatible precompile tokens with roles, policy scopes, memos, supply caps, pausing, and variants."
+---
+
+B20 is Base's native token standard: an ERC-20 superset implemented as Rust precompiles. Standard ERC-20 calls such as `transfer`, `transferFrom`, `approve`, `balanceOf`, and `allowance` work unchanged, so existing wallets, indexers, and app integrations can treat a B20 token like an ERC-20 token.
+
+B20 adds issuer-grade controls at the chain level: policy-gated transfers and mints, role-based administration, granular pausing, supply caps, memos, ERC-2612 `permit`, and variant-specific features for assets and stablecoins.
+
+```mermaid
+flowchart LR
+  Factory[B20 Factory\n0xB20f...0000] -->|createB20| Token[B20 token\n0xB200... or 0xB201...]
+  Token -->|policyId(scope)| Policy[PolicyRegistry\n0x8453...0002]
+  Policy -->|writes gated by| Activation[ActivationRegistry\n0x8453...0001]
+  Factory -->|feature check| Activation
+```
+
+## Choose your path
+
+<CardGroup cols={3}>
+  <Card title="Launch a token" icon="rocket" href="/get-started/launch-b20-token">
+    Create a B20 token with the factory and mint the first supply.
+  </Card>
+  <Card title="Understand policies" icon="shield-check" href="/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes">
+    Learn how token policy scopes point to PolicyRegistry entries.
+  </Card>
+  <Card title="Find constants" icon="table" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses">
+    Copy precompile addresses, role IDs, policy scopes, variant bytes, and sentinels.
+  </Card>
+</CardGroup>
+
+## Variants
+
+| Variant | Decimals | Address byte | Use when |
+|---|---:|---:|---|
+| Asset | 6-18, configured at creation | `0x00` | You need asset features such as scaled balances, announcements, batch minting, or extra metadata. |
+| Stablecoin | Fixed `6` | `0x01` | You need a fixed-decimal token with a self-declared currency code. |
+
+## Learn the model
+
+- [Architecture & precompiles](/base-chain/specs/upgrades/beryl/b20/specification/concepts/architecture-and-precompiles): why B20 is configured through fixed precompile surfaces instead of deployed bytecode.
+- [Policies & scopes](/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes): how token scopes point to registry policies and gate operations.
+- [Roles & access control](/base-chain/specs/upgrades/beryl/b20/specification/concepts/roles-and-access-control): who can mint, pause, seize, change metadata, and renounce administration.
+- [Token lifecycle](/base-chain/specs/upgrades/beryl/b20/specification/concepts/token-lifecycle): how creation, initCalls, operation, and admin renunciation fit together.
+- [Variants: Asset vs Stablecoin](/base-chain/specs/upgrades/beryl/b20/specification/concepts/variants-asset-vs-stablecoin): how to choose a token variant.
+
