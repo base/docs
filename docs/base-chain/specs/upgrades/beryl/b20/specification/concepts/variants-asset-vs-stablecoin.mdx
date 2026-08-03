@@ -25,7 +25,7 @@ B20 has two variants. Both share the base ERC-20-compatible B20 surface, roles, 
 Asset tokens expose a WAD-precision multiplier for scaled UI balances. Raw balances remain unchanged; scaled balances are derived at read time.
 
 <Warning>
-Do not assume `balanceOf(account)` and `scaledBalanceOf(account)` are the same display unit. Integrations that show asset balances must decide whether they use raw ERC-20 balances or the scaled UI view.
+For Asset tokens, `balanceOf(account)` returns the raw ERC-20 balance. `scaledBalanceOf(account)` returns the multiplier-adjusted display balance. Choose one view for your integration and label it clearly.
 </Warning>
 
 Routine corporate actions should use scheduled multiplier updates when possible. Instant `updateMultiplier` is an emergency override.
@@ -49,7 +49,7 @@ Asset tokens can store issuer-defined string key/value metadata. Setting an empt
 Stablecoin tokens expose `currency()`, set once at creation. The code must contain uppercase `A`-`Z` characters only.
 
 <Warning>
-The currency code is self-declared and not verified against any external registry.
+B20 validates the currency code format, not the issuer's claim. A token can set `currency()` to `USD`, but B20 does not verify reserves, legal status, or registration with an external currency registry.
 </Warning>
 
 <CardGroup cols={2}>
