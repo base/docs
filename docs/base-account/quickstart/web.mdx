@@ -158,23 +158,23 @@ This guide uses the CDN approach for simplicity.
         }
       };
 
-      // One-tap USDC payment using window.base API (works with or without sign-in)
+      // One-tap USDC payment using the pay() function
       document.getElementById("pay").onclick = async () => {
         try {
           showStatus("Processing payment...", "success");
 
-          const result = await window.base.pay({
+          const { id } = await pay({
             amount: "5.00", // USD – SDK quotes equivalent USDC
             to: "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9",
             testnet: true, // set to false or omit for Mainnet
           });
 
-          const status = await window.base.getPaymentStatus({
-            id: result.id,
+          const { status } = await getPaymentStatus({
+            id,
             testnet: true,
           });
 
-          showStatus(`🎉 Payment completed! Status: ${status.status}`);
+          showStatus(`🎉 Payment completed! Status: ${status}`);
         } catch (error) {
           showStatus(`❌ Payment failed: ${error.message}`, "error");
         }
