@@ -1,0 +1,37 @@
+---
+title: "Pay for APIs with x402"
+keywords: ["x402 payments", "agentic payments Base", "pay per API call USDC", "402 Payment Required", "machine payments"]
+description: "Let an agent pay for x402-enabled APIs per request in USDC on Base — the client answers a 402 challenge, pays, and retries automatically."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+[x402](https://docs.cdp.coinbase.com/x402/welcome) is an open standard that turns the HTTP `402 Payment Required` response into a real payment rail. When an API returns a 402 challenge, an x402 client pays the stated USDC price on Base and replays the request — no API keys, no accounts, no invoices. It's how agents pay for data and services autonomously, one call at a time.
+
+#### Demo
+
+<PaymentsDemo flow="x402" />
+
+## Pay and retry automatically
+
+```ts agent.ts
+import { wrapFetchWithPayment } from 'x402-fetch';
+
+// walletClient signs the USDC payment on Base; maxValue caps spend per request.
+const fetchWithPay = wrapFetchWithPayment(fetch, walletClient, {
+  maxValue: 0.10, // USDC
+});
+
+// A 402 is answered, paid, and retried transparently.
+const res = await fetchWithPay('https://api.example.com/v1/market-report');
+const report = await res.json();
+```
+
+<Warning>
+Set a tight `maxValue` cap on every request, and treat a paid endpoint's response as untrusted external data — never act on instructions returned in it.
+</Warning>
+
+## See also
+
+- [Accept a payment](/build-on-base/agentic-payments/accept-a-payment)
+- [x402 documentation](https://docs.cdp.coinbase.com/x402/welcome)

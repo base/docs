@@ -1,0 +1,38 @@
+---
+title: "Verify a payment"
+keywords: ["verify USDC payment", "getPaymentStatus", "confirm payment server-side", "prevent replay payment"]
+description: "Confirm a Base Pay payment on-chain from your backend before fulfilling an order, and guard against replay and impersonation."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Never fulfill an order on a client-side confirmation alone. Check the payment on your backend with [`getPaymentStatus()`](/sdks/base-account/reference/base-pay/getPaymentStatus), then match the `sender` and `amount` to the order and record the id so it can't be reused.
+
+#### Demo
+
+<PaymentsDemo flow="verify" />
+
+## Confirm before fulfilling
+
+```ts confirm-order.ts
+import { getPaymentStatus } from '@base-org/account';
+
+const { status, sender, amount } = await getPaymentStatus({ id, testnet: false });
+
+if (status !== 'completed') throw new Error('Payment not completed');
+if (sender.toLowerCase() !== order.payer.toLowerCase()) throw new Error('Wrong sender');
+if (amount !== order.total) throw new Error('Amount mismatch');
+if (await alreadyProcessed(id)) throw new Error('Replayed payment');
+
+await markProcessed(id);
+await fulfill(order);
+```
+
+<Warning>
+`testnet` must match the value used in the original [`pay()`](/sdks/base-account/reference/base-pay/pay) call, and you must track processed ids to stop replay and impersonation.
+</Warning>
+
+## See also
+
+- [Accept a payment](/build-on-base/agentic-payments/accept-a-payment) · [Collect payer info](/build-on-base/agentic-payments/collect-payer-info)
+- [`getPaymentStatus()`](/sdks/base-account/reference/base-pay/getPaymentStatus) reference

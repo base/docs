@@ -8,12 +8,11 @@ description: Look up Base documentation with a compact directory-grouped index b
 
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
-- [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
-- [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
-- [Base Account](./base-account/llms.txt)
 - [Base Chain](./base-chain/llms.txt) — Start here for Base Chain docs, including concepts, network reference, node operation, APIs, and protocol specifications.
+- [Build On Base](./build-on-base/llms.txt) — Build on Base by outcome — issue stablecoins, facilitate payments, and run private transactions, with primitives built into the chain.
+- [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
-- [Ledgers](./ledgers/llms.txt) — An introduction to Base Ledgers, the enterprise way to run confidential payments that settle on Base.
+- [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
 - [Static](./static/llms.txt)
 
 ## Tools available for AI assistants
@@ -39,41 +38,6 @@ npx skills add base/base-skills
 ## Compact docs index
 
 [Docs]|root:./docs
-|agents:index,quickstart
-|agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
-|agents/plugins:custom-plugins,index
-|agents/plugins/native:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,index,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
-|agents/skills:SKILL
-|agents/skills/plugins:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
-|agents/skills/references:approval-mode,batch-calls,custom-plugins,install,plugin-spec,tone
-|apps:index
-|apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
-|apps/growth:rewards
-|apps/guides:accept-b20-payments,migrate-to-standard-web-app
-|apps/quickstart:build-app,deploy-on-base
-|apps/resources:design-resources,templates
-|apps/technical-guides:base-notifications
-|base-account/basenames:basename-transfer,basenames-faq
-|base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
-|base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
-|base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
-|base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
-|base-account/guides:accept-payments,accept-recurring-payments,authenticate-users,migration-guide,sign-and-verify-typed-data,verify-social-accounts
-|base-account/guides/tips:inspect-txn-simulation,popup-tips
-|base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
-|base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
-|base-account/more:base-gasless-campaign,telemetry
-|base-account/more/troubleshooting/usage-details:gas-usage,popups,simulations,unsupported-calls,wallet-library-support
-|base-account/overview:what-is-base-account
-|base-account/quickstart:ai-tools-available-for-devs,mobile-integration,web-react,web
-|base-account/reference/base-pay:charge,getOrCreateSubscriptionOwnerWallet,getPaymentStatus,getStatus,pay,prepareCharge,prepareRevoke,revoke,subscribe,subscriptions-overview
-|base-account/reference/core:createBaseAccount,generateKeyPair,getCryptoKeyAccount,getKeypair,getProvider,sdk-utilities
-|base-account/reference/core/capabilities:atomic,auxiliaryFunds,dataSuffix,datacallback,flowControl,gasLimitOverride,overview,paymasterService,signInWithEthereum
-|base-account/reference/core/provider-rpc-methods:coinbase_fetchPermission,coinbase_fetchPermissions,eth_accounts,eth_blockNumber,eth_chainId,eth_coinbase,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getProof,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_getUncleCountByBlockHash,eth_getUncleCountByBlockNumber,eth_requestAccounts,eth_sendRawTransaction,eth_sendTransaction,eth_signTypedData_v4,personal_sign,request-overview,sdk-overview,standard-rpc-methods,wallet_addEthereumChain,wallet_addSubAccount,wallet_connect,wallet_getCallsStatus,wallet_getCapabilities,wallet_getSubAccounts,wallet_sendCalls,wallet_switchEthereumChain,wallet_watchAsset,web3_clientVersion
-|base-account/reference/onchain-contracts:basenames,smart-wallet,spend-permissions
-|base-account/reference/prolink-utilities:createProlinkUrl,decodeProlink,encodeProlink
-|base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
-|base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button
 |base-chain:overview
 |base-chain/api-reference:rpc-overview
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
@@ -103,6 +67,30 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|get-started:base-mentorship-program,base-services-hub,base,block-explorers,concepts,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,get-funded,launch-b20-token,launch-token,learning-resources,prompt-library,resources-for-ai-agents
-|ledgers:deposit-flow,how-it-works,overview,withdraw-flow
-|root:changes,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
+|build-on-base:integrate-defi,ledgers-deposit-flow,ledgers-overview,ledgers-withdraw-flow,lending-and-borrowing,overview,perps,test-on-vibenet,tokenize-stocks
+|build-on-base/agentic-payments:accept-a-payment,accept-subscriptions,collect-payer-info,pay-for-apis-with-x402,verify-a-payment
+|build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
+|get-started:agentic-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,integrate-defi,issue-stablecoins,launch-b20-token,launch-token,learning-resources,lending-and-borrowing,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks,use-base-with-ai
+|root:changes,contribution-guidelines,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
+|sdks:overview
+|sdks/base-account:overview
+|sdks/base-account/basenames:basename-transfer,basenames-faq
+|sdks/base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
+|sdks/base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
+|sdks/base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
+|sdks/base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
+|sdks/base-account/guides:authenticate-users,migration-guide,sign-and-verify-typed-data,verify-social-accounts
+|sdks/base-account/guides/tips:inspect-txn-simulation,popup-tips
+|sdks/base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
+|sdks/base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
+|sdks/base-account/more:base-gasless-campaign,telemetry
+|sdks/base-account/more/troubleshooting/usage-details:gas-usage,popups,simulations,unsupported-calls,wallet-library-support
+|sdks/base-account/quickstart:ai-tools-available-for-devs,mobile-integration,web-react,web
+|sdks/base-account/reference/base-pay:charge,getOrCreateSubscriptionOwnerWallet,getPaymentStatus,getStatus,pay,prepareCharge,prepareRevoke,revoke,subscribe,subscriptions-overview
+|sdks/base-account/reference/core:createBaseAccount,generateKeyPair,getCryptoKeyAccount,getKeypair,getProvider,sdk-utilities
+|sdks/base-account/reference/core/capabilities:atomic,auxiliaryFunds,dataSuffix,datacallback,flowControl,gasLimitOverride,overview,paymasterService,signInWithEthereum
+|sdks/base-account/reference/core/provider-rpc-methods:coinbase_fetchPermission,coinbase_fetchPermissions,eth_accounts,eth_blockNumber,eth_chainId,eth_coinbase,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getProof,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_getUncleCountByBlockHash,eth_getUncleCountByBlockNumber,eth_requestAccounts,eth_sendRawTransaction,eth_sendTransaction,eth_signTypedData_v4,personal_sign,request-overview,sdk-overview,standard-rpc-methods,wallet_addEthereumChain,wallet_addSubAccount,wallet_connect,wallet_getCallsStatus,wallet_getCapabilities,wallet_getSubAccounts,wallet_sendCalls,wallet_switchEthereumChain,wallet_watchAsset,web3_clientVersion
+|sdks/base-account/reference/onchain-contracts:basenames,smart-wallet,spend-permissions
+|sdks/base-account/reference/prolink-utilities:createProlinkUrl,decodeProlink,encodeProlink
+|sdks/base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
+|sdks/base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button

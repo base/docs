@@ -183,6 +183,7 @@ function checkCodeBlocks(content, filePath) {
   const issues = [];
   const lines = content.split("\n");
   let inCodeGroup = false;
+  let inCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -193,6 +194,12 @@ function checkCodeBlocks(content, filePath) {
     // Check for code block opening
     const codeBlockMatch = line.match(/^```(\S*)/);
     if (codeBlockMatch) {
+      // A fence while already inside a block is the closing fence; skip it.
+      if (inCodeBlock) {
+        inCodeBlock = false;
+        continue;
+      }
+      inCodeBlock = true;
       const lang = codeBlockMatch[1];
 
       // Check for empty language
@@ -249,8 +256,17 @@ function checkMintlifyComponents(content, filePath) {
   // Valid callout components
   const validCallouts = ["Note", "Tip", "Warning", "Info", "Check"];
 
+  let inCodeBlock = false;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Skip anything inside fenced code blocks — example code is not doc markup.
+    if (/^```/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
 
     // Check for HTML comments
     if (line.includes("<!--")) {
