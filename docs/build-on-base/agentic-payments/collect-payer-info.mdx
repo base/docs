@@ -1,0 +1,40 @@
+---
+title: "Collect payer info"
+keywords: ["collect payer info", "Base Pay payerInfo", "checkout email shipping", "USDC payment with data"]
+description: "Request an email, phone, name, or shipping address at checkout in the same Base Pay approval, and validate it before the charge."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Need checkout details? Pass a `payerInfo` object to [`pay()`](/sdks/base-account/reference/base-pay/pay) and the customer shares them in the same approval popup. A `callbackURL` lets you validate the data server-side *before* any funds move — return errors and the customer is prompted to fix them.
+
+#### Demo
+
+<PaymentsDemo flow="info" />
+
+## Request info with the payment
+
+```ts checkout.ts
+import { pay } from '@base-org/account';
+
+const payment = await pay({
+  amount: '25.00',
+  to: '0xYourReceivingAddress',
+  payerInfo: {
+    requests: [
+      { type: 'email' },
+      { type: 'physicalAddress', optional: true },
+    ],
+    callbackURL: 'https://your-api.com/validate', // optional server-side check
+  },
+});
+
+const { email, physicalAddress } = payment.payerInfoResponses ?? {};
+```
+
+Supported request types: `email`, `name`, `phoneNumber`, `physicalAddress`, and `onchainAddress`. Fields are required unless you set `optional: true`.
+
+## See also
+
+- [Accept a payment](/build-on-base/agentic-payments/accept-a-payment) · [Verify a payment](/build-on-base/agentic-payments/verify-a-payment)
+- [Data callback](/sdks/base-account/reference/core/capabilities/datacallback) reference

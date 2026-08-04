@@ -1,6 +1,45 @@
 ---
 title: "Make a Transaction"
-description: "Make a transaction on the Base network"
+keywords: ["send transaction Base", "Base viem example", "first transaction Base", "Base transaction fees"]
+description: "Send your first transaction on Base with viem — connect, sign, and confirm in seconds for a fraction of a cent."
 ---
 
-Coming Soon
+Base uses the same transaction model as Ethereum, so any EVM library works. Here's a minimal send using [viem](https://viem.sh).
+
+## Send a transaction
+
+```ts send.ts
+import { createWalletClient, http, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base } from 'viem/chains';
+
+const account = privateKeyToAccount('0xYourPrivateKey');
+
+const client = createWalletClient({
+  account,
+  chain: base,
+  transport: http('https://mainnet.base.org'),
+});
+
+const hash = await client.sendTransaction({
+  to: '0xRecipientAddress',
+  value: parseEther('0.001'),
+});
+
+console.log(`Sent — view at https://basescan.org/tx/${hash}`);
+```
+
+<Tip>
+Transactions confirm in under a second on Base thanks to [Flashblocks](/base-chain/flashblocks), and typically cost a fraction of a cent in gas.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Issue a stablecoin" icon="coins" href="/get-started/issue-stablecoins">
+    Launch a fiat-backed token in one call.
+  </Card>
+  <Card title="Facilitate payments" icon="credit-card" href="/get-started/agentic-payments">
+    Accept USDC with one-tap checkout.
+  </Card>
+</CardGroup>

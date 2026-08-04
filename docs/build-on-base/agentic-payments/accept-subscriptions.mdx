@@ -1,0 +1,38 @@
+---
+title: "Accept subscriptions"
+keywords: ["USDC subscriptions Base", "recurring payments", "base.subscription.subscribe", "spend permissions billing"]
+description: "Charge recurring USDC on Base with a one-time customer approval, powered by spend permissions — no per-payment prompt, no merchant fees."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Bill on any cycle with recurring USDC. The customer approves a per-period cap once via [spend permissions](/sdks/base-account/improve-ux/spend-permissions); your backend then charges when payment is due — no prompt each time, no merchant fees. The limit resets every period and the customer can cancel anytime.
+
+#### Demo
+
+<PaymentsDemo flow="subscribe" />
+
+## Create the subscription
+
+```ts SubscriptionButton.tsx
+import { base } from '@base-org/account';
+
+const subscription = await base.subscription.subscribe({
+  recurringCharge: '29.99',
+  subscriptionOwner: SUBSCRIPTION_OWNER_ADDRESS, // your app's charging wallet
+  periodInDays: 30,
+  testnet: false,
+});
+
+// Persist subscription.id — your backend uses it to charge each period.
+await saveSubscription(subscription.id, subscription.subscriptionPayer);
+```
+
+<Note>
+Charging and cancelling run from your backend with [`charge()`](/sdks/base-account/reference/base-pay/charge) and [`revoke()`](/sdks/base-account/reference/base-pay/revoke), typically against a CDP server wallet. Set a `paymasterUrl` to make charges gasless.
+</Note>
+
+## See also
+
+- [Accept a payment](/build-on-base/agentic-payments/accept-a-payment)
+- [`subscribe()`](/sdks/base-account/reference/base-pay/subscribe) and [`charge()`](/sdks/base-account/reference/base-pay/charge) in the Base Pay reference
