@@ -106,8 +106,9 @@ Get CDP credentials from [CDP Portal](https://portal.cdp.coinbase.com/projects/a
 To accept recurring payments, you need:
 1. CDP credentials (API key ID, secret, and wallet secret)
 2. Backend infrastructure (Node.js) to execute charges securely
-3. Database to store and manage subscription IDs
+3. Database to store subscription IDs **bound to the authenticated user** (and their payer address)
 4. Never expose CDP credentials in client-side code
+5. Never charge an arbitrary subscription `id` from the browser alone — look up the ID from your database, and pass `expectedPayer` to `charge()` / `revoke()`
 </Warning>
 
 ### Setup: Create Your Subscription Owner Wallet
@@ -256,7 +257,11 @@ import { base } from '@base-org/account/node';
 // Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
 // Recommended: PAYMASTER_URL for gasless transactions
 
-async function chargeSubscription(subscriptionId: string, recipientAddress?: string) {
+async function chargeSubscription(
+  subscriptionId: string,
+  payerAddress: string,
+  recipientAddress?: string
+) {
   try {
     // 1. Check subscription status
     const status = await base.subscription.getStatus({
@@ -277,10 +282,12 @@ async function chargeSubscription(subscriptionId: string, recipientAddress?: str
     }
     
     // 2. Charge the subscription - CDP handles everything automatically
+    // Use the server-stored id + payerAddress from your database (not browser input alone)
     // Using paymaster for gasless transactions (recommended)
     const result = await base.subscription.charge({
       id: subscriptionId,
       amount: 'max-remaining-charge',
+      expectedPayer: payerAddress,
       paymasterUrl: process.env.PAYMASTER_URL, // Optional: for gasless transactions
       recipient: recipientAddress, // Optional: send USDC to specific address
       testnet: false
@@ -313,11 +320,16 @@ Cancel subscriptions programmatically from your backend:
 ```typescript revokeSubscription.ts expandable
 import { base } from '@base-org/account/node';
 
-async function revokeSubscription(subscriptionId: string, reason: string) {
+async function revokeSubscription(
+  subscriptionId: string,
+  payerAddress: string,
+  reason: string
+) {
   try {
     // Revoke the subscription with paymaster for gasless transactions
     const result = await base.subscription.revoke({
       id: subscriptionId,
+      expectedPayer: payerAddress,
       paymasterUrl: process.env.PAYMASTER_URL, // Optional: for gasless transactions
       testnet: false
     });
@@ -338,12 +350,12 @@ async function revokeSubscription(subscriptionId: string, reason: string) {
 }
 
 // Usage examples
-async function handleUserCancellation(subscriptionId: string) {
-  return await revokeSubscription(subscriptionId, 'user_requested');
+async function handleUserCancellation(subscriptionId: string, payerAddress: string) {
+  return await revokeSubscription(subscriptionId, payerAddress, 'user_requested');
 }
 
-async function handlePolicyViolation(subscriptionId: string) {
-  return await revokeSubscription(subscriptionId, 'policy_violation');
+async function handlePolicyViolation(subscriptionId: string, payerAddress: string) {
+  return await revokeSubscription(subscriptionId, payerAddress, 'policy_violation');
 }
 ```
 
@@ -479,7 +491,9 @@ import { base } from '@base-org/account';
 const chargeCalls = await base.subscription.prepareCharge({
   id: subscriptionId,
   amount: 'max-remaining-charge',
-  testnet: false
+  testnet: false,
+  expectedSpender: subscriptionOwner,
+  expectedPayer: payerAddress,
 });
 
 // Execute with your own wallet infrastructure
@@ -498,7 +512,9 @@ import { base } from '@base-org/account';
 // Prepare revoke call data
 const revokeCall = await base.subscription.prepareRevoke({
   id: subscriptionId,
-  testnet: false
+  testnet: false,
+  expectedSpender: subscriptionOwner,
+  expectedPayer: payerAddress,
 });
 
 // Execute with your own wallet infrastructure

@@ -13,12 +13,16 @@ Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 The `charge` function executes subscription charges automatically from your backend. It uses a CDP smart wallet as the subscription owner, handling all transaction details including wallet management, transaction signing, and optional gas sponsorship. **No manual transaction management required.**
 </Info>
 
+<Warning>
+**Treat subscription IDs as capability handles, not proof of ownership.** Store the ID on your backend against the authenticated user when they subscribe. Do not charge an arbitrary `id` supplied by the browser alone. Pass `expectedPayer` (the subscriber's wallet from your session/database) so the SDK rejects subscriptions that do not belong to that user. `charge()` also requires the permission spender to match your CDP smart wallet.
+</Warning>
+
 ## How It Works
 
 When you call `charge()`, the function:
 1. Initializes a CDP client with your credentials
 2. Retrieves the existing smart wallet (subscription owner)
-3. Prepares the charge transaction calls
+3. Prepares the charge transaction calls (and verifies the permission spender matches that wallet)
 4. Executes the charge using the smart wallet
 5. Optionally uses a paymaster for gas sponsorship
 6. Returns the transaction hash
@@ -26,7 +30,7 @@ When you call `charge()`, the function:
 ## Parameters
 
 <ParamField body="id" type="string" required>
-The subscription ID (permission hash) returned from `subscribe()`.
+The subscription ID (permission hash) returned from `subscribe()`. Prefer a server-stored ID bound to the authenticated user.
 
 **Pattern:** `^0x[0-9a-fA-F]{64}$`
 </ParamField>
@@ -65,6 +69,18 @@ Paymaster URL for transaction sponsorship (gasless transactions). Falls back to 
 
 <ParamField body="recipient" type="string">
 Optional recipient address to receive the charged USDC. If not provided, USDC stays in the subscription owner wallet.
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
+
+<ParamField body="expectedPayer" type="string">
+Optional subscriber wallet address. When set, the subscription's payer must match this address or `charge()` throws. Use the authenticated user's wallet from your session or database.
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
+
+<ParamField body="expectedSpender" type="string">
+Optional. Must match your CDP smart wallet if provided. `charge()` already binds the permission spender to the executing CDP wallet automatically.
 
 **Pattern:** `^0x[0-9a-fA-F]{40}$`
 </ParamField>
@@ -119,9 +135,11 @@ Or pass directly as parameters (see examples below).
 import { base } from '@base-org/account/node';
 
 // Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
+// Use a server-stored subscription id + the subscriber wallet from your DB/session
 const result = await base.subscription.charge({
-  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
-  amount: '9.99'
+  id: storedSubscriptionId,
+  amount: '9.99',
+  expectedPayer: authenticatedUserAddress,
 });
 
 console.log(`Charged subscription: ${result.id}`);
@@ -286,6 +304,15 @@ Wallet "subscription owner" does not exist
 
 **Solution**: The CDP wallet hasn't been created yet. First call [`getOrCreateSubscriptionOwnerWallet`](/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet) to set up the wallet.
 </Accordion>
+
+<Accordion title="Spender or Payer Mismatch">
+```
+Subscription spender 0x... does not match expected spender 0x...
+Subscription payer 0x... does not match expected payer 0x...
+```
+
+**Solution**: Confirm you are charging with the CDP wallet that was used as `subscriptionOwner` at subscribe time, and that `expectedPayer` matches the subscriber wallet stored for that user.
+</Accordion>
 </AccordionGroup>
 
 ## Usage Pattern
@@ -320,10 +347,11 @@ async function chargeActiveSubscriptions() {
         continue;
       }
       
-      // Execute charge
+      // Execute charge — pass expectedPayer from your DB record
       const result = await base.subscription.charge({
         id: subscription.subscriptionId,
         amount: 'max-remaining-charge',
+        expectedPayer: subscription.payerAddress,
         testnet: false
       });
       
