@@ -1,0 +1,49 @@
+---
+title: "IPolicyRegistry.createPolicyWithAccounts"
+description: "Generated B20 reference for createPolicyWithAccounts(address,PolicyType,address[])."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes)
+
+## Signature
+
+```solidity
+function createPolicyWithAccounts(address admin, PolicyType policyType, address[] calldata accounts) external returns (uint64 newPolicyId);
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xffd4931c` |
+| Canonical signature | `createPolicyWithAccounts(address,PolicyType,address[])` |
+
+## Description
+
+Creates a new simple policy seeded with `accounts` as initial members. Permissionless.
+Dev: Reverts with `ZeroAddress` when `admin` is `address(0)`. Takes precedence over `BatchSizeTooLarge`.
+Dev: Reverts with `IncompatiblePolicyType` when `policyType` is a composite policyType.
+Dev: Reverts with `BatchSizeTooLarge` when `accounts.length` exceeds the registry limit.
+Dev: Panics with arithmetic overflow (Panic 0x11) when the policy counter has reached its maximum value.
+Param: admin      Initial admin authorized to modify membership and transfer or renounce administration.
+Param: policyType BLOCKLIST or ALLOWLIST.
+Param: accounts   Initial member set.
+Return: newPolicyId The newly assigned policy ID.
+
+## Access control
+
+Permissionless creation, but state-changing registry calls require the feature to be active.
+
+## Policy interaction
+
+This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+
+## Example
+
+```solidity
+uint64 policyId = StdPrecompiles.POLICY_REGISTRY.createPolicyWithAccounts(admin, IPolicyRegistry.PolicyType.ALLOWLIST, accounts);
+```
+
+## Related
+
+- [IPolicyRegistry reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IPolicyRegistry)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

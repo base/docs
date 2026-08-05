@@ -1,0 +1,48 @@
+---
+title: "IB20.mint"
+description: "Generated B20 reference for mint(address,uint256)."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/token-lifecycle)
+
+## Signature
+
+```solidity
+function mint(address to, uint256 amount) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x40c10f19` |
+| Canonical signature | `mint(address,uint256)` |
+
+## Description
+
+Mints `amount` to `to`. Emits `Transfer(address(0), to, amount)`.
+Dev: Reverts with `ContractPaused(MINT)` when `MINT` is paused.
+Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `MINT_ROLE`.
+Dev: Reverts with `InvalidReceiver` when `to == address(0)`.
+Dev: Reverts with `PolicyForbids(MINT_RECEIVER_POLICY, ...)` when `to` is not authorized.
+Dev: Reverts with `SupplyCapExceeded` when `totalSupply + amount &gt; supplyCap`.
+Param: to     Mint recipient.
+Param: amount Amount to mint.
+
+## Access control
+
+`MINT_ROLE` gates state-changing mint calls.
+
+## Policy interaction
+
+Checks `MINT_RECEIVER_POLICY`, including during factory initCalls.
+
+## Example
+
+```solidity
+IB20(target).mint(arg0, arg1);
+```
+
+## Related
+
+- [IB20 reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

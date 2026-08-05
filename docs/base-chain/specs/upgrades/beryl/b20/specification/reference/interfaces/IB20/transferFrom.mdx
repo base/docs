@@ -1,0 +1,53 @@
+---
+title: "IB20.transferFrom"
+description: "Generated B20 reference for transferFrom(address,address,uint256)."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/token-lifecycle)
+
+## Signature
+
+```solidity
+function transferFrom(address from, address to, uint256 amount) external returns (bool);
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x23b872dd` |
+| Canonical signature | `transferFrom(address,address,uint256)` |
+
+## Description
+
+Transfers `amount` from `from` to `to` using `msg.sender`'s allowance. Emits `Transfer`.
+Dev: Reverts with `ContractPaused(TRANSFER)` when `TRANSFER` is paused.
+Dev: Reverts with `InvalidReceiver` when `to == address(0)`.
+Dev: Reverts with `InvalidSender` when `from == address(0)`.
+Dev: Reverts with `InsufficientAllowance` when the caller's allowance from `from` is below `amount`.
+Dev: Reverts with `PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...)` when `msg.sender != from` and `msg.sender` is not authorized.
+Dev: Reverts with `PolicyForbids(TRANSFER_SENDER_POLICY, ...)` when `from` is not authorized.
+Dev: Reverts with `PolicyForbids(TRANSFER_RECEIVER_POLICY, ...)` when `to` is not authorized.
+Dev: Reverts with `InsufficientBalance` when `from`'s balance is below `amount`.
+Param: from   Source address.
+Param: to     Destination address.
+Param: amount Amount to transfer.
+Return: Always `true` on success.
+
+## Access control
+
+Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+
+## Policy interaction
+
+Checks `TRANSFER_EXECUTOR_POLICY` when `msg.sender != from`, plus sender and receiver transfer scopes.
+
+## Example
+
+```solidity
+IB20(target).transferFrom(arg0, arg1, arg2);
+```
+
+## Related
+
+- [IB20 reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

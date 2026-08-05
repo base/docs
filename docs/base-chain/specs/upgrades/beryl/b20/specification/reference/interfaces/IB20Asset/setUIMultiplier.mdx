@@ -1,0 +1,49 @@
+---
+title: "IB20Asset.setUIMultiplier"
+description: "Generated B20 reference for setUIMultiplier(uint256,uint256)."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/variants-asset-vs-stablecoin)
+
+## Signature
+
+```solidity
+function setUIMultiplier(uint256 newMultiplier, uint256 effectiveAt) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x93d32890` |
+| Canonical signature | `setUIMultiplier(uint256,uint256)` |
+
+## Description
+
+Schedules a multiplier update to take effect at `effectiveAt` — the standard path
+for corporate actions (splits, reinvested dividends).
+Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
+Dev: Reverts with `InvalidMultiplier` when `newMultiplier` is zero or above `type(uint128).max`.
+Dev: Reverts with `EffectiveAtInPast` when `effectiveAt` is not in the future.
+Dev: Reverts with `EffectiveAtTooFar` when `effectiveAt` exceeds `type(uint64).max`.
+Dev: Reverts with `ScheduleOverlap` when a live pending update already exists.
+Param: newMultiplier New multiplier scaled to `WAD_PRECISION`.
+Param: effectiveAt   Timestamp at which `newMultiplier` becomes effective; must be in the future.
+
+## Access control
+
+`OPERATOR_ROLE` gates this Asset call.
+
+## Policy interaction
+
+No direct policy interaction.
+
+## Example
+
+```solidity
+IB20Asset(target).setUIMultiplier(arg0, arg1);
+```
+
+## Related
+
+- [IB20Asset reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

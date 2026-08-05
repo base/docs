@@ -1,0 +1,85 @@
+---
+title: "Constants & addresses"
+description: "Copy B20 precompile addresses, roles, policy scopes, variant bytes, policy IDs, and supply-cap constants."
+---
+
+Use `StdPrecompiles.sol` and `B20Constants.sol` from `base-std` as the canonical Solidity source. This page lists the same values for quick reference.
+
+## Precompile addresses
+
+These addresses are identical on every network where B20 is active.
+
+| Surface | Address |
+|---|---|
+| B20 Factory | `0xB20f000000000000000000000000000000000000` |
+| ActivationRegistry | `0x8453000000000000000000000000000000000001` |
+| PolicyRegistry | `0x8453000000000000000000000000000000000002` |
+
+## Roles
+
+| Role | Solidity constant |
+|---|---|
+| Default admin | `bytes32(0)` |
+| Mint | `keccak256("MINT_ROLE")` |
+| Burn | `keccak256("BURN_ROLE")` |
+| Deprecated blocked burn | `keccak256("BURN_BLOCKED_ROLE")` |
+| Seize | `keccak256("SEIZE_ROLE")` |
+| Pause | `keccak256("PAUSE_ROLE")` |
+| Unpause | `keccak256("UNPAUSE_ROLE")` |
+| Metadata | `keccak256("METADATA_ROLE")` |
+| Asset operator | `keccak256("OPERATOR_ROLE")` |
+
+## Policy scopes
+
+| Scope | Solidity constant |
+|---|---|
+| Transfer sender | `keccak256("TRANSFER_SENDER_POLICY")` |
+| Transfer receiver | `keccak256("TRANSFER_RECEIVER_POLICY")` |
+| Transfer executor | `keccak256("TRANSFER_EXECUTOR_POLICY")` |
+| Mint receiver | `keccak256("MINT_RECEIVER_POLICY")` |
+| Seize holder | `keccak256("SEIZE_HOLDER_POLICY")` |
+
+## Policy IDs
+
+| Name | Value |
+|---|---|
+| `ALWAYS_ALLOW` | `0` |
+| `ALWAYS_BLOCK` | `(uint64(uint8(IPolicyRegistry.PolicyType.ALLOWLIST)) &lt;&lt; 56) \| 1` |
+
+Custom policy IDs use this layout:
+
+```text
+[8-bit PolicyType][56-bit counter]
+```
+
+Policy type bytes:
+
+| PolicyType | Byte |
+|---|---:|
+| `BLOCKLIST` | `0x00` |
+| `ALLOWLIST` | `0x01` |
+| `UNION` | `0x02` |
+| `INTERSECT` | `0x03` |
+
+## Variant bytes
+
+| Variant | Byte | Address shape |
+|---|---:|---|
+| `ASSET` | `0x00` | `0xB200...` |
+| `STABLECOIN` | `0x01` | `0xB201...` |
+
+## Supply and decimals
+
+| Constant | Value |
+|---|---:|
+| Minimum Asset decimals | `6` |
+| Maximum Asset decimals | `18` |
+| Maximum supply cap / no-cap sentinel | `type(uint128).max` |
+| All features paused bitmask | `15` (`TRANSFER | MINT | BURN | SEIZE`) |
+
+## Imports
+
+```solidity
+import {StdPrecompiles} from "base-std/StdPrecompiles.sol";
+import {B20Constants} from "base-std/lib/B20Constants.sol";
+```
