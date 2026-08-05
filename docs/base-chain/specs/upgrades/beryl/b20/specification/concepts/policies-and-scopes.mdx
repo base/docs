@@ -1,0 +1,90 @@
+---
+title: "Policies & scopes"
+description: "Learn how B20 policy scopes point to PolicyRegistry policies and gate transfers, mints, and seizures."
+---
+
+A B20 token chooses policies by scope. Each scope stores one `uint64` policy ID that points to a policy in the singleton PolicyRegistry. The token only checks the policy assigned to the relevant scope.
+
+<Frame>
+![B20 policies and scopes diagram: fixed token policy scopes store uint64 pointers to PolicyRegistry policies, and gated operations call isAuthorized before continuing or reverting.](/images/b20/b20-policies-and-scopes.png)
+</Frame>
+
+On a gated operation, the token reads the relevant scope, calls `PolicyRegistry.isAuthorized(policyId, account)`, and reverts with `PolicyForbids` or a seize-specific error when the policy result does not permit the action.
+
+## Policy scopes
+
+| Scope | Checked account | Gated operation |
+|---|---|---|
+| `TRANSFER_SENDER_POLICY` | `from` | `transfer`, `transferFrom`, and memo variants |
+| `TRANSFER_RECEIVER_POLICY` | `to` | `transfer`, `transferFrom`, and memo variants |
+| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` only when `msg.sender != from` |
+| `MINT_RECEIVER_POLICY` | `to` | `mint` and `mintWithMemo` |
+| `SEIZE_HOLDER_POLICY` | `from` | `seizeWithMemo`; the holder is seizable only when not authorized by this policy |
+
+`approve` and `permit` are not policy-gated. Only balance movement is checked.
+
+<Warning>
+Every scope defaults to `ALWAYS_ALLOW` (`0`) at creation. An unattended B20 deployment is fully open, and no account is seizable until `SEIZE_HOLDER_POLICY` is intentionally configured.
+</Warning>
+
+## Policy types
+
+| Type | Behavior |
+|---|---|
+| `BLOCKLIST` | Accounts are authorized by default; listed accounts are denied. |
+| `ALLOWLIST` | Accounts are denied by default; listed accounts are authorized. |
+| `UNION` | Composite policy: account is authorized if any child policy authorizes it. |
+| `INTERSECT` | Composite policy: account is authorized only if every child policy authorizes it. |
+
+Composite policies combine existing simple `ALLOWLIST` and `BLOCKLIST` policies. Child policies must be simple policies, not other composites or built-ins.
+
+## Built-ins and ID anatomy
+
+Policy IDs are `uint64` values. The top byte is the `PolicyType`; the low 56 bits are a global counter. Counters `0` and `1` are reserved for built-ins, and custom policy creation starts at counter `2`.
+
+| Constant | ID | Behavior |
+|---|---:|---|
+| `ALWAYS_ALLOW` | `0` | Authorizes every account. Default value for every scope. |
+| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) &lt;&lt; 56) \| 1` | Denies every account. |
+
+<Warning>
+`isAuthorized` never reverts on a non-existent policy ID. Malformed or uncreated IDs collapse to empty-set semantics: `ALLOWLIST` denies and `BLOCKLIST` allows. Validate `policyExists(policyId)` before binding a token scope.
+</Warning>
+
+```solidity
+uint64 policyId = 0x0100000000000002;
+require(StdPrecompiles.POLICY_REGISTRY.policyExists(policyId), "policy missing");
+IB20(token).updatePolicy(B20Constants.MINT_RECEIVER_POLICY, policyId);
+```
+
+## Registry administration
+
+Each policy has one admin. The current admin can:
+
+- Update allowlist, blocklist, or composite membership.
+- Stage a two-step admin transfer with `stageUpdateAdmin`.
+- Permanently renounce policy administration with `renounceAdmin`.
+
+<Warning>
+`renounceAdmin(policyId)` freezes the policy forever. Membership and child-policy updates become impossible.
+</Warning>
+
+## Read a token's configured policies
+
+```solidity
+bytes32[5] memory scopes = [
+    B20Constants.TRANSFER_SENDER_POLICY,
+    B20Constants.TRANSFER_RECEIVER_POLICY,
+    B20Constants.TRANSFER_EXECUTOR_POLICY,
+    B20Constants.MINT_RECEIVER_POLICY,
+    B20Constants.SEIZE_HOLDER_POLICY
+];
+
+for (uint256 i; i < scopes.length; i++) {
+    uint64 id = IB20(token).policyId(scopes[i]);
+    bool exists = id == 0 || id == ((uint64(uint8(IPolicyRegistry.PolicyType.ALLOWLIST)) << 56) | 1)
+        || StdPrecompiles.POLICY_REGISTRY.policyExists(id);
+    require(exists, "scope points to missing policy");
+}
+```
+

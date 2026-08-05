@@ -1,0 +1,102 @@
+---
+title: "Token lifecycle"
+description: "Follow a B20 token from factory creation through initCalls, operation, pausing, memos, seizures, and admin renunciation."
+---
+
+A B20 token moves through four practical phases: create, bootstrap, operate, and optionally renounce administration.
+
+## Create
+
+All B20 tokens are created through the singleton factory:
+
+```solidity
+address token = StdPrecompiles.B20_FACTORY.createB20(variant, salt, params, initCalls);
+```
+
+- `variant` is `ASSET` or `STABLECOIN`.
+- `salt` contributes to deterministic address derivation.
+- `params` are versioned by a leading byte and encoded with `B20FactoryLib`.
+- `initCalls` are ABI-encoded calls that run on the new token before the factory returns.
+
+The factory reverts with `FeatureNotActivated` if the requested token variant is not active on the chain.
+
+## Bootstrap with initCalls
+
+During the creation transaction, factory-originated initCalls bypass token role gates and transfer-side policy gates. This lets you configure policy scopes, grant roles, set caps, and seed balances atomically.
+
+The bypass is deliberately limited:
+
+- `MINT_RECEIVER_POLICY` is always enforced, including during initCalls.
+- Pause state is never bypassed.
+- Token invariants such as supply cap and balance accounting are never bypassed.
+
+<Tip>
+If you start the token paused, put `pause(...)` late in the initCalls array so earlier bootstrap operations are not blocked by your own pause.
+</Tip>
+
+## Operate
+
+Common issuer operations include:
+
+- Minting with `MINT_ROLE`, subject to `MINT_RECEIVER_POLICY` and `supplyCap`.
+- Burning from the caller with `BURN_ROLE`.
+- Seizing with `SEIZE_ROLE` through `seizeWithMemo` when the holder is denied by `SEIZE_HOLDER_POLICY`.
+- Pausing `TRANSFER`, `MINT`, `BURN`, or `SEIZE` independently.
+- Updating name, symbol, and contract URI with `METADATA_ROLE`.
+
+The `PausableFeature` enum is append-only. Integrators should handle unknown future values defensively when switch-casing over returned pause data.
+
+## Freeze and seize
+
+`seizeWithMemo` transfers a holder's balance to a destination in one admin operation. It skips allowance and transfer policies; its membership check is `SEIZE_HOLDER_POLICY`.
+
+```solidity
+// Configure this policy so denied accounts are eligible for seizure.
+token.updatePolicy(B20Constants.SEIZE_HOLDER_POLICY, seizeHolderPolicyId);
+
+// Later, an authorized operator seizes from a holder denied by SEIZE_HOLDER_POLICY.
+vm.prank(complianceOperator);
+token.seizeWithMemo(holder, destination, amount, bytes32("case-2026-08"));
+```
+
+The transaction emits `Transfer`, `Memo`, and `Seized` in order.
+
+## Pause and unpause
+
+```solidity
+IB20.PausableFeature[] memory features = new IB20.PausableFeature[](2);
+features[0] = IB20.PausableFeature.TRANSFER;
+features[1] = IB20.PausableFeature.SEIZE;
+
+token.pause(features);   // requires PAUSE_ROLE
+token.unpause(features); // requires UNPAUSE_ROLE
+```
+
+Paused operations revert with `ContractPaused(feature)`.
+
+## Memos
+
+Memos are `bytes32` payloads emitted immediately after the primary event of a memo-enabled operation.
+
+Memo entrypoints:
+
+- `transferWithMemo`
+- `transferFromWithMemo`
+- `mintWithMemo`
+- `burnWithMemo`
+- `seizeWithMemo`
+
+Indexers join a `Memo` log to the operation it annotates with `(transactionHash, logIndex - 1)`.
+
+```ts
+const memoLogs = parseEventLogs({ abi, logs: receipt.logs, eventName: 'Memo' });
+for (const memoLog of memoLogs) {
+  const parentLog = receipt.logs[memoLog.logIndex - 1];
+  console.log({ memo: memoLog.args.memo, parentTopic0: parentLog.topics[0] });
+}
+```
+
+## Admin renunciation
+
+If an issuer wants an admin-less token, it must grant surviving operational roles, bind required policies, and set the supply cap before calling `renounceLastAdmin()`. After renunciation, admin-gated configuration cannot be restored.
+

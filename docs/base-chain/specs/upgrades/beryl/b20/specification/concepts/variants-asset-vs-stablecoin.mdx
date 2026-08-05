@@ -1,0 +1,54 @@
+---
+title: "Variants: Asset vs Stablecoin"
+description: "Choose between B20 Asset and Stablecoin variants and understand their variant-specific behavior."
+---
+
+B20 has two variants. Both share the base ERC-20-compatible B20 surface, roles, policy scopes, memos, pausing, supply caps, and permit.
+
+## Decision table
+
+| Capability | Asset | Stablecoin |
+|---|---|---|
+| Decimals | Configurable 6-18 at creation | Fixed `6` |
+| Variant byte | `0x00` | `0x01` |
+| Address shape | `0xB200...` | `0xB201...` |
+| Extra metadata | Yes | No |
+| Scaled balance multiplier | Yes | No |
+| Announcements | Yes | No |
+| Batch mint | Yes | No |
+| Currency code | No | Yes |
+
+## Asset extras
+
+### Multiplier
+
+Asset tokens expose a WAD-precision multiplier for scaled UI balances. Raw balances remain unchanged; scaled balances are derived at read time.
+
+<Warning>
+For Asset tokens, `balanceOf(account)` returns the raw ERC-20 balance. `scaledBalanceOf(account)` returns the multiplier-adjusted display balance. Choose one view for your integration and label it clearly.
+</Warning>
+
+Routine multiplier changes should use scheduled updates when possible. Instant `updateMultiplier` is an emergency override.
+
+### Announcements
+
+`announce(internalCalls, id, description, uri)` emits `Announcement`, executes internal calls, then emits `EndAnnouncement`. Announcement IDs are unique forever. Non-panic inner reverts are wrapped in `InternalCallFailed`.
+
+Use announcements to wrap holder-impacting operations such as batch minting or multiplier changes.
+
+### Batch mint
+
+`batchMint(recipients, amounts)` mints to multiple recipients atomically. Any failing element reverts the whole batch. It is gated by `MINT_ROLE` and should be wrapped in `announce` when disclosure is required.
+
+### Extra metadata
+
+Asset tokens can store issuer-defined string key/value metadata. Setting an empty value deletes the entry.
+
+## Stablecoin currency
+
+Stablecoin tokens expose `currency()`, set once at creation. The code must contain uppercase `A`-`Z` characters only.
+
+<Warning>
+B20 validates the currency code format, not the issuer's claim. A token can set `currency()` to `USD`, but B20 does not verify reserves, legal status, or registration with an external currency registry.
+</Warning>
+
