@@ -49,7 +49,7 @@ npx skills add base/base-skills
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
-|apps/guides:accept-b20-payments,migrate-to-standard-web-app
+|apps/guides:accept-b20-payments,migrate-to-standard-web-app,verify-onchain
 |apps/quickstart:build-app,deploy-on-base
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
@@ -97,6 +97,7 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/canyon:overview
 |base-chain/specs/upgrades/cobalt:eip-8130
 |base-chain/specs/upgrades/delta:overview,span-batches
+|base-chain/specs/upgrades/denim:200ms-native-blocks
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
 |base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys
 |base-chain/specs/upgrades/granite:derivation,exec-engine,overview
