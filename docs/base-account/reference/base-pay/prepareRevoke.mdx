@@ -13,6 +13,10 @@ Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 The `prepareRevoke` function prepares the necessary transaction call to revoke a subscription. It returns call data that you can execute through your own wallet infrastructure using `wallet_sendCalls` or `eth_sendTransaction`.
 </Info>
 
+<Warning>
+A subscription ID is not an authorization token. Prefer server-stored IDs bound to the authenticated user, and pass `expectedSpender` / `expectedPayer` when the ID may be untrusted.
+</Warning>
+
 ## When to Use This
 
 Use `prepareRevoke` only if you need:
@@ -25,13 +29,25 @@ For standard backend subscription management, use [`revoke()`](/base-account/ref
 ## Parameters
 
 <ParamField body="id" type="string" required>
-The subscription ID (permission hash) returned from `subscribe()`.
+The subscription ID (permission hash) returned from `subscribe()`. Prefer a server-stored ID bound to the authenticated user.
 
 **Pattern:** `^0x[0-9a-fA-F]{64}$`
 </ParamField>
 
 <ParamField body="testnet" type="boolean">
 Must match the testnet setting used in the original subscribe call. Default: false
+</ParamField>
+
+<ParamField body="expectedSpender" type="string">
+Optional address that must match the subscription spender (subscription owner).
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
+
+<ParamField body="expectedPayer" type="string">
+Optional address that must match the subscription payer (subscriber).
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
 </ParamField>
 
 ## Returns

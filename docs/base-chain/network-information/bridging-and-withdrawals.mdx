@@ -1,0 +1,56 @@
+---
+title: Bridging and Withdrawals
+description: How deposits and withdrawals work on Base, including the standard withdrawal flow and faster bridge options.
+---
+
+Bridging moves assets or messages between Base and another chain. Deposits move assets into Base. Withdrawals move assets out of Base.
+
+Deposits and withdrawals have different timing because they rely on different parts of the rollup protocol. Deposits start on another chain and are executed on Base. Standard withdrawals start on Base, must be proven on Ethereum, and can be finalized only after the challenge period has passed.
+
+## Deposits to Base
+
+A deposit is initiated outside Base and becomes a transaction on Base. For Ethereum deposits, the L1 transaction emits data that Base nodes use to derive a corresponding L2 deposit transaction.
+
+Deposit transactions are included as part of the protocol. They do not use the same signature, nonce, or fee fields as ordinary L2 transactions because they are authorized by the L1 deposit event and pay for L2 gas on L1.
+
+For most users, the practical result is simple: after the source-chain transaction is confirmed and processed, the asset or message appears on Base. For the protocol details, see the [Deposits specification](/base-chain/specs/protocol/bridging/deposits).
+
+## Standard withdrawals
+
+A standard withdrawal is a cross-domain transaction initiated on Base and finalized on Ethereum. Standard withdrawals can transfer ETH, bridge supported ERC-20 tokens, or send a message from Base to an L1 contract.
+
+The standard withdrawal flow has three stages:
+
+1. **Initiate on Base:** the withdrawal transaction is sent on Base. This records the withdrawal message in the `L2ToL1MessagePasser` contract.
+2. **Prove on Ethereum:** after the relevant Base state has been posted to Ethereum, anyone can submit a proof to the `OptimismPortal` contract showing that the withdrawal message exists on Base.
+3. **Finalize on Ethereum:** after the 7 day challenge period has passed, anyone can finalize the withdrawal on Ethereum. Finalization releases the assets or relays the message to the target contract.
+
+The relayer that proves or finalizes a withdrawal does not need to be the same account that initiated it. This allows wallets, bridge UIs, or other services to help users complete withdrawals.
+
+<Note>
+Standard withdrawals to Ethereum must wait 7 days before they can be finalized. Regular Base transactions and deposits to Base do not have this 7 day wait.
+</Note>
+
+## Why standard withdrawals take 7 days
+
+Base uses fault proofs to secure withdrawals. When a withdrawal is proven on Ethereum, the proof relies on an output root that commits to Base state. The 7 day challenge period gives network participants time to dispute an invalid output root before withdrawals that depend on it can be finalized.
+
+If no valid challenge prevents finalization, the withdrawal can be finalized after the challenge period. If the output root becomes invalid, the Base chain does not reorg, but withdrawals proven against that output root cannot be finalized and must be proven again against a valid output root.
+
+See [Transaction Finality](/base-chain/network-information/transaction-finality#finality-for-withdrawal-transactions) for how withdrawal finality differs from ordinary Base transaction finality.
+
+## Faster withdrawal options
+
+Some bridge providers offer faster withdrawals than the standard bridge protocol. These services usually do not make the underlying standard withdrawal challenge period shorter. Instead, they use liquidity, relayers, market makers, or other mechanisms to give users funds on the destination chain before the standard withdrawal has fully finalized.
+
+This can improve user experience, but it adds provider-specific assumptions and fees. Before using a faster bridge, review the provider's terms, supported assets, fees, liquidity, and security model.
+
+For available bridge providers and routes, see [Ecosystem Bridges](/base-chain/network-information/ecosystem-bridges).
+
+## Standard bridge contracts
+
+The standard bridges support cross-domain ETH and ERC-20 transfers. They are built on top of the cross-domain messenger contracts and provide a standard interface for deposits and withdrawals.
+
+The `L2StandardBridge` is a predeploy contract at `0x4200000000000000000000000000000000000010`.
+
+For contract-level details, see the [Standard Bridges specification](/base-chain/specs/protocol/bridging/bridges) and the [Withdrawals specification](/base-chain/specs/protocol/bridging/withdrawals).

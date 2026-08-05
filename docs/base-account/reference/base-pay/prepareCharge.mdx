@@ -13,6 +13,10 @@ Defined in the [Base Account SDK](https://github.com/base/account-sdk)
 The `prepareCharge` function prepares the necessary transaction calls to charge a subscription. It returns the array of call data objects to execute the charge through `wallet_sendCalls` or `eth_sendTransaction`. This gives you programmatic control over when and how to execute subscription charges.
 </Info>
 
+<Warning>
+A subscription ID is not an authorization token. Store IDs server-side against the authenticated user, and pass `expectedSpender` / `expectedPayer` when the ID may come from an untrusted client. Execute the returned calls from the subscription owner (`from` must be the spender).
+</Warning>
+
 ## When to Use This
 
 Use `prepareCharge` only if you need:
@@ -26,7 +30,7 @@ For standard backend subscription management, use [`charge()`](/base-account/ref
 ## Parameters
 
 <ParamField body="id" type="string" required>
-The subscription ID (permission hash) returned from subscribe().
+The subscription ID (permission hash) returned from subscribe(). Prefer a server-stored ID bound to the authenticated user.
 
 **Pattern:** `^0x[0-9a-fA-F]{64}$`
 </ParamField>
@@ -37,6 +41,18 @@ Amount to charge (e.g., "10.50") or 'max-remaining-charge' for the full remainin
 
 <ParamField body="testnet" type="boolean">
 Must match the testnet setting used in the original subscribe call. Default: false
+</ParamField>
+
+<ParamField body="expectedSpender" type="string">
+Optional address that must match the subscription spender (subscription owner). Pass your app's spender wallet before executing the calls.
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
+</ParamField>
+
+<ParamField body="expectedPayer" type="string">
+Optional address that must match the subscription payer (subscriber). Pass the authenticated user's wallet from your session or database.
+
+**Pattern:** `^0x[0-9a-fA-F]{40}$`
 </ParamField>
 
 ## Returns
@@ -80,9 +96,11 @@ const walletClient = createWalletClient({
 
 // Prepare to charge a specific amount
 const chargeCalls = await base.subscription.prepareCharge({
-  id: '0x71319cd488f8e4f24687711ec5c95d9e0c1bacbf5c1064942937eba4c7cf2984',
+  id: storedSubscriptionId,
   amount: '9.99',
-  testnet: false
+  testnet: false,
+  expectedSpender: account.address,
+  expectedPayer: authenticatedUserAddress,
 });
 
 // Execute each charge call

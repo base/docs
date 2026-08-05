@@ -23,14 +23,13 @@ same implementation as the L1; you can read more about it
 [here](https://help.coinbase.com/en/coinbase/getting-started/crypto-education/eip-1559).
 
 For additional details about fee calculation on Base, please refer to the
-[op-stack developer
-documentation](https://docs.optimism.io/stack/transactions/fees).
+[network fees specification](/base-chain/specs/protocol/execution/evm/predeploys#gaspriceoracle).
 
 ## Minimum Base Fee
 
 As part of the [Jovian upgrade], Base introduced a minimum base fee. This feature sets a floor for the L2 base fee, preventing it from dropping to extremely low levels during periods of low network activity.
 
-The minimum base fee for Base Mainnet is 2,000,000 wei (0.002 gwei). This value may be periodically adjusted as we gather data on how it affects the chain. For reference, a minimum base fee of 0.002 gwei results in a cost of approximately \$0.001 for a typical 200,000 gas transaction at an ETH price of \$2500.
+The minimum base fee for Base Mainnet is 5,000,000 wei (0.005 gwei). This value may be periodically adjusted as we gather data on how it affects the chain. For reference, a minimum base fee of 0.005 gwei results in a cost of approximately \$0.002 for a typical 200,000 gas transaction at an ETH price of \$2000.
 
 ### Benefits
 
@@ -42,14 +41,14 @@ The minimum base fee for Base Mainnet is 2,000,000 wei (0.002 gwei). This value 
 
 | Network      | Minimum Base Fee |
 |--------------|------------------|
-| Base Mainnet | 2,000,000 wei (0.002 gwei) |
-| Base Sepolia | 200,000 wei (0.0002 gwei) |
+| Base Mainnet | 5,000,000 wei (0.005 gwei) |
+| Base Sepolia | 5,000,000 wei (0.005 gwei) |
 
 See the [Configuration Changelog](/base-chain/network-information/configuration-changelog) for a history of changes to the minimum base fee and other network parameters.
 
 ## EIP-1559 Fee Parameters
 
-Base uses the OP Stack's implementation of EIP-1559, which controls how the L2 base fee adjusts in response to network demand. Two key parameters govern this behavior:
+Base uses its own implementation of EIP-1559, which controls how the L2 base fee adjusts in response to network demand. Two key parameters govern this behavior:
 
 ### Elasticity Multiplier
 
@@ -76,6 +75,21 @@ This gradual adjustment helps prevent extreme fee volatility during traffic spik
 | Network      | Elasticity | Denominator | Max Change/Block |
 |--------------|------------|-------------|------------------|
 | Base Mainnet | 6          | 125         | 4%               |
-| Base Sepolia | 6          | 50          | 10%              |
+| Base Sepolia | 6          | 125         | 4%               |
 
-[Jovian upgrade]: https://docs.optimism.io/notices/upgrade-17
+## Querying the L1 Fee
+
+The **GasPriceOracle** predeployment at `0x420000000000000000000000000000000000000F` (listed in [Contract Addresses](/base-chain/network-information/base-contracts)) lets you programmatically estimate the L1 fee component before signing and submitting a transaction.
+
+| Method | Returns |
+| ------ | ------- |
+| `getL1Fee(bytes)` | Exact L1 fee for a fully serialized (RLP-encoded) transaction |
+| `getL1FeeUpperBound(uint256 txSize)` | Upper-bound L1 fee estimate from approximate transaction byte length |
+| `l1BaseFee()` | Current Ethereum L1 base fee as seen by Base |
+| `blobBaseFee()` | Current EIP-4844 blob base fee |
+| `baseFeeScalar()` | Scalar applied to the L1 base fee component |
+| `blobBaseFeeScalar()` | Scalar applied to the blob base fee component |
+
+Use `getL1FeeUpperBound` when you need a quick estimate before the transaction is fully constructed. Use `getL1Fee` with the complete serialized transaction for an exact value before signing.
+
+[Jovian upgrade]: /base-chain/specs/upgrades/jovian/overview

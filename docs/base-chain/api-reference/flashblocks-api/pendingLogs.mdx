@@ -1,0 +1,67 @@
+---
+title: 'pendingLogs'
+sidebarTitle: 'pendingLogs'
+description: 'Subscribe to logs from pre-confirmed transactions matching an optional filter. Only available on Flashblocks WebSocket endpoints.'
+---
+
+Subscribe via `eth_subscribe` to receive logs from pre-confirmed transactions matching an optional filter. Useful for monitoring contract events with sub-block latency.
+
+<Info>
+Only available on Flashblocks WebSocket endpoints: `wss://mainnet-preconf.base.org` / `wss://sepolia-preconf.base.org`.
+</Info>
+
+<Note>
+Requires [base/base](https://github.com/base/base) minimum client version v0.3.1.
+</Note>
+
+<Warning>
+Each subscription emits **one item per WebSocket message**. Events arrive approximately every 200ms. If your handler performs heavy processing per event, throttle or debounce it to avoid blocking.
+</Warning>
+
+## Parameters
+
+<ParamField body="subscriptionType" type="string" required>
+  Must be `"pendingLogs"`.
+</ParamField>
+
+<ParamField body="filterOptions" type="object">
+  Optional log filter.
+
+  <Expandable title="Filter options">
+    <ParamField body="address" type="string | array">
+      A single contract address or array of addresses to filter by.
+    </ParamField>
+    <ParamField body="topics" type="array">
+      Array of topic filters in the same format as `eth_getLogs`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  Hex-encoded subscription ID.
+</ResponseField>
+
+## Example
+
+<CodeGroup>
+```json Subscribe (with filter)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_subscribe",
+  "params": [
+    "pendingLogs",
+    {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
+    }
+  ]
+}
+```
+
+```json Subscription ID Response
+{"jsonrpc": "2.0", "id": 1, "result": "0x2a7bc8d4e3f5a6b1c2d3e4f5a6b7c8d9"}
+```
+</CodeGroup>

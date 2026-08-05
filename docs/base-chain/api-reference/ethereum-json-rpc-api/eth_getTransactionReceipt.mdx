@@ -1,0 +1,111 @@
+---
+title: 'eth_getTransactionReceipt'
+sidebarTitle: 'eth_getTransactionReceipt'
+description: 'Returns the receipt for a mined transaction. Receipts are only available after a transaction is included in a block.'
+---
+
+Returns the receipt for a transaction by its hash. Returns `null` for transactions that are pending or have not been mined.
+
+<Note>
+Receipts are only available for mined transactions. To monitor a transaction before it is sealed, use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to confirm it is in the mempool, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) to detect its pre-confirmation in a Flashblock.
+</Note>
+
+## Parameters
+
+<ParamField body="transactionHash" type="string" required>
+  The 32-byte transaction hash.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object | null">
+  The transaction receipt object, or `null` if the transaction has not been mined.
+
+  <Expandable title="Receipt fields">
+    <ResponseField name="transactionHash" type="string">32-byte transaction hash.</ResponseField>
+    <ResponseField name="transactionIndex" type="string">Index of the transaction in the block (hex).</ResponseField>
+    <ResponseField name="blockHash" type="string">32-byte hash of the block containing this transaction.</ResponseField>
+    <ResponseField name="blockNumber" type="string">Block number (hex).</ResponseField>
+    <ResponseField name="from" type="string">20-byte sender address.</ResponseField>
+    <ResponseField name="to" type="string">20-byte recipient address. `null` for contract deployments.</ResponseField>
+    <ResponseField name="cumulativeGasUsed" type="string">Total gas used in the block up to and including this transaction (hex).</ResponseField>
+    <ResponseField name="effectiveGasPrice" type="string">Actual gas price paid per unit of gas for this transaction (hex).</ResponseField>
+    <ResponseField name="gasUsed" type="string">Gas used by this specific transaction (hex).</ResponseField>
+    <ResponseField name="contractAddress" type="string | null">Address of the created contract, or `null` if not a deployment.</ResponseField>
+    <ResponseField name="logs" type="array">Array of log objects emitted by this transaction.</ResponseField>
+    <ResponseField name="logsBloom" type="string">256-byte bloom filter for the logs in this receipt.</ResponseField>
+    <ResponseField name="type" type="string">Transaction type: `"0x0"` Legacy, `"0x1"` Access List, `"0x2"` EIP-1559, `"0x7e"` Deposit (L1→L2).</ResponseField>
+    <ResponseField name="status" type="string">`"0x1"` for success, `"0x0"` for failure (revert).</ResponseField>
+    <ResponseField name="blobGasUsed" type="string">Blob gas consumed by this transaction (EIP-4844). `null` for non-blob transactions.</ResponseField>
+    <ResponseField name="l1Fee" type="string">Total L1 data fee paid for this transaction (hex). Base L2 field.</ResponseField>
+    <ResponseField name="l1GasUsed" type="string">Amount of L1 gas used for the L1 data portion of this transaction (hex). Base L2 field.</ResponseField>
+    <ResponseField name="l1GasPrice" type="string">L1 gas price at the time of inclusion (hex). Base L2 field.</ResponseField>
+    <ResponseField name="l1BlobBaseFee" type="string">Blob base fee on L1 at the time of inclusion (hex). Base L2 field.</ResponseField>
+    <ResponseField name="l1BlobBaseFeeScalar" type="string">Scalar applied to the blob base fee for L1 fee calculation (hex). Base L2 field.</ResponseField>
+    <ResponseField name="l1BaseFeeScalar" type="string">Scalar applied to the L1 base fee for L1 fee calculation (hex). Base L2 field.</ResponseField>
+    <ResponseField name="daFootprintGasScalar" type="string">Base-specific DA footprint scalar (hex).</ResponseField>
+    <ResponseField name="depositNonce" type="string">Nonce used for the deposit transaction (hex). Present on type `0x7e` transactions only.</ResponseField>
+    <ResponseField name="depositReceiptVersion" type="string">Deposit receipt version (hex). Present on type `0x7e` transactions only.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Error Codes
+
+| Code | Message | Description |
+| --- | --- | --- |
+| `-32000` | transaction indexing is in progress | The node is still indexing transactions. Retry after the node has finished syncing. |
+
+
+## Example
+
+<CodeGroup>
+```json Request
+{
+  "jsonrpc": "2.0",
+  "method": "eth_getTransactionReceipt",
+  "params": ["0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"],
+  "id": 1
+}
+```
+
+```json Response (type 0x7e deposit)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "blobGasUsed": null,
+    "blockHash": "0x491bca01d4bc076d60833dbd973fe031a74e7ae31866bf70d077619e09edb6ff",
+    "blockNumber": "0x2c31b0b",
+    "contractAddress": null,
+    "cumulativeGasUsed": "0xb48a",
+    "daFootprintGasScalar": "0x94",
+    "depositNonce": "0x2c31b0e",
+    "depositReceiptVersion": "0x1",
+    "effectiveGasPrice": "0x0",
+    "from": "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001",
+    "gasUsed": "0xb48a",
+    "l1BaseFeeScalar": "0x8dd",
+    "l1BlobBaseFee": "0x582765",
+    "l1BlobBaseFeeScalar": "0x101c12",
+    "l1Fee": "0x0",
+    "l1GasPrice": "0x6bdbf6f",
+    "l1GasUsed": "0x71d",
+    "logs": [],
+    "logsBloom": "0x000...000",
+    "status": "0x1",
+    "to": "0x4200000000000000000000000000000000000015",
+    "transactionHash": "0x03c8f106f18ad94190e763e21b584c5825b2f4c61f1274c0e8abe65b4476cd51",
+    "transactionIndex": "0x0",
+    "type": "0x7e"
+  }
+}
+```
+
+```json Not Found
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+```
+</CodeGroup>

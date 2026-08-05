@@ -1,67 +1,51 @@
-# https://docs.base.org/llms-full.txt
+# Base Documentation — Full Context
 
-## Base Documentation — Full Context (Root)
+> Full context for AI agents working with Base. Cross-cutting concept guides (networks, auth, errors, rate limits) sit above an exhaustive per-page index of every documentation file. Follow page URLs for source content.
 
-> Rich, lightweight entry point for AI agents. Orients to cross-site concepts, SDK patterns, and links to per-product full shards. For deep dives, follow the Source links.
+<!-- LLMS_EXTRAS_START -->
 
 ## How the docs are organized
 - Products have two files each: `/<product>/llms.txt` (index) and `/<product>/llms-full.txt` (expanded)
-- Main sections: Get Started, Base Chain, Base Account, Base App, Mini Apps, OnchainKit, Cookbook, Learn
+- Main sections: Get Started, Base Chain, Base Account, AI Agents, Apps
 
 ## Cross-site concepts
 
 ### Networks and environments
 Sources:
 - `https://docs.base.org/base-chain/quickstart/connecting-to-base.md`
-- `https://docs.base.org/base-chain/network-information/diffs-ethereum-base.md`
-- `https://docs.base.org/base-chain/tools/node-providers.md`
+- `https://docs.base.org/base-chain/overview.md`
+- `https://docs.base.org/base-chain/node-operators/node-providers.md`
 
 > Base runs on Ethereum L2 with mainnet and Base Sepolia testnet. Use official RPCs from trusted node providers. Typical chain IDs: Base mainnet (8453), Base Sepolia (84532). Prefer HTTPS RPCs behind TLS, pin to provider domains, and handle occasional reorgs. For clients (e.g., Viem), configure the chain and transport explicitly; avoid relying on window-injected providers in server contexts.
 
 ### Authentication and API usage
 Sources:
 - `https://docs.base.org/base-account/guides/authenticate-users.md`
-- `https://docs.base.org/mini-apps/features/Authentication.md`
-- `https://docs.base.org/onchainkit/config/onchainkit-provider.md`
+- `https://docs.base.org/base-account/guides/verify-social-accounts.md`
 
-> Auth patterns vary by product. Use SIWE (ERC‑6492 compatible) for user sign-in where smart wallets may not yet exist. In Mini Apps, defer auth until needed; prefer scoped, revocable permissions and transaction trays for intent. For SDK/server APIs (e.g., OnchainKit), supply API keys via environment variables, rotate regularly, and verify server-side signatures or webhooks. Never store user passkeys or raw private keys server-side.
+> Auth patterns vary by product. Use SIWE (ERC‑6492 compatible) for user sign-in where smart wallets may not yet exist. In Apps, defer auth until needed; prefer scoped, revocable permissions and transaction trays for intent. Supply API keys via environment variables, rotate regularly, and verify server-side signatures or webhooks. Never store user passkeys or raw private keys server-side.
+
+### Identity verification and Sybil resistance
+Sources:
+- `https://docs.base.org/base-account/guides/verify-social-accounts.md`
+
+> Base Verify lets users prove ownership of verified accounts on X, Coinbase, Instagram, and TikTok without sharing credentials. Your backend sends a SIWE signature and message to the Base Verify API, receives a deterministic token tied to the provider account and action, and stores that token to prevent duplicate claims across wallets. Treat `404` as "verification not found" and redirect the user into the verification flow; treat `400 verification_traits_not_satisfied` as a real eligibility failure and do not redirect. Keep the secret key server-side only.
 
 ### Errors and retries
 Sources:
-- `https://docs.base.org/onchainkit/api/get-swap-quote.md`
 - `https://docs.base.org/base-chain/node-operators/troubleshooting.md`
 
 > Expect standard JSON error envelopes with `code`, `message`, and optional `details`. Treat 429 as rate-limited: respect `Retry-After` and apply exponential backoff with jitter. For idempotent operations (payments, tx-build), include an idempotency key if supported. Distinguish user-declined actions from transport or server errors and surface clear recovery guidance to users.
 
 ### Rate limits
 Sources:
-- `https://docs.base.org/onchainkit/api/get-tokens.md`
-- `https://docs.base.org/base-chain/tools/node-providers.md`
+- `https://docs.base.org/base-chain/node-operators/node-providers.md`
 
 > Rate limits vary by provider and endpoint. Batch reads when possible, cache static metadata, and use conditional requests. On 429, back off and retry after the indicated window. Avoid concurrent duplicate builds/quotes; fan out only when necessary.
 
 ### SDK install and hello world (JS/TS)
 
-OnchainKit (UI + server APIs)
-
-```bash
-npm install @coinbase/onchainkit wagmi viem
-```
-
-```tsx
-import { OnchainKitProvider } from '@coinbase/onchainkit'
-import { base } from 'wagmi/chains'
-
-export function Providers(props: { children: React.ReactNode }) {
-  return (
-    <OnchainKitProvider apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY} chain={base}>
-      {props.children}
-    </OnchainKitProvider>
-  )
-}
-```
-
-Base Account (smart wallet + pay helper)
+Base Account (smart wallet + pay helper + capabilities)
 
 ```bash
 npm install @base-org/account
@@ -91,16 +75,375 @@ const client = createPublicClient({ chain: base, transport: http() })
 
 ## Directory of per-product full shards
 
-- Base Account — `./base-account/llms-full.txt` — last updated 2025-08-19 — ~8.6 KB
-- Base App — `./base-app/llms-full.txt` — last updated 2025-08-19 — ~4.2 KB
-- Base Chain — `./base-chain/llms-full.txt` — last updated 2025-08-19 — ~8.1 KB
-- Mini Apps — `./mini-apps/llms-full.txt` — last updated 2025-08-19 — ~9.9 KB
-- OnchainKit — `./onchainkit/llms-full.txt` — last updated 2025-08-19 — ~6.9 KB
-- Learn — `./learn/llms-full.txt` — last updated 2025-08-19 — ~5.0 KB
-- Cookbook — `./cookbook/llms-full.txt` — last updated 2025-08-19 — ~2.5 KB
+- Get Started — `./get-started/llms-full.txt`
+- Base Chain — `./base-chain/llms-full.txt`
+- Base Account — `./base-account/llms-full.txt`
+- AI Agents — `./agents/llms-full.txt`
+- Apps — `./apps/llms-full.txt`
 
 ## Related indexes
 - Root index: `./llms.txt`
 - Get Started: `./get-started/llms.txt` and `./get-started/llms-full.txt`
 - Each product section: `/<product>/llms.txt` (index)
- 
+
+<!-- LLMS_EXTRAS_END -->
+
+<!-- LLMS_AUTOGEN_START -->
+
+## Get Started
+- [Base](https://docs.base.org/get-started/base): The #1 Ethereum Layer 2, incubated by Coinbase
+- [Base Mentorship Program](https://docs.base.org/get-started/base-mentorship-program): Connect with experienced builders and industry leaders to accelerate your journey on Base
+- [Base Services Hub](https://docs.base.org/get-started/base-services-hub): A collection of services for building on Base.
+- [Block Explorers](https://docs.base.org/get-started/block-explorers): Documentation for block explorers for the Base network.
+- [Core Concepts](https://docs.base.org/get-started/concepts)
+- [Regional Leads & Ambassadors](https://docs.base.org/get-started/country-leads-and-ambassadors): Connect with regional Base community leaders and ambassadors around the world
+- [Data Indexers](https://docs.base.org/get-started/data-indexers): Documentation for data indexing platforms for Base network.
+- [Deploy Smart Contracts](https://docs.base.org/get-started/deploy-smart-contracts): Step-by-step guide to deploying smart contracts on Base.
+- [Static Docs Files](https://docs.base.org/get-started/docs-llms): Use llms.txt and llms-full.txt to give AI assistants access to Base documentation.
+- [MCP Server](https://docs.base.org/get-started/docs-mcp): Connect your AI coding assistant to Base documentation using Model Context Protocol for real-time access.
+- [Get Funded](https://docs.base.org/get-started/get-funded): The Base ecosystem offers multiple funding pathways designed specifically for builders at every stage—from weekend experiments to full-scale ventures.
+- [Launch a B20 Token](https://docs.base.org/get-started/launch-b20-token): Launch a B20 token on Base by calling the B20 Factory precompile.
+- [Launch a Token](https://docs.base.org/get-started/launch-token)
+- [Learning Resources](https://docs.base.org/get-started/learning-resources): Find educational content for learning Solidity, Ethereum, and blockchain development
+- [Developer's Guide to Effective AI Prompting](https://docs.base.org/get-started/prompt-library): Learn practical AI prompting techniques to enhance your coding workflow and get better results from AI coding assistants.
+- [Resources for AI agents](https://docs.base.org/get-started/resources-for-ai-agents): Base-first resources for AI agents, including docs indexes, MCP access, skills, and recommended starting points
+
+## Base Chain
+- [Chain Overview](https://docs.base.org/base-chain/overview): Start here for Base Chain docs, including concepts, network reference, node operation, APIs, and protocol specifications.
+- [Overview](https://docs.base.org/base-chain/specs/overview): Technical specification of the Base Chain protocol, covering block derivation, execution, transaction propagation, and state verification.
+- [Specification](https://docs.base.org/base-chain/specs/protocol/consensus/index): Specification of the Base rollup node, describing its components and role in L2 block derivation and consensus.
+- [L2 Execution Engine](https://docs.base.org/base-chain/specs/protocol/execution/index): Specification of the L2 execution engine, detailing EIP-1559 parameters, fee vaults, Engine API usage, and execution layer behavior.
+- [Overview](https://docs.base.org/base-chain/specs/protocol/overview): High-level overview of the Base Chain protocol, covering rollup architecture, core components, and user flows for deposits, transactions, and withdrawals.
+- [Proofs](https://docs.base.org/base-chain/specs/protocol/proofs/index): Overview of the offchain services and onchain contracts that make L2 checkpoint proposals verifiable from Ethereum in the Azul proof system.
+- [Overview](https://docs.base.org/base-chain/specs/upgrades/azul/overview): Overview of the Azul hardfork, introducing Osaka EVM support, a simplified execution client, and a multi-proof system for L2 checkpoints.
+- [Overview](https://docs.base.org/base-chain/specs/upgrades/beryl/overview): Overview of the Beryl hardfork, introducing the B20 native token standard, reduced withdrawal delays, and Reth V2.
+- [Canyon](https://docs.base.org/base-chain/specs/upgrades/canyon/overview): Overview of the Canyon hardfork, bringing Ethereum Shanghai EIPs (EIP-3651, EIP-3855, EIP-3860) to the Base execution layer.
+- [Delta](https://docs.base.org/base-chain/specs/upgrades/delta/overview): Overview of the Delta hardfork, introducing span batches to reduce L1 data costs by compressing multiple L2 blocks into single batcher transactions.
+- [Ecotone](https://docs.base.org/base-chain/specs/upgrades/ecotone/overview): Overview of the Ecotone hardfork, integrating Ethereum Dencun changes including EIP-4844 blob transactions and EIP-4788 beacon block roots.
+- [Fjord](https://docs.base.org/base-chain/specs/upgrades/fjord/overview): Overview of the Fjord hardfork, introducing FastLZ-based L1 fee estimation, the RIP-7212 secp256r1 precompile, and brotli channel compression.
+- [Granite](https://docs.base.org/base-chain/specs/upgrades/granite/overview): Overview of the Granite hardfork, adding bn256Pairing precompile input size restrictions and CHANNEL_TIMEOUT parameter changes.
+- [Holocene](https://docs.base.org/base-chain/specs/upgrades/holocene/overview): Overview of the Holocene hardfork, introducing dynamic EIP-1559 parameters configurable via SystemConfig and stricter block derivation rules.
+- [Isthmus](https://docs.base.org/base-chain/specs/upgrades/isthmus/overview): Overview of the Isthmus hardfork, incorporating Ethereum Pectra EIPs and introducing the operator fee mechanism for sequencer revenue.
+- [Jovian](https://docs.base.org/base-chain/specs/upgrades/jovian/overview): Overview of the Jovian hardfork, introducing a configurable minimum base fee and a DA footprint gas scalar for improved fee market stability.
+- [debug_traceBlockByHash](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceBlockByHash): Returns EVM execution traces for all transactions in a block by block hash.
+- [debug_traceBlockByNumber](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceBlockByNumber): Returns EVM execution traces for all transactions in a block by block number.
+- [debug_traceTransaction](https://docs.base.org/base-chain/api-reference/debug-api/debug_traceTransaction): Returns the full EVM execution trace for a transaction. Requires a node with debug APIs enabled.
+- [eth_blockNumber](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_blockNumber): Returns the number of the most recently mined block.
+- [eth_call](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_call): Executes a message call without creating a transaction. Use pending to simulate against pre-confirmed state.
+- [eth_chainId](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_chainId): Returns the chain ID of the current network.
+- [eth_estimateGas](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_estimateGas): Estimates the gas required for a transaction. Use pending to estimate against pre-confirmed state.
+- [eth_feeHistory](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_feeHistory): Returns historical base fees and priority fee percentiles for a range of blocks.
+- [eth_gasPrice](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_gasPrice): Returns the current gas price in wei.
+- [eth_getBalance](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBalance): Returns the ETH balance of an account at a given block. Use the pending tag for 200ms pre-confirmed balances.
+- [eth_getBlockByHash](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByHash): Returns block information by block hash.
+- [eth_getBlockByNumber](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber): Returns block information by number. On Flashblocks endpoints, the pending tag returns the live pre-confirmed block updated every ~200ms.
+- [eth_getBlockReceipts](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockReceipts): Returns all transaction receipts for a block. Use pending for pre-confirmed receipts.
+- [eth_getBlockTransactionCountByHash](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockTransactionCountByHash): Returns the number of transactions in a block by block hash.
+- [eth_getBlockTransactionCountByNumber](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockTransactionCountByNumber): Returns the number of transactions in a block by block number.
+- [eth_getCode](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getCode): Returns the contract bytecode at an address. Use pending to detect newly deployed contracts before block finalization.
+- [eth_getLogs](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getLogs): Returns logs matching a filter. Use pending to query logs from pre-confirmed transactions.
+- [eth_getStorageAt](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getStorageAt): Returns the value of a storage slot at an address. Use pending for pre-confirmed storage reads.
+- [eth_getTransactionByBlockHashAndIndex](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByBlockHashAndIndex): Returns a transaction by block hash and index position.
+- [eth_getTransactionByBlockNumberAndIndex](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByBlockNumberAndIndex): Returns a transaction by block number and index position.
+- [eth_getTransactionByHash](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByHash): Returns a transaction by its hash.
+- [eth_getTransactionCount](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionCount): Returns the number of transactions sent from an address (the nonce). Use pending to get the pre-confirmed nonce.
+- [eth_getTransactionReceipt](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt): Returns the receipt for a mined transaction. Receipts are only available after a transaction is included in a block.
+- [eth_maxPriorityFeePerGas](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_maxPriorityFeePerGas): Returns the suggested EIP-1559 priority fee (tip) per gas.
+- [eth_sendRawTransaction](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_sendRawTransaction): Submits a pre-signed transaction to the network. All Base endpoints are Flashblocks-enabled, providing 200ms pre-confirmation.
+- [eth_subscribe](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe): Creates a real-time WebSocket subscription for new blocks, logs, and pending transactions.
+- [eth_syncing](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_syncing): Returns the sync status of the node.
+- [eth_unsubscribe](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_unsubscribe): Cancels an active WebSocket subscription.
+- [net_version](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/net_version): Returns the current network ID as a string.
+- [web3_clientVersion](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/web3_clientVersion): Returns the current client version string.
+- [base_transactionStatus](https://docs.base.org/base-chain/api-reference/flashblocks-api/base_transactionStatus): Checks whether a transaction is in the node mempool. Only available on Flashblocks endpoints.
+- [eth_simulateV1](https://docs.base.org/base-chain/api-reference/flashblocks-api/eth_simulateV1): Simulates one or more transaction bundles against the current pre-confirmed Flashblock state. Only available on Flashblocks endpoints.
+- [Overview](https://docs.base.org/base-chain/api-reference/flashblocks-api/flashblocks-api-overview): Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema for Base pre-confirmations.
+- [newFlashblocks](https://docs.base.org/base-chain/api-reference/flashblocks-api/newFlashblocks): Subscribe to receive full Flashblock payload stream as each pre-confirmed block is built. Only available on Flashblocks WebSocket endpoints.
+- [newFlashblockTransactions](https://docs.base.org/base-chain/api-reference/flashblocks-api/newFlashblockTransactions): Subscribe to receive each transaction as it is pre-confirmed into a Flashblock. Only available on Flashblocks WebSocket endpoints.
+- [pendingLogs](https://docs.base.org/base-chain/api-reference/flashblocks-api/pendingLogs): Subscribe to logs from pre-confirmed transactions matching an optional filter. Only available on Flashblocks WebSocket endpoints.
+- [Base RPC Overview](https://docs.base.org/base-chain/api-reference/rpc-overview): Complete reference for all JSON-RPC and Flashblocks methods available on Base nodes.
+- [Flashblocks Reference](https://docs.base.org/base-chain/flashblocks/faq): Reference for Flashblocks on Base — key concepts, architecture, and frequently asked questions about block building, WebSocket data, RPC usage, and node setup.
+- [Contract Addresses](https://docs.base.org/base-chain/network-information/base-contracts): A comprehensive list of contract addresses for Base Mainnet and Base Testnet, including links to their respective blockchain explorers.
+- [Base-Solana Bridge](https://docs.base.org/base-chain/network-information/base-solana-bridge): Bridge tokens and messages between Base and Solana Mainnet
+- [Bridging and Withdrawals](https://docs.base.org/base-chain/network-information/bridging-and-withdrawals): How deposits and withdrawals work on Base, including the standard withdrawal flow and faster bridge options.
+- [Configuration Changelog](https://docs.base.org/base-chain/network-information/configuration-changelog): A log of configuration changes to the Base networks.
+- [Ecosystem Bridges](https://docs.base.org/base-chain/network-information/ecosystem-bridges): Available bridge providers and routes for moving assets to and from Base.
+- [Network Faucets](https://docs.base.org/base-chain/network-information/network-faucets): Documentation for Testnet Faucets on the Base network.
+- [Network Fees](https://docs.base.org/base-chain/network-information/network-fees): Documentation about network fees on Base. This page covers details of the two-component cost system involving L2 execution fees and L1 security fees, and offers insights on fee variations and cost-saving strategies.
+- [Throughput and Limits](https://docs.base.org/base-chain/network-information/throughput-and-limits): Gas limits and throughput-related network parameters on Base.
+- [Transaction Finality](https://docs.base.org/base-chain/network-information/transaction-finality): Detailed information about transaction finality on Base.
+- [Transaction Ordering](https://docs.base.org/base-chain/network-information/transaction-ordering): Transactions are ordered based priority fee and arrival time, which determines which Flashblock they are included in.
+- [Troubleshooting Transactions](https://docs.base.org/base-chain/network-information/troubleshooting-transactions): Guide to diagnosing and resolving transaction issues on Base.
+- [Node Providers](https://docs.base.org/base-chain/node-operators/node-providers): Documentation for Node Providers for the Base network. Including details on their services, supported networks, and pricing plans.
+- [Node Performance](https://docs.base.org/base-chain/node-operators/performance-tuning): Hardware specifications, storage requirements, client recommendations, and configuration settings for running a performant Base node.
+- [Run a Node](https://docs.base.org/base-chain/node-operators/run-a-base-node): A tutorial that teaches how to set up and run a Base Node.
+- [Node Snapshots](https://docs.base.org/base-chain/node-operators/snapshots): Download and restore Base node snapshots to significantly reduce initial sync time for nodes.
+- [Node Troubleshooting](https://docs.base.org/base-chain/node-operators/troubleshooting): Solutions to common issues when setting up and running a Base node, covering sync problems, networking, snapshots, and performance.
+- [Connecting to Base](https://docs.base.org/base-chain/quickstart/connecting-to-base): Network details and wallet setup for Base Mainnet, Base Testnet (Sepolia), and Base Vibenet.
+- [How to avoid getting your app flagged as malicious](https://docs.base.org/base-chain/security/avoid-malicious-flags): The Base bug bounty program and procedures for reporting vulnerabilities.
+- [Bug Bounty](https://docs.base.org/base-chain/security/bug-bounty)
+- [Reporting Vulnerabilities](https://docs.base.org/base-chain/security/report-vulnerability): The Base procedures for reporting vulnerabilities.
+- [Security Council for Base](https://docs.base.org/base-chain/security/security-council): This page outlines the purpose, goals, structure, and responsibilities of the Security Council for Base.
+- [Batcher](https://docs.base.org/base-chain/specs/protocol/batcher): Specification of the batcher (batch submitter), the component responsible for posting L2 sequencer data to L1 for data availability.
+- [Standard Bridges](https://docs.base.org/base-chain/specs/protocol/bridging/bridges): Specification of the standard bridges enabling cross-domain ETH and ERC20 token transfers between L1 and L2 on Base.
+- [Deposits](https://docs.base.org/base-chain/specs/protocol/bridging/deposits): Specification of the deposit mechanism for Base, detailing how L1 transactions are converted into L2 deposit transactions.
+- [Cross Domain Messengers](https://docs.base.org/base-chain/specs/protocol/bridging/messengers): Specification of the cross-domain messenger contracts, providing a higher-level API for sending messages between L1 and L2 on Base.
+- [Withdrawals](https://docs.base.org/base-chain/specs/protocol/bridging/withdrawals): Specification of the withdrawal mechanism for Base, describing how L2 state is proven on L1 and funds are released from the bridge.
+- [Derivation](https://docs.base.org/base-chain/specs/protocol/consensus/derivation): Specification of the L2 chain derivation pipeline, describing how L2 blocks are deterministically derived from L1 data and sequencer batches.
+- [P2P](https://docs.base.org/base-chain/specs/protocol/consensus/p2p): Specification of the rollup node peer-to-peer network, covering node discovery, gossip protocol, and unsafe block propagation.
+- [RPC](https://docs.base.org/base-chain/specs/protocol/consensus/rpc): Specification of the rollup node RPC interface, including the optimism_outputAtBlock method for retrieving L2 output roots.
+- [Precompiles](https://docs.base.org/base-chain/specs/protocol/execution/evm/precompiles): Specification of precompiled contracts on Base, including native EVM implementations available at predefined addresses.
+- [Predeploys](https://docs.base.org/base-chain/specs/protocol/execution/evm/predeploys): Specification of predeployed smart contracts on Base, including system contracts deployed at predetermined addresses in genesis state.
+- [Preinstalls](https://docs.base.org/base-chain/specs/protocol/execution/evm/preinstalls): Specification of preinstalled smart contracts on Base, including utility contracts deployed in genesis state that run directly in the EVM.
+- [Challenger](https://docs.base.org/base-chain/specs/protocol/proofs/challenger): Specification of the challenger, an offchain service that detects invalid AggregateVerifier games and submits dispute transactions on L1 to nullify them.
+- [Proof Contracts](https://docs.base.org/base-chain/specs/protocol/proofs/contracts): Specification of the onchain contracts that verify proof material, track game state, and release withdrawals for the Azul proof system.
+- [Proposer](https://docs.base.org/base-chain/specs/protocol/proofs/proposer): Specification of the proposer, an offchain service that turns canonical L2 checkpoint ranges into AggregateVerifier games on L1.
+- [Registrar](https://docs.base.org/base-chain/specs/protocol/proofs/registrar): Specification of the registrar, an offchain service that maintains the onchain registry of accepted TEE signer identities via attestation ZK proofs.
+- [TEE Prover](https://docs.base.org/base-chain/specs/protocol/proofs/tee-prover): Specification of the TEE prover, an offchain service that re-executes L2 block ranges inside AWS Nitro Enclaves to produce signed proof material for AggregateVerifier games.
+- [ZK Prover](https://docs.base.org/base-chain/specs/protocol/proofs/zk-prover): Specification of the ZK prover, an offchain service that uses SP1 programs to produce permissionless proofs for checkpoint proposals and disputes.
+- [Configuration](https://docs.base.org/base-chain/specs/reference/configurability): Reference for Base Chain configuration parameters across consensus, policy, admin, and sequencer categories.
+- [Glossary](https://docs.base.org/base-chain/specs/reference/glossary): Glossary of terms and definitions used throughout the Base Chain protocol specification.
+- [Execution Engine](https://docs.base.org/base-chain/specs/upgrades/azul/exec-engine): Execution engine changes in the Azul hardfork, including the EIP-7825 transaction gas limit cap and secp256r1 precompile cost updates.
+- [Node Upgrade Guide](https://docs.base.org/base-chain/specs/upgrades/azul/node-upgrade): Migrate your Base node to base-reth-node and base-consensus for Azul.
+- [Proof System](https://docs.base.org/base-chain/specs/upgrades/azul/proofs): Specification of the Azul multi-proof system, replacing the single output proposer with an AggregateVerifier contract for L2 checkpoint security.
+- [B20 Native Token Standard](https://docs.base.org/base-chain/specs/upgrades/beryl/b20): B20 is Base's native token standard - designed for stablecoin issuers, real-world asset (RWA) and equity issuers, and long-tail token creators.
+- [Native Account Abstraction](https://docs.base.org/base-chain/specs/upgrades/cobalt/eip-8130): Build with native account abstraction on Base. EIP-8130 smart accounts send ordinary transactions, with no bundlers or relays.
+- [Span-batches](https://docs.base.org/base-chain/specs/upgrades/delta/span-batches): Specification of span batches introduced in Delta, a new batch format that compresses sequences of L2 blocks for more efficient L1 data posting.
+- [Derivation](https://docs.base.org/base-chain/specs/upgrades/ecotone/derivation): Derivation changes in the Ecotone upgrade, extending the retrieval stage to support EIP-4844 blobs as an additional data availability source.
+- [Ecotone L1 Attributes](https://docs.base.org/base-chain/specs/upgrades/ecotone/l1-attributes): L1 attributes transaction changes in the Ecotone upgrade, updating calldata format to support the new blob-based fee calculation model.
+- [Fjord L2 Chain Derivation Changes](https://docs.base.org/base-chain/specs/upgrades/fjord/derivation): Derivation changes in the Fjord upgrade, updating protocol parameters for max sequencer drift, channel bank size, and adding brotli compression support.
+- [L2 Execution Engine](https://docs.base.org/base-chain/specs/upgrades/fjord/exec-engine): Execution engine changes in the Fjord upgrade, replacing the L1 cost fee estimator with a FastLZ-based compression model.
+- [Predeploys](https://docs.base.org/base-chain/specs/upgrades/fjord/predeploys): Predeploy changes in the Fjord upgrade, adding FastLZ fee computation constants to the GasPriceOracle contract.
+- [Granite L2 Chain Derivation Changes](https://docs.base.org/base-chain/specs/upgrades/granite/derivation): Derivation changes in the Granite upgrade, updating the CHANNEL_TIMEOUT protocol parameter.
+- [L2 Execution Engine](https://docs.base.org/base-chain/specs/upgrades/granite/exec-engine): Execution engine changes in the Granite upgrade, restricting bn256Pairing precompile input size to prevent unbounded gas consumption.
+- [Holocene L2 Chain Derivation Changes](https://docs.base.org/base-chain/specs/upgrades/holocene/derivation): Derivation changes in the Holocene upgrade, introducing stricter pipeline rules that simplify derivation and improve fault proof worst-case behavior.
+- [L2 Execution Engine](https://docs.base.org/base-chain/specs/upgrades/holocene/exec-engine): Execution engine changes in the Holocene upgrade, enabling dynamic EIP-1559 parameters encoded in block headers and configured via SystemConfig.
+- [System Config](https://docs.base.org/base-chain/specs/upgrades/holocene/system-config): SystemConfig changes in the Holocene upgrade, adding dynamic EIP-1559 parameter configuration via ConfigUpdate events.
+- [Isthmus L2 Chain Derivation Changes](https://docs.base.org/base-chain/specs/upgrades/isthmus/derivation): Derivation changes in the Isthmus upgrade, specifying network upgrade automation transactions executed at hardfork activation.
+- [L2 Execution Engine](https://docs.base.org/base-chain/specs/upgrades/isthmus/exec-engine): Execution engine changes in the Isthmus upgrade, including L2ToL1MessagePasser storage root in block headers and operator fee collection.
+- [L1 Block Attributes](https://docs.base.org/base-chain/specs/upgrades/isthmus/l1-attributes): L1 attributes transaction changes in the Isthmus upgrade, extending calldata to include operator fee scalar and constant parameters.
+- [Predeploys](https://docs.base.org/base-chain/specs/upgrades/isthmus/predeploys): Predeploy changes in the Isthmus upgrade, including updates to L1Block and the new OperatorFeeVault contract.
+- [Isthmus: System Config](https://docs.base.org/base-chain/specs/upgrades/isthmus/system-config): SystemConfig changes in the Isthmus upgrade, adding operatorFeeScalar and operatorFeeConstant configuration variables.
+- [Derivation](https://docs.base.org/base-chain/specs/upgrades/jovian/derivation): Derivation changes in the Jovian upgrade, specifying activation block rules and gas computation behavior at hardfork activation.
+- [Jovian: Execution Engine](https://docs.base.org/base-chain/specs/upgrades/jovian/exec-engine): Execution engine changes in the Jovian upgrade, introducing a configurable minimum base fee via SystemConfig to reduce priority-fee auction durations.
+- [L1 Block Attributes](https://docs.base.org/base-chain/specs/upgrades/jovian/l1-attributes): L1 attributes transaction changes in the Jovian upgrade, extending calldata to include the DA footprint gas scalar.
+- [Jovian: System Config](https://docs.base.org/base-chain/specs/upgrades/jovian/system-config): SystemConfig changes in the Jovian upgrade, adding a minimum base fee configuration variable for the EIP-1559 fee market.
+
+## Base Account
+- [Capabilities Overview](https://docs.base.org/base-account/reference/core/capabilities/overview): Understand how to use Base Account capabilities with wallet_connect and wallet_sendCalls
+- [Basename Transfer Guide](https://docs.base.org/base-account/basenames/basename-transfer): Step-by-step guide for Base App users to transfer their Basenames to new wallet addresses.
+- [Basenames FAQ](https://docs.base.org/base-account/basenames/basenames-faq): Frequently asked questions on basenames.
+- [Contribute to the Base Account Docs](https://docs.base.org/base-account/contribute/contribute-to-base-account-docs)
+- [Security and Bug Bounty](https://docs.base.org/base-account/contribute/security-and-bug-bounty)
+- [Coinbase Developer Platform](https://docs.base.org/base-account/framework-integrations/cdp): Build onchain apps supporting both Base Account and CDP Embedded Wallets
+- [Auth (Sign In With Base)](https://docs.base.org/base-account/framework-integrations/privy/authentication): Manage user authentication with Privy and Base Account
+- [Setup](https://docs.base.org/base-account/framework-integrations/privy/setup): Configure Privy with Base Account for your React application
+- [Spend Permissions](https://docs.base.org/base-account/framework-integrations/privy/spend-permissions): Enable trusted spenders to move assets without additional signatures
+- [Sub Accounts](https://docs.base.org/base-account/framework-integrations/privy/sub-accounts): Create and manage app-specific wallet accounts with Base Account
+- [Wallet Actions](https://docs.base.org/base-account/framework-integrations/privy/wallet-actions): Sign messages, transactions, and typed data with Privy wallets
+- [RainbowKit](https://docs.base.org/base-account/framework-integrations/rainbowkit): Integrate Base Account with RainbowKit
+- [Reown](https://docs.base.org/base-account/framework-integrations/reown): Integrate Base Account with Reown AppKit for your React application
+- [Thirdweb](https://docs.base.org/base-account/framework-integrations/thirdweb): Configure Thirdweb with Base Account for your React application
+- [Base Pay](https://docs.base.org/base-account/framework-integrations/wagmi/base-pay): Accept USDC payments with Base Pay in your Wagmi-powered React application
+- [Basenames](https://docs.base.org/base-account/framework-integrations/wagmi/basenames): Add support for Base names in your application using Wagmi and Viem
+- [Batch Transactions](https://docs.base.org/base-account/framework-integrations/wagmi/batch-transactions): Send multiple onchain calls in a single transaction with Wagmi and Base Account
+- [Other Use Cases](https://docs.base.org/base-account/framework-integrations/wagmi/other-use-cases): Access the Base Account provider from Wagmi for advanced functionality like Sub Accounts, Spend Permissions, and more
+- [Setup](https://docs.base.org/base-account/framework-integrations/wagmi/setup): Configure Wagmi with Base Account connector for your React application
+- [Sign in with Base](https://docs.base.org/base-account/framework-integrations/wagmi/sign-in-with-base): Implement Base Account authentication using the proper SIWE flow with Wagmi
+- [Using Sub Accounts](https://docs.base.org/base-account/framework-integrations/wagmi/sub-accounts): Implement Base Account Sub Accounts using Wagmi
+- [Accept Payments](https://docs.base.org/base-account/guides/accept-payments): Add one-tap USDC payments to your app with the pay() helper and Base Pay Button.
+- [Accept Recurring Payments](https://docs.base.org/base-account/guides/accept-recurring-payments): Enable subscription-based revenue models with automatic USDC payments
+- [Authenticate Users](https://docs.base.org/base-account/guides/authenticate-users): Let a user click “Sign in with Base,” prove ownership of their onchain account, and give your server everything it needs to create a session – using open standards and no passwords
+- [Migrate from Coinbase Wallet SDK](https://docs.base.org/base-account/guides/migration-guide): A guide to migrating from the Coinbase Wallet SDK to the Base Account SDK
+- [Sign and Verify Typed Data](https://docs.base.org/base-account/guides/sign-and-verify-typed-data): EIP-712 structured data signing and verification for Base Account
+- [Transaction Simulation Data](https://docs.base.org/base-account/guides/tips/inspect-txn-simulation)
+- [Popup Tips](https://docs.base.org/base-account/guides/tips/popup-tips)
+- [Verify Social Accounts](https://docs.base.org/base-account/guides/verify-social-accounts): Use Base Verify to let users prove ownership of verified accounts (X, Coinbase, Instagram, TikTok) without sharing credentials, enabling Sybil-resistant airdrops, gated content, and identity-based rewards.
+- [Batch Transactions](https://docs.base.org/base-account/improve-ux/batch-transactions)
+- [Use Spend Permissions](https://docs.base.org/base-account/improve-ux/spend-permissions): Learn how to use Spend Permissions to allow a trusted spender to spend user assets
+- [Pay Gas in ERC20 tokens](https://docs.base.org/base-account/improve-ux/sponsor-gas/erc20-paymasters): Base Account enables users to pay for gas in ERC20 tokens
+- [Sponsor Gas](https://docs.base.org/base-account/improve-ux/sponsor-gas/paymasters): Use Paymasters to sponsor your users' transactions
+- [Use Sub Accounts](https://docs.base.org/base-account/improve-ux/sub-accounts): Learn how to create and use Sub Accounts using Base Account SDK
+- [Base Gasless Campaign](https://docs.base.org/base-account/more/base-gasless-campaign)
+- [Telemetry · Base Account](https://docs.base.org/base-account/more/telemetry): Understanding Base Account's anonymous telemetry system and how to configure it.
+- [Gas Usage](https://docs.base.org/base-account/more/troubleshooting/usage-details/gas-usage)
+- [Popup Tips](https://docs.base.org/base-account/more/troubleshooting/usage-details/popups)
+- [Transaction Simulation Data](https://docs.base.org/base-account/more/troubleshooting/usage-details/simulations)
+- [Unsupported Calls](https://docs.base.org/base-account/more/troubleshooting/usage-details/unsupported-calls)
+- [Wallet Library Support](https://docs.base.org/base-account/more/troubleshooting/usage-details/wallet-library-support)
+- [Base Account Overview](https://docs.base.org/base-account/overview/what-is-base-account): What is a Base Account and how the Base Account SDK lets you add universal sign-in and one-tap USDC payments to any app.
+- [AI Tools for Base Account Developers](https://docs.base.org/base-account/quickstart/ai-tools-available-for-devs)
+- [Mobile (React Native)](https://docs.base.org/base-account/quickstart/mobile-integration)
+- [Web (HTML + JS)](https://docs.base.org/base-account/quickstart/web): Integrate Sign in with Base and Base Pay using nothing but HTML and JavaScript.
+- [Web (Next.js)](https://docs.base.org/base-account/quickstart/web-react): Quickly add Sign in with Base and Base Pay to any Next.js app
+- [subscription.charge](https://docs.base.org/base-account/reference/base-pay/charge): Execute subscription charges from your backend using CDP server wallets
+- [subscription.getOrCreateSubscriptionOwnerWallet](https://docs.base.org/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet): Create or retrieve a CDP smart wallet to act as subscription owner
+- [getPaymentStatus](https://docs.base.org/base-account/reference/base-pay/getPaymentStatus): Check the status of a payment transaction
+- [subscription.getStatus](https://docs.base.org/base-account/reference/base-pay/getStatus): Check the status and details of an existing subscription
+- [pay](https://docs.base.org/base-account/reference/base-pay/pay): Send USDC payments on the Base network
+- [subscription.prepareCharge](https://docs.base.org/base-account/reference/base-pay/prepareCharge): Prepare transaction calls to charge a subscription (advanced)
+- [subscription.prepareRevoke](https://docs.base.org/base-account/reference/base-pay/prepareRevoke): Prepare transaction calls to revoke a subscription (advanced)
+- [subscription.revoke](https://docs.base.org/base-account/reference/base-pay/revoke): Revoke subscriptions from your backend using CDP server wallets
+- [subscription.subscribe](https://docs.base.org/base-account/reference/base-pay/subscribe): Create USDC subscriptions with spend permissions on Base network
+- [Subscriptions Overview](https://docs.base.org/base-account/reference/base-pay/subscriptions-overview): Accept recurring USDC payments using spend permissions on Base
+- [atomic](https://docs.base.org/base-account/reference/core/capabilities/atomic): Ensures batched transactions are executed atomically and contiguously
+- [auxiliaryFunds](https://docs.base.org/base-account/reference/core/capabilities/auxiliaryFunds): Indicates wallet access to funds beyond on-chain balance verification
+- [dataCallback](https://docs.base.org/base-account/reference/core/capabilities/datacallback): Base Account allows you to collect personal information like email addresses, physical addresses, phone numbers, and names during transactions.
+- [dataSuffix](https://docs.base.org/base-account/reference/core/capabilities/dataSuffix): Append arbitrary data to transaction calldata for attribution tracking
+- [flowControl](https://docs.base.org/base-account/reference/core/capabilities/flowControl): Control transaction batch behavior after failed or reverted calls
+- [gasLimitOverride](https://docs.base.org/base-account/reference/core/capabilities/gasLimitOverride): Override gas limits for individual calls in a wallet_sendCalls batch
+- [paymasterService](https://docs.base.org/base-account/reference/core/capabilities/paymasterService): Enable sponsored transactions using ERC-4337 paymaster web services
+- [signInWithEthereum](https://docs.base.org/base-account/reference/core/capabilities/signInWithEthereum): Enable secure authentication using the Sign-In With Ethereum (SIWE) standard
+- [createBaseAccountSDK](https://docs.base.org/base-account/reference/core/createBaseAccount): Create a Base Account SDK instance with EIP-1193 compliant provider
+- [generateKeyPair](https://docs.base.org/base-account/reference/core/generateKeyPair): Generate a new P256 key pair for use with Base Account
+- [getCryptoKeyAccount](https://docs.base.org/base-account/reference/core/getCryptoKeyAccount): Retrieve the current crypto key account associated with the user's session
+- [getKeypair](https://docs.base.org/base-account/reference/core/getKeypair): Retrieve an existing P256 key pair from storage
+- [getProvider](https://docs.base.org/base-account/reference/core/getProvider): Get an Ethereum provider instance from the Base Account SDK
+- [coinbase_fetchPermission](https://docs.base.org/base-account/reference/core/provider-rpc-methods/coinbase_fetchPermission): Retrieve a single permission by its hash
+- [coinbase_fetchPermissions](https://docs.base.org/base-account/reference/core/provider-rpc-methods/coinbase_fetchPermissions): Retrieve permissions for a specific spender and chain, optionally filtered by account
+- [eth_accounts](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_accounts): Returns a list of addresses owned by the connected wallet without prompting user authorization
+- [eth_blockNumber](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_blockNumber): Get the number of the most recent block
+- [eth_chainId](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_chainId): Get the currently configured chain ID
+- [eth_coinbase](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_coinbase): Get the client coinbase address
+- [eth_estimateGas](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_estimateGas): Estimate gas needed for a transaction
+- [eth_feeHistory](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_feeHistory): Get historical gas fee information for a range of blocks
+- [eth_gasPrice](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_gasPrice): Get the current gas price
+- [eth_getBalance](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getBalance): Get the balance of an account at a given block
+- [eth_getBlockByHash](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getBlockByHash): Get information about a block by block hash
+- [eth_getBlockByNumber](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getBlockByNumber): Get information about a block by block number
+- [eth_getBlockTransactionCountByHash](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getBlockTransactionCountByHash): Get the number of transactions in a block by block hash
+- [eth_getBlockTransactionCountByNumber](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getBlockTransactionCountByNumber): Get the number of transactions in a block by block number
+- [eth_getCode](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getCode): Get the bytecode at a given address
+- [eth_getLogs](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getLogs): Get an array of all logs matching a given filter object
+- [eth_getProof](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getProof): Get the Merkle proof for account and storage values
+- [eth_getStorageAt](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getStorageAt): Get the value from a storage position at a given address
+- [eth_getTransactionByBlockHashAndIndex](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getTransactionByBlockHashAndIndex): Get a transaction by block hash and transaction index position
+- [eth_getTransactionByBlockNumberAndIndex](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getTransactionByBlockNumberAndIndex): Get a transaction by block number and transaction index position
+- [eth_getTransactionByHash](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getTransactionByHash): Get transaction details by transaction hash
+- [eth_getTransactionCount](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getTransactionCount): Get the number of transactions sent from an address
+- [eth_getTransactionReceipt](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getTransactionReceipt): Get the receipt of a transaction by transaction hash
+- [eth_getUncleCountByBlockHash](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getUncleCountByBlockHash): Get the number of uncles in a block by block hash
+- [eth_getUncleCountByBlockNumber](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_getUncleCountByBlockNumber): Get the number of uncles in a block by block number
+- [eth_requestAccounts](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_requestAccounts): Request account access and authorization from the user
+- [eth_sendRawTransaction](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_sendRawTransaction): Submit a signed transaction to the network
+- [eth_sendTransaction](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_sendTransaction): Create and send a new transaction or message call
+- [eth_signTypedData_v4](https://docs.base.org/base-account/reference/core/provider-rpc-methods/eth_signTypedData_v4): Sign structured data according to EIP-712
+- [personal_sign](https://docs.base.org/base-account/reference/core/provider-rpc-methods/personal_sign): Sign data using a specific account with Ethereum-specific signature format
+- [Overview](https://docs.base.org/base-account/reference/core/provider-rpc-methods/request-overview)
+- [SDK Overview](https://docs.base.org/base-account/reference/core/provider-rpc-methods/sdk-overview)
+- [Standard RPC Methods](https://docs.base.org/base-account/reference/core/provider-rpc-methods/standard-rpc-methods): Standard Ethereum RPC methods supported by Base Account
+- [wallet_addEthereumChain](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_addEthereumChain): Add a new Ethereum chain to the wallet
+- [wallet_addSubAccount](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_addSubAccount): Add a sub account to the wallet
+- [wallet_connect](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_connect): Connect wallet and request account access
+- [wallet_getCallsStatus](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_getCallsStatus): Get the status of a call batch sent via wallet_sendCalls
+- [wallet_getCapabilities](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_getCapabilities): Get the wallet's supported capabilities for the given account
+- [wallet_getSubAccounts](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_getSubAccounts): Fetch the sub accounts of the wallet
+- [wallet_sendCalls](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_sendCalls): Submit a batch of calls to the wallet for execution
+- [wallet_switchEthereumChain](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_switchEthereumChain): Switch the wallet to a different Ethereum chain
+- [wallet_watchAsset](https://docs.base.org/base-account/reference/core/provider-rpc-methods/wallet_watchAsset): Add a token to the wallet's asset watchlist
+- [web3_clientVersion](https://docs.base.org/base-account/reference/core/provider-rpc-methods/web3_clientVersion): Get the current client version
+- [SDK Utilities](https://docs.base.org/base-account/reference/core/sdk-utilities): Core utility functions for key management and account access
+- [Basenames](https://docs.base.org/base-account/reference/onchain-contracts/basenames): Decentralized naming system that allows users to register human-readable names (like 'alice.base.eth') on Base.
+- [Smart Wallet](https://docs.base.org/base-account/reference/onchain-contracts/smart-wallet): ERC-4337 compliant smart contract wallet that serves as the foundation for Base Account.
+- [Spend Permissions](https://docs.base.org/base-account/reference/onchain-contracts/spend-permissions)
+- [createProlinkUrl](https://docs.base.org/base-account/reference/prolink-utilities/createProlinkUrl): Create a link with a prolink query parameter
+- [decodeProlink](https://docs.base.org/base-account/reference/prolink-utilities/decodeProlink): Decode a prolink payload back to a JSON-RPC request
+- [encodeProlink](https://docs.base.org/base-account/reference/prolink-utilities/encodeProlink): Encode a JSON-RPC request into a compressed, URL-safe prolink payload
+- [fetchPermission](https://docs.base.org/base-account/reference/spend-permission-utilities/fetchPermission): Retrieve a single Spend Permission by its hash
+- [fetchPermissions](https://docs.base.org/base-account/reference/spend-permission-utilities/fetchPermissions): Retrieve available Spend Permissions for an account and chain, optionally filtered by spender
+- [getPermissionStatus](https://docs.base.org/base-account/reference/spend-permission-utilities/getPermissionStatus): Gets the current status of a Spend Permission
+- [prepareRevokeCallData](https://docs.base.org/base-account/reference/spend-permission-utilities/prepareRevokeCallData): Construct calldata so your app's spender can revoke a Spend Permission without user interaction
+- [prepareSpendCallData](https://docs.base.org/base-account/reference/spend-permission-utilities/prepareSpendCallData): Prepare calldata to approve (if needed) and spend using a Spend Permission
+- [requestRevoke](https://docs.base.org/base-account/reference/spend-permission-utilities/requestRevoke): Request the user's approval to revoke a Spend Permission
+- [requestSpendPermission](https://docs.base.org/base-account/reference/spend-permission-utilities/requestSpendPermission): Create and sign an EIP-712 Spend Permission for a user's Base Account
+- [BasePayButton](https://docs.base.org/base-account/reference/ui-elements/base-pay-button): Pre-built React component for accepting payments with Base Account
+- [Brand Guidelines](https://docs.base.org/base-account/reference/ui-elements/brand-guidelines): Design and brand guidelines for Sign in With Base and Base Pay buttons
+- [SignInWithBaseButton](https://docs.base.org/base-account/reference/ui-elements/sign-in-with-base-button): Pre-built React component for user authentication with Base Account
+
+## Apps
+- [Build an app on Base](https://docs.base.org/apps/index): A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
+- [Builder Codes for Agent Developers](https://docs.base.org/apps/builder-codes/agent-developers): Attribute your AI agent's onchain transactions to your identity on Base and unlock analytics and leaderboard features.
+- [Builder Codes for App Developers](https://docs.base.org/apps/builder-codes/app-developers): Integrate Builder Codes into your app using Wagmi or Viem to attribute onchain activity.
+- [Base Builder Codes](https://docs.base.org/apps/builder-codes/builder-codes): Attribute onchain activity to your app, wallet or agent with Builder Codes.
+- [Builder Codes for Wallet Developers](https://docs.base.org/apps/builder-codes/wallet-developers): Implement the dataSuffix capability in your wallet to enable Builder Code attribution.
+- [Rewards](https://docs.base.org/apps/growth/rewards): Earn financial incentives for building high-quality  Apps that drive user engagement and onchain transactions
+- [Accept B20 payments](https://docs.base.org/apps/guides/accept-b20-payments): Accept B20 token payments in your app and match each transaction to an order with onchain memos.
+- [Migrate to a Standard Web App](https://docs.base.org/apps/guides/migrate-to-standard-web-app): Migrate your Farcaster mini-app to work in the Base App. Covers replacing deprecated SDK methods, and registering on Base.dev.
+- [Build an app on Base](https://docs.base.org/apps/quickstart/build-app): A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
+- [Deploy on Base](https://docs.base.org/apps/quickstart/deploy-on-base): Deploy a smart contract to Base Sepolia with Foundry.
+- [Add notifications](https://docs.base.org/apps/technical-guides/base-notifications): Send in-app notifications to your app's users through the Base Dashboard REST API.
+
+## Agents
+- [Guides](https://docs.base.org/agents/guides/index): Step-by-step guides for common things to do with Base MCP
+- [Base MCP](https://docs.base.org/agents/index): Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
+- [Overview](https://docs.base.org/agents/plugins/index): How the Base MCP Skill works and how plugins extend it
+- [Overview](https://docs.base.org/agents/plugins/native/index): Plugins authored by the Base team that ship with the Base MCP skill
+- [Execute Contract Calls](https://docs.base.org/agents/guides/batch-calls): Batch multiple contract interactions into a single user approval using send_calls and Base MCP
+- [Check Balance & Portfolio](https://docs.base.org/agents/guides/check-balance): View your token balances, portfolio value, and wallet details using Base MCP
+- [Send Tokens](https://docs.base.org/agents/guides/send-tokens): Send native tokens or ERC-20 tokens to an address, ENS name, basename, or cb.id using Base MCP
+- [Sign Messages](https://docs.base.org/agents/guides/sign-messages): Sign EIP-712 typed data and plain messages with your Base Account using Base MCP
+- [Swap Tokens](https://docs.base.org/agents/guides/swap-tokens): Swap between tokens on supported mainnet chains using Base MCP
+- [View Transaction History](https://docs.base.org/agents/guides/view-history): Browse past transactions, filter by asset, and paginate through your onchain history using Base MCP
+- [Make x402 Payments](https://docs.base.org/agents/guides/x402-payments): Pay for x402-enabled API requests with USDC using Base MCP
+- [Custom Plugins](https://docs.base.org/agents/plugins/custom-plugins): Build your own plugin that produces unsigned calldata and executes through Base MCP's send_calls
+- [Aerodrome](https://docs.base.org/agents/plugins/native/aerodrome): Token swaps and basic-pool liquidity on Aerodrome (the leading DEX on Base) via sugar-sdk + Base MCP. CLI-only.
+- [Avantis](https://docs.base.org/agents/plugins/native/avantis): Perpetual futures on Base via the Avantis tx-builder. Reads work on every surface; trade-building uses a CLI harness or the Avantis web UI.
+- [Balancer](https://docs.base.org/agents/plugins/native/balancer): Swaps and liquidity on Balancer through shell-driven API reads, SDK calldata building, and Base MCP send_calls.
+- [Bankr](https://docs.base.org/agents/plugins/native/bankr): Discover the latest token launches on Base via the Bankr API and buy them with Base MCP's swap tool.
+- [Bitrefill](https://docs.base.org/agents/plugins/native/bitrefill): Buy gift cards, mobile top-ups, and travel eSIMs with USDC on Base through Bitrefill.
+- [Brickken](https://docs.base.org/agents/plugins/native/brickken): ERC-8004 identity, reputation, and agent-token operations through Brickken with Base MCP x402 approval.
+- [Clawnch](https://docs.base.org/agents/plugins/native/clawnch): Discover Base token launches, buy launched tokens, and prepare non-custodial token launches on Clawnch.
+- [Flaunch](https://docs.base.org/agents/plugins/native/flaunch): Prepare Base token launches through Flaunch and trade deployed Flaunch tokens with Base MCP.
+- [GMGN](https://docs.base.org/agents/plugins/native/gmgn): Token swap quotes, gas-price tiers, and trending-token market intelligence on Base via GMGN.
+- [Hydrex](https://docs.base.org/agents/plugins/native/hydrex): Swaps and concentrated-liquidity position management on Hydrex via prepare-server calldata and Base MCP send_calls.
+- [KyberSwap](https://docs.base.org/agents/plugins/native/kyberswap): Best-rate DEX aggregation through KyberSwap routes and Base MCP send_calls across supported EVM chains.
+- [Moonwell](https://docs.base.org/agents/plugins/native/moonwell): Compound v2 lending on Base and Optimism via the Moonwell HTTP API
+- [Morpho](https://docs.base.org/agents/plugins/native/morpho): Lending and vaults on Base via Morpho CLI, with Morpho MCP fallback for chat-only surfaces.
+- [o1.exchange](https://docs.base.org/agents/plugins/native/o1-exchange): Token swaps on o1.exchange through HTTP order building, unsigned transaction decoding, and Base MCP send_calls.
+- [OpenSea](https://docs.base.org/agents/plugins/native/opensea): NFT marketplace trading, token swaps, and drops or minting through OpenSea API or CLI and Base MCP send_calls.
+- [Printr](https://docs.base.org/agents/plugins/native/printr): Launch cross-chain tokens through Printr's HTTP API and Base MCP send_calls.
+- [Uniswap](https://docs.base.org/agents/plugins/native/uniswap): Token swaps and V2/V3/V4 LP positions on Base via the Uniswap trade and liquidity APIs
+- [Venice](https://docs.base.org/agents/plugins/native/venice): Private AI inference through the Venice API with optional Base x402 wallet funding through Base MCP.
+- [Virtuals](https://docs.base.org/agents/plugins/native/virtuals): Create and operate Virtuals (ACP) AI agents — payment cards, email identities, agent management — signed in via Base MCP.
+- [YO](https://docs.base.org/agents/plugins/native/yo): View YO vaults, check positions, deposit, and request redeems through onchain reads and Base MCP send_calls.
+- [Get Started with Base MCP](https://docs.base.org/agents/quickstart): Connect Base MCP to your agent in under 5 minutes
+- [Aerodrome Plugin](https://docs.base.org/agents/skills/plugins/aerodrome): Swap, provide liquidity, stake, and claim rewards on Aerodrome.
+- [Avantis Plugin](https://docs.base.org/agents/skills/plugins/avantis): Open and manage leveraged perpetual-futures positions on Avantis.
+- [Balancer Plugin](https://docs.base.org/agents/skills/plugins/balancer): Swaps and liquidity on Balancer through a shell: read pools/quotes from the Balancer API, build calldata with the Balancer SDK, submit via send_calls. CLI-only — requires terminal access; unsupported on chat-only surfaces.
+- [Bankr Plugin](https://docs.base.org/agents/skills/plugins/bankr): Discover and buy newly launched tokens on Bankr.
+- [Bitrefill Plugin](https://docs.base.org/agents/skills/plugins/bitrefill): Shop 1,500+ brands in 180+ countries — Amazon, Steam, Netflix, mobile top-ups, and travel eSIMs — paid with USDC on Base. Your agent searches, checks out, and delivers gift-card codes and eSIM details in chat. No Bitrefill account required.
+- [Brickken Plugin](https://docs.base.org/agents/skills/plugins/brickken): ERC-8004 identity, reputation, and agent-token operations through Brickken with Base MCP x402 approval.
+- [Clawnch Plugin](https://docs.base.org/agents/skills/plugins/clawnch): Token-launch discovery (recent + top-by-volume) and non-custodial token launches on Clawnch via HTTP API → swap / send_calls on Base.
+- [Flaunch Plugin](https://docs.base.org/agents/skills/plugins/flaunch): Prepare Flaunch launches through mcp.flaunch.gg and submit them with Base MCP send_calls; discover and swap deployed tokens through Base MCP.
+- [GMGN Plugin](https://docs.base.org/agents/skills/plugins/gmgn): Token swap quotes and on-chain market intelligence for Base via GMGN API. Requires shell to generate auth parameters; returns unsigned calldata for send_calls execution.
+- [Hydrex Plugin](https://docs.base.org/agents/skills/plugins/hydrex): Swapping and concentrated-liquidity on Hydrex via local prepare server → send_calls on Base.
+- [KyberSwap Plugin](https://docs.base.org/agents/skills/plugins/kyberswap): DEX aggregation on KyberSwap via HTTP API → send_calls across 7 chains, best-rate routing through 50+ liquidity sources.
+- [Moonwell Plugin](https://docs.base.org/agents/skills/plugins/moonwell): Lend, borrow, and manage positions on Moonwell.
+- [Morpho Plugin](https://docs.base.org/agents/skills/plugins/morpho): Lend, borrow, and manage vault or market positions on Morpho.
+- [o1.exchange Plugin](https://docs.base.org/agents/skills/plugins/o1-exchange): Token trading on o1.exchange via HTTP API → send_calls on Base, and BSC.
+- [OpenSea Plugin](https://docs.base.org/agents/skills/plugins/opensea): NFT marketplace trading, token swaps, and drops/minting via OpenSea REST API + CLI → send_calls on Ethereum, Base, Polygon, Arbitrum, Optimism, and Avalanche.
+- [Printr Plugin](https://docs.base.org/agents/skills/plugins/printr): Launch cross-chain tokens on Printr via its public HTTP API → submit the unsigned creation calldata through Base MCP send_calls.
+- [Uniswap Plugin](https://docs.base.org/agents/skills/plugins/uniswap): Swap tokens and manage liquidity positions on Uniswap.
+- [Venice AI Plugin](https://docs.base.org/agents/skills/plugins/venice): Private AI inference through the Venice API, with optional Base x402 wallet funding via Base MCP.
+- [Virtuals Plugin](https://docs.base.org/agents/skills/plugins/virtuals): Create and manage Virtuals AI agents, cards, and email.
+- [YO Protocol Plugin](https://docs.base.org/agents/skills/plugins/yo): View YO vaults, check positions, deposit, and request redeem on YO's ERC-4626 yield vaults — fully on-chain reads via chain_rpc_request and unsigned calldata to send_calls on Base, Ethereum, and Arbitrum.
+- [Approval Mode](https://docs.base.org/agents/skills/references/approval-mode): Skill reference for how Base MCP returns approval URLs and request IDs for every write call.
+- [Batched Contract Calls](https://docs.base.org/agents/skills/references/batch-calls): Skill reference for Base MCP's EIP-5792 batched contract calls.
+- [Custom Plugins and the web_request Allowlist](https://docs.base.org/agents/skills/references/custom-plugins): Skill reference for how Base MCP routes plugin HTTP calls and which surfaces are allowlisted.
+- [Installing Base MCP](https://docs.base.org/agents/skills/references/install): Skill reference for installing the Base MCP server in Claude, ChatGPT, Cursor, Codex, and other surfaces.
+- [Base MCP Plugin Specification](https://docs.base.org/agents/skills/references/plugin-spec): Authoring spec for native Base MCP plugins — frontmatter schema, required body sections, integration types, and step-by-step instructions for writing or adapting a plugin to the spec.
+- [Tone](https://docs.base.org/agents/skills/references/tone): Skill reference for the language and tone rules an agent should follow when using Base MCP.
+- [Base MCP Skill](https://docs.base.org/agents/skills/SKILL): Base MCP — gives your AI assistant access to a Base Account via the Base MCP server (mcp.base.org). Wallet, portfolio, sending, swapping, signing, x402 payments, batched contract calls, and transaction history across supported chains.
+
+## Ledgers
+- [Ledgers overview](https://docs.base.org/ledgers/overview): An introduction to Base Ledgers, the enterprise way to run confidential payments that settle on Base.
+- [Deposit flow](https://docs.base.org/ledgers/deposit-flow): What happens when funds enter a ledger, and which deposit details stay hidden onchain.
+- [How it works](https://docs.base.org/ledgers/how-it-works): A walkthrough of the three stages every Base ledger payment passes through.
+- [Withdraw flow](https://docs.base.org/ledgers/withdraw-flow): What happens when funds exit a ledger, and how you control withdrawal authorization.
+
+## Optional
+- [Base MCP server](https://docs.base.org/mcp): Direct AI access to Base documentation
+- [Base skills](https://github.com/base/skills): Installable agent skills (`npx skills add base/base-skills`)
+- [Index (llms.txt)](https://docs.base.org/llms.txt): Strict-spec section index without the full-context extras
+
+<!-- LLMS_AUTOGEN_END -->

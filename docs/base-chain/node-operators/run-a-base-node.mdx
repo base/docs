@@ -1,15 +1,16 @@
 ---
-title: 'Getting Started'
+title: Run a Node
 description: A tutorial that teaches how to set up and run a Base Node.
 ---
 
-This tutorial will walk you through setting up your own [Base Node](https://github.com/base-org/node).
+This tutorial will walk you through setting up your own [Base Node](https://github.com/base/node).
 
 ## Objectives
 
 By the end of this tutorial you should be able to:
 
 - Deploy and sync a Base node
+- Enable Flashblocks for 200ms preconfirmations
 
 ## Prerequisites
 
@@ -23,38 +24,41 @@ If you're just getting started and need an RPC URL, you can use our free endpoin
 
 **Note:** Our RPCs are rate-limited, they are not suitable for production apps.
 
-If you're looking to harden your app and avoid rate-limiting for your users, please consider using an endpoint from one of our [partners](/base-chain/tools/node-providers).
+If you're looking to harden your app and avoid rate-limiting for your users, please consider using an endpoint from one of our [partners](/base-chain/node-operators/node-providers).
 </Warning>
-
 
 ### Hardware requirements
 
-We recommend you have this configuration to run a node:
-
-- 8-Core CPU
-- at least 16 GB RAM
-- a locally attached NVMe SSD drive
-- Adequate storage capacity:
-  - Minimum: `(2 × chain_size) + snapshot_size + 20% buffer`
-  - Accounts for snapshot restoration (if applicable) and chain data
-
-<Note>
-If utilizing Amazon Elastic Block Store (EBS), ensure timing buffered disk reads are fast enough in order to avoid latency issues alongside the rate of new blocks added to Base during the initial synchronization process; `io2 block express` is recommended.
-</Note>
-
+See the [Node Performance guide](/base-chain/node-operators/performance-tuning#hardware) for full hardware specifications, storage requirements, and production hardware examples.
 
 ### Networking
 
-Ensure the following ports are accessible (not blocked by firewall) for peer discovery and sync:
+Configure your firewall to allow the following ports for peer discovery and sync. Operators with strict egress rules must open the outbound ports to connect to Base bootnodes.
 
-| Port | Protocol | Purpose |
-|------|----------|---------|
-| `30303` | TCP/UDP | P2P Discovery (discv4) & RLPx |
-| `9222` | TCP/UDP | Reth Discovery v5 (discv5) |
+<Tabs>
+  <Tab title="Ingress">
+    | Port | Protocol | Purpose |
+    |------|----------|---------|
+    | `9222` | TCP/UDP | Reth Discovery v5 (discv5) |
+    | `30303` | TCP/UDP | P2P Discovery (discv4) & RLPx |
+  </Tab>
+  <Tab title="Egress">
+    | Port | Protocol | Purpose |
+    |------|----------|---------|
+    | `9200` | UDP | Bootnode connectivity |
+    | `9222` | TCP/UDP | Reth Discovery v5 (discv5) |
+    | `30301` | TCP/UDP | Bootnode connectivity |
+    | `30303` | TCP/UDP | P2P Discovery (discv4) & RLPx |
 
-<Note>
-Port `9222` is critical for Reth peer discovery. If this port is blocked, your node may have difficulty finding peers and syncing.
-</Note>
+    <Note>
+    Ports `9200` (UDP) and `30301` (TCP/UDP) are required to reach Base bootnodes. If outbound traffic to these ports is blocked, your node will fail to establish initial peer connections.
+    </Note>
+
+    <Warning>
+    If you use network ACLs (rather than stateful security groups such as AWS SGs) for egress control, you must also allow outbound traffic on the ephemeral port range **32768–60999** (TCP/UDP). Stateful firewalls track return traffic automatically; ACLs do not, so without this rule, response packets from peers are silently dropped.
+    </Warning>
+  </Tab>
+</Tabs>
 
 ### Docker
 
@@ -62,14 +66,16 @@ This tutorial assumes you are familiar with [Docker](https://www.docker.com/) an
 
 ### L1 RPC URL
 
-You'll need your own L1 RPC URL. This can be one that you run yourself, or via a third-party provider, such as our [partners](/base-chain/tools/node-providers).
+You'll need your own L1 RPC URL. This can be one that you run yourself, or via a third-party provider, such as our [partners](/base-chain/node-operators/node-providers).
 
 ## Running a Node
 
-1. Clone the [repo](https://github.com/base-org/node).
-2. Ensure you have an Ethereum L1 full node RPC available (not Base), and set `OP_NODE_L1_ETH_RPC` & `OP_NODE_L1_BEACON` (in the `.env.*` file if using `docker-compose`). If running your own L1 node, it needs to be synced before Base will be able to fully sync.
-3. Uncomment the line relevant to your network (`.env.sepolia`, or `.env.mainnet`) under the 2 `env_file` keys in `docker-compose.yml`.
-4. Run `docker compose up`. Confirm you get a response from:
+1. Clone the [repo](https://github.com/base/node).
+2. Ensure you have an Ethereum L1 full node RPC available (not Base), and set `BASE_NODE_L1_ETH_RPC` & `BASE_NODE_L1_BEACON` in the appropriate `.env` file (`.env.mainnet` or `.env.sepolia`). If running your own L1 node, it needs to be synced before Base will be able to fully sync.
+3. Start the node:
+   - **Mainnet**: `docker compose up --build`
+   - **Testnet**: `NETWORK_ENV=.env.sepolia docker compose up --build`
+4. Confirm you get a response from:
 
 ```bash Terminal
 curl -d '{"id":0,"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false]}' \
@@ -82,11 +88,7 @@ Syncing your node may take **days** and will consume a vast amount of your reque
 
 ### Snapshots
 
-<Note>
-Geth Archive Nodes are no longer supported. For Archive functionality, use Reth, which provides significantly better performance in Base’s high-throughput environment.
-</Note>
-
-If you're a Base Node operator and would like to save significant time on the initial sync, you may [restore from a snapshot](/base-chain/node-operators/snapshots#restoring-from-snapshot). The snapshots are updated every week.
+If you’re a Base Node operator and would like to save significant time on the initial sync, you may [restore from a snapshot](/base-chain/node-operators/snapshots#restoring-from-snapshot). The snapshots are updated every week.
 
 ### Syncing
 
@@ -100,3 +102,87 @@ echo Latest synced block behind by: $((($(date +%s)-$( \
 ```
 
 You'll also know that the sync hasn't completed if you get `Error: nonce has already been used` if you try to deploy using your node.
+
+---
+
+## Enable Flashblocks
+
+Once your node is synced, you can enable Flashblocks to serve 200ms preconfirmations to your applications.
+
+### Configuration
+
+To enable Flashblocks, set `RETH_FB_WEBSOCKET_URL` when starting your node:
+
+```sh
+RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base.org/ws" docker compose up --build
+```
+
+| Variable | Description |
+|----------|-------------|
+| `RETH_FB_WEBSOCKET_URL` | Flashblocks WebSocket endpoint (see below) |
+
+### WebSocket Endpoints
+
+| Network | URL |
+|---------|-----|
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+<Warning>
+**These WebSocket endpoints are for node infrastructure only.** 
+
+Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [RPC overview](/base-chain/api-reference/rpc-overview#flashblocks) for details.
+</Warning>
+
+<Note>
+The [base](https://github.com/base/base) binary listens to the Flashblocks WebSocket stream and caches preconfirmation data. When Flashblocks-aware RPC methods are called, it returns data from this cache. For the full message schema and payload structure, see [Flashblocks API Overview](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview).
+</Note>
+
+### Verify Flashblocks Functionality
+
+Test that your node is properly serving Flashblocks by querying a pending block:
+
+```sh
+curl -X POST \
+  --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["pending", false],"id":1}' \
+  http://localhost:8545
+```
+
+A successful response will include block data from the latest Flashblock. If Flashblocks are temporarily unavailable, the node falls back to returning the latest finalized block.
+
+### Available RPC Methods
+
+Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods plus Flashblocks-specific methods and WebSocket subscriptions. See the [Flashblocks API Reference](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview) for the full list, including code examples and parameter details.
+
+## Enable Historical Proofs RPCs
+
+To serve methods like `eth_getProof`, `debug_executionWitness` and `debug_executePayload` efficiently, you'll need to set up the historical proofs execution extension (ExEx). This ExEx manages a separate database with data required to serve these methods. This database can add hundreds of GB of additional storage and requires a machine with higher I/O throughput. Most people do not need these RPCs to be available.
+
+In order to run the historical proofs ExEx, you simply need to set this environment variable:
+
+```bash Terminal
+RETH_HISTORICAL_PROOFS=true
+```
+
+When the node starts up for the first time, it will backfill existing state to the new proofs database in `<datadir>/proofs`. This process can take a while (24-48 hours for mainnet).
+
+To skip the backfill, snapshots of the proofs database are available. See the [Snapshots](/base-chain/node-operators/snapshots#proofs-snapshots) page for download instructions.
+
+<Note>
+The block at which the ExEx first starts will be the earliest block for which these RPCs are available. The flag `--rpc.eth-proof-window` is ignored when the proofs ExEx is enabled.
+
+By default, the ExEx saves 28 days of blocks, but you can customize this by setting `RETH_PROOFS_HISTORY_WINDOW=<num_blocks>`.
+</Note>
+
+### Improving Performance
+
+The proofs ExEx performs best when it is within 1024 blocks of the chain tip. This means when syncing up to tip, performance can be degraded. During initial sync on Base Mainnet, the ExEx may fall too far behind to catch up on its own.
+
+To fix this, you can run `base-consensus` in follow mode so it stays within 512 blocks of the proofs ExEx.
+
+```bash Terminal
+BASE_NODE_SOURCE_L2_RPC=<trusted_rpc>
+BASE_NODE_PROOFS=true
+```
+
+You can verify that the proofs ExEx is syncing efficiently by checking that the state root and execution durations are 0. The ExEx is not executing blocks in this case; instead it's just writing data from executed blocks to disk.

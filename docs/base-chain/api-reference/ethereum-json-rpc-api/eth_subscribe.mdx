@@ -1,0 +1,145 @@
+---
+title: 'eth_subscribe'
+sidebarTitle: 'eth_subscribe'
+description: 'Creates a real-time WebSocket subscription for new blocks, logs, and pending transactions.'
+---
+
+Creates a real-time event subscription over a WebSocket connection. Returns a subscription ID; events are pushed as `eth_subscription` notifications without the client needing to poll.
+
+<Note>
+The public Base endpoints (`mainnet.base.org`, `sepolia.base.org`) are **HTTP only**. WebSocket connections are not available on public Base endpoints — use a [node provider](/base-chain/node-operators/node-providers) such as Alchemy or QuickNode that offers WebSocket support for Base.
+</Note>
+
+## Parameters
+
+<ParamField body="subscriptionType" type="string" required>
+  The event type to subscribe to.
+</ParamField>
+
+<ParamField body="filterOptions" type="object">
+  Optional filter options. Only applicable for the `"logs"` subscription type.
+
+  <Expandable title="Filter options (logs only)">
+    <ParamField body="address" type="string | array">
+      A contract address or array of addresses to filter by. Optional.
+    </ParamField>
+    <ParamField body="topics" type="array">
+      Array of topic filters in the same format as `eth_getLogs`. Optional.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Subscription Types
+
+| Type | Description | Notification payload |
+| --- | --- | --- |
+| `newHeads` | Fires for each new block appended to the chain | Full block header object — identical shape to [`eth_getBlockByNumber`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber) with `hydrated: false` |
+| `logs` | Fires for each new log matching filter criteria | Log object (see below) |
+| `newPendingTransactions` | Fires for each new transaction hash added to the mempool | Transaction hash string |
+
+## Returns
+
+<ResponseField name="result" type="string">
+  A hex-encoded subscription ID. All event notifications from this subscription include this ID in `params.subscription`.
+</ResponseField>
+
+Event notifications arrive as unsolicited JSON-RPC messages:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": { ... }
+  }
+}
+```
+
+## Example
+
+<CodeGroup>
+```json Subscribe to newHeads
+{"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
+```
+
+```json Subscribe to logs (with filter)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_subscribe",
+  "params": [
+    "logs",
+    {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
+    }
+  ]
+}
+```
+
+```json Subscription ID Response
+{"jsonrpc": "2.0", "id": 1, "result": "0x1887ec8b9589ccad00000000000532da"}
+```
+
+```json newHeads Event
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": {
+      "baseFeePerGas": "0x4c4b40",
+      "blobGasUsed": "0x5384cc",
+      "difficulty": "0x0",
+      "excessBlobGas": "0x0",
+      "extraData": "0x01000000640000000500000000004c4b40",
+      "gasLimit": "0x17d78400",
+      "gasUsed": "0x2155bc7",
+      "hash": "0x491bca01d4bc076d60833dbd973fe031a74e7ae31866bf70d077619e09edb6ff",
+      "logsBloom": "0x00...00",
+      "miner": "0x4200000000000000000000000000000000000011",
+      "mixHash": "0x47aecef0e1afa26b8e1f428e9a8696cf53d85c62587d8c2cea079c715cd29626",
+      "nonce": "0x0000000000000000",
+      "number": "0x2c31b0b",
+      "parentBeaconBlockRoot": "0x15b9e7c8ac4cbe92dafc849ed30a23e91624bbe5cbe199c0ccea3f7de7fc6d49",
+      "parentHash": "0x89f4c9e23a2f706f0afa9ca8f770c4b7dcbcb73ba7e9b1c29c4a8c1b90c31d24",
+      "receiptsRoot": "0x5a428d77344334537d7adaf85a45eb6d7977bc807a68c669f36cb043600da6d2",
+      "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x1bb3b",
+      "stateRoot": "0x1b1525af0cdd504147b89f2a7ce1838ccb70c5439c45ce55522c2e2529801e87",
+      "timestamp": "0x6a1092f9",
+      "transactionsRoot": "0x6b9c9fcbdf98a8f4d38a3c16d099e9f0c7b7b474c2f5e044af7c91949c04a234",
+      "withdrawals": [],
+      "withdrawalsRoot": "0x57f4414a70a4af5e1a97b5fd8b8c6c870c00e8d9dbc0fde0059ce46e2cd28e5b"
+    }
+  }
+}
+```
+
+```json logs Event
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x2a7bc8d4e3f5a6b1c2d3e4f5a6b7c8d9",
+    "result": {
+      "address": "0xef5997c2cf2f6c138196f8a6203afc335206b3c1",
+      "blockHash": "0xc104d3b3a4008d854c21f25ff41917e2bff0f0d28eacd348cc664b891d9db00c",
+      "blockNumber": "0x2c70f90",
+      "blockTimestamp": "0x6a187c03",
+      "data": "0x0000000000000000000000000000000000000000000000078e0cf33a1d658000",
+      "logIndex": "0x0",
+      "removed": false,
+      "topics": [
+        "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+        "..."
+      ],
+      "transactionHash": "0x9efe32df11e30a345c5908ff4db248895c8e4b0d83c4d368fe14042ebbd3a130",
+      "transactionIndex": "0x2"
+    }
+  }
+}
+```
+</CodeGroup>

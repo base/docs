@@ -1,0 +1,203 @@
+---
+title: Flashblocks Reference
+sidebarTitle: Flashblocks Reference
+description: Reference for Flashblocks on Base — key concepts, architecture, and frequently asked questions about block building, WebSocket data, RPC usage, and node setup.
+---
+
+<Info>
+For how Flashblocks affect block building and transaction ordering, see [Transaction Ordering](/base-chain/network-information/transaction-ordering#flashblocks).
+</Info>
+
+Flashblocks introduce **200ms** incremental block updates to Base, built in collaboration with [Flashbots](https://www.flashbots.net/). They stream sub-blocks within the standard 2-second block interval, giving applications near-instant sequencer preconfirmations.
+
+## Key concepts
+
+| Term | Definition |
+|------|------------|
+| **Flashblock** | A 200ms sub-block containing a portion of the full block's transactions |
+| **Preconfirmation** | An ultra-fast signal that a transaction will be included, before the full block is sealed |
+| **Full Block** | A series of 10 Flashblocks combined to form the complete 2-second block |
+
+## Architecture
+
+Base operates a high-availability sequencer system:
+
+| Component | Role |
+|-----------|------|
+| **base-consensus** | Consensus layer (CL) — replaced op-node after Azul |
+| **base-reth-node** | Execution layer (EL) — replaced op-geth after Azul |
+| **op-conductor** | High-availability controller with Raft consensus for leader election |
+
+One sequencer instance acts as the **leader**, building blocks and propagating them via P2P; the others act as **followers** that sync the chain. Leadership transfers if the current leader stops producing blocks.
+
+Flashblocks add several infrastructure components on top of this system:
+
+| Component | Purpose | What it unlocks |
+|-----------|---------|-----------------|
+| **rollup-boost** | CL↔EL Engine API proxy | Shares Flashblocks with the EL without modifying the CL, providing a stable seam for future block-building evolutions (multi-builder, etc.) |
+| **base-builder** | Out-of-protocol builder at 200ms cadence | Produces sub-second Flashblocks, decoupled from the EL, enabling pluggable builder mechanisms |
+| **websocket-proxy** | Flashblocks stream fan-out | Broadcast layer so many consumers can read the stream without overwhelming the builder |
+| **[base](https://github.com/base/base)** | RPC surface exposing preconfirmations | Converts streamed Flashblocks into familiar RPCs so apps and wallets can consume preconfirmation state |
+
+[rollup-boost](https://github.com/flashbots/rollup-boost) is built and maintained by Flashbots, while Base maintains [base-builder](https://github.com/base/base/tree/main/crates/builder), the websocket-proxy, and the [base](https://github.com/base/base) components.
+
+## Block Building
+
+<AccordionGroup>
+  <Accordion title="Are Flashblocks optional?">
+    All Base blocks are built by the Flashblocks builder, meaning **Flashblocks are always live**. However, apps may choose not to rely on preconfirmations and can continue using standard RPCs without any Flashblocks integration.
+  </Accordion>
+
+  <Accordion title="Is there any difference in transaction inclusion for Flashblocks vs. 2-second blocks?">
+    No significant differences—both order transactions by fee. The main difference is timing: Flashblocks occur every 200ms instead of every 2 seconds. 
+    
+    See [Transaction Ordering](/base-chain/network-information/transaction-ordering#flashblocks) for details.
+  </Accordion>
+
+  <Accordion title="Can the sequencer stop publishing Flashblocks?">
+    The sequencer will not stop publishing Flashblocks unless an extreme circumstance makes running them unsafe. If this happens, preconfirmations are disabled network-wide and confirmations fall back to standard 2-second blocks. The sequencer continues operating normally.
+  </Accordion>
+
+  <Accordion title="Why is my transaction having trouble getting included?">
+    Inclusion timing is driven primarily by priority fee, not transaction size. The builder allocates gas cumulatively—each Flashblock `j` can use up to `j/10` of the total block gas limit—so in principle a very large transaction has a harder time landing in the first Flashblock. In practice this rarely matters: Base's [per-transaction gas maximum](/base-chain/network-information/throughput-and-limits#per-transaction-gas-maximum) (16,777,216 gas, ~16.7M) is below Flashblock 1's ~40M capacity, so any valid transaction fits in the first Flashblock by size alone. If a transaction is slow to include, the usual cause is a low priority fee relative to others competing in the same 200ms window.
+
+    See [Throughput and Limits](/base-chain/network-information/throughput-and-limits) for gas limits and throughput-related network parameters.
+  </Accordion>
+
+  <Accordion title="How do I ensure my transaction is in the first Flashblock?">
+    There's no way to guarantee which Flashblock a transaction lands in, similar to how you can't guarantee a specific block. Gas size isn't the limiting factor—the [per-transaction gas maximum](/base-chain/network-information/throughput-and-limits#per-transaction-gas-maximum) (~16.7M) is below Flashblock 1's ~40M capacity, so any valid transaction is eligible for the first Flashblock. To improve your chances of quick inclusion, set a higher priority fee.
+  </Accordion>
+
+  <Accordion title="Why do transactions sometimes appear out of order by fee?">
+    The Flashblock builder uses a **dynamic mempool** that continuously accepts new transactions while building. This design prioritizes **low inclusion latency** over strict fee ordering.
+
+    **What this means:**
+    - Transactions are ordered by fee *at the time they're selected* for inclusion
+    - If a high-fee transaction arrives after a lower-fee transaction has already been committed to the current Flashblock, the high-fee transaction will appear after it (or in the next Flashblock)
+    - This is expected behavior, not a bug—the builder doesn't "reorder" already-committed transactions
+
+    **Why this tradeoff?**
+    
+    A "snapshot" mempool (freezing the transaction pool at the start of each block) would guarantee strict fee ordering but increase inclusion latency. The dynamic approach gets transactions included faster at the cost of occasionally "breaking" the expected priority gas auction (PGA) order.
+
+    **For traders and bots:** If strict fee-based ordering is critical for your use case, be aware that arrival timing matters as much as fee amount within a 200ms Flashblock window.
+  </Accordion>
+
+  <Accordion title="How frequently do Flashblock reorgs happen?">
+    Base targets a Flashblock reorg rate of < 0.1%. While reorgs are rare, applications should implement fallback logic for critical operations. 
+    
+    Check current metrics at [base.org/stats](https://base.org/stats).
+  </Accordion>
+
+  <Accordion title="What does it mean when a Flashblock is reorged?">
+    A reorg means a Flashblock was streamed as a preconfirmation but wasn't included in the final block. This is rare due to architectural improvements in rollup-boost that prevent tail Flashblock reorgs. Apps should handle this possibility gracefully, but occurrences are minimal.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## WebSocket
+
+<AccordionGroup>
+  <Accordion title="Can I connect directly to the Flashblocks WebSocket stream?">
+    **No.** The raw Flashblocks WebSocket (`wss://mainnet.flashblocks.base.org/ws`) is reserved for infrastructure-to-node data syncing. Applications should not connect to it directly.
+
+    Instead, query your RPC node or node provider (e.g., QuickNode, Alchemy, Infura, dRPC) for Flashblocks data via:
+    - **RPC API**: Standard JSON-RPC methods with the `pending` tag
+    - **WebSocket subscriptions**: Use `eth_subscribe` via your node provider's WebSocket endpoint
+
+    See the [RPC overview](/base-chain/api-reference/rpc-overview#flashblocks) for implementation details.
+  </Accordion>
+
+  <Accordion title="Why are there 11 Flashblock indices (0-10)?">
+    Index 0 contains only system transactions and doesn't use any gas limit. Indexes 1-10 are the actual Flashblocks that pull pending transactions from the txpool.
+  </Accordion>
+
+  <Accordion title="Why are there sometimes fewer than 10 Flashblocks?">
+    This is expected. When the previous block takes longer to build, the system compensates by allocating less time to the next block, resulting in fewer Flashblocks.
+  </Accordion>
+
+  <Accordion title="Can the Flashblock index exceed 10? Is that a bug?">
+    **No, it is not a bug.** Seeing indices of 10, 11, or higher is expected behavior.
+
+    The standard math — 2-second block time ÷ 200ms per Flashblock — gives exactly 10 Flashblocks (indices 0–9). In practice, however, the transition from one full L2 block to the next is not always perfectly synchronized with the 200ms timer. Two things can cause extra indices:
+
+    1. **Sequencer delay:** If the sequencer takes slightly longer than 2000ms to finalize and seal the full block, the Flashblock stream continues emitting incremental updates for the current block to keep the stream live.
+    2. **Timing drift:** If the internal 200ms clock drifts or starts early relative to the L2 block's canonical start time, an extra update can fit within the 2-second window.
+
+    **What this means for your implementation:**
+    - Do not hardcode `9` or `10` as the final index — the last Flashblock for a given block is not predictable by index alone.
+    - Watch the `payloadId` instead. The most reliable signal that a block has finished is when `payloadId` changes, or when the full block is confirmed via standard RPC. All Flashblocks sharing the same `payloadId` belong to the same block, regardless of how high the index goes.
+    - Once the sequencer advances to the next block, `payloadId` resets and `index` returns to `0`.
+  </Accordion>
+
+  <Accordion title="What encoding format is the transaction data in?">
+    Transaction data in the [`diff.transactions`](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview#diff-object) array is Recursive Length Prefix (RLP) encoded.
+  </Accordion>
+
+  <Accordion title="Why am I getting rate limited on the WebSocket?">
+    The public WebSocket has a maximum connection limit. For production use, we recommend:
+
+    1. Running your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks)
+    2. Using a third-party node provider with Flashblocks support
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## RPC
+
+<AccordionGroup>
+  <Accordion title="Why am I getting rate limited using mainnet.base.org?">
+    The public endpoint has explicit rate limiting. For production use:
+
+    - Use a third-party node provider with Flashblocks support (Alchemy, Infura, QuickNode, dRPC)
+    - Run your own [Flashblocks-aware RPC node](/base-chain/node-operators/run-a-base-node#enable-flashblocks)
+  </Accordion>
+
+  <Accordion title="Why does eth_call 'pending' report a block number several blocks behind tip?">
+    This is expected behavior. Flashblocks-aware nodes store up to 5 historical blocks worth of Flashblocks state to prevent race conditions. When `eth_call "pending"` is called, it operates on top of that historical base, so the block number visible in the call context (e.g. `block.number`) may appear to be N-5.
+
+    When `eth_call "pending"` executes, the entire block context — `block.number`, `block.timestamp`, `block.basefee`, and all other block properties — corresponds to that historical base block (potentially N-5), not the current chain tip. **The call result is correct** in that it reflects all received Flashblocks state applied on top, but contracts that rely on block context properties should be aware that those values may be several blocks behind.
+
+    If you operate a node in a geographic region where your P2P latency is not significantly higher than the WebSocket stream latency, you can reduce this difference by lowering the `MAX_PENDING_BLOCKS_DEPTH` configuration value. This controls the maximum number of historical blocks worth of Flashblocks your node stores, so a lower value will make the block context closer to tip at the cost of reduced tolerance for P2P latency spikes.
+  </Accordion>
+
+  <Accordion title="What RPC methods support Flashblocks?">
+    The following methods are Flashblocks-enabled:
+
+    | Method | Usage |
+    |--------|-------|
+    | `eth_getBlockByNumber` | Use `pending` tag |
+    | `eth_getBalance` | Use `pending` tag |
+    | `eth_getTransactionReceipt` | Returns preconfirmed receipts |
+    | `eth_getTransactionByHash` | Use `pending` tag |
+    | `eth_getTransactionCount` | Use `pending` tag |
+    | `eth_call` | Use `pending` tag |
+    | `eth_simulateV1` | Use `pending` tag |
+    | `eth_estimateGas` | Use `pending` tag |
+    | `eth_getLogs` | Use `pending` for `toBlock` |
+    | `eth_subscribe` | Stream Flashblock data in real-time |
+    | `base_transactionStatus` | Check if transaction is in mempool (Beta) |
+
+    See the [Flashblocks API Reference](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview) for full method details and examples.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Node Setup
+
+<AccordionGroup>
+  <Accordion title="How do I set up a Flashblocks-aware RPC node?">
+    Use the Reth binary from the [Base Reth repository](https://github.com/base/reth). See the [Enable Flashblocks guide](/base-chain/node-operators/run-a-base-node#enable-flashblocks) for complete setup instructions.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Further reading
+
+- [Enable Flashblocks](/base-chain/node-operators/run-a-base-node#enable-flashblocks) — run your own Flashblocks-aware RPC node
+- [Flashblocks API Reference](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview) — RPC methods, WebSocket subscriptions, and infrastructure stream schema
+- [Flashblocks Deep Dive](https://blog.base.dev/flashblocks-deep-dive) — engineering blog post with implementation details, built in collaboration with [Flashbots](https://www.flashbots.net/)

@@ -213,16 +213,16 @@ Example of accordion groups:
 
 Example of cards and card groups:
 
-<Card title="Getting started guide" icon="rocket" href="/quickstart">
+<Card title="Getting started guide" icon="rocket" href="/get-started/base">
 Complete walkthrough from installation to your first API call in under 10 minutes.
 </Card>
 
 <CardGroup cols={2}>
-<Card title="Authentication" icon="key" href="/auth">
+<Card title="Authentication" icon="key" href="/base-account/guides/authenticate-users">
   Learn how to authenticate requests using API keys or JWT tokens.
 </Card>
 
-<Card title="Rate limiting" icon="clock" href="/rate-limits">
+<Card title="RPC overview" icon="clock" href="/base-chain/api-reference/rpc-overview">
   Understand rate limits and best practices for high-volume usage.
 </Card>
 </CardGroup>
@@ -296,11 +296,11 @@ Complete user object with all associated data.
 Wrap all images in frames:
 
 <Frame>
-<img src="/images/dashboard.png" alt="Main dashboard showing analytics overview" />
+<img src="/images/base-docs-og.png" alt="Base Docs social preview" />
 </Frame>
 
 <Frame caption="The analytics dashboard provides real-time insights">
-<img src="/images/analytics.png" alt="Analytics dashboard with charts" />
+<img src="/images/homepage/hero-background.png" alt="Base documentation homepage background" />
 </Frame>
 
 #### Videos
