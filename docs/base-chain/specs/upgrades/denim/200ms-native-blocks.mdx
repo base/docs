@@ -97,7 +97,7 @@ All existing Engine timestamp fields remain seconds-based.
 
 When processing `forkchoiceUpdated`, the execution client performs checks that do not require reading contract state. Before Denim, `timestampMillisPart` must be absent. After Denim, it must be present and equal `0`, `200`, `400`, `600`, or `800`. The block's whole-second timestamp must not be earlier than its parent's. Because block headers do not store milliseconds, the client checks exact 200ms progression after execution.
 
-The implemented post-execution path uses the actual parent header, parent BaseTime state, and child `tx[1]` to check parent-to-child progression. It does not yet explicitly compare the child BaseTime state with `tx[1]`. Coverage across historical, range, noncanonical-parent, and auxiliary import paths remains incomplete, so this specification does not define those paths as fully enforced. The intended behavior is to fail validation when required block, parent, or state data is missing rather than estimate the timestamp.
+After execution, the client **MUST** verify that the block's full timestamp is exactly 200ms after its parent's. Blocks that do not satisfy this requirement are invalid.
 
 ## Derivation
 
