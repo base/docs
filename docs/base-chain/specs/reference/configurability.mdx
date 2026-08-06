@@ -14,17 +14,17 @@ There are four categories of Base configuration:
 
 | Parameter | Description | Administrator |
 |-----------|-------------|---------------|
-| [Batch Inbox Address](glossary#batch-inbox) | L1 address where [batcher transactions](glossary#batcher-transaction) are posted | Static |
-| [Batcher Hash](glossary#batcher-hash) | Versioned hash of the authorized batcher sender(s) | [System Config Owner](#admin-roles) |
+| [Batch Inbox Address](./glossary#batch-inbox) | L1 address where [batcher transactions](./glossary#batcher-transaction) are posted | Static |
+| [Batcher Hash](./glossary#batcher-hash) | Versioned hash of the authorized batcher sender(s) | [System Config Owner](#admin-roles) |
 | Chain ID | Unique chain ID for transaction signature validation | Static |
 | Proof Maturity Delay | Time between proving and finalizing a withdrawal. 1 day. | [L1 Proxy Admin](#admin-roles) |
 | Respected Game Type | Game type `OptimismPortal` accepts for withdrawal finalization. Aggregate verifier (`621`). | [Guardian](#service-roles) |
 | Bond Withdrawal Delay | Time before dispute game bonds can be withdrawn. 1 day. | Static |
-| [Fee Scalar](glossary#fee-scalars) | Markup on transactions relative to raw L1 data cost. Fee margin between 0%–50%. | [System Config Owner](#admin-roles) |
+| [Fee Scalar](./glossary#fee-scalars) | Markup on transactions relative to raw L1 data cost. Fee margin between 0%–50%. | [System Config Owner](#admin-roles) |
 | [Gas Limit](../protocol/consensus/derivation#system-configuration) | L2 block gas limit. ≤ 200,000,000 gas. | [System Config Owner](#admin-roles) |
 | [Genesis State](../protocol/execution/evm/predeploys#overview) | Initial chain state including all predeploy code and storage. Standard predeploys and preinstalls only. | Static |
 | L2 Block Time | Interval at which L2 blocks are produced via [derivation](../protocol/consensus/derivation). 1 or 2 seconds. | [L1 Proxy Admin](#admin-roles) |
-| [Sequencing Window Size](glossary#sequencing-window) | Max batch submission gap before L1 fallback triggers. 3,600 L1 blocks (12 hours at 12s L1 block time). | Static |
+| [Sequencing Window Size](./glossary#sequencing-window) | Max batch submission gap before L1 fallback triggers. 3,600 L1 blocks (12 hours at 12s L1 block time). | Static |
 | Start Block | L1 block where `SystemConfig` was first initialized | [L1 Proxy Admin](#admin-roles) |
 | Superchain Target | `SuperchainConfig` and `ProtocolVersions` addresses for cross-L2 config. Mainnet or Sepolia. | Static |
 | Governance Token | OP governance token. Disabled. | n/a |
@@ -36,8 +36,8 @@ There are four categories of Base configuration:
 
 | Parameter | Description | Administrator |
 |-----------|-------------|---------------|
-| [Data Availability Type](glossary#data-availability-provider) | Whether the batcher posts data as blobs or calldata. Ethereum (Blobs or Calldata); Alt-DA not supported. | [Batch Submitter](#service-roles) |
-| Batch Submission Frequency | Frequency of [batcher transaction](glossary#batcher-transaction) submissions to L1. ≤ 1,800 L1 blocks (6 hours at 12s L1 block time). | [Batch Submitter](#service-roles) |
+| [Data Availability Type](./glossary#data-availability-provider) | Whether the batcher posts data as blobs or calldata. Ethereum (Blobs or Calldata); Alt-DA not supported. | [Batch Submitter](#service-roles) |
+| Batch Submission Frequency | Frequency of [batcher transaction](./glossary#batcher-transaction) submissions to L1. ≤ 1,800 L1 blocks (6 hours at 12s L1 block time). | [Batch Submitter](#service-roles) |
 | Output Frequency | Frequency of output root submissions to L1. ≤ 43,200 L2 blocks (24 hours at 2s L2 block time); must be non-zero. Deprecated once fault proofs are enabled. | [L1 Proxy Admin](#admin-roles) |
 
 ## Admin Roles
@@ -47,15 +47,15 @@ There are four categories of Base configuration:
 | L1 Proxy Admin | `ProxyAdmin` from the latest `op-contracts` release, authorized to upgrade L1 contracts | L1 contracts |
 | L1 ProxyAdmin Owner | Authorized to update the L1 Proxy Admin. [0x5a0Aae59D09fccBdDb6C6CcEB07B7279367C3d2A](https://etherscan.io/address/0x5a0Aae59D09fccBdDb6C6CcEB07B7279367C3d2A) | [L1 Proxy Admin](#admin-roles) |
 | L2 Proxy Admin | `ProxyAdmin` at `0x4200000000000000000000000000000000000018`, authorized to upgrade L2 contracts | [Predeploys](../protocol/execution/evm/predeploys#overview) |
-| L2 ProxyAdmin Owner | [Aliased](glossary.mdx#address-aliasing) L1 ProxyAdmin Owner; upgrades L2 contracts via `ProxyAdmin`. [0x6B1BAE59D09fCcbdDB6C6cceb07B7279367C4E3b](https://optimistic.etherscan.io/address/0x6B1BAE59D09fCcbdDB6C6cceb07B7279367C4E3b) | [L2 Proxy Admin](#admin-roles) |
+| L2 ProxyAdmin Owner | [Aliased](./glossary.mdx#address-aliasing) L1 ProxyAdmin Owner; upgrades L2 contracts via `ProxyAdmin`. [0x6B1BAE59D09fCcbdDB6C6cceb07B7279367C4E3b](https://optimistic.etherscan.io/address/0x6B1BAE59D09fCcbdDB6C6cceb07B7279367C4E3b) | [L2 Proxy Admin](#admin-roles) |
 | [System Config Owner](../protocol/consensus/derivation#system-configuration) | Authorized to change values in the `SystemConfig` contract | [Batch Submitter](#service-roles), [Sequencer P2P Signer](#service-roles), Fee Scalar, Gas Limit |
 
 ## Service Roles
 
 | Role | Description | Administrator |
 |------|-------------|---------------|
-| [Batch Submitter](glossary#batcher) | Authenticates batches submitted to L1 | [System Config Owner](#admin-roles) |
+| [Batch Submitter](./glossary#batcher) | Authenticates batches submitted to L1 | [System Config Owner](#admin-roles) |
 | Challenger | Interacts with permissioned dispute games. [0x9BA6e03D8B90dE867373Db8cF1A58d2F7F006b3A](https://etherscan.io/address/0x9BA6e03D8B90dE867373Db8cF1A58d2F7F006b3A) | [L1 Proxy Admin](#admin-roles) |
 | Guardian | Pauses L1 withdrawals, blacklists dispute games, sets respected game type in `OptimismPortal`. [0x09f7150D8c019BeF34450d6920f6B3608ceFdAf2](https://etherscan.io/address/0x09f7150D8c019BeF34450d6920f6B3608ceFdAf2) | [L1 Proxy Admin](#admin-roles) |
 | Proposer | Creates permissioned dispute games on L1. | [L1 Proxy Admin](#admin-roles) |
-| [Sequencer P2P Signer](glossary#unsafe-block-signer) | Signs unsafe/pre-submitted blocks at the P2P layer | [System Config Owner](#admin-roles) |
+| [Sequencer P2P Signer](./glossary#unsafe-block-signer) | Signs unsafe/pre-submitted blocks at the P2P layer | [System Config Owner](#admin-roles) |

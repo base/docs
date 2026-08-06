@@ -88,7 +88,7 @@ denominated in seconds):
   - `prev_l2_timestamp` is the timestamp of the L2 block immediately preceding this one. If there
     is no preceding block, then this is the genesis block, and its timestamp is explicitly
     specified.
-  - `l2_block_time` is a configurable parameter of the time between L2 blocks (2s on Optimism).
+  - `l2_block_time` is a configurable parameter of the time between L2 blocks (2s on Base).
 
 - `l1_origin.timestamp <= block.timestamp <= max_l2_timestamp`, where
   - `max_l2_timestamp = max(l1_origin.timestamp + max_sequencer_drift, prev_l2_timestamp + l2_block_time)`
@@ -731,17 +731,18 @@ To interact with the engine, the [execution engine API][exec-engine] is used, wi
   - [`engine_newPayloadV3`] — executes an Ecotone execution payload to create a block.
   - [`engine_newPayloadV4`] - executes an Isthmus execution payload to create a block.
 
-The current version of `op-node` uses the `v4` Engine API RPC methods as well as `engine_newPayloadV3` and
-`engine_newPayloadV2`, due to `engine_newPayloadV4` only supporting Isthmus execution payloads. Both
-`engine_forkchoiceUpdatedV4` and `engine_getPayloadV4` are backwards compatible with Ecotone, Bedrock,
-Canyon & Delta payloads.
+`base-consensus` uses [`engine_forkchoiceUpdatedV3`] and [`engine_getPayloadV4`] as well as
+`engine_newPayloadV3` and `engine_newPayloadV2`, due to `engine_newPayloadV4` only supporting Isthmus
+execution payloads. `engine_forkchoiceUpdatedV3` is backwards compatible with Ecotone, Bedrock, Canyon
+& Delta payloads.
 
-Prior versions of `op-node` used `v3`, `v2` and `v1` methods.
+Prior versions used `v3`, `v2` and `v1` methods.
 
 [`engine_forkchoiceUpdatedV2`]: ../execution/index#engine_forkchoiceupdatedv2
 [`engine_forkchoiceUpdatedV3`]: ../execution/index#engine_forkchoiceupdatedv3
 [`engine_getPayloadV2`]: ../execution/index#engine_getpayloadv2
 [`engine_getPayloadV3`]: ../execution/index#engine_getpayloadv3
+[`engine_getPayloadV4`]: ../execution/index#engine_getpayloadv4
 [`engine_newPayloadV2`]: ../execution/index#engine_newpayloadv2
 [`engine_newPayloadV3`]: ../execution/index#engine_newpayloadv3
 [`engine_newPayloadV4`]: ../execution/index#engine_newpayloadv4
@@ -808,7 +809,7 @@ If consolidation succeeds, the forkchoice change will synchronize as described i
 
 If consolidation fails, the L2 payload attributes will be processed immediately as described in the section below.
 The payload attributes are chosen in favor of the previous unsafe L2 block, creating an L2 chain reorg on top of the
-current safe block. Immediately processing the new alternative attributes enables execution engines like go-ethereum to
+current safe block. Immediately processing the new alternative attributes enables execution engines to
 enact the change, as linear rewinds of the tip of the chain may not be supported.
 
 #### L1-sync: payload attributes processing

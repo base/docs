@@ -51,7 +51,7 @@ node scripts/lint-mdx.js all || exit 1
 
 Two generators emit AI-facing site indexes from the `docs/` tree. Both share helpers in `lib/docs-utils.js` (frontmatter parser, `.mintignore` loader, file walker, section discovery).
 
-### `agents.js` → `docs/agents.md`
+### `agents.js` → `docs/AGENTS.md`
 
 Compact pipe-delimited directory index plus a featured-pages section. Run via `/agents` or directly:
 

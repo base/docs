@@ -1,0 +1,41 @@
+---
+title: "KyberSwap"
+description: "Best-rate DEX aggregation through KyberSwap routes and Base MCP send_calls across supported EVM chains."
+keywords: ["KyberSwap plugin", "Base MCP KyberSwap", "DEX aggregator", "best swap rate", "Base swap"]
+---
+
+KyberSwap is a DEX aggregator that routes trades across 50+ liquidity sources. The plugin fetches a route quote, builds unsigned calldata with the KyberSwap Aggregator API, and submits the swap through Base MCP `send_calls`.
+
+**Chains:** Base, Ethereum, Arbitrum, Optimism, Polygon, BSC, and Avalanche.
+
+**Operations:** token resolution, best-route quotes, swap calldata building, ERC-20 approvals, and native-token swaps.
+
+<Tip>
+**Multi-chain swaps.** Use chain name strings such as `base`, `arbitrum`, or `polygon`, not numeric chain IDs. Quotes can move, so the assistant confirms output, gas, and slippage first.
+</Tip>
+
+## Try it
+
+```text Base swap
+Swap 100 USDC to ETH on Base
+```
+
+```text Arbitrum swap
+Swap 0.1 ETH to USDC on Arbitrum
+```
+
+```text Read-only quote
+What's the best rate to swap 500 MATIC to USDC on Polygon?
+```
+
+## Pattern
+
+The assistant calls `GET /api/v1/routes`, shows the quoted output and gas, then calls `POST /api/v1/route/build` with the returned `routeSummary`. Native-token input maps to one router call. ERC-20 input batches an ERC-20 `approve` call before the router call.
+
+`transactionValue` is returned as decimal wei and must be hex-encoded for Base MCP `send_calls`.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/kyberswap.md">
+  Route API, build API, chain slugs, approval encoding, and send_calls mapping.
+</Card>

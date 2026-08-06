@@ -1,0 +1,41 @@
+---
+title: "o1.exchange"
+description: "Token swaps on o1.exchange through HTTP order building, unsigned transaction decoding, and Base MCP send_calls."
+keywords: ["o1.exchange plugin", "Base MCP o1.exchange", "o1 swap", "Base token trading", "Permit2 swap"]
+---
+
+o1.exchange is a trading API for token swaps on Base and BSC with optional Permit2 gasless approvals. The plugin builds unsigned transaction data over HTTP and submits standard swaps through Base MCP `send_calls`.
+
+**Chains:** Base and BSC.
+
+**Operations:** buy orders, sell orders, pool-targeted swaps, tight-slippage swaps, standard `send_calls` execution, and Permit2 private-relay completion.
+
+<Tip>
+o1.exchange uses a pre-configured shared API token. Standard swaps submitted via `send_calls` use the public mempool; only the Permit2 `/order/complete` path uses the private relay.
+</Tip>
+
+## Try it
+
+```text Buy
+Buy 100 USDC worth of a token on Base
+```
+
+```text Sell
+Sell tokens on Base
+```
+
+```text Tight slippage
+Buy a token with tight slippage
+```
+
+## Pattern
+
+For standard swaps, the assistant posts to `/order`, RLP-decodes each `transactions[].unsigned` value, strips everything except `to`, `data`, and `value`, then passes the ordered calls to Base MCP `send_calls`. `networkId` `8453` maps to `base`; `56` maps to `bsc`.
+
+Permit2 swaps use the plugin's `/order/complete` flow instead of `send_calls` because the server re-encodes signatures and broadcasts through the private relay.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/o1-exchange.md">
+  Order parameters, RLP decoding, Permit2 flow, MEV notes, and chain mapping.
+</Card>

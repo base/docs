@@ -1,0 +1,55 @@
+---
+title: "Brickken"
+description: "ERC-8004 identity, reputation, and agent-token operations through Brickken with Base MCP x402 approval."
+keywords: ["Brickken plugin", "Base MCP Brickken", "ERC-8004", "agent identity", "agent token"]
+---
+
+Brickken provides ERC-8004 identity, reputation, and agent-token operations. The plugin prepares operations through Brickken MCP tools, the hosted Brickken MCP HTTP API, or the Brickken CLI, then uses Base MCP for x402 approval and completion.
+
+**Chains:** Base mainnet and Base Sepolia.
+
+**Operations:** agent registration, identity updates, reputation operations, agent wallet changes, agent token operations, and ownership transfer.
+
+<Tip>
+Brickken initially operates in `brickken-relayed` mode. Changing the agent wallet only changes the operational wallet; transferring the ERC-721 identity requires an explicit ownership transfer.
+</Tip>
+
+## Install Brickken tooling
+
+Optional MCP connector:
+
+```bash
+claude mcp add --transport http brickken https://mcp.brickken.com/mcp
+```
+
+CLI-capable harnesses can also use:
+
+```bash
+npx brickken-cli --help
+```
+
+## Try it
+
+```text Register
+Register my agent on Base
+```
+
+```text Agent wallet
+Set my Base wallet as the agent wallet
+```
+
+```text Transfer identity
+Send the agent NFT to my Base wallet
+```
+
+## Pattern
+
+Brickken prepare surfaces return a `txId`, transactions, and x402 requirements. The assistant maps the quoted price to `initiate_x402_request.maxPayment`, sends the `txId` and prepared transactions in the x402 request body, waits for Base Account approval, then calls `complete_x402_request`.
+
+Brickken's relayer is the onchain sender; the Base Account is the x402 payer.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/brickken.md">
+  Hosted MCP API shape, CLI path, x402 mapping, custody notes, and operation inventory.
+</Card>

@@ -17,10 +17,10 @@ _lib_log() { [ -n "$DEBUG_DOCS_HOOK" ] && echo "[hooks-lib] $*" >&2; }
 _use_defaults() {
   SKIP_TOKEN='[skip-docs]'
   GENERATORS_TSV=$(printf '%s\n%s\n' \
-    'agents	agents.md	scripts/agents.js	docs/agents.md' \
+    'agents	agents.md	scripts/agents.js	docs/AGENTS.md' \
     'llms	llms.txt	scripts/llms.js	docs/llms.txt docs/llms-full.txt')
-  EXCLUDE_REGEX='^docs/agents\.md$|^docs/llms(-full)?\.txt$'
-  ALL_OUTPUTS='docs/agents.md docs/llms.txt docs/llms-full.txt'
+  EXCLUDE_REGEX='^docs/AGENTS\.md$|^docs/llms(-full)?\.txt$'
+  ALL_OUTPUTS='docs/AGENTS.md docs/llms.txt docs/llms-full.txt'
 }
 
 load_hooks_config() {
