@@ -79,11 +79,17 @@ Fresh chains install the linked BaseTime predeploy in genesis. On existing chain
 
 At activation, before transaction execution, the protocol installs the canonical BaseTime implementation and links the existing proxy. It preserves the proxy admin and any implementation already set through governance.
 
-### Engine payload compatibility
+### Engine payload attributes
 
-Base payload attributes add the optional Engine field `timestampMillisPart`. Their forced transaction list contains the BaseTime deposit at `tx[1]`, and Engine validation requires the attribute to match its calldata. The resulting execution payload adds no separate millisecond field; its body commits the value through `tx[1]`.
+The Engine API uses `BasePayloadAttributes`, which flattens the standard `PayloadAttributes` fields alongside Base-specific fields.
 
-The payload ID includes `timestampMillisPart`, so builds that differ only in the millisecond part receive different IDs. When the field is absent, legacy payload-ID calculation remains unchanged. The field must be absent before activation and present with a valid lattice value after activation.
+For payloads at or after Denim activation, `BasePayloadAttributes.timestampMillisPart` **MUST** be present and equal `0`, `200`, `400`, `600`, or `800`. Before activation, it **MUST NOT** be present.
+
+`BasePayloadAttributes.transactions[1]` **MUST** contain the BaseTime metadata deposit. The deposit **MUST** be sent by the protocol depositor to the BaseTime predeploy, and its calldata **MUST** contain the canonical encoding of `setTimestampMillisPart(uint16)`. The encoded value **MUST** equal `timestampMillisPart`.
+
+An execution client **MUST** reject malformed `forkchoiceUpdated` payload attributes with JSON-RPC `Invalid params` (`-32602`). It **MUST** report an execution payload with a missing or invalid BaseTime deposit as invalid during `newPayload` validation.
+
+The payload ID includes `timestampMillisPart`, so builds that differ only in the millisecond part receive different IDs. When the field is absent, legacy payload-ID calculation remains unchanged.
 
 All existing Engine timestamp fields remain seconds-based.
 
