@@ -73,9 +73,11 @@ The initial design exposes the current block's millisecond part to contracts thr
 | Millisecond-part getter | `timestampMillisPart()` |
 | Full-timestamp getter | `timestampMs()` |
 
-Under the intended single-update behavior, the BaseTime deposit executes before user transactions, so successful user transactions in the same block can read the value written by `tx[1]`. Fresh chains install the linked predeploy in genesis. Existing chains retain a dormant reserved proxy before activation.
+The BaseTime deposit executes before L1 user deposits, and user transactions, so all later transactions can read the updated value.
 
-Before activation, the transition does nothing. At activation, the execution transition checks the reserved proxy and canonical proxy admin, installs the implementation, and links the proxy before transactions execute. If governance has already changed the implementation link, the transition preserves that link rather than overwriting the governance upgrade. The current artifacts are pinned to `base/contracts` commit `4848ec70`; the normative Denim release remains undecided.
+Fresh chains install the linked BaseTime predeploy in genesis. On existing chains, the reserved address already contains the canonical proxy runtime and uses the Base ProxyAdmin, but its implementation slot is unset. Calls therefore revert until activation.
+
+At activation, before transaction execution, the protocol installs the canonical BaseTime implementation and links the existing proxy. It preserves the proxy admin and any implementation already set through governance.
 
 ### Engine payload compatibility
 
