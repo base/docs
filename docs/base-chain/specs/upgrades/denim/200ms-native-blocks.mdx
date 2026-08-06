@@ -95,7 +95,7 @@ All existing Engine timestamp fields remain seconds-based.
 
 ### Validation
 
-Forkchoice-updated processing performs checks that do not require state access: activation-appropriate presence, valid range and lattice, and nondecreasing whole-second ordering. Same-second and next-second children can therefore pass this preliminary check; a child with an earlier header second cannot.
+When processing `forkchoiceUpdated`, the execution client performs checks that do not require reading contract state. Before Denim, `timestampMillisPart` must be absent. After Denim, it must be present and equal `0`, `200`, `400`, `600`, or `800`. The block's whole-second timestamp must not be earlier than its parent's. Because block headers do not store milliseconds, the client checks exact 200ms progression after execution.
 
 The implemented post-execution path uses the actual parent header, parent BaseTime state, and child `tx[1]` to check parent-to-child progression. It does not yet explicitly compare the child BaseTime state with `tx[1]`. Coverage across historical, range, noncanonical-parent, and auxiliary import paths remains incomplete, so this specification does not define those paths as fully enforced. The intended behavior is to fail validation when required block, parent, or state data is missing rather than estimate the timestamp.
 
