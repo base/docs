@@ -5,7 +5,7 @@ description: "Specification of the rollup node peer-to-peer network, covering no
 
 ## Overview
 
-The [rollup node](index) has an optional peer-to-peer (P2P) network service to improve the latency between
+The [rollup node](./index) has an optional peer-to-peer (P2P) network service to improve the latency between
 the view of sequencers and the rest of the network by bypassing the L1 in the happy case,
 without relying on a single centralized endpoint.
 
@@ -110,8 +110,6 @@ other than filtering for the basic network participation requirement.
 Peers may be banned if their performance score is too low, or if an objectively malicious action was detected.
 
 Banned peers will be persisted to the same data-store as the peerstore records.
-
-TODO: the connection gater does currently not gate by IP address on the dial Accept-callback.
 
 #### Transport security
 
@@ -308,7 +306,7 @@ A node may apply the block to their local engine ahead of L1 availability, if it
 
 - The application of the block is reversible, in case of a conflict with delayed L1 information
 - The subsequent forkchoice-update ensures this block is recognized as "unsafe"
-  (see [fork choice updated](derivation#engine-api-usage))
+  (see [fork choice updated](./derivation#engine-api-usage))
 
 #### Branch selection
 
@@ -322,11 +320,9 @@ the safe head will be based on whatever the batcher's source's unsafe head is.
 
 #### Block topic scoring parameters
 
-TODO: GossipSub per-topic scoring to fine-tune incentives for ideal propagation delay and bandwidth usage.
-
 ## Req-Resp
 
-The op-node implements a similar request-response encoding for its sync protocols as the L1 ethereum Beacon-Chain.
+The consensus client (`base-consensus`) implements a similar request-response encoding for its sync protocols as the L1 ethereum Beacon-Chain.
 See [L1 P2P-interface req-resp specification][eth2-p2p-reqresp] and [Altair P2P update][eth2-p2p-altair-reqresp].
 
 However, the protocol is simplified, to avoid several issues seen in L1:
@@ -347,7 +343,7 @@ except the trailing encoding schema part, which is now message-specific:
 /ProtocolPrefix/MessageName/SchemaVersion/
 ```
 
-The req-resp protocols served by the op-node all have `/ProtocolPrefix` set to `/opstack/req`.
+The req-resp protocols served by the consensus client all have `/ProtocolPrefix` set to `/opstack/req`.
 
 Individual methods may include the chain ID as part of the `/MessageName` segment,
 so it's immediately clear which chain the method applies to, if the communication is chain-specific.
@@ -363,7 +359,7 @@ This serves as a method to fill gaps upon missed gossip, and sync short to mediu
 
 Protocol ID: `/opstack/req/payload_by_number/<chain-id>/0/`
 
-- `/MessageName` is `/block_by_number/<chain-id>` where `<chain-id>` is set to the op-node L2 chain ID.
+- `/MessageName` is `/payload_by_number/<chain-id>` where `<chain-id>` is set to the consensus client L2 chain ID.
 - `/SchemaVersion` is `/0`
 
 Request format: `<num>`: a little-endian `uint64` - the block number to request.

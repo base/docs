@@ -53,6 +53,10 @@ Configure your firewall to allow the following ports for peer discovery and sync
     <Note>
     Ports `9200` (UDP) and `30301` (TCP/UDP) are required to reach Base bootnodes. If outbound traffic to these ports is blocked, your node will fail to establish initial peer connections.
     </Note>
+
+    <Warning>
+    If you use network ACLs (rather than stateful security groups such as AWS SGs) for egress control, you must also allow outbound traffic on the ephemeral port range **32768–60999** (TCP/UDP). Stateful firewalls track return traffic automatically; ACLs do not, so without this rule, response packets from peers are silently dropped.
+    </Warning>
   </Tab>
 </Tabs>
 
@@ -67,9 +71,11 @@ You'll need your own L1 RPC URL. This can be one that you run yourself, or via a
 ## Running a Node
 
 1. Clone the [repo](https://github.com/base/node).
-2. Ensure you have an Ethereum L1 full node RPC available (not Base), and set `OP_NODE_L1_ETH_RPC` & `OP_NODE_L1_BEACON` (in the `.env.*` file if using `docker-compose`). If running your own L1 node, it needs to be synced before Base will be able to fully sync.
-3. Uncomment the line relevant to your network (`.env.sepolia`, or `.env.mainnet`) under the 2 `env_file` keys in `docker-compose.yml`.
-4. Run `docker compose up`. Confirm you get a response from:
+2. Ensure you have an Ethereum L1 full node RPC available (not Base), and set `BASE_NODE_L1_ETH_RPC` & `BASE_NODE_L1_BEACON` in the appropriate `.env` file (`.env.mainnet` or `.env.sepolia`). If running your own L1 node, it needs to be synced before Base will be able to fully sync.
+3. Start the node:
+   - **Mainnet**: `docker compose up --build`
+   - **Testnet**: `NETWORK_ENV=.env.sepolia docker compose up --build`
+4. Confirm you get a response from:
 
 ```bash Terminal
 curl -d '{"id":0,"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false]}' \
@@ -105,17 +111,15 @@ Once your node is synced, you can enable Flashblocks to serve 200ms preconfirmat
 
 ### Configuration
 
-To enable Flashblocks, start your node with the following environment variables:
+To enable Flashblocks, set `RETH_FB_WEBSOCKET_URL` when starting your node:
 
 ```sh
-NODE_TYPE=base CLIENT=reth RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base.org/ws" docker-compose up
+RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base.org/ws" docker compose up --build
 ```
 
-| Variable | Description | Values |
-|----------|-------------|--------|
-| `NODE_TYPE` | Enables base reth node with Flashblocks | `base` |
-| `CLIENT` | Execution client | `reth` |
-| `RETH_FB_WEBSOCKET_URL` | Flashblocks WebSocket endpoint | See below |
+| Variable | Description |
+|----------|-------------|
+| `RETH_FB_WEBSOCKET_URL` | Flashblocks WebSocket endpoint (see below) |
 
 ### WebSocket Endpoints
 
@@ -127,7 +131,7 @@ NODE_TYPE=base CLIENT=reth RETH_FB_WEBSOCKET_URL="wss://mainnet.flashblocks.base
 <Warning>
 **These WebSocket endpoints are for node infrastructure only.** 
 
-Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [App Integration guide](/base-chain/flashblocks/app-integration) for details.
+Applications should not connect directly to `wss://mainnet.flashblocks.base.org/ws`. Instead, apps should query your RPC node for Flashblocks data. See the [RPC overview](/base-chain/api-reference/rpc-overview#flashblocks) for details.
 </Warning>
 
 <Note>

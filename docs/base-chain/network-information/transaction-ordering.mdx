@@ -1,0 +1,43 @@
+---
+title: Transaction Ordering
+description: Transactions are ordered based priority fee and arrival time, which determines which Flashblock they are included in.
+---
+
+## Overview
+This section describes how transactions are ordered on the Base networks. The ordering is separate from the UX,
+for example the sequencer could be building Flashblocks every 200ms, without these Flashblocks being exposed publicly. In this scenario, block ordering
+would change but the user experience would remain consistent.
+
+## Configurations
+
+### Flashblocks
+
+Blocks are built using [base-builder](https://github.com/base/base/tree/main/crates/builder) with priority fee auctions occurring every **200ms**. This reduces effective block times from 2 seconds to 200 milliseconds through preconfirmations.
+
+*There are three key differences from vanilla ordering:*
+
+1. **Timing** — Flashblocks are built every 200ms, each ordering a portion of the block. Once built and broadcast, transaction ordering is locked. Later-arriving transactions with higher priority fees cannot be included in earlier Flashblocks.
+
+2. **Gas Allocation** — Each Flashblock has an incrementally increasing gas budget. Flashblock 1 can use 1/10 of the block gas limit, Flashblock 2 can use 2/10, and so on until Flashblock 10 has access to the full limit.
+
+   | Flashblock | Available Gas |
+   |------------|---------------|
+   | 1 | ~40M gas (1/10) |
+   | 2 | ~80M gas (2/10) |
+   | 3 | ~120M gas (3/10) |
+   | ... | ... |
+   | 10 | ~400M gas (full) |
+
+   <Note>
+   Because gas is allocated cumulatively, a transaction must fit within the budget available at the Flashblock it's selected for. Base's [per-transaction gas maximum](/base-chain/network-information/throughput-and-limits#per-transaction-gas-maximum) (~16.7M) is below Flashblock 1's ~40M budget, so any valid transaction can be included starting from the first Flashblock.
+   </Note>
+
+3. **Dynamic Mempool** — The builder continuously accepts new transactions while building each Flashblock. This minimizes inclusion latency but means transactions are ordered by fee *at the time of selection*, not globally across all transactions that arrive during the 200ms window. A late-arriving high-fee transaction may appear after an already-committed lower-fee transaction.
+
+   <Note>
+   This is a deliberate tradeoff: faster inclusion at the cost of occasionally "breaking" expected priority gas auction (PGA) ordering within a Flashblock.
+   </Note>
+
+### Vanilla
+
+Blocks are built every 2s by `base-reth-node`. Transactions within those blocks are ordered by priority fee.

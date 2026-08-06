@@ -1,0 +1,64 @@
+---
+title: "B20 playground"
+description: "Try B20's issuer flows in your browser: freeze-and-seize, payment memos, gasless approvals, and onchain corporate actions on Base."
+---
+
+import { B20FlowDemo } from "/snippets/B20PlaygroundDemo.jsx"
+
+
+## When to use B20
+
+- You need compliance, reconciliation, or corporate-action machinery. It ships as part of the standard, so you don't build and audit a custom contract.
+- Your integrators matter. Exchanges, wallets, and indexers wire up one surface that behaves the same across every B20 token.
+- Cost matters. B20 runs as a native precompile: cheaper and faster than a contract token.
+
+B20 is a superset of ERC-20: every ERC-20 call works unchanged, so there's no compatibility trade-off in choosing it.
+
+## A compliance order arrives
+
+A court order targets one account. Freeze it so it can't send, then seize the balance with one call. Seizure only works on an account that is already frozen. Every other holder is untouched and the token keeps trading. See [transfer policies](/base-chain/specs/upgrades/beryl/b20#policy-integration) and [burn](/base-chain/specs/upgrades/beryl/b20#burn) in the spec.
+
+<Visibility for="humans">
+  <B20FlowDemo flow="seize" />
+</Visibility>
+
+## A customer pays an invoice
+
+Your customer pays to one address. The transfer carries the invoice reference, so payment and order ID land in the same transaction. Reconciliation becomes a log query instead of a deposit address for every customer. To build this, see [Accept B20 payments](/apps/guides/accept-b20-payments).
+
+<Visibility for="humans">
+  <B20FlowDemo flow="memo" />
+</Visibility>
+
+## A new user approves without gas
+
+A new user shouldn't have to buy ETH first. With `permit`, they sign an approval offchain and your platform relays it. They start transacting with zero gas, and nonces stop signature replay. See [permit](/base-chain/specs/upgrades/beryl/b20#erc-2612-permit--eip-712) in the spec.
+
+<Visibility for="humans">
+  <B20FlowDemo flow="permit" />
+</Visibility>
+
+## The stock splits
+
+A 2-for-1 split is one call. Every balance doubles without a migration or a new contract. Dividends run inside a public announcement window, so the disclosure lives onchain next to the action. The token also stores identifiers like a CUSIP. See the [Asset variant](/base-chain/specs/upgrades/beryl/b20#asset) in the spec.
+
+<Visibility for="humans">
+  <B20FlowDemo flow="equity" />
+</Visibility>
+
+## Build with it
+
+<CardGroup cols={2}>
+  <Card title="Launch a B20 token" href="/get-started/launch-b20-token">
+    Deploy a fully configured token in one factory call.
+  </Card>
+  <Card title="Accept B20 payments" href="/apps/guides/accept-b20-payments">
+    Integration code for memo-tagged payments and B20-specific reverts.
+  </Card>
+  <Card title="B20 native token standard" href="/base-chain/specs/upgrades/beryl/b20">
+    Every method, event, role, and policy in the standard.
+  </Card>
+  <Card title="Beryl overview" href="/base-chain/specs/upgrades/beryl/overview">
+    The upgrade that introduces B20 and native token features.
+  </Card>
+</CardGroup>
