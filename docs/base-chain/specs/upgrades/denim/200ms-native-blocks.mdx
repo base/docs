@@ -11,7 +11,7 @@ Denim is a tentative draft published to elicit feedback. The design is mostly fi
 
 Denim changes Base block production from one canonical block every two seconds to five complete canonical blocks per second. Each 200ms block has its own block number, hash, state root, receipts, forkchoice updates, and unsafe, safe, and finalized lifecycle.
 
-Denim replaces [Flashblocks](/base-chain/flashblocks/faq), which publish incremental pending-state updates for a single block. At activation, Base stops producing Flashblocks and instead produces a canonical block every 200ms. Applications using Flashblocks must migrate to canonical block and RPC streams.
+Denim replaces [Flashblocks](/base-chain/flashblocks/faq), which publish incremental pending-state updates for a single block. As part of the Denim rollout, Base will stop producing Flashblocks and instead produce a canonical block every 200ms. Applications using Flashblocks must migrate to canonical block and RPC streams.
 
 Denim keeps the Ethereum block header and its seconds-based `timestamp` unchanged. A BaseTime metadata deposit supplies the sub-second component. Together, these values identify a canonical block's full millisecond timestamp.
 
@@ -109,15 +109,19 @@ The block begins with the L1 information deposit at `tx[0]` and the BaseTime met
 
 ## RPC
 
+<Note>
+The RPC behavior below is planned for Denim and is not available on production endpoints.
+</Note>
+
 ### Seconds compatibility
 
 Denim keeps the existing `timestamp` JSON-RPC field in Unix seconds. Engine timestamps, transaction-validity timestamps, `eth_call` timestamps, and EVM `block.timestamp` also remain seconds-based. RPC responses do not expose the internal `timestampMillisPart` field.
 
-After Denim activates, use canonical block responses and subscriptions such as `eth_subscribe("newHeads")` for sub-second updates. Flashblocks streams will stop.
+After the Denim rollout, use canonical block responses and subscriptions such as `eth_subscribe("newHeads")` for sub-second updates. Flashblocks streams will stop.
 
 ### Block and header timestamps
 
-The following responses add optional `timestampMs`, encoded as a JSON-RPC quantity containing the full Unix timestamp in milliseconds:
+The following responses will add optional `timestampMs`, encoded as a JSON-RPC quantity containing the full Unix timestamp in milliseconds:
 
 - `eth_getBlockByHash`
 - `eth_getBlockByNumber`
@@ -132,21 +136,21 @@ For example, a block at 42.200 seconds has:
 | `timestamp` | `0x2a` |
 | `timestampMs` | `0xa4d8` |
 
-Clients derive `timestampMs` from authenticated BaseTime metadata. They do not estimate it from the seconds field. If a historical block body or its BaseTime metadata has been pruned or is otherwise unavailable, the response omits `timestampMs`.
+Clients will derive `timestampMs` from authenticated BaseTime metadata rather than estimate it from the seconds field. If a historical block body or its BaseTime metadata has been pruned or is otherwise unavailable, the response will omit `timestampMs`.
 
 ### Transaction timestamps
 
-Mined transaction objects add optional `blockTimestampMs` for these methods:
+Mined transaction objects will add optional `blockTimestampMs` for these methods:
 
 - `eth_getTransactionByHash`
 - `eth_getTransactionByBlockHashAndIndex`
 - `eth_getTransactionByBlockNumberAndIndex`
 
-Full transaction objects nested in block responses follow the same mined-transaction behavior. Pending transactions omit `blockTimestampMs` because they do not yet belong to a canonical block.
+Full transaction objects nested in block responses will follow the same mined-transaction behavior. Pending transactions will omit `blockTimestampMs` because they do not yet belong to a canonical block.
 
 ### Log and receipt timestamps
 
-Mined log objects add optional `blockTimestampMs` when returned by:
+Mined log objects will add optional `blockTimestampMs` when returned by:
 
 - `eth_getLogs`
 - `eth_getFilterChanges`
@@ -156,9 +160,9 @@ Mined log objects add optional `blockTimestampMs` when returned by:
 - `eth_subscribe("logs")`
 - `eth_subscribe("transactionReceipts")`
 
-Receipts expose the field on their nested logs, not at the receipt's top level. A removed log retains its original block timestamp along with its original block provenance. If the originating block's authenticated BaseTime metadata is unavailable, the log omits the field rather than estimating it.
+Receipts will expose the field on their nested logs, not at the receipt's top level. A removed log will retain its original block timestamp along with its original block provenance. If the originating block's authenticated BaseTime metadata is unavailable, the log will omit the field rather than estimate it.
 
-As with block responses, pruned or unprovenanced transaction and log data omits `blockTimestampMs`. The fields are optional so pre-Denim history and clients without the required body data remain representable.
+As with block responses, pruned or unprovenanced transaction and log data will omit `blockTimestampMs`. The fields are optional so pre-Denim history and clients without the required body data remain representable.
 
 ### Tooling
 

@@ -49,7 +49,7 @@ npx skills add base/base-skills
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
-|apps/guides:accept-b20-payments,migrate-to-standard-web-app,verify-onchain
+|apps/guides:accept-b20-payments,migrate-to-standard-web-app
 |apps/quickstart:build-app,deploy-on-base
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
