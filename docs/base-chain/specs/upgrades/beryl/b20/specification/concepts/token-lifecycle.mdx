@@ -40,7 +40,7 @@ Common issuer operations include:
 
 - Minting with `MINT_ROLE`, subject to `MINT_RECEIVER_POLICY` and `supplyCap`.
 - Burning from the caller with `BURN_ROLE`.
-- Seizing with `SEIZE_ROLE` through `seizeWithMemo` when the holder is denied by `SEIZE_HOLDER_POLICY`.
+- Seizing with `SEIZE_ROLE` through `seizeWithMemo` when the holder is denied by `SEIZE_HOLDER_POLICY` and the destination is authorized by `SEIZE_RECEIVER_POLICY`.
 - Pausing `TRANSFER`, `MINT`, `BURN`, or `SEIZE` independently.
 - Updating name, symbol, and contract URI with `METADATA_ROLE`.
 
@@ -48,13 +48,14 @@ The `PausableFeature` enum is append-only. Integrators should handle unknown fut
 
 ## Freeze and seize
 
-`seizeWithMemo` transfers a holder's balance to a destination in one admin operation. It skips allowance and transfer policies; its membership check is `SEIZE_HOLDER_POLICY`.
+`seizeWithMemo` transfers a holder's balance to a destination in one admin operation. It skips allowance and transfer policies, but requires the holder to be denied by `SEIZE_HOLDER_POLICY` and the destination to be authorized by `SEIZE_RECEIVER_POLICY`.
 
 ```solidity
-// Configure this policy so denied accounts are eligible for seizure.
+// Configure seizure eligibility for holders and an authorized destination set.
 token.updatePolicy(B20Constants.SEIZE_HOLDER_POLICY, seizeHolderPolicyId);
+token.updatePolicy(B20Constants.SEIZE_RECEIVER_POLICY, seizeReceiverPolicyId);
 
-// Later, an authorized operator seizes from a holder denied by SEIZE_HOLDER_POLICY.
+// Later, an authorized operator seizes from a denied holder to an authorized destination.
 vm.prank(complianceOperator);
 token.seizeWithMemo(holder, destination, amount, bytes32("case-2026-08"));
 ```

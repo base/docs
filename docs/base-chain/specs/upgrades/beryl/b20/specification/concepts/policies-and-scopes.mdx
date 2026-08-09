@@ -20,6 +20,7 @@ On a gated operation, the token reads the relevant scope, calls `PolicyRegistry.
 | `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` only when `msg.sender != from` |
 | `MINT_RECEIVER_POLICY` | `to` | `mint` and `mintWithMemo` |
 | `SEIZE_HOLDER_POLICY` | `from` | `seizeWithMemo`; the holder is seizable only when not authorized by this policy |
+| `SEIZE_RECEIVER_POLICY` | `to` | `seizeWithMemo`; the destination must be authorized by this policy |
 
 `approve` and `permit` are not policy-gated. Only balance movement is checked.
 
@@ -72,12 +73,13 @@ Each policy has one admin. The current admin can:
 ## Read a token's configured policies
 
 ```solidity
-bytes32[5] memory scopes = [
+bytes32[6] memory scopes = [
     B20Constants.TRANSFER_SENDER_POLICY,
     B20Constants.TRANSFER_RECEIVER_POLICY,
     B20Constants.TRANSFER_EXECUTOR_POLICY,
     B20Constants.MINT_RECEIVER_POLICY,
-    B20Constants.SEIZE_HOLDER_POLICY
+    B20Constants.SEIZE_HOLDER_POLICY,
+    B20Constants.SEIZE_RECEIVER_POLICY
 ];
 
 for (uint256 i; i < scopes.length; i++) {
