@@ -1,0 +1,186 @@
+---
+title: "Integrate Borrowing"
+description: "Let users borrow USDC against WETH collateral with Morpho, Moonwell, or Aave on Base."
+keywords: ["integrate borrowing Base", "borrow USDC against WETH", "Morpho borrow", "Moonwell borrow", "Aave borrow Base"]
+---
+
+import { DeFiDemo } from "/snippets/DeFiDemo.jsx"
+
+Open a collateralized loan through a third-party protocol on Base. A safe integration shows collateral value, debt, liquidation parameters, and health before and after every user-signed action.
+
+#### Demo
+
+<DeFiDemo flow="borrow" />
+
+## Supply collateral and borrow
+
+These examples use `viem@2.55.11`, `@morpho-org/morpho-sdk@5.4.1`, `@moonwell-fi/moonwell-sdk@0.22.0`, and `@aave-dao/aave-address-book@4.65.5`.
+
+<Tabs>
+  <Tab title="Morpho">
+    Prepare one Morpho bundle that supplies WETH collateral and borrows USDC from the WETH/USDC market.
+
+    ```ts borrow-morpho.ts lines wrap highlight={15-23,33-35}
+    import { type MarketId } from '@morpho-org/blue-sdk';
+    import { fetchMarketParams } from '@morpho-org/blue-sdk-viem';
+    import {
+      isRequirementSignature,
+      morphoViemExtension,
+    } from '@morpho-org/morpho-sdk';
+    import { parseUnits } from 'viem';
+    import { base } from 'viem/chains';
+
+    const marketId =
+      '0x8793cf302b8ffd655ab97bd1c695dbd967807e8367a65cb2f4edaf1380ba1bda' as MarketId;
+    const user = walletClient.account.address;
+    const client = publicClient.extend(morphoViemExtension());
+    const params = await fetchMarketParams(marketId, publicClient);
+    const market = client.morpho.blue(params, base.id);
+    const positionData = await market.getPositionData(user);
+    const action = market.supplyCollateralBorrow({
+      amount: parseUnits('2', 18),
+      borrowAmount: parseUnits('2000', 6),
+      userAddress: user,
+      positionData,
+    });
+
+    const signatures = [];
+    for (const requirement of await action.getRequirements()) {
+      if (isRequirementSignature(requirement)) {
+        signatures.push(await requirement.sign(walletClient, user));
+      } else {
+        const hash = await walletClient.sendTransaction(requirement);
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+    }
+    const request = action.buildTx(signatures);
+    await publicClient.call({ account: user, ...request });
+    const hash = await walletClient.sendTransaction(request);
+    await publicClient.waitForTransactionReceipt({ hash });
+    ```
+  </Tab>
+
+  <Tab title="Moonwell">
+    Supply WETH to its market, enter that market as collateral, then borrow from the USDC market.
+
+    ```ts borrow-moonwell.ts lines wrap highlight={19-25,27-34}
+    import { createMoonwellClient } from '@moonwell-fi/moonwell-sdk';
+    import { parseAbi, parseUnits } from 'viem';
+
+    const env = createMoonwellClient({
+      networks: { base: { rpcUrls: ['https://mainnet.base.org'] } },
+    }).environments.base;
+    const weth = env.tokens.WETH.address;
+    const mWeth = env.tokens.MOONWELL_ETH.address;
+    const mUsdc = env.tokens.MOONWELL_USDC.address;
+    const comptroller = env.contracts.comptroller.address;
+    const user = walletClient.account;
+
+    const erc20Abi = parseAbi(['function approve(address,uint256) returns (bool)']);
+    const marketAbi = parseAbi([
+      'function mint(uint256) returns (uint256)',
+      'function borrow(uint256) returns (uint256)',
+    ]);
+    const comptrollerAbi = parseAbi([
+      'function enterMarkets(address[]) returns (uint256[])',
+    ]);
+
+    const approval = await publicClient.simulateContract({
+      account: user, address: weth, abi: erc20Abi, functionName: 'approve',
+      args: [mWeth, parseUnits('2', 18)],
+    });
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(approval.request),
+    });
+
+    const supplied = await publicClient.simulateContract({
+      account: user, address: mWeth, abi: marketAbi, functionName: 'mint',
+      args: [parseUnits('2', 18)],
+    });
+    if (supplied.result !== 0n) throw new Error(`Moonwell error ${supplied.result}`);
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(supplied.request),
+    });
+
+    const entered = await publicClient.simulateContract({
+      account: user, address: comptroller, abi: comptrollerAbi,
+      functionName: 'enterMarkets', args: [[mWeth]],
+    });
+    if (entered.result.some((code) => code !== 0n)) throw new Error('enterMarkets failed');
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(entered.request),
+    });
+
+    const loan = await publicClient.simulateContract({
+      account: user, address: mUsdc, abi: marketAbi, functionName: 'borrow',
+      args: [parseUnits('2000', 6)],
+    });
+    if (loan.result !== 0n) throw new Error(`Moonwell error ${loan.result}`);
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(loan.request),
+    });
+    ```
+  </Tab>
+
+  <Tab title="Aave">
+    Use Aave's official address book with the Base Aave V3 Pool. Supply WETH, explicitly enable it as collateral, then borrow USDC at the variable rate.
+
+    ```ts borrow-aave.ts lines wrap highlight={13-19,31-37}
+    import { AaveV3Base } from '@aave-dao/aave-address-book';
+    import { parseAbi, parseUnits } from 'viem';
+
+    const user = walletClient.account;
+    const weth = AaveV3Base.ASSETS.WETH.UNDERLYING;
+    const usdc = AaveV3Base.ASSETS.USDC.UNDERLYING;
+    const collateral = parseUnits('2', 18);
+    const erc20Abi = parseAbi(['function approve(address,uint256) returns (bool)']);
+    const poolAbi = parseAbi([
+      'function supply(address,uint256,address,uint16)',
+      'function setUserUseReserveAsCollateral(address,bool)',
+      'function borrow(address,uint256,uint256,uint16,address)',
+    ]);
+
+    const approval = await publicClient.simulateContract({
+      account: user, address: weth, abi: erc20Abi, functionName: 'approve',
+      args: [AaveV3Base.POOL, collateral],
+    });
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(approval.request),
+    });
+
+    const supplied = await publicClient.simulateContract({
+      account: user, address: AaveV3Base.POOL, abi: poolAbi,
+      functionName: 'supply', args: [weth, collateral, user.address, 0],
+    });
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(supplied.request),
+    });
+
+    const enabled = await publicClient.simulateContract({
+      account: user, address: AaveV3Base.POOL, abi: poolAbi,
+      functionName: 'setUserUseReserveAsCollateral', args: [weth, true],
+    });
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(enabled.request),
+    });
+
+    const loan = await publicClient.simulateContract({
+      account: user, address: AaveV3Base.POOL, abi: poolAbi,
+      functionName: 'borrow',
+      args: [usdc, parseUnits('2000', 6), 2n, 0, user.address],
+    });
+    await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.writeContract(loan.request),
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Collateral prices, oracle updates, interest, and protocol parameters can move a position toward liquidation. Re-fetch and display health immediately before signing, and warn clearly before a transaction creates unsafe debt.
+</Warning>
+
+## See also
+
+- [Integrate lending](/build-on-base/integrate-defi/integrate-lending) · [Integrate an earn product](/build-on-base/integrate-defi/integrate-earn-product)
+- [Integrate DeFi overview](/get-started/integrate-defi)

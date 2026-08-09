@@ -1,0 +1,44 @@
+---
+title: "Restrict Eligible Holders"
+description: "Keep tokenized shares within an approved set of holders by binding a B20 allowlist to issuance and transfers."
+keywords: ["tokenized stock allowlist", "B20 Policy Registry", "eligible stock holders", "KYC share token"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Create an allowlist in the [Policy Registry](/base-chain/specs/upgrades/beryl/b20#policy-registry), then apply it when shares are issued, sent, or received. Accounts remain ineligible until the policy admin adds them.
+
+#### Demo
+
+<AssetDemo flow="restrict" />
+
+## Apply the holder policy
+
+```solidity script/RestrictHolders.s.sol lines wrap highlight={8-9,13-15}
+IB20 token = IB20(vm.envAddress("TOKEN_ADDRESS"));
+address admin = vm.envAddress("ACCOUNT_ADDRESS");
+
+address[] memory approved = new address[](2);
+approved[0] = vm.envAddress("ALICE_ADDRESS");
+approved[1] = vm.envAddress("BOB_ADDRESS");
+
+vm.startBroadcast();
+uint64 policyId = StdPrecompiles.POLICY_REGISTRY.createPolicy(
+    admin, IPolicyRegistry.PolicyType.ALLOWLIST
+);
+StdPrecompiles.POLICY_REGISTRY.updateAllowlist(policyId, true, approved);
+
+token.updatePolicy(B20Constants.MINT_RECEIVER_POLICY, policyId);
+token.updatePolicy(B20Constants.TRANSFER_SENDER_POLICY, policyId);
+token.updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, policyId);
+vm.stopBroadcast();
+```
+
+<Warning>
+An allowlist denies every account that is not a member. Confirm the policy exists and seed the intended holders before binding it to the token.
+</Warning>
+
+## See also
+
+- [Cancel blocked shares](/build-on-base/tokenize-stocks/cancel-blocked-shares) · [Pause transfers](/build-on-base/tokenize-stocks/pause-transfers)
+- [Policy Registry](/base-chain/specs/upgrades/beryl/b20#policy-registry) and [Policy integration](/base-chain/specs/upgrades/beryl/b20#policy-integration) in the B20 standard

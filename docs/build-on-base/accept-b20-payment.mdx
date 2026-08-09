@@ -1,0 +1,68 @@
+---
+title: "Accept a B20 Payment"
+description: "Accept a B20 token payment and reconcile it to an order with an onchain memo."
+keywords: ["accept B20 payment", "transferWithMemo", "B20 token checkout", "reconcile token payment Base"]
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+B20 is an ERC-20 superset, so standard token integrations work unchanged. Use `transferWithMemo` when you also need an order or invoice reference emitted beside the payment for reconciliation.
+
+#### Demo
+
+<PaymentsDemo flow="b20" />
+
+## Pay and read the memo
+
+Read the token's decimals, simulate the payment, then parse its `Memo` event from the confirmed receipt:
+
+```ts pay-with-memo.ts lines wrap highlight={25-30,34-39}
+import {
+  type Address,
+  hexToString,
+  parseEventLogs,
+  parseUnits,
+  stringToHex,
+} from 'viem';
+
+const abi = [
+  { type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
+  { type: 'function', name: 'transferWithMemo', stateMutability: 'nonpayable', inputs: [
+    { name: 'to', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'memo', type: 'bytes32' },
+  ], outputs: [{ type: 'bool' }] },
+  { type: 'event', name: 'Memo', inputs: [
+    { name: 'caller', type: 'address', indexed: true },
+    { name: 'memo', type: 'bytes32', indexed: true },
+  ] },
+] as const;
+
+export async function payWithMemo(token: Address, merchant: Address) {
+const decimals = await publicClient.readContract({
+  address: token, abi, functionName: 'decimals',
+});
+const payment = await publicClient.simulateContract({
+  account: walletClient.account,
+  address: token,
+  abi,
+  functionName: 'transferWithMemo',
+  args: [merchant, parseUnits('25', decimals), stringToHex('order-8842', { size: 32 })],
+});
+const hash = await walletClient.writeContract(payment.request);
+const receipt = await publicClient.waitForTransactionReceipt({ hash });
+const [memo] = parseEventLogs({ abi, logs: receipt.logs, eventName: 'Memo' });
+
+const orderId = hexToString(memo.args.memo, { size: 32 }).replace(/\0+$/, '');
+console.log(orderId); // "order-8842"
+}
+```
+
+<Warning>
+A B20 transfer can revert when the issuer's holder policy denies the sender or recipient, or when transfers are paused. Simulate the exact call and surface the decoded reason before asking the user to sign.
+</Warning>
+
+## See also
+
+- [Reconcile stablecoin activity with memos](/build-on-base/issue-stablecoins/reconcile-with-memos)
+- [B20 memos](/base-chain/specs/upgrades/beryl/b20#memos) and [Launch a B20 token](/get-started/launch-b20-token)

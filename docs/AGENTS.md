@@ -9,7 +9,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
 - [Base Chain](./base-chain/llms.txt) — Start here for Base Chain docs, including concepts, network reference, node operation, APIs, and protocol specifications.
-- [Build On Base](./build-on-base/llms.txt) — Build on Base by outcome — issue stablecoins, facilitate payments, and run private transactions, with primitives built into the chain.
+- [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome — issue stablecoins, integrate DeFi, tokenize stocks, accept payments, or run private transactions.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
 - [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
@@ -67,11 +67,13 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|build-on-base:lending-and-borrowing,overview,test-on-vibenet,tokenize-stocks
+|build-on-base:accept-b20-payment,overview,test-on-vibenet
 |build-on-base/agentic-payments:accept-a-payment,accept-subscriptions,collect-payer-info,pay-for-apis-with-x402,verify-a-payment
+|build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |build-on-base/ledgers:deposit,transfer,withdraw
-|get-started:agentic-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,issue-stablecoins,launch-b20-token,launch-token,learning-resources,lending-and-borrowing,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks
+|build-on-base/tokenize-stocks:announce-a-stock-dividend,cancel-blocked-shares,create-a-stock-token,issue-shares,pause-transfers,restrict-eligible-holders,run-a-stock-split
+|get-started:agentic-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,integrate-defi,issue-stablecoins,launch-b20-token,launch-token,learning-resources,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks
 |root:changes,contribution-guidelines,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
 |sdks:overview
 |sdks/base-account:overview

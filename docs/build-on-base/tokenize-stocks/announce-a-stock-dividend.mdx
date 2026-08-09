@@ -1,0 +1,46 @@
+---
+title: "Announce a Stock Dividend"
+description: "Publish a B20 Asset announcement and distribute additional shares to holders in the same transaction."
+keywords: ["announce stock dividend", "B20 announcement", "tokenized stock corporate action", "batchMint dividend"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Bracket a holder-impacting action with an onchain description and supporting URI. This example announces a five-percent stock dividend and issues additional shares with `batchMint` in the same transaction.
+
+#### Demo
+
+<AssetDemo flow="dividend" />
+
+## Announce and distribute
+
+```solidity script/AnnounceDividend.s.sol lines wrap highlight={9-10,12-17}
+IB20Asset token = IB20Asset(vm.envAddress("TOKEN_ADDRESS"));
+address[] memory recipients = new address[](2);
+uint256[] memory amounts = new uint256[](2);
+recipients[0] = vm.envAddress("ALICE_ADDRESS");
+recipients[1] = vm.envAddress("BOB_ADDRESS");
+amounts[0] = 30e6;
+amounts[1] = 20e6;
+
+bytes[] memory calls = new bytes[](1);
+calls[0] = abi.encodeCall(IB20Asset.batchMint, (recipients, amounts));
+
+vm.startBroadcast();
+token.announce(
+    calls,
+    "2026-stock-dividend-01",
+    "Five-percent stock dividend",
+    "https://example.com/corporate-actions/2026-01"
+);
+vm.stopBroadcast();
+```
+
+<Note>
+The announcement ID can never be reused. This example distributes additional shares; the B20 call does not pay a cash dividend.
+</Note>
+
+## See also
+
+- [Issue shares](/build-on-base/tokenize-stocks/issue-shares) · [Run a stock split](/build-on-base/tokenize-stocks/run-a-stock-split)
+- [Announcements](/base-chain/specs/upgrades/beryl/b20#announcements) and [Batch mint](/base-chain/specs/upgrades/beryl/b20#batch-mint) in the B20 standard

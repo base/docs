@@ -1,0 +1,37 @@
+---
+title: "Pause Transfers"
+description: "Pause transfers on a B20 stock token during an incident while leaving minting and burning available."
+keywords: ["pause tokenized stock transfers", "B20 pause", "stock token incident response", "granular token pause"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Pause the `TRANSFER` feature during an incident without stopping issuance or cancellation. B20 grants pause and unpause through separate roles so you can separate emergency response from recovery authority.
+
+#### Demo
+
+<AssetDemo flow="pause" />
+
+## Pause and resume transfers
+
+```bash Terminal lines wrap
+# PausableFeature.TRANSFER is enum value 0. The function accepts an array.
+base-cast send $TOKEN_ADDRESS "pause(uint8[])" "[0]" \
+  --rpc-url $RPC_URL --private-key $PAUSER_KEY
+
+# Mint remains available because only TRANSFER is paused.
+base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $BOB 25000000 \
+  --rpc-url $RPC_URL --private-key $MINTER_KEY
+
+base-cast send $TOKEN_ADDRESS "unpause(uint8[])" "[0]" \
+  --rpc-url $RPC_URL --private-key $UNPAUSER_KEY
+```
+
+<Note>
+Pausing transfers does not pause mint, burn, or any future feature added to the enum. Pause each operation class explicitly.
+</Note>
+
+## See also
+
+- [Restrict eligible holders](/build-on-base/tokenize-stocks/restrict-eligible-holders) · [Cancel blocked shares](/build-on-base/tokenize-stocks/cancel-blocked-shares)
+- [Pause](/base-chain/specs/upgrades/beryl/b20#pause) in the B20 standard

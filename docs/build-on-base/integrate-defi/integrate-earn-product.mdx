@@ -1,0 +1,106 @@
+---
+title: "Integrate an Earn Product"
+description: "Give users a one-deposit USDC earn experience with Morpho or Moonwell vaults on Base."
+keywords: ["integrate earn product Base", "Morpho vault Base", "Moonwell Flagship USDC", "ERC-4626 yield vault", "USDC yield app"]
+---
+
+import { DeFiDemo } from "/snippets/DeFiDemo.jsx"
+
+Embed a vault-based earn product through third-party protocols on Base. The user deposits once and receives vault shares; the vault abstracts its underlying market allocations while your app shows current redeemable value and risk.
+
+#### Demo
+
+<DeFiDemo flow="earn" />
+
+## Deposit into a USDC vault
+
+Both examples use `viem@2.55.11` and `@morpho-org/morpho-sdk@5.4.1`. The Moonwell tab also uses `@moonwell-fi/moonwell-sdk@0.22.0` for its maintained deployment addresses.
+
+<Tabs>
+  <Tab title="Morpho">
+    Deposit into Steakhouse Prime USDC, a Morpho Vault V2 on Base. Treat the address as pinned configuration and review it whenever you upgrade the integration.
+
+    ```ts deposit-morpho-vault.ts lines wrap highlight={11-15,25-27}
+    import {
+      isRequirementSignature,
+      morphoViemExtension,
+    } from '@morpho-org/morpho-sdk';
+    import { parseUnits } from 'viem';
+    import { base } from 'viem/chains';
+
+    const vaultAddress = '0xBEeF0e0834849Acc03F0089F01F4F1EeB06873c9';
+    const user = walletClient.account.address;
+    const client = publicClient.extend(morphoViemExtension());
+    const vault = client.morpho.vaultV2(vaultAddress, base.id);
+    const action = await vault.deposit({
+      amount: parseUnits('1000', 6),
+      userAddress: user,
+      vaultData: await vault.getData(),
+    });
+
+    const signatures = [];
+    for (const requirement of await action.getRequirements()) {
+      if (isRequirementSignature(requirement)) {
+        signatures.push(await requirement.sign(walletClient, user));
+      } else {
+        const hash = await walletClient.sendTransaction(requirement);
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+    }
+    const request = action.buildTx(signatures);
+    await publicClient.call({ account: user, ...request });
+    const hash = await walletClient.sendTransaction(request);
+    await publicClient.waitForTransactionReceipt({ hash });
+    ```
+  </Tab>
+
+  <Tab title="Moonwell">
+    Use Moonwell's maintained SDK to resolve the Flagship USDC Vault V2 address, then build the deposit with the Morpho vault SDK.
+
+    ```ts deposit-moonwell-vault.ts lines wrap highlight={10-16,26-28}
+    import { createMoonwellClient } from '@moonwell-fi/moonwell-sdk';
+    import {
+      isRequirementSignature,
+      morphoViemExtension,
+    } from '@morpho-org/morpho-sdk';
+    import { parseUnits } from 'viem';
+    import { base } from 'viem/chains';
+
+    const moonwell = createMoonwellClient({
+      networks: { base: { rpcUrls: ['https://mainnet.base.org'] } },
+    });
+    const vaultAddress = moonwell.environments.base.tokens.mwUSDC.address;
+    const user = walletClient.account.address;
+    const client = publicClient.extend(morphoViemExtension());
+    const vault = client.morpho.vaultV2(vaultAddress, base.id);
+    const action = await vault.deposit({
+      amount: parseUnits('1000', 6),
+      userAddress: user,
+      vaultData: await vault.getData(),
+    });
+
+    const signatures = [];
+    for (const requirement of await action.getRequirements()) {
+      if (isRequirementSignature(requirement)) {
+        signatures.push(await requirement.sign(walletClient, user));
+      } else {
+        const hash = await walletClient.sendTransaction(requirement);
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
+    }
+    const request = action.buildTx(signatures);
+    await publicClient.call({ account: user, ...request });
+    const hash = await walletClient.sendTransaction(request);
+    await publicClient.waitForTransactionReceipt({ hash });
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Vault yield is variable and not guaranteed. Review the curator, allocation strategy, fees, withdrawal liquidity, and smart-contract risk before listing a vault, and show users the current share-to-asset value rather than a fixed return.
+</Warning>
+
+## See also
+
+- [Integrate lending](/build-on-base/integrate-defi/integrate-lending) · [Integrate borrowing](/build-on-base/integrate-defi/integrate-borrowing)
+- [Integrate DeFi overview](/get-started/integrate-defi)

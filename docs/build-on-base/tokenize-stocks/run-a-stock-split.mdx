@@ -1,0 +1,33 @@
+---
+title: "Run a Stock Split"
+description: "Apply a B20 Asset multiplier to update displayed share balances for a stock split without migrating holders."
+keywords: ["tokenized stock split", "B20 multiplier", "2 for 1 stock split", "scaled token balance"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Run a 2-for-1 stock split by setting the B20 Asset multiplier to `2e18`. Raw balances stay unchanged, while `scaledBalanceOf` and conversion helpers expose the post-split share amounts.
+
+#### Demo
+
+<AssetDemo flow="split" />
+
+## Update the multiplier
+
+```bash Terminal lines wrap
+# WAD precision is 1e18, so 2e18 represents a 2-for-1 multiplier.
+base-cast send $TOKEN_ADDRESS "updateMultiplier(uint256)" 2000000000000000000 \
+  --rpc-url $RPC_URL --private-key $OPERATOR_KEY
+
+base-cast call $TOKEN_ADDRESS "scaledBalanceOf(address)(uint256)" \
+  $ALICE --rpc-url $RPC_URL
+```
+
+<Warning>
+Integrations that present shares to users must distinguish raw token units from scaled balances and use B20's conversion helpers consistently.
+</Warning>
+
+## See also
+
+- [Announce a stock dividend](/build-on-base/tokenize-stocks/announce-a-stock-dividend) · [Pause transfers](/build-on-base/tokenize-stocks/pause-transfers)
+- [Multiplier](/base-chain/specs/upgrades/beryl/b20#multiplier) in the B20 standard

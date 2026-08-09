@@ -1,0 +1,59 @@
+---
+title: "Create a Stock Token"
+description: "Create a six-decimal B20 Asset token with issuer roles, a technical supply ceiling, and issuer-defined security metadata."
+keywords: ["create stock token Base", "B20 Asset token", "tokenized shares Base", "B20Factory Asset"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Use the [B20 Asset variant](/base-chain/specs/upgrades/beryl/b20#asset) to represent a class of tokenized shares with configurable precision, issuer roles, supply controls, and metadata. This example creates Example Corp Class A (`EXM`) with six decimals.
+
+#### Demo
+
+<AssetDemo flow="create" />
+
+## Create the token
+
+Encode the Asset parameters and bootstrap configuration with `B20FactoryLib`, then call the B20 Factory:
+
+```solidity script/CreateStockToken.s.sol lines wrap highlight={12-13,26-28}
+address account = vm.envAddress("ACCOUNT_ADDRESS");
+
+B20FactoryLib.B20AssetRoleHolders memory holders = B20FactoryLib.B20AssetRoleHolders({
+    minter: account,
+    burner: address(0),
+    burnBlocker: account,
+    pauser: account,
+    unpauser: account,
+    metadataAdmin: account,
+    operator: account
+});
+bytes[] memory roleCalls = B20FactoryLib.buildRoleGrants(holders);
+
+bytes[] memory settings = new bytes[](2);
+settings[0] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e6);
+settings[1] = B20FactoryLib.encodeUpdateExtraMetadata(
+    "security-id", "EXAMPLE-CLASS-A"
+);
+
+bytes memory params = B20FactoryLib.encodeAssetCreateParams(
+    "Example Corp Class A", "EXM", account, 6
+);
+bytes[] memory initCalls = B20FactoryLib.concat(roleCalls, settings);
+
+token = StdPrecompiles.B20_FACTORY.createB20(
+    IB20Factory.B20Variant.ASSET,
+    keccak256("example-corp-class-a"),
+    params,
+    initCalls
+);
+```
+
+<Note>
+The supply cap is a technical ceiling on token supply. For Base Foundry setup, network configuration, imports, and broadcasting, complete [Launch a B20 token](/get-started/launch-b20-token) first.
+</Note>
+
+## See also
+
+- [Issue shares](/build-on-base/tokenize-stocks/issue-shares) · [Restrict eligible holders](/build-on-base/tokenize-stocks/restrict-eligible-holders)
+- [Asset variant](/base-chain/specs/upgrades/beryl/b20#asset), [Factory](/base-chain/specs/upgrades/beryl/b20#factory), and [Supply cap](/base-chain/specs/upgrades/beryl/b20#supply-cap) in the B20 standard

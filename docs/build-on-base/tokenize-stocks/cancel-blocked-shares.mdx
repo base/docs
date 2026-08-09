@@ -1,0 +1,36 @@
+---
+title: "Cancel Blocked Shares"
+description: "Cancel tokenized shares from a holder after removing the holder from a B20 sender allowlist."
+keywords: ["cancel tokenized shares", "B20 burnBlocked", "blocked shareholder", "burn regulated token"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Cancel shares from a holder who is already denied by the token's transfer-sender policy. Removing the holder from an allowlist freezes outgoing transfers; `burnBlocked` then burns the specified shares and reduces total supply.
+
+#### Demo
+
+<AssetDemo flow="cancel" />
+
+## Block, then cancel
+
+```bash Terminal lines wrap
+# Remove Bob from the allowlist bound to TRANSFER_SENDER_POLICY.
+base-cast send $POLICY_REGISTRY "updateAllowlist(uint64,bool,address[])" \
+  $POLICY_ID false "[$BOB]" \
+  --rpc-url $RPC_URL --private-key $POLICY_ADMIN_KEY
+
+# Burn 100.000000 EXM from the now-blocked account.
+base-cast send $TOKEN_ADDRESS "burnBlocked(address,uint256)" \
+  $BOB 100000000 \
+  --rpc-url $RPC_URL --private-key $CANCELLATION_KEY
+```
+
+<Warning>
+`burnBlocked` burns shares; it does not transfer them to the issuer. The caller needs `BURN_BLOCKED_ROLE`, and the holder must already be denied by `TRANSFER_SENDER_POLICY`.
+</Warning>
+
+## See also
+
+- [Restrict eligible holders](/build-on-base/tokenize-stocks/restrict-eligible-holders) · [Issue shares](/build-on-base/tokenize-stocks/issue-shares)
+- [Burn](/base-chain/specs/upgrades/beryl/b20#burn) and [Policy integration](/base-chain/specs/upgrades/beryl/b20#policy-integration) in the B20 standard

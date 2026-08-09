@@ -1,0 +1,31 @@
+---
+title: "Issue Shares"
+description: "Distribute tokenized shares to multiple approved holders in one B20 Asset batch."
+keywords: ["issue tokenized shares", "B20 batchMint", "stock token distribution", "cap table Base"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+
+Distribute shares to multiple holders in one all-or-nothing transaction with B20 Asset's `batchMint`. Every recipient must pass the token's mint-receiver policy, and the combined issuance must stay below its supply cap.
+
+#### Demo
+
+<AssetDemo flow="issue" />
+
+## Distribute the shares
+
+```bash Terminal lines wrap
+# Issue 600.000000 EXM to Alice and 400.000000 EXM to Bob.
+base-cast send $TOKEN_ADDRESS "batchMint(address[],uint256[])" \
+  "[$ALICE,$BOB]" "[600000000,400000000]" \
+  --rpc-url $RPC_URL --private-key $MINTER_KEY
+```
+
+<Warning>
+The entire batch reverts if an array length differs, a recipient is ineligible, or the issuance exceeds the supply cap.
+</Warning>
+
+## See also
+
+- [Restrict eligible holders](/build-on-base/tokenize-stocks/restrict-eligible-holders) · [Announce a stock dividend](/build-on-base/tokenize-stocks/announce-a-stock-dividend)
+- [Batch mint](/base-chain/specs/upgrades/beryl/b20#batch-mint) and [Mint](/base-chain/specs/upgrades/beryl/b20#mint) in the B20 standard

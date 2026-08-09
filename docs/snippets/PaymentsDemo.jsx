@@ -23,6 +23,7 @@ export const PaymentsDemo = ({ flow }) => {
     verify: <><path d="M12 3l7 3v6c0 4-3 6-7 8-4-2-7-4-7-8V6z" /><path d="M9 12l2 2 4-4" /></>,
     info: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 8l9 6 9-6" /></>,
     subscribe: <><path d="M4 12a8 8 0 0 1 13-6.2M20 5v4h-4" /><path d="M20 12a8 8 0 0 1-13 6.2M4 19v-4h4" /></>,
+    b20: <><path d="M7 3h10v18l-2.5-1.6L12 21l-2.5-1.6L7 21z" /><path d="M10 8h4M10 12h4" /></>,
     x402: <path d="M13 3 4 14h7l-1 7 9-11h-7z" />,
   };
   const Icon = ({ k, size }) => (
@@ -83,6 +84,16 @@ export const PaymentsDemo = ({ flow }) => {
           run: () => ({ entries: [ok("revoke", "sub_0x4a…"), err("charge", "subscription cancelled")], caption: "Users stay in control the whole time." }) },
       ],
     },
+    b20: {
+      label: "B20", title: "Accept and reconcile a B20 payment", readout: false,
+      erc20: "A B20 memo ties the payment to your order without assigning a deposit address per customer.",
+      steps: [
+        { text: "Alice pays 25 EXM and includes the order reference in the same transaction.", action: "Pay order",
+          run: () => ({ entries: [ok("Transfer", "Alice → Merchant · 25 EXM"), ok("Memo", '"order-8842"')], caption: "transferWithMemo emits the standard transfer and its bytes32 reference together." }) },
+        { text: "Your backend reads the receipt and matches the payment to the order.", action: "Reconcile",
+          run: () => ({ entries: [nfo("parseEventLogs", "Transfer + Memo"), ok("matched", 'order-8842 · 25 EXM · Alice')], caption: "The payment can still be rejected by the token's holder policy or transfer pause." }) },
+      ],
+    },
     x402: {
       label: "Agent pays", title: "Let an agent pay per API call", readout: false,
       erc20: "Agents pay for data and services autonomously, one request at a time.",
@@ -97,8 +108,8 @@ export const PaymentsDemo = ({ flow }) => {
     },
   };
 
-  const order = ["accept", "verify", "info", "subscribe", "x402"];
-  const pinned = flow && FLOWS[flow] ? flow : null;
+  const order = ["accept", "verify", "info", "subscribe", "b20", "x402"];
+  const pinned = flow ? (FLOWS[flow] ? flow : order[0]) : null;
 
   const [active, setActive] = useState(pinned || "accept");
   const [sim, setSim] = useState(freshSim);
@@ -150,6 +161,7 @@ export const PaymentsDemo = ({ flow }) => {
         .pd-btn:disabled{color:var(--pd-dim);background:transparent;border:1px dashed var(--pd-border);cursor:default;filter:none;transform:none;box-shadow:none;font-weight:500}
         .pd-reset{font-family:${sans};font-size:11px;color:var(--pd-dim);background:transparent;border:none;cursor:pointer;padding:2px 6px;border-radius:6px}
         .pd-reset:hover{color:var(--pd-body);background:var(--pd-panel)}
+        @media (prefers-reduced-motion:reduce){.pd-card *{animation:none!important;transition:none!important}}
       `}</style>
 
       {/* Progress bar */}

@@ -18,7 +18,7 @@ Guidelines for contributing to Base documentation.
 The Get Started tab serves as an entry point that funnels users into deeper tabs:
 
 - **Start Here** — Connect to Base, Get Funds, Make a Transaction
-- **Use Cases** — Ordered by prominence: Integrate DeFi, Issue Stablecoins, Lending and Borrowing, then the rest
+- **Solutions** — Ordered by prominence: Issue Stablecoins, Integrate DeFi, Tokenize Stocks, then the rest
 - **References** — Links that mirror top-level tabs (Chain, SDKs & APIs)
 - **Get Funded** — Base Batches, Base Ecosystem Fund
 - **Agents** — Use Base with AI
@@ -57,10 +57,10 @@ Upgrades are a top-level section within the Chain tab, not nested inside Protoco
 ## Naming Conventions
 
 - **Tab names:** Short — "Chain" not "Base Chain", "SDKs & APIs" not "SDKs and APIs"
-- **Page titles:** Title Case, but keep "and" lowercase (e.g., "Lending and Borrowing")
+- **Page titles:** Title Case, but keep short conjunctions and articles lowercase (e.g., "Integrate an Earn Product")
 - **No parenthetical labels** in nav — category tags like (Trading), (Payments) are internal only
 - **Action-oriented names** when possible — "Integrate DeFi" not "DeFi Integration"
-- **Enterprise tone** for financial use cases — "Lending and Borrowing" not "Get a Loan"
+- **Enterprise tone** for financial use cases — "Integrate Borrowing" not "Get a Loan"
 
 ## Placeholder Pages
 
@@ -79,9 +79,8 @@ Coming Soon
 
 Order by prominence/demand. Current order:
 
-1. Integrate DeFi
-2. Issue Stablecoins
-3. Lending and Borrowing
-4. Tokenize Stocks
-5. Facilitate Payments
-6. Private Transactions
+1. Issue Stablecoins
+2. Integrate DeFi
+3. Tokenize Stocks
+4. Accept Payments
+5. Private Transactions
