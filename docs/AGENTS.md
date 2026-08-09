@@ -49,7 +49,7 @@ npx skills add base/base-skills
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
-|apps/guides:accept-b20-payments,migrate-to-standard-web-app
+|apps/guides:accept-b20-payments,migrate-to-standard-web-app,verify-onchain
 |apps/quickstart:build-app,deploy-on-base
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
@@ -94,6 +94,15 @@ npx skills add base/base-skills
 |base-chain/specs/reference:configurability,glossary
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20-playground,b20,overview
+|base-chain/specs/upgrades/beryl/b20/specification:index
+|base-chain/specs/upgrades/beryl/b20/specification/reference:constants-and-addresses,errors-and-events-index
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20:BURN_BLOCKED_ROLE,BURN_ROLE,DEFAULT_ADMIN_ROLE,DOMAIN_SEPARATOR,METADATA_ROLE,MINT_RECEIVER_POLICY,MINT_ROLE,PAUSE_ROLE,SEIZE_HOLDER_POLICY,SEIZE_RECEIVER_POLICY,SEIZE_ROLE,TRANSFER_EXECUTOR_POLICY,TRANSFER_RECEIVER_POLICY,TRANSFER_SENDER_POLICY,UNPAUSE_ROLE,allowance,approve,balanceOf,burn,burnBlocked,burnWithMemo,contractURI,decimals,eip712Domain,getRoleAdmin,grantRole,hasRole,isPaused,mint,mintWithMemo,name,nonces,pause,pausedFeatures,permit,policyId,renounceLastAdmin,renounceRole,revokeRole,seizeWithMemo,setRoleAdmin,supplyCap,symbol,totalSupply,transfer,transferFrom,transferFromWithMemo,transferWithMemo,unpause,updateContractURI,updateName,updatePolicy,updateSupplyCap,updateSymbol
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset:OPERATOR_ROLE,WAD_PRECISION,announce,batchMint,cancelScheduledMultiplier,extraMetadata,isAnnouncementIdUsed,multiplier,scaledBalanceOf,setUIMultiplier,toRawBalance,toScaledBalance,updateExtraMetadata,updateMultiplier
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Stablecoin:currency
+|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
 |base-chain/specs/upgrades/canyon:overview
 |base-chain/specs/upgrades/cobalt:eip-8130
 |base-chain/specs/upgrades/delta:overview,span-batches
