@@ -72,7 +72,7 @@ That means ordering matters. Configure mint receiver policy before minting only 
 
 ## Admin-less deployment
 
-To deploy admin-less from block one, set `initialAdmin` to `address(0)` and put all required role grants, policy bindings, and cap configuration into initCalls.
+To deploy admin-less from block one, set `initialAdmin` to `address(0)` and put all required role grants, policy bindings, and cap configuration into initCalls. Create any policy that you will bind before calling `createB20`; initCalls execute on the new token and cannot create a policy in the singleton registry.
 
 ```solidity
 bytes memory params = B20FactoryLib.encodeAssetCreateParams("Adminless", "ADL", address(0), 18);
@@ -84,7 +84,7 @@ initCalls[2] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e18);
 ```
 
 <Warning>
-There is no later admin recovery path for an admin-less token. Missing policies or roles cannot be added after deployment.
+There is no later admin recovery path for an admin-less token. Missing token roles, policy bindings, or other token-admin configuration cannot be added after deployment. A bound policy remains independently manageable by its PolicyRegistry admin.
 </Warning>
 
 <CardGroup cols={2}>
