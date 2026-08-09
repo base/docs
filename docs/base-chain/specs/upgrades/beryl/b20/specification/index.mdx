@@ -100,6 +100,7 @@ B20 tokens store one `uint64 policyId` per supported policy scope.
 | `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` when `msg.sender != from` |
 | `MINT_RECEIVER_POLICY` | `to` | `mint`, `mintWithMemo` |
 | `SEIZE_HOLDER_POLICY` | `from` | `seizeWithMemo`; holder is seizable only when not authorized |
+| `SEIZE_RECEIVER_POLICY` | `to` | `seizeWithMemo`; destination must be authorized |
 
 All scopes default to `ALWAYS_ALLOW` at creation. `approve` and `permit` are not policy-gated.
 
@@ -115,7 +116,7 @@ The legacy `burnBlocked` path is deprecated and retained for backwards compatibi
 
 ## Seize
 
-`seizeWithMemo(from, to, amount, memo)` transfers balance from `from` to `to` and emits `Transfer`, `Memo`, and `Seized`. It is gated by `SEIZE_ROLE`, skips allowance and transfer policies, and requires `from` to be denied by `SEIZE_HOLDER_POLICY`.
+`seizeWithMemo(from, to, amount, memo)` transfers balance from `from` to `to` and emits `Transfer`, `Memo`, and `Seized`. It is gated by `SEIZE_ROLE`, skips allowance and transfer policies, requires `from` to be denied by `SEIZE_HOLDER_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`.
 
 ## Supply Cap
 

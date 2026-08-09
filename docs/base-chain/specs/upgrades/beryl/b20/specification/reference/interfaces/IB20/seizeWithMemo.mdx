@@ -9,7 +9,7 @@ description: "Generated B20 reference for seizeWithMemo(address,address,uint256,
 ## Signature
 
 ```solidity
-function seizeWithMemo(address from, address to, uint256 amount, bytes32 memo) external returns (bool);
+function seizeWithMemo(address from, address to, uint256 amount, bytes32 memo) external;
 ```
 
 | Field | Value |
@@ -22,19 +22,20 @@ function seizeWithMemo(address from, address to, uint256 amount, bytes32 memo) e
 Seizes `amount` of `from`'s balance and reassigns it to `to` in a single admin operation.
 Emits, in order, `Transfer(from, to, amount)`, `Memo(caller, memo)`, and
 `Seized(caller, from, to, amount)`. A memo of `bytes32(0)` is permitted.
-Dev: Admin operation: skips allowance and the transfer policies. The only membership check is that
-`from` is blocked under `SEIZE_HOLDER_POLICY`.
-Dev: `to` is not policy-checked; the destination need not be allowlisted.
+Dev: Admin operation: skips allowance and the transfer policies. The membership checks are that
+`from` is blocked under `SEIZE_HOLDER_POLICY` and `to` is authorized under `SEIZE_RECEIVER_POLICY`.
+Dev: `to` is gated by `SEIZE_RECEIVER_POLICY`, which defaults to always-allow when unset, so an
+unconfigured token may seize to any destination (a treasury need not be allowlisted).
 Dev: Reverts with `ContractPaused(SEIZE)` when `SEIZE` is paused.
 Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `SEIZE_ROLE`.
 Dev: Reverts with `InvalidReceiver` when `to == address(0)`.
 Dev: Reverts with `AccountNotSeizable` when `from` is currently authorized under `SEIZE_HOLDER_POLICY`.
+Dev: Reverts with `PolicyForbids(SEIZE_RECEIVER_POLICY, ...)` when `to` is not authorized under `SEIZE_RECEIVER_POLICY`.
 Dev: Reverts with `InsufficientBalance` when `from`'s balance is below `amount`.
 Param: from   Account whose balance is being seized.
 Param: to     Destination address for the seized balance.
 Param: amount Amount to seize.
 Param: memo   Memo payload.
-Return: Always `true` on success.
 
 ## Access control
 
@@ -42,7 +43,7 @@ Return: Always `true` on success.
 
 ## Policy interaction
 
-Checks `SEIZE_HOLDER_POLICY`; the holder is seizable only when not authorized.
+Checks `SEIZE_HOLDER_POLICY` for the holder and `SEIZE_RECEIVER_POLICY` for the destination.
 
 ## Example
 
