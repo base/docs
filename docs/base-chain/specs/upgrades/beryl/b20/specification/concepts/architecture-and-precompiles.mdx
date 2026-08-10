@@ -1,0 +1,53 @@
+---
+title: "Architecture & precompiles"
+description: "Understand the B20 precompile architecture, fixed addresses, activation gates, and deterministic token addresses."
+---
+
+A B20 token is not a contract you deploy. It is a chain-native token surface implemented as a Rust precompile and created through the singleton B20 Factory. Solidity and offchain clients still call normal ABI methods, but there is no token bytecode to verify on an explorer.
+
+## System map
+
+<Frame>
+![B20 architecture swimlane: issuer or app calls the B20 Factory, the factory checks ActivationRegistry and creates a B20 token, and token operations consult PolicyRegistry.](/images/b20/b20-architecture-precompiles.png)
+</Frame>
+
+| Surface | Address |
+|---|---|
+| B20 Factory | `0xB20f000000000000000000000000000000000000` |
+| ActivationRegistry | `0x8453000000000000000000000000000000000001` |
+| PolicyRegistry | `0x8453000000000000000000000000000000000002` |
+
+These addresses are identical on every network where B20 is active.
+
+## Activation gates
+
+The ActivationRegistry is the chain-level feature flag surface. The factory checks activation before creating a token variant, and state-changing PolicyRegistry calls are activation-gated.
+
+<Check>
+PolicyRegistry read functions are always callable. Integrations can safely call `isAuthorized`, `policyExists`, `policyAdmin`, and `pendingPolicyAdmin` without an activation write path.
+</Check>
+
+## Address derivation
+
+B20 token addresses are deterministic and include the variant byte:
+
+```text
+[10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
+```
+
+You can identify a token's variant from the address without an RPC call by inspecting byte 10, zero-indexed:
+
+| Variant | Byte | Address shape |
+|---|---:|---|
+| Asset | `0x00` | `0xB200...` |
+| Stablecoin | `0x01` | `0xB201...` |
+
+Use `IB20Factory.getB20Address(variant, deployer, salt)` to precompute the address and `isB20` / `isB20Initialized` to verify it.
+
+## What precompiles change for developers
+
+- Import interfaces from `base-std` instead of copying ABIs by hand.
+- Use `StdPrecompiles` handles for the factory and registries.
+- Do not expect explorer bytecode verification for token or registry addresses.
+- Test with base-std mocks, `base-forge`, or `base-anvil` because stock EVM tooling does not know these precompiles by default.
+

@@ -49,7 +49,7 @@ npx skills add base/base-skills
 |apps:index
 |apps/builder-codes:agent-developers,app-developers,builder-codes,wallet-developers
 |apps/growth:rewards
-|apps/guides:accept-b20-payments,migrate-to-standard-web-app
+|apps/guides:accept-b20-payments,migrate-to-standard-web-app,verify-onchain
 |apps/quickstart:build-app,deploy-on-base
 |apps/resources:design-resources,templates
 |apps/technical-guides:base-notifications
@@ -94,6 +94,8 @@ npx skills add base/base-skills
 |base-chain/specs/reference:configurability,glossary
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20-playground,b20,overview
+|base-chain/specs/upgrades/beryl/b20/specification:overview
+|base-chain/specs/upgrades/beryl/b20/specification/concepts:architecture-and-precompiles,policies-and-scopes,roles-and-access-control,token-lifecycle,variants-asset-vs-stablecoin
 |base-chain/specs/upgrades/canyon:overview
 |base-chain/specs/upgrades/cobalt:eip-8130
 |base-chain/specs/upgrades/delta:overview,span-batches
