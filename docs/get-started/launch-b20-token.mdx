@@ -7,15 +7,15 @@ B20 is an ERC-20 superset that runs as a native precompile on Base, which makes 
 
 A standard ERC-20 leaves that logic for you to build, audit, and maintain. With B20, you call the singleton [**B20 Factory**](/base-chain/specs/upgrades/beryl/b20#factory) to create a token, fully configured, in a single transaction.
 
-This guide creates an Asset token, mints its initial supply, and verifies the balance onchain. To accept the token as payment in an app, continue with [Accept a B20 payment](/build-on-base/accept-b20-payment).
+This guide creates an Asset token, mints its initial supply, and verifies the balance onchain. To accept the token as payment in an app, continue with [Accept a B20 payment](/build-on-base/accept-payments/from-humans#accept-b20-with-a-memo).
 
 ## Before you begin
 
-You need **Base's Foundry build** (`base-forge`, `base-cast`, [`base-anvil`](https://github.com/base/base-anvil)). Install it via `base-foundryup`:
+You need **Base's Foundry build** (`base-forge`, `base-cast`, [`base-anvil`](https://github.com/base/base-anvil)). Install the Beryl-compatible `v1.1.1` release via `base-foundryup`:
 
   ```bash Terminal theme={null}
   curl -L https://raw.githubusercontent.com/base/base-anvil/HEAD/foundryup/install | bash
-  base-foundryup
+  base-foundryup --install v1.1.1
   ```
 
   <Note>
@@ -36,14 +36,18 @@ base-cast call $REG "isActivated(bytes32)(bool)" $(base-cast keccak "base.b20_as
 base-cast call $REG "isActivated(bytes32)(bool)" $(base-cast keccak "base.b20_stablecoin") --rpc-url $RPC
 ```
 
-## Set up your project
+<Warning>
+The examples in this guide and the use-case guides target the released Beryl interface in `base-std@v1.0.0`. Do not install from the moving `main` branch: unreleased interfaces can compile while targeting functions that are not part of the documented Beryl surface.
+</Warning>
+
+## Set up Foundry
 
 ```bash Terminal theme={null}
 base-forge init b20-quickstart && cd b20-quickstart
-base-forge install base/base-std --no-git
+base-forge install base/base-std@v1.0.0 --no-git
 ```
 
-This installs the [Base Standard Library](https://github.com/base/base-std/tree/main), which provides the B20 interfaces, constants, and encoding helpers used below.
+This installs the [Base Standard Library v1.0.0](https://github.com/base/base-std/tree/v1.0.0), which provides the released Beryl interfaces, constants, and encoding helpers used below.
 
 Add the remappings and the `base = true` flag to `foundry.toml` (under `[profile.default]`). `base = true` tells Base's `forge` build to run the B20 precompiles inside its EVM, so the deploy script's local simulation can call the factory:
 
@@ -58,6 +62,48 @@ remappings = [
 <Note>
 The interfaces compile with any Solidity `>=0.8.20 <0.9.0`.
 </Note>
+
+## Set up TypeScript and CLI clients
+
+The task guides use `viem@2.55.11` for application code and `base-cast@v1.1.1` for operational commands. Install viem in a separate project and keep signing keys in environment variables:
+
+```bash Terminal lines wrap
+mkdir b20-viem && cd b20-viem
+npm init -y
+npm install viem@2.55.11
+```
+
+```typescript clients.ts lines wrap expandable
+import { createPublicClient, createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { baseSepolia } from 'viem/chains';
+
+if (!process.env.PRIVATE_KEY) throw new Error('Set PRIVATE_KEY');
+export const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+export const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL ?? 'https://sepolia.base.org'),
+});
+export const walletClient = createWalletClient({
+  account,
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL ?? 'https://sepolia.base.org'),
+});
+```
+
+For CLI examples, export the same values and install `jq` so policy-creation scripts can read `PolicyCreated` from transaction receipts:
+
+```bash .env lines wrap
+export RPC_URL="https://sepolia.base.org"
+export PRIVATE_KEY="0x..."
+export ACCOUNT_ADDRESS="0x..."
+```
+
+<Warning>
+Never put a funded private key in browser code, source control, shell history, or a client-visible environment variable. The task guides use a throwaway Base Sepolia signer for reproducible scripts.
+</Warning>
+
+The [verified B20 fixture projects](https://github.com/base/docs/tree/master/examples/verified-doc-samples) contain the complete imports, ABIs, simulation helper, Foundry scripts, and CLI workflows used by the byte guides.
 
 ## Choose a network
 
@@ -326,5 +372,5 @@ All without writing, deploying, or auditing a token contract.
 
 ## Next steps
 
-* [Accept a B20 payment in an app](/build-on-base/accept-b20-payment): wire this token into a checkout flow that tags each payment with an order ID and reconciles it from onchain events.
+* [Accept a B20 payment in an app](/build-on-base/accept-payments/from-humans#accept-b20-with-a-memo): wire this token into a checkout flow that tags each payment with an order ID and reconciles it from onchain events.
 * Gate transfers or mints with PolicyRegistry policies, add granular pause, or manage roles. See the [B20 token standard](/base-chain/specs/upgrades/beryl/b20).

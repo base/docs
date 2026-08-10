@@ -12,15 +12,53 @@ When a holder redeems for fiat, they return the tokens and you burn them, keepin
 
 <StablecoinDemo flow="burn" />
 
-## Burn on redemption
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal
-# Burn 400 MUSD held by your redemption address.
-base-cast send $TOKEN_ADDRESS "burn(uint256)" 400000000 \
-  --rpc-url $RPC_URL --private-key $REDEMPTION_KEY
+## Burn and verify supply
+
+<CodeGroup>
+{/* sample: stablecoin-burn-ts */}
+```typescript TypeScript lines wrap expandable highlight={9}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function burnAndVerify(token: Address) {
+  const before = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "totalSupply" });
+  const amount = parseUnits("400", 6);
+  await sendContract({ address: token, abi: b20Abi, functionName: "burn", args: [amount] });
+  const after = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "totalSupply" });
+  if (before - after !== amount) throw new Error("Unexpected supply change");
+}
 ```
+{/* sample: stablecoin-burn-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function burnStablecoin(address token) public {
+        uint256 supplyBefore = IB20(token).totalSupply();
+        IB20(token).burn(400e6);
+        require(supplyBefore - IB20(token).totalSupply() == 400e6, "wrong supply change");
+    }
+```
+{/* sample: stablecoin-burn-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "burn(uint256)" 400000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "totalSupply()(uint256)" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
 
-Use `burnWithMemo` to tie the burn to the fiat payout. To reclaim tokens from a blocked account instead, see [Recover funds](/build-on-base/issue-stablecoins/recover-funds).
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+`totalSupply()` decreases by exactly 400 MUSD.
+</Check>
+
+<Note>
+`burn` removes tokens from the caller. Use an allowance and your redemption workflow to collect tokens into the burner account first.
+</Note>
 
 ## See also
 

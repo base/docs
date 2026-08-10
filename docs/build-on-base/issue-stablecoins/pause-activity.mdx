@@ -12,17 +12,50 @@ If something goes wrong, halt activity fast. B20 pausing is **granular**: stop t
 
 <StablecoinDemo flow="pause" />
 
-## Pause and resume
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal
-# Halt transfers only; minting and burning keep working.
-base-cast send $TOKEN_ADDRESS "pause(uint8)" $(base-cast keccak "TRANSFER") \
-  --rpc-url $RPC_URL --private-key $PAUSER_KEY
+## Pause and resume transfers
 
-# Resume when the incident is resolved.
-base-cast send $TOKEN_ADDRESS "unpause(uint8)" $(base-cast keccak "TRANSFER") \
-  --rpc-url $RPC_URL --private-key $UNPAUSER_KEY
+<CodeGroup>
+{/* sample: stablecoin-pause-ts */}
+```typescript TypeScript lines wrap expandable highlight={7}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function setTransfersPaused(token: Address, paused: boolean) {
+  await sendContract({
+    address: token,
+    abi: b20Abi,
+    functionName: paused ? "pause" : "unpause",
+    args: [[0]],
+  });
+  const current = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "isPaused", args: [0] });
+  if (current !== paused) throw new Error("Pause state did not change");
+}
 ```
+{/* sample: stablecoin-pause-cli */}
+```bash CLI lines wrap expandable highlight={1,4}
+base-cast send "$TOKEN_ADDRESS" "pause(uint8[])" "[0]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "isPaused(uint8)(bool)" 0 --rpc-url "$RPC_URL"
+base-cast send "$TOKEN_ADDRESS" "unpause(uint8[])" "[0]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+```
+</CodeGroup>
+
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+`isPaused(0)` returns `true` after pausing and `false` after resuming.
+</Check>
+
+<Warning>
+Transfer is enum value `0`. The function accepts an array; never pass a hash such as `keccak256("TRANSFER")`.
+</Warning>
 
 ## See also
 

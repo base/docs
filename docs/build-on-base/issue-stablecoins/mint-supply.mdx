@@ -12,19 +12,52 @@ When fiat lands in reserves, mint matching supply. Minting is gated by `MINT_ROL
 
 <StablecoinDemo flow="mint" />
 
-## Mint and cap
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal
-# Mint 1,000 MUSD (6 decimals) to a holder.
-base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $HOLDER 1000000000 \
-  --rpc-url $RPC_URL --private-key $MINTER_KEY
+## Mint and verify supply
 
-# Cap total supply. A mint past the cap reverts with SupplyCapExceeded.
-base-cast send $TOKEN_ADDRESS "updateSupplyCap(uint256)" 10000000000000 \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+<CodeGroup>
+{/* sample: stablecoin-mint-ts */}
+```typescript TypeScript lines wrap expandable highlight={8}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function mintAndVerify(token: Address, holder: Address) {
+  const amount = parseUnits("1000", 6);
+  await sendContract({ address: token, abi: b20Abi, functionName: "mint", args: [holder, amount] });
+  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [holder] });
+  if (balance < amount) throw new Error("Minted balance was not recorded");
+  return balance;
+}
 ```
+{/* sample: stablecoin-mint-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function mintStablecoin(address token, address holder) public {
+        IB20(token).mint(holder, 1_000e6);
+        require(IB20(token).balanceOf(holder) >= 1_000e6, "mint not recorded");
+    }
+```
+{/* sample: stablecoin-mint-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "mint(address,uint256)" "$HOLDER" 1000000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$HOLDER" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
 
-Use `mintWithMemo` to tag a mint with the reserve deposit it backs. See [Reconcile with memos](/build-on-base/issue-stablecoins/reconcile-with-memos).
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+The holder balance increases by `1,000,000,000` base units, or 1,000 MUSD.
+</Check>
+
+<Warning>
+The caller needs `MINT_ROLE`, the recipient must pass `MINT_RECEIVER_POLICY`, and the mint must remain under the supply cap.
+</Warning>
 
 ## See also
 

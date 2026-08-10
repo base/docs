@@ -12,46 +12,67 @@ Use the [B20 Asset variant](/base-chain/specs/upgrades/beryl/b20#asset) to repre
 
 <AssetDemo flow="create" />
 
-## Create the token
-
-Encode the Asset parameters and bootstrap configuration with `B20FactoryLib`, then call the B20 Factory:
-
-```solidity script/CreateStockToken.s.sol lines wrap highlight={12-13,26-28}
-address account = vm.envAddress("ACCOUNT_ADDRESS");
-
-B20FactoryLib.B20AssetRoleHolders memory holders = B20FactoryLib.B20AssetRoleHolders({
-    minter: account,
-    burner: address(0),
-    burnBlocker: account,
-    pauser: account,
-    unpauser: account,
-    metadataAdmin: account,
-    operator: account
-});
-bytes[] memory roleCalls = B20FactoryLib.buildRoleGrants(holders);
-
-bytes[] memory settings = new bytes[](2);
-settings[0] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e6);
-settings[1] = B20FactoryLib.encodeUpdateExtraMetadata(
-    "security-id", "EXAMPLE-CLASS-A"
-);
-
-bytes memory params = B20FactoryLib.encodeAssetCreateParams(
-    "Example Corp Class A", "EXM", account, 6
-);
-bytes[] memory initCalls = B20FactoryLib.concat(roleCalls, settings);
-
-token = StdPrecompiles.B20_FACTORY.createB20(
-    IB20Factory.B20Variant.ASSET,
-    keccak256("example-corp-class-a"),
-    params,
-    initCalls
-);
-```
-
 <Note>
-The supply cap is a technical ceiling on token supply. For Base Foundry setup, network configuration, imports, and broadcasting, complete [Launch a B20 token](/get-started/launch-b20-token) first.
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
+
+## Create and verify the stock token
+
+<CodeGroup>
+{/* sample: stock-create-ts */}
+```typescript TypeScript lines wrap expandable highlight={15}
+import { encodeAbiParameters, encodeFunctionData, keccak256, parseAbiParameters, parseEventLogs, stringToBytes } from "viem";
+import { account } from "../../shared/clients.js";
+import { B20_FACTORY, b20Abi, factoryAbi, role } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function createStockToken() {
+  const salt = keccak256(stringToBytes("example-class-a-v1"));
+  const params = encodeAbiParameters(
+    parseAbiParameters("(uint8 version,string name,string symbol,address initialAdmin,uint8 decimals)"),
+    [{ version: 1, name: "Example Corp Class A", symbol: "EXM", initialAdmin: account.address, decimals: 6 }],
+  );
+  const initCalls = ["MINT_ROLE", "BURN_BLOCKED_ROLE", "PAUSE_ROLE", "UNPAUSE_ROLE", "OPERATOR_ROLE"].map(
+    (name) => encodeFunctionData({ abi: b20Abi, functionName: "grantRole", args: [role(name), account.address] }),
+  );
+  const receipt = await sendContract({ address: B20_FACTORY, abi: factoryAbi, functionName: "createB20", args: [0, salt, params, initCalls] });
+  const [created] = parseEventLogs({ abi: factoryAbi, logs: receipt.logs, eventName: "B20Created" });
+  return created.args.token;
+}
+```
+{/* sample: stock-create-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function createStock(address admin) public returns (address token) {
+        B20FactoryLib.B20AssetRoleHolders memory holders = B20FactoryLib.B20AssetRoleHolders({
+            minter: admin,
+            burner: admin,
+            burnBlocker: admin,
+            pauser: admin,
+            unpauser: admin,
+            metadataAdmin: admin,
+            operator: admin
+        });
+        bytes[] memory settings = new bytes[](1);
+        settings[0] = B20FactoryLib.encodeUpdateSupplyCap(1_000_000e6);
+        token = StdPrecompiles.B20_FACTORY.createB20(
+            IB20Factory.B20Variant.ASSET,
+            keccak256("example-class-a-v1"),
+            B20FactoryLib.encodeAssetCreateParams("Example Corp Class A", "EXM", admin, 6),
+            B20FactoryLib.concat(B20FactoryLib.buildRoleGrants(holders), settings)
+        );
+    }
+```
+</CodeGroup>
+
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+The factory emits `B20Created` for the Asset variant and returns the deterministic token address.
+</Check>
+
+<Warning>
+The supply cap is a technical ceiling, not a representation of authorized or outstanding shares.
+</Warning>
 
 ## See also
 

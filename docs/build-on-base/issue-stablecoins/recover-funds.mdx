@@ -12,18 +12,55 @@ Occasionally you need to move a balance out of a blocked account — a holder wh
 
 <StablecoinDemo flow="recover" />
 
-## Reclaim and reissue
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal
-# The account must already be blocked (see Block an account).
-base-cast send $TOKEN_ADDRESS "burnBlocked(address,uint256)" $BLOCKED 50000000 \
-  --rpc-url $RPC_URL --private-key $RECOVERY_KEY
+## Burn and reissue the blocked balance
 
-base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $NEW_ADDRESS 50000000 \
-  --rpc-url $RPC_URL --private-key $MINTER_KEY
+<CodeGroup>
+{/* sample: stablecoin-recover-ts */}
+```typescript TypeScript lines wrap expandable highlight={8,9}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function recoverBlockedFunds(token: Address, blocked: Address, replacement: Address) {
+  const amount = parseUnits("50", 6);
+  await sendContract({ address: token, abi: b20Abi, functionName: "burnBlocked", args: [blocked, amount] });
+  await sendContract({ address: token, abi: b20Abi, functionName: "mint", args: [replacement, amount] });
+  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [replacement] });
+  if (balance < amount) throw new Error("Replacement balance was not issued");
+}
 ```
+{/* sample: stablecoin-recover-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function recoverStablecoin(address token, address blocked, address replacement) public {
+        IB20(token).burnBlocked(blocked, 50e6);
+        IB20(token).mint(replacement, 50e6);
+        require(IB20(token).balanceOf(replacement) >= 50e6, "replacement not funded");
+    }
+```
+{/* sample: stablecoin-recover-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "burnBlocked(address,uint256)" "$BLOCKED" 50000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast send "$TOKEN_ADDRESS" "mint(address,uint256)" "$REPLACEMENT" 50000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$REPLACEMENT" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
 
-Circulating supply is unchanged: you burn and remint the same amount. Tag both calls with a memo for an auditable trail.
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+The blocked balance falls and the replacement address receives the same amount, leaving circulating supply unchanged.
+</Check>
+
+<Warning>
+`burnBlocked` requires `BURN_BLOCKED_ROLE` and only succeeds while the source is denied by `TRANSFER_SENDER_POLICY`.
+</Warning>
 
 ## See also
 

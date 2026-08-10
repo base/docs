@@ -12,32 +12,61 @@ Bracket a holder-impacting action with an onchain description and supporting URI
 
 <AssetDemo flow="dividend" />
 
-## Announce and distribute
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```solidity script/AnnounceDividend.s.sol lines wrap highlight={9-10,12-17}
-IB20Asset token = IB20Asset(vm.envAddress("TOKEN_ADDRESS"));
-address[] memory recipients = new address[](2);
-uint256[] memory amounts = new uint256[](2);
-recipients[0] = vm.envAddress("ALICE_ADDRESS");
-recipients[1] = vm.envAddress("BOB_ADDRESS");
-amounts[0] = 30e6;
-amounts[1] = 20e6;
+## Announce and distribute the stock dividend
 
-bytes[] memory calls = new bytes[](1);
-calls[0] = abi.encodeCall(IB20Asset.batchMint, (recipients, amounts));
+<CodeGroup>
+{/* sample: stock-dividend-ts */}
+```typescript TypeScript lines wrap expandable highlight={9,13}
+import { encodeFunctionData, parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { assetAbi } from "../abi.js";
+import { sendContract } from "../write.js";
 
-vm.startBroadcast();
-token.announce(
-    calls,
-    "2026-stock-dividend-01",
-    "Five-percent stock dividend",
-    "https://example.com/corporate-actions/2026-01"
-);
-vm.stopBroadcast();
+export async function announceStockDividend(token: Address, holders: Address[]) {
+  const mint = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "batchMint",
+    args: [holders, [parseUnits("30", 6), parseUnits("20", 6)]],
+  });
+  const id = `dividend-${Date.now()}`;
+  await sendContract({
+    address: token,
+    abi: assetAbi,
+    functionName: "announce",
+    args: [[mint], id, "Five-percent stock dividend", "https://example.com/actions/dividend"],
+  });
+  const used = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "isAnnouncementIdUsed", args: [id] });
+  if (!used) throw new Error("Announcement was not recorded");
+}
 ```
+{/* sample: stock-dividend-solidity */}
+```solidity Solidity lines wrap expandable highlight={3,4}
+    function announceDividend(address token, address[] memory recipients, uint256[] memory amounts) public {
+        bytes[] memory calls = new bytes[](1);
+        calls[0] = abi.encodeCall(IB20Asset.batchMint, (recipients, amounts));
+        IB20Asset(token).announce(
+            calls,
+            "2026-stock-dividend-01",
+            "Five-percent stock dividend",
+            "https://example.com/corporate-actions/2026-01"
+        );
+        require(IB20Asset(token).isAnnouncementIdUsed("2026-stock-dividend-01"), "announcement missing");
+    }
+```
+</CodeGroup>
+
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+The unique announcement ID is marked used and the batch mint executes between `Announcement` and `EndAnnouncement`.
+</Check>
 
 <Note>
-The announcement ID can never be reused. This example distributes additional shares; the B20 call does not pay a cash dividend.
+This example issues additional shares. It does not distribute a cash dividend.
 </Note>
 
 ## See also

@@ -12,21 +12,63 @@ Sometimes you need to stop one address from moving your stablecoin — a complia
 
 <StablecoinDemo flow="block" />
 
-## Block, then unblock
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal
-REG=0x8453000000000000000000000000000000000002  # Policy Registry
+## Block and verify an account
 
-# Add an address to the blocklist bound to TRANSFER_SENDER. Takes effect immediately.
-base-cast send $REG "updateBlocklist(uint64,bool,address[])" $BLOCKLIST_ID true "[$ACCOUNT]" \
-  --rpc-url $RPC_URL --private-key $ADMIN_KEY
+<CodeGroup>
+{/* sample: stablecoin-block-ts */}
+```typescript TypeScript lines wrap expandable highlight={7,10}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { POLICY_REGISTRY, policyRegistryAbi } from "../abi.js";
+import { sendContract } from "../write.js";
 
-# When the hold clears, remove it.
-base-cast send $REG "updateBlocklist(uint64,bool,address[])" $BLOCKLIST_ID false "[$ACCOUNT]" \
-  --rpc-url $RPC_URL --private-key $ADMIN_KEY
+export async function setBlocked(policyId: bigint, holder: Address, blocked: boolean) {
+  await sendContract({
+    address: POLICY_REGISTRY,
+    abi: policyRegistryAbi,
+    functionName: "updateBlocklist",
+    args: [policyId, blocked, [holder]],
+  });
+  const authorized = await publicClient.readContract({
+    address: POLICY_REGISTRY,
+    abi: policyRegistryAbi,
+    functionName: "isAuthorized",
+    args: [policyId, holder],
+  });
+  if (authorized === blocked) throw new Error("Unexpected blocklist state");
+}
 ```
+{/* sample: stablecoin-block-solidity */}
+```solidity Solidity lines wrap expandable highlight={4}
+    function setBlocked(uint64 policyId, address holder, bool blocked) public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = holder;
+        StdPrecompiles.POLICY_REGISTRY.updateBlocklist(policyId, blocked, accounts);
+        require(StdPrecompiles.POLICY_REGISTRY.isAuthorized(policyId, holder) != blocked, "wrong policy state");
+    }
+```
+{/* sample: stablecoin-block-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$POLICY_REGISTRY" "updateBlocklist(uint64,bool,address[])" \
+  "$BLOCKLIST_ID" true "[$ACCOUNT]" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$POLICY_REGISTRY" "isAuthorized(uint64,address)(bool)" \
+  "$BLOCKLIST_ID" "$ACCOUNT" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
 
-Transfers from a blocked address revert with `PolicyForbids`. See [Restrict who can hold it](/build-on-base/issue-stablecoins/restrict-who-can-hold) to create and bind the policy.
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+`isAuthorized(policyId, account)` returns `false` while the account is blocked.
+</Check>
+
+<Warning>
+This only stops outgoing transfers when the blocklist is bound to `TRANSFER_SENDER_POLICY`. Unblock with the same call and `false`.
+</Warning>
 
 ## See also
 

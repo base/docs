@@ -12,19 +12,52 @@ Run a 2-for-1 stock split by setting the B20 Asset multiplier to `2e18`. Raw bal
 
 <AssetDemo flow="split" />
 
-## Update the multiplier
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal lines wrap
-# WAD precision is 1e18, so 2e18 represents a 2-for-1 multiplier.
-base-cast send $TOKEN_ADDRESS "updateMultiplier(uint256)" 2000000000000000000 \
-  --rpc-url $RPC_URL --private-key $OPERATOR_KEY
+## Apply and verify the split multiplier
 
-base-cast call $TOKEN_ADDRESS "scaledBalanceOf(address)(uint256)" \
-  $ALICE --rpc-url $RPC_URL
+<CodeGroup>
+{/* sample: stock-split-ts */}
+```typescript TypeScript lines wrap expandable highlight={7}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { assetAbi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function runTwoForOneSplit(token: Address, holder: Address) {
+  await sendContract({ address: token, abi: assetAbi, functionName: "updateMultiplier", args: [2n * 10n ** 18n] });
+  const multiplier = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "multiplier" });
+  const scaled = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "scaledBalanceOf", args: [holder] });
+  if (multiplier !== 2n * 10n ** 18n) throw new Error("Multiplier was not updated");
+  return scaled;
+}
 ```
+{/* sample: stock-split-solidity */}
+```solidity Solidity lines wrap expandable highlight={2}
+    function splitStock(address token, address holder) public returns (uint256 scaledBalance) {
+        IB20Asset(token).updateMultiplier(2e18);
+        require(IB20Asset(token).multiplier() == 2e18, "multiplier not updated");
+        scaledBalance = IB20Asset(token).scaledBalanceOf(holder);
+    }
+```
+{/* sample: stock-split-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "updateMultiplier(uint256)" 2000000000000000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "scaledBalanceOf(address)(uint256)" "$HOLDER" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+`multiplier()` returns `2e18`; raw balances remain unchanged while scaled balances double.
+</Check>
 
 <Warning>
-Integrations that present shares to users must distinguish raw token units from scaled balances and use B20's conversion helpers consistently.
+This guide targets Beryl `base-std@v1.0.0`. Integrations must distinguish raw ERC-20 units from scaled display balances.
 </Warning>
 
 ## See also

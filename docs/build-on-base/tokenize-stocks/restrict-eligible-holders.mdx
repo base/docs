@@ -12,30 +12,62 @@ Create an allowlist in the [Policy Registry](/base-chain/specs/upgrades/beryl/b2
 
 <AssetDemo flow="restrict" />
 
-## Apply the holder policy
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```solidity script/RestrictHolders.s.sol lines wrap highlight={8-9,13-15}
-IB20 token = IB20(vm.envAddress("TOKEN_ADDRESS"));
-address admin = vm.envAddress("ACCOUNT_ADDRESS");
+## Create and bind the eligibility policy
 
-address[] memory approved = new address[](2);
-approved[0] = vm.envAddress("ALICE_ADDRESS");
-approved[1] = vm.envAddress("BOB_ADDRESS");
+<CodeGroup>
+{/* sample: stock-restrict-ts */}
+```typescript TypeScript lines wrap expandable highlight={7,10}
+import { parseEventLogs, type Address } from "viem";
+import { account } from "../../shared/clients.js";
+import { POLICY_REGISTRY, b20Abi, policyRegistryAbi, scope } from "../abi.js";
+import { sendContract } from "../write.js";
 
-vm.startBroadcast();
-uint64 policyId = StdPrecompiles.POLICY_REGISTRY.createPolicy(
-    admin, IPolicyRegistry.PolicyType.ALLOWLIST
-);
-StdPrecompiles.POLICY_REGISTRY.updateAllowlist(policyId, true, approved);
-
-token.updatePolicy(B20Constants.MINT_RECEIVER_POLICY, policyId);
-token.updatePolicy(B20Constants.TRANSFER_SENDER_POLICY, policyId);
-token.updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, policyId);
-vm.stopBroadcast();
+export async function restrictStockHolders(token: Address, holders: Address[]) {
+  const receipt = await sendContract({ address: POLICY_REGISTRY, abi: policyRegistryAbi, functionName: "createPolicyWithAccounts", args: [account.address, 1, holders] });
+  const [created] = parseEventLogs({ abi: policyRegistryAbi, logs: receipt.logs, eventName: "PolicyCreated" });
+  for (const policyScope of [scope("MINT_RECEIVER_POLICY"), scope("TRANSFER_SENDER_POLICY"), scope("TRANSFER_RECEIVER_POLICY")]) {
+    await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [policyScope, created.args.policyId] });
+  }
+  return created.args.policyId;
+}
 ```
+{/* sample: stock-restrict-solidity */}
+```solidity Solidity lines wrap expandable highlight={2,5,6,7}
+    function restrictStock(address token, address admin, address[] memory holders) public returns (uint64 id) {
+        id = StdPrecompiles.POLICY_REGISTRY.createPolicyWithAccounts(
+            admin, IPolicyRegistry.PolicyType.ALLOWLIST, holders
+        );
+        IB20(token).updatePolicy(B20Constants.MINT_RECEIVER_POLICY, id);
+        IB20(token).updatePolicy(B20Constants.TRANSFER_SENDER_POLICY, id);
+        IB20(token).updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, id);
+    }
+```
+{/* sample: stock-restrict-cli */}
+```bash CLI lines wrap expandable highlight={2,7}
+CREATE_TX=$(base-cast send "$POLICY_REGISTRY" \
+  "createPolicyWithAccounts(address,uint8,address[])" "$ADMIN" 1 "[$ALICE,$BOB]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json | jq -r .transactionHash)
+POLICY_TOPIC=$(base-cast receipt "$CREATE_TX" --rpc-url "$RPC_URL" --json | jq -r '.logs[0].topics[1]')
+POLICY_ID=$(base-cast to-dec "$POLICY_TOPIC")
+for SCOPE in MINT_RECEIVER_POLICY TRANSFER_SENDER_POLICY TRANSFER_RECEIVER_POLICY; do
+  base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak "$SCOPE")" "$POLICY_ID" \
+    --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+done
+```
+</CodeGroup>
+
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+The same allowlist policy gates mint recipients, transfer senders, and transfer recipients.
+</Check>
 
 <Warning>
-An allowlist denies every account that is not a member. Confirm the policy exists and seed the intended holders before binding it to the token.
+Seed all intended holders before binding an allowlist. An unlisted account becomes ineligible immediately.
 </Warning>
 
 ## See also

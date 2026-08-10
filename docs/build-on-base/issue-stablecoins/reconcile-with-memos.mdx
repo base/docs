@@ -12,18 +12,51 @@ Tie onchain activity back to your books. A **memo** attaches a `bytes32` referen
 
 <StablecoinDemo flow="reconcile" />
 
-## Tag an operation
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal
-# Attach a reference, emitted as a Memo event right after the Transfer.
-MEMO=$(base-cast format-bytes32-string "invoice-8842")
-base-cast send $TOKEN_ADDRESS "transferWithMemo(address,uint256,bytes32)" \
-  $MERCHANT 25000000 $MEMO --rpc-url $RPC_URL --private-key $PAYER_KEY
+## Attach and read an invoice memo
+
+<CodeGroup>
+{/* sample: stablecoin-memo-ts */}
+```typescript TypeScript lines wrap expandable highlight={7,10}
+import { hexToString, parseEventLogs, parseUnits, stringToHex, type Address } from "viem";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function payWithMemo(token: Address, merchant: Address) {
+  const memo = stringToHex("invoice-8842", { size: 32 });
+  const receipt = await sendContract({
+    address: token,
+    abi: b20Abi,
+    functionName: "transferWithMemo",
+    args: [merchant, parseUnits("25", 6), memo],
+  });
+  const [event] = parseEventLogs({ abi: b20Abi, logs: receipt.logs, eventName: "Memo" });
+  return hexToString(event.args.memo, { size: 32 }).replace(/\0+$/, "");
+}
 ```
+{/* sample: stablecoin-memo-cli */}
+```bash CLI lines wrap expandable highlight={2}
+MEMO=$(base-cast format-bytes32-string "invoice-8842")
+TX=$(base-cast send "$TOKEN_ADDRESS" "transferWithMemo(address,uint256,bytes32)" \
+  "$MERCHANT" 25000000 "$MEMO" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json | jq -r .transactionHash)
+base-cast receipt "$TX" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
 
-Indexers join each `Memo` to its operation by `(transactionHash, logIndex − 1)`.
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+The receipt contains `Transfer` followed immediately by `Memo`, with `invoice-8842` encoded as `bytes32`.
+</Check>
+
+<Note>
+Join a memo to the preceding operation with `(transactionHash, logIndex - 1)`. Keep the offchain invoice ID unique.
+</Note>
 
 ## See also
 
-- [Accept a B20 payment](/build-on-base/accept-b20-payment) for the app-side flow
+- [Accept a B20 payment](/build-on-base/accept-payments/from-humans#accept-b20-with-a-memo) for the app-side flow
 - [Query B20 events with the CDP SQL API](https://docs.cdp.coinbase.com/data/sql-api/b20-events) to reconcile at scale

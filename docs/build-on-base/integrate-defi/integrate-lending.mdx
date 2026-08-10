@@ -16,11 +16,15 @@ Let users supply USDC to a third-party money market and manage the resulting pro
 
 These examples use `viem@2.55.11`, `@morpho-org/morpho-sdk@5.4.1`, `@moonwell-fi/moonwell-sdk@0.22.0`, and `@aave-dao/aave-address-book@4.65.5`.
 
+`clients.ts` creates pinned Base mainnet public and wallet clients from a server-side `PRIVATE_KEY`; every example imports those concrete clients and is type-checked in the [verified DeFi fixtures](https://github.com/base/docs/tree/master/examples/verified-doc-samples).
+
 <Tabs>
   <Tab title="Morpho">
     Supply to Morpho's WETH/USDC market. Fetching by market ID avoids hardcoding its oracle, interest-rate model, and LLTV parameters.
 
-    ```ts supply-morpho.ts lines wrap highlight={14-19,29-31}
+    {/* sample: defi-supply-morpho */}
+    ```typescript supply-morpho.ts lines wrap expandable highlight={5}
+    import { publicClient, walletClient } from './clients.js';
     import { type MarketId } from '@morpho-org/blue-sdk';
     import { fetchMarketParams } from '@morpho-org/blue-sdk-viem';
     import {
@@ -61,7 +65,9 @@ These examples use `viem@2.55.11`, `@morpho-org/morpho-sdk@5.4.1`, `@moonwell-fi
   <Tab title="Moonwell">
     Use the Moonwell SDK as the source of current Base deployment addresses, then call the USDC market with viem.
 
-    ```ts supply-moonwell.ts lines wrap highlight={13-16,24-27}
+    {/* sample: defi-supply-moonwell */}
+    ```typescript supply-moonwell.ts lines wrap expandable highlight={15,20,23,29}
+    import { publicClient, walletClient } from './clients.js';
     import { createMoonwellClient } from '@moonwell-fi/moonwell-sdk';
     import { parseAbi, parseUnits } from 'viem';
 
@@ -97,7 +103,9 @@ These examples use `viem@2.55.11`, `@morpho-org/morpho-sdk@5.4.1`, `@moonwell-fi
   <Tab title="Aave">
     Resolve the Base Pool and asset addresses from Aave's official address book, then approve and supply through the Aave V3 Pool with viem.
 
-    ```ts supply-aave.ts lines wrap highlight={9-12,18-23}
+    {/* sample: defi-supply-aave */}
+    ```typescript supply-aave.ts lines wrap expandable highlight={12,17,20,26}
+    import { publicClient, walletClient } from './clients.js';
     import { AaveV3Base } from '@aave-dao/aave-address-book';
     import { parseAbi, parseUnits } from 'viem';
 

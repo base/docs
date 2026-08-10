@@ -1,0 +1,70 @@
+---
+title: "Accept Subscriptions"
+keywords: ["USDC subscriptions Base", "recurring payments", "Base Pay subscriptions", "spend permissions billing"]
+description: "Create a recurring USDC spend permission, check its status, and charge it safely from your backend."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+A subscription is a revocable USDC spend permission. The customer approves a per-period maximum once; your backend checks the remaining allowance and charges only when payment is due.
+
+#### Demo
+
+<PaymentsDemo flow="subscribe" />
+
+Before rendering checkout, create the subscription-owner wallet with [`getOrCreateSubscriptionOwnerWallet()`](/sdks/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet) and expose only its public address to the browser.
+
+<Steps>
+  <Step title="Obtain customer approval">
+    {/* sample: subscribe-ts */}
+    ```typescript SubscriptionButton.ts lines wrap expandable highlight={2}
+    export async function subscribe(owner: Address) {
+      const subscription = await browserBase.subscription.subscribe({
+        recurringCharge: "29.99",
+        subscriptionOwner: owner,
+        periodInDays: 30,
+        testnet: true,
+      });
+      await fetch("/api/subscriptions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: subscription.id, payer: subscription.subscriptionPayer }),
+      });
+      return subscription.id;
+    }
+    ```
+  </Step>
+  <Step title="Check and charge from the backend">
+    {/* sample: charge-subscription-ts */}
+    ```typescript charge-subscription.ts lines wrap expandable highlight={5}
+    export async function chargeSubscription(id: `0x${string}`, merchant: Address) {
+      const status = await serverBase.subscription.getStatus({ id, testnet: true });
+      if (!status.isSubscribed) throw new Error("Subscription is no longer active");
+      if (Number(status.remainingChargeInPeriod ?? "0") <= 0) return { charged: false };
+      const result = await serverBase.subscription.charge({
+        id,
+        amount: "max-remaining-charge",
+        recipient: merchant,
+        testnet: true,
+        paymasterUrl: process.env.PAYMASTER_URL,
+      });
+      return { charged: true, transactionHash: result.id };
+    }
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Keep CDP credentials and wallet secrets on the server. Persist subscription IDs, make scheduled charges idempotent, stop retrying cancelled permissions, and distinguish an exhausted current period from a failed transaction.
+</Warning>
+
+<Check>
+The backend charges at most the remaining period allowance and records the returned transaction hash before marking the invoice paid.
+</Check>
+
+See the [complete verified subscription fixture](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for client and backend project setup.
+
+## See also
+
+- [Accept payments from humans](/build-on-base/accept-payments/from-humans)
+- [`subscribe()`](/sdks/base-account/reference/base-pay/subscribe) · [`charge()`](/sdks/base-account/reference/base-pay/charge)

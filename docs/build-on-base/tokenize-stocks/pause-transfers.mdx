@@ -12,23 +12,44 @@ Pause the `TRANSFER` feature during an incident without stopping issuance or can
 
 <AssetDemo flow="pause" />
 
-## Pause and resume transfers
+<Note>
+Complete [Launch a B20 token](/get-started/launch-b20-token) first. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
 
-```bash Terminal lines wrap
-# PausableFeature.TRANSFER is enum value 0. The function accepts an array.
-base-cast send $TOKEN_ADDRESS "pause(uint8[])" "[0]" \
-  --rpc-url $RPC_URL --private-key $PAUSER_KEY
+## Pause and resume stock transfers
 
-# Mint remains available because only TRANSFER is paused.
-base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $BOB 25000000 \
-  --rpc-url $RPC_URL --private-key $MINTER_KEY
+<CodeGroup>
+{/* sample: stock-pause-ts */}
+```typescript TypeScript lines wrap expandable highlight={7}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
 
-base-cast send $TOKEN_ADDRESS "unpause(uint8[])" "[0]" \
-  --rpc-url $RPC_URL --private-key $UNPAUSER_KEY
+export async function setStockTransfersPaused(token: Address, paused: boolean) {
+  await sendContract({ address: token, abi: b20Abi, functionName: paused ? "pause" : "unpause", args: [[0]] });
+  const current = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "isPaused", args: [0] });
+  if (current !== paused) throw new Error("Unexpected transfer pause state");
+}
 ```
+{/* sample: stock-pause-cli */}
+```bash CLI lines wrap expandable highlight={1,4}
+base-cast send "$TOKEN_ADDRESS" "pause(uint8[])" "[0]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "isPaused(uint8)(bool)" 0 --rpc-url "$RPC_URL"
+base-cast send "$TOKEN_ADDRESS" "unpause(uint8[])" "[0]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+```
+</CodeGroup>
+
+See the [complete verified B20 examples](https://github.com/base/docs/tree/master/examples/verified-doc-samples) for imports, client construction, and runnable projects.
+
+<Check>
+Transfer pause state changes without pausing mint or burn.
+</Check>
 
 <Note>
-Pausing transfers does not pause mint, burn, or any future feature added to the enum. Pause each operation class explicitly.
+Pause and unpause use separate roles. Grant recovery authority more narrowly than emergency pause authority.
 </Note>
 
 ## See also

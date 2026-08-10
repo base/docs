@@ -67,13 +67,13 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|build-on-base:accept-b20-payment,overview,test-on-vibenet
-|build-on-base/agentic-payments:accept-a-payment,accept-subscriptions,collect-payer-info,pay-for-apis-with-x402,verify-a-payment
+|build-on-base:overview,test-on-vibenet
+|build-on-base/accept-payments:accept-subscriptions,collect-payer-info,from-agents,from-humans,verify-a-payment
 |build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |build-on-base/ledgers:deposit,transfer,withdraw
 |build-on-base/tokenize-stocks:announce-a-stock-dividend,cancel-blocked-shares,create-a-stock-token,issue-shares,pause-transfers,restrict-eligible-holders,run-a-stock-split
-|get-started:agentic-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,integrate-defi,issue-stablecoins,launch-b20-token,launch-token,learning-resources,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks
+|get-started:accept-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,integrate-defi,issue-stablecoins,launch-b20-token,launch-token,learning-resources,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks
 |root:changes,contribution-guidelines,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
 |sdks:overview
 |sdks/base-account:overview
