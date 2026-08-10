@@ -327,13 +327,23 @@ function checkMintlifyComponents(content, filePath) {
       }
     }
 
-    // Check for img without alt
+    // Check for img without alt (img tag may span multiple lines)
     if (line.includes("<img") && !line.includes("alt=")) {
-      issues.push({
-        line: i + 1,
-        severity: "warning",
-        message: "<img> should have `alt` attribute",
-      });
+      let tagText = line;
+      let hasAlt = tagText.includes("alt=");
+      let k = i;
+      while (!hasAlt && !tagText.includes(">") && k < lines.length - 1) {
+        k++;
+        tagText += lines[k];
+        hasAlt = tagText.includes("alt=");
+      }
+      if (!hasAlt) {
+        issues.push({
+          line: i + 1,
+          severity: "warning",
+          message: "<img> should have `alt` attribute",
+        });
+      }
     }
   }
 
