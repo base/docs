@@ -1,0 +1,55 @@
+---
+title: "IPolicyRegistry.createCompositePolicy"
+description: "Generated B20 reference for createCompositePolicy(address,PolicyType,uint64[])."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes)
+
+## Signature
+
+```solidity
+function createCompositePolicy(address admin, PolicyType policyType, uint64[] calldata childPolicyIds) external returns (uint64 newPolicyId);
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xc341f3f0` |
+| Canonical signature | `createCompositePolicy(address,PolicyType,uint64[])` |
+
+## Description
+
+Creates a new composite policy that combines existing simple policies under a logic
+gate.
+Dev: Child policies must be simple policies (ALLOWLIST or BLOCKLIST), never another composite.
+The child-policy set is capped at 4.
+Dev: Reverts with `IncompatiblePolicyType` when `policyType` is not UNION or INTERSECT.
+Dev: Reverts with `ZeroAddress` when `admin` is `address(0)`.
+Dev: Reverts with `ChildPoliciesOutsideOfRange(2, 4)` when `childPolicyIds.length` is not in `[2, 4]`.
+Dev: Reverts with `PolicyNotFound` when any child policy does not exist.
+Dev: Reverts with `InvalidChildPolicy` when any child policy is not a simple policy or a built-in policy.
+Dev: Panics with arithmetic overflow (Panic 0x11) when the policy counter has reached its maximum value.
+Param: admin          Initial admin authorized to update child policies and transfer or renounce
+administration.
+Param: policyType     UNION or INTERSECT.
+Param: childPolicyIds Existing simple policy IDs to combine.
+Return: newPolicyId The newly assigned composite policy ID.
+
+## Access control
+
+Permissionless creation, but state-changing registry calls require the feature to be active.
+
+## Policy interaction
+
+This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+
+## Example
+
+```solidity
+IPolicyRegistry(target).createCompositePolicy(arg0, arg1, arg2);
+```
+
+## Related
+
+- [IPolicyRegistry reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IPolicyRegistry)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

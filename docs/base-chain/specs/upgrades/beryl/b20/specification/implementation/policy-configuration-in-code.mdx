@@ -1,0 +1,129 @@
+---
+title: "Policy configuration in code"
+description: "Read, audit, create, update, and bind B20 PolicyRegistry policies from Solidity."
+---
+
+B20 policy configuration has two parts:
+
+1. Read each token scope with `token.policyId(scope)`.
+2. Read or write the pointed-to policy in the singleton PolicyRegistry.
+
+## Audit a token's policy scopes
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {Script, console2} from "forge-std/Script.sol";
+import {IB20} from "base-std/interfaces/IB20.sol";
+import {IPolicyRegistry} from "base-std/interfaces/IPolicyRegistry.sol";
+import {B20Constants} from "base-std/lib/B20Constants.sol";
+import {StdPrecompiles} from "base-std/StdPrecompiles.sol";
+
+contract AuditB20Policies is Script {
+    bytes32[5] internal scopes = [
+        B20Constants.TRANSFER_SENDER_POLICY,
+        B20Constants.TRANSFER_RECEIVER_POLICY,
+        B20Constants.TRANSFER_EXECUTOR_POLICY,
+        B20Constants.MINT_RECEIVER_POLICY,
+        B20Constants.SEIZE_HOLDER_POLICY
+    ];
+
+    function run(address tokenAddress, address accountToCheck) external view {
+        IB20 token = IB20(tokenAddress);
+        IPolicyRegistry registry = StdPrecompiles.POLICY_REGISTRY;
+
+        for (uint256 i; i < scopes.length; i++) {
+            uint64 id = token.policyId(scopes[i]);
+            console2.logBytes32(scopes[i]);
+            console2.log("policyId", id);
+            console2.log("exists", id == 0 || registry.policyExists(id));
+            console2.log("authorized", registry.isAuthorized(id, accountToCheck));
+            console2.log("admin", registry.policyAdmin(id));
+            console2.log("pendingAdmin", registry.pendingPolicyAdmin(id));
+        }
+    }
+}
+```
+
+Interpretation:
+
+| Value | Meaning |
+|---|---|
+| `0` | `ALWAYS_ALLOW`; the scope is wide open. |
+| Top byte `0` | `BLOCKLIST`; empty/uncreated behaves authorized by default. |
+| Top byte `1` | `ALLOWLIST`; empty/uncreated behaves denied by default. |
+| Top byte `2` | `UNION`; composite policy. |
+| Top byte `3` | `INTERSECT`; composite policy. |
+
+<Warning>
+Validate `policyExists(policyId)` before binding a scope. `isAuthorized` does not revert for missing IDs.
+</Warning>
+
+## Create and bind a simple policy
+
+```solidity
+IPolicyRegistry registry = StdPrecompiles.POLICY_REGISTRY;
+IB20 token = IB20(tokenAddress);
+
+address[] memory initialMembers = new address[](1);
+initialMembers[0] = treasury;
+
+uint64 mintAllowlist = registry.createPolicyWithAccounts(
+    policyAdmin,
+    IPolicyRegistry.PolicyType.ALLOWLIST,
+    initialMembers
+);
+
+require(registry.policyExists(mintAllowlist), "policy missing");
+token.updatePolicy(B20Constants.MINT_RECEIVER_POLICY, mintAllowlist);
+```
+
+## Update membership
+
+```solidity
+address[] memory accounts = new address[](2);
+accounts[0] = alice;
+accounts[1] = bob;
+
+// ALLOWLIST: true adds authorization; false removes it.
+registry.updateAllowlist(mintAllowlist, true, accounts);
+
+// BLOCKLIST: true blocks; false unblocks.
+registry.updateBlocklist(transferBlocklist, true, accounts);
+```
+
+## Create a composite policy
+
+```solidity
+uint64[] memory children = new uint64[](2);
+children[0] = kycAllowlist;
+children[1] = sanctionsBlocklist;
+
+uint64 policyId = registry.createCompositePolicy(
+    policyAdmin,
+    IPolicyRegistry.PolicyType.INTERSECT,
+    children
+);
+
+token.updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, policyId);
+```
+
+## Transfer or freeze policy administration
+
+```solidity
+// Current admin stages a transfer.
+registry.stageUpdateAdmin(policyId, newAdmin);
+
+// Pending admin accepts it.
+vm.prank(newAdmin);
+registry.finalizeUpdateAdmin(policyId);
+
+// Irreversible: freezes policy membership forever.
+registry.renounceAdmin(policyId);
+```
+
+<CardGroup cols={2}>
+  <Card title="Policies & scopes" href="/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes" />
+  <Card title="IPolicyRegistry reference" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IPolicyRegistry" />
+</CardGroup>

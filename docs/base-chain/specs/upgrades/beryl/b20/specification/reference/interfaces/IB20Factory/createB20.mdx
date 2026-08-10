@@ -1,0 +1,70 @@
+---
+title: "IB20Factory.createB20"
+description: "Generated B20 reference for createB20(B20Variant,bytes32,bytes,bytes[])."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/implementation/deployment-and-initcalls-encoding)
+
+## Signature
+
+```solidity
+function createB20(B20Variant variant, bytes32 salt, bytes calldata params, bytes[] calldata initCalls) external payable returns (address token);
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xb263cb84` |
+| Canonical signature | `createB20(B20Variant,bytes32,bytes,bytes[])` |
+
+## Description
+
+Creates a B-20 token of the given `variant` at the deterministic address derived
+from `(variant, msg.sender, salt)`, then dispatches each entry in `initCalls` on
+the new token. Emits `B20Created`.
+Dev: Reverts with `NonPayable` when ETH is attached to the call.
+Dev: Reverts with IActivationRegistry.FeatureNotActivated when the variant feature is not activated.
+Dev: Reverts with `InvalidVariant` when `variant` is outside the `B20Variant` range.
+Dev: Reverts with `UnsupportedVersion` when the leading `version` byte in `params` is unrecognized for `variant`.
+Dev: Reverts with `MissingRequiredField` when a required string field is empty (e.g. stablecoin `currency`).
+Dev: Reverts with `InvalidCurrency` when a stablecoin `currency` is non-empty but contains a non-`A`-`Z` byte.
+Dev: Reverts with `InvalidDecimals` when an asset `decimals` is outside `[B20Constants.MIN_ASSET_DECIMALS, B20Constants.MAX_ASSET_DECIMALS]`.
+Dev: Reverts with `TokenAlreadyExists` when a token already exists at the derived address.
+Dev: Reverts with `InitCallFailed` (or the bubbled inner reason) when any entry in `initCalls` reverts.
+Dev: Each `initCall` executes on the new token within the creation (bootstrap) window, during which
+factory-originated calls bypass the token's role gates and its transfer-side policy gates
+(`TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`, `TRANSFER_EXECUTOR_POLICY`) — so admin-gated
+setup (e.g. `grantRole`, `updatePolicy`, `updateSupplyCap`) and bootstrap transfers succeed without
+the factory holding any role. The bypass is deliberately NOT total:
+- `MINT_RECEIVER_POLICY` is ALWAYS enforced, including for factory-originated mints, so new supply is
+never issued to a policy-denied recipient even at creation. An `initCalls` bundle that sets a
+restrictive `MINT_RECEIVER_POLICY` and then mints to a non-authorized account reverts
+`PolicyForbids(MINT_RECEIVER_POLICY, ...)` (bubbled out of `createB20`).
+- Pause is never bypassed. It defaults to nothing-paused at creation, so a start-paused
+configuration must sequence its `pause(...)` call last among the `initCalls`.
+- Token invariants (supply-cap math, balance accounting) are never bypassed.
+The window closes when `createB20` returns; the factory retains no persisted access.
+Param: variant   Which variant struct `params` decodes as.
+Param: salt      Caller-chosen salt for deterministic address derivation.
+Param: params    ABI-encoded variant-specific creation struct, leading with the version byte.
+Param: initCalls Bootstrap calls invoked on the new token after identity is sealed.
+Return: token The address of the newly created token.
+
+## Access control
+
+Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+
+## Policy interaction
+
+No direct policy interaction.
+
+## Example
+
+```solidity
+address token = StdPrecompiles.B20_FACTORY.createB20(variant, salt, params, initCalls);
+```
+
+## Related
+
+- [IB20Factory reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Factory)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)
