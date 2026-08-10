@@ -273,12 +273,21 @@ function checkMintlifyComponents(content, filePath) {
       }
     }
 
-    // Check opening tags
-    const openTagMatch = line.match(/<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)(\s[^>]*)?\/?>/);
+    // Check opening tags (tag name may be on its own line, with
+    // attributes like title= spread across the following lines)
+    let effectiveLine = line;
+    if (/^\s*<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)\s*$/.test(line)) {
+      let j = i;
+      while (!effectiveLine.includes(">") && j < lines.length - 1) {
+        j++;
+        effectiveLine += " " + lines[j];
+      }
+    }
+    const openTagMatch = effectiveLine.match(/<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)(\s[^>]*)?\/?>/);
     if (openTagMatch) {
       const tag = openTagMatch[1];
       const attrs = openTagMatch[2] || "";
-      const isSelfClosing = line.includes("/>");
+      const isSelfClosing = effectiveLine.includes("/>");
 
       // Check required attributes
       if (requiredAttrs[tag]) {
