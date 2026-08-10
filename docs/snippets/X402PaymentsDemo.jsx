@@ -1,254 +1,66 @@
 export const X402PaymentsDemo = () => {
-  const sans  = "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
-  const serif = "'Tiempos Headline','Iowan Old Style','Source Serif Pro',ui-serif,Georgia,serif";
-  const mono  = "ui-monospace,'SF Mono','Cascadia Code',Menlo,Monaco,Consolas,monospace";
+  // No imports allowed in Mintlify snippets: useState/useEffect/useRef are injected globally.
+  const sans = "'Base Sans','Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+  const mono = "'Base Mono','Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 
-  const c = {
-    bg: "#1f1e1d", header: "#262624", border: "#34322f", inputBg: "#2a2926",
-    text: "#f5f4ed", body: "#e8e4dc", muted: "#a8a39d", dim: "#6b6663",
-    accent: "#D97757", bubble: "#2c2b28", bubbleText: "#f5f4ed",
-    code: "#e89972", codeBg: "rgba(217,119,87,0.12)",
-    toolBg: "#272622", toolBorder: "#3a3835", success: "#a3c585",
+  // Locked Base palette — light product surface regardless of host docs theme.
+  const C = {
+    blue: "#0000ff", onBlue: "#ffffff", cerulean: "#3c8aff",
+    ink: "#0a0b0d", body: "#32353d", sec: "#5b616e", sub: "#717886",
+    border: "#dee1e7", panel: "#eef0f3", white: "#ffffff",
+    success: "#66c800", error: "#fc401f",
+    blueSoft: "rgba(0,0,255,.06)", successSoft: "rgba(102,200,0,.14)",
   };
 
-  const ACCENT = "#D97757";
-
-  const CBAvatar = () => (
-    <div style={{
-      width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
-      background: "radial-gradient(circle at 35% 30%, #5d8cff 0%, #2949d8 80%)",
-      position: "relative", overflow: "hidden",
-    }}>
-      <span style={{ position: "absolute", top: 6, left: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
-      <span style={{ position: "absolute", top: 6, right: 5, width: 3, height: 3.5, borderRadius: "50%", background: "#fff" }} />
-      <span style={{ position: "absolute", bottom: 3.5, left: "50%", transform: "translateX(-50%)", width: 3.5, height: 4, borderRadius: "50%", background: "#1a1208" }} />
-    </div>
-  );
-
-  const SignAvatar = () => (
-    <div style={{
-      width: 46, height: 46, borderRadius: "50%",
-      background: "linear-gradient(135deg, #a796f7 0%, #7c5ae8 100%)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      border: "1.5px solid rgba(255,255,255,0.10)",
-      boxShadow: "0 0 0 5px rgba(167,150,247,0.14)",
-      flexShrink: 0,
-    }}>
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-      </svg>
-    </div>
-  );
-
-  const ApprovalButton = ({ preview, onApprove }) => {
-    const [hover, setHover] = useState(false);
-    return (
-      <div style={{ marginBottom: 10, marginTop: 4 }}>
-        <button
-          onClick={() => onApprove(preview)}
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            background: hover ? "rgba(217,119,87,0.18)" : "rgba(217,119,87,0.10)",
-            border: `1px solid ${ACCENT}`,
-            borderRadius: 8, padding: "9px 14px",
-            cursor: "pointer", color: ACCENT,
-            fontFamily: sans, fontSize: 13.5, fontWeight: 600,
-            boxShadow: hover ? `0 0 0 3px rgba(217,119,87,0.18)` : `0 0 0 3px rgba(217,119,87,0.08)`,
-            transition: "all 0.15s ease",
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <rect x="3" y="11" width="18" height="11" rx="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-          Approve Signature
-        </button>
-      </div>
-    );
-  };
-
-  const TxModal = ({ preview, onConfirm, onCancel }) => {
-    const mbg    = "#0a0a0a";
-    const mcard  = "#1a1816";
-    const mhair  = "#1f1d1b";
-    const mwhite = "#ffffff";
-    const mvalue = "#a09b95";
-    const msub   = "#7a7470";
-
-    const DetailRow = ({ label, value, monoValue }) => (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "4px 0" }}>
-        <span style={{ fontFamily: sans, fontSize: 12.5, color: mwhite }}>{label}</span>
-        <span style={{ fontFamily: monoValue ? mono : sans, fontSize: 13, color: mvalue, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
-      </div>
-    );
-
-    const FieldRow = ({ label, right }) => (
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 16px",
-      }}>
-        <span style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 500, color: mwhite }}>{label}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{right}</div>
-      </div>
-    );
-
-    return (
-      <div
-        onClick={onCancel}
-        style={{
-          position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-          zIndex: 50,
-          background: "rgba(0,0,0,0.78)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          backdropFilter: "blur(3px)",
-          padding: 14,
-        }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{
-            background: mbg,
-            borderRadius: 16,
-            border: `1px solid ${mhair}`,
-            width: 320, maxWidth: "100%",
-            maxHeight: "calc(100% - 8px)",
-            overflowY: "auto",
-            boxShadow: "0 24px 80px rgba(0,0,0,0.85)",
-          }}
-        >
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "14px 16px 12px",
-            borderBottom: `1px solid ${mhair}`,
-          }}>
-            <span style={{ fontFamily: sans, fontSize: 17, fontWeight: 700, color: mwhite, letterSpacing: 0 }}>
-              Sign
-            </span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#d4d0ca" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-          </div>
-
-          <div style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "6px 16px",
-            background: "rgba(217,119,87,0.10)",
-            borderBottom: `1px solid rgba(217,119,87,0.18)`,
-          }}>
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke={ACCENT} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-            </svg>
-            <span style={{ fontFamily: sans, fontSize: 10.5, color: ACCENT, fontWeight: 700, letterSpacing: 0, whiteSpace: "nowrap" }}>
-              DEMO · Not a real signature
-            </span>
-          </div>
-
-          <div style={{ background: mcard, borderBottom: `1px solid ${mhair}` }}>
-            <div style={{ padding: "16px 16px 14px", textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-                <SignAvatar />
-              </div>
-              <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 700, color: mwhite, letterSpacing: 0 }}>
-                Sign x402 payment
-              </div>
-              <div style={{ fontFamily: sans, fontSize: 11.5, color: msub, marginTop: 3 }}>
-                Payment authorization
-              </div>
-              <div style={{ height: 1, background: mhair, margin: "12px 0 8px" }} />
-              <DetailRow label="Amount" value={preview.amount} />
-              <DetailRow label="Endpoint" value={preview.endpoint} monoValue />
-              <DetailRow label="Request ID" value={preview.requestId} monoValue />
-            </div>
-          </div>
-
-          <div style={{ padding: "4px 0" }}>
-            <FieldRow
-              label="Signing with"
-              right={
-                <>
-                  <CBAvatar />
-                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>0x71Dc…7244</span>
-                </>
-              }
-            />
-            <FieldRow
-              label="Network"
-              right={
-                <>
-                  <div style={{ width: 16, height: 16, borderRadius: 4, background: "#0052FF", flexShrink: 0 }} />
-                  <span style={{ fontFamily: sans, fontSize: 13, color: mvalue }}>{preview.network}</span>
-                </>
-              }
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 8, padding: "12px 16px 16px" }}>
-            <button
-              onClick={onCancel}
-              onMouseEnter={e => { e.currentTarget.style.background = "#3a3835"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#2a2826"; }}
-              style={{
-                flex: 1, padding: "12px 0",
-                background: "#2a2826", border: "none",
-                borderRadius: 12, cursor: "pointer",
-                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#ffffff",
-                transition: "background 0.15s ease",
-              }}
-            >Cancel</button>
-            <button
-              onClick={onConfirm}
-              onMouseEnter={e => { e.currentTarget.style.background = "#1a4fd6"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#0052FF"; }}
-              style={{
-                flex: 1, padding: "12px 0",
-                background: "#0052FF", border: "none",
-                borderRadius: 12, cursor: "pointer",
-                fontFamily: sans, fontSize: 14, fontWeight: 700, color: "#fff",
-                transition: "background 0.15s ease",
-              }}
-            >Confirm</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
+  // Conversation script. Reveal pauses on an `approval` event until the user
+  // confirms the transaction-review modal, then resumes.
   const examples = [
     {
       prompt: "Call this x402 endpoint and pay up to 0.05 USDC",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 650, type: "tool", tool: { server: "base-mcp", action: "initiate_x402_request", args: { url: "https://api.example.com/report", method: "GET", maxPayment: "0.05" } } },
-        { delay: 600, type: "text", text: "The endpoint requested 0.02 USDC on Base, within your cap. Sign the payment authorization to continue:" },
-        { delay: 250, type: "approval", preview: { type: "sign-x402", amount: "0.02 USDC", endpoint: "api.example.com/report", network: "Base", requestId: "req_x402_7fa" } },
-        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "complete_x402_request", args: { requestId: "req_x402_7fa" } } },
-        { delay: 500, type: "text", text: "Paid request completed. Response summary:" },
-        { delay: 250, type: "rows", rows: [
-          { token: "Status", amount: "200 OK", value: "request replayed with x402 payment" },
-          { token: "Cost", amount: "0.02 USDC", value: "paid on Base" },
-          { token: "Data", amount: "ready", value: "report payload returned" },
-        ]},
-        { delay: 400, type: "confirm", text: "x402 request complete" },
+        { delay: 460, type: "text", text: "I'll call the endpoint through the Base MCP and pay only if it's within your cap." },
+        { delay: 650, type: "tool", tool: { server: "base-mcp", name: "initiate_x402_request", desc: "Sends the request and reads any x402 payment challenge.", args: { url: "https://api.example.com/report", method: "GET", maxPayment: "0.05" } } },
+        { delay: 520, type: "text", text: "The endpoint requested 0.02 USDC on Base, within your cap. Sign the payment authorization to continue:" },
+        { delay: 220, type: "approval", preview: {
+          title: "Sign x402 payment", subtitle: "You are authorizing a pay-per-call request.",
+          amount: "0.02 USDC", fiat: "$0.02",
+          rows: [["From", "0x71Dc…7244", true], ["Endpoint", "api.example.com/report", true], ["Network", "Base Mainnet", false]],
+          meta: [["Payment cap", "0.05 USDC"], ["Request ID", "req_x402_7fa"]],
+          confirm: "Sign & pay",
+        } },
+        { delay: 520, type: "tool", tool: { server: "base-mcp", name: "complete_x402_request", desc: "Replays the request with the signed payment attached.", args: { requestId: "req_x402_7fa" } } },
+        { delay: 460, type: "text", text: "Paid request completed. Response summary:" },
+        { delay: 220, type: "rows", cols: ["field", "value", "detail"], rows: [
+          ["Status", "200 OK", "replayed with x402 payment"],
+          ["Cost", "0.02 USDC", "paid on Base"],
+          ["Data", "ready", "report payload returned"],
+        ] },
+        { delay: 380, type: "confirm", text: "x402 request complete — 0.02 USDC paid." },
       ],
     },
     {
       prompt: "POST this payload and cap the x402 payment at 1 USDC",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 650, type: "tool", tool: { server: "base-mcp", action: "initiate_x402_request", args: { url: "https://data.example.com/query", method: "POST", maxPayment: "1.00", body: { query: "base activity" } } } },
-        { delay: 600, type: "text", text: "Payment required: 0.15 USDC on Base Sepolia. Sign the wallet authorization before the request is replayed." },
-        { delay: 250, type: "approval", preview: { type: "sign-x402", amount: "0.15 USDC", endpoint: "data.example.com/query", network: "Base Sepolia", requestId: "req_x402_91c" } },
-        { delay: 550, type: "tool", tool: { server: "base-mcp", action: "complete_x402_request", args: { requestId: "req_x402_91c" } } },
-        { delay: 500, type: "text", text: "The paid API returned structured JSON:" },
-        { delay: 250, type: "rows", rows: [
-          { token: "Rows", amount: "128", value: "matching activity records" },
-          { token: "Window", amount: "24h", value: "latest Base activity" },
-          { token: "Cost", amount: "0.15 USDC", value: "below the 1.00 USDC cap" },
-        ]},
-        { delay: 400, type: "confirm", text: "POST request paid and completed" },
+        { delay: 460, type: "text", text: "I'll POST the payload and settle the x402 charge up to your 1 USDC cap." },
+        { delay: 650, type: "tool", tool: { server: "base-mcp", name: "initiate_x402_request", desc: "Sends the request and reads any x402 payment challenge.", args: { url: "https://data.example.com/query", method: "POST", maxPayment: "1.00" } } },
+        { delay: 520, type: "text", text: "Payment required: 0.15 USDC on Base Sepolia. Sign the authorization before the request is replayed." },
+        { delay: 220, type: "approval", preview: {
+          title: "Sign x402 payment", subtitle: "You are authorizing a pay-per-call request.",
+          amount: "0.15 USDC", fiat: "$0.15",
+          rows: [["From", "0x71Dc…7244", true], ["Endpoint", "data.example.com/query", true], ["Network", "Base Sepolia", false]],
+          meta: [["Payment cap", "1.00 USDC"], ["Request ID", "req_x402_91c"]],
+          confirm: "Sign & pay",
+        } },
+        { delay: 520, type: "tool", tool: { server: "base-mcp", name: "complete_x402_request", desc: "Replays the request with the signed payment attached.", args: { requestId: "req_x402_91c" } } },
+        { delay: 460, type: "text", text: "The paid API returned structured JSON:" },
+        { delay: 220, type: "rows", cols: ["field", "value", "detail"], rows: [
+          ["Rows", "128", "matching activity records"],
+          ["Window", "24h", "latest Base activity"],
+          ["Cost", "0.15 USDC", "below the 1.00 USDC cap"],
+        ] },
+        { delay: 380, type: "confirm", text: "POST request paid and completed." },
       ],
     },
   ];
@@ -260,213 +72,264 @@ export const X402PaymentsDemo = () => {
   const timersRef = useRef([]);
 
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
-
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [eventIdx, activeIdx]);
   useEffect(() => () => clearTimers(), []);
 
+  // Schedule reveals from `start`; stop after queuing an approval event (waits for confirm).
   const scheduleFrom = (idx, start) => {
-    let cumulative = 0;
+    let cum = 0;
     const events = examples[idx].events;
     for (let i = start; i < events.length; i++) {
-      cumulative += events[i].delay;
-      timersRef.current.push(setTimeout(() => setEventIdx(i + 1), cumulative));
+      cum += events[i].delay;
+      timersRef.current.push(setTimeout(() => setEventIdx(i + 1), cum));
       if (events[i].type === "approval") break;
     }
   };
-
-  const pick = (idx) => {
-    if (activeIdx !== null) return;
-    setActiveIdx(idx);
-    setEventIdx(0);
-    clearTimers();
-    scheduleFrom(idx, 0);
-  };
-
-  const handleConfirm = () => {
-    setModalPreview(null);
-    if (activeIdx === null) return;
-    clearTimers();
-    scheduleFrom(activeIdx, eventIdx);
-  };
-
+  const pick = (idx) => { if (activeIdx !== null) return; setActiveIdx(idx); setEventIdx(0); clearTimers(); scheduleFrom(idx, 0); };
+  const handleConfirm = () => { setModalPreview(null); if (activeIdx === null) return; clearTimers(); scheduleFrom(activeIdx, eventIdx); };
   const reset = () => { clearTimers(); setActiveIdx(null); setEventIdx(0); setModalPreview(null); };
   const ex = activeIdx !== null ? examples[activeIdx] : null;
 
-  const TrafficLights = () => (
-    <div style={{ display: "flex", gap: 6, marginRight: 14 }}>
-      <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#ed6a5e", display: "inline-block" }} />
-      <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#f5bf4f", display: "inline-block" }} />
-      <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#61c554", display: "inline-block" }} />
-    </div>
+  const BaseAvatar = ({ size = 22 }) => (
+    <img src="/images/brand/base-square-blue.svg" alt="" aria-hidden="true" style={{ width: size, height: size, flexShrink: 0 }} />
   );
 
-  const UserBubble = ({ children }) => (
-    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
-      <div className="x402-bubble" style={{ background: c.bubble, color: c.bubbleText, padding: "12px 16px", borderRadius: 14, fontFamily: sans, lineHeight: 1.45, border: `1px solid ${c.toolBorder}` }}>{children}</div>
-    </div>
+  const StatusBadge = ({ running }) => (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: sans, fontSize: 11, fontWeight: 600, borderRadius: 5, padding: "2px 8px", color: running ? C.blue : C.success, background: running ? C.blueSoft : C.successSoft }}>
+      {running
+        ? <svg className="as-spin" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke={C.blue} strokeWidth="2.4" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5" /></svg>
+        : <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
+      {running ? "Running" : "Success"}
+    </span>
   );
 
-  const formatArgValue = (value) => {
-    if (value && typeof value === "object") return JSON.stringify(value);
-    if (typeof value === "string") return `"${value}"`;
-    return String(value);
-  };
-
-  const ToolCall = ({ tool, completed }) => (
-    <div style={{ marginBottom: 10 }}>
-      <div className="x402-tool-chip" style={{ display: "inline-flex", alignItems: "flex-start", gap: 8, background: c.toolBg, border: `1px solid ${c.toolBorder}`, borderRadius: 8, padding: "6px 11px", opacity: completed ? 0.85 : 1 }}>
-        <span style={{ width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-          {completed
-            ? <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={c.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 0l-7 7a3.5 3.5 0 0 0 5 5l5.5-5.5"/><path d="m11 8 5 5"/></svg>}
+  const ToolCard = ({ tool, running }) => (
+    <div className="as-anim" style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.white, overflow: "hidden", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ fontFamily: sans, fontSize: 12, fontWeight: 600, color: C.ink }}>MCP Tool Call</span>
+        <div style={{ flex: 1 }} />
+        <StatusBadge running={running} />
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px" }}>
+        <span style={{ width: 26, height: 26, borderRadius: 6, background: C.blueSoft, border: `1px solid ${C.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /></svg>
         </span>
-        <span className="x402-tool-text" style={{ fontFamily: mono, color: c.muted }}>
-          <span style={{ color: c.accent }}>{tool.server}</span>
-          <span style={{ color: c.dim }}> · </span>
-          <span style={{ color: c.body }}>{tool.action}</span>
-          <span style={{ color: c.dim }}>(</span>
-          {Object.entries(tool.args).map(([k, v], i, arr) => (
-            <span key={k}><span style={{ color: c.muted }}>{k}: </span><span style={{ color: c.code }}>{formatArgValue(v)}</span>{i < arr.length - 1 && <span style={{ color: c.dim }}>, </span>}</span>
-          ))}
-          <span style={{ color: c.dim }}>)</span>
-        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 600, color: C.ink, wordBreak: "break-word" }}><span style={{ color: C.sub }}>{tool.server} · </span>{tool.name}</div>
+          {tool.desc && <div style={{ fontFamily: sans, fontSize: 12, color: C.sec, marginTop: 2, lineHeight: 1.4 }}>{tool.desc}</div>}
+        </div>
+      </div>
+      <div style={{ padding: "0 12px 12px" }}>
+        <div style={{ fontFamily: sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase", color: C.sub, marginBottom: 5 }}>Arguments</div>
+        <pre className="as-code" style={{ margin: 0, fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: C.body, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: "9px 11px", overflowX: "auto", whiteSpace: "pre" }}>
+{"{\n"}{Object.entries(tool.args).map(([k, v], i, a) => (
+  <span key={k}>{"  "}<span style={{ color: C.sec }}>"{k}"</span>: <span style={{ color: C.blue }}>{typeof v === "string" ? `"${v}"` : JSON.stringify(v)}</span>{i < a.length - 1 ? "," : ""}{"\n"}</span>
+))}{"}"}
+        </pre>
       </div>
     </div>
   );
 
-  const Thinking = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontFamily: sans, fontSize: 13, color: c.muted }}>
-      <span style={{ display: "inline-flex", gap: 3 }}>
-        {[0, 1, 2].map(i => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: c.muted, opacity: 0.4, animation: `x402-pulse 1.2s infinite ${i * 0.18}s` }} />)}
-      </span>
-      <span style={{ fontStyle: "italic" }}>Thinking</span>
-    </div>
-  );
-
-  const ResponseText = ({ children, top }) => (
-    <div style={{ fontFamily: serif, fontSize: 15, lineHeight: 1.55, color: c.body, marginBottom: 12, marginTop: top ? 8 : 0 }}>{children}</div>
-  );
-
-  const ResponseRows = ({ rows }) => (
-    <div style={{ marginBottom: 14 }}>
-      {rows.map((r, i) => (
-        <div key={i} className="x402-row" style={{ display: "flex", alignItems: "baseline", padding: "5px 0", fontFamily: serif, fontSize: 14, color: c.body }}>
-          <span style={{ minWidth: 12, color: c.dim, flexShrink: 0 }}>•</span>
-          <span className="x402-row-token" style={{ fontWeight: 500 }}>{r.token}</span>
-          <span style={{ fontFamily: mono, fontSize: 12.5, color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>{r.amount}</span>
-          <span style={{ color: c.muted, fontSize: 13 }}>{r.value}</span>
+  const ResultTable = ({ cols, rows }) => (
+    <div className="as-anim" style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 12 }}>
+      <div className="as-trow" style={{ display: "grid", gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))`, background: C.panel, borderBottom: `1px solid ${C.border}` }}>
+        {cols.map((cn) => <span key={cn} style={{ fontFamily: mono, fontSize: 10.5, fontWeight: 600, color: C.sec, padding: "6px 10px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cn}</span>)}
+      </div>
+      {rows.map((row, ri) => (
+        <div key={ri} className="as-trow" style={{ display: "grid", gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))`, borderTop: ri ? `1px solid ${C.border}` : "none" }}>
+          {row.map((cell, ci) => <span key={ci} style={{ fontFamily: mono, fontSize: 11.5, color: ci === 0 ? C.ink : C.body, fontWeight: ci === 0 ? 600 : 400, padding: "7px 10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cell}</span>)}
         </div>
       ))}
     </div>
   );
 
-  const Confirm = ({ text }) => (
-    <div style={{ fontFamily: serif, fontSize: 14, color: c.success, display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={c.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-      {text}
+  const ApprovalButton = ({ preview }) => (
+    <div className="as-anim" style={{ marginBottom: 12 }}>
+      <button onClick={() => setModalPreview(preview)} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.blueSoft, border: `1px solid ${C.blue}`, borderRadius: 6, padding: "9px 14px", cursor: "pointer", color: C.blue, fontFamily: sans, fontSize: 13, fontWeight: 600 }}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+        Review &amp; sign
+      </button>
     </div>
   );
 
-  const ChipBtn = ({ onClick, children }) => {
-    const [hover, setHover] = useState(false);
-    return (
-      <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="x402-chip"
-        style={{ fontFamily: serif, lineHeight: 1.4, color: hover ? c.text : c.body, background: hover ? c.toolBg : c.header, border: `1px solid ${hover ? c.accent : c.toolBorder}`, borderRadius: 14, textAlign: "left", cursor: "pointer", transition: "all 0.15s ease", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, width: "100%" }}>
-        <span style={{ flex: 1 }}>{children}</span>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke={hover ? c.accent : c.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease, transform 0.15s ease", transform: hover ? "translateX(2px)" : "translateX(0)" }}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </button>
-    );
-  };
+  const Thinking = () => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: sans, fontSize: 13, color: C.sec, marginBottom: 12 }}>
+      <span style={{ display: "inline-flex", gap: 3 }}>{[0, 1, 2].map((i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: C.sec, animation: `as-pulse 1.2s infinite ${i * 0.18}s` }} />)}</span>
+      Thinking
+    </div>
+  );
+
+  const RespText = ({ children }) => (<div className="as-anim" style={{ fontFamily: sans, fontSize: 13.5, color: C.body, lineHeight: 1.55, marginBottom: 12 }}>{children}</div>);
+  const Confirm = ({ text }) => (
+    <div className="as-anim" style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: sans, fontSize: 13.5, color: C.body, lineHeight: 1.5 }}>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={C.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M20 6 9 17l-5-5" /></svg>{text}
+    </div>
+  );
 
   const renderEvents = () => {
     if (!ex) return null;
     const shown = ex.events.slice(0, eventIdx);
     return shown.map((event, i) => {
-      if (event.type === "thinking") {
-        if (i < shown.length - 1) return null;
-        return <Thinking key={i} />;
-      }
-      if (event.type === "tool") {
-        const hasLater = shown.slice(i + 1).some(e => e.type !== "thinking");
-        return <ToolCall key={i} tool={event.tool} completed={hasLater} />;
-      }
-      if (event.type === "approval") return <ApprovalButton key={i} preview={event.preview} onApprove={setModalPreview} />;
-      if (event.type === "text") return <ResponseText key={i} top>{event.text}</ResponseText>;
-      if (event.type === "rows") return <ResponseRows key={i} rows={event.rows} />;
+      if (event.type === "thinking") return i < shown.length - 1 ? null : <Thinking key={i} />;
+      if (event.type === "tool") { const hasLater = shown.slice(i + 1).some((e) => e.type !== "thinking"); return <ToolCard key={i} tool={event.tool} running={!hasLater} />; }
+      if (event.type === "approval") return <ApprovalButton key={i} preview={event.preview} />;
+      if (event.type === "text") return <RespText key={i}>{event.text}</RespText>;
+      if (event.type === "rows") return <ResultTable key={i} cols={event.cols} rows={event.rows} />;
       if (event.type === "confirm") return <Confirm key={i} text={event.text} />;
       return null;
     });
   };
 
-  return (
-    <div style={{ position: "relative", margin: "28px 0", borderRadius: 14, overflow: "hidden", border: `1px solid ${c.border}`, background: c.bg, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
-      {modalPreview && <TxModal preview={modalPreview} onConfirm={handleConfirm} onCancel={() => setModalPreview(null)} />}
-      <style>{`
-        @keyframes x402-pulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
-        .x402-chat{height:400px;padding:24px 28px 16px}
-        .x402-input-row{padding:10px 16px 14px}
-        .x402-tool-text{white-space:nowrap;font-size:12px;line-height:1.4}
-        .x402-tool-chip{max-width:100%}
-        .x402-row{gap:12px;flex-wrap:nowrap}
-        .x402-row-token{min-width:80px}
-        .x402-bubble{max-width:78%;font-size:14px}
-        .x402-chip{padding:16px 18px;font-size:15px}
-        .x402-empty-text{font-size:16px}
-        .x402-footnote{font-size:11px}
-        @media(max-width:640px){
-          .x402-chat{height:460px;padding:16px 14px 12px}
-          .x402-input-row{padding:8px 10px 10px}
-          .x402-tool-chip{display:block}
-          .x402-tool-text{white-space:normal;word-break:break-word;font-size:11px}
-          .x402-row{flex-wrap:wrap;gap:4px 10px}
-          .x402-row-token{min-width:100%;flex:1 1 100%}
-          .x402-bubble{max-width:88%;font-size:13.5px}
-          .x402-chip{padding:14px 14px;font-size:14px}
-          .x402-empty-text{font-size:14.5px}
-          .x402-footnote{font-size:10.5px}
-        }
-      `}</style>
-
-      <div style={{ display: "flex", alignItems: "center", padding: "11px 14px", background: c.header, borderBottom: `1px solid ${c.border}` }}>
-        <TrafficLights />
-        <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, fontWeight: 500 }}>Base MCP</span>
-        <span style={{ fontFamily: sans, fontSize: 12, color: c.dim, marginLeft: 8 }}>▾</span>
-        <div style={{ flex: 1 }} />
-        {activeIdx !== null && (
-          <button onClick={reset} title="Reset" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: "1px solid transparent", cursor: "pointer", color: c.dim }}
-            onMouseEnter={e => { e.currentTarget.style.color = c.text; e.currentTarget.style.borderColor = c.toolBorder; }}
-            onMouseLeave={e => { e.currentTarget.style.color = c.dim; e.currentTarget.style.borderColor = "transparent"; }}>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-          </button>
-        )}
-      </div>
-
-      <div ref={scrollRef} className="x402-chat" style={{ overflowY: "auto" }}>
-        {!ex && (
+  // ---- generated transaction-review modal (light) ----
+  const TxModal = ({ preview, onConfirm, onCancel }) => (
+    <div onClick={onCancel} className="as-anim" style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(10,11,13,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ background: C.white, borderRadius: 8, border: `1px solid ${C.border}`, width: 360, maxWidth: "100%", maxHeight: "calc(100% - 16px)", overflowY: "auto", boxShadow: "0 24px 64px rgba(10,11,13,.24)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "16px 18px 12px" }}>
           <div>
-            <div className="x402-empty-text" style={{ fontFamily: serif, color: c.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              Try asking your assistant once <span style={{ fontFamily: mono, fontSize: "0.85em", color: c.code, background: c.codeBg, padding: "1px 6px", borderRadius: 4 }}>mcp.base.org</span> is connected:
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              {examples.map((e, i) => <ChipBtn key={i} onClick={() => pick(i)}>{e.prompt}</ChipBtn>)}
-            </div>
+            <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em", color: C.ink }}>{preview.title}</div>
+            <div style={{ fontFamily: sans, fontSize: 12.5, color: C.sec, marginTop: 3, lineHeight: 1.4 }}>{preview.subtitle}</div>
+          </div>
+          <button onClick={onCancel} aria-label="Close" style={{ background: "transparent", border: "none", cursor: "pointer", color: C.sub, padding: 2, flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {preview.amount && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 18px", borderTop: `1px solid ${C.border}` }}>
+            <span style={{ fontFamily: sans, fontSize: 12.5, color: C.sec }}>Amount</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", background: C.cerulean, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M15 9.5a3.5 3.5 0 1 0 0 5" /></svg>
+              </span>
+              <span style={{ textAlign: "right" }}>
+                <span style={{ fontFamily: sans, fontSize: 15, fontWeight: 600, color: C.ink }}>{preview.amount}</span>
+                {preview.fiat && <span style={{ display: "block", fontFamily: mono, fontSize: 11.5, color: C.sub }}>{preview.fiat}</span>}
+              </span>
+            </span>
           </div>
         )}
-        {ex && <><UserBubble>{ex.prompt}</UserBubble>{renderEvents()}</>}
+
+        <div style={{ borderTop: `1px solid ${C.border}` }}>
+          {preview.rows.map(([label, value, isMono], i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 18px", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+              <span style={{ fontFamily: sans, fontSize: 12.5, color: C.sec }}>{label}</span>
+              <span style={{ fontFamily: isMono ? mono : sans, fontSize: isMono ? 12 : 12.5, fontWeight: isMono ? 500 : 600, color: C.ink, textAlign: "right", overflowWrap: "anywhere" }}>
+                {label === "Network" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: C.cerulean, marginRight: 6 }} />}
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {preview.meta && preview.meta.length > 0 && (
+          <div style={{ borderTop: `1px solid ${C.border}`, background: C.panel }}>
+            {preview.meta.map(([label, value], i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 18px" }}>
+                <span style={{ fontFamily: sans, fontSize: 12, color: C.sec }}>{label}</span>
+                <span style={{ fontFamily: mono, fontSize: 11.5, color: C.body, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderTop: `1px solid ${C.border}` }}>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke={C.blue} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
+          <span style={{ fontFamily: sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".3px", color: C.blue }}>DEMO · not a real signature</span>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, padding: "12px 18px 16px", borderTop: `1px solid ${C.border}` }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: "11px 0", background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", fontFamily: sans, fontSize: 13.5, fontWeight: 600, color: C.body }}>Cancel</button>
+          <button onClick={onConfirm} style={{ flex: 1, padding: "11px 0", background: C.blue, border: `1px solid ${C.blue}`, borderRadius: 6, cursor: "pointer", fontFamily: sans, fontSize: 13.5, fontWeight: 600, color: C.onBlue }}>{preview.confirm || "Confirm"}</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const suggested = examples.map((e) => e.prompt);
+
+  return (
+    <div className="as" style={{ position: "relative", margin: "22px 0", maxWidth: 760, borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, overflow: "hidden", boxShadow: "0 1px 2px rgba(10,11,13,.04)" }}>
+      {modalPreview && <TxModal preview={modalPreview} onConfirm={handleConfirm} onCancel={() => setModalPreview(null)} />}
+      <style>{`
+        .as, .as * { box-sizing: border-box; }
+        @keyframes as-pulse { 0%,100% { opacity:.3; transform:scale(1);} 50% { opacity:1; transform:scale(1.3);} }
+        @keyframes as-spin { to { transform: rotate(360deg); } }
+        @keyframes as-in { from { opacity:0; transform: translateY(4px);} to { opacity:1; transform:none; } }
+        .as-anim { animation: as-in .28s ease both; }
+        .as-spin { animation: as-spin .9s linear infinite; transform-origin: center; }
+        .as-body { min-height: 380px; max-height: 440px; overflow-y: auto; padding: 20px 22px; }
+        .as-land { display: grid; grid-template-columns: 1fr 260px; gap: 22px; }
+        .as-nav { display: flex; gap: 18px; }
+        .as-send { width: 34px; height: 34px; border-radius: 6px; border: 1px solid ${C.blue}; background: ${C.blue}; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: default; flex-shrink: 0; }
+        .as-sugg { font-family: ${sans}; font-size: 12.5px; color: ${C.body}; background: ${C.white}; border: 1px solid ${C.border}; border-radius: 6px; padding: 9px 11px; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; transition: all .14s ease; }
+        .as-sugg:hover { border-color: ${C.blue}; color: ${C.ink}; }
+        @media (max-width: 640px) {
+          .as-land { grid-template-columns: 1fr; gap: 16px; }
+          .as-nav { display: none; }
+          .as-body { padding: 16px 14px; }
+          .as-code { font-size: 10.5px !important; }
+          .as-trow span { font-size: 10.5px !important; padding: 6px 7px !important; }
+        }
+        @media (prefers-reduced-motion: reduce) { .as-anim, .as-spin { animation: none !important; } }
+      `}</style>
+
+      {/* Product header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: `1px solid ${C.border}`, background: C.white }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: sans, fontSize: 12, fontWeight: 600, color: C.sec }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.success }} />Base MCP
+        </span>
+        <div style={{ flex: 1 }} />
+        {activeIdx !== null && (
+          <button onClick={reset} title="Reset" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", color: C.sec }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
+          </button>
+        )}
       </div>
 
-      <div className="x402-input-row">
-        <div style={{ display: "flex", alignItems: "center", background: c.inputBg, border: `1px solid ${c.toolBorder}`, borderRadius: 14, padding: "10px 14px" }}>
-          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, border: "none", background: "transparent", color: c.muted, cursor: "default", padding: 0, flexShrink: 0 }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
-          <span style={{ flex: 1, marginLeft: 8, fontFamily: sans, fontSize: 14, color: c.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Write a message...</span>
-          <span style={{ fontFamily: sans, fontSize: 13, color: c.muted, marginRight: 12, flexShrink: 0 }}>Sonnet 4.6 <span style={{ color: c.dim }}>▾</span></span>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={c.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+      {/* Conversation / landing */}
+      <div ref={scrollRef} className="as-body">
+        {!ex ? (
+          <div className="as-land">
+            <div>
+              <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: C.ink, lineHeight: 1.25 }}>Pay for API calls with x402</div>
+              <div style={{ fontFamily: sans, fontSize: 13.5, color: C.sec, lineHeight: 1.5, marginTop: 8 }}>
+                Ask the assistant to call a paid endpoint through <span style={{ fontFamily: mono, fontSize: "0.92em", color: C.blue, background: C.blueSoft, padding: "1px 5px", borderRadius: 4 }}>mcp.base.org</span>. It pauses for your signature before any USDC leaves your wallet.
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: sans, fontSize: 10.5, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: C.sub, marginBottom: 9 }}>Suggested prompts</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {suggested.map((p, i) => (
+                  <button key={i} className="as-sugg" onClick={() => pick(i)}>
+                    <span style={{ flex: 1 }}>{p}</span>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke={C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 18 }}>
+              <div style={{ maxWidth: "80%", background: C.panel, color: C.ink, border: `1px solid ${C.border}`, padding: "10px 14px", borderRadius: 8, fontFamily: sans, fontSize: 13.5, lineHeight: 1.45 }}>{ex.prompt}</div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <BaseAvatar size={22} />
+              <div style={{ flex: 1, minWidth: 0 }}>{renderEvents()}</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Composer */}
+      <div style={{ padding: "12px 16px 14px", borderTop: `1px solid ${C.border}`, background: C.white }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px 8px 12px" }}>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke={C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L10.12 17.24" /></svg>
+          <span style={{ flex: 1, fontFamily: sans, fontSize: 13.5, color: C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Ask a question or describe what you want to build…</span>
+          <span style={{ fontFamily: sans, fontSize: 12, color: C.sec, whiteSpace: "nowrap" }}>Sonnet 4.6</span>
+          <button className="as-send" aria-label="Send"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg></button>
         </div>
-        <div className="x402-footnote" style={{ textAlign: "center", marginTop: 8, fontFamily: sans, color: c.dim }}>
-          Demo · x402 payments require a wallet signature in <span style={{ color: c.muted }}>Base Account</span>
-        </div>
+        <div style={{ textAlign: "center", marginTop: 8, fontFamily: sans, fontSize: 11, color: C.sub }}>Demo · x402 payments require a wallet signature — AI responses can make mistakes.</div>
       </div>
     </div>
   );
