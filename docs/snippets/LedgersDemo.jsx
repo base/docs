@@ -13,7 +13,7 @@ export const LedgersDemo = ({ flow }) => {
   };
 
   const TOKEN = "USDC";
-  const NETWORK = "Base Mainnet";
+  const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
   const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });

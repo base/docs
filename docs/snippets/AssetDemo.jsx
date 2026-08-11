@@ -14,7 +14,7 @@ export const AssetDemo = ({ flow }) => {
   const dot = { Issuer: C.blue, Alice: "#66c800", Bob: "#ffd12f", Carol: "#fc401f" };
 
   const TOKEN = "EXM";
-  const NETWORK = "Base Mainnet";
+  const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
   const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });

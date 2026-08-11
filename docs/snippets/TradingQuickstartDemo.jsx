@@ -25,7 +25,7 @@ export const TradingQuickstartDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are authorizing a token swap on Base.",
           amount: "100 USDC", fiat: "$100.00",
-          rows: [["Buy", "0.03512 ETH", false], ["From", "0x71Dc…7244", true], ["Route", "Aerodrome", false], ["Network", "Base Mainnet", false]],
+          rows: [["Buy", "0.03512 ETH", false], ["From", "0x71Dc…7244", true], ["Route", "Aerodrome", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Min received", "0.03495 ETH · 0.5% slippage"]],
           confirm: "Approve swap",
         } },
@@ -49,7 +49,7 @@ export const TradingQuickstartDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are authorizing a token swap on Base.",
           amount: "0.05 ETH", fiat: "$179.50",
-          rows: [["Buy", "179.41 USDC", false], ["From", "0x71Dc…7244", true], ["Route", "Uniswap v3", false], ["Network", "Base Mainnet", false]],
+          rows: [["Buy", "179.41 USDC", false], ["From", "0x71Dc…7244", true], ["Route", "Uniswap v3", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Min received", "178.51 USDC · 0.5% slippage"]],
           confirm: "Approve swap",
         } },
@@ -74,7 +74,7 @@ export const TradingQuickstartDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are authorizing a token swap on Base.",
           amount: "200 USDC", fiat: "$200.00",
-          rows: [["Buy", "0.00210 cbBTC", false], ["From", "0x71Dc…7244", true], ["Route", "Aerodrome", false], ["Network", "Base Mainnet", false]],
+          rows: [["Buy", "0.00210 cbBTC", false], ["From", "0x71Dc…7244", true], ["Route", "Aerodrome", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Min received", "0.00209 cbBTC · 0.5% slippage"]],
           confirm: "Approve swap",
         } },

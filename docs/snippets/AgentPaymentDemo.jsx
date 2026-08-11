@@ -55,7 +55,7 @@ export const AgentPaymentDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve transaction", subtitle: "Your agent is sending USDC on Base.",
           amount: "5.00 USDC", fiat: "$5.00",
-          rows: [["From", "Agent wallet · 0x9c2d…e4f8", true], ["To", "alice.base.eth", true], ["Network", "Base Mainnet", false]],
+          rows: [["From", "Agent wallet · 0x9c2d…e4f8", true], ["To", "alice.base.eth", true], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01 USDC"], ["Daily spend cap", "50.00 USDC · 45.00 left"]],
           confirm: "Confirm",
         } },

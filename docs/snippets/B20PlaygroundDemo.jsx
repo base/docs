@@ -15,7 +15,7 @@ export const B20FlowDemo = ({ flow }) => {
   // Base secondary palette for account markers.
   const dot = { Issuer: C.blue, Processor: "#3c8aff", Alice: "#66c800", Bob: "#ffd12f", Carol: "#fea8cd" };
 
-  const NETWORK = "Base Mainnet";
+  const NETWORK = "Base Vibenet";
 
   // ---- helpers ----
   const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");

@@ -25,7 +25,7 @@ export const DataFetchingDemo = () => {
         cols: ["token", "balance", "decimals", "formatted"],
         rows: [["USDC", "1250000", "6", "1.250000"]],
       },
-      outro: "You have 1.25 USDC on Base Mainnet.",
+      outro: "You have 1.25 USDC on Base Vibenet.",
     },
     {
       prompt: "What tokens do I have in my wallet?",

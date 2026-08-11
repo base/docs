@@ -59,7 +59,7 @@ export const AcceptingPaymentsDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve transaction", subtitle: "You are sending USDC from your receiving wallet.",
           amount: "312.50 USDC", fiat: "$312.50",
-          rows: [["From", "0x71Dc…7244", true], ["To (treasury)", "0x4F2b…9C10", true], ["Network", "Base Mainnet", false]],
+          rows: [["From", "0x71Dc…7244", true], ["To (treasury)", "0x4F2b…9C10", true], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Reference", "sweep_2026_08"]],
           confirm: "Confirm",
         } },

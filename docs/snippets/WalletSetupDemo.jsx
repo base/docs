@@ -27,7 +27,7 @@ export const WalletSetupDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve transaction", subtitle: "You are sending tokens from your account.",
           amount: "5 USDC", fiat: "$5.00",
-          rows: [["From", "0x71Dc…7244", true], ["To", "jesse.base.eth", true], ["Network", "Base Mainnet", false]],
+          rows: [["From", "0x71Dc…7244", true], ["To", "jesse.base.eth", true], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Max total", "5 USDC + fee"]],
           confirm: "Confirm",
         } },
@@ -44,7 +44,7 @@ export const WalletSetupDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are swapping tokens on Base.",
           amount: "0.05 ETH", fiat: "~$179.50",
-          rows: [["Receive", "179.41 USDC", false], ["From", "0x71Dc…7244", true], ["Network", "Base Mainnet", false]],
+          rows: [["Receive", "179.41 USDC", false], ["From", "0x71Dc…7244", true], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Min received", "178.51 USDC"]],
           confirm: "Confirm swap",
         } },
@@ -69,7 +69,7 @@ export const WalletSetupDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve deposit", subtitle: "You are depositing into a lending vault.",
           amount: "100 USDC", fiat: "~$100.00",
-          rows: [["Vault", "Steakhouse USDC", false], ["Current APY", "8.42%", false], ["Network", "Base Mainnet", false]],
+          rows: [["Vault", "Steakhouse USDC", false], ["Current APY", "8.42%", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. network fee", "< $0.01"], ["Batched", "approve + deposit"]],
           confirm: "Confirm deposit",
         } },

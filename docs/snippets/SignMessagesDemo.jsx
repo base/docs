@@ -25,7 +25,7 @@ export const SignMessagesDemo = () => {
         { delay: 520, type: "text", text: "Approve the signature to continue:" },
         { delay: 220, type: "approval", preview: {
           title: "Sign message", subtitle: "You are signing a plain text message. No funds move.",
-          rows: [["Message", "I accept the terms of service", true], ["Account", "0x71Dc…7244", true], ["Network", "Base Mainnet", false]],
+          rows: [["Message", "I accept the terms of service", true], ["Account", "0x71Dc…7244", true], ["Network", "Base Vibenet", false]],
           meta: [["Method", "personal_sign"], ["Encoding", "utf-8"]],
           confirm: "Sign",
         } },
@@ -47,7 +47,7 @@ export const SignMessagesDemo = () => {
         { delay: 520, type: "text", text: "Approve the sign-in signature:" },
         { delay: 220, type: "approval", preview: {
           title: "Sign in with Ethereum", subtitle: "You are signing a session login. No funds move.",
-          rows: [["Message", "app.example.com wants you to sign in with your Base Account", true], ["Domain", "app.example.com", true], ["Account", "0x71Dc…7244", true], ["Network", "Base Mainnet", false]],
+          rows: [["Message", "app.example.com wants you to sign in with your Base Account", true], ["Domain", "app.example.com", true], ["Account", "0x71Dc…7244", true], ["Network", "Base Vibenet", false]],
           meta: [["Standard", "EIP-4361"], ["Nonce", "a1b2c3d4"]],
           confirm: "Sign",
         } },
@@ -70,7 +70,7 @@ export const SignMessagesDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Sign permit", subtitle: "You are authorizing a token spending allowance via Permit2.",
           amount: "1000 USDC", fiat: "$1,000.00",
-          rows: [["Spender", "Uniswap", false], ["Token", "USDC", false], ["Network", "Base Mainnet", false]],
+          rows: [["Spender", "Uniswap", false], ["Token", "USDC", false], ["Network", "Base Vibenet", false]],
           meta: [["Standard", "EIP-712 · Permit2"], ["Deadline", "30 min"], ["Nonce", "0"]],
           confirm: "Sign",
         } },

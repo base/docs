@@ -12,7 +12,7 @@ export const DeFiDemo = ({ flow }) => {
     blueSoft: "rgba(0,0,255,.06)", successSoft: "rgba(102,200,0,.12)", errorSoft: "rgba(252,64,31,.10)",
   };
 
-  const NETWORK = "Base Mainnet";
+  const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
   const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });

@@ -14,7 +14,7 @@ export const StablecoinDemo = ({ flow }) => {
   const dot = { Issuer: C.blue, Alice: "#66c800", Bob: "#ffd12f", Merchant: "#3c8aff" };
 
   const TOKEN = "aUSD";
-  const NETWORK = "Base Mainnet";
+  const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
   const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });
@@ -35,7 +35,7 @@ export const StablecoinDemo = ({ flow }) => {
       steps: [
         { stage: "Create", action: "Create token",
           text: "Create a fiat-backed token. Name, currency, and admin are set at creation.",
-          summary: [["Operation", "Create token"], ["Token", TOKEN], ["Standard", "ERC-20"], ["Network", NETWORK]],
+          summary: [["Operation", "Create token"], ["Token", TOKEN], ["Standard", "B20"], ["Network", NETWORK]],
           run: () => ({ entries: [ok("createB20", "stablecoin · aUSD · 0xB20…a1c9"), nfo("initCalls", "grantRole(MINT_ROLE, Issuer)")], caption: "One factory call, with no contract to write or audit." }) },
         { stage: "Confirm", action: "Confirm",
           text: "It's live and fully ERC-20 compatible.",

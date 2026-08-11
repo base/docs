@@ -13,7 +13,7 @@ export const PaymentsDemo = ({ flow }) => {
   };
   const dot = { Merchant: C.blue, Alice: "#66c800", Agent: "#3c8aff" };
 
-  const NETWORK = "Base";
+  const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
   const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });
@@ -35,7 +35,7 @@ export const PaymentsDemo = ({ flow }) => {
         { stage: "Charge", action: "Charge $5",
           text: "A customer checks out. Charge 5 USDC to your address.",
           summary: [["Payment type", "USDC charge"], ["Merchant", "Merchant"], ["Payer", "Alice"], ["Amount", M("5.00 USDC")], ["Network", NETWORK]],
-          run: () => ({ entries: [ok("pay", "5.00 USDC → Merchant"), nfo("network", "Base")], caption: "One call. The customer approves in their Base Account — no card, no redirect." }) },
+          run: () => ({ entries: [ok("pay", "5.00 USDC → Merchant"), nfo("network", "Base Vibenet")], caption: "One call. The customer approves in their Base Account — no card, no redirect." }) },
         { stage: "Settle", action: "Settle",
           text: "The payment settles on Base in under two seconds.",
           summary: [["Operation", "Settle"], ["From", "Alice"], ["To", "Merchant"], ["Amount", M("5.00 USDC")], ["Verification", "Completed"]],
@@ -68,6 +68,10 @@ export const PaymentsDemo = ({ flow }) => {
           text: "Request an email and shipping address alongside the payment.",
           summary: [["Operation", "Request payer info"], ["Fields", M("email · physicalAddress")], ["Payer", "Alice"], ["Network", NETWORK]],
           run: () => ({ entries: [nfo("payerInfo", "email · physicalAddress")], caption: "The customer sees the request in the same approval popup." }) },
+        { stage: "Enter", action: "Pay",
+          text: "The customer's details come pre-filled in the approval popup — they review them and tap Pay.",
+          summary: [["Operation", "Confirm & pay"], ["email", M("alice@acme.co")], ["physicalAddress", M("Berlin, DE")], ["Amount", M("25.00 USDC")], ["Network", NETWORK]],
+          run: () => ({ entries: [nfo("payerInfo", "email · physicalAddress submitted"), nfo("submit", "25.00 USDC · pending validation")], caption: "The details ride along with the payment; nothing is charged until your callback approves." }) },
         { stage: "Validate", action: "Validate",
           text: "Your callback validates the data before any charge.",
           summary: [["Operation", "Validate"], ["email", "ok"], ["physicalAddress", "US/CA/GB only"], ["Verification", "Needs fix"]],

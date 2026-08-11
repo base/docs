@@ -12,55 +12,48 @@ export const X402PaymentsDemo = () => {
     blueSoft: "rgba(0,0,255,.06)", successSoft: "rgba(102,200,0,.14)",
   };
 
-  // Conversation script. Reveal pauses on an `approval` event until the user
-  // confirms the transaction-review modal, then resumes.
+  // Conversation script — monetizing your agent with x402. Reveal pauses on an
+  // `approval` event (the caller signing the payment) until the user confirms
+  // the transaction-review modal, then resumes.
   const examples = [
     {
-      prompt: "Call this x402 endpoint and pay up to 0.05 USDC",
+      prompt: "Charge 0.02 USDC per call on my agent's /research endpoint",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 460, type: "text", text: "I'll call the endpoint through the Base MCP and pay only if it's within your cap." },
-        { delay: 650, type: "tool", tool: { server: "base-mcp", name: "initiate_x402_request", desc: "Sends the request and reads any x402 payment challenge.", args: { url: "https://api.example.com/report", method: "GET", maxPayment: "0.05" } } },
-        { delay: 520, type: "text", text: "The endpoint requested 0.02 USDC on Base, within your cap. Sign the payment authorization to continue:" },
-        { delay: 220, type: "approval", preview: {
-          title: "Sign x402 payment", subtitle: "You are authorizing a pay-per-call request.",
-          amount: "0.02 USDC", fiat: "$0.02",
-          rows: [["From", "0x71Dc…7244", true], ["Endpoint", "api.example.com/report", true], ["Network", "Base Mainnet", false]],
-          meta: [["Payment cap", "0.05 USDC"], ["Request ID", "req_x402_7fa"]],
-          confirm: "Sign & pay",
-        } },
-        { delay: 520, type: "tool", tool: { server: "base-mcp", name: "complete_x402_request", desc: "Replays the request with the signed payment attached.", args: { requestId: "req_x402_7fa" } } },
-        { delay: 460, type: "text", text: "Paid request completed. Response summary:" },
+        { delay: 460, type: "text", text: "I'll put an x402 paywall in front of your endpoint so callers pay before they get a response." },
+        { delay: 650, type: "tool", tool: { server: "base-mcp", name: "create_x402_endpoint", desc: "Wraps your agent's endpoint with an x402 paywall.", args: { path: "/research", price: "0.02", asset: "USDC", network: "base-vibenet", payTo: "0x71Dc…7244" } } },
+        { delay: 520, type: "text", text: "Your endpoint is monetized. Callers now get a 402 challenge until they pay:" },
         { delay: 220, type: "rows", cols: ["field", "value", "detail"], rows: [
-          ["Status", "200 OK", "replayed with x402 payment"],
-          ["Cost", "0.02 USDC", "paid on Base"],
-          ["Data", "ready", "report payload returned"],
+          ["Endpoint", "/research", "x402 protected"],
+          ["Price", "0.02 USDC", "per request"],
+          ["Pay to", "0x71Dc…7244", "your agent wallet"],
+          ["Network", "Base Vibenet", "settles onchain"],
         ] },
-        { delay: 380, type: "confirm", text: "x402 request complete — 0.02 USDC paid." },
+        { delay: 380, type: "confirm", text: "Live — every paid call earns 0.02 USDC on Base Vibenet." },
       ],
     },
     {
-      prompt: "POST this payload and cap the x402 payment at 1 USDC",
+      prompt: "Run a test call and pay the 402 challenge",
       events: [
         { delay: 380, type: "thinking" },
-        { delay: 460, type: "text", text: "I'll POST the payload and settle the x402 charge up to your 1 USDC cap." },
-        { delay: 650, type: "tool", tool: { server: "base-mcp", name: "initiate_x402_request", desc: "Sends the request and reads any x402 payment challenge.", args: { url: "https://data.example.com/query", method: "POST", maxPayment: "1.00" } } },
-        { delay: 520, type: "text", text: "Payment required: 0.15 USDC on Base Sepolia. Sign the authorization before the request is replayed." },
+        { delay: 460, type: "text", text: "I'll call your /research endpoint the way a paying client would. It should answer with a payment challenge." },
+        { delay: 650, type: "tool", tool: { server: "base-mcp", name: "initiate_x402_request", desc: "Calls your paid endpoint and reads the x402 challenge.", args: { url: "https://your-agent.base/research", method: "GET" } } },
+        { delay: 520, type: "text", text: "The endpoint returned 402 Payment Required for 0.02 USDC. Sign the payment to complete the call:" },
         { delay: 220, type: "approval", preview: {
-          title: "Sign x402 payment", subtitle: "You are authorizing a pay-per-call request.",
-          amount: "0.15 USDC", fiat: "$0.15",
-          rows: [["From", "0x71Dc…7244", true], ["Endpoint", "data.example.com/query", true], ["Network", "Base Sepolia", false]],
-          meta: [["Payment cap", "1.00 USDC"], ["Request ID", "req_x402_91c"]],
+          title: "Sign x402 payment", subtitle: "You are paying this agent to answer the request.",
+          amount: "0.02 USDC", fiat: "$0.02",
+          rows: [["From (caller)", "0x9aE2…1b30", true], ["Pay to (agent)", "0x71Dc…7244", true], ["Network", "Base Vibenet", false]],
+          meta: [["Endpoint", "your-agent.base/research"], ["Request ID", "req_x402_7fa"]],
           confirm: "Sign & pay",
         } },
-        { delay: 520, type: "tool", tool: { server: "base-mcp", name: "complete_x402_request", desc: "Replays the request with the signed payment attached.", args: { requestId: "req_x402_91c" } } },
-        { delay: 460, type: "text", text: "The paid API returned structured JSON:" },
+        { delay: 520, type: "tool", tool: { server: "base-mcp", name: "complete_x402_request", desc: "Replays the request with the signed payment so your agent can verify it and respond.", args: { requestId: "req_x402_7fa" } } },
+        { delay: 460, type: "text", text: "Payment verified. Your agent delivered the response and kept the fee:" },
         { delay: 220, type: "rows", cols: ["field", "value", "detail"], rows: [
-          ["Rows", "128", "matching activity records"],
-          ["Window", "24h", "latest Base activity"],
-          ["Cost", "0.15 USDC", "below the 1.00 USDC cap"],
+          ["Status", "200 OK", "response delivered"],
+          ["Earned", "0.02 USDC", "paid to your agent wallet"],
+          ["Today", "4.86 USDC", "243 paid calls"],
         ] },
-        { delay: 380, type: "confirm", text: "POST request paid and completed." },
+        { delay: 380, type: "confirm", text: "Your agent earned 0.02 USDC on Base Vibenet." },
       ],
     },
   ];
@@ -291,9 +284,9 @@ export const X402PaymentsDemo = () => {
         {!ex ? (
           <div className="as-land">
             <div>
-              <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: C.ink, lineHeight: 1.25 }}>Pay for API calls with x402</div>
+              <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: C.ink, lineHeight: 1.25 }}>Get paid per call with x402</div>
               <div style={{ fontFamily: sans, fontSize: 13.5, color: C.sec, lineHeight: 1.5, marginTop: 8 }}>
-                Ask the assistant to call a paid endpoint through <span style={{ fontFamily: mono, fontSize: "0.92em", color: C.blue, background: C.blueSoft, padding: "1px 5px", borderRadius: 4 }}>mcp.base.org</span>. It pauses for your signature before any USDC leaves your wallet.
+                Put an x402 paywall in front of your agent through <span style={{ fontFamily: mono, fontSize: "0.92em", color: C.blue, background: C.blueSoft, padding: "1px 5px", borderRadius: 4 }}>mcp.base.org</span>. Callers pay per request and USDC settles straight to your agent wallet on Base Vibenet.
               </div>
             </div>
             <div>

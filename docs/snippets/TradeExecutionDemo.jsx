@@ -25,7 +25,7 @@ export const TradeExecutionDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are swapping tokens on Base.",
           amount: "100 USDC", fiat: "$100.00",
-          rows: [["Buy", "0.0271 ETH", true], ["From", "0x71Dc…7244", true], ["Route", "USDC → ETH", false], ["Network", "Base Mainnet", false]],
+          rows: [["Buy", "0.0271 ETH", true], ["From", "0x71Dc…7244", true], ["Route", "USDC → ETH", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. fee", "$0.0006 · 0.00000025 ETH"], ["Min received", "0.0269 ETH"]],
           confirm: "Approve swap",
         } },
@@ -50,7 +50,7 @@ export const TradeExecutionDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are swapping tokens on Base.",
           amount: "0.05 ETH", fiat: "$184.50",
-          rows: [["Buy", "184.20 USDC", true], ["From", "0x71Dc…7244", true], ["Route", "ETH → USDC", false], ["Network", "Base Mainnet", false]],
+          rows: [["Buy", "184.20 USDC", true], ["From", "0x71Dc…7244", true], ["Route", "ETH → USDC", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. fee", "$0.0006 · 0.00000025 ETH"], ["Min received", "183.28 USDC"]],
           confirm: "Approve swap",
         } },
@@ -76,7 +76,7 @@ export const TradeExecutionDemo = () => {
         { delay: 220, type: "approval", preview: {
           title: "Approve swap", subtitle: "You are swapping tokens on Base.",
           amount: "250 USDC", fiat: "$250.00",
-          rows: [["Buy", "0.00260 cbBTC", true], ["From", "0x71Dc…7244", true], ["Route", "USDC → cbBTC", false], ["Network", "Base Mainnet", false]],
+          rows: [["Buy", "0.00260 cbBTC", true], ["From", "0x71Dc…7244", true], ["Route", "USDC → cbBTC", false], ["Network", "Base Vibenet", false]],
           meta: [["Est. fee", "$0.0011 · 0.00000045 ETH"], ["Min received", "0.00258 cbBTC"]],
           confirm: "Approve swap",
         } },
