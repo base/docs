@@ -224,13 +224,22 @@ In addition to the base B20 surface, Asset tokens add several capabilities. A ne
 
 A WAD-precision rebase multiplier applied to all balance reads. Raw balances are stored unchanged; the multiplier scales the view returned to callers.
 
+The Asset variant implements the [ERC-8056](https://eips.ethereum.org/EIPS/eip-8056) "Scaled UI Amount" vocabulary, including the Conversion extension (interface id `0x57854fc3`). The canonical names below are what `IB20Asset` advertises today. The legacy `updateMultiplier`, `toScaledBalance`, and `toRawBalance` selectors remain callable as deprecated aliases for backward compatibility with existing indexers and block explorers.
+
 | Method | Description |
 |--------|-------------|
-| `multiplier()` | Current WAD-precision multiplier |
+| `multiplier()` / `uiMultiplier()` | Current WAD-precision multiplier |
+| `MAX_UI_MULTIPLIER()` | Maximum accepted multiplier value (`type(uint128).max`). Setters revert `InvalidMultiplier` above this bound. |
 | `scaledBalanceOf(account)` | Raw balance × multiplier |
-| `toScaledBalance(raw)` | Convert raw amount to scaled |
-| `toRawBalance(scaled)` | Convert scaled amount to raw |
-| `updateMultiplier(newMultiplier)` | Update the multiplier. Gated by `OPERATOR_ROLE`. |
+| `toUIAmount(rawAmount)` | Convert raw amount to scaled (Conversion extension). Legacy alias: `toScaledBalance`. |
+| `fromUIAmount(uiAmount)` | Convert scaled amount to raw, integer-floored (Conversion extension). Legacy alias: `toRawBalance`. |
+| `updateUIMultiplier(newMultiplier, effectiveAt)` | Schedule a future multiplier flip. Gated by `OPERATOR_ROLE`. |
+| `cancelUIMultiplierUpdate()` | Cancel the live pending update. Gated by `OPERATOR_ROLE`. Reverts `UIMultiplierUpdateDoesNotExist` when nothing is scheduled. |
+| `updateMultiplier(newMultiplier)` | **Deprecated** instant setter / emergency override. Stamps `effectiveAt = block.timestamp` and clears any pending update. Gated by `OPERATOR_ROLE`. |
+
+Only one pending update is live at a time; scheduling over an existing one reverts `UIMultiplierUpdateExists`. To reorder overlapping actions, wrap `cancelUIMultiplierUpdate` and a fresh `updateUIMultiplier` in a single `announce()` bracket.
+
+The instant `updateMultiplier` emits both `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)` and the deprecated `MultiplierUpdated(newMultiplier)` so indexers on the legacy topic keep working. The scheduled `updateUIMultiplier` emits only `UIMultiplierUpdated`. When either setter clears a live pending update, it first emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`.
 
 #### Announcements
 
