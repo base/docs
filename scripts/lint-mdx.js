@@ -273,17 +273,42 @@ function checkMintlifyComponents(content, filePath) {
       }
     }
 
-    // Check opening tags
-    const openTagMatch = line.match(/<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)(\s[^>]*)?\/?>/);
-    if (openTagMatch) {
-      const tag = openTagMatch[1];
-      const attrs = openTagMatch[2] || "";
-      const isSelfClosing = line.includes("/>");
+    // Check opening tags (supports multi-line tags with JSX attribute values)
+    const mintlifyTagPattern =
+      /<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)(\s|>|$)/;
+    const tagStartMatch = line.match(mintlifyTagPattern);
+    if (tagStartMatch) {
+      let tagText = line;
+      let braceDepth = 0;
+      for (const ch of line) {
+        if (ch === "{") braceDepth++;
+        else if (ch === "}") braceDepth--;
+      }
+
+      let j = i;
+      const maxLines = 50;
+      while (j < lines.length && j - i < maxLines) {
+        const trimmed = tagText.trim();
+        if (braceDepth === 0 && (/\/>/.test(trimmed) || />\s*$/.test(trimmed))) {
+          break;
+        }
+        j++;
+        if (j < lines.length) {
+          tagText += " " + lines[j].trim();
+          for (const ch of lines[j]) {
+            if (ch === "{") braceDepth++;
+            else if (ch === "}") braceDepth--;
+          }
+        }
+      }
+
+      const tag = tagStartMatch[1];
+      const isSelfClosing = /\/>/.test(tagText);
 
       // Check required attributes
       if (requiredAttrs[tag]) {
         for (const attr of requiredAttrs[tag]) {
-          if (!new RegExp(`${attr}=`).test(attrs)) {
+          if (!new RegExp(`${attr}=`).test(tagText)) {
             issues.push({
               line: i + 1,
               severity: "warning",
@@ -294,7 +319,7 @@ function checkMintlifyComponents(content, filePath) {
       }
 
       // CardGroup should have cols
-      if (tag === "CardGroup" && !attrs.includes("cols")) {
+      if (tag === "CardGroup" && !/\bcols=/.test(tagText)) {
         issues.push({
           line: i + 1,
           severity: "warning",
@@ -327,13 +352,28 @@ function checkMintlifyComponents(content, filePath) {
       }
     }
 
-    // Check for img without alt
-    if (line.includes("<img") && !line.includes("alt=")) {
-      issues.push({
-        line: i + 1,
-        severity: "warning",
-        message: "<img> should have `alt` attribute",
-      });
+    // Check for img without alt (supports multi-line tags)
+    if (line.includes("<img")) {
+      let tagText = line;
+      let j = i;
+      const maxLines = 15;
+      while (j < lines.length && j - i < maxLines && !/\/>/.test(tagText)) {
+        const trimmed = tagText.trim();
+        if (trimmed.endsWith(">") && !trimmed.endsWith("/>")) {
+          break;
+        }
+        j++;
+        if (j < lines.length) {
+          tagText += " " + lines[j].trim();
+        }
+      }
+      if (!/\balt\s*=/.test(tagText)) {
+        issues.push({
+          line: i + 1,
+          severity: "warning",
+          message: "<img> should have `alt` attribute",
+        });
+      }
     }
   }
 
