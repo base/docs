@@ -1,0 +1,32 @@
+---
+title: "Mint supply"
+keywords: ["mint stablecoin", "B20 mint role", "issue new supply Base", "supply cap stablecoin"]
+description: "Issue new stablecoin supply on Base as reserves grow, gated by a minter role and an optional supply cap."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+When fiat lands in reserves, mint matching supply. Minting is gated by `MINT_ROLE`, and an optional supply cap keeps circulation from exceeding your reserves.
+
+#### Demo
+
+<StablecoinDemo flow="mint" />
+
+## Mint and cap
+
+```bash Terminal
+# Mint 1,000 MUSD (6 decimals) to a holder.
+base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $HOLDER 1000000000 \
+  --rpc-url $RPC_URL --private-key $MINTER_KEY
+
+# Cap total supply. A mint past the cap reverts with SupplyCapExceeded.
+base-cast send $TOKEN_ADDRESS "updateSupplyCap(uint256)" 10000000000000 \
+  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+```
+
+Use `mintWithMemo` to tag a mint with the reserve deposit it backs. See [Reconcile with memos](/build-on-base/issue-stablecoins/reconcile-with-memos).
+
+## See also
+
+- [Burn supply](/build-on-base/issue-stablecoins/burn-supply)
+- [Mint](/base-chain/specs/upgrades/beryl/b20#mint) and [Supply cap](/base-chain/specs/upgrades/beryl/b20#supply-cap) in the B20 standard

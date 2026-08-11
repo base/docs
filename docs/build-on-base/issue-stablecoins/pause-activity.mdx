@@ -1,0 +1,30 @@
+---
+title: "Pause activity"
+keywords: ["pause stablecoin", "B20 pause", "halt transfers Base", "incident response stablecoin"]
+description: "Halt transfers, mints, or burns on your stablecoin independently during an incident, then resume when it's resolved."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+If something goes wrong, halt activity fast. B20 pausing is **granular**: stop transfers, mints, or burns independently. `PAUSE_ROLE` and `UNPAUSE_ROLE` are separate, so the ability to stop the token can be held more widely than the ability to resume it.
+
+#### Demo
+
+<StablecoinDemo flow="pause" />
+
+## Pause and resume
+
+```bash Terminal
+# Halt transfers only; minting and burning keep working.
+base-cast send $TOKEN_ADDRESS "pause(uint8)" $(base-cast keccak "TRANSFER") \
+  --rpc-url $RPC_URL --private-key $PAUSER_KEY
+
+# Resume when the incident is resolved.
+base-cast send $TOKEN_ADDRESS "unpause(uint8)" $(base-cast keccak "TRANSFER") \
+  --rpc-url $RPC_URL --private-key $UNPAUSER_KEY
+```
+
+## See also
+
+- [Block an account](/build-on-base/issue-stablecoins/block-an-account)
+- [Pause](/base-chain/specs/upgrades/beryl/b20#pause) in the B20 standard

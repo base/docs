@@ -1,0 +1,34 @@
+---
+title: "Block an account"
+keywords: ["block address stablecoin", "B20 blocklist", "compliance hold stablecoin", "stop transfers account Base"]
+description: "Stop a specific address from moving your stablecoin when a compliance hold requires it, without affecting other holders."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Sometimes you need to stop one address from moving your stablecoin — a compliance hold or a support request. A **blocklist** denies only the addresses you list and leaves every other holder untouched. Bind it to the sender scope so a blocked account can't send.
+
+#### Demo
+
+<StablecoinDemo flow="block" />
+
+## Block, then unblock
+
+```bash Terminal
+REG=0x8453000000000000000000000000000000000002  # Policy Registry
+
+# Add an address to the blocklist bound to TRANSFER_SENDER. Takes effect immediately.
+base-cast send $REG "updateBlocklist(uint64,bool,address[])" $BLOCKLIST_ID true "[$ACCOUNT]" \
+  --rpc-url $RPC_URL --private-key $ADMIN_KEY
+
+# When the hold clears, remove it.
+base-cast send $REG "updateBlocklist(uint64,bool,address[])" $BLOCKLIST_ID false "[$ACCOUNT]" \
+  --rpc-url $RPC_URL --private-key $ADMIN_KEY
+```
+
+Transfers from a blocked address revert with `PolicyForbids`. See [Restrict who can hold it](/build-on-base/issue-stablecoins/restrict-who-can-hold) to create and bind the policy.
+
+## See also
+
+- [Recover funds](/build-on-base/issue-stablecoins/recover-funds) · [Pause activity](/build-on-base/issue-stablecoins/pause-activity)
+- [Policy integration](/base-chain/specs/upgrades/beryl/b20#policy-integration) in the B20 standard

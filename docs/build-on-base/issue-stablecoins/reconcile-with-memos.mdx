@@ -1,0 +1,29 @@
+---
+title: "Reconcile with memos"
+keywords: ["stablecoin memo", "B20 memo event", "reconcile onchain payments", "transferWithMemo B20"]
+description: "Tag stablecoin operations with an onchain reference so you can match them to offchain records at scale."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Tie onchain activity back to your books. A **memo** attaches a `bytes32` reference to an operation and emits a `Memo` event alongside it, so reconciliation is a log query instead of a deposit address per customer. Every core call has a memo variant: `mintWithMemo`, `burnWithMemo`, `transferWithMemo`, and `transferFromWithMemo`.
+
+#### Demo
+
+<StablecoinDemo flow="reconcile" />
+
+## Tag an operation
+
+```bash Terminal
+# Attach a reference, emitted as a Memo event right after the Transfer.
+MEMO=$(base-cast format-bytes32-string "invoice-8842")
+base-cast send $TOKEN_ADDRESS "transferWithMemo(address,uint256,bytes32)" \
+  $MERCHANT 25000000 $MEMO --rpc-url $RPC_URL --private-key $PAYER_KEY
+```
+
+Indexers join each `Memo` to its operation by `(transactionHash, logIndex − 1)`.
+
+## See also
+
+- [Accept B20 payments](/apps/guides/accept-b20-payments) for the full app-side flow
+- [Query B20 events with the CDP SQL API](https://docs.cdp.coinbase.com/data/sql-api/b20-events) to reconcile at scale
