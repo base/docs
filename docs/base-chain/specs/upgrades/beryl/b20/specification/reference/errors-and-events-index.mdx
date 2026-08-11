@@ -27,8 +27,8 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `ContractPaused` | `0xf9df5ac9` | `IB20` | The `PausableFeature` covering this operation is currently paused. |
 | event | `ContractURIUpdated` | `0xa5d4097edda6d87cb9329af83fb3712ef77eeb13738ffe43cc35a4ce305ad962` | `IB20` | Emitted by `updateContractURI`. Per ERC-7572, parameterless: integrators re-fetch `contractURI()`. |
 | error | `DelegateCallNotAllowed` | `0x0d89438e` | `IActivationRegistry` | The precompile was invoked via `DELEGATECALL` or `CALLCODE`. |
-| error | `EffectiveAtInPast` | `0x14119cf6` | `IB20Asset` | `setUIMultiplier` was called with an `effectiveAt` that is not in the future |
-| error | `EffectiveAtTooFar` | `0x1ce214fa` | `IB20Asset` | `setUIMultiplier` was called with an `effectiveAt` above `type(uint64).max`, the |
+| error | `EffectiveAtInPast` | `0x14119cf6` | `IB20Asset` | `updateUIMultiplier` was called with an `effectiveAt` that is not in the future |
+| error | `EffectiveAtTooFar` | `0x1ce214fa` | `IB20Asset` | `updateUIMultiplier` was called with an `effectiveAt` above `type(uint64).max`, the |
 | event | `EIP712DomainChanged` | `0x0a6387c9ea3628b88a633bb4f3b151770f70085117a15f9bf3787cda53f13d31` | `IB20` | ERC-5267 domain-change signal. Emitted exactly once per successful `updateName` call, |
 | error | `EmptyBatch` | `0xc2e5347d` | `IB20Asset` | A batched function was called with empty arrays. |
 | error | `EmptyFeatureSet` | `0x4861ff45` | `IB20` | An empty array was passed to a function that requires at least one element. |
@@ -50,7 +50,7 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `InvalidCurrency` | `0x997c1de8` | `IB20Factory` | The stablecoin `currency` was non-empty but contained a non-`A`-`Z` byte. |
 | error | `InvalidDecimals` | `0xca950391` | `IB20Factory` | The asset `decimals` was outside the allowed inclusive range |
 | error | `InvalidMetadataKey` | `0x86ea3abb` | `IB20Asset` | `updateExtraMetadata` was called with an empty `key`. |
-| error | `InvalidMultiplier` | `0x6f12f3dc` | `IB20Asset` | A multiplier setter (`setUIMultiplier` or `updateMultiplier`) was called with a |
+| error | `InvalidMultiplier` | `0x6f12f3dc` | `IB20Asset` | A multiplier setter (`updateUIMultiplier` or `updateMultiplier`) was called with a |
 | error | `InvalidReceiver` | `0x9cfea583` | `IB20` | The transfer's destination address is invalid (typically `address(0)`). |
 | error | `InvalidSender` | `0x4c14f64c` | `IB20` | The transfer's source address is invalid (typically `address(0)`). |
 | error | `InvalidSigner` | `0x7ba5ffb5` | `IB20` | ECDSA recovery on an EIP-2612 `permit` returned `signer`, which does not match the claimed `owner`. |
@@ -62,13 +62,14 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `LengthMismatch` | `0xab8b67c6` | `IB20Asset` | A batched function was called with parallel arrays of differing lengths. |
 | event | `Memo` | `0x6989f5818dcfd11f8cd53b27c94cec33dae1589735f03e639cba54553a1825e8` | `IB20` | Emitted by `transferWithMemo`, `transferFromWithMemo`, `mintWithMemo`, and `burnWithMemo` |
 | error | `MissingRequiredField` | `0x4a43ae87` | `IB20Factory` | A required string argument was the empty string. |
-| event | `MultiplierUpdateCancelled` | `0xf8929975f3e67bbd1e5ec70d4cceaa7cce7ea0e811720f29c96cf1724de09397` | `IB20Asset` | A scheduled multiplier update was cancelled. Emitted by `cancelScheduledMultiplier`, |
+| event | `MultiplierUpdated` | `0x4dbe4840d7465bd162f67814cea0b519567a2e0e578bcde61e7f4ced361e5a3d` | `IB20Asset` | Deprecated multiplier-change event emitted by `updateMultiplier` alongside `UIMultiplierUpdated`. |
+| event | `UIMultiplierUpdateCancelled` | `0x883856335ba5f60c18b9817c4505d3c7d3f6223dcf39516b30c508c46a5e1cad` | `IB20Asset` | A scheduled multiplier update was cancelled. |
 | event | `NameUpdated` | `0x74321da206c1b9fa34367f7ece59ca49371dcd13820b9a5c3767ae1ecceed51a` | `IB20` | Emitted by `updateName`. Carries the new name string. |
 | error | `NonPayable` | `0x6fb1b0e9` | `IB20` | ETH was attached to a call targeting a nonpayable token selector. |
 | error | `NonPayable` | `0x6fb1b0e9` | `IB20Factory` | ETH was attached to a call targeting a nonpayable factory selector. |
 | error | `NonPayable` | `0x6fb1b0e9` | `IPolicyRegistry` | ETH was attached to a call targeting a nonpayable policy registry selector. |
 | error | `NoPendingAdmin` | `0xb4539afa` | `IPolicyRegistry` | `finalizeUpdateAdmin` was called with no pending admin staged. |
-| error | `NoScheduledMultiplier` | `0x002e806f` | `IB20Asset` | `cancelScheduledMultiplier` was called when there is no live pending update |
+| error | `UIMultiplierUpdateDoesNotExist` | `0xa7d6a5ca` | `IB20Asset` | `cancelUIMultiplierUpdate` was called when there is no live pending update |
 | error | `NotSoleAdmin` | `0x2a98e73b` | `IB20` | `renounceLastAdmin()` was called when other accounts also hold `DEFAULT_ADMIN_ROLE`. |
 | event | `Paused` | `0x43e072977b8112813d7c2aa0b63d3c121c1fe3e714e6d2eacb5735fe4027e976` | `IB20` | Emitted by `pause`. `features` is the argument to the call (not the resulting paused state). |
 | event | `PolicyAdminStaged` | `0xdbf3b34a4c956c56ca05cd4b8f9293a4347ad61994445a4b89817d4a19561136` | `IPolicyRegistry` | A new admin was staged. `pendingAdmin == address(0)` clears a prior nomination. |
@@ -81,7 +82,7 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | event | `RoleAdminChanged` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | `IB20` | Emitted by `setRoleAdmin` when the admin role for `role` changes. |
 | event | `RoleGranted` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | `IB20` | Emitted when `account` is granted `role`. `sender` is the originating caller. |
 | event | `RoleRevoked` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | `IB20` | Emitted when `role` is revoked from `account`. `sender` is the originating caller |
-| error | `ScheduleOverlap` | `0x91a52665` | `IB20Asset` | `setUIMultiplier` was called while a live pending update already exists |
+| error | `UIMultiplierUpdateExists` | `0x4481a68e` | `IB20Asset` | `updateUIMultiplier` was called while a live pending update already exists |
 | event | `Seized` | `0xa9aec5d8b86e2fa2fd6ac3af62f2622e3dfdab1967d4cbbb56a5df7d74cb887c` | `IB20` | Emitted by `seizeWithMemo` in addition to `Transfer(from, to, amount)` (and the |
 | error | `StaticCallNotAllowed` | `0xbeaba5b7` | `IActivationRegistry` | A state-mutating entry point was invoked from a `STATICCALL` frame. |
 | error | `SupplyCapExceeded` | `0x4b344b11` | `IB20` | The mint would push `totalSupply` past the configured cap. |
