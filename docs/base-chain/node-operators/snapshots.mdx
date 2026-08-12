@@ -8,6 +8,17 @@ Using a snapshot significantly reduces the initial time required to sync a Base 
 
 If you're a prospective or current Base node operator, you can restore from a snapshot to speed up your initial sync. Follow the steps below carefully.
 
+<Warning>
+**Action required: migrate to reth V2 storage.** Base Mainnet operators must upgrade and migrate to reth V2 storage **by mid-August**. V1 snapshots are being decommissioned over the next few weeks, so plan to migrate soon.
+
+You have two migration paths:
+
+- **Download a fresh V2 snapshot** (recommended, faster) — use `base-reth-node download` as described in [Restoring from Snapshot](#restoring-from-snapshot) below.
+- **Migrate existing V1 data in place** — run `base-reth-node db migrate-v2`. This is expected to take **much** longer than downloading, and non-archival nodes are not supported.
+
+Because migration can take a while, we strongly recommend starting now. For details, see the [v1.2.0 release notes](https://github.com/base/base/releases/tag/v1.2.0).
+</Warning>
+
 ## Restoring from Snapshot
 
 These steps assume you are in the cloned `node` directory (the one containing `docker-compose.yml`).
@@ -52,7 +63,7 @@ These steps use the `base-reth-node` CLI to download snapshots. If you don't alr
     base-reth-node download --full --datadir ./reth-data --chain base-sepolia --resumable
     ```
 
-    Alternatively, for archival nodes only, you may run `base db migrate-v2`. However, this is expected to take **much** longer than downloading. `--resumable` is also not supported in `migrate-v2`.
+    Alternatively, for archival nodes only, you may run `base-reth-node db migrate-v2`. However, this is expected to take **much** longer than downloading. `--resumable` is also not supported in `migrate-v2`.
 
 4. **(Optional) - tuning download concurrency:** 
 
