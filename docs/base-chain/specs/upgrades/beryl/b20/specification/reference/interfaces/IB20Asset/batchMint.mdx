@@ -1,0 +1,52 @@
+---
+title: "IB20Asset.batchMint"
+description: "Generated B20 reference for batchMint(address[],uint256[])."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/variants-asset-vs-stablecoin)
+
+## Signature
+
+```solidity
+function batchMint(address[] calldata recipients, uint256[] calldata amounts) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x68573107` |
+| Canonical signature | `batchMint(address[],uint256[])` |
+
+## Description
+
+Mints `amounts[i]` to `recipients[i]` in one call. All-or-nothing: any element
+revert unwinds the whole transaction. Emits `Transfer(address(0), recipients[i], amounts[i])`
+per element.
+Dev: Reverts with `ContractPaused(MINT)` when `MINT` is paused.
+Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `MINT_ROLE`.
+Dev: Reverts with `LengthMismatch` when `recipients.length != amounts.length`.
+Dev: Reverts with `EmptyBatch` when either array is empty.
+Dev: Reverts with `InvalidReceiver` when any `recipients[i] == address(0)`.
+Dev: Reverts with `PolicyForbids(MINT_RECEIVER_POLICY, ...)` when any recipient is not authorized.
+Dev: Reverts with `SupplyCapExceeded` when the cumulative mint would exceed the cap.
+Param: recipients Accounts receiving the minted tokens.
+Param: amounts    Per-recipient amounts, parallel to `recipients`.
+
+## Access control
+
+Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+
+## Policy interaction
+
+No direct policy interaction.
+
+## Example
+
+```solidity
+IB20Asset(target).batchMint(arg0, arg1);
+```
+
+## Related
+
+- [IB20Asset reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)

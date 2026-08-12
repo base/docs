@@ -1,0 +1,47 @@
+---
+title: "IB20.updatePolicy"
+description: "Generated B20 reference for updatePolicy(bytes32,uint64)."
+---
+
+
+[Related concept](/base-chain/specs/upgrades/beryl/b20/specification/concepts/policies-and-scopes)
+
+## Signature
+
+```solidity
+function updatePolicy(bytes32 policyScope, uint64 newPolicyId) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xadf9c4ea` |
+| Canonical signature | `updatePolicy(bytes32,uint64)` |
+
+## Description
+
+Updates the policy ID assigned to `policyScope`. Takes effect immediately for the next
+operation that consults this slot. Emits `PolicyUpdated`.
+Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `DEFAULT_ADMIN_ROLE`.
+Dev: Reverts with `UnsupportedPolicyType` when `policyScope` is not recognized by this token.
+Dev: Reverts with `PolicyNotFound` when `newPolicyId` is not a built-in sentinel and does not exist in the registry.
+Param: policyScope Policy slot scope.
+Param: newPolicyId Policy ID to assign to the slot.
+
+## Access control
+
+`DEFAULT_ADMIN_ROLE` gates this call. Factory initCalls bypass the role gate during creation.
+
+## Policy interaction
+
+Reads or writes a token policy-scope pointer into the PolicyRegistry.
+
+## Example
+
+```solidity
+IB20(token).updatePolicy(B20Constants.MINT_RECEIVER_POLICY, policyId);
+```
+
+## Related
+
+- [IB20 reference](/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20)
+- [Constants & addresses](/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses)
