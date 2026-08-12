@@ -94,6 +94,7 @@ npx skills add base/base-skills
 |base-chain/specs/reference:configurability,glossary
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20-playground,b20,overview
+|base-chain/specs/upgrades/beryl/b20:demos
 |base-chain/specs/upgrades/beryl/b20/specification:index
 |base-chain/specs/upgrades/beryl/b20/specification/reference:constants-and-addresses,errors-and-events-index
 |base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
