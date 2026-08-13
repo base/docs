@@ -3,14 +3,19 @@ export const PaymentsDemo = ({ flow }) => {
   const sans = "'Base Sans','Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
   const mono = "'Base Mono','Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 
-  // Locked Base palette — rendered light regardless of host docs theme.
+  // ----------------------------------------------------------------------
+  // Color roles map to CSS custom properties defined in the <style> block,
+  // so a single dark-theme block flips the whole demo. Values resolve at
+  // render time; keep using C.* in inline styles exactly as before.
+  // ----------------------------------------------------------------------
   const C = {
-    blue: "#0000ff", onBlue: "#ffffff", cerulean: "#3c8aff",
-    ink: "#0a0b0d", body: "#32353d", sec: "#5b616e", sub: "#717886",
-    border: "#dee1e7", panel: "#eef0f3", white: "#ffffff",
-    success: "#66c800", lime: "#b6f569", error: "#fc401f", warn: "#ffd12f",
-    blueSoft: "rgba(0,0,255,.06)", successSoft: "rgba(102,200,0,.12)", errorSoft: "rgba(252,64,31,.10)",
+    blue: "var(--wf-blue)", onBlue: "var(--wf-on-blue)", cerulean: "var(--wf-cerulean)",
+    ink: "var(--wf-ink)", body: "var(--wf-body)", sec: "var(--wf-sec)", sub: "var(--wf-sub)",
+    border: "var(--wf-border)", panel: "var(--wf-panel)", white: "var(--wf-surface)",
+    success: "var(--wf-success)", lime: "var(--wf-lime)", error: "var(--wf-error)", warn: "var(--wf-warn)",
+    blueSoft: "var(--wf-blue-soft)", successSoft: "var(--wf-success-soft)", errorSoft: "var(--wf-error-soft)",
   };
+  // Account markers use fixed brand hues that read on either theme.
   const dot = { Merchant: C.blue, Alice: "#66c800", Agent: "#3c8aff" };
 
   const NETWORK = "Base Vibenet";
@@ -186,15 +191,77 @@ export const PaymentsDemo = ({ flow }) => {
   const StatusTag = ({ state }) => {
     const map = { done: [C.success, "Complete"], now: [C.blue, "In progress"], future: [C.sub, "Pending"] };
     const [col, txt] = map[state];
-    return <span style={{ fontFamily: sans, fontSize: 11, fontWeight: 600, color: col }}>{txt}</span>;
+    return <span className="wf-t-footnote" style={{ color: col }}>{txt}</span>;
   };
 
   const levelColor = { EVENT: C.blue, INFO: C.sec, ERROR: C.error, PENDING: C.sub };
 
   return (
-    <div className="wf" style={{ margin: "22px 0", maxWidth: 760, borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, overflow: "hidden", boxShadow: "0 1px 2px rgba(10,11,13,.04)" }}>
+    <div className="wf" style={{ margin: "22px 0", maxWidth: 760, borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, overflow: "hidden", boxShadow: "var(--wf-shadow)" }}>
       <style>{`
+        /* ---- Base design system: color tokens (light) ---- */
+        .wf {
+          --wf-sans: 'Base Sans','Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+          --wf-sans-text: 'Base Sans Text','Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+          --wf-mono: 'Base Mono','Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+          --wf-blue: #0000ff; --wf-on-blue: #ffffff; --wf-cerulean: #3c8aff;
+          --wf-ink: #0a0b0d; --wf-body: #32353d; --wf-sec: #5b616e; --wf-sub: #717886; --wf-muted: #787878;
+          --wf-border: #dee1e7; --wf-panel: #eef0f3; --wf-surface: #ffffff;
+          --wf-success: #66c800; --wf-lime: #b6f569; --wf-error: #fc401f; --wf-warn: #ffd12f;
+          --wf-blue-soft: rgba(0,0,255,.06); --wf-success-soft: rgba(102,200,0,.12); --wf-error-soft: rgba(252,64,31,.10);
+          --wf-shadow: 0 1px 2px rgba(10,11,13,.04);
+        }
+        /* ---- Dark theme: system preference ---- */
+        @media (prefers-color-scheme: dark) {
+          .wf {
+            --wf-blue: #4d6bff; --wf-on-blue: #ffffff; --wf-cerulean: #6ea8ff;
+            --wf-ink: #ffffff; --wf-body: #dee1e7; --wf-sec: #b1b7c3; --wf-sub: #8a91a0; --wf-muted: #787878;
+            --wf-border: #2b2f36; --wf-panel: #17181b; --wf-surface: #0f1012;
+            --wf-success: #7cd442; --wf-lime: #b6f569; --wf-error: #ff6a4d; --wf-warn: #ffd12f;
+            --wf-blue-soft: rgba(77,107,255,.16); --wf-success-soft: rgba(124,212,66,.16); --wf-error-soft: rgba(255,106,77,.16);
+            --wf-shadow: 0 1px 2px rgba(0,0,0,.4);
+          }
+        }
+        /* ---- Dark theme: docs explicit toggle wins over system ---- */
+        html.dark .wf, :root[data-theme="dark"] .wf, [data-theme="dark"] .wf {
+          --wf-blue: #4d6bff; --wf-on-blue: #ffffff; --wf-cerulean: #6ea8ff;
+          --wf-ink: #ffffff; --wf-body: #dee1e7; --wf-sec: #b1b7c3; --wf-sub: #8a91a0; --wf-muted: #787878;
+          --wf-border: #2b2f36; --wf-panel: #17181b; --wf-surface: #0f1012;
+          --wf-success: #7cd442; --wf-lime: #b6f569; --wf-error: #ff6a4d; --wf-warn: #ffd12f;
+          --wf-blue-soft: rgba(77,107,255,.16); --wf-success-soft: rgba(124,212,66,.16); --wf-error-soft: rgba(255,106,77,.16);
+          --wf-shadow: 0 1px 2px rgba(0,0,0,.4);
+        }
+        /* ---- Light theme: docs explicit toggle wins over system dark ---- */
+        html.light .wf, :root[data-theme="light"] .wf, [data-theme="light"] .wf {
+          --wf-blue: #0000ff; --wf-on-blue: #ffffff; --wf-cerulean: #3c8aff;
+          --wf-ink: #0a0b0d; --wf-body: #32353d; --wf-sec: #5b616e; --wf-sub: #717886; --wf-muted: #787878;
+          --wf-border: #dee1e7; --wf-panel: #eef0f3; --wf-surface: #ffffff;
+          --wf-success: #66c800; --wf-lime: #b6f569; --wf-error: #fc401f; --wf-warn: #ffd12f;
+          --wf-blue-soft: rgba(0,0,255,.06); --wf-success-soft: rgba(102,200,0,.12); --wf-error-soft: rgba(252,64,31,.10);
+          --wf-shadow: 0 1px 2px rgba(10,11,13,.04);
+        }
+
         .wf, .wf * { box-sizing: border-box; }
+
+        /* ---- Base design system: text variants (mobile → md 768px) ---- */
+        .wf-t-title2 { font-family: var(--wf-sans); font-weight: 400; letter-spacing: -0.02em; font-size: 20px; line-height: 28px; }
+        .wf-t-title3 { font-family: var(--wf-sans); font-weight: 400; letter-spacing: -0.02em; font-size: 18px; line-height: 26px; }
+        .wf-t-headline { font-family: var(--wf-sans); font-weight: 400; letter-spacing: -0.02em; font-size: 16px; line-height: 24px; }
+        .wf-t-body { font-family: var(--wf-sans-text); font-weight: 400; letter-spacing: 0; font-size: 15px; line-height: 1.4; }
+        .wf-t-caption { font-family: var(--wf-sans); font-weight: 500; letter-spacing: 0; text-transform: uppercase; font-size: 11px; line-height: 14px; }
+        .wf-t-button { font-family: var(--wf-sans); font-weight: 400; letter-spacing: -0.01em; font-size: 15px; line-height: 1.4; }
+        .wf-t-footnote { font-family: var(--wf-sans); font-weight: 400; letter-spacing: 0; font-size: 11px; line-height: 14px; }
+        .wf-t-mono { font-family: var(--wf-mono); font-weight: 400; font-size: 11.5px; line-height: 1.5; }
+        @media (min-width: 768px) {
+          .wf-t-title2 { font-size: 24px; line-height: 32px; }
+          .wf-t-title3 { font-size: 20px; line-height: 28px; }
+          .wf-t-headline { font-size: 18px; line-height: 28px; }
+          .wf-t-body { font-size: 16px; line-height: 1.4; }
+          .wf-t-caption { font-size: 12px; line-height: 16px; }
+          .wf-t-button { font-size: 16px; line-height: 1.4; }
+          .wf-t-footnote { font-size: 12px; line-height: 16px; }
+        }
+
         .wf-nav { display: flex; gap: 20px; }
         .wf-split { display: grid; grid-template-columns: 43% 57%; }
         .wf-rail { border-right: 1px solid ${C.border}; }
@@ -221,7 +288,7 @@ export const PaymentsDemo = ({ flow }) => {
       {/* Scenario selector (only when not pinned) */}
       {!pinned && (
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "10px 16px", borderBottom: `1px solid ${C.border}`, background: C.panel }}>
-          <span style={{ fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: C.sub, marginRight: 4 }}>Scenario</span>
+          <span className="wf-t-caption" style={{ color: C.sub, marginRight: 4 }}>Scenario</span>
           {order.map((k) => (
             <button key={k} className={k === active ? "wf-pill wf-pill-on" : "wf-pill"} onClick={() => select(k)}>{FLOWS[k].label}</button>
           ))}
@@ -242,7 +309,7 @@ export const PaymentsDemo = ({ flow }) => {
             );
           })}
         </div>
-        <span style={{ fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: C.sub, border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}>Demo</span>
+        <span className="wf-t-caption" style={{ color: C.sub, border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}>Demo</span>
         {results.length > 0 && (
           <button onClick={reset} title="Reset" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", color: C.sec, flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
@@ -272,7 +339,7 @@ export const PaymentsDemo = ({ flow }) => {
                   {!last && <div style={{ flex: 1, width: 2, minHeight: 22, marginTop: 4, marginBottom: 2, background: i < stepIndex ? C.blue : C.border }} />}
                 </div>
                 <div style={{ flex: 1, paddingBottom: last ? 0 : 14, minWidth: 0 }}>
-                  <div style={{ fontFamily: sans, fontSize: 13, fontWeight: state === "future" ? 500 : 600, color: state === "future" ? C.sub : C.ink, lineHeight: 1.3 }}>{st.action}</div>
+                  <div className="wf-t-body" style={{ fontWeight: state === "future" ? 400 : 500, color: state === "future" ? C.sub : C.ink }}>{st.action}</div>
                   <div style={{ marginTop: 2 }}><StatusTag state={state} /></div>
                 </div>
               </div>
@@ -282,13 +349,13 @@ export const PaymentsDemo = ({ flow }) => {
           {/* USDC balances readout */}
           {f.readout && holders.length > 0 && (
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: C.sub, marginBottom: 8 }}>USDC balances</div>
+              <div className="wf-t-caption" style={{ color: C.sub, marginBottom: 8 }}>USDC balances</div>
               <div style={{ display: "grid", gap: 6 }}>
                 {holders.map((a) => (
-                  <div key={a} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: sans, fontSize: 12.5, color: C.body }}>
+                  <div key={a} className="wf-t-body" style={{ display: "flex", alignItems: "center", gap: 8, color: C.body }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot[a] || C.sub, flexShrink: 0 }} />
                     <span style={{ flex: 1 }}>{a}</span>
-                    {sim.blocked === a && <span style={{ fontFamily: sans, fontSize: 9.5, fontWeight: 600, letterSpacing: ".3px", textTransform: "uppercase", color: C.error, border: `1px solid ${C.error}`, borderRadius: 4, padding: "0 4px" }}>blocked</span>}
+                    {sim.blocked === a && <span className="wf-t-caption" style={{ color: C.error, border: `1px solid ${C.error}`, borderRadius: 4, padding: "0 4px" }}>Blocked</span>}
                     <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 600, color: C.ink }}>{fmt(sim.balances[a] || 0)}</span>
                   </div>
                 ))}
@@ -301,17 +368,17 @@ export const PaymentsDemo = ({ flow }) => {
         <div style={{ padding: "16px 18px", background: C.white, minWidth: 0 }}>
           {done ? (
             <div className="wf-anim">
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: sans, fontSize: 12.5, fontWeight: 600, color: C.success, background: C.successSoft, borderRadius: 6, padding: "5px 10px" }}>
+              <div className="wf-t-footnote" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 600, color: C.success, background: C.successSoft, borderRadius: 6, padding: "5px 10px" }}>
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 Flow complete
               </div>
-              <div style={{ fontFamily: sans, fontSize: 13.5, color: C.body, lineHeight: 1.5, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
+              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
-              <div style={{ fontFamily: sans, fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", color: C.ink }}>{cur.action}</div>
-              <div style={{ fontFamily: sans, fontSize: 13, color: C.sec, lineHeight: 1.5, marginTop: 5 }}>{cur.text}</div>
+              <div className="wf-t-headline" style={{ color: C.ink }}>{cur.action}</div>
+              <div className="wf-t-body" style={{ color: C.sec, marginTop: 5 }}>{cur.text}</div>
 
               <div style={{ marginTop: 14, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 {cur.summary.map(([k, val], i) => {
@@ -319,8 +386,8 @@ export const PaymentsDemo = ({ flow }) => {
                   const v = isM ? val.v : val;
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 12px", borderTop: i ? `1px solid ${C.border}` : "none" }}>
-                      <span style={{ fontFamily: sans, fontSize: 12.5, color: C.sec }}>{k}</span>
-                      <span style={{ fontFamily: isM ? mono : sans, fontSize: isM ? 12 : 12.5, fontWeight: isM ? 500 : 600, color: C.ink, textAlign: "right", wordBreak: "break-word" }}>
+                      <span className="wf-t-footnote" style={{ color: C.sec }}>{k}</span>
+                      <span style={{ fontFamily: isM ? "var(--wf-mono)" : "var(--wf-sans)", fontSize: isM ? 12 : 12.5, fontWeight: isM ? 500 : 600, color: C.ink, textAlign: "right", wordBreak: "break-word" }}>
                         {k === "Network" && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: C.cerulean, marginRight: 6 }} />}
                         {v}
                       </span>
@@ -344,7 +411,7 @@ export const PaymentsDemo = ({ flow }) => {
       {/* Event log */}
       <div style={{ borderTop: `1px solid ${C.border}`, background: C.white }}>
         <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 600, color: C.ink }}>Transaction event log</span>
+          <span className="wf-t-headline" style={{ fontSize: 13, color: C.ink }}>Transaction event log</span>
         </div>
         <div style={{ maxHeight: 168, overflowY: "auto", padding: "6px 0" }}>
           {logRows.map((r, i) => (
@@ -366,7 +433,7 @@ export const PaymentsDemo = ({ flow }) => {
 
       {/* Footer */}
       <div style={{ padding: "10px 16px", background: C.panel, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontFamily: sans, fontSize: 11, color: C.sub, lineHeight: 1.4 }}>{f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: C.sub }}>{f.erc20}</span>
       </div>
     </div>
   );
