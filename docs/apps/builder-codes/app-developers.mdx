@@ -215,7 +215,30 @@ See the [Privy Builder Codes integration guide](https://docs.privy.io/recipes/ev
     </Tab>
   </Tabs>
 </Accordion>
+## Troubleshooting
 
+If your transaction succeeds but does not appear in your Builder Code analytics, verify that the attribution suffix was actually included in the transaction.
+
+### Transaction succeeds but attribution is missing
+
+A successful onchain transaction does not necessarily mean the Builder Code was attached. Check the transaction input data in a block explorer and confirm that the ERC-8021 suffix is present.
+
+If the input data contains only the expected function calldata and no attribution suffix:
+
+- Confirm that `dataSuffix` is configured on the client that actually sends the transaction.
+- Make sure the transaction is using the same Wagmi or Viem client where `dataSuffix` was configured.
+- If your app uses multiple clients or transaction paths, verify attribution for each path separately.
+- For per-transaction integrations, confirm that `dataSuffix` is passed to the transaction call.
+
+### Dashboard still shows zero transactions
+
+If the ERC-8021 suffix is present in the transaction input but your analytics have not updated yet, allow time for the transaction to be processed before troubleshooting further.
+
+If the suffix is not present, the transaction cannot be attributed to your Builder Code. Fix the integration first, then submit a new transaction and verify its input data again.
+
+<Tip>
+  When debugging attribution, verify the transaction calldata before relying on dashboard analytics. This helps distinguish an indexing delay from a missing Builder Code.
+</Tip>
 ## Verify Attribution
 
 To confirm your Builder Code is being appended correctly:
