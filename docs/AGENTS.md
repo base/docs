@@ -44,7 +44,7 @@ npx skills add base/base-skills
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
 |base-chain/flashblocks:faq
-|base-chain/network-information:base-contracts,base-solana-bridge,bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets,network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
+|base-chain/network-information:b20-token-standard,base-contracts,base-solana-bridge,bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets,network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
 |base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:connecting-to-base
 |base-chain/security:avoid-malicious-flags,bug-bounty,report-vulnerability,security-council
@@ -73,7 +73,7 @@ npx skills add base/base-skills
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |build-on-base/ledgers:deposit,transfer,withdraw
 |build-on-base/tokenize-stocks:announce-a-stock-dividend,cancel-blocked-shares,create-a-stock-token,issue-shares,pause-transfers,restrict-eligible-holders,run-a-stock-split
-|get-started:accept-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,integrate-defi,issue-stablecoins,launch-b20-token,launch-token,learning-resources,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks
+|get-started:accept-payments,apis,apply-for-funding,base-batches,base-chain,base-ecosystem-fund,base-mentorship-program,base-services-hub,base,block-explorers,concepts,connect-to-base,country-leads-and-ambassadors,data-indexers,deploy-smart-contracts,docs-llms,docs-mcp,financing,get-funded,get-funds,integrate-defi,issue-stablecoins,launch-token,learning-resources,make-a-transaction,private-transactions,prompt-library,resources-for-ai-agents,run-a-base-node,sdks-and-apis,sdks,tokenize-stocks
 |root:changes,contribution-guidelines,cookie-policy,privacy-policy,terms-of-service,tone_of_voice
 |sdks:overview
 |sdks/base-account:overview

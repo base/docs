@@ -1,13 +1,20 @@
 ---
-title: "Launch a B20 Token"
-description: "Launch a B20 token on Base with one call to the B20 Factory precompile, with roles, supply caps, and compliance controls built in."
+title: "B20 Token Standard"
+description: "What B20 is — Base's native token standard — how its factory, roles, policies, and variants work, and how to launch a B20 token in a single transaction."
 ---
 
-B20 is an ERC-20 superset that runs as a native precompile on Base, which makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility. Roles, supply caps, pausing, policy gating, memos, and `permit` are built into the chain.
+B20 is Base's native token standard: an ERC-20 superset that runs as a native precompile, which makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility. Roles, supply caps, pausing, policy gating, memos, and `permit` are built into the chain, so you don't build, audit, or maintain that logic yourself.
 
-A standard ERC-20 leaves that logic for you to build, audit, and maintain. With B20, you call the singleton [**B20 Factory**](/base-chain/specs/upgrades/beryl/b20#factory) to create a token, fully configured, in a single transaction.
+## How B20 works
 
-This guide creates an Asset token, mints its initial supply, and verifies the balance onchain. To accept the token as payment in an app, continue with [Accept a B20 payment](/build-on-base/accept-payments/from-humans#accept-b20-with-a-memo).
+Every B20 token is created by the singleton [**B20 Factory**](/base-chain/specs/upgrades/beryl/b20#factory), which returns a fully configured token in a single transaction. Two variants cover the common cases:
+
+- **Asset** — configurable decimals (6–18), plus a rebase multiplier, onchain announcements, and batched issuance. Use it for real-world assets, equities, and long-tail tokens.
+- **Stablecoin** — fixed at 6 decimals with a self-declared ISO currency code. Use it for fiat-backed tokens.
+
+Both variants share the same core surface: [role-based access control](/base-chain/specs/upgrades/beryl/b20#roles-model), optional [supply caps](/base-chain/specs/upgrades/beryl/b20#supply-cap), [policy-gated transfers and mints](/base-chain/specs/upgrades/beryl/b20#policy-integration), [granular pause](/base-chain/specs/upgrades/beryl/b20#pause), [memos](/base-chain/specs/upgrades/beryl/b20#memos), and ERC-2612 `permit`. For the complete ABIs and precompile behavior, see the [B20 native token standard](/base-chain/specs/upgrades/beryl/b20) spec.
+
+The rest of this page walks through launching a B20 Asset token: create it, mint its initial supply, and verify the balance onchain. To accept the token as payment in an app, continue with [Accept a B20 payment](/build-on-base/accept-payments/from-humans#accept-b20-with-a-memo).
 
 ## Before you begin
 

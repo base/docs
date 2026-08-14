@@ -409,6 +409,7 @@ export const StablecoinDemo = ({ flow }) => {
               </div>
               <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
+              <a className="wf-btn" href="/base-chain/network-information/b20-token-standard" style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>

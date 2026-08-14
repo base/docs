@@ -317,6 +317,7 @@ export const DeFiDemo = ({ flow }) => {
               </div>
               <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
+              <a className="wf-btn" href="/build-on-base/integrate-defi/integrate-lending" style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
