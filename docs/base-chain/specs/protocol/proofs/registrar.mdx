@@ -13,7 +13,7 @@ intermediate certificates that AWS has withdrawn.
 A registrar is operated by Base. The proof system trusts only signers that this registrar has
 registered, so registrar correctness is a prerequisite for accepting TEE proofs onchain. Its output
 is still self-validating: the attestation ZK proof, the enclave PCR0 measurement, and the signer
-public key are all checked by `TEEProverRegistry` and [`NitroEnclaveVerifier`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/NitroEnclaveVerifier.sol)
+public key are all checked by `TEEProverRegistry` and `NitroEnclaveVerifier`
 before the signer becomes valid.
 
 ## Responsibilities
@@ -321,8 +321,8 @@ submission time and includes an image-hash match that the registrar cannot satis
 | [`TEEProverRegistry`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/TEEProverRegistry.sol)                 | `deregisterSigner(signer)`      | Per-orphan deregistration transaction.              |
 | [`TEEProverRegistry`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/TEEProverRegistry.sol)                 | `isRegisteredSigner(signer)`    | Pre-check, post-error reconciliation, orphan race guard. |
 | [`TEEProverRegistry`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/TEEProverRegistry.sol)                 | `getRegisteredSigners()`        | Once per cycle for orphan computation.              |
-| [`NitroEnclaveVerifier`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/NitroEnclaveVerifier.sol)           | `revokeCert(certHash)`          | When AWS CRL revokes an intermediate.               |
-| [`NitroEnclaveVerifier`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/NitroEnclaveVerifier.sol)           | `revokedCerts(certHash)`        | Layer-1 onchain durable revocation pre-check.       |
+| `NitroEnclaveVerifier`           | `revokeCert(certHash)`          | When AWS CRL revokes an intermediate.               |
+| `NitroEnclaveVerifier`           | `revokedCerts(certHash)`        | Layer-1 onchain durable revocation pre-check.       |
 
 PCR0 enforcement happens onchain at proof submission, not at registration. The registrar registers
 any enclave whose Nitro attestation verifies, regardless of its PCR0. This allows the next image's
