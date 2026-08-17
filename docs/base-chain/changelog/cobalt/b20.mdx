@@ -14,33 +14,34 @@ Cobalt has not activated yet. The changes below are not callable until Cobalt ac
 ## B20 Asset: scheduled multiplier updates
 
 The B20 Asset multiplier surface becomes conformant with [ERC-8056](https://eips.ethereum.org/EIPS/eip-8056)
-and the [Base Standard changelog](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes):
+and the [B20 Asset multiplier migration details](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20Asset_multiplier.md):
 
-- Adds [`uiMultiplier`, `toUIAmount`, `fromUIAmount`, `balanceOfUI`, and `totalSupplyUI`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes).
-- Adds [`updateUIMultiplier(uint256,uint256)`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes) for scheduling corporate-action multiplier updates.
-- Retains [`updateMultiplier(uint256)`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes) as an instant administrative failsafe.
+- Adds [`uiMultiplier`, `toUIAmount`, `fromUIAmount`, `balanceOfUI`, and `totalSupplyUI`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20Asset_multiplier.md#functions).
+- Adds [`updateUIMultiplier(uint256,uint256)`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20Asset_multiplier.md#scheduled-update-lifecycle) for scheduling corporate-action multiplier updates.
+- Retains [`updateMultiplier(uint256)`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20Asset_multiplier.md#updatemultiplieruint256-remains-as-an-instant-admin-failsafe) as an instant administrative failsafe.
 
 Applications should use the ERC-8056 names and move routine multiplier changes to the scheduled
-`updateUIMultiplier` function.
+[`updateUIMultiplier`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20Asset_multiplier.md#scheduled-update-lifecycle) function.
 
 ## B20 Asset and Stablecoin: seize surface
 
-Cobalt adds [`seizeWithMemo`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes),
-an administrative balance-reassignment operation gated by [`SEIZE_ROLE`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes).
-It also adds a [`SEIZE`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes)
-pause vector and two policy slots. [`burnBlocked`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes)
+Cobalt adds [`seizeWithMemo`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20_seize.md#new-at-cobalt-adopt-these),
+an administrative balance-reassignment operation gated by [`SEIZE_ROLE`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20_seize.md#functions).
+It also adds a [`SEIZE`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20_seize.md#pause-features)
+pause vector and two policy slots. [`burnBlocked`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20_seize.md#burnblocked-is-deprecated-but-unchanged-and-still-dialable)
 is deprecated in favor of `seizeWithMemo`, but remains callable and unchanged for compatibility.
 
 Seize is opt-in per token and has no effect until the issuer sets
-[`SEIZE_HOLDER_POLICY`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes).
-To destroy supply after a seizure, call `burn(uint256)` separately.
+[`SEIZE_HOLDER_POLICY`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20_seize.md#functions).
+To destroy supply after a seizure, call [`burn(uint256)`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_B20_seize.md#burnblocked-is-deprecated-but-unchanged-and-still-dialable) separately.
 
 ## PolicyRegistry: composite policies
 
 PolicyRegistry adds composite policies that combine two to four existing simple policies using an
-OR (`UNION`) or AND (`INTERSECT`) gate. Integrators can create and update them with
-[`createCompositePolicy`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes)
-and [`updateComposite`](https://github.com/base/base-std/blob/main/CHANGELOG.md#summary-of-changes)
+OR (`UNION`) or AND (`INTERSECT`) gate. See the [composite policy details](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_PolicyRegistry_composite_policy.md)
+for the selector mapping and edge cases. Integrators can create and update them with
+[`createCompositePolicy`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_PolicyRegistry_composite_policy.md#new-at-cobalt-adopt-these)
+and [`updateComposite`](https://github.com/base/base-std/blob/main/changelog/02_Cobalt_PolicyRegistry_composite_policy.md#new-at-cobalt-adopt-these)
 instead of duplicating policy logic off-chain.
 
 Existing `createPolicy` and `createPolicyWithAccounts` integrations do not otherwise change; they
