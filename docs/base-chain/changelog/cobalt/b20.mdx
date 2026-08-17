@@ -1,0 +1,49 @@
+---
+title: "B20"
+description: "B20 changes introduced by the Cobalt upgrade."
+---
+
+# Cobalt: B20 changes
+
+Cobalt is additive-only. It does not change or remove any Beryl selector, event topic, or error
+selector. Symbols that supersede Beryl symbols are deprecated rather than deleted, so existing
+integrations remain callable.
+
+<Warning>
+Cobalt has not activated yet. The changes below are not callable until Cobalt activates.
+</Warning>
+
+## B20 Asset: scheduled multiplier updates
+
+The B20 Asset multiplier surface becomes conformant with [ERC-8056](https://eips.ethereum.org/EIPS/eip-8056):
+
+- Adds `uiMultiplier`, `toUIAmount`, `fromUIAmount`, `balanceOfUI`, and `totalSupplyUI`.
+- Adds `updateUIMultiplier(uint256,uint256)` for scheduling corporate-action multiplier updates.
+- Retains `updateMultiplier(uint256)` as an instant administrative failsafe.
+
+Applications should use the ERC-8056 names and move routine multiplier changes to the scheduled
+`updateUIMultiplier` function.
+
+## B20 Asset and Stablecoin: seize surface
+
+Cobalt adds `seizeWithMemo`, an administrative balance-reassignment operation gated by
+`SEIZE_ROLE`. It also adds a `SEIZE` pause vector and two policy slots. `burnBlocked` is deprecated
+in favor of `seizeWithMemo`, but remains callable and unchanged for compatibility.
+
+Seize is opt-in per token and has no effect until the issuer sets `SEIZE_HOLDER_POLICY`. To destroy
+supply after a seizure, call `burn(uint256)` separately.
+
+## PolicyRegistry: composite policies
+
+PolicyRegistry adds composite policies that combine two to four existing simple policies using an
+OR (`UNION`) or AND (`INTERSECT`) gate. Integrators can create and update them with
+`createCompositePolicy` and `updateComposite` instead of duplicating policy logic off-chain.
+
+Existing `createPolicy` and `createPolicyWithAccounts` integrations do not otherwise change; they
+only gain a new revert path for the previously unreachable composite `policyType`.
+
+## Full Base Standard changelog
+
+For selector-level details, including exact function selectors, event topics, error codes, and
+edge-case behavior, see the [Base Standard changelog](https://github.com/base/base-std/blob/main/CHANGELOG.md).
+
