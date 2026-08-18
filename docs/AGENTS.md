@@ -12,6 +12,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Apps](./apps/llms.txt) — A step-by-step guide to building a Next.js tally app on Base using wagmi and viem, with wallet connection, contract reads and writes, and batch transaction support.
 - [Base Account](./base-account/llms.txt)
 - [Base Chain](./base-chain/llms.txt) — Start here for Base Chain docs, including concepts, network reference, node operation, APIs, and protocol specifications.
+- [Docs](./docs/llms.txt)
 - [Get Started](./get-started/llms.txt)
 - [Ledgers](./ledgers/llms.txt) — An introduction to Base Ledgers, the enterprise way to run confidential payments that settle on Base.
 - [Static](./static/llms.txt)
@@ -91,21 +92,19 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/execution:index
 |base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
 |base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
-|base-chain/specs/reference:configurability,glossary
+|base-chain/specs/reference:configurability,glossary,native-account-abstraction
+|base-chain/specs/reference/b20:changelog,constants-and-addresses,errors-and-events,index
+|base-chain/specs/reference/b20/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
+|base-chain/specs/reference/b20/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
+|base-chain/specs/reference/b20/interfaces/IB20:BURN_BLOCKED_ROLE,BURN_ROLE,DEFAULT_ADMIN_ROLE,DOMAIN_SEPARATOR,METADATA_ROLE,MINT_RECEIVER_POLICY,MINT_ROLE,PAUSE_ROLE,SEIZE_HOLDER_POLICY,SEIZE_RECEIVER_POLICY,SEIZE_ROLE,TRANSFER_EXECUTOR_POLICY,TRANSFER_RECEIVER_POLICY,TRANSFER_SENDER_POLICY,UNPAUSE_ROLE,allowance,approve,balanceOf,burn,burnBlocked,burnWithMemo,contractURI,decimals,eip712Domain,getRoleAdmin,grantRole,hasRole,isPaused,mint,mintWithMemo,name,nonces,pause,pausedFeatures,permit,policyId,renounceLastAdmin,renounceRole,revokeRole,seizeWithMemo,setRoleAdmin,supplyCap,symbol,totalSupply,transfer,transferFrom,transferFromWithMemo,transferWithMemo,unpause,updateContractURI,updateName,updatePolicy,updateSupplyCap,updateSymbol
+|base-chain/specs/reference/b20/interfaces/IB20Asset:MAX_UI_MULTIPLIER,OPERATOR_ROLE,WAD_PRECISION,announce,balanceOfUI,batchMint,cancelUIMultiplierUpdate,effectiveAt,extraMetadata,fromUIAmount,isAnnouncementIdUsed,multiplier,newUIMultiplier,scaledBalanceOf,toRawBalance,toScaledBalance,toUIAmount,totalSupplyUI,uiMultiplier,updateExtraMetadata,updateMultiplier,updateUIMultiplier
+|base-chain/specs/reference/b20/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
+|base-chain/specs/reference/b20/interfaces/IB20Stablecoin:currency
+|base-chain/specs/reference/b20/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20-playground,overview
-|base-chain/specs/upgrades/beryl/b20:changelog
-|base-chain/specs/upgrades/beryl/b20/specification:index
-|base-chain/specs/upgrades/beryl/b20/specification/reference:constants-and-addresses,errors-and-events-index
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20:BURN_BLOCKED_ROLE,BURN_ROLE,DEFAULT_ADMIN_ROLE,DOMAIN_SEPARATOR,METADATA_ROLE,MINT_RECEIVER_POLICY,MINT_ROLE,PAUSE_ROLE,SEIZE_HOLDER_POLICY,SEIZE_RECEIVER_POLICY,SEIZE_ROLE,TRANSFER_EXECUTOR_POLICY,TRANSFER_RECEIVER_POLICY,TRANSFER_SENDER_POLICY,UNPAUSE_ROLE,allowance,approve,balanceOf,burn,burnBlocked,burnWithMemo,contractURI,decimals,eip712Domain,getRoleAdmin,grantRole,hasRole,isPaused,mint,mintWithMemo,name,nonces,pause,pausedFeatures,permit,policyId,renounceLastAdmin,renounceRole,revokeRole,seizeWithMemo,setRoleAdmin,supplyCap,symbol,totalSupply,transfer,transferFrom,transferFromWithMemo,transferWithMemo,unpause,updateContractURI,updateName,updatePolicy,updateSupplyCap,updateSymbol
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Asset:MAX_UI_MULTIPLIER,OPERATOR_ROLE,WAD_PRECISION,announce,balanceOfUI,batchMint,cancelUIMultiplierUpdate,effectiveAt,extraMetadata,fromUIAmount,isAnnouncementIdUsed,multiplier,newUIMultiplier,scaledBalanceOf,toRawBalance,toScaledBalance,toUIAmount,totalSupplyUI,uiMultiplier,updateExtraMetadata,updateMultiplier,updateUIMultiplier
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20Stablecoin:currency
-|base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
 |base-chain/specs/upgrades/canyon:overview
-|base-chain/specs/upgrades/cobalt:eip-8130,overview
+|base-chain/specs/upgrades/cobalt:overview
 |base-chain/specs/upgrades/delta:overview,span-batches
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
 |base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys

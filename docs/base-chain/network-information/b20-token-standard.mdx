@@ -44,16 +44,16 @@ If the demo does not load above, [open it in a new tab](https://chain.base.org/d
 
 | Feature | Behavior |
 |---|---|
-| [Roles](/base-chain/specs/upgrades/beryl/b20/specification#roles-model) | Role-based access control with fixed built-in roles. `MINT_ROLE`, `BURN_ROLE`, `SEIZE_ROLE`, `PAUSE_ROLE`, `UNPAUSE_ROLE`, and `METADATA_ROLE` each gate their own operations; `DEFAULT_ADMIN_ROLE` gates role and configuration changes. |
-| [Policies](/base-chain/specs/upgrades/beryl/b20/specification#policy-registry) | A singleton PolicyRegistry precompile stores policies addressed by `uint64 policyId`, with `BLOCKLIST`, `ALLOWLIST`, and composite `UNION` and `INTERSECT` types. Tokens call `isAuthorized(policyId, account)` during gated operations. |
-| [Policy scopes](/base-chain/specs/upgrades/beryl/b20/specification#policy-integration) | Each token stores one policy ID per scope, covering transfer sender, receiver, and executor, mint receiver, and seize holder and receiver. All default to `ALWAYS_ALLOW`. `approve` and `permit` are not policy-gated. |
-| [Seize](/base-chain/specs/upgrades/beryl/b20/specification#seize) | `seizeWithMemo(from, to, amount, memo)` moves a balance and emits `Transfer`, `Memo`, and `Seized`. It skips allowance and transfer policies, requires `from` to be denied by `SEIZE_HOLDER_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`. |
-| [Granular pause](/base-chain/specs/upgrades/beryl/b20/specification#pause) | Pause by `PausableFeature`: `TRANSFER`, `MINT`, `BURN`, and `SEIZE` independently, rather than halting the whole token. |
-| [Memos](/base-chain/specs/upgrades/beryl/b20/specification#memos) | Memo-enabled operations emit `Memo(address indexed caller, bytes32 indexed memo)` immediately after the primary event. Indexers join memo logs to the parent log with `(transactionHash, logIndex - 1)`. |
-| [Supply cap](/base-chain/specs/upgrades/beryl/b20/specification#supply-cap) | Optional enforced ceiling on `totalSupply`. The sentinel `type(uint128).max` means no practical cap and is also the maximum permitted supply. |
-| [ERC-2612 `permit`](/base-chain/specs/upgrades/beryl/b20/specification#erc-2612-permit--eip-712) | Signed approvals with an EIP-712 domain of `(name, version, chainId, verifyingContract)` and `version` fixed at `"1"`. ERC-1271 contract signatures are not accepted. |
-| [Contract URI](/base-chain/specs/upgrades/beryl/b20/specification#contract-uri-erc-7572) | `contractURI()` returns offchain token metadata per ERC-7572, updatable under `METADATA_ROLE`. |
-| [Factory](/base-chain/specs/upgrades/beryl/b20/specification#factory) | All tokens are created through a singleton factory precompile via `createB20(variant, salt, params, initCalls)`, which dispatches bootstrap calls so a token arrives configured in one transaction. |
+| [Roles](/base-chain/specs/reference/b20#roles-model) | Role-based access control with fixed built-in roles. `MINT_ROLE`, `BURN_ROLE`, `SEIZE_ROLE`, `PAUSE_ROLE`, `UNPAUSE_ROLE`, and `METADATA_ROLE` each gate their own operations; `DEFAULT_ADMIN_ROLE` gates role and configuration changes. |
+| [Policies](/base-chain/specs/reference/b20#policy-registry) | A singleton PolicyRegistry precompile stores policies addressed by `uint64 policyId`, with `BLOCKLIST`, `ALLOWLIST`, and composite `UNION` and `INTERSECT` types. Tokens call `isAuthorized(policyId, account)` during gated operations. |
+| [Policy scopes](/base-chain/specs/reference/b20#policy-integration) | Each token stores one policy ID per scope, covering transfer sender, receiver, and executor, mint receiver, and seize holder and receiver. All default to `ALWAYS_ALLOW`. `approve` and `permit` are not policy-gated. |
+| [Seize](/base-chain/specs/reference/b20#seize) | `seizeWithMemo(from, to, amount, memo)` moves a balance and emits `Transfer`, `Memo`, and `Seized`. It skips allowance and transfer policies, requires `from` to be denied by `SEIZE_HOLDER_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`. |
+| [Granular pause](/base-chain/specs/reference/b20#pause) | Pause by `PausableFeature`: `TRANSFER`, `MINT`, `BURN`, and `SEIZE` independently, rather than halting the whole token. |
+| [Memos](/base-chain/specs/reference/b20#memos) | Memo-enabled operations emit `Memo(address indexed caller, bytes32 indexed memo)` immediately after the primary event. Indexers join memo logs to the parent log with `(transactionHash, logIndex - 1)`. |
+| [Supply cap](/base-chain/specs/reference/b20#supply-cap) | Optional enforced ceiling on `totalSupply`. The sentinel `type(uint128).max` means no practical cap and is also the maximum permitted supply. |
+| [ERC-2612 `permit`](/base-chain/specs/reference/b20#erc-2612-permit--eip-712) | Signed approvals with an EIP-712 domain of `(name, version, chainId, verifyingContract)` and `version` fixed at `"1"`. ERC-1271 contract signatures are not accepted. |
+| [Contract URI](/base-chain/specs/reference/b20#contract-uri-erc-7572) | `contractURI()` returns offchain token metadata per ERC-7572, updatable under `METADATA_ROLE`. |
+| [Factory](/base-chain/specs/reference/b20#factory) | All tokens are created through a singleton factory precompile via `createB20(variant, salt, params, initCalls)`, which dispatches bootstrap calls so a token arrives configured in one transaction. |
 
 ### Deterministic addresses
 
@@ -120,16 +120,16 @@ Because B20 is a superset of ERC-20, choosing it carries no compatibility trade-
   <Card title="Accept B20 payments" icon="credit-card" href="/apps/guides/accept-b20-payments">
     Integrate memo-tagged payments and handle B20-specific reverts.
   </Card>
-  <Card title="B20 specification" icon="book" href="/base-chain/specs/upgrades/beryl/b20/specification">
+  <Card title="B20 specification" icon="book" href="/base-chain/specs/reference/b20">
     The normative standard: roles, policies, factory, variants, and events.
   </Card>
-  <Card title="Constants and addresses" icon="hashtag" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses">
+  <Card title="Constants and addresses" icon="hashtag" href="/base-chain/specs/reference/b20/constants-and-addresses">
     Precompile addresses, role identifiers, policy scopes, variant bytes, and supply-cap constants.
   </Card>
-  <Card title="Interface reference" icon="code" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20">
+  <Card title="Interface reference" icon="code" href="/base-chain/specs/reference/b20/interfaces/IB20">
     Every method on `IB20`, `IB20Asset`, `IB20Stablecoin`, and the registries.
   </Card>
-  <Card title="B20 changelog" icon="clock-rotate-left" href="/base-chain/specs/upgrades/beryl/b20/changelog">
+  <Card title="B20 changelog" icon="clock-rotate-left" href="/base-chain/specs/reference/b20/changelog">
     Changes to the standard, release by release.
   </Card>
 </CardGroup>
