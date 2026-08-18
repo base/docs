@@ -1,0 +1,135 @@
+---
+title: "PolicyRegistry composite policies"
+description: "Reference for UNION and INTERSECT composite policies added to the PolicyRegistry at the Cobalt hardfork."
+---
+
+At the Cobalt hardfork, the [PolicyRegistry](/base-chain/specs/upgrades/beryl/b20#policy-registry) gains **composite policies**: a policy that authorizes an account by combining 2–4 existing simple `ALLOWLIST` / `BLOCKLIST` policies under a `UNION` (OR) or `INTERSECT` (AND) gate. Every Beryl selector, event topic, and error keeps its exact 4-byte selector and topic0. The only change to existing behavior is one new revert path on `createPolicy` and `createPolicyWithAccounts` that rejects composite `policyType` values with the already-existing `IncompatiblePolicyType` error.
+
+<Warning>
+Cobalt is not yet live. Until the hardfork activates, every composite selector on this page is undialable. Only the Beryl simple-policy surface exists on-chain today.
+</Warning>
+
+## When to use a composite policy
+
+Reach for a composite policy when a single scope on a B20 token needs to combine multiple simple policies:
+
+- **`UNION` (OR).** Authorize an account if *any* child policy authorizes it. Example: allow transfers from either a KYC allowlist or a market-maker allowlist.
+- **`INTERSECT` (AND).** Authorize an account only if *every* child policy authorizes it. Example: require an account to pass a jurisdiction allowlist *and* not appear on a sanctions blocklist.
+
+B20 policy scopes (`TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`, `MINT_RECEIVER_POLICY`, `SEIZE_HOLDER_POLICY`, and the rest) store an opaque `uint64` policy ID. A composite ID drops into any scope with no B20-side change.
+
+## Policy types
+
+`PolicyType` is append-only. Existing values and the packed policy-ID top-byte encoding are unchanged.
+
+| Type | Value | Available since |
+|------|-------|-----------------|
+| `BLOCKLIST` | `0` | Beryl |
+| `ALLOWLIST` | `1` | Beryl |
+| `UNION` | `2` | Cobalt |
+| `INTERSECT` | `3` | Cobalt |
+
+## Bounds
+
+| Constant | Selector | Value |
+|----------|----------|-------|
+| `MIN_COMPOSITE_CHILD_POLICIES()` | `0xb3ae29f7` | `2` |
+| `MAX_COMPOSITE_CHILD_POLICIES()` | `0x54309870` | `4` |
+
+Both constants are read-only and always callable, whether or not Cobalt is active.
+
+## Functions
+
+| Function | Selector | Notes |
+|----------|----------|-------|
+| `createCompositePolicy(address admin, uint8 policyType, uint64[] childPolicyIds)` | `0x6fdd1491` | Creates a `UNION` or `INTERSECT` policy over 2–4 existing simple policy IDs. Gated by the ActivationRegistry, same as `createPolicy`. |
+| `updateComposite(uint64 policyId, uint64[] childPolicyIds)` | `0xbfe142c0` | Replaces the composite's child set in full. No partial-update or clear-the-list path. |
+| `compositePolicyChildIds(uint64 policyId)` | `0x7c40df74` | Read-only child-set getter. Always callable. |
+
+`createPolicy(address,uint8)` (`0xca5d55f6`) and `createPolicyWithAccounts(address,uint8,address[])` (`0xa2d3044f`) keep their selectors and now revert with `IncompatiblePolicyType` when `policyType` is `UNION` or `INTERSECT`.
+
+## Events
+
+`PolicyCreated(uint64,address,uint8)` (topic0 `0x718d87917f0c4cfd1263707ef0e77c656ed8d8bfaca06152bdb0b8094142ec27`) is also emitted for composite creation, with `policyType` set to `UNION` or `INTERSECT`.
+
+`CompositePolicyUpdated(uint64 policyId, address updater, uint64[] childPolicyIds)` is new at Cobalt (topic0 `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363`). It is emitted on composite creation and on every `updateComposite`, and carries the complete post-update child set.
+
+`AllowlistUpdated` and `BlocklistUpdated` are not emitted for composites — composites have no membership set of their own.
+
+## Errors
+
+| Error | Selector | Thrown when |
+|-------|----------|-------------|
+| `IncompatiblePolicyType()` | `0xf1011ef5` | `createPolicy` / `createPolicyWithAccounts` gets a composite `policyType`; `createCompositePolicy` gets a non-composite `policyType`; `updateComposite` targets a simple policy. |
+| `PolicyNotFound()` | `0x720caa4f` | The composite target itself does not exist in `updateComposite`, or any listed child does not exist in `createCompositePolicy` / `updateComposite`. |
+| `ChildPoliciesOutsideOfRange()` | `0x697ec868` | Child count is outside `[2, 4]`. |
+| `InvalidChildPolicy(uint64 childPolicyId)` | `0x46508ef6` | A listed child is itself a composite, or is the `ALWAYS_ALLOW` / `ALWAYS_BLOCK` built-in sentinel. |
+
+### Revert precedence
+
+`createCompositePolicy` runs its checks in this fixed order — each check fires before the next:
+
+1. `ZeroAddress` — `admin == address(0)`.
+2. `IncompatiblePolicyType` — `policyType` is not `UNION` or `INTERSECT`.
+3. `ChildPoliciesOutsideOfRange` — `childPolicyIds.length` is outside `[2, 4]`.
+4. `PolicyNotFound` — any listed child does not exist (checked in one pass over the whole set).
+5. `InvalidChildPolicy` — any listed child is a composite or a built-in sentinel (second pass).
+
+`updateComposite` runs its checks in this fixed order:
+
+1. `PolicyNotFound` — `policyId` does not exist.
+2. `IncompatiblePolicyType` — `policyId` is a simple policy, not a composite.
+3. `Unauthorized` — caller is not the current admin. A renounced composite (admin `address(0)`) can never be updated.
+4. `ChildPoliciesOutsideOfRange` — new child count is outside `[2, 4]`.
+5. `PolicyNotFound` — any new child does not exist.
+6. `InvalidChildPolicy` — any new child is a composite or a built-in sentinel.
+
+## Evaluation
+
+`isAuthorized` on a composite calls each child policy's `isAuthorized` live. It is never a snapshot taken at creation or last update. `UNION` returns `true` on the first authorizing child and short-circuits. `INTERSECT` returns `false` on the first non-authorizing child.
+
+Recursion never exceeds depth 1: every child is validated to be a simple `ALLOWLIST` or `BLOCKLIST` policy at write time, so a composite's children can never themselves be composites.
+
+## Example
+
+```solidity
+// Two simple policies already exist on-chain.
+uint64 kycAllowlist = 0x0100000000000042;      // ALLOWLIST
+uint64 sanctionsBlocklist = 0x0000000000000043; // BLOCKLIST
+
+// INTERSECT: only accounts that are on the KYC allowlist AND not on the
+// sanctions blocklist are authorized.
+uint64[] memory children = new uint64[](2);
+children[0] = kycAllowlist;
+children[1] = sanctionsBlocklist;
+
+uint64 compositeId = policyRegistry.createCompositePolicy(
+    adminAddress,
+    uint8(PolicyType.INTERSECT),
+    children
+);
+
+// Attach to a B20 policy scope. Validate the ID first, exactly as for a simple policy.
+require(policyRegistry.policyExists(compositeId), "policy missing");
+b20Token.updatePolicy(TRANSFER_SENDER_POLICY, compositeId);
+
+// Later: replace the child set in full. Omitted children stop governing the composite.
+uint64[] memory newChildren = new uint64[](3);
+newChildren[0] = kycAllowlist;
+newChildren[1] = sanctionsBlocklist;
+newChildren[2] = jurisdictionAllowlist;
+policyRegistry.updateComposite(compositeId, newChildren);
+```
+
+## Guarantees and edge cases
+
+- **No nested composites.** `createCompositePolicy` and `updateComposite` revert `InvalidChildPolicy(childPolicyId)` for any child whose type is `UNION` or `INTERSECT`.
+- **No built-in sentinels as children.** `ALWAYS_ALLOW` and `ALWAYS_BLOCK` also revert with `InvalidChildPolicy`. To fold always-allow / always-block behavior into a composite, create a real `ALLOWLIST` or `BLOCKLIST` policy that reproduces the effect and reference it instead.
+- **Duplicates are permitted.** The registry neither sorts nor de-duplicates the stored child list. Duplicates cost extra per-call evaluation but do not change the result — `UNION` and `INTERSECT` are idempotent under duplicates.
+- **No path to an under-sized composite.** Every `updateComposite` call re-enforces `[2, 4]`, so a composite can never be shrunk below two children.
+- **Renouncing a child admin does not break the parent.** `renounceAdmin` on a child clears the child's admin and freezes its future membership changes. The child still exists, `isAuthorized` on it still resolves, and the composite keeps evaluating it.
+- **No composite-specific activation flag.** `createCompositePolicy` and `updateComposite` are gated by the same ActivationRegistry flag as `createPolicy`, `updateAllowlist`, and the rest. `compositePolicyChildIds`, the `MIN` / `MAX` bounds, and `isAuthorized` on a composite ID are always callable.
+
+<Warning>
+As with any policy ID, validate `policyExists(policyId)` before writing a composite ID to a B20 policy scope. `isAuthorized` never reverts on a non-existent ID — it collapses to empty-member-set semantics and will silently authorize or deny every account.
+</Warning>
