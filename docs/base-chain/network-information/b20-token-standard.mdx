@@ -1,0 +1,137 @@
+---
+title: "B20 Token Standard"
+description: "Understand B20, Base's native token standard for stablecoin, real-world asset, and long-tail issuers, and how it extends ERC-20."
+tag: "New"
+---
+
+B20 is Base's native token standard. It is a superset of ERC-20: every ERC-20 call, event, and integration keeps working unchanged, and B20 adds the machinery that regulated and institutional issuers otherwise have to build, audit, and maintain themselves.
+
+B20 tokens are not deployed as Solidity contracts. They run as precompiles built into the chain, so the behavior is the same for every B20 token and costs less gas than an equivalent contract token.
+
+B20 shipped with the [Beryl upgrade](/base-chain/specs/upgrades/beryl/overview) and is live on Base mainnet and Base Sepolia.
+
+## Why B20 exists
+
+Ask an issuer what their token contract has to do beyond moving balances, and the list is long: freeze an account when a court order lands, seize a balance, pause one operation without halting the rest, tag a transfer with an invoice number, cap total supply, run a stock split, publish a dividend. Every team builds that logic again, in a custom contract, and then pays to audit it.
+
+That has three costs:
+
+- **Duplicated risk.** Compliance logic is the highest-stakes code in the system, and every issuer writes their own version of it.
+- **Integration friction.** Exchanges, wallets, custodians, and indexers integrate each token's bespoke surface separately.
+- **Overhead.** Contract execution costs more gas than native chain functionality.
+
+B20 answers all three by moving that behavior into the standard. One surface, defined once, identical across every B20 token.
+
+## Try it
+
+The B20 demo runs the standard's issuer flows in the browser, with no wallet or setup required.
+
+<Frame caption="The B20 demo at chain.base.org/demos/b20">
+  <iframe
+    width="100%"
+    height="640"
+    src="https://chain.base.org/demos/b20"
+    title="B20 demo"
+    frameborder="0"
+    allow="clipboard-write"
+    referrerpolicy="strict-origin-when-cross-origin"
+  ></iframe>
+</Frame>
+
+If the demo does not load above, [open it in a new tab](https://chain.base.org/demos/b20).
+
+## What B20 gives you
+
+<CardGroup cols={2}>
+  <Card title="Roles" icon="user-lock">
+    Minting, burning, seizing, pausing, and metadata edits are each gated by a built-in role. No custom access control contract.
+  </Card>
+  <Card title="Policies" icon="list-check">
+    Allowlists and blocklists, addressable by ID and combinable, decide who can send, receive, mint to, or be seized from.
+  </Card>
+  <Card title="Freeze and seize" icon="gavel">
+    Block one account without touching any other holder, then move its balance in a single call.
+  </Card>
+  <Card title="Granular pause" icon="circle-pause">
+    Pause transfers, mints, burns, or seizures independently instead of halting the whole token.
+  </Card>
+  <Card title="Memos" icon="receipt">
+    Attach a reference to a transfer, mint, burn, or seizure so reconciliation is a log query, not a per-customer deposit address.
+  </Card>
+  <Card title="Supply caps" icon="chart-line-up">
+    Set an enforced ceiling on total supply, adjustable by an admin, or run uncapped.
+  </Card>
+  <Card title="Gasless approvals" icon="signature">
+    Built-in ERC-2612 `permit`. New users sign an approval offchain and never need ETH to get started.
+  </Card>
+  <Card title="Onchain metadata" icon="tags">
+    A contract-level metadata URI plus issuer-defined key/value fields for identifiers like a CUSIP.
+  </Card>
+</CardGroup>
+
+Tokens are created through a single factory call that also runs your bootstrap configuration, so a token can arrive fully set up in one transaction. Token addresses are deterministic and carry a recognizable B20 prefix, so you know an address is a B20 token before you call it.
+
+A token can also launch with no admin at all, or permanently give up its admin later. After that, admin-gated functions are uncallable forever and the admin cannot be restored.
+
+## The two variants
+
+Every B20 token is one of two variants, chosen at creation.
+
+| | Asset | Stablecoin |
+|---|---|---|
+| Built for | Real-world assets, equities, funds, long-tail tokens | Fiat-referenced stablecoins |
+| Decimals | 6 to 18, set at creation | Fixed at 6 |
+| Extras | Balance multipliers, announcements, batch minting, extra metadata fields | A currency code, set once at creation |
+
+The **Asset** variant covers corporate actions. A multiplier rescales every holder's displayed balance at once, so a 2-for-1 split is a single call rather than a migration. Announcements wrap a set of actions in a public onchain window, so a dividend and its disclosure land together. Batch minting pays out to many recipients atomically.
+
+The **Stablecoin** variant adds a currency code such as `USD`. B20 checks the code's format only; it makes no claim about reserves, legal status, or registration.
+
+## Who B20 is for
+
+- **Stablecoin issuers** who need pause, freeze, seize, supply caps, and memo-tagged settlement as standard behavior rather than custom code.
+- **Real-world asset and equity issuers** who need corporate actions, identifiers, and disclosure to work onchain.
+- **Long-tail token issuers** who want a cheaper, well-understood token that every Base integrator already supports.
+
+## B20 compared to a plain ERC-20
+
+| | Custom ERC-20 contract | B20 |
+|---|---|---|
+| Implementation | Solidity you deploy, audit, and maintain | Native chain precompile |
+| Compliance controls | Custom code per issuer | Built into the standard |
+| Reconciliation | Deposit address per customer, or a wrapper contract | Memos on the transfer itself |
+| Corporate actions | Migration or a new contract | A single call (Asset variant) |
+| Integrator effort | New surface per token | One surface for every B20 token |
+| ERC-20 compatibility | By definition | Superset, full parity |
+
+Because B20 is a superset, choosing it costs you nothing in compatibility. Anything that reads an ERC-20 reads a B20 token without changes.
+
+## Availability
+
+| Network | Live since |
+|---|---|
+| Base mainnet | 2026-06-25 (Beryl) |
+| Base Sepolia | 2026-06-18 (Beryl) |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Launch a B20 token" icon="rocket" href="/get-started/launch-b20-token">
+    Create a fully configured token in one factory call.
+  </Card>
+  <Card title="Accept B20 payments" icon="credit-card" href="/apps/guides/accept-b20-payments">
+    Integrate memo-tagged payments and handle B20-specific reverts.
+  </Card>
+  <Card title="B20 specification" icon="book" href="/base-chain/specs/upgrades/beryl/b20/specification">
+    The normative standard: roles, policies, factory, variants, and events.
+  </Card>
+  <Card title="Contracts and addresses" icon="hashtag" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses">
+    Precompile addresses, role identifiers, policy scopes, and constants.
+  </Card>
+  <Card title="Interface reference" icon="code" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20">
+    Every method on `IB20`, `IB20Asset`, `IB20Stablecoin`, and the registries.
+  </Card>
+  <Card title="B20 changelog" icon="clock-rotate-left" href="/base-chain/specs/upgrades/beryl/b20/changelog">
+    Changes to the standard, release by release.
+  </Card>
+</CardGroup>
