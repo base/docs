@@ -1,0 +1,50 @@
+import type { NavPage } from '@mintlify/astro/helpers';
+import { Icon } from '@mintlify/components';
+
+interface FooterProps {
+  prev: NavPage | null;
+  next: NavPage | null;
+}
+
+export default function Footer({ prev, next }: FooterProps) {
+  if (!prev && !next) return null;
+
+  return (
+    <nav className="mt-12 flex items-center justify-between">
+      {prev ? (
+        <a
+          href={prev.href}
+          className="group flex items-center gap-1.5 text-sm font-normal text-gray-500 no-underline! hover:text-gray-900"
+        >
+          <Icon
+            icon="chevron-left"
+            iconLibrary="lucide"
+            color="currentColor"
+            size={16}
+            className="shrink-0"
+          />
+          {prev.title}
+        </a>
+      ) : (
+        <span />
+      )}
+      {next ? (
+        <a
+          href={next.href}
+          className="group flex items-center gap-1.5 text-sm font-normal text-gray-500 no-underline! hover:text-gray-900"
+        >
+          {next.title}
+          <Icon
+            icon="chevron-right"
+            iconLibrary="lucide"
+            color="currentColor"
+            size={16}
+            className="shrink-0"
+          />
+        </a>
+      ) : (
+        <span />
+      )}
+    </nav>
+  );
+}
