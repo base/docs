@@ -1,30 +1,89 @@
 ---
 title: "B20 Token Standard"
-description: "B20 is Base's native ERC-20-compatible token standard, implemented as Rust precompiles with chain-native roles, policies, memos, pausing, and supply caps."
+description: "Learn about B20, Base's native ERC-20-compatible token standard."
 tag: "New"
 ---
 
-B20 is Base's native token standard: an ERC-20 superset implemented as Rust precompiles rather than deployed Solidity contracts. Running as a precompile makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility.
+## What is B20?
 
-Roles, policy gating, memos, pausing, supply caps, and ERC-2612 `permit` are built into the chain. A standard ERC-20 leaves that logic for you to build, audit, and maintain.
+B20 is Base's native token standard for stablecoins, real-world assets (RWAs), and other fungible tokens. It retains ERC-20 compatibility, so wallets, exchanges, and apps can use B20 tokens through standard ERC-20 flows. Issuers can add B20 controls without requiring those integrations to use a new token interface.
 
-B20 is designed for stablecoin, real-world asset (RWA), and long-tail token issuers. It shipped with the [Beryl upgrade](/base-chain/specs/upgrades/beryl/overview).
+The [B20 Factory](/base-chain/specs/reference/b20#factory) establishes a token's operational configuration. The factory applies the configuration atomically, so the token starts with the selected controls. The issuer supplies roles, policies, supply limits, pause controls, and metadata for that configuration.
 
-## ERC-20 compatibility
+After creation, the token applies its configuration to each operation. [Roles](/base-chain/specs/reference/b20#roles-model) control privileged issuer actions. The token queries the [PolicyRegistry](/base-chain/specs/reference/b20#policy-registry) for configured authorization checks. Holders can transfer and approve tokens. Apps and indexers continue to use standard ERC-20 calls and events.
 
-B20 is a superset of ERC-20. Standard calls and events keep selector and behavior parity:
+## Why B20?
 
-`transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, `name`, `symbol`, `decimals`, `Transfer`, and `Approval`.
+Token issuers may need controls beyond ordinary transfers. Examples include mint permissions, transfer restrictions, operation pauses, and payment references. A standard ERC-20 requires issuers to implement these controls in a custom contract. B20 standardizes the controls that issuers configure for a token.
 
-B20-specific methods extend the standard without changing the ERC-20 surface, so an app that accepts ERC-20 tokens accepts B20 with no code changes.
+The standard includes:
 
-<Note>
-B20 tokens range from 6 to 18 decimals, so read `decimals()` rather than assuming 18.
-</Note>
+- **Issuer controls:** B20 includes [roles](/base-chain/specs/reference/b20#roles-model), [policy scopes](/base-chain/specs/reference/b20#policy-integration), [supply caps](/base-chain/specs/reference/b20#supply-cap), [pauses](/base-chain/specs/reference/b20#pause), [memos](/base-chain/specs/reference/b20#memos), and [signed approvals](/base-chain/specs/reference/b20#erc-2612-permit--eip-712).
+- **Integration surface:** B20 retains [ERC-20 compatibility](/base-chain/specs/reference/b20#erc-20-compatibility). B20-specific functionality uses a consistent interface.
+- **Execution model:** B20 runs as a precompile. [Precompile addresses](/base-chain/specs/reference/b20#precompile-addresses) define the protocol entry points.
 
-## Try it
+## How B20 works
 
-The B20 demo runs the standard's issuer flows in the browser, with no wallet or setup required.
+The diagram shows the B20 lifecycle. The issuer configures the token during creation. The token applies that configuration during later operations. Use the diagram to identify the component that controls each part of the lifecycle.
+
+```mermaid
+flowchart LR
+  AR[ActivationRegistry] -->|enables a B20 variant| F[B20 Factory]
+  I[Issuer] -->|chooses variant and initial configuration| F
+  F -->|creates and initializes| T[B20 token]
+  I -->|assigns roles and policy scopes| T
+  I -->|manages allowlists and blocklists| PR[PolicyRegistry]
+  T -->|checks configured policy scopes| PR
+  U[Holders and ERC-20 apps] -->|transfer, approve, balanceOf| T
+  O[Issuer operators] -->|mint, pause, seize, update metadata| T
+```
+
+In practice, the flow is:
+
+1. **Choose a variant.** Check [activation](/get-started/launch-b20-token#verify-the-activation-registry-is-enabled) for the selected variant.
+2. **Create the token.** The issuer calls the factory with creation parameters and bootstrap calls. [Factory creation](/base-chain/specs/reference/b20#factory) defines the call. [Address derivation](/base-chain/specs/reference/b20#address-derivation) defines the token address.
+3. **Configure operations.** Built-in roles gate sensitive operations. [Policy scopes](/base-chain/specs/reference/b20#policy-integration) authorize or deny accounts for each operation.
+4. **Use the token.** Holders and applications use ordinary ERC-20 methods. B20 methods can add a memo or perform an issuer operation.
+
+## What can I do with B20?
+
+<CardGroup cols={2}>
+  <Card title="Issue and manage a token" icon="coins">
+    Create a token. Set a supply cap. Assign roles for minting, pausing, seizure, and metadata. [Manage roles](/base-chain/specs/reference/b20#roles-model).
+  </Card>
+  <Card title="Apply transfer rules" icon="shield-check">
+    Connect allowlists, blocklists, or composite policies to transfer, mint, and seizure scopes. Scopes allow every account by default. [Set policies](/base-chain/specs/reference/b20#policy-integration).
+  </Card>
+  <Card title="Control token operations" icon="circle-pause">
+    Pause transfers, mints, burns, or seizures independently. Authorized operators can mint, burn, or seize balances. [Review pauses](/base-chain/specs/reference/b20#pause) and [seizures](/base-chain/specs/reference/b20#seize).
+  </Card>
+  <Card title="Reconcile activity" icon="receipt">
+    Memo-enabled operations emit a `bytes32` reference. The reference can identify an order or invoice. [Review memo events](/base-chain/specs/reference/b20#memos).
+  </Card>
+  <Card title="Use signed approvals" icon="signature">
+    Use ERC-2612 [`permit`](/base-chain/specs/reference/b20#erc-2612-permit--eip-712) for signed approvals. Standard `approve` and allowance flows remain available.
+  </Card>
+  <Card title="Handle asset lifecycle events" icon="chart-line-up">
+    Asset tokens support scaled UI balances, announcements, batch minting, and extra metadata. [Review Asset features](/base-chain/specs/reference/b20#asset).
+  </Card>
+</CardGroup>
+
+### Choose the right variant
+
+Every B20 token uses one of two variants. The issuer chooses the variant during creation. The choice determines the token's decimals and additional methods. Use the table to select the variant for the token's use case.
+
+| Variant | Best for | Key differences |
+|---|---|---|
+| **Asset** | RWAs, equities, funds, and long-tail assets | Configurable 6 to 18 decimals. Multipliers, announcements, batch minting, and extra metadata. |
+| **Stablecoin** | Fiat-referenced stablecoins | Fixed 6 decimals. An immutable uppercase currency code such as `USD`. The code validates format only. It does not validate reserves, legal status, or registration. |
+
+This overview does not define method-level behavior. Read the [B20 technical specification](/base-chain/specs/reference/b20) for methods, events, errors, and configuration rules. Read the [generated interface reference](/base-chain/specs/reference/b20/interfaces/IB20) when you need the full callable interface.
+
+## How can I get started?
+
+### Explore the issuer flow
+
+The B20 demo runs issuer flows in the browser. Use the demo to explore token creation and issuer controls before you integrate B20. The demo does not require a wallet or setup.
 
 <Frame caption="The B20 demo at chain.base.org/demos/b20">
   <iframe
@@ -38,62 +97,10 @@ The B20 demo runs the standard's issuer flows in the browser, with no wallet or 
   ></iframe>
 </Frame>
 
-If the demo does not load above, [open it in a new tab](https://chain.base.org/demos/b20).
-
-## What B20 adds to ERC-20
-
-| Feature | Behavior |
-|---|---|
-| [Roles](/base-chain/specs/reference/b20#roles-model) | Role-based access control with fixed built-in roles. `MINT_ROLE`, `BURN_ROLE`, `SEIZE_ROLE`, `PAUSE_ROLE`, `UNPAUSE_ROLE`, and `METADATA_ROLE` each gate their own operations; `DEFAULT_ADMIN_ROLE` gates role and configuration changes. |
-| [Policies](/base-chain/specs/reference/b20#policy-registry) | A singleton PolicyRegistry precompile stores policies addressed by `uint64 policyId`, with `BLOCKLIST`, `ALLOWLIST`, and composite `UNION` and `INTERSECT` types. Tokens call `isAuthorized(policyId, account)` during gated operations. |
-| [Policy scopes](/base-chain/specs/reference/b20#policy-integration) | Each token stores one policy ID per scope, covering transfer sender, receiver, and executor, mint receiver, and seize holder and receiver. All default to `ALWAYS_ALLOW`. `approve` and `permit` are not policy-gated. |
-| [Seize](/base-chain/specs/reference/b20#seize) | `seizeWithMemo(from, to, amount, memo)` moves a balance and emits `Transfer`, `Memo`, and `Seized`. It skips allowance and transfer policies, requires `from` to be denied by `SEIZE_HOLDER_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`. |
-| [Granular pause](/base-chain/specs/reference/b20#pause) | Pause by `PausableFeature`: `TRANSFER`, `MINT`, `BURN`, and `SEIZE` independently, rather than halting the whole token. |
-| [Memos](/base-chain/specs/reference/b20#memos) | Memo-enabled operations emit `Memo(address indexed caller, bytes32 indexed memo)` immediately after the primary event. Indexers join memo logs to the parent log with `(transactionHash, logIndex - 1)`. |
-| [Supply cap](/base-chain/specs/reference/b20#supply-cap) | Optional enforced ceiling on `totalSupply`. The sentinel `type(uint128).max` means no practical cap and is also the maximum permitted supply. |
-| [ERC-2612 `permit`](/base-chain/specs/reference/b20#erc-2612-permit--eip-712) | Signed approvals with an EIP-712 domain of `(name, version, chainId, verifyingContract)` and `version` fixed at `"1"`. ERC-1271 contract signatures are not accepted. |
-| [Contract URI](/base-chain/specs/reference/b20#contract-uri-erc-7572) | `contractURI()` returns offchain token metadata per ERC-7572, updatable under `METADATA_ROLE`. |
-| [Factory](/base-chain/specs/reference/b20#factory) | All tokens are created through a singleton factory precompile via `createB20(variant, salt, params, initCalls)`, which dispatches bootstrap calls so a token arrives configured in one transaction. |
-
-### Deterministic addresses
-
-Token addresses are derived from the deployer and a caller-chosen salt, and encode the variant in the address itself:
-
-```text
-[10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
-```
-
-The factory exposes `getB20Address`, `isB20`, and `isB20Initialized`, so you can recognize and pre-compute a B20 address before the token exists.
-
-### Admin renunciation
-
-The final `DEFAULT_ADMIN_ROLE` holder cannot be removed with `renounceRole` or `revokeRole`; both revert with `LastAdminCannotRenounce`. `renounceLastAdmin()` is the only normal path to admin-less operation. A token can also launch admin-less by setting `initialAdmin == address(0)` at creation. Afterwards, admin-gated functions are permanently uncallable and admin resurrection is blocked.
-
-## Variants
-
-Every B20 token is one of two variants, chosen at creation.
-
-| Variant | Byte | Decimals | Additional surface |
-|---|---:|---|---|
-| `ASSET` | `0x00` | 6-18, configured at creation | Multiplier, announcements, batch mint, extra metadata |
-| `STABLECOIN` | `0x01` | Fixed 6 | `currency()` |
-
-**Asset** adds `OPERATOR_ROLE` and scaled UI balances. The WAD-precision multiplier scales UI balance reads while raw balances stay unchanged, so a 2-for-1 split is one call rather than a migration or a new contract. `announce` emits `Announcement`, dispatches internal calls, and emits `EndAnnouncement`, which puts a corporate action and its disclosure onchain together. `batchMint` mints to parallel recipient and amount arrays atomically, and `extraMetadata` stores issuer-defined values such as a CUSIP.
-
-**Stablecoin** adds `currency()`, set once at creation and restricted to uppercase `A`-`Z`. B20 validates the code format, not the issuer claim, reserves, legal status, or external registration.
-
-## Precompiles and activation
-
-| Precompile | Address |
-|---|---|
-| B20Factory | `0xB20f000000000000000000000000000000000000` |
-| ActivationRegistry | `0x8453000000000000000000000000000000000001` |
-| PolicyRegistry | `0x8453000000000000000000000000000000000002` |
-
-Each variant is gated by the ActivationRegistry, as are state-changing PolicyRegistry calls; registry read functions are always callable. `createB20` reverts with `FeatureNotActivated` if the requested variant is not active on the network, so check `isActivated` for `base.b20_asset` or `base.b20_stablecoin` before deploying.
+[Open the demo in a new tab](https://chain.base.org/demos/b20).
 
 <Note>
-Standard `forge` cannot simulate calls to B20 precompile addresses, because they hold no contract bytecode, and aborts with `call to non-contract address`. Use Base's Foundry build (`base-forge`, `base-cast`, [`base-anvil`](https://github.com/base/base-anvil)), which registers the precompiles into its EVM.
+Standard `forge` cannot simulate B20 precompile calls. B20 precompile addresses have no contract bytecode. Use Base's Foundry build: `base-forge`, `base-cast`, and `base-anvil`. The tools register B20 precompiles in their EVM.
 </Note>
 
 ## Availability
@@ -103,33 +110,25 @@ Standard `forge` cannot simulate calls to B20 precompile addresses, because they
 | Base mainnet | 2026-06-25 (Beryl) |
 | Base Sepolia | 2026-06-18 (Beryl) |
 
-## When to use B20
-
-- You need compliance, reconciliation, or corporate-action machinery. It ships as part of the standard, so you don't build and audit a custom contract.
-- Your integrators matter. Exchanges, wallets, and indexers wire up one surface that behaves the same across every B20 token.
-- Cost matters. B20 runs as a native precompile: cheaper and faster than a contract token.
-
-Because B20 is a superset of ERC-20, choosing it carries no compatibility trade-off.
-
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Launch a B20 token" icon="rocket" href="/get-started/launch-b20-token">
-    Create a fully configured token in one factory call.
+    Create a token with one factory call.
   </Card>
   <Card title="Accept B20 payments" icon="credit-card" href="/apps/guides/accept-b20-payments">
-    Integrate memo-tagged payments and handle B20-specific reverts.
+    Integrate memo-tagged payments. Handle B20-specific reverts.
   </Card>
-  <Card title="B20 specification" icon="book" href="/base-chain/specs/reference/b20">
-    The normative standard: roles, policies, factory, variants, and events.
+  <Card title="Read the B20 spec" icon="book" href="/base-chain/specs/reference/b20">
+    Read the normative standard.
   </Card>
-  <Card title="Constants and addresses" icon="hashtag" href="/base-chain/specs/reference/b20/constants-and-addresses">
-    Precompile addresses, role identifiers, policy scopes, variant bytes, and supply-cap constants.
+  <Card title="View constants" icon="hashtag" href="/base-chain/specs/reference/b20/constants-and-addresses">
+    Find protocol constants and addresses.
   </Card>
-  <Card title="Interface reference" icon="code" href="/base-chain/specs/reference/b20/interfaces/IB20">
-    Every method on `IB20`, `IB20Asset`, `IB20Stablecoin`, and the registries.
+  <Card title="Browse interfaces" icon="code" href="/base-chain/specs/reference/b20/interfaces/IB20">
+    Browse B20 and registry methods.
   </Card>
-  <Card title="B20 changelog" icon="clock-rotate-left" href="/base-chain/specs/reference/b20/changelog">
-    Changes to the standard, release by release.
+  <Card title="Review changes" icon="clock-rotate-left" href="/base-chain/specs/reference/b20/changelog">
+    Review standard changes by release.
   </Card>
 </CardGroup>
