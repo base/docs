@@ -1,26 +1,26 @@
 ---
 title: "B20 Token Standard"
-description: "Understand B20, Base's native token standard for stablecoin, real-world asset, and long-tail issuers, and how it extends ERC-20."
+description: "B20 is Base's native ERC-20-compatible token standard, implemented as Rust precompiles with chain-native roles, policies, memos, pausing, and supply caps."
 tag: "New"
 ---
 
-B20 is Base's native token standard. It is a superset of ERC-20: every ERC-20 call, event, and integration keeps working unchanged, and B20 adds the machinery that regulated and institutional issuers otherwise have to build, audit, and maintain themselves.
+B20 is Base's native token standard: an ERC-20 superset implemented as Rust precompiles rather than deployed Solidity contracts. Running as a precompile makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility.
 
-B20 tokens are not deployed as Solidity contracts. They run as precompiles built into the chain, so the behavior is the same for every B20 token and costs less gas than an equivalent contract token.
+Roles, policy gating, memos, pausing, supply caps, and ERC-2612 `permit` are built into the chain. A standard ERC-20 leaves that logic for you to build, audit, and maintain.
 
-B20 shipped with the [Beryl upgrade](/base-chain/specs/upgrades/beryl/overview) and is live on Base mainnet and Base Sepolia.
+B20 is designed for stablecoin, real-world asset (RWA), and long-tail token issuers. It shipped with the [Beryl upgrade](/base-chain/specs/upgrades/beryl/overview).
 
-## Why B20 exists
+## ERC-20 compatibility
 
-Ask an issuer what their token contract has to do beyond moving balances, and the list is long: freeze an account when a court order lands, seize a balance, pause one operation without halting the rest, tag a transfer with an invoice number, cap total supply, run a stock split, publish a dividend. Every team builds that logic again, in a custom contract, and then pays to audit it.
+B20 is a superset of ERC-20. Standard calls and events keep selector and behavior parity:
 
-That has three costs:
+`transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, `name`, `symbol`, `decimals`, `Transfer`, and `Approval`.
 
-- **Duplicated risk.** Compliance logic is the highest-stakes code in the system, and every issuer writes their own version of it.
-- **Integration friction.** Exchanges, wallets, custodians, and indexers integrate each token's bespoke surface separately.
-- **Overhead.** Contract execution costs more gas than native chain functionality.
+B20-specific methods extend the standard without changing the ERC-20 surface, so an app that accepts ERC-20 tokens accepts B20 with no code changes.
 
-B20 answers all three by moving that behavior into the standard. One surface, defined once, identical across every B20 token.
+<Note>
+B20 tokens range from 6 to 18 decimals, so read `decimals()` rather than assuming 18.
+</Note>
 
 ## Try it
 
@@ -40,71 +40,61 @@ The B20 demo runs the standard's issuer flows in the browser, with no wallet or 
 
 If the demo does not load above, [open it in a new tab](https://chain.base.org/demos/b20).
 
-## What B20 gives you
+## What B20 adds to ERC-20
 
-<CardGroup cols={2}>
-  <Card title="Roles" icon="user-lock">
-    Minting, burning, seizing, pausing, and metadata edits are each gated by a built-in role. No custom access control contract.
-  </Card>
-  <Card title="Policies" icon="list-check">
-    Allowlists and blocklists, addressable by ID and combinable, decide who can send, receive, mint to, or be seized from.
-  </Card>
-  <Card title="Freeze and seize" icon="gavel">
-    Block one account without touching any other holder, then move its balance in a single call.
-  </Card>
-  <Card title="Granular pause" icon="circle-pause">
-    Pause transfers, mints, burns, or seizures independently instead of halting the whole token.
-  </Card>
-  <Card title="Memos" icon="receipt">
-    Attach a reference to a transfer, mint, burn, or seizure so reconciliation is a log query, not a per-customer deposit address.
-  </Card>
-  <Card title="Supply caps" icon="chart-line-up">
-    Set an enforced ceiling on total supply, adjustable by an admin, or run uncapped.
-  </Card>
-  <Card title="Gasless approvals" icon="signature">
-    Built-in ERC-2612 `permit`. New users sign an approval offchain and never need ETH to get started.
-  </Card>
-  <Card title="Onchain metadata" icon="tags">
-    A contract-level metadata URI plus issuer-defined key/value fields for identifiers like a CUSIP.
-  </Card>
-</CardGroup>
+| Feature | Behavior |
+|---|---|
+| [Roles](/base-chain/specs/upgrades/beryl/b20/specification#roles-model) | Role-based access control with fixed built-in roles. `MINT_ROLE`, `BURN_ROLE`, `SEIZE_ROLE`, `PAUSE_ROLE`, `UNPAUSE_ROLE`, and `METADATA_ROLE` each gate their own operations; `DEFAULT_ADMIN_ROLE` gates role and configuration changes. |
+| [Policies](/base-chain/specs/upgrades/beryl/b20/specification#policy-registry) | A singleton PolicyRegistry precompile stores policies addressed by `uint64 policyId`, with `BLOCKLIST`, `ALLOWLIST`, and composite `UNION` and `INTERSECT` types. Tokens call `isAuthorized(policyId, account)` during gated operations. |
+| [Policy scopes](/base-chain/specs/upgrades/beryl/b20/specification#policy-integration) | Each token stores one policy ID per scope, covering transfer sender, receiver, and executor, mint receiver, and seize holder and receiver. All default to `ALWAYS_ALLOW`. `approve` and `permit` are not policy-gated. |
+| [Seize](/base-chain/specs/upgrades/beryl/b20/specification#seize) | `seizeWithMemo(from, to, amount, memo)` moves a balance and emits `Transfer`, `Memo`, and `Seized`. It skips allowance and transfer policies, requires `from` to be denied by `SEIZE_HOLDER_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`. |
+| [Granular pause](/base-chain/specs/upgrades/beryl/b20/specification#pause) | Pause by `PausableFeature`: `TRANSFER`, `MINT`, `BURN`, and `SEIZE` independently, rather than halting the whole token. |
+| [Memos](/base-chain/specs/upgrades/beryl/b20/specification#memos) | Memo-enabled operations emit `Memo(address indexed caller, bytes32 indexed memo)` immediately after the primary event. Indexers join memo logs to the parent log with `(transactionHash, logIndex - 1)`. |
+| [Supply cap](/base-chain/specs/upgrades/beryl/b20/specification#supply-cap) | Optional enforced ceiling on `totalSupply`. The sentinel `type(uint128).max` means no practical cap and is also the maximum permitted supply. |
+| [ERC-2612 `permit`](/base-chain/specs/upgrades/beryl/b20/specification#erc-2612-permit--eip-712) | Signed approvals with an EIP-712 domain of `(name, version, chainId, verifyingContract)` and `version` fixed at `"1"`. ERC-1271 contract signatures are not accepted. |
+| [Contract URI](/base-chain/specs/upgrades/beryl/b20/specification#contract-uri-erc-7572) | `contractURI()` returns offchain token metadata per ERC-7572, updatable under `METADATA_ROLE`. |
+| [Factory](/base-chain/specs/upgrades/beryl/b20/specification#factory) | All tokens are created through a singleton factory precompile via `createB20(variant, salt, params, initCalls)`, which dispatches bootstrap calls so a token arrives configured in one transaction. |
 
-Tokens are created through a single factory call that also runs your bootstrap configuration, so a token can arrive fully set up in one transaction. Token addresses are deterministic and carry a recognizable B20 prefix, so you know an address is a B20 token before you call it.
+### Deterministic addresses
 
-A token can also launch with no admin at all, or permanently give up its admin later. After that, admin-gated functions are uncallable forever and the admin cannot be restored.
+Token addresses are derived from the deployer and a caller-chosen salt, and encode the variant in the address itself:
 
-## The two variants
+```text
+[10-byte B20 prefix][1-byte variant][9-byte keccak256(deployer, salt)]
+```
+
+The factory exposes `getB20Address`, `isB20`, and `isB20Initialized`, so you can recognize and pre-compute a B20 address before the token exists.
+
+### Admin renunciation
+
+The final `DEFAULT_ADMIN_ROLE` holder cannot be removed with `renounceRole` or `revokeRole`; both revert with `LastAdminCannotRenounce`. `renounceLastAdmin()` is the only normal path to admin-less operation. A token can also launch admin-less by setting `initialAdmin == address(0)` at creation. Afterwards, admin-gated functions are permanently uncallable and admin resurrection is blocked.
+
+## Variants
 
 Every B20 token is one of two variants, chosen at creation.
 
-| | Asset | Stablecoin |
-|---|---|---|
-| Built for | Real-world assets, equities, funds, long-tail tokens | Fiat-referenced stablecoins |
-| Decimals | 6 to 18, set at creation | Fixed at 6 |
-| Extras | Balance multipliers, announcements, batch minting, extra metadata fields | A currency code, set once at creation |
+| Variant | Byte | Decimals | Additional surface |
+|---|---:|---|---|
+| `ASSET` | `0x00` | 6-18, configured at creation | Multiplier, announcements, batch mint, extra metadata |
+| `STABLECOIN` | `0x01` | Fixed 6 | `currency()` |
 
-The **Asset** variant covers corporate actions. A multiplier rescales every holder's displayed balance at once, so a 2-for-1 split is a single call rather than a migration. Announcements wrap a set of actions in a public onchain window, so a dividend and its disclosure land together. Batch minting pays out to many recipients atomically.
+**Asset** adds `OPERATOR_ROLE` and scaled UI balances. The WAD-precision multiplier scales UI balance reads while raw balances stay unchanged, so a 2-for-1 split is one call rather than a migration or a new contract. `announce` emits `Announcement`, dispatches internal calls, and emits `EndAnnouncement`, which puts a corporate action and its disclosure onchain together. `batchMint` mints to parallel recipient and amount arrays atomically, and `extraMetadata` stores issuer-defined values such as a CUSIP.
 
-The **Stablecoin** variant adds a currency code such as `USD`. B20 checks the code's format only; it makes no claim about reserves, legal status, or registration.
+**Stablecoin** adds `currency()`, set once at creation and restricted to uppercase `A`-`Z`. B20 validates the code format, not the issuer claim, reserves, legal status, or external registration.
 
-## Who B20 is for
+## Precompiles and activation
 
-- **Stablecoin issuers** who need pause, freeze, seize, supply caps, and memo-tagged settlement as standard behavior rather than custom code.
-- **Real-world asset and equity issuers** who need corporate actions, identifiers, and disclosure to work onchain.
-- **Long-tail token issuers** who want a cheaper, well-understood token that every Base integrator already supports.
+| Precompile | Address |
+|---|---|
+| B20Factory | `0xB20f000000000000000000000000000000000000` |
+| ActivationRegistry | `0x8453000000000000000000000000000000000001` |
+| PolicyRegistry | `0x8453000000000000000000000000000000000002` |
 
-## B20 compared to a plain ERC-20
+Each variant is gated by the ActivationRegistry, as are state-changing PolicyRegistry calls; registry read functions are always callable. `createB20` reverts with `FeatureNotActivated` if the requested variant is not active on the network, so check `isActivated` for `base.b20_asset` or `base.b20_stablecoin` before deploying.
 
-| | Custom ERC-20 contract | B20 |
-|---|---|---|
-| Implementation | Solidity you deploy, audit, and maintain | Native chain precompile |
-| Compliance controls | Custom code per issuer | Built into the standard |
-| Reconciliation | Deposit address per customer, or a wrapper contract | Memos on the transfer itself |
-| Corporate actions | Migration or a new contract | A single call (Asset variant) |
-| Integrator effort | New surface per token | One surface for every B20 token |
-| ERC-20 compatibility | By definition | Superset, full parity |
-
-Because B20 is a superset, choosing it costs you nothing in compatibility. Anything that reads an ERC-20 reads a B20 token without changes.
+<Note>
+Standard `forge` cannot simulate calls to B20 precompile addresses, because they hold no contract bytecode, and aborts with `call to non-contract address`. Use Base's Foundry build (`base-forge`, `base-cast`, [`base-anvil`](https://github.com/base/base-anvil)), which registers the precompiles into its EVM.
+</Note>
 
 ## Availability
 
@@ -112,6 +102,14 @@ Because B20 is a superset, choosing it costs you nothing in compatibility. Anyth
 |---|---|
 | Base mainnet | 2026-06-25 (Beryl) |
 | Base Sepolia | 2026-06-18 (Beryl) |
+
+## When to use B20
+
+- You need compliance, reconciliation, or corporate-action machinery. It ships as part of the standard, so you don't build and audit a custom contract.
+- Your integrators matter. Exchanges, wallets, and indexers wire up one surface that behaves the same across every B20 token.
+- Cost matters. B20 runs as a native precompile: cheaper and faster than a contract token.
+
+Because B20 is a superset of ERC-20, choosing it carries no compatibility trade-off.
 
 ## Next steps
 
@@ -125,8 +123,8 @@ Because B20 is a superset, choosing it costs you nothing in compatibility. Anyth
   <Card title="B20 specification" icon="book" href="/base-chain/specs/upgrades/beryl/b20/specification">
     The normative standard: roles, policies, factory, variants, and events.
   </Card>
-  <Card title="Contracts and addresses" icon="hashtag" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses">
-    Precompile addresses, role identifiers, policy scopes, and constants.
+  <Card title="Constants and addresses" icon="hashtag" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/constants-and-addresses">
+    Precompile addresses, role identifiers, policy scopes, variant bytes, and supply-cap constants.
   </Card>
   <Card title="Interface reference" icon="code" href="/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20">
     Every method on `IB20`, `IB20Asset`, `IB20Stablecoin`, and the registries.
