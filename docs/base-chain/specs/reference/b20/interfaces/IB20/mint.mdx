@@ -19,13 +19,21 @@ function mint(address to, uint256 amount) external;
 ## Description
 
 Mints `amount` to `to`. Emits `Transfer(address(0), to, amount)`.
-Dev: Reverts with `ContractPaused(MINT)` when `MINT` is paused.
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `MINT_ROLE`.
-Dev: Reverts with `InvalidReceiver` when `to == address(0)`.
-Dev: Reverts with `PolicyForbids(MINT_RECEIVER_POLICY, ...)` when `to` is not authorized.
-Dev: Reverts with `SupplyCapExceeded` when `totalSupply + amount &gt; supplyCap`.
-Param: to     Mint recipient.
-Param: amount Amount to mint.
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `to` | Mint recipient. |
+| `amount` | Amount to mint. |
+
+## Reverts
+
+- `ContractPaused(MINT)` when `MINT` is paused.
+- `AccessControlUnauthorizedAccount` when the caller does not hold `MINT_ROLE`.
+- `InvalidReceiver` when `to == address(0)`.
+- `PolicyForbids(MINT_RECEIVER_POLICY, ...)` when `to` is not authorized.
+- `SupplyCapExceeded` when `totalSupply + amount &gt; supplyCap`.
 
 ## Access control
 
@@ -38,10 +46,5 @@ Checks `MINT_RECEIVER_POLICY`, including during factory initCalls.
 ## Example
 
 ```solidity
-IB20(target).mint(arg0, arg1);
+IB20(target).mint(to, amount);
 ```
-
-## Related
-
-- [IB20 reference](/base-chain/specs/reference/b20/interfaces/IB20)
-- [Constants & addresses](/base-chain/specs/reference/b20/constants-and-addresses)

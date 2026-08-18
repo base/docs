@@ -4,7 +4,6 @@ description: "Generated B20 reference for permit(address,address,uint256,uint256
 ---
 
 
-[Related concept](/base-chain/specs/reference/b20)
 
 ## Signature
 
@@ -19,18 +18,25 @@ function permit(address owner, address spender, uint256 value, uint256 deadline,
 
 ## Description
 
-EIP-2612 permit. Recovers `owner` via ECDSA from `(v, r, s)`. EOA signatures only;
-ERC-1271 contract signatures are NOT supported. Emits `Approval`.
-Dev: Reverts with `ExpiredSignature` when `block.timestamp &gt; deadline`.
-Dev: Reverts with `InvalidSigner` when ECDSA recovery does not yield `owner`.
-Dev: Reverts with `InvalidSpender` when `spender == address(0)`.
-Param: owner    Token holder granting the allowance.
-Param: spender  Account being granted the allowance.
-Param: value    Allowance amount.
-Param: deadline Unix timestamp after which the signature is invalid.
-Param: v        ECDSA recovery byte.
-Param: r        ECDSA signature r component.
-Param: s        ECDSA signature s component.
+EIP-2612 permit. Recovers `owner` via ECDSA from `(v, r, s)`. EOA signatures only; ERC-1271 contract signatures are NOT supported. Emits `Approval`.
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `owner` | Token holder granting the allowance. |
+| `spender` | Account being granted the allowance. |
+| `value` | Allowance amount. |
+| `deadline` | Unix timestamp after which the signature is invalid. |
+| `v` | ECDSA recovery byte. |
+| `r` | ECDSA signature r component. |
+| `s` | ECDSA signature s component. |
+
+## Reverts
+
+- `ExpiredSignature` when `block.timestamp &gt; deadline`.
+- `InvalidSigner` when ECDSA recovery does not yield `owner`.
+- `InvalidSpender` when `spender == address(0)`.
 
 ## Access control
 
@@ -43,10 +49,5 @@ No direct policy interaction.
 ## Example
 
 ```solidity
-IB20(target).permit(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+IB20(target).permit(owner, spender, value, deadline, v, r, s);
 ```
-
-## Related
-
-- [IB20 reference](/base-chain/specs/reference/b20/interfaces/IB20)
-- [Constants & addresses](/base-chain/specs/reference/b20/constants-and-addresses)

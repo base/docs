@@ -18,18 +18,23 @@ function burnBlocked(address from, uint256 amount) external;
 
 ## Description
 
-DEPRECATED. Burns `amount` from a `from` account that is blocked under
-`TRANSFER_SENDER_POLICY`, without spending an allowance. Retained for back-compat;
-prefer `seizeWithMemo` (to a treasury/self address) followed by `burn`.
-Emits `Transfer(from, address(0), amount)` and `BurnedBlocked(caller, from, amount)`.
-Dev: Gated by `BURN_BLOCKED_ROLE` and the `BURN` pause vector (not `SEIZE`). Its blocked check
-reads `TRANSFER_SENDER_POLICY`, distinct from `seizeWithMemo`'s `SEIZE_HOLDER_POLICY`.
-Dev: Reverts with `ContractPaused(BURN)` when `BURN` is paused.
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `BURN_BLOCKED_ROLE`.
-Dev: Reverts with `AccountNotBlocked` when `from` is currently authorized under `TRANSFER_SENDER_POLICY`.
-Dev: Reverts with `InsufficientBalance` when `from`'s balance is below `amount`.
-Param: from   Account whose blocked balance is being burned.
-Param: amount Amount to burn.
+DEPRECATED. Burns `amount` from a `from` account that is blocked under `TRANSFER_SENDER_POLICY`, without spending an allowance. Retained for back-compat; prefer `seizeWithMemo` (to a treasury/self address) followed by `burn`. Emits `Transfer(from, address(0), amount)` and `BurnedBlocked(caller, from, amount)`.
+
+Gated by `BURN_BLOCKED_ROLE` and the `BURN` pause vector (not `SEIZE`). Its blocked check reads `TRANSFER_SENDER_POLICY`, distinct from `seizeWithMemo`'s `SEIZE_HOLDER_POLICY`.
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `from` | Account whose blocked balance is being burned. |
+| `amount` | Amount to burn. |
+
+## Reverts
+
+- `ContractPaused(BURN)` when `BURN` is paused.
+- `AccessControlUnauthorizedAccount` when the caller does not hold `BURN_BLOCKED_ROLE`.
+- `AccountNotBlocked` when `from` is currently authorized under `TRANSFER_SENDER_POLICY`.
+- `InsufficientBalance` when `from`'s balance is below `amount`.
 
 ## Access control
 
@@ -44,8 +49,3 @@ Checks `TRANSFER_SENDER_POLICY`; the account can be burned only when not authori
 ```solidity
 IB20(token).burnBlocked(from, amount);
 ```
-
-## Related
-
-- [IB20 reference](/base-chain/specs/reference/b20/interfaces/IB20)
-- [Constants & addresses](/base-chain/specs/reference/b20/constants-and-addresses)
