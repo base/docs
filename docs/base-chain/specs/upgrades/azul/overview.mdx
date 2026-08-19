@@ -1,54 +1,83 @@
 ---
 title: "Overview"
-description: "Overview of the Azul hardfork, introducing Osaka EVM support, a simplified execution client, and a multi-proof system for L2 checkpoints."
+description: "Azul is Base's first independent network upgrade. It focuses on increasing security and decentralization, accelerating the path to 1 gigagas/s, and improving developer experience."
 ---
 
-## Summary
+Azul is Base's first independent network upgrade. It focuses on increasing security and decentralization, accelerating the path to 1 gigagas/s, and improving developer experience.
 
-<Warning>
-Only `base-consensus` and `base-reth-node` will support the Base Azul hardfork. If you are running `op-node`, `op-geth` or any other clients you will need to update prior to the activation date.
-</Warning>
+| | Status | Date |
+|---|---|---|
+| Sepolia | Live | April 20, 2026 |
+| Mainnet | Live | May 28, 2026 |
 
-- Add Osaka Support
-- Simplify Flashblocks Websocket Format
-- Enable a new multi-proof system for faster withdrawals and a path to stronger decentralization
-- Only Base Node Reth / Base Consensus will be supported
+[Documentation](/base-chain/specs/upgrades/azul/exec-engine)
 
-## Activation Timestamps
+## Features
 
-| Network | Timestamp | Date |
-|---------|-----------|------|
-| `mainnet` | `1779991200` | 2026-05-28 18:00:00 UTC |
-| `sepolia` | `1776708000` | 2026-04-20 18:00:00 UTC |
+<AccordionGroup>
+  <Accordion title="EIP-7823: Upper-Bound MODEXP" icon="code">
+    **EIP** · Execution
 
-## Required Software
+    Caps MODEXP precompile inputs to a maximum of 1024 bytes per field. Calls with larger inputs are rejected.
+  </Accordion>
 
-| Layer | Software | Mainnet | Sepolia |
-|-------|----------|---------|---------|
-| Execution (EL) | `base-reth-node` | [v0.9.0+](https://github.com/base/base/releases/tag/v0.9.0) | [v0.7.0+](https://github.com/base/base/releases/tag/v0.7.0) |
-| Consensus (CL) | `base-consensus` | [v0.9.0+](https://github.com/base/base/releases/tag/v0.9.0) | [v0.7.0+](https://github.com/base/base/releases/tag/v0.7.0) |
-| - | `base/node` | [v0.16.0+](https://github.com/base/node/releases/tag/v0.16.0) | [v0.15.0+](https://github.com/base/node/releases/tag/v0.15.0) |
+  <Accordion title="EIP-7825: Transaction Gas Limit Cap" icon="code">
+    **EIP** · Execution
 
-See the [Node Upgrade Guide](/base-chain/specs/upgrades/azul/node-upgrade) for full migration instructions.
+    Introduces a protocol-level maximum gas limit of 16,777,216 (2^24) per transaction. Transactions above this cap are rejected during validation, and Base adopts the same cap as L1 to maximize Ethereum equivalence.
+  </Accordion>
 
-## Execution Layer
+  <Accordion title="EIP-7883: MODEXP Gas Cost Increase" icon="code">
+    **EIP** · Execution
 
-- [EIP-7823: Upper-Bound MODEXP](/base-chain/specs/upgrades/azul/exec-engine#upper-bound-modexp)
-- [EIP-7825: Transaction Gas Limit Cap](/base-chain/specs/upgrades/azul/exec-engine#transaction-gas-limit-cap)
-- [EIP-7883: MODEXP Gas Cost Increase](/base-chain/specs/upgrades/azul/exec-engine#modexp-gas-cost-increase)
-- [EIP-7939: CLZ Opcode](/base-chain/specs/upgrades/azul/exec-engine#clz-opcode)
-- [EIP-7951: secp256r1 Precompile](/base-chain/specs/upgrades/azul/exec-engine#secp256r1-precompile-gas-cost)
-- [EIP-7642: eth/69](/base-chain/specs/upgrades/azul/exec-engine#eth69)
-- [EIP-7910: eth_config RPC Method](/base-chain/specs/upgrades/azul/exec-engine#eth_config-rpc-method)
-- [Remove Account Balances & Receipts](/base-chain/specs/upgrades/azul/exec-engine#remove-account-balances--receipts)
-- [Use `basev0` protocol ID for discv5](/base-chain/specs/upgrades/azul/exec-engine#discovery-protocol-now-uses-basev0-protocol-id)
+    Raises the MODEXP precompile minimum gas cost from 200 to 500 and triples the general cost calculation.
+  </Accordion>
 
-## Proofs
+  <Accordion title="EIP-7939: CLZ Opcode" icon="code">
+    **EIP** · Execution
 
-- [Proof System](/base-chain/specs/upgrades/azul/proofs)
-- [New/Changed Onchain Components](/base-chain/specs/upgrades/azul/proofs#newchanged-onchain-components)
-- [Proposer](/base-chain/specs/upgrades/azul/proofs#proposer)
-- [Challenger](/base-chain/specs/upgrades/azul/proofs#challenger)
-- [TEE Provers](/base-chain/specs/upgrades/azul/proofs#tee-provers)
-- [ZK Provers](/base-chain/specs/upgrades/azul/proofs#zk-provers)
-- [Prover Registrar](/base-chain/specs/upgrades/azul/proofs#prover-registrar)
+    Adds a new CLZ opcode that counts the number of leading zero bits in a 256-bit word, returning 256 if the input is zero.
+  </Accordion>
+
+  <Accordion title="EIP-7951: secp256r1 Precompile" icon="code">
+    **EIP** · Execution
+
+    Specifies the secp256r1 precompile at address 0×100. From Azul, the gas cost increases to 6,900 to match the L1 gas cost specified in EIP-7951.
+  </Accordion>
+
+  <Accordion title="EIP-7642: eth/69" icon="code">
+    **EIP** · Networking
+
+    Updates the Ethereum wire protocol to version 69, removing legacy fields from the Status message and simplifying the handshake.
+  </Accordion>
+
+  <Accordion title="Remove Account Balances & Receipts" icon="code">
+    **Base** · Networking
+
+    Simplifies the FlashblocksMetadata payload by removing new_account_balances and receipts from the Flashblocks WebSocket format.
+  </Accordion>
+
+  <Accordion title="Use basev0 protocol ID for discv5" icon="code">
+    **Base** · Networking
+
+    Updates execution-layer discovery to use basev0 as the protocol ID so Base nodes can find each other more quickly, especially on smaller networks like Sepolia.
+  </Accordion>
+
+  <Accordion title="EIP-7910: eth_config RPC Method" icon="code">
+    **EIP** · RPC
+
+    Introduces the eth_config JSON-RPC method, which returns chain configuration parameters such as fork activation timestamps.
+  </Accordion>
+
+  <Accordion title="Engine API Usage" icon="code">
+    **Base** · RPC
+
+    At and after Azul activation, block production and import use the following Engine API methods: engine_forkchoiceUpdatedV3 for starting block builds and forkchoice synchronization, engine_getPayloadV5 for retrieving built payloads.
+  </Accordion>
+
+  <Accordion title="Multiproofs" icon="code">
+    **Base** · Proofs
+
+    Proof System introduces a multi-proof system for L2 checkpoints, where AggregateVerifier can verify one or two proofs for the same proposal before withdrawals rely on it.
+  </Accordion>
+</AccordionGroup>
