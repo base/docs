@@ -1,0 +1,138 @@
+export const AddToMetaMask = ({ chainId, chainName, rpcUrl, blockExplorer }) => {
+  const addNetwork = async () => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      alert('MetaMask is not installed. Visit metamask.io to get started.');
+      return;
+    }
+    try {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [
+          {
+            chainId: '0x' + Number(chainId).toString(16),
+            chainName,
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: [rpcUrl],
+            blockExplorerUrls: [blockExplorer],
+          },
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to add network:', error);
+    }
+  };
+  return (
+    <button
+      onClick={addNetwork}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '8px 16px',
+        backgroundColor: '#0052FF',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontWeight: 600,
+        fontSize: '14px',
+      }}
+    >
+      Add {chainName}
+    </button>
+  );
+};
+
+Base is an EVM-compatible Layer 2 network. Use the details below to connect your wallet or application.
+
+## Network details
+
+<Tabs>
+  <Tab title="Mainnet">
+    | | |
+    | :--- | :--- |
+    | **Network Name** | Base Mainnet |
+    | **RPC Endpoint** | [mainnet.base.org](https://mainnet.base.org) |
+    | **Chain ID** | 8453 |
+    | **Currency Symbol** | ETH |
+    | **Block Explorer** | [basescan.org](https://basescan.org) |
+
+
+  </Tab>
+  <Tab title="Sepolia (Testnet)">
+    | | |
+    | :--- | :--- |
+    | **Network Name** | Base Sepolia |
+    | **RPC Endpoint** | [sepolia.base.org](https://sepolia.base.org) |
+    | **Chain ID** | 84532 |
+    | **Currency Symbol** | ETH |
+    | **Block Explorer** | [sepolia.basescan.org](https://sepolia.basescan.org) |
+
+
+  </Tab>
+  <Tab title="Vibenet">
+    Vibenet is Base's experimental preview network where new chain-level features are available before they roll out to Sepolia or Mainnet. It currently hosts [B20 tokens](/get-started/launch-b20-token) — an ERC-20 superset with built-in roles, supply caps, pausing, policy gating, and `permit` implemented as a native precompile.
+
+    Use Vibenet to build against cutting-edge Base features. It is not intended for production or user-facing applications. Learn more at [vibes.base.org](https://vibes.base.org).
+
+    | | |
+    | :--- | :--- |
+    | **Network Name** | Base Vibenet |
+    | **RPC Endpoint** | [rpc.vibes.base.org](https://rpc.vibes.base.org) |
+    | **Chain ID** | 84538453 |
+    | **Currency Symbol** | ETH |
+    | **Faucet** | [faucet.vibes.base.org](https://faucet.vibes.base.org) |
+    | **Block Explorer** | [explorer.vibes.base.org](https://explorer.vibes.base.org) |
+
+  </Tab>
+</Tabs>
+
+<Info>
+The public endpoints above are rate-limited and not suitable for production traffic. For production use, connect through a [node provider](/base-chain/node-operators/node-providers).
+</Info>
+
+<Note>
+The public Base endpoints are **HTTP only**. WebSocket RPC connections (`eth_subscribe`, `newHeads`, `logs`) are not available on public Base endpoints — use a [node provider](/base-chain/node-operators/node-providers) such as Alchemy or QuickNode for WebSocket support.
+</Note>
+
+## Wallet setup
+
+<Tabs>
+  <Tab title="Coinbase Wallet">
+
+    [Coinbase Wallet](https://chrome.google.com/webstore/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad?hl=en) supports Base networks by default.
+
+    **Mainnet**
+
+    1. Open the Coinbase Wallet extension and log in.
+    2. Connect to your app.
+    3. Click the network icon in the upper right corner.
+    4. Select **Base**.
+
+    **Base Sepolia**
+
+    1. Open the Coinbase Wallet extension and log in.
+    2. Connect to your app.
+    3. Click the network icon in the upper right corner.
+    4. Click **More networks** and go to the **Testnets** tab.
+    5. Select **Base Sepolia**.
+
+  </Tab>
+  <Tab title="MetaMask">
+
+    Click a button to automatically add a Base network to [MetaMask](https://metamask.io):
+
+    <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+      <AddToMetaMask chainId="8453" chainName="Base Mainnet" rpcUrl="https://mainnet.base.org" blockExplorer="https://basescan.org" />
+      <AddToMetaMask chainId="84532" chainName="Base Sepolia" rpcUrl="https://sepolia.base.org" blockExplorer="https://sepolia.basescan.org" />
+      <AddToMetaMask chainId="84538453" chainName="Base Vibenet" rpcUrl="https://rpc.vibes.base.org" blockExplorer="https://explorer.vibes.base.org" />
+    </div>
+
+    To add a network manually, use the details from the [Network details](#network-details) section above.
+
+  </Tab>
+  <Tab title="Other EVM wallets">
+
+    Base can be added as a custom network to any EVM-compatible wallet. Use the connection details from the [Network details](#network-details) section above.
+
+  </Tab>
+</Tabs>

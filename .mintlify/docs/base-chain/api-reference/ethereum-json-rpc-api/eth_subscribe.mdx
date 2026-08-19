@@ -1,0 +1,58 @@
+---
+title: 'eth_subscribe'
+sidebarTitle: 'eth_subscribe'
+description: 'Creates a real-time WebSocket subscription for new blocks, logs, and pending transactions.'
+---
+
+import { Expandable_1 } from "../../../../components/base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe/Expandable_1.jsx";
+
+import { CodeGroup_1 } from "../../../../components/base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe/CodeGroup_1.jsx";
+
+Creates a real-time event subscription over a WebSocket connection. Returns a subscription ID; events are pushed as `eth_subscription` notifications without the client needing to poll.
+
+<Note>
+  The public Base endpoints (`mainnet.base.org`, `sepolia.base.org`) are **HTTP only**. WebSocket connections are not available on public Base endpoints — use a [node provider](/base-chain/node-operators/node-providers) such as Alchemy or QuickNode that offers WebSocket support for Base.
+</Note>
+
+## Parameters
+
+<ParamField body="subscriptionType" type="string" required>
+  The event type to subscribe to.
+</ParamField>
+
+<ParamField body="filterOptions" type="object">
+  Optional filter options. Only applicable for the `"logs"` subscription type.
+
+  <Expandable_1 client:load />
+</ParamField>
+
+## Subscription Types
+
+| Type                     | Description                                              | Notification payload                                                                                                                                                |
+| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `newHeads`               | Fires for each new block appended to the chain           | Full block header object — identical shape to [`eth_getBlockByNumber`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber) with `hydrated: false` |
+| `logs`                   | Fires for each new log matching filter criteria          | Log object (see below)                                                                                                                                              |
+| `newPendingTransactions` | Fires for each new transaction hash added to the mempool | Transaction hash string                                                                                                                                             |
+
+## Returns
+
+<ResponseField name="result" type="string">
+  A hex-encoded subscription ID. All event notifications from this subscription include this ID in `params.subscription`.
+</ResponseField>
+
+Event notifications arrive as unsolicited JSON-RPC messages:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "eth_subscription",
+  "params": {
+    "subscription": "0x1887ec8b9589ccad00000000000532da",
+    "result": { ... }
+  }
+}
+```
+
+## Example
+
+<CodeGroup_1 client:load />

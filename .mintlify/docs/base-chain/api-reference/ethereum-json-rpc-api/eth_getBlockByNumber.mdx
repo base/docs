@@ -1,0 +1,49 @@
+---
+title: 'eth_getBlockByNumber'
+sidebarTitle: 'eth_getBlockByNumber'
+description: 'Returns block information by number. On Flashblocks endpoints, the pending tag returns the live pre-confirmed block updated every ~200ms.'
+---
+
+import { Expandable_1 } from "../../../../components/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber/Expandable_1.jsx";
+
+import { CodeGroup_1 } from "../../../../components/base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber/CodeGroup_1.jsx";
+
+Returns information about a block by its number.
+
+<Tip>
+  **Flashblocks:** Query `https://mainnet.base.org` with `"pending"` to fetch the live Flashblock in progress — a real block object updated every \~200ms with new pre-confirmed transactions. The response shape is identical; the block is simply not yet sealed.
+</Tip>
+
+## Parameters
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`. Use `"pending"` to get the in-progress block.
+</ParamField>
+
+<ParamField body="fullTransactions" type="boolean" required>
+  If `true`, returns full transaction objects. If `false`, returns only transaction hashes.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+  A block object, or `null` if no block was found.
+
+  <Expandable_1 client:load />
+</ResponseField>
+
+## Flashblock-Specific Response Fields
+
+When querying `"pending"`, the response is a live snapshot of the block being built. A few fields behave differently:
+
+| Field          | Standard `latest`       | Flashblocks `pending`                              |
+| -------------- | ----------------------- | -------------------------------------------------- |
+| `number`       | Sealed block number     | Current block number (being built)                 |
+| `hash`         | Final block hash        | Hash of the partial block at this Flashblock index |
+| `gasUsed`      | Final gas used          | Cumulative gas used up to this Flashblock          |
+| `transactions` | All sealed transactions | Transactions pre-confirmed so far                  |
+| `blobGasUsed`  | Final blob gas used     | Propagated from cumulative Flashblock state        |
+
+## Example
+
+<CodeGroup_1 client:load />

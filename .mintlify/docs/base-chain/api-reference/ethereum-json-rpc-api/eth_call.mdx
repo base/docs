@@ -1,0 +1,47 @@
+---
+title: 'eth_call'
+sidebarTitle: 'eth_call'
+description: 'Executes a message call without creating a transaction. Use pending to simulate against pre-confirmed state.'
+---
+
+import { Expandable_1 } from "../../../../components/base-chain/api-reference/ethereum-json-rpc-api/eth_call/Expandable_1.jsx";
+
+import { CodeGroup_1 } from "../../../../components/base-chain/api-reference/ethereum-json-rpc-api/eth_call/CodeGroup_1.jsx";
+
+Executes a message call immediately without broadcasting a transaction to the network. No gas is consumed on-chain. Used to read contract state or simulate calls.
+
+<Tip>
+  **Flashblocks:** Query `https://mainnet.base.org` with `"pending"` to simulate against the current pre-confirmed block state, updated every \~200ms.
+</Tip>
+
+<Note>
+  **`eth_call "pending"` block context on Flashblocks nodes:** Block-context properties (`block.number`, `block.timestamp`, `block.basefee`) may reflect a block several behind tip due to how nodes cache historical Flashblocks. See the [FAQ](/base-chain/flashblocks/faq#why-does-eth_call-pending-report-a-block-number-several-blocks-behind-tip) for details.
+</Note>
+
+## Parameters
+
+<ParamField body="transaction" type="object" required>
+  The transaction call object.
+
+  <Expandable_1 client:load />
+</ParamField>
+
+<ParamField body="block" type="string" required>
+  Block number in hex, or `"latest"`, `"pending"`, `"safe"`, `"finalized"`, `"earliest"`. Use `"pending"` to call against pre-confirmed state.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The return value of the call as a hex-encoded byte array.
+</ResponseField>
+
+## Error Codes
+
+| Code     | Message            | Description                                                                                                    |
+| -------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `-32000` | execution reverted | The call reverted. The `data` field in the error object contains the ABI-encoded revert reason when available. |
+
+## Example
+
+<CodeGroup_1 client:load />

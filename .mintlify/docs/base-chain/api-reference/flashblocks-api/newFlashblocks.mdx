@@ -1,0 +1,37 @@
+---
+title: 'newFlashblocks'
+sidebarTitle: 'newFlashblocks'
+description: 'Subscribe to receive full Flashblock payload stream as each pre-confirmed block is built. Only available on Flashblocks WebSocket endpoints.'
+---
+
+import { CodeGroup_1 } from "../../../../components/base-chain/api-reference/flashblocks-api/newFlashblocks/CodeGroup_1.jsx";
+
+Subscribe via `eth_subscribe` to receive full block state updates as each Flashblock is built. Each message contains the accumulated pre-confirmed state for the block in progress.
+
+<Info>
+  Only available on Flashblocks WebSocket endpoints: `wss://mainnet-preconf.base.org` and `wss://sepolia-preconf.base.org`.
+</Info>
+
+<Note>
+  Requires [base/base](https://github.com/base/base) minimum client version v0.3.1.
+</Note>
+
+<Warning>
+  Each subscription emits **one Flashblock Object per WebSocket message**. Events arrive approximately every 200ms. If your handler performs heavy processing per event, throttle or debounce it to avoid blocking.
+</Warning>
+
+## Parameters
+
+<ParamField body="subscriptionType" type="string" required>
+  Must be `"newFlashblocks"`.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  Hex-encoded subscription ID. Each event notification delivers a **Flashblock Object** — not a standard block object. The payload contains `payload_id`, `index`, `diff`, and (on index 0) `base`. See the [Infrastructure Stream schema](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview#flashblock-object) for the full structure.
+</ResponseField>
+
+## Example
+
+<CodeGroup_1 client:load />

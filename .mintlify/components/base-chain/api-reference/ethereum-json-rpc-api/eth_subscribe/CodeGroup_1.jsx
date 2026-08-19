@@ -1,0 +1,24 @@
+/*@jsxRuntime automatic*/
+/*@jsxImportSource react*/
+import {useMDXComponents as _provideComponents} from "@mintlify/astro/components";
+function _createMdxContent(props) {
+  const _components = {
+    code: "code",
+    pre: "pre",
+    ..._provideComponents(),
+    ...props.components
+  }, {CodeBlock, CodeGroup} = _components;
+  if (!CodeBlock) _missingMdxReference("CodeBlock", true);
+  if (!CodeGroup) _missingMdxReference("CodeGroup", true);
+  return <CodeGroup><CodeBlock filename="Subscribe to newHeads" className="language-json"><_components.pre><_components.code className="language-json">{"{\"jsonrpc\": \"2.0\", \"method\": \"eth_subscribe\", \"params\": [\"newHeads\"], \"id\": 1}\n"}</_components.code></_components.pre></CodeBlock><CodeBlock filename="Subscribe to logs (with filter)" className="language-json"><_components.pre><_components.code className="language-json">{"{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"eth_subscribe\",\n  \"params\": [\n    \"logs\",\n    {\n      \"address\": \"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\n      \"topics\": [\"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef\"]\n    }\n  ]\n}\n"}</_components.code></_components.pre></CodeBlock><CodeBlock filename="Subscription ID Response" className="language-json"><_components.pre><_components.code className="language-json">{"{\"jsonrpc\": \"2.0\", \"id\": 1, \"result\": \"0x1887ec8b9589ccad00000000000532da\"}\n"}</_components.code></_components.pre></CodeBlock><CodeBlock filename="newHeads Event" className="language-json"><_components.pre><_components.code className="language-json">{"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"eth_subscription\",\n  \"params\": {\n    \"subscription\": \"0x1887ec8b9589ccad00000000000532da\",\n    \"result\": {\n      \"baseFeePerGas\": \"0x4c4b40\",\n      \"blobGasUsed\": \"0x5384cc\",\n      \"difficulty\": \"0x0\",\n      \"excessBlobGas\": \"0x0\",\n      \"extraData\": \"0x01000000640000000500000000004c4b40\",\n      \"gasLimit\": \"0x17d78400\",\n      \"gasUsed\": \"0x2155bc7\",\n      \"hash\": \"0x491bca01d4bc076d60833dbd973fe031a74e7ae31866bf70d077619e09edb6ff\",\n      \"logsBloom\": \"0x00...00\",\n      \"miner\": \"0x4200000000000000000000000000000000000011\",\n      \"mixHash\": \"0x47aecef0e1afa26b8e1f428e9a8696cf53d85c62587d8c2cea079c715cd29626\",\n      \"nonce\": \"0x0000000000000000\",\n      \"number\": \"0x2c31b0b\",\n      \"parentBeaconBlockRoot\": \"0x15b9e7c8ac4cbe92dafc849ed30a23e91624bbe5cbe199c0ccea3f7de7fc6d49\",\n      \"parentHash\": \"0x89f4c9e23a2f706f0afa9ca8f770c4b7dcbcb73ba7e9b1c29c4a8c1b90c31d24\",\n      \"receiptsRoot\": \"0x5a428d77344334537d7adaf85a45eb6d7977bc807a68c669f36cb043600da6d2\",\n      \"requestsHash\": \"0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\n      \"sha3Uncles\": \"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347\",\n      \"size\": \"0x1bb3b\",\n      \"stateRoot\": \"0x1b1525af0cdd504147b89f2a7ce1838ccb70c5439c45ce55522c2e2529801e87\",\n      \"timestamp\": \"0x6a1092f9\",\n      \"transactionsRoot\": \"0x6b9c9fcbdf98a8f4d38a3c16d099e9f0c7b7b474c2f5e044af7c91949c04a234\",\n      \"withdrawals\": [],\n      \"withdrawalsRoot\": \"0x57f4414a70a4af5e1a97b5fd8b8c6c870c00e8d9dbc0fde0059ce46e2cd28e5b\"\n    }\n  }\n}\n"}</_components.code></_components.pre></CodeBlock><CodeBlock filename="logs Event" className="language-json"><_components.pre><_components.code className="language-json">{"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"eth_subscription\",\n  \"params\": {\n    \"subscription\": \"0x2a7bc8d4e3f5a6b1c2d3e4f5a6b7c8d9\",\n    \"result\": {\n      \"address\": \"0xef5997c2cf2f6c138196f8a6203afc335206b3c1\",\n      \"blockHash\": \"0xc104d3b3a4008d854c21f25ff41917e2bff0f0d28eacd348cc664b891d9db00c\",\n      \"blockNumber\": \"0x2c70f90\",\n      \"blockTimestamp\": \"0x6a187c03\",\n      \"data\": \"0x0000000000000000000000000000000000000000000000078e0cf33a1d658000\",\n      \"logIndex\": \"0x0\",\n      \"removed\": false,\n      \"topics\": [\n        \"0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925\",\n        \"...\"\n      ],\n      \"transactionHash\": \"0x9efe32df11e30a345c5908ff4db248895c8e4b0d83c4d368fe14042ebbd3a130\",\n      \"transactionIndex\": \"0x2\"\n    }\n  }\n}\n"}</_components.code></_components.pre></CodeBlock></CodeGroup>;
+}
+export function CodeGroup_1(props = {}) {
+  const {wrapper: MDXLayout} = {
+    ..._provideComponents(),
+    ...props.components
+  };
+  return MDXLayout ? <MDXLayout {...props}><_createMdxContent {...props} /></MDXLayout> : _createMdxContent(props);
+}
+function _missingMdxReference(id, component) {
+  throw new Error("Expected " + (component ? "component" : "object") + " `" + id + "` to be defined: you likely forgot to import, pass, or provide it.");
+}

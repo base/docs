@@ -1,0 +1,142 @@
+---
+title: 'Overview'
+sidebarTitle: 'Overview'
+description: 'Flashblocks-specific RPC methods, WebSocket subscriptions, and the infrastructure stream schema for Base pre-confirmations.'
+---
+
+import { Card_1 } from "../../../../components/base-chain/api-reference/flashblocks-api/flashblocks-api-overview/Card_1.jsx";
+
+import { Card_2 } from "../../../../components/base-chain/api-reference/flashblocks-api/flashblocks-api-overview/Card_2.jsx";
+
+import { Card_3 } from "../../../../components/base-chain/api-reference/flashblocks-api/flashblocks-api-overview/Card_3.jsx";
+
+import { Card_4 } from "../../../../components/base-chain/api-reference/flashblocks-api/flashblocks-api-overview/Card_4.jsx";
+
+import { Card_5 } from "../../../../components/base-chain/api-reference/flashblocks-api/flashblocks-api-overview/Card_5.jsx";
+
+import { Card_6 } from "../../../../components/base-chain/api-reference/flashblocks-api/flashblocks-api-overview/Card_6.jsx";
+
+All Base public endpoints (`mainnet.base.org` / `sepolia.base.org`) are Flashblocks-enabled, exposing all standard Ethereum JSON-RPC methods plus a set of pre-confirmation-specific additions. These let you read state, simulate transactions, and stream events against sequencer-ordered data up to \~1.8 seconds before a block seals.
+
+<Info>
+  All [standard Ethereum JSON-RPC methods](/base-chain/api-reference/rpc-overview) support the `"pending"` block tag to resolve against pre-confirmed state instead of the transaction pool. See the [RPC Overview](/base-chain/api-reference/rpc-overview) for endpoint URLs.
+</Info>
+
+## HTTP Methods
+
+| Method                                                                                      | Description                                                  |
+| :------------------------------------------------------------------------------------------ | :----------------------------------------------------------- |
+| [eth\_simulateV1](/base-chain/api-reference/flashblocks-api/eth_simulateV1)                 | Simulate transaction bundles against pre-confirmed state     |
+| [base\_transactionStatus](/base-chain/api-reference/flashblocks-api/base_transactionStatus) | Check if a transaction has been received by the node mempool |
+
+## WebSocket Subscriptions
+
+On a Flashblocks WSS endpoint, `eth_subscribe` with `newHeads` emits a new event approximately every 200ms per Flashblock instead of every 2 seconds. Three additional subscription types are also available that are exclusive to Flashblocks endpoints:
+
+| Subscription                                                                                     | Description                                                             |
+| :----------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
+| [newFlashblockTransactions](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) | Stream individual transactions as they are pre-confirmed (\~200ms each) |
+| [pendingLogs](/base-chain/api-reference/flashblocks-api/pendingLogs)                             | Stream filtered event logs from pre-confirmed transactions              |
+| [newFlashblocks](/base-chain/api-reference/flashblocks-api/newFlashblocks)                       | Stream full Flashblock payload objects from the sequencer               |
+
+## Infrastructure Stream
+
+The raw Flashblocks infrastructure stream is the upstream WebSocket feed consumed by Flashblocks-aware RPC nodes. It emits a new message approximately every 200ms as the sequencer pre-confirms transactions.
+
+<Warning>
+  **Applications should not connect directly to the infrastructure stream.** These endpoints are for node operators only. App developers should use the [WebSocket subscription methods](#websocket-subscriptions) above via a Flashblocks-aware RPC provider.
+</Warning>
+
+| Network | Raw stream URL                          |
+| :------ | :-------------------------------------- |
+| Mainnet | `wss://mainnet.flashblocks.base.org/ws` |
+| Sepolia | `wss://sepolia.flashblocks.base.org/ws` |
+
+### Flashblock Object
+
+The root structure of each infrastructure stream message.
+
+<Card_1 client:load />
+
+### Base Object
+
+Contains full block header properties. **Only present in the `index: 0` message** (the first Flashblock of each full block).
+
+<Card_2 client:load />
+
+### Diff Object
+
+Contains the incremental block state changes for this specific Flashblock. Present in every message.
+
+<Card_3 client:load />
+
+### Metadata Object
+
+<Warning>
+  **The `metadata` object is not stable.** Fields may be added, modified, or removed without prior notice. Do not build production dependencies on it — use the [`diff`](#diff-object) object or query finalized block data via standard RPC instead.
+</Warning>
+
+As of v0.8.0, `new_account_balances` and `receipts` are no longer present in the `metadata` object. `block_number` remains. The `access_list` field is present but always empty.
+
+<Card_4 client:load />
+
+### Receipt Object
+
+<Note>
+  `metadata.receipts` was removed in v0.8.0. This schema is preserved for reference for older node versions. On v0.8.0+, use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) for polling-based receipt data, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) with `full: true` for a real-time stream of pre-confirmed transaction data including logs.
+</Note>
+
+<Card_5 client:load />
+
+### Log Object
+
+<Card_6 client:load />
+
+### Complete Examples
+
+**Index 0** — includes the `base` object (block header):
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 0,
+  "base": {
+    "parent_hash": "0x9edc29b8b0a1e31d28616e40c16132ad0d58faa8bb952595b557526bdb9a960a",
+    "fee_recipient": "0x4200000000000000000000000000000000000011",
+    "block_number": "0x158a0e9",
+    "gas_limit": "0x3938700",
+    "timestamp": "0x67bf8332",
+    "base_fee_per_gas": "0xfa",
+    "parent_beacon_block_root": "0x15b9e7c8ac4cbe92dafc849ed30a23e91624bbe5cbe199c0ccea3f7de7fc6d49"
+  },
+  "diff": {
+    "state_root": "0x208fd63edc0681161105f27d03daf9f8c726d8c94e584a3c0696c98291c24333",
+    "block_hash": "0x5c330e55a190f82ea486b61e5b12e27dfb4fb3cecfc5746886ef38ca1281bce8",
+    "gas_used": "0xab3f",
+    "transactions": ["0x7ef8f8a0b4afc0b7ce10e150801bbaf08ac33fecb0f38311793abccb022120d321c6d276..."],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577
+  }
+}
+```
+
+**Index 1–N (diff only)** — no `base` object:
+
+```json
+{
+  "payload_id": "0x03997352d799c31a",
+  "index": 4,
+  "diff": {
+    "state_root": "0x7a8f45038665072f382730e689f4a1561835c9987fca8942fa95872fb9367eaa",
+    "block_hash": "0x9b32f7a14cbd1efc8c2c5cad5eb718ec9e0c5da92c3ba7080f8d4c49d660c332",
+    "gas_used": "0x1234f",
+    "transactions": ["0x02f90133...", "0x02f90196..."],
+    "withdrawals": []
+  },
+  "metadata": {
+    "block_number": 22585577
+  }
+}
+```
