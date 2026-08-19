@@ -3,7 +3,7 @@ title: Run a Node
 description: A tutorial that teaches how to set up and run a Base Node.
 ---
 
-This tutorial will walk you through setting up your own [Base Node](https://github.com/base/node).
+This tutorial will walk you through setting up your own [Base Node](https://github.com/base/base).
 
 ## Objectives
 
@@ -70,11 +70,14 @@ You'll need your own L1 RPC URL. This can be one that you run yourself, or via a
 
 ## Running a Node
 
-1. Clone the [repo](https://github.com/base/node).
+The public operator node is now published from the [base/base](https://github.com/base/base) repository. The root `docker-compose.yml` pulls `ghcr.io/base/node` by default; pass `--build` to compile the current source tree instead.
+
+1. Clone the [repo](https://github.com/base/base).
 2. Ensure you have an Ethereum L1 full node RPC available (not Base), and set `BASE_NODE_L1_ETH_RPC` & `BASE_NODE_L1_BEACON` in the appropriate `.env` file (`.env.mainnet` or `.env.sepolia`). If running your own L1 node, it needs to be synced before Base will be able to fully sync.
 3. Start the node:
-   - **Mainnet**: `docker compose up --build`
-   - **Testnet**: `NETWORK_ENV=.env.sepolia docker compose up --build`
+   - **Mainnet (pull the published image)**: `docker compose up`
+   - **Mainnet (compile from source)**: `docker compose up --build`
+   - **Testnet**: `NETWORK_ENV=.env.sepolia docker compose up`
 4. Confirm you get a response from:
 
 ```bash Terminal
@@ -85,6 +88,29 @@ curl -d '{"id":0,"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["late
 <Warning>
 Syncing your node may take **days** and will consume a vast amount of your requests quota. Be sure to monitor usage and up your plan if needed.
 </Warning>
+
+### Pin a released image with `NODE_TAG`
+
+`docker compose up` pulls `ghcr.io/base/node:latest` by default. To run a specific release without recompiling from source, set `NODE_TAG` to a published tag:
+
+```bash Terminal
+NODE_TAG=v1.2.6 docker compose up
+```
+
+Pinning a `NODE_TAG` skips the source build entirely, so the node boots as soon as the image is pulled. Omit `--build` when using `NODE_TAG`; passing `--build` forces a local compile that overrides the pinned image.
+
+### Compose environment variables
+
+The root `docker-compose.yml` exposes a few knobs so you can override defaults from your shell or a `.env` file without editing the compose file:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `NODE_TAG` | `latest` | Image tag pulled from `ghcr.io/base/node`. Set to a release tag (e.g. `v1.2.6`) to pin. |
+| `NETWORK_ENV` | `.env.mainnet` | Which network env file the `execution` and `node` services load. Set to `.env.sepolia` for testnet. |
+| `HOST_DATA_DIR` | `./reth-data` | Host path mounted into the execution container at `/data`. Change to point at an external volume. |
+| `PROFILE` | `maxperf` | Cargo build profile used when `--build` is passed. Matches the profile used for the published image. |
+
+Running `docker compose up --build` compiles the current `base/base` tree using the `base` target of `etc/docker/Dockerfile.rust-services` (the same target that produces the published `ghcr.io/base/node` image), so a source build and a pinned image share the same binary layout.
 
 ### Snapshots
 
@@ -141,6 +167,10 @@ Applications should not connect directly to `wss://mainnet.flashblocks.base.org/
 <Note>
 The [base](https://github.com/base/base) binary listens to the Flashblocks WebSocket stream and caches preconfirmation data. When Flashblocks-aware RPC methods are called, it returns data from this cache. For the full message schema and payload structure, see [Flashblocks API Overview](/base-chain/api-reference/flashblocks-api/flashblocks-api-overview).
 </Note>
+
+<Tip>
+`docker compose up --build` in the [base/base](https://github.com/base/base) repo will also apply the Flashblocks configuration when `RETH_FB_WEBSOCKET_URL` is set. To run without a source compile, set `RETH_FB_WEBSOCKET_URL` in your `.env` file and use `NODE_TAG=vX.Y.Z docker compose up`.
+</Tip>
 
 ### Verify Flashblocks Functionality
 
