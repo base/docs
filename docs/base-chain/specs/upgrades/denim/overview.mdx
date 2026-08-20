@@ -1,0 +1,55 @@
+---
+title: "Overview"
+description: "Overview of the Denim hardfork, including 200ms native blocks and fork-boundary gas parameter changes."
+---
+
+<Warning>
+Denim is a tentative draft published to elicit feedback. The design is mostly finalized, but this is not a production specification and may change. Denim is not active on Base Sepolia or Base Mainnet; activation times, gas parameter values, and required client versions remain undecided.
+</Warning>
+
+## Summary
+
+Denim introduces:
+
+- [200ms native blocks](/base-chain/specs/upgrades/denim/200ms-native-blocks), replacing two-second blocks and Flashblocks with five complete canonical blocks per second
+- A deterministic fork-boundary update to the block gas limit, EIP-1559 elasticity and denominator, and minimum base fee
+
+## Tentative activation
+
+| Network | Activation timestamp | Required client versions |
+| --- | --- | --- |
+| `sepolia` | `TBD` | `TBD` |
+| `mainnet` | `TBD` | `TBD` |
+
+No Denim activation has been scheduled. A later node upgrade guide will provide release and rollout instructions.
+
+## Gas parameter transition
+
+Denim changes per-block gas parameters at the hardfork boundary without relying on operator configuration or the timing of an L1 `SystemConfig` transaction. The Denim values are protocol constants and apply identically during sequencing and derivation.
+
+Let block `N` be the first block where Denim is active. After applying the normal L1-origin `SystemConfig` updates for block `N`, but before constructing its payload attributes, the consensus client **MUST** replace the derived values with the Denim constants for:
+
+- Block gas limit
+- EIP-1559 elasticity
+- EIP-1559 denominator
+- Minimum base fee
+
+The gas target is derived from the resulting gas limit and elasticity:
+
+$$
+gas\_target = \frac{gas\_limit}{elasticity}
+$$
+
+The synthetic Denim update takes precedence over any conflicting L1 `SystemConfig` update first adopted in block `N`. This ordering ensures every node derives the same fork block even if an L1 update arrives at the boundary.
+
+Starting with block `N + 1`, derivation reconstructs these values from the parent block header and follows the normal post-fork path. The L1 `SystemConfig` contract should be updated shortly after activation so its getters reflect the protocol values, but that transaction does not control the fork-boundary transition.
+
+### Base fee timing
+
+The first Denim block carries the new gas limit and EIP-1559 parameters. Under the existing EIP-1559 calculation, however, block `N`'s base fee is calculated from block `N - 1` and its parameters. The new elasticity and denominator first affect the base fee calculated for block `N + 1`.
+
+Changing the base fee calculation for block `N` itself would require a separate fork-specific execution rule.
+
+### Alternatives not used
+
+An upgrade transaction cannot change the header or base fee of the block in which it executes. A local execution-client gas limit setting would also make the transition depend on operator configuration and could cause nodes to disagree. Denim therefore applies the values in consensus before payload construction.
