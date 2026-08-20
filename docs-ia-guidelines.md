@@ -30,7 +30,7 @@ Where to place new pages across the Base documentation tabs and sections.
 
 **Decision test:** Does this page teach someone how to build or ship something specific?
 
-**What doesn't belong:** Concept explainers without code (→ Integrate Base > Reference), chain configuration or RPC setup (→ Integrate Base), protocol-level specs (→ Specifications), SDK API reference pages (→ SDKs & APIs). If the page doesn't have a developer doing something by the end, it probably belongs elsewhere.
+**What doesn't belong:** Concept explainers without code (→ Base Protocol > Reference), chain configuration or RPC setup (→ Base Protocol), protocol-level specs (→ Specifications), SDK API reference pages (→ SDKs & APIs). If the page doesn't have a developer doing something by the end, it probably belongs elsewhere.
 
 | Section | Purpose |
 |---------|---------|
@@ -41,7 +41,7 @@ Where to place new pages across the Base documentation tabs and sections.
 | Accept Payments | Human and agent payments, verification, subscriptions |
 | Private Transactions | Ledger deposits, transfers, withdrawals |
 
-### Integrate Base
+### Base Protocol
 
 **Audience:** Teams connecting existing infrastructure to Base — wallets, bridges, exchanges, RPC providers, node operators.
 
@@ -53,7 +53,7 @@ Where to place new pages across the Base documentation tabs and sections.
 
 | Section | Purpose |
 |---------|---------|
-| Integrate Base | Overview, connecting to Base, RPC providers, faucets, bridges |
+| Base Protocol | Overview, connecting to Base, RPC providers, faucets, bridges |
 | Reference | How Base works under the hood: transaction ordering, finality, throughput, fees, Flashblocks, troubleshooting |
 | Node Operators | Running and maintaining Base nodes |
 | Security | Security council, vulnerability reporting |
@@ -66,7 +66,7 @@ Where to place new pages across the Base documentation tabs and sections.
 
 **Decision test:** Is this a protocol-level specification or formal reference?
 
-**What doesn't belong:** Integration how-tos (→ Integrate Base), product tutorials (→ Build on Base), hardfork upgrade summaries or migration guides (→ Changelog), SDK usage docs (→ SDKs & APIs). Concept explainers aimed at integrators go in Integrate Base > Reference, not here. If the page is primarily about what a developer should do rather than how the protocol works, it belongs elsewhere.
+**What doesn't belong:** Integration how-tos (→ Base Protocol), product tutorials (→ Build on Base), hardfork upgrade summaries or migration guides (→ Changelog), SDK usage docs (→ SDKs & APIs). Concept explainers aimed at integrators go in Base Protocol > Reference, not here. If the page is primarily about what a developer should do rather than how the protocol works, it belongs elsewhere.
 
 | Section | Purpose |
 |---------|---------|
@@ -82,7 +82,7 @@ Where to place new pages across the Base documentation tabs and sections.
 
 **Decision test:** Is this page about using a specific SDK or API?
 
-**What doesn't belong:** End-to-end product tutorials that happen to use an SDK (→ Build on Base), protocol specifications (→ Specifications), chain configuration or RPC setup (→ Integrate Base), hardfork notes (→ Changelog). A page that uses the SDK as a tool in a larger workflow belongs in Build on Base; only SDK-focused docs (quickstarts, API reference, SDK-specific guides) go here.
+**What doesn't belong:** End-to-end product tutorials that happen to use an SDK (→ Build on Base), protocol specifications (→ Specifications), chain configuration or RPC setup (→ Base Protocol), hardfork notes (→ Changelog). A page that uses the SDK as a tool in a larger workflow belongs in Build on Base; only SDK-focused docs (quickstarts, API reference, SDK-specific guides) go here.
 
 | Section | Purpose |
 |---------|---------|
@@ -98,7 +98,7 @@ Where to place new pages across the Base documentation tabs and sections.
 
 **Decision test:** Does this page document a change to the Base network across a specific hardfork or configuration update?
 
-**What doesn't belong:** Permanent protocol specifications (→ Specifications), integration guides (→ Integrate Base), product tutorials (→ Build on Base), SDK docs (→ SDKs & APIs). If the page will still be relevant after the upgrade window passes, it probably belongs in Specifications or Integrate Base instead. Changelog is for time-bound upgrade content: what changed, when, and how to migrate.
+**What doesn't belong:** Permanent protocol specifications (→ Specifications), integration guides (→ Base Protocol), product tutorials (→ Build on Base), SDK docs (→ SDKs & APIs). If the page will still be relevant after the upgrade window passes, it probably belongs in Specifications or Base Protocol instead. Changelog is for time-bound upgrade content: what changed, when, and how to migrate.
 
 | Section | Purpose |
 |---------|---------|
@@ -116,7 +116,7 @@ When adding a new page, ask in order:
 2. **Is it a hardfork change or migration guide?** → Changelog
 3. **Is it SDK or API documentation?** → SDKs & APIs
 4. **Does it teach how to build a specific product?** → Build on Base
-5. **Is it about connecting infrastructure to Base?** → Integrate Base
+5. **Is it about connecting infrastructure to Base?** → Base Protocol
 6. **Is it an entry point for new developers?** → Get Started
 
 ## Rules
@@ -124,5 +124,5 @@ When adding a new page, ask in order:
 - A page should appear in exactly one tab. If it fits two, prefer the more specific one.
 - Use redirects when moving pages. Never delete a URL without a redirect.
 - Hardfork-specific content always goes in Changelog, even if it relates to a feature documented elsewhere.
-- Concept explainers that support integration go in Integrate Base > Reference, not in Specifications.
+- Concept explainers that support integration go in Base Protocol > Reference, not in Specifications.
 - Keep Get Started shallow — link to deeper sections rather than duplicating content.

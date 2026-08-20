@@ -19,7 +19,7 @@ When adding a new page, ask in order:
 2. **Is it a hardfork change or migration guide?** → Changelog tab
 3. **Is it SDK or API documentation?** → SDKs & APIs tab
 4. **Does it teach how to build a specific product?** → Build on Base tab
-5. **Is it about connecting infrastructure to Base?** → Integrate Base tab
+5. **Is it about connecting infrastructure to Base?** → Base Protocol tab
 6. **Is it an entry point for new developers?** → Get Started tab
 
 ## Workflow
