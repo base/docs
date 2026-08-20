@@ -1,0 +1,40 @@
+---
+title: "B20 changelog"
+description: "Changes to the B20 token standard, release by release, including new methods, deprecations, and activation dates."
+---
+
+Changes to the [B20 token standard](/base-chain/specs/reference/b20). Newest first.
+
+<Note>
+B20 method and event signatures are part of the chain's consensus surface. Existing selectors and behavior do not change; the standard grows by addition.
+</Note>
+
+## Beryl — initial release
+
+| Network | Activated |
+|---|---|
+| Base mainnet | 2026-06-25 |
+| Base Sepolia | 2026-06-18 |
+
+Shipped with the [Beryl upgrade](/base-chain/specs/upgrades/beryl/overview).
+
+**Added**
+
+- The B20 standard as a native precompile: a superset of ERC-20 with full selector and behavior parity for `transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, `name`, `symbol`, `decimals`, `Transfer`, and `Approval`
+- [Role-based access control](/base-chain/specs/reference/b20#roles-model) with built-in roles, user-defined roles in the role graph, and `renounceLastAdmin` for permanent admin-less operation
+- [PolicyRegistry](/base-chain/specs/reference/b20#policy-registry) singleton precompile with `BLOCKLIST`, `ALLOWLIST`, `UNION`, and `INTERSECT` policy types, two-step admin transfer, and the `ALWAYS_ALLOW` and `ALWAYS_BLOCK` built-ins
+- [Six policy scopes](/base-chain/specs/reference/b20#policy-integration) on every token, covering transfer sender, receiver, and executor, mint receiver, and seize holder and receiver
+- [`seizeWithMemo`](/base-chain/specs/reference/b20#seize) for compliance-driven balance transfers
+- [Memo variants](/base-chain/specs/reference/b20#memos) of transfer, transferFrom, mint, burn, and seize, emitting `Memo` immediately after the primary event
+- [Granular pausing](/base-chain/specs/reference/b20#pause) by `PausableFeature`: `TRANSFER`, `MINT`, `BURN`, and `SEIZE`
+- [Optional supply caps](/base-chain/specs/reference/b20#supply-cap), with `type(uint128).max` as the uncapped sentinel and maximum supply
+- [ERC-2612 `permit`](/base-chain/specs/reference/b20#erc-2612-permit--eip-712) with an EIP-712 domain at version `"1"`
+- [ERC-7572 `contractURI`](/base-chain/specs/reference/b20#contract-uri-erc-7572) and `METADATA_ROLE`-gated name, symbol, and URI updates
+- [B20Factory](/base-chain/specs/reference/b20#factory) singleton precompile with deterministic, variant-encoding addresses and `initCalls` bootstrap semantics
+- ActivationRegistry gating for state-changing PolicyRegistry calls
+- The [`ASSET` variant](/base-chain/specs/reference/b20#asset): `OPERATOR_ROLE`, WAD-precision UI multipliers with scheduled and instant updates, announcements, `batchMint`, and issuer-defined extra metadata
+- The [`STABLECOIN` variant](/base-chain/specs/reference/b20#stablecoin): fixed 6 decimals and a `currency()` code set once at creation
+
+**Deprecated**
+
+- `burnBlocked` and `BURN_BLOCKED_ROLE`, retained for backwards compatibility. New seizure flows use `seizeWithMemo`.
