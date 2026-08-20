@@ -1,0 +1,88 @@
+---
+title: "Native Account Abstraction"
+description: "Understand native account abstraction on Base. EIP-8130 smart accounts send ordinary transactions, with no bundlers, relays, or paymaster infrastructure."
+tag: "Soon"
+---
+
+Native account abstraction makes smart accounts a property of the chain instead of something bolted on around it. An account records who is allowed to act for it, and how its signatures are checked, in an onchain system contract. Base validates every transaction against that configuration, so smart accounts send ordinary transactions.
+
+Base's implementation is [EIP-8130](https://eip.tools/eip/8130), landing with the [Cobalt upgrade](/base-chain/specs/upgrades/cobalt/overview).
+
+<Warning>
+EIP-8130 is experimental and currently runs only on the [vibenet devnet](https://chain.base.org/vibenet). See [connecting to Base](/base-chain/quickstart/connecting-to-base#vibenet) for connection details.
+</Warning>
+
+## Why native
+
+Smart accounts on EVM networks today work around the protocol rather than inside it, and you pay for that in infrastructure.
+
+[ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) introduces an alternate mempool, bundlers, and an EntryPoint contract. Every app that wants smart account features inherits that stack, its operating cost, and its failure modes. [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) lets an externally owned account (EOA) delegate to contract code, which is simpler, but the account still validates against its single original key.
+
+EIP-8130 moves the abstraction into the chain, so features that 4337 provides through external services come built into ordinary transactions:
+
+| | ERC-4337 | EIP-7702 | EIP-8130 |
+|---|---|---|---|
+| Validation | EntryPoint contract via bundlers | One fixed key | Protocol, against onchain configuration |
+| Infrastructure | Bundlers and an alternate mempool | None | None, standard transactions |
+| Session keys | Per-wallet plugin systems | Not native | Native actors with scoped policies |
+| Gas sponsorship | Paymaster contracts | Not native | Native payers ([ERC-8168](https://eip.tools/eip/8168)) |
+| Batching | Via the account contract | Via delegated code | Native, atomic, per transaction |
+
+## The five concepts
+
+An EIP-8130 transaction names a sender account, proves the sender is authorized to act for it, and carries a batch of calls. Everything in the model maps to one of five ideas.
+
+<AccordionGroup>
+<Accordion title="Account" icon="wallet">
+An account is a small proxy contract that forwards calls to a shared implementation. Its address is deterministic, so it exists and can receive funds before anything is deployed, and the deployment can ride along in the account's first transaction.
+
+`DefaultAccount` is the minimal building block, and also backs EOAs upgraded through EIP-7702. A separate variant built for high transaction rates locks outbound ETH during execution in exchange for higher mempool rate limits.
+</Accordion>
+
+<Accordion title="Signer and actor" icon="key">
+A **signer** is what produces a transaction's authorization: a private key, a passkey, a hardware device.
+
+An **actor** is the onchain identity that authorization resolves to, recorded for the account in a system contract. The distinction matters because an account can authorize many actors at once and revoke each one independently. Losing a device means revoking one actor, not migrating the account.
+</Accordion>
+
+<Accordion title="Scope and policy" icon="shield-halved">
+Each actor carries **scope** flags that limit what it may do, and can bind to an onchain **policy**: per-token spend limits, plus restrictions on which contracts and functions it may call.
+
+This is the native session key model. An app receives an actor with exactly the permissions it needs and nothing more, enforced by the chain, revocable at any time.
+</Accordion>
+
+<Accordion title="Authenticators" icon="fingerprint">
+Signature validation is pluggable. Authenticator contracts implement a single `authenticate` entrypoint, and the reference set covers secp256k1 (standard EVM keys), P-256, and WebAuthn.
+
+Passkeys therefore validate at the protocol level. There is no wrapper contract and no verification cost premium for using a device credential instead of a seed phrase.
+</Accordion>
+
+<Accordion title="Payer" icon="hand-holding-dollar">
+A transaction can name a **payer** that covers gas on the sender's behalf, so sponsorship needs no paymaster contract. Draft [ERC-8168](https://eip.tools/eip/8168) standardizes the service flow around it: how apps discover a payer and request sponsorship.
+</Accordion>
+</AccordionGroup>
+
+## What it unlocks
+
+- **Passkey accounts by default.** A user signs with the biometric on their device, validated by the protocol, with no seed phrase anywhere in the flow.
+- **Session keys that are real permissions.** Grant an app a scoped, spend-limited actor instead of blanket approval, and revoke it without moving funds.
+- **Atomic batching.** Approve and swap, or claim and stake, succeed or revert together in one transaction.
+- **Sponsored onboarding.** A new user's first transaction can be paid for by the app, with no bundler or paymaster deployment.
+- **Accounts that survive a lost device.** Rotate an actor rather than recover a key.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="EIP-8130 reference" icon="file-lines" href="/base-chain/specs/reference/native-account-abstraction">
+    Chain details, client setup, a working code example, and the onchain interfaces.
+  </Card>
+  <Card title="Cobalt upgrade" icon="arrow-up-right-dots" href="/base-chain/specs/upgrades/cobalt/overview">
+    Activation status and required node software.
+  </Card>
+  <Card title="Reference contracts" icon="github" href="https://github.com/base/eip-8130">
+    `AccountConfiguration`, account implementations, and authenticators, with Foundry tests.
+  </Card>
+  <Card title="Connect to vibenet" icon="plug" href="/base-chain/quickstart/connecting-to-base#vibenet">
+    RPC endpoints and chain ID for the devnet where EIP-8130 runs today.
+  </Card>
+</CardGroup>
