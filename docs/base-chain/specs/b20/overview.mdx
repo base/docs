@@ -3,7 +3,7 @@ title: "B20"
 description: "Complete specification for B20 — Base's native ERC-20 superset with built-in compliance, transfer policies, role-based access control, memos, and supply caps."
 ---
 
-## 1. Abstract
+## Abstract
 
 B20 is the Base ecosystem's native token standard — an [ERC-20](https://eips.ethereum.org/EIPS/eip-20) superset implemented as Rust precompiles rather than EVM smart contracts. It ships with a built-in compliance toolkit: transfer policies, freeze-and-seize, role-based access control, memos, and supply caps. All tokens are deployed via the singleton B20Factory precompile.
 
@@ -13,7 +13,7 @@ The full interface definitions are available in the [Base Standard Library](http
 [Verify the Activation Registry is enabled](/get-started/launch-b20-token#verify-the-activation-registry-is-enabled) before attempting to deploy.
 </Warning>
 
-## 2. ERC-20 Compatibility
+## ERC-20 Compatibility
 
 B20 is a strict superset of ERC-20. Every ERC-20 call (`transfer`, `transferFrom`, `approve`, `balanceOf`, `allowance`, and the standard events) behaves exactly as the standard specifies, so existing ERC-20 tooling and integrations work against B20 with no changes.
 
@@ -21,7 +21,7 @@ B20 adds methods that ERC-20 does not include: memos, mint/burn, policy gating, 
 
 Because B20 runs as a native precompile, tokens are cheaper and higher-throughput than contract-based tokens while maintaining full ERC-20 wire compatibility.
 
-## 3. Variants
+## Variants
 
 B20 supports two token variants. Each shares the full base surface (ERC-20, roles, policies, pause, memos, permit) and adds capabilities specific to its use case.
 
@@ -36,7 +36,7 @@ A single token standard cannot serve all use cases equally. Equities need stock 
 
 See [Asset variant](#10-asset-variant) and [Stablecoin variant](#11-stablecoin-variant) for each variant's unique surface.
 
-## 4. Policy Registry
+## Policy Registry
 
 The Policy Registry is a singleton precompile that manages allowlists and blocklists. B20 tokens reference policies by `uint64` ID — they do not store membership data themselves. Any caller can create a policy and nominate its admin, decoupling policy management from token issuance.
 
@@ -46,14 +46,14 @@ Centralizing list management in a shared precompile means one policy can gate mu
 State-changing functions on the Policy Registry are gated by the Activation Registry, which tracks which Base features are live. Read functions (`isAuthorized`, `policyExists`, `policyAdmin`, `pendingPolicyAdmin`) are always callable.
 </Note>
 
-### 4.1. Policy Types
+### Policy Types
 
 | Type | Enum value | Default authorization | Behavior |
 |------|------------|----------------------|----------|
 | `BLOCKLIST` | `0` | Authorized | All accounts authorized by default; explicitly listed accounts are denied |
 | `ALLOWLIST` | `1` | Denied | All accounts denied by default; explicitly listed accounts are authorized |
 
-### 4.2. Policy IDs
+### Policy IDs
 
 Policy IDs are `uint64` values. The top byte encodes the `PolicyType`; the low 56 bits are a global counter starting at `2`.
 
@@ -68,7 +68,7 @@ Two built-in IDs require no creation:
 | `ALWAYS_ALLOW` | `0` | Authorizes every account unconditionally. Default scope value on new B20 tokens. |
 | `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) << 56) \| 1` | Denies every account unconditionally. |
 
-### 4.3. `isAuthorized` Semantics
+### `isAuthorized` Semantics
 
 `isAuthorized(policyId, account)` never reverts, even on a non-existent policy ID. Non-existent policies collapse to empty-member-set semantics:
 
@@ -85,7 +85,7 @@ Two built-in IDs require no creation:
 Consumers that write a policy ID (e.g. `updatePolicy`) MUST validate `policyExists(policyId)` at write time to avoid silently binding to an unintended empty-set policy.
 </Warning>
 
-### 4.4. Creating and Managing Policies
+### Creating and Managing Policies
 
 ```solidity
 // Create a blocklist policy with an admin
@@ -109,7 +109,7 @@ policyRegistry.updateAllowlist(policyId, true, accounts);   // allow these accou
 policyRegistry.updateAllowlist(policyId, false, accounts);  // deny these accounts
 ```
 
-### 4.5. Admin Model
+### Admin Model
 
 Each policy has exactly one admin. Admin transfers use a two-step pattern to prevent accidental transfers to wrong addresses:
 
@@ -118,7 +118,7 @@ Each policy has exactly one admin. Admin transfers use a two-step pattern to pre
 
 `renounceAdmin(policyId)` permanently freezes the policy — membership can never be changed again. This is irreversible. There is no `grantAdmin` or path to restore an admin after renouncement.
 
-### 4.6. Read Interface
+### Read Interface
 
 | Method | Returns | Reverts? |
 |--------|---------|----------|
@@ -127,13 +127,13 @@ Each policy has exactly one admin. Admin transfers use a two-step pattern to pre
 | `policyAdmin(policyId)` | Current admin address | Never |
 | `pendingPolicyAdmin(policyId)` | Pending admin during a two-step transfer | Never |
 
-## 5. Roles and Access Control
+## Roles and Access Control
 
 B20 uses a fixed set of roles to gate privileged operations. The model extends OpenZeppelin `AccessControl` with one behavioral override: the last admin cannot be removed through standard revocation.
 
 Token issuers need fine-grained control over who can mint, burn, pause, and configure a token. A single "owner" pattern is too coarse — an issuer may want their treasury to mint while a separate compliance team manages pauses, without either party having the other's privileges. The fixed role set ensures every B20 token has the same permission surface, making tooling, audits, and integrations predictable across the ecosystem.
 
-### 5.1. Base Roles
+### Base Roles
 
 | Role | Constant | Gates |
 |------|----------|-------|
@@ -148,11 +148,11 @@ Token issuers need fine-grained control over who can mint, burn, pause, and conf
 
 The first seven roles exist on all B20 tokens. `OPERATOR_ROLE` is exclusive to the Asset variant.
 
-### 5.2. Custom Roles
+### Custom Roles
 
 User-defined roles are supported via `setRoleAdmin` and `grantRole`. They carry no built-in effect — B20 only enforces gates against the eight base-surface roles listed above. Custom roles can be used by external contracts that call `hasRole` to implement additional access patterns.
 
-### 5.3. Admin Renunciation
+### Admin Renunciation
 
 The last `DEFAULT_ADMIN_ROLE` holder cannot be removed via `renounceRole` or `revokeRole` (both revert with `LastAdminCannotRenounce`). The dedicated `renounceLastAdmin()` is the only path to permanently transition a token to admin-less operation.
 
@@ -172,17 +172,17 @@ After `renounceLastAdmin()` (or for tokens deployed with `initialAdmin == addres
 
 OpenZeppelin's standard `AccessControl` allows the last admin to `renounceRole` themselves, which is a footgun. B20 blocks this path and requires `renounceLastAdmin()` — a function that does nothing else and whose name makes the consequence unmistakable.
 
-### 5.4. Pause and Unpause Role Separation
+### Pause and Unpause Role Separation
 
 `PAUSE_ROLE` and `UNPAUSE_ROLE` are intentionally separate. This enables security architectures where a monitoring bot can emergency-pause on anomaly detection without having the power to unpause. Only governance (a multisig, timelock, or higher-authority key) can restore operations — preventing a compromised pauser from toggling pause to mask an attack.
 
-## 6. Transfer Policies
+## Transfer Policies
 
 B20 declares a fixed set of policy scopes that reference the [Policy Registry](#4-policy-registry). Each scope stores a `uint64` policy ID. On every gated operation, B20 calls `isAuthorized` against the relevant scope and reverts if the account is not authorized.
 
 A bare ERC-20 `transfer` moves tokens between any two addresses with no concept of authorized parties. Regulated issuers need to enforce KYC/AML, sanctions compliance, and jurisdiction restrictions at the transfer level. B20 externalizes these rules to the Policy Registry and connects token operations to policies via scopes — compliance rules can be updated without modifying the token, multiple tokens can share the same policy, and different aspects of a transfer can be gated by different policies.
 
-### 6.1. Scopes
+### Scopes
 
 | Scope | Checked account | Operations |
 |-------|-----------------|------------|
@@ -191,7 +191,7 @@ A bare ERC-20 `transfer` moves tokens between any two addresses with no concept 
 | `TRANSFER_EXECUTOR_POLICY` | The `msg.sender` | `transferFrom` only, when `msg.sender` differs from `from` |
 | `MINT_RECEIVER_POLICY` | The `to` address | `mint`, `mintWithMemo` |
 
-### 6.2. Evaluation Order
+### Evaluation Order
 
 For a `transferFrom(from, to, amount)` call where `msg.sender != from`:
 
@@ -203,17 +203,17 @@ If any check fails, the transaction reverts with `PolicyForbids`.
 
 For a `transfer(to, amount)` call, only `TRANSFER_SENDER_POLICY` (against `msg.sender`) and `TRANSFER_RECEIVER_POLICY` (against `to`) are checked. `TRANSFER_EXECUTOR_POLICY` is not checked because the sender and executor are the same account.
 
-### 6.3. Approve Exemption
+### Approve Exemption
 
 `approve` is not policy-gated. Only actual balance movement via `transfer` / `transferFrom` is checked. An account on a blocklist can approve a spender, but the spender's `transferFrom` will revert when the sender policy check fails. Gating `approve` would add no security value since the transfer itself is the enforcement point.
 
-### 6.4. Default Values
+### Default Values
 
 <Warning>
 Every scope defaults to `ALWAYS_ALLOW` at token creation unless overridden in the bootstrap `initCalls`. An unattended B20 deployment is fully open — token behavior must be intentionally constrained.
 </Warning>
 
-### 6.5. Reading and Writing Scopes
+### Reading and Writing Scopes
 
 ```solidity
 // Read the current policy ID for a scope
@@ -223,7 +223,7 @@ uint64 currentPolicy = token.policyId(TRANSFER_SENDER_POLICY);
 token.updatePolicy(TRANSFER_SENDER_POLICY, newPolicyId);
 ```
 
-### 6.6. initCalls Bypass
+### initCalls Bypass
 
 During token creation via the [Factory](#8-factory-and-deployment), `initCalls` bypass the three transfer-side policy scopes:
 
@@ -236,13 +236,13 @@ During token creation via the [Factory](#8-factory-and-deployment), `initCalls` 
 
 This allows bootstrap transfers (e.g., initial distribution) in the same transaction as deployment, while still ensuring mint recipients pass policy checks from the start. `MINT_RECEIVER_POLICY` is never bypassed because mint creates new exposure — a compromised minter that bypasses receiver checks during init could distribute tokens to sanctioned addresses before the compliance program is configured.
 
-## 7. Mint and Supply Cap
+## Mint and Supply Cap
 
 New token supply is created via `mint` and `mintWithMemo`, gated by `MINT_ROLE`. Every mint checks the recipient against `MINT_RECEIVER_POLICY`. An optional supply cap bounds `totalSupply`.
 
 Token issuance is the most consequential supply-side operation. Three controls are necessary: role gating prevents unauthorized inflation, receiver policy ensures newly minted tokens only reach verified recipients (mint is the first moment a token enters an account — there is no prior transfer to gate), and the supply cap provides a hard ceiling that no minter can exceed.
 
-### 7.1. Mint Methods
+### Mint Methods
 
 ```solidity
 // Mint tokens to a recipient (requires MINT_ROLE)
@@ -254,7 +254,7 @@ token.mintWithMemo(to, amount, memo);
 
 Both methods require the caller to hold `MINT_ROLE`, check `to` against `MINT_RECEIVER_POLICY`, check that `totalSupply + amount` does not exceed the supply cap, and revert if the `MINT` pausable feature is paused.
 
-### 7.2. Supply Cap
+### Supply Cap
 
 The supply cap is a `uint128` upper bound on `totalSupply`.
 
@@ -280,11 +280,11 @@ Burns reduce `totalSupply`, creating headroom under the cap without requiring ad
 
 ERC-20 uses `uint256` for balances, but `uint128` (max ~340 undecillion) exceeds any realistic token supply. Using `uint128` for the cap allows the sentinel value to represent "no cap" without consuming the full `uint256` range.
 
-## 8. Factory and Deployment
+## Factory and Deployment
 
 All B20 tokens are created through the singleton B20Factory precompile. Token addresses are deterministic and encode the variant directly, allowing off-chain identification without RPC calls. The factory supports `initCalls` — a bootstrap window where admin-gated configuration and initial transfers can execute in the same transaction as deployment.
 
-### 8.1. createB20
+### createB20
 
 ```solidity
 address token = b20Factory.createB20(variant, salt, params, initCalls);
@@ -319,7 +319,7 @@ The factory is exposed in `base-std` as `StdPrecompiles.B20_FACTORY`. `createB20
 | `initialAdmin` | `address` | Initial `DEFAULT_ADMIN_ROLE` holder. `address(0)` for admin-less |
 | `contractURI` | `string` | ERC-7572 metadata URI |
 
-### 8.2. Address Derivation
+### Address Derivation
 
 B20 addresses are deterministic and encode the variant directly:
 
@@ -335,7 +335,7 @@ The variant is recoverable from the address alone — inspect byte 10 (zero-inde
 | `isB20(addr)` | Whether the address has the B20 prefix (true even if no token is deployed there) |
 | `isB20Initialized(addr)` | Whether a B20 token has been deployed at this address |
 
-### 8.3. initCalls Semantics
+### initCalls Semantics
 
 `initCalls` are dispatched after token creation in the same transaction. During this bootstrap window, factory-originated calls receive special bypass privileges:
 
@@ -367,13 +367,13 @@ initCalls[3] = abi.encodeCall(IB20.updateSupplyCap, (1_000_000e6));
 
 A revert in any `initCall` reverts the entire deployment. Each `(deployer, variant, salt)` tuple produces exactly one address — deploying the same tuple twice reverts.
 
-## 9. Burn and Seize
+## Burn and Seize
 
 B20 provides two distinct burn paths. Standard `burn` lets authorized callers destroy tokens from their own balance. `burnBlocked` lets authorized callers destroy tokens from a third party's balance — but only if that account is already denied by `TRANSFER_SENDER_POLICY`.
 
 Unrestricted third-party burns would allow anyone with burn capability to destroy anyone's tokens. B20 mitigates this by requiring that the target account be frozen first. This ensures seizure is a two-step, auditable process: freeze first, seize second.
 
-### 9.1. Self-Burn
+### Self-Burn
 
 ```solidity
 // Burn from own balance (requires BURN_ROLE)
@@ -385,7 +385,7 @@ token.burnWithMemo(amount, memo);
 
 Requires caller to hold `BURN_ROLE`. Burns from `msg.sender`'s balance. Reverts if the `BURN` pausable feature is paused.
 
-### 9.2. Seize (burnBlocked)
+### Seize (burnBlocked)
 
 ```solidity
 // Burn from a third party's frozen account (requires BURN_BLOCKED_ROLE)
@@ -394,7 +394,7 @@ token.burnBlocked(account, amount);
 
 Requires caller to hold `BURN_BLOCKED_ROLE`. The target `account` **must** be denied by `TRANSFER_SENDER_POLICY` — if the target is not frozen, the call reverts. `BURN_BLOCKED_ROLE` is separate from `BURN_ROLE` — combining both in one role would mean every party authorized to redeem could also seize.
 
-### 9.3. Freeze-and-Seize Workflow
+### Freeze-and-Seize Workflow
 
 ```solidity
 // Step 1: Freeze the account (add to sender blocklist)
@@ -412,11 +412,11 @@ token.mint(recoveryAddress, frozenBalance);
 
 The seize path burns tokens rather than transferring them. If tokens need to be redirected, the issuer mints new tokens to the recovery address in a separate call — keeping each primitive simple and auditable.
 
-## 10. Asset Variant
+## Asset Variant
 
 The general-purpose variant for tokenized equities, real-world assets, and long-tail tokens. In addition to the full B20 base surface, Asset tokens add several capabilities gated by `OPERATOR_ROLE` and existing roles.
 
-### 10.1. Multiplier
+### Multiplier
 
 A WAD-precision (1e18) rebase multiplier applied to all balance reads. Raw balances are stored unchanged; the multiplier scales the view returned to callers.
 
@@ -442,7 +442,7 @@ token.updateMultiplier(2e18);  // 2x — doubles all visible balances
 Multiplier updates should be wrapped in an `announce()` call for transparency.
 </Warning>
 
-### 10.2. Announcements
+### Announcements
 
 On-chain disclosure brackets that wrap sensitive operations with a public notice. Announcements create an auditable record that an operation was intentional and pre-disclosed.
 
@@ -460,7 +460,7 @@ Event sequence: `Announcement(id, description, uri)` emitted → `internalCalls`
 
 The `id` must be unique across the token's lifetime — reuse reverts with `DuplicateAnnouncementId`. Permanent uniqueness ensures every announcement is independently verifiable and tamper-evident. Inner call reverts are wrapped in `InternalCallFailed`.
 
-### 10.3. Batch Mint
+### Batch Mint
 
 ```solidity
 // Mint to multiple recipients in one call (requires MINT_ROLE)
@@ -469,7 +469,7 @@ token.batchMint(recipients, amounts);
 
 Applies the same gates as individual `mint` calls: `MINT_ROLE` required, `MINT_RECEIVER_POLICY` checked for each recipient, supply cap enforced across the total.
 
-### 10.4. Extra Metadata
+### Extra Metadata
 
 An arbitrary key/value store for issuer-defined on-chain metadata (e.g., CUSIP, ISIN, or custom identifiers).
 
@@ -484,11 +484,11 @@ token.updateExtraMetadata("CUSIP", "037833100");
 token.updateExtraMetadata("CUSIP", "");
 ```
 
-## 11. Stablecoin Variant
+## Stablecoin Variant
 
 The fixed-decimals, fiat-backed variant. Decimals are hard-wired to `6` and not configurable. This matches the precision of most fiat currencies and ensures consistency across all B20 stablecoins.
 
-### 11.1. Currency Code
+### Currency Code
 
 ```solidity
 // Read the self-declared currency code
@@ -506,13 +506,13 @@ string memory code = token.currency();  // e.g., "USD", "EUR"
 The currency code is a self-declaration by the issuer. It is not verified against ISO 4217 or any other standard. Integrators should treat it as a label, not a guarantee of peg or backing.
 </Note>
 
-## 12. Pause
+## Pause
 
 B20 pause is granular: three independently controllable features can be paused and unpaused individually. `PAUSE_ROLE` and `UNPAUSE_ROLE` are separate roles.
 
 If a vulnerability is discovered in the burn path, a global pause would halt all transfers — freezing every holder's liquidity to address a problem in an unrelated operation. Granular pause lets issuers halt only the affected operation.
 
-### 12.1. Pausable Features
+### Pausable Features
 
 | Feature | Enum value | Operations affected |
 |---------|------------|---------------------|
@@ -533,7 +533,7 @@ token.unpause([PausableFeature.TRANSFER]);
 bool isPaused = token.isPaused(PausableFeature.TRANSFER);
 ```
 
-### 12.2. Feature Interaction Matrix
+### Feature Interaction Matrix
 
 | Paused feature | `transfer` | `mint` | `burn` | `burnBlocked` | `approve` | `permit` |
 |----------------|------------|--------|--------|----------------|-----------|----------|
@@ -544,11 +544,11 @@ bool isPaused = token.isPaused(PausableFeature.TRANSFER);
 
 `approve` and `permit` are never affected by pause state. Pause state is never bypassed during factory `initCalls`. Pausing an already-paused feature is a no-op (does not revert).
 
-## 13. Memos
+## Memos
 
 A memo is an optional `bytes32` payload attached to a token operation for off-chain reference. On-chain token operations often correspond to off-chain events — invoice payments, redemption references, compliance case IDs. Memos embed the reference directly in the transaction, making the association immutable and auditable.
 
-### 13.1. Memo Event
+### Memo Event
 
 ```solidity
 event Memo(address indexed caller, bytes32 indexed memo);
@@ -556,7 +556,7 @@ event Memo(address indexed caller, bytes32 indexed memo);
 
 The `Memo` event is emitted immediately after the parent operation's primary event. Both fields are `indexed` for efficient log filtering.
 
-### 13.2. Memo-Emitting Entrypoints
+### Memo-Emitting Entrypoints
 
 | Method | Parent event | Memo position |
 |--------|-------------|---------------|
@@ -567,7 +567,7 @@ The `Memo` event is emitted immediately after the parent operation's primary eve
 
 Each memo method behaves identically to its non-memo counterpart — same role gates, same policy checks, same pause enforcement.
 
-### 13.3. Indexer Join Pattern
+### Indexer Join Pattern
 
 To associate a `Memo` event with its parent operation:
 
@@ -589,11 +589,11 @@ Passing `bytes32(0)` is valid — the `Memo` event is still emitted. If no memo 
 
 The `bytes32` size is deliberately constrained: large enough for UUIDs, hashes, and encoded identifiers, but small enough to discourage storing data that should live off-chain. Separate `*WithMemo` methods preserve the standard ERC-20 interface while extending it.
 
-## 14. Permit (ERC-2612)
+## Permit (ERC-2612)
 
 B20 implements [ERC-2612](https://eips.ethereum.org/EIPS/eip-2612) signed approvals using an [EIP-712](https://eips.ethereum.org/EIPS/eip-712) typed-data domain. Token holders can authorize spending via off-chain signatures, enabling gasless approval flows where a relayer submits the permit transaction.
 
-### 14.1. EIP-712 Domain
+### EIP-712 Domain
 
 ```solidity
 EIP712Domain(
@@ -604,7 +604,7 @@ EIP712Domain(
 )
 ```
 
-### 14.2. permit
+### permit
 
 ```solidity
 function permit(
@@ -618,18 +618,18 @@ function permit(
 
 On success, sets `allowance(owner, spender) = value` and emits `Approval(owner, spender, value)`. Each account has a monotonically increasing nonce — each successful `permit` call increments the owner's nonce, preventing signature replay.
 
-### 14.3. Domain Separator Rotation
+### Domain Separator Rotation
 
 When `updateName(newName)` is called, the EIP-712 domain separator is recomputed with the new name and `EIP712DomainChanged` (ERC-5267) is emitted. Permits signed with the old name become invalid. Integrations that cache the domain separator must re-fetch it after observing this event.
 
-### 14.4. Signature Constraints
+### Signature Constraints
 
 - **ECDSA only** — `ecrecover` is used for verification. ERC-1271 contract signatures (smart wallet signatures) are not accepted. Supporting contract signatures would require calling into arbitrary contracts during permit verification, introducing reentrancy and gas-estimation complexity in the precompile environment.
 - **Deadline enforcement** — `block.timestamp > deadline` causes a revert.
 - **Nonce binding** — the signed nonce must match the account's current nonce.
 - `permit` is not affected by pause state (it only sets allowance, it does not transfer tokens) and is not policy-gated (like `approve`).
 
-## 15. Metadata
+## Metadata
 
 `METADATA_ROLE` gates name, symbol, and contract URI updates:
 
@@ -639,7 +639,7 @@ When `updateName(newName)` is called, the EIP-712 domain separator is recomputed
 | `updateSymbol(newSymbol)` | Updates `symbol()` | Emits `SymbolUpdated` |
 | `updateContractURI(newUri)` | Updates `contractURI()` | Per ERC-7572 |
 
-## 16. Precompile Addresses
+## Precompile Addresses
 
 These addresses are identical on every network where B20 is active (Mainnet, Base Sepolia, Vibenet, and local `base-anvil`).
 
@@ -649,7 +649,7 @@ These addresses are identical on every network where B20 is active (Mainnet, Bas
 | Activation Registry | `0x8453000000000000000000000000000000000001` |
 | Policy Registry | `0x8453000000000000000000000000000000000002` |
 
-## 17. Invariants
+## Invariants
 
 ### Policy Registry
 
@@ -714,7 +714,7 @@ These addresses are identical on every network where B20 is active (Mainnet, Bas
 35. Each `(deployer, variant, salt)` tuple produces exactly one address.
 36. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
 
-## 18. Test Cases
+## Test Cases
 
 ### Policy Registry
 
@@ -819,7 +819,7 @@ These addresses are identical on every network where B20 is active (Mainnet, Bas
 | 52 | `batchMint` where one recipient is not on allowlist | Reverts |
 | 53 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
 
-## 19. Error Reference
+## Error Reference
 
 ### Access Control
 
@@ -877,3 +877,28 @@ These addresses are identical on every network where B20 is active (Mainnet, Bas
 | `InternalCallFailed` | Call inside `announce()` reverted | Check inner call params |
 | `InvalidCurrency` | Currency code contains non-`A`–`Z` characters | Use uppercase ASCII only |
 | `InvalidMultiplier` | Multiplier value is invalid | Use a valid WAD-precision value |
+
+---
+
+## Changelog
+
+Per-hardfork, per-feature migration notes for the B20 precompile standard. Each entry describes what changes at a hardfork and how to migrate across it.
+
+### Hardfork ordinals
+
+| Ordinal | Hardfork | Status |
+|---------|----------|--------|
+| `01` | Beryl | Live |
+| `02` | Cobalt | Upcoming |
+
+### Index
+
+<Accordion title="Cobalt (upcoming) — ordinal 02">
+
+| Product(s) | Change | Affected interfaces | Entry |
+|------------|--------|---------------------|-------|
+| B20 Asset | Schedule Multiplier Updates (ERC-8056) | `src/interfaces/IB20Asset.sol` | [02_Cobalt_B20Asset_multiplier](/base-chain/specs/b20/changelog/02-cobalt-b20asset-multiplier) |
+| B20 Asset, B20 Stablecoin | Seize surface + `burnBlocked` deprecation | `src/interfaces/IB20.sol` (shared surface) → inherited by `src/interfaces/IB20Asset.sol`, `src/interfaces/IB20Stablecoin.sol` | [02_Cobalt_B20_seize](/base-chain/specs/b20/changelog/02-cobalt-b20-seize) |
+| PolicyRegistry | Composite Policies (UNION/INTERSECT) | `src/interfaces/IPolicyRegistry.sol` | [02_Cobalt_PolicyRegistry_composite_policy](/base-chain/specs/b20/changelog/02-cobalt-policyregistry-composite-policy) |
+
+</Accordion>
