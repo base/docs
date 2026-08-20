@@ -1,4 +1,3 @@
-import { getPaymentStatus } from "@base-org/account";
 import { createPublicClient, http, parseAbi, parseEventLogs, parseUnits, type Address, type Hash } from "viem";
 import { baseSepolia } from "viem/chains";
 
@@ -11,24 +10,6 @@ const tokenEvents = parseAbi([
 export interface PaymentStore {
   claimOnce(id: string, orderId: string): Promise<boolean>;
 }
-
-// docs:start verify-base-pay-ts
-export async function verifyBasePay(args: {
-  id: Hash;
-  payer: Address;
-  merchant: Address;
-  amount: string;
-  orderId: string;
-  store: PaymentStore;
-}) {
-  const payment = await getPaymentStatus({ id: args.id, testnet: true });
-  if (payment.status !== "completed") throw new Error("Payment is not complete");
-  if (payment.sender?.toLowerCase() !== args.payer.toLowerCase()) throw new Error("Wrong sender");
-  if (payment.recipient?.toLowerCase() !== args.merchant.toLowerCase()) throw new Error("Wrong recipient");
-  if (payment.amount !== args.amount) throw new Error("Wrong amount");
-  if (!(await args.store.claimOnce(args.id, args.orderId))) throw new Error("Payment already used");
-}
-// docs:end verify-base-pay-ts
 
 // docs:start verify-token-payment-ts
 export async function verifyTokenPayment(args: {

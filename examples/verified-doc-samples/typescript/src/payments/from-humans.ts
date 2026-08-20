@@ -1,4 +1,3 @@
-import { getPaymentStatus, pay } from "@base-org/account";
 import {
   createPublicClient,
   createWalletClient,
@@ -34,17 +33,6 @@ async function browserClients() {
     walletClient: createWalletClient({ account, chain: baseSepolia, transport: custom(provider) }),
   };
 }
-
-// docs:start base-pay-accept-ts
-export async function acceptWithBasePay(merchant: Address) {
-  const payment = await pay({ amount: "5.00", to: merchant, testnet: true });
-  const result = await getPaymentStatus({ id: payment.id, testnet: true });
-  if (result.status !== "completed" || result.recipient?.toLowerCase() !== merchant.toLowerCase()) {
-    throw new Error(`Payment is not complete: ${result.status}`);
-  }
-  return payment.id;
-}
-// docs:end base-pay-accept-ts
 
 // docs:start usdc-accept-ts
 export async function sendUsdc(merchant: Address) {

@@ -1,7 +1,7 @@
 ---
 title: "Verify a Payment"
 keywords: ["verify USDC payment", "getPaymentStatus", "verify ERC-20 transfer", "prevent replay payment"]
-description: "Verify Base Pay, USDC, or B20 settlement on your backend and claim each transaction exactly once before fulfillment."
+description: "Verify USDC or B20 settlement on your backend and claim each transaction exactly once before fulfillment."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
@@ -12,58 +12,32 @@ Never fulfill from client state. Validate the canonical transaction data and ato
 
 <PaymentsDemo flow="verify" />
 
-<Tabs>
-  <Tab title="Base Pay">
-    ## Verify Base Pay
+## Verify a raw token transfer
 
-    {/* sample: verify-base-pay-ts */}
-    ```typescript Backend lines wrap expandable highlight={9,14}
-    export async function verifyBasePay(args: {
-      id: Hash;
-      payer: Address;
-      merchant: Address;
-      amount: string;
-      orderId: string;
-      store: PaymentStore;
-    }) {
-      const payment = await getPaymentStatus({ id: args.id, testnet: true });
-      if (payment.status !== "completed") throw new Error("Payment is not complete");
-      if (payment.sender?.toLowerCase() !== args.payer.toLowerCase()) throw new Error("Wrong sender");
-      if (payment.recipient?.toLowerCase() !== args.merchant.toLowerCase()) throw new Error("Wrong recipient");
-      if (payment.amount !== args.amount) throw new Error("Wrong amount");
-      if (!(await args.store.claimOnce(args.id, args.orderId))) throw new Error("Payment already used");
-    }
-    ```
-  </Tab>
-  <Tab title="USDC or B20">
-    ## Verify a raw token transfer
-
-    {/* sample: verify-token-payment-ts */}
-    ```typescript Backend lines wrap expandable highlight={20}
-    export async function verifyTokenPayment(args: {
-      hash: Hash;
-      token: Address;
-      payer: Address;
-      merchant: Address;
-      amount: string;
-      memo?: `0x${string}`;
-      orderId: string;
-      store: PaymentStore;
-    }) {
-      const receipt = await publicClient.getTransactionReceipt({ hash: args.hash });
-      if (receipt.status !== "success") throw new Error("Transaction reverted");
-      const transfers = parseEventLogs({ abi: tokenEvents, eventName: "Transfer", logs: receipt.logs, strict: true });
-      const transfer = transfers.find((log) => log.address.toLowerCase() === args.token.toLowerCase());
-      if (!transfer || transfer.args.from.toLowerCase() !== args.payer.toLowerCase()) throw new Error("Wrong sender");
-      if (transfer.args.to.toLowerCase() !== args.merchant.toLowerCase()) throw new Error("Wrong recipient");
-      if (transfer.args.amount !== parseUnits(args.amount, 6)) throw new Error("Wrong amount");
-      const memos = parseEventLogs({ abi: tokenEvents, eventName: "Memo", logs: receipt.logs, strict: true });
-      if (args.memo && !memos.some((log) => log.args.memo === args.memo)) throw new Error("Wrong memo");
-      if (!(await args.store.claimOnce(args.hash, args.orderId))) throw new Error("Payment already used");
-    }
-    ```
-  </Tab>
-</Tabs>
+{/* sample: verify-token-payment-ts */}
+```typescript Backend lines wrap expandable highlight={20}
+export async function verifyTokenPayment(args: {
+  hash: Hash;
+  token: Address;
+  payer: Address;
+  merchant: Address;
+  amount: string;
+  memo?: `0x${string}`;
+  orderId: string;
+  store: PaymentStore;
+}) {
+  const receipt = await publicClient.getTransactionReceipt({ hash: args.hash });
+  if (receipt.status !== "success") throw new Error("Transaction reverted");
+  const transfers = parseEventLogs({ abi: tokenEvents, eventName: "Transfer", logs: receipt.logs, strict: true });
+  const transfer = transfers.find((log) => log.address.toLowerCase() === args.token.toLowerCase());
+  if (!transfer || transfer.args.from.toLowerCase() !== args.payer.toLowerCase()) throw new Error("Wrong sender");
+  if (transfer.args.to.toLowerCase() !== args.merchant.toLowerCase()) throw new Error("Wrong recipient");
+  if (transfer.args.amount !== parseUnits(args.amount, 6)) throw new Error("Wrong amount");
+  const memos = parseEventLogs({ abi: tokenEvents, eventName: "Memo", logs: receipt.logs, strict: true });
+  if (args.memo && !memos.some((log) => log.args.memo === args.memo)) throw new Error("Wrong memo");
+  if (!(await args.store.claimOnce(args.hash, args.orderId))) throw new Error("Payment already used");
+}
+```
 
 <Warning>
 `claimOnce` must use a database uniqueness constraint and participate in the same durable workflow as fulfillment. A process-local `Set` cannot prevent replay across restarts or multiple workers.
@@ -78,4 +52,3 @@ See the [verified backend fixture](https://github.com/base/docs/tree/master/exam
 ## See also
 
 - [Accept payments from humans](/build-on-base/accept-payments/from-humans)
-- [`getPaymentStatus()`](/sdks/base-account/reference/base-pay/getPaymentStatus)

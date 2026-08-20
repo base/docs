@@ -40,7 +40,7 @@ export const PaymentsDemo = ({ flow }) => {
         { stage: "Charge", action: "Charge $5",
           text: "A customer checks out. Charge 5 USDC to your address.",
           summary: [["Payment type", "USDC charge"], ["Merchant", "Merchant"], ["Payer", "Alice"], ["Amount", M("5.00 USDC")], ["Network", NETWORK]],
-          run: () => ({ entries: [ok("pay", "5.00 USDC → Merchant"), nfo("network", "Base Vibenet")], caption: "One call. The customer approves in their Base Account — no card, no redirect." }) },
+          run: () => ({ entries: [ok("pay", "5.00 USDC → Merchant"), nfo("network", "Base Vibenet")], caption: "One call. The customer approves in their wallet — no card, no redirect." }) },
         { stage: "Settle", action: "Settle",
           text: "The payment settles on Base in under two seconds.",
           summary: [["Operation", "Settle"], ["From", "Alice"], ["To", "Merchant"], ["Amount", M("5.00 USDC")], ["Verification", "Completed"]],
@@ -63,50 +63,6 @@ export const PaymentsDemo = ({ flow }) => {
           text: "A replayed or mismatched id is turned away.",
           summary: [["Operation", "Replay check"], ["Payment id", M("0x9f…c2")], ["Verification", "Already processed"], ["Result", "Rejected"]],
           run: () => ({ entries: [err("rejected", "id already processed")], caption: "Track processed ids to stop replay and impersonation." }) },
-      ],
-    },
-    info: {
-      label: "Payer info", title: "Collect email or shipping at checkout", readout: false,
-      erc20: "Ask for exactly what you need, verified the moment the customer pays.",
-      steps: [
-        { stage: "Request", action: "Request info",
-          text: "Request an email and shipping address alongside the payment.",
-          summary: [["Operation", "Request payer info"], ["Fields", M("email · physicalAddress")], ["Payer", "Alice"], ["Network", NETWORK]],
-          run: () => ({ entries: [nfo("payerInfo", "email · physicalAddress")], caption: "The customer sees the request in the same approval popup." }) },
-        { stage: "Enter", action: "Pay",
-          text: "The customer's details come pre-filled in the approval popup — they review them and tap Pay.",
-          summary: [["Operation", "Confirm & pay"], ["email", M("alice@acme.co")], ["physicalAddress", M("Berlin, DE")], ["Amount", M("25.00 USDC")], ["Network", NETWORK]],
-          run: () => ({ entries: [nfo("payerInfo", "email · physicalAddress submitted"), nfo("submit", "25.00 USDC · pending validation")], caption: "The details ride along with the payment; nothing is charged until your callback approves." }) },
-        { stage: "Validate", action: "Validate",
-          text: "Your callback validates the data before any charge.",
-          summary: [["Operation", "Validate"], ["email", "ok"], ["physicalAddress", "US/CA/GB only"], ["Verification", "Needs fix"]],
-          run: () => ({ entries: [ok("email", "ok"), err("physicalAddress", "ships to US/CA/GB only")], caption: "Return errors and the user is prompted to fix them — before funds move." }) },
-        { stage: "Retry", action: "Retry",
-          text: "Corrected, the payment and details arrive together.",
-          summary: [["Payment type", "USDC charge"], ["Payer", "Alice"], ["Amount", M("25.00 USDC")], ["email", M("alice@acme.co")], ["Network", NETWORK]],
-          run: () => ({ entries: [ok("pay", "25.00 USDC → Merchant"), nfo("email", "alice@acme.co"), nfo("address", "San Francisco, CA")], caption: "One step captures the payment and the checkout details." }) },
-      ],
-    },
-    subscribe: {
-      label: "Subscribe", title: "Charge a subscription every period", readout: true,
-      erc20: "Recurring USDC with no processor and no per-transaction fees.",
-      steps: [
-        { stage: "Subscribe", action: "Subscribe",
-          text: "A customer approves $29.99 / month, once.",
-          summary: [["Payment type", "Subscription"], ["Payer", "Alice"], ["Amount", M("29.99 USDC / 30 days")], ["Sub id", M("sub_0x4a…")], ["Network", NETWORK]],
-          run: () => ({ entries: [ok("subscribe", "29.99 · 30 days"), nfo("id", "sub_0x4a…")], caption: "One approval via spend permissions. The customer can cancel anytime." }) },
-        { stage: "Period 1", action: "Charge period 1",
-          text: "Your backend charges when payment is due.",
-          summary: [["Operation", "Charge"], ["Payer", "Alice"], ["Amount", M("29.99 USDC")], ["Gas", "Sponsored"]],
-          run: (s) => { s.balances.Merchant = (s.balances.Merchant || 0) + 29.99; return { entries: [ok("charge", "29.99 USDC"), nfo("gas", "sponsored")] }; } },
-        { stage: "Period 2", action: "Charge period 2",
-          text: "Next period, charge again — no user action.",
-          summary: [["Operation", "Charge"], ["Period", M("2")], ["Amount", M("29.99 USDC")], ["Network", NETWORK]],
-          run: (s) => { s.balances.Merchant = (s.balances.Merchant || 0) + 29.99; return { entries: [ok("charge", "29.99 USDC")], caption: "The limit resets each period; unused amounts don't roll over." }; } },
-        { stage: "Cancel", action: "Revoke",
-          text: "The customer cancels; further charges stop.",
-          summary: [["Operation", "Revoke"], ["Sub id", M("sub_0x4a…")], ["Verification", "Cancelled"]],
-          run: () => ({ entries: [ok("revoke", "sub_0x4a…"), err("charge", "subscription cancelled")], caption: "Users stay in control the whole time." }) },
       ],
     },
     b20: {
@@ -143,7 +99,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
   };
 
-  const order = ["accept", "verify", "info", "subscribe", "b20", "x402"];
+  const order = ["accept", "verify", "b20", "x402"];
   const pinned = flow && FLOWS[flow] ? flow : null;
 
   const [active, setActive] = useState(pinned || "accept");

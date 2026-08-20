@@ -1,12 +1,12 @@
 ---
 title: "Accept Payments From Humans"
-keywords: ["accept USDC payment", "Base Pay", "B20 payment memo", "human checkout Base"]
-description: "Choose Base Pay, a wallet-native USDC transfer, or a memo-enabled B20 checkout and confirm the payment on Base."
+keywords: ["accept USDC payment", "wallet USDC checkout", "B20 payment memo", "human checkout Base"]
+description: "Choose a wallet-native USDC transfer or a memo-enabled B20 checkout and confirm the payment on Base."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Choose the payment rail that matches your checkout. Base Pay gives Base Account users a one-tap USDC experience, a direct USDC transfer works with any EIP-1193 wallet, and B20 adds issuer-defined policy controls and an onchain order memo.
+Choose the payment rail that matches your checkout. A direct USDC transfer works with any EIP-1193 wallet, and B20 adds issuer-defined policy controls and an onchain order memo.
 
 #### Demo
 
@@ -14,32 +14,10 @@ Choose the payment rail that matches your checkout. Base Pay gives Base Account 
 
 | Rail | Best for | Integration |
 |---|---|---|
-| Base Pay | Consumer checkout and sponsored gas | `@base-org/account` |
 | Direct USDC | Wallet-agnostic ERC-20 checkout | viem |
 | B20 with memo | Issuer tokens and onchain reconciliation | viem or Solidity |
 
 <Tabs>
-  <Tab title="Base Pay">
-    ## Accept USDC with Base Pay
-
-    `pay()` opens the Base Account approval flow. Keep `testnet` consistent when checking the returned transaction hash.
-
-    {/* sample: base-pay-accept-ts */}
-    ```typescript TypeScript lines wrap expandable highlight={2,3}
-    export async function acceptWithBasePay(merchant: Address) {
-      const payment = await pay({ amount: "5.00", to: merchant, testnet: true });
-      const result = await getPaymentStatus({ id: payment.id, testnet: true });
-      if (result.status !== "completed" || result.recipient?.toLowerCase() !== merchant.toLowerCase()) {
-        throw new Error(`Payment is not complete: ${result.status}`);
-      }
-      return payment.id;
-    }
-    ```
-
-    <Check>
-    The function returns a completed Base Sepolia transaction hash whose recipient is the merchant.
-    </Check>
-  </Tab>
   <Tab title="Direct USDC">
     ## Accept a wallet-native USDC transfer
 
@@ -129,5 +107,4 @@ Validate settlement and claim each transaction hash exactly once.
 
 ## See also
 
-- [Collect payer info](/build-on-base/accept-payments/collect-payer-info) · [Accept subscriptions](/build-on-base/accept-payments/accept-subscriptions)
-- [`pay()`](/sdks/base-account/reference/base-pay/pay) and [B20 memos](/base-chain/specs/reference/b20#memos)
+- [B20 memos](/base-chain/specs/reference/b20#memos) in the B20 standard
