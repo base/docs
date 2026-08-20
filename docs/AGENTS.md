@@ -14,7 +14,6 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Base Chain](./base-chain/llms.txt) — Start here for Base Chain docs, including concepts, network reference, node operation, APIs, and protocol specifications.
 - [Get Started](./get-started/llms.txt)
 - [Ledgers](./ledgers/llms.txt) — An introduction to Base Ledgers, the enterprise way to run confidential payments that settle on Base.
-- [Static](./static/llms.txt)
 
 ## Tools available for AI assistants
 
