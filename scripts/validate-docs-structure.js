@@ -8,12 +8,23 @@ const docs = path.join(root, 'docs');
 const config = JSON.parse(fs.readFileSync(path.join(docs, 'docs.json'), 'utf8'));
 const errors = [];
 
+// A page reference resolves if <page>.mdx, <page>.md, or <page>/index.mdx exists.
+// Mintlify serves an index.mdx at its parent directory URL, so links to the
+// directory path (e.g. /base-chain/specs/reference/b20) are valid.
 function pageExists(page) {
-  return fs.existsSync(path.join(docs, `${page}.mdx`)) || fs.existsSync(path.join(docs, `${page}.md`));
+  return (
+    fs.existsSync(path.join(docs, `${page}.mdx`)) ||
+    fs.existsSync(path.join(docs, `${page}.md`)) ||
+    fs.existsSync(path.join(docs, page, 'index.mdx'))
+  );
 }
+
+// Collect every page string in the nav so we can check duplicates and orphans.
+const navPages = [];
 
 function walkNavigation(value, trail = 'navigation') {
   if (typeof value === 'string') {
+    navPages.push(value);
     if (!pageExists(value)) errors.push(`${trail}: missing page ${value}`);
     return;
   }
@@ -29,6 +40,72 @@ function walkNavigation(value, trail = 'navigation') {
 
 walkNavigation(config.navigation);
 
+// --- Duplicate nav entries ---
+const seenNav = new Set();
+for (const page of navPages) {
+  if (seenNav.has(page)) errors.push(`duplicate nav entry ${page}`);
+  seenNav.add(page);
+}
+
+// --- Orphan detection: every publishable .mdx must be reachable from nav ---
+// Exemptions:
+//   - snippets are includes, never pages
+//   - files listed in docs/.mintignore are not published
+//   - footer-linked legal pages (privacy/terms/cookie) live outside the nav tree
+//   - generated B20 interface *method* pages are deliberately interface-first
+//     (reached from their interface index page), matching upstream convention
+const INTERFACE_PREFIX = 'base-chain/specs/reference/b20/interfaces/';
+const mintignore = fs.existsSync(path.join(docs, '.mintignore'))
+  ? new Set(
+      fs
+        .readFileSync(path.join(docs, '.mintignore'), 'utf8')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('#'))
+        .map((l) => l.replace(/\.mdx?$/, '')),
+    )
+  : new Set();
+
+const footerLinks = new Set();
+(function collectFooter(node) {
+  if (!node) return;
+  if (typeof node === 'string') {
+    // Accept relative (/privacy-policy) and absolute docs URLs
+    // (https://docs.base.org/privacy-policy) alike.
+    const m = node.match(/^(?:https?:\/\/docs\.base\.org)?\/([a-zA-Z0-9_./-]+)$/);
+    if (m) footerLinks.add(m[1]);
+    return;
+  }
+  if (Array.isArray(node)) return node.forEach(collectFooter);
+  if (typeof node === 'object') Object.values(node).forEach(collectFooter);
+})(config.footer);
+
+function isExemptFromOrphan(page) {
+  if (page.startsWith('snippets/')) return true;
+  if (mintignore.has(page)) return true;
+  if (footerLinks.has(page)) return true;
+  // interface method page = under interfaces/<IFace>/<method>, i.e. one level
+  // deeper than the interface index pages themselves
+  if (page.startsWith(INTERFACE_PREFIX) && page.slice(INTERFACE_PREFIX.length).includes('/')) return true;
+  return false;
+}
+
+function allMdx(dir, base = dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return allMdx(full, base);
+    if (!entry.name.endsWith('.mdx')) return [];
+    return [path.relative(base, full).replace(/\.mdx$/, '')];
+  });
+}
+
+const navSet = new Set(navPages);
+for (const page of allMdx(docs)) {
+  if (navSet.has(page) || isExemptFromOrphan(page)) continue;
+  errors.push(`orphan page (not in nav, no redirect exemption): ${page}`);
+}
+
+// --- Redirects: duplicate sources + payment-scoped chain/target checks ---
 const redirects = new Map();
 for (const redirect of config.redirects) {
   if (redirects.has(redirect.source)) errors.push(`duplicate redirect source ${redirect.source}`);
@@ -46,13 +123,15 @@ for (const [source, destination] of redirects) {
   }
 }
 
+// --- Scoped internal-link check for high-traffic use-case sections ---
 const checkedRoots = [
   'build-on-base/accept-payments',
   'build-on-base/issue-stablecoins',
-  'build-on-base/tokenize-stocks',
+  'build-on-base/issue-rwa',
   'build-on-base/integrate-defi',
   'get-started/accept-payments.mdx',
-  'get-started/launch-b20-token.mdx',
+  'get-started/issue-rwa.mdx',
+  'get-started/base.mdx',
 ];
 
 function filesUnder(relative) {
@@ -80,4 +159,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('Navigation, payment redirects, and scoped internal links are valid.');
+console.log('Navigation, orphans, duplicates, payment redirects, and scoped internal links are valid.');

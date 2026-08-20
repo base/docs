@@ -7,6 +7,7 @@ mkdir -p "$TMP_BASE"
 
 node "$ROOT/scripts/verify-doc-samples.js"
 node "$ROOT/scripts/validate-docs-structure.js"
+node "$ROOT/scripts/check-terminology.js"
 bash -n "$ROOT/examples/verified-doc-samples/cli/b20-operations.sh"
 
 (
