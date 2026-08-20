@@ -1,6 +1,6 @@
 ---
 title: 'Deploy on Base'
-description: Deploy a smart contract to Base Sepolia with Foundry.
+description: Deploy a smart contract to Base Sepolia with Base's Foundry build.
 ---
 
 Welcome to the Base deployment quickstart guide! This comprehensive walkthrough will help you set up your environment and deploy smart contracts on Base. Whether you're a seasoned developer or just starting out, this guide has got you covered.
@@ -28,25 +28,29 @@ Base is a fast, low-cost, builder-friendly Ethereum L2 built to bring the next b
 mkdir my-base-project && cd my-base-project
 ```
 
-2. Install Foundry, a powerful framework for smart contract development
+2. Install Base's Foundry build, a fork of Foundry with Base's native precompiles built in
 
 ```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+curl -L https://raw.githubusercontent.com/base/base-anvil/HEAD/foundryup/install | bash
+base-foundryup
 ```
 
-This installs Foundry and updates it to the latest version.
+This installs `base-forge`, `base-cast`, and `base-anvil` alongside your existing Foundry toolchain without overwriting it.
+
+<Warning>
+Use Base's Foundry build (`base-forge`, `base-cast`, `base-anvil`) rather than standard Foundry (`forge`, `cast`, `anvil`) for Base development. Standard Foundry can't simulate calls to Base's native precompile addresses (such as [B20 tokens](/base-chain/network-information/b20-token-standard)), which hold no contract bytecode, and aborts with `call to non-contract address`. Base's build registers these precompiles into its EVM, so your contracts behave the same locally as they do on Base.
+</Warning>
 
 3. Initialize a new Solidity project
 
 ```bash
-forge init
+base-forge init
 ```
 
-Your Foundry project is now ready. You'll find an example contract in the `src` directory, which you can replace with your own contracts. For the purposes of this guide, we'll use the Counter contract provided in `/src/Counter.sol`
+Your project is now ready. You'll find an example contract in the `src` directory, which you can replace with your own contracts. For the purposes of this guide, we'll use the Counter contract provided in `/src/Counter.sol`
 
 <Tip>
-Foundry provides a suite of tools for Ethereum application development, including Forge (for testing), Cast (for interacting with the chain), and Anvil (for setting up a local node). You can learn more about Foundry [here](https://book.getfoundry.sh/).
+Base's Foundry build provides the same suite of tools as standard Foundry, with Base's precompiles built in: `base-forge` (for building and testing), `base-cast` (for interacting with the chain), and `base-anvil` (for running a local Base node). Learn more about [base-anvil](https://github.com/base/base-anvil) and the underlying [Foundry](https://book.getfoundry.sh/) toolchain.
 </Tip>
 
 
@@ -85,7 +89,7 @@ Base Sepolia is the test network for Base, which we will use for the rest of thi
 1. Store your private key in Foundry's secure keystore
 
 ```bash
-cast wallet import deployer --interactive
+base-cast wallet import deployer --interactive
 ```
 
 2. When prompted enter your private key and a password.
@@ -104,7 +108,7 @@ Now that your environment is set up, let's deploy your contracts to Base Sepolia
 1. (Optional) First, perform a dry run to simulate the deployment and verify everything is configured correctly:
 
 ```bash
-forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer
+base-forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer
 ```
 
 This performs a simulation without broadcasting the transaction to the network. You'll see the transaction details and contract ABI, but no actual deployment will occur.
@@ -112,11 +116,11 @@ This performs a simulation without broadcasting the transaction to the network. 
 2. Deploy your contract by adding the `--broadcast` flag:
 
 ```bash
-forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer --broadcast
+base-forge create ./src/Counter.sol:Counter --rpc-url $BASE_SEPOLIA_RPC_URL --account deployer --broadcast
 ```
 
 <Tip>
-The `--broadcast` flag is **required** to actually deploy your contract to the network. Without it, Foundry only performs a dry run simulation.
+The `--broadcast` flag is **required** to actually deploy your contract to the network. Without it, `base-forge` only performs a dry run simulation.
 </Tip>
 
 Note the format of the contract being deployed is `<contract-path>:<contract-name>`.
@@ -152,10 +156,10 @@ You need to run `source .env` after modifying your `.env` file to load the new v
 To ensure your contract was deployed successfully:
 
 1. Check the transaction on [Sepolia Basescan](https://sepolia.basescan.org/) using your transaction hash
-2. Use the `cast` command to interact with your deployed contract from the command line:
+2. Use the `base-cast` command to interact with your deployed contract from the command line:
 
 ```bash
-cast call $COUNTER_CONTRACT_ADDRESS "number()(uint256)" --rpc-url $BASE_SEPOLIA_RPC_URL
+base-cast call $COUNTER_CONTRACT_ADDRESS "number()(uint256)" --rpc-url $BASE_SEPOLIA_RPC_URL
 ```
 
 <Tip>
