@@ -1,0 +1,147 @@
+---
+title: "B20 Asset: Beryl to Cobalt (ERC-8056) migration"
+description: "B20 Asset multiplier becomes ERC-8056 conformant at Cobalt, with a scheduled multiplier setter for corporate actions. Every Beryl selector stays dialable."
+---
+
+> **Audience:** teams already integrated against the B20 Asset multiplier surface on Beryl (live
+> today). This note covers only the multiplier and ERC-8056 changes landing at the Cobalt hardfork.
+
+## Summary
+
+At Cobalt, the B20 Asset multiplier surface becomes [ERC-8056 ("Scaled UI Amount")](https://eips.ethereum.org/EIPS/eip-8056)
+conformant and gains a scheduled multiplier setter for corporate actions. Nothing you call today
+breaks: every Beryl selector, event topic, and error keeps its exact 4-byte selector or topic0 and
+stays dialable at Cobalt. The deprecations below are advisory, not enforced.
+
+To migrate, adopt the canonical ERC-8056 names (`uiMultiplier`, `toUIAmount`/`fromUIAmount`,
+`balanceOfUI`, `totalSupplyUI`), and move routine multiplier changes from the instant
+`updateMultiplier(uint256)` to the scheduled `updateUIMultiplier(uint256,uint256)`.
+
+Cobalt hasn't gone live yet. Until it activates, only the Beryl surface exists on-chain.
+
+## Mapping table
+
+The selectors and topic0s below are the real values from the frozen ABIs: `abi/v1.rs` for Beryl,
+`abi/v2.rs` for Cobalt. Every Beryl symbol keeps its selector at Cobalt.
+
+### Functions
+
+| Beryl symbol (selector) | Cobalt canonical (selector) | Status | Why |
+| --- | --- | --- | --- |
+| `multiplier()` `0x1b3ed722` | `uiMultiplier()` `0xa60bf13d` | deprecated-name-kept / new alias | ERC-8056 core naming. Both return the same effective multiplier. `multiplier()` stays. |
+| `toScaledBalance(uint256)` `0x04f04c99` | `toUIAmount(uint256)` `0x3248d4ff` | deprecated-dialable / new | ERC-8056 Conversion extension. Byte-identical behavior. |
+| `toRawBalance(uint256)` `0x0ca06c44` | `fromUIAmount(uint256)` `0x65cd9b3c` | deprecated-dialable / new | ERC-8056 Conversion extension. Byte-identical behavior. |
+| `scaledBalanceOf(address)` `0x1da24f3e` | `balanceOfUI(address)` `0x437a9958` | deprecated-name-kept / new alias | ERC-8056 Balances extension. Alias, same value. |
+| `updateMultiplier(uint256)` `0x5ffe6146` | `updateUIMultiplier(uint256,uint256)` `0x628e600f` | deprecated-dialable / new (not 1:1) | The canonical path is now the scheduled setter. The instant setter remains as an emergency failsafe. |
+| — | `newUIMultiplier()` `0xdc767007` | new | ERC-8056 pending-schedule read. |
+| — | `effectiveAt()` `0x97a4064f` | new | ERC-8056 pending-schedule read (flip timestamp). |
+| — | `totalSupplyUI()` `0x9bea6429` | new | ERC-8056 Balances extension. |
+| — | `cancelUIMultiplierUpdate()` `0x2c97a0f0` | new | Cancels the single live pending update. |
+| — | `MAX_UI_MULTIPLIER()` `0x785c0cf0` | new | Reads the multiplier ceiling (`type(uint128).max`) without risking the revert path. |
+| — | `supportsInterface(bytes4)` `0x01ffc9a7` | new | ERC-165 feature detection. |
+
+`OPERATOR_ROLE()` `0xf5b541a6`, `WAD_PRECISION()` `0x664808a8`, `announce(...)` `0x595135dd`,
+`isAnnouncementIdUsed(string)` `0xc0da474e`, `batchMint(...)` `0x68573107`,
+`extraMetadata(string)` `0x4ddf9da0`, and `updateExtraMetadata(string,string)` `0xb2851ef5` carry
+over unchanged.
+
+### Events
+
+| Beryl event (topic0) | Cobalt canonical (topic0) | Status | Why |
+| --- | --- | --- | --- |
+| `MultiplierUpdated(uint256)` | `UIMultiplierUpdated(uint256,uint256,uint256)` | deprecated-still-emitted / new | ERC-8056 canonical event. The instant setter emits both events. The scheduled setter emits only `UIMultiplierUpdated`. |
+| — | `UIMultiplierUpdateCancelled(uint256,uint256)` | new | Signals a cleared pending update. |
+
+### Errors
+
+| Beryl error (selector) | Cobalt (selector) | Status | Why |
+| --- | --- | --- | --- |
+| `InvalidMultiplier()` `0x6f12f3dc` | `InvalidMultiplier()` `0x6f12f3dc` | present on Beryl already | Zero or above-ceiling guard. Now also thrown by `updateUIMultiplier`. |
+| — | `EffectiveAtInPast(uint256)` `0x14119cf6` | new | Thrown when `effectiveAt <= block.timestamp`. |
+| — | `EffectiveAtTooFar(uint256)` `0x1ce214fa` | new | Thrown when `effectiveAt > type(uint64).max`. |
+| — | `UIMultiplierUpdateExists(uint256)` `0x4481a68e` | new | Thrown when a live pending update already exists. |
+| — | `UIMultiplierUpdateDoesNotExist()` `0xa7d6a5ca` | new | Thrown when you cancel with no live pending update. |
+
+## New at Cobalt: adopt these
+
+### Scheduled-update lifecycle
+
+`updateUIMultiplier(newMultiplier, effectiveAt)` is the canonical path for corporate actions, such
+as stock splits and reinvested dividends. Only one pending update can be live at a time.
+
+1. **Schedule**: call `updateUIMultiplier(newMultiplier, effectiveAt)`. This requires
+   `OPERATOR_ROLE`, and `effectiveAt` must be strictly in the future.
+2. **Read the pending update**: while it's live, `newUIMultiplier()` returns the scheduled target,
+   `effectiveAt()` returns the flip timestamp, and `uiMultiplier()` / `multiplier()` still return
+   the current value.
+3. **Let it mature**: once `block.timestamp >= effectiveAt`, `uiMultiplier()` / `multiplier()` flip
+   on read. No event fires at maturation.
+4. **Or cancel it**: `cancelUIMultiplierUpdate()` clears a live pending update and emits
+   `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`.
+
+To reorder overlapping actions, cancel and reschedule atomically in one announcement:
+`announce([cancelUIMultiplierUpdate(), updateUIMultiplier(...)], ...)`.
+
+### ERC-8056 view aliases
+
+- `uiMultiplier()` returns the same value as `multiplier()`.
+- `toUIAmount(raw)` returns the same value as `toScaledBalance(raw)`. `fromUIAmount(ui)` returns the
+  same value as `toRawBalance(ui)`.
+- `balanceOfUI(account)` returns the same value as `scaledBalanceOf(account)`.
+- `totalSupplyUI()` equals `totalSupply() * uiMultiplier() / WAD_PRECISION`.
+
+### Bound getter
+
+`MAX_UI_MULTIPLIER()` returns `type(uint128).max`, the ceiling both setters enforce. This is the
+overflow guard that keeps `balance * multiplier` inside `uint256`.
+
+## `updateMultiplier(uint256)` remains as an instant admin failsafe
+
+`updateMultiplier(uint256)` sets the multiplier immediately and clears any live pending update. It's
+a deprecated admin failsafe, kept for tech debt and emergency overrides, not routine use: use it to
+instantly reverse a scheduling mistake, and pair it with pausing in most cases.
+
+## Guarantees and edge cases
+
+**Q: A scheduled update can be canceled. How do external consumers detect the cancellation?**
+`cancelUIMultiplierUpdate()` emits `UIMultiplierUpdateCancelled(cancelledMultiplier,
+cancelledEffectiveAt)` (topic0 `0x8838…1cad`); so does the instant setter, when it supersedes a live
+pending update. Watch that topic to retract a pending flip you previously staged from
+`UIMultiplierUpdated`.
+
+**Q: If the admin uses the instant failsafe, how do off-chain indexers keep a linear, gap-free
+UI-multiplier lifecycle?**
+The instant `updateMultiplier(uint256)` emits both the deprecated `MultiplierUpdated(uint256)` and
+the ERC-8056 `UIMultiplierUpdated(old, new, block.timestamp)` (and, if it clears a live pending
+update, `UIMultiplierUpdateCancelled` first). Every multiplier change, scheduled or emergency,
+appears on the single `UIMultiplierUpdated` stream, so following that one event never misses a
+change. The legacy `MultiplierUpdated` topic stays available for indexers that haven't migrated.
+
+**Q: How do I tell a live pending update apart from one that already matured, or none at all?**
+A pending update is live if `effectiveAt() > block.timestamp`. While it's live, `newUIMultiplier()`
+returns the scheduled target, which differs from `uiMultiplier()`. After maturation,
+`uiMultiplier()` already reflects the new value, `newUIMultiplier() == uiMultiplier()`, and
+`effectiveAt()` stays at the now-past flip timestamp until the next schedule, instant update, or
+cancel overwrites it. So a nonzero `effectiveAt()` that's `<= block.timestamp` means "already
+applied," not "pending." If no update has ever been scheduled, `effectiveAt() == 0`.
+
+**Q: What happens if I schedule an update while one is already pending?**
+It reverts `UIMultiplierUpdateExists(effectiveAt)`, but only a live pending update blocks the call.
+A matured (stale) pending update is silently folded into the current multiplier and overwritten. To
+replace a live schedule, call `cancelUIMultiplierUpdate()` then `updateUIMultiplier(...)`, atomically,
+via `announce`.
+
+**Q: What are the bounds on `effectiveAt`?**
+It must be strictly in the future: `effectiveAt <= block.timestamp` reverts
+`EffectiveAtInPast(effectiveAt)`. It must also fit the on-chain field:
+`effectiveAt > type(uint64).max` reverts `EffectiveAtTooFar(effectiveAt)`.
+
+**Q: What are the bounds on the multiplier?**
+`0 < newMultiplier <= MAX_UI_MULTIPLIER()` (`type(uint128).max`). Zero or above reverts
+`InvalidMultiplier()`. This applies to both `updateUIMultiplier` and `updateMultiplier`. You can
+read the ceiling from `MAX_UI_MULTIPLIER()` without risking the revert.
+
+**Q: Do raw balances or `Transfer` semantics change?**
+No. The multiplier is purely cosmetic: it rescales only the UI/scaled view. `balanceOf`,
+`transfer`, `totalSupply`, and `Transfer` stay raw, and no multiplier change, scheduled or instant,
+affects them. Only the `*UI` / scaled reads move.
