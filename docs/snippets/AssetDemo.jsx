@@ -47,8 +47,8 @@ export const AssetDemo = ({ flow }) => {
           run: () => ({ entries: [ok("grantRole", "MINT_ROLE, OPERATOR_ROLE → Issuer"), ok("SupplyCapUpdated", "1,000,000 EXM")], caption: "The ceiling limits token supply; it does not define legally authorized shares." }) },
         { stage: "Identify", action: "Add identifier",
           text: "Attach an issuer-defined identifier for integrations and records.",
-          summary: [["Operation", "Set metadata"], ["Field", M("security-id")], ["Value", M('"EXAMPLE-CLASS-A"')], ["Network", NETWORK]],
-          run: () => ({ entries: [ok("ExtraMetadataUpdated", 'security-id → "EXAMPLE-CLASS-A"')], caption: "B20 stores the issuer-defined value without validating an external registry." }) },
+          summary: [["Operation", "Set metadata"], ["Field", M("asset-id")], ["Value", M('"EXAMPLE-CLASS-A"')], ["Network", NETWORK]],
+          run: () => ({ entries: [ok("ExtraMetadataUpdated", 'asset-id → "EXAMPLE-CLASS-A"')], caption: "B20 stores the issuer-defined value without validating an external registry." }) },
       ],
     },
     issue: {
