@@ -107,11 +107,19 @@ async function validateAndExecuteProlink(
         throw new Error(`Unauthorized contract: ${call.to}`);
       }
     }
-    
+
+    // Inject the connected account as the sender if missing.
+    // Prolinks are encoded without a known opener, so `from` is often absent.
+    const { accounts } = await provider.request({ method: 'wallet_connect', params: [] });
+    const sender = accounts?.[0];
+    if (sender && !params.from) {
+      params = { ...params, from: sender };
+    }
+
     // Execute the request
     const result = await provider.request({
       method: decoded.method,
-      params: decoded.params
+      params: [params]
     });
     
     console.log('Transaction result:', result);
