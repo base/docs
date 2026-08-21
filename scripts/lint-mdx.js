@@ -183,6 +183,14 @@ function checkCodeBlocks(content, filePath) {
   const issues = [];
   const lines = content.split("\n");
   let inCodeGroup = false;
+  // Length (in backticks) of the fence currently open, or 0 when not inside
+  // a code block. Tracked (rather than a boolean) because MDX lets a fence
+  // of 4+ backticks nest a literal 3-backtick fence as content -- e.g. a
+  // ` ```` ` block used to show what a fenced code sample looks like. Only
+  // a fence with at least as many backticks as the one that opened the
+  // block can close it (matching CommonMark); shorter backtick runs inside
+  // are just text.
+  let openFenceLength = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -190,10 +198,22 @@ function checkCodeBlocks(content, filePath) {
     if (line.includes("<CodeGroup>")) inCodeGroup = true;
     if (line.includes("</CodeGroup>")) inCodeGroup = false;
 
-    // Check for code block opening
-    const codeBlockMatch = line.match(/^```(\S*)/);
+    const codeBlockMatch = line.match(/^(`{3,})(\S*)/);
     if (codeBlockMatch) {
-      const lang = codeBlockMatch[1];
+      const fenceLength = codeBlockMatch[1].length;
+
+      if (openFenceLength > 0) {
+        // Inside a block: only a fence at least as long as the one that
+        // opened it actually closes the block. A shorter run of backticks
+        // is nested content, not a real fence.
+        if (fenceLength >= openFenceLength) {
+          openFenceLength = 0;
+        }
+        continue;
+      }
+
+      openFenceLength = fenceLength;
+      const lang = codeBlockMatch[2];
 
       // Check for empty language
       if (!lang) {
@@ -205,9 +225,9 @@ function checkCodeBlocks(content, filePath) {
       }
 
       // In CodeGroup, should have language AND label
-      if (inCodeGroup && lang && !lang.includes(" ") && !/\s+\S+/.test(line.slice(3 + lang.length))) {
+      if (inCodeGroup && lang) {
         // Check if there's a label after the language
-        const afterLang = line.slice(3 + lang.length).trim();
+        const afterLang = line.slice(fenceLength + lang.length).trim();
         if (!afterLang) {
           issues.push({
             line: i + 1,
