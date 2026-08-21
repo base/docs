@@ -326,17 +326,18 @@ contract MyTokenTest is Test {
         assertEq(token.totalSupply(), INITIAL_SUPPLY - burnAmount);
     }
     
-    function testFailMintExceedsMaxSupply() public {
+    function test_Revert_MintExceedsMaxSupply() public {
         // This test should fail when trying to mint more than max supply
         uint256 excessiveAmount = token.MAX_SUPPLY() + 1;
-        
         vm.prank(owner);
+        vm.expectRevert("Minting would exceed max supply");
         token.mint(user, excessiveAmount);
     }
     
-    function testFailUnauthorizedMinting() public {
+    function test_Revert_UnauthorizedMinting() public {
         // This test should fail when non-owner tries to mint
         vm.prank(user);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", user));
         token.mint(user, 1000 * 10**18);
     }
 }
