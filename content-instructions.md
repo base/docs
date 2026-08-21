@@ -55,7 +55,7 @@ description: "Concise description explaining page purpose and value"
   - Code blocks longer than 7 lines should:
       - have line numbers by adding `lines` to the first line of the codeblock (e.g. ```typescript lines```)
       - be marked as `expandable` by adding to the first line of the codeblock
-  - use `wrap` to prevent horizontal scrolling of codeblocks
+  - Use `wrap` to prevent horizontal scrolling of codeblocks
 - Always include complete, runnable examples that users can copy and execute
 - Show proper error handling and edge case management
 - Use realistic data instead of placeholder values
