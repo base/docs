@@ -1,0 +1,148 @@
+---
+title: "Use Session Keys"
+description: "Delegate limited, time-bound spending authority to agents, games, and automation using Session Keys."
+---
+
+Session Keys let you authorize another address to act on behalf of a Base Account within strict limits — no per-action wallet popup required. This is how you build gasless, low-friction experiences for AI agents, on-chain games, subscriptions, and automated workflows.
+
+Base Account implements this through **Spend Permissions** (ERC-7512 / EIP-5792), so the terms “session key” and “spend permission” are used interchangeably in this guide.
+
+## When to use Session Keys
+
+- **AI agents** that need to pay for API calls or gas on behalf of a user
+- **Games** that let players buy items without interrupting gameplay
+- **Subscriptions / recurring payments** with capped daily or weekly spend
+- **Automated workflows** that require repeated transactions within a budget
+
+## Prerequisites
+
+- A Base Account smart wallet
+- The `@base-org/account` SDK installed
+- An operator/agent address that will execute the delegated transactions
+
+## 1. Request a session key permission
+
+Use `requestSpendPermission` to create an EIP-712 permission that the user signs once. After that, your backend can spend within the allowed limits without additional user interaction.
+
+```tsx
+import { requestSpendPermission } from "@base-org/account/spend-permission";
+import { createBaseAccountSDK } from "@base-org/account";
+import { base } from "viem/chains";
+
+const sdk = createBaseAccountSDK({
+  appName: "My App",
+  appLogoUrl: "https://example.com/logo.png",
+  appChainIds: [base.id],
+});
+
+const permission = await requestSpendPermission({
+  account: "0xUserAccount",
+  spender: "0xAgentOperator",
+  token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+  chainId: base.id,
+  allowance: 10_000_000n, // 10 USDC per period
+  periodInDays: 1,
+  provider: sdk.getProvider(),
+});
+
+console.log("Permission granted:", permission);
+```
+
+| Field | Description |
+| --- | --- |
+| `account` | The Base Account granting permission |
+| `spender` | The operator/agent authorized to spend |
+| `token` | Token contract address; use the native token address for ETH |
+| `allowance` | Max spend per `period` |
+| `periodInDays` | Rolling window for resetting allowance |
+| `provider` | Base Account provider instance |
+
+## 2. Spend with the permission
+
+Your backend calls `prepareSpendCallData` to build the transaction calls, then submits them with the operator account.
+
+```tsx
+import { prepareSpendCallData } from "@base-org/account/spend-permission";
+
+const spendCalls = await prepareSpendCallData({
+  permission,
+  amount: 1_000_000n, // 1 USDC
+});
+
+// Submit via wallet_sendCalls if supported
+await provider.request({
+  method: "wallet_sendCalls",
+  params: [
+    {
+      version: "2.0",
+      atomicRequired: true,
+      from: "0xAgentOperator",
+      calls: spendCalls,
+    },
+  ],
+});
+```
+
+The returned calls may include `approveWithSignature` on first spend, followed by `spend`. After the permission is registered onchain, subsequent spends return only the `spend` call.
+
+## 3. Check permission status
+
+Use `getPermissionStatus` or `fetchPermissions` to inspect active permissions before spending.
+
+```tsx
+import { getPermissionStatus, fetchPermissions } from "@base-org/account/spend-permission";
+
+const status = await getPermissionStatus({
+  permission,
+  provider: sdk.getProvider(),
+});
+
+const allPermissions = await fetchPermissions({
+  account: "0xUserAccount",
+  spender: "0xAgentOperator",
+  provider: sdk.getProvider(),
+});
+```
+
+## 4. Revoke a permission
+
+You can revoke immediately from the user’s wallet, or silently from the operator.
+
+```tsx
+import { requestRevoke, prepareRevokeCallData } from "@base-org/account/spend-permission";
+
+// Option A: user-initiated revoke
+const hash = await requestRevoke(permission);
+
+// Option B: operator-initiated revoke
+const revokeCall = await prepareRevokeCallData(permission);
+
+await provider.request({
+  method: "wallet_sendCalls",
+  params: [
+    {
+      version: "2.0",
+      atomicRequired: true,
+      from: "0xAgentOperator",
+      calls: [revokeCall],
+    },
+  ],
+});
+```
+
+## Security best practices
+
+- Use short expiry windows.
+- Grant the smallest possible `allowance`.
+- Restrict `token` to the exact contract you need.
+- Rotate operator addresses instead of reusing one forever.
+- Always surface a visible “Revoke access” button in your UI.
+- Verify `getPermissionStatus` before spending; do not assume a stored permission is still valid.
+
+## Reference
+
+- [Spend Permissions guide](/base-account/improve-ux/spend-permissions)
+- [requestSpendPermission](/base-account/reference/spend-permission-utilities/requestSpendPermission)
+- [prepareSpendCallData](/base-account/reference/spend-permission-utilities/prepareSpendCallData)
+- [requestRevoke](/base-account/reference/spend-permission-utilities/requestRevoke)
+- [prepareRevokeCallData](/base-account/reference/spend-permission-utilities/requestRevoke)
