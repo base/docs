@@ -1,0 +1,79 @@
+---
+title: Auto-complete USDC delivery after a CCTP bridge
+description: Learn how to relay Circle CCTP delivery on Base so recipients can receive USDC without holding ETH for gas.
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
+
+Base users who bridge USDC from Solana or another supported chain still need to call `receiveMessage` on Base after the attestation is ready. This guide shows how to remove that last gas payment by having a relayer submit the Base delivery transaction for the user.
+
+<Info>
+This pattern is useful for Base Mainnet apps that want to complete CCTP delivery for users who do not yet hold ETH on Base.
+</Info>
+
+## How the relay pattern works
+
+<Steps>
+<Step title="1. Burn on the source chain">
+The source-chain transfer emits a CCTP message that Circle later attests.
+</Step>
+<Step title="2. Poll for attestation">
+Your backend checks Circle's attestation API until the message status becomes `complete`.
+</Step>
+<Step title="3. Relay on Base">
+Once the attestation is ready, the relayer submits `receiveMessage` to Base's `MessageTransmitter` contract and pays the ETH gas cost.
+</Step>
+<Step title="4. Deliver USDC">
+The recipient receives USDC on Base without having to fund the destination wallet first.
+</Step>
+</Steps>
+
+## What to validate before relaying
+
+Before you submit the relay transaction, validate the message instead of trusting client input:
+
+- Derive `destDomain` from the attested `messageBytes`.
+- Confirm the destination chain is Base before submitting `receiveMessage`.
+- Treat already-used nonces as idempotent success, not as a fatal error.
+- Retry cleanly when the attestation is not ready yet.
+
+<Warning>
+If you let the client choose the destination domain or recipient unchecked, you can relay the wrong message or pay gas for an invalid request.
+</Warning>
+
+## Minimal relay flow
+
+The relayer needs three pieces of information:
+
+- the attested message payload
+- the Base `MessageTransmitter` contract address
+- ETH on Base to pay gas for the relay transaction
+
+```typescript cctp-relay.ts
+const attestation = await getAttestation(messageHash);
+if (attestation.status !== "complete") return;
+await receiveMessageOnBase(messageBytes, attestation.attestation);
+```
+
+## Recommended integration points
+
+Use this pattern when your app already has a bridge completion flow and you want to remove destination-chain gas friction for new users.
+
+<GithubRepoCard title="Base Bridge" githubUrl="https://github.com/base/bridge" />
+
+For adjacent bridge behavior, see [Bridging and Withdrawals](/base-chain/network-information/bridging-and-withdrawals) and [Base-Solana Bridge](/base-chain/network-information/base-solana-bridge).
+
+## Reference address
+
+Base `MessageTransmitter` contract:
+
+- `0x1682Ae6375C4E4A97e4B583BC394c861A46D8962`
+
+## Next step
+
+If you are building a production relay service, add:
+
+- per-message nonce tracking
+- attestation polling backoff
+- replay-safe handling for already-used messages
+- chain-specific gas limits and error monitoring
