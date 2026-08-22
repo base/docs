@@ -3,239 +3,82 @@ title: "Web (Next.js)"
 description: "Quickly add Sign in with Base and Base Pay to any Next.js app"
 ---
 
-import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx"
+## 1. Create a Next.js app
 
-This quick-start shows the **minimum** code required to add Sign in with Base (SIWB) and Base Pay to any Next.js app using the Base Account SDK.
-
-## 1. Create a new Next.js app
-
-If you're starting fresh, create a new Next.js app:
-
-<CodeGroup>
-```bash npm
+```bash
 npx create-next-app@latest base-account-quickstart
 cd base-account-quickstart
 ```
 
-```bash yarn
-yarn create next-app base-account-quickstart
-cd base-account-quickstart
+## 2. Install Base Account SDK
+
+```bash
+npm install @base-org/account
 ```
 
-```bash pnpm
-pnpm create next-app base-account-quickstart
-cd base-account-quickstart
+## 3. Initialize the SDK
+
+Create `lib/sdk.ts`:
+
+```tsx
+import { createBaseAccountSDK, base } from '@base-org/account';
+
+export const sdk = createBaseAccountSDK({
+  appName: 'My Next.js App',
+  appLogoUrl: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4',
+  appChainIds: [base.constants.CHAIN_IDS.base],
+});
+
+export const provider = sdk.getProvider();
 ```
 
-```bash bun
-bunx create-next-app base-account-quickstart
-cd base-account-quickstart
-```
-</CodeGroup>
+## 4. Sign In with Base
 
-When prompted during setup, you can choose the default options or customize as needed. For this quickstart, the default settings work perfectly.
+Create `components/SignIn.tsx`:
 
-## 2. Install the SDK
-
-<CodeGroup>
-```bash npm
-npm install @base-org/account @base-org/account-ui
-```
-
-```bash pnpm
-pnpm add @base-org/account @base-org/account-ui
-```
-
-```bash yarn
-yarn add @base-org/account @base-org/account-ui
-```
-
-```bash bun
-bun add @base-org/account @base-org/account-ui
-```
-</CodeGroup>
-
-<Tip>
-**Got a peer dependency error?**
-
-Use `--legacy-peer-deps` flag if you get a peer dependency error.
-</Tip>
-
-## 3. Create the main component
-
-Replace the contents of `app/page.tsx` (or `app/page.js` if not using TypeScript) with this component:
-
-```jsx title="app/page.tsx" lineNumbers
+```tsx
 'use client';
 
-import React, { useState } from 'react';
-import { createBaseAccountSDK, pay, getPaymentStatus } from '@base-org/account';
-import { SignInWithBaseButton, BasePayButton } from '@base-org/account-ui/react';
+import { useState } from 'react';
+import { provider } from '../lib/sdk';
 
-export default function Home() {
-  const [isSignedIn, setIsSignedIn] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState('');
-  const [paymentId, setPaymentId] = useState('');
-  const [theme, setTheme] = useState('light');
+export function SignIn() {
+  const [address, setAddress] = useState<string | null>(null);
 
-  // Initialize SDK
-  const sdk = createBaseAccountSDK(
-    {
-      appName: 'Base Account Quick-start',
-      appLogoUrl: 'https://base.org/logo.png',
-    }
-  );
-
-  // Optional sign-in step – not required for `pay()`, but useful to get the user address
   const handleSignIn = async () => {
-    try {
-      await sdk.getProvider().request({ method: 'wallet_connect' });
-      setIsSignedIn(true);
-    } catch (error) {
-      console.error('Sign in failed:', error);
-    }
-  };
-
-  // One-tap USDC payment using the pay() function
-  const handlePayment = async () => {
-    try {
-      const { id } = await pay({
-        amount: '0.01', // USD – SDK quotes equivalent USDC
-        to: '0xRecipientAddress', // Replace with your recipient address
-        testnet: true // set to false or omit for Mainnet
-      });
-
-      setPaymentId(id);
-      setPaymentStatus('Payment initiated! Click "Check Status" to see the result.');
-    } catch (error) {
-      console.error('Payment failed:', error);
-      setPaymentStatus('Payment failed');
-    }
-  };
-
-  // Check payment status using stored payment ID
-  const handleCheckStatus = async () => {
-    if (!paymentId) {
-      setPaymentStatus('No payment ID found. Please make a payment first.');
-      return;
-    }
-
-    try {
-      const { status } = await getPaymentStatus({ id: paymentId });
-      setPaymentStatus(`Payment status: ${status}`);
-    } catch (error) {
-      console.error('Status check failed:', error);
-      setPaymentStatus('Status check failed');
-    }
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
-
-  const dark = theme === 'dark';
-  const styles = {
-    container: { minHeight: '100vh', backgroundColor: dark ? '#111' : '#fff', color: dark ? '#fff' : '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' },
-    card: { backgroundColor: dark ? '#222' : '#f9f9f9', borderRadius: '12px', padding: '30px', maxWidth: '400px', textAlign: 'center' },
-    title: { fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: dark ? '#fff' : '#00f' },
-    subtitle: { fontSize: '16px', color: dark ? '#aaa' : '#666', marginBottom: '30px' },
-    themeToggle: { position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' },
-    buttonGroup: { display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' },
-    status: { marginTop: '20px', padding: '12px', backgroundColor: dark ? '#333' : '#f0f0f0', borderRadius: '8px', fontSize: '14px' },
-    signInStatus: { marginTop: '8px', fontSize: '14px', color: dark ? '#0f0' : '#060' }
+    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+    setAddress(accounts[0]);
   };
 
   return (
-    <div style={styles.container}>
-      <button onClick={toggleTheme} style={styles.themeToggle}>
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
-      
-      <div style={styles.card}>
-        <h1 style={styles.title}>Base Account</h1>
-        <p style={styles.subtitle}>Experience seamless crypto payments</p>
-        
-        <div style={styles.buttonGroup}>
-          <SignInWithBaseButton 
-            align="center"
-            variant="solid"
-            colorScheme={theme}
-            size="medium"
-            onClick={handleSignIn}
-          />
-          
-          {isSignedIn && (
-            <div style={styles.signInStatus}>
-              ✅ Connected to Base Account
-            </div>
-          )}
-          
-          <BasePayButton 
-            colorScheme={theme}
-            onClick={handlePayment}
-          />
-          
-          {paymentId && (
-            <button 
-              onClick={handleCheckStatus}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
-                color: theme === 'dark' ? '#ffffff' : '#1f2937',
-                border: `1px solid ${theme === 'dark' ? '#6b7280' : '#d1d5db'}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Check Payment Status
-            </button>
-          )}
-        </div>
-
-        {paymentStatus && (
-          <div style={styles.status}>
-            {paymentStatus}
-          </div>
-        )}
-      </div>
+    <div>
+      <button onClick={handleSignIn}>Sign in with Base</button>
+      {address && <p>Connected: {address}</p>}
     </div>
   );
 }
 ```
 
-<Note>
-**Note:**
+## 5. Base Pay
 
-Make sure to replace `0xRecipientAddress` with your recipient address.
-</Note>
+```tsx
+'use client';
 
-<Tip>
-**Base Pay and SIWB are independent**
+import { provider } from '../lib/sdk';
+import { numberToHex, parseEther } from 'viem';
 
-You DO NOT need to use SIWB to use Base Pay. You can just call the `pay()` function without any additional setup.
-</Tip>
-
-## 4. Start your app
-
-```bash
-npm run dev
+export async function sendPayment(to: `0x${string}`, amountEth: string) {
+  const result = await provider.request({
+    method: 'wallet_sendCalls',
+    params: [{
+      version: '2.0.0',
+      calls: [{
+        to,
+        value: numberToHex(parseEther(amountEth)),
+        data: '0x',
+      }],
+    }],
+  });
+  return result;
+}
 ```
-
-Open http://localhost:3000, click **Sign in with Base** (optional) and then **Pay**, approve the transaction, and you've sent 5 USDC on Base Sepolia—done! 🎉
-
-**Note:** If you have an existing Next.js app, just install the SDK (`npm install @base-org/account @base-org/account-ui`) and add the component above to your project. For other React frameworks, you can adapt this component as needed.
-
-## Next steps
-
-* **[Authenticate Users](/base-account/guides/authenticate-users)** - strong authentication by setting up Sign in with Base with backend verification
-* **[Accept Payments](/base-account/guides/accept-payments)** explore all the features of Base Pay
-* **[Sign in with Base Button](/base-account/reference/ui-elements/sign-in-with-base-button)** – use the Sign in with Base Button component to quickly add authentication to your app
-* **[Base Pay Button](/base-account/reference/ui-elements/base-pay-button)** – use the Base Pay Button component to quickly add payments to your app
-
-<Warning>
-**Please Follow the Brand Guidelines** 
-
-If you intend on using the `SignInWithBaseButton` or `BasePayButton`, please follow the [Brand Guidelines](/base-account/reference/ui-elements/brand-guidelines) to ensure consistency across your application.
-
-</Warning>

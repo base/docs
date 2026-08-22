@@ -108,8 +108,8 @@ the [Coinbase Developer Platform documentation](https://docs.cdp.coinbase.com/pa
 
   const sdk = createBaseAccountSDK({
     appName: 'Paymaster Demo',
-    appLogoUrl: 'https://base.org/logo.png',
-    appChainIds: [base.constants.CHAIN_IDS.baseSepolia], // or base.constants.CHAIN_IDS.base for mainnet
+    appLogoUrl: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4',
+    appChainIds: [base.constants.CHAIN_IDS.baseSepolia],
   });
 
   const provider = sdk.getProvider();
@@ -128,13 +128,10 @@ the [Coinbase Developer Platform documentation](https://docs.cdp.coinbase.com/pa
 
   ### Basic Sponsored Transaction
 
-  Here's how to send a sponsored transaction using the `wallet_sendCalls` RPC method:
-
   ```tsx
   import { createBaseAccountSDK, getCryptoKeyAccount, base } from '@base-org/account';
   import { numberToHex, encodeFunctionData, parseEther } from 'viem';
 
-  // Example NFT contract ABI
   const nftABI = [
     {
       name: 'safeMint',
@@ -148,72 +145,7 @@ the [Coinbase Developer Platform documentation](https://docs.cdp.coinbase.com/pa
   async function sendSponsoredTransaction() {
     const sdk = createBaseAccountSDK({
       appName: 'Paymaster Demo',
-      appLogoUrl: 'https://base.org/logo.png',
-      appChainIds: [base.constants.CHAIN_IDS.baseSepolia],
-    });
-
-    const provider = sdk.getProvider();
-    
-    try {
-      // Get the user's account
-      const cryptoAccount = await getCryptoKeyAccount();
-      const fromAddress = cryptoAccount?.account?.address;
-      
-      if (!fromAddress) {
-        throw new Error('No account found');
-      }
-
-      // Your Paymaster service URL (use your proxy URL)
-      const paymasterServiceUrl = process.env.NEXT_PUBLIC_PAYMASTER_PROXY_SERVER_URL;
-      
-      // Prepare the transaction call
-      const nftAddress = '0x119Ea671030FBf79AB93b436D2E20af6ea469a19';
-      const calls = [
-        {
-          to: nftAddress,
-          value: '0x0',
-          data: encodeFunctionData({
-            abi: nftABI,
-            functionName: 'safeMint',
-            args: [fromAddress]
-          })
-        }
-      ];
-
-      // Send the transaction with paymaster capabilities
-      const result = await provider.request({
-        method: 'wallet_sendCalls',
-        params: [{
-          version: '1.0',
-          chainId: numberToHex(base.constants.CHAIN_IDS.baseSepolia),
-          from: fromAddress,
-          calls: calls,
-          capabilities: {
-            paymasterService: {
-              url: paymasterServiceUrl
-            }
-          }
-        }]
-      });
-
-      console.log('Sponsored transaction sent:', result);
-      return result;
-    } catch (error) {
-      console.error('Sponsored transaction failed:', error);
-      throw error;
-    }
-  }
-  ```
-
-  ### Multiple Sponsored Transactions
-
-  You can also batch multiple transactions and have them all sponsored:
-
-  ```tsx
-  async function sendMultipleSponsoredTransactions() {
-    const sdk = createBaseAccountSDK({
-      appName: 'Paymaster Demo',
-      appLogoUrl: 'https://base.org/logo.png',
+      appLogoUrl: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4',
       appChainIds: [base.constants.CHAIN_IDS.baseSepolia],
     });
 
@@ -222,20 +154,7 @@ the [Coinbase Developer Platform documentation](https://docs.cdp.coinbase.com/pa
     const fromAddress = cryptoAccount?.account?.address;
 
     const paymasterServiceUrl = process.env.NEXT_PUBLIC_PAYMASTER_PROXY_SERVER_URL;
-
-    // Multiple calls in a single sponsored transaction
-    const calls = [
-      {
-        to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-        value: numberToHex(parseEther('0.001')),
-        data: '0x' // Simple ETH transfer
-      },
-      {
-        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f6E456',
-        value: numberToHex(parseEther('0.001')),
-        data: '0x' // Another ETH transfer
-      }
-    ];
+    const nftAddress = '0x119Ea671030FBf79AB93b436D2E20af6ea469a19';
 
     const result = await provider.request({
       method: 'wallet_sendCalls',
@@ -243,12 +162,12 @@ the [Coinbase Developer Platform documentation](https://docs.cdp.coinbase.com/pa
         version: '1.0',
         chainId: numberToHex(base.constants.CHAIN_IDS.baseSepolia),
         from: fromAddress,
-        calls: calls,
-        capabilities: {
-          paymasterService: {
-            url: paymasterServiceUrl
-          }
-        }
+        calls: [{
+          to: nftAddress,
+          value: '0x0',
+          data: encodeFunctionData({ abi: nftABI, functionName: 'safeMint', args: [fromAddress] })
+        }],
+        capabilities: { paymasterService: { url: paymasterServiceUrl } }
       }]
     });
 
@@ -256,46 +175,7 @@ the [Coinbase Developer Platform documentation](https://docs.cdp.coinbase.com/pa
   }
   ```
 
-  ### Check Paymaster Capabilities
-
-  Before sending sponsored transactions, you can check if the wallet supports paymaster services:
-
-  ```tsx
-  async function checkPaymasterSupport() {
-    const sdk = createBaseAccountSDK({
-      appName: 'Paymaster Demo',
-      appLogoUrl: 'https://base.org/logo.png',
-      appChainIds: [base.constants.CHAIN_IDS.baseSepolia],
-    });
-
-    const provider = sdk.getProvider();
-    const cryptoAccount = await getCryptoKeyAccount();
-    const address = cryptoAccount?.account?.address;
-
-    try {
-      const capabilities = await provider.request({
-        method: 'wallet_getCapabilities',
-        params: [address]
-      });
-
-      const baseCapabilities = capabilities[base.constants.CHAIN_IDS.baseSepolia];
-      
-      if (baseCapabilities?.paymasterService?.supported) {
-        console.log('Paymaster service is supported');
-        return true;
-      } else {
-        console.log('Paymaster service is not supported');
-        return false;
-      }
-    } catch (error) {
-      console.error('Failed to check paymaster capabilities:', error);
-      return false;
-    }
-  }
-  ```
-
-  That's it! Base Account will handle the rest. If your Paymaster service is able to sponsor the transaction,
-  in the UI Base Account will indicate to your user that the transaction is sponsored.
+  That's it! Base Account will handle the rest.
 
   </Step>
 </Steps>
