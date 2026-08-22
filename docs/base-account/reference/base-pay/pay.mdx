@@ -23,6 +23,10 @@ Ethereum address to send USDC to (must start with 0x).
 **Pattern:** `^0x[0-9a-fA-F]{40}$`
 </ParamField>
 
+<ParamField body="dataSuffix" type="`0x${string}`">
+Optional attribution data suffix to append to the transaction calldata. Must be a `0x`-prefixed hex string (e.g., `"0xabc123"`). Use this to pass [Builder Codes](/base-chain/builder-codes/builder-codes) or other onchain attribution identifiers. No fixed length requirement.
+</ParamField>
+
 <ParamField body="testnet" type="boolean">
 Set to true to use Base Sepolia testnet instead of mainnet. Default: false
 </ParamField>
@@ -91,6 +95,24 @@ try {
     amount: "10.50",
     to: "0x1234567890123456789012345678901234567890",
     testnet: false
+  });
+  console.log(`Payment sent! Transaction ID: ${payment.id}`);
+} catch (error) {
+  console.error(`Payment failed: ${error.message}`);
+}
+```
+
+```typescript Payment with Attribution (dataSuffix)
+import { pay } from '@base-org/account';
+
+// Replace with your app's ERC-8021 data suffix from Builder Codes.
+const DATA_SUFFIX = "0x07626173656170700080218021802180218021802180218021";
+
+try {
+  const payment = await pay({
+    amount: "10.50",
+    to: "0x1234567890123456789012345678901234567890",
+    dataSuffix: DATA_SUFFIX,
   });
   console.log(`Payment sent! Transaction ID: ${payment.id}`);
 } catch (error) {
