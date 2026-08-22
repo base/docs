@@ -6,9 +6,10 @@
       iframe.style.background = "transparent";
       iframe.allowTransparency = true;
 
-      // Use postMessage to communicate with the iframe since we can't access contentDocument due to CORS
+      // Send message via a specific postMessage format that storybook-dark-mode addon expects
       const sendThemeMessage = () => {
         try {
+          // Standard custom theme message (from previous logic)
           const message = {
             type: 'THEME_CHANGE',
             isDark: isDark,
@@ -17,6 +18,11 @@
             }
           };
           iframe.contentWindow.postMessage(message, '*');
+
+          // Send message to storybook-dark-mode channel to toggle its internal state
+          iframe.contentWindow.postMessage(JSON.stringify({
+            event: { type: 'storybook-dark-mode', args: [isDark] }
+          }), '*');
         } catch (e) {
           console.warn("Could not send message to iframe:", e);
         }
@@ -53,7 +59,6 @@
     document.addEventListener("DOMContentLoaded", updateIframesForDarkMode);
   } else {
     setTimeout(updateIframesForDarkMode, 100);
-    // TODO: add Storybook with Darkmode enabled
     let themeChangeCount = 0;
     const themeChangeInterval = setInterval(() => {
       if (themeChangeCount < 2) {
