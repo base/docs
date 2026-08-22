@@ -210,51 +210,35 @@ import {MyToken} from "../src/MyToken.sol";
 
 contract DeployToken is Script {
     function run() external {
-        // Load deployer's private key from environment variables
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployerAddress = vm.addr(deployerPrivateKey);
+        // Use secure keystore (recommended - never commit raw keys)
+        // First run: cast wallet import deployer --interactive
+        address deployerAddress = vm.addr(vm.envUint("DEPLOYER_KEYSTORE")); // or use --account deployer
         
-        // Token configuration parameters
-        string memory name = "My Token";
-        string memory symbol = "MTK";
-        uint256 initialSupply = 100_000_000 * 10**18; // 100 million tokens
+        // ... token config ...
+
+        vm.startBroadcast();  // With keystore, no private key passed in script if using --account
         
-        // Start broadcasting transactions
-        vm.startBroadcast(deployerPrivateKey);
+        MyToken token = new MyToken(...);
         
-        // Deploy the token contract
-        MyToken token = new MyToken(
-            name,
-            symbol,
-            initialSupply,
-            deployerAddress
-        );
-        
-        // Stop broadcasting transactions
         vm.stopBroadcast();
         
-        // Log deployment information
         console.log("Token deployed to:", address(token));
-        console.log("Token name:", token.name());
-        console.log("Token symbol:", token.symbol());
-        console.log("Initial supply:", token.totalSupply());
-        console.log("Deployer balance:", token.balanceOf(deployerAddress));
+        // ...
     }
 }
 ```
 
 ### Environment Configuration
 
-Create a `.env` file with your configuration:
+Create a `.env` file for your RPC URLs and API keys (never store private keys here):
 
 ```bash .env
-PRIVATE_KEY=your_private_key_here
 BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 BASE_MAINNET_RPC_URL=https://mainnet.base.org
 BASESCAN_API_KEY=your_basescan_api_key_here
 ```
 
-Update `foundry.toml` for Base network configuration:
+Update `foundry.toml` to use these variables:
 
 ```toml foundry.toml
 [profile.default]
@@ -271,6 +255,21 @@ base_mainnet = "${BASE_MAINNET_RPC_URL}"
 base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
 base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
 ```
+
+**Secure Deployer Setup (Recommended)**
+
+Use Foundry's encrypted keystore instead of exposing a raw private key:
+
+```bash Terminal
+# Import your wallet (run once)
+cast wallet import deployer --interactive
+```
+
+When prompted, enter your private key and set a strong password. The keystore is stored securely in `~/.foundry/keystores/` and is not tracked by Git.
+
+> **Warning**: Never commit private keys or `.env` files containing secrets to version control. Use keystores or hardware wallets for production deployments.
+
+> **Tip**: See the full [Deploy Smart Contracts guide](https://github.com/base/docs/blob/master/docs/get-started/deploy-smart-contracts.mdx) for more environment setup details and alternatives.
 
 ### Testing
 
