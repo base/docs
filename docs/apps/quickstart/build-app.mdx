@@ -560,6 +560,24 @@ export const config = createConfig({
 For production, the public endpoints are rate-limited — connect through a Flashblocks-enabled [node provider](/base-chain/node-operators/node-providers). For the underlying RPC behavior (the `pending` block tag and supported methods), see the [RPC Overview](/base-chain/api-reference/rpc-overview#flashblocks) and the [Flashblocks Reference](/base-chain/flashblocks/faq).
 </Note>
 
+### Handle stale or unavailable Flashblocks
+
+Treat Flashblocks and `pending` reads as an optimistic UX layer. Keep canonical `latest` block polling and transaction receipt polling as the source of truth for balances, settlement, and irreversible user actions.
+
+Use a fallback path when any of these conditions are met:
+
+- Flashblock or `pending` updates stop changing within your expected update window while `latest` continues to progress.
+- A provider stops returning `pending` state or responds with repeated errors.
+- A WebSocket subscription disconnects, is rate limited, or reconnects repeatedly.
+
+When the fallback path is active:
+
+- Continue showing pending state when it is available, but label it as preconfirmed or optimistic.
+- Show the transaction hash immediately after submission so users can inspect progress independently.
+- Poll `eth_getTransactionReceipt` until the transaction is canonically included.
+- Refresh balances and final UI state from `latest` after inclusion.
+- Avoid blocking critical buttons or irreversible confirmations on `pending` state alone.
+
 ## Next steps
 
 - **Go to mainnet** — add `base` to your `chains` array and transports in `config/wagmi.ts`, redeploy your contract to Base mainnet, and update `COUNTER_ADDRESS`.
