@@ -334,10 +334,8 @@ export function SignInWithBase({ connector }: SignInWithBaseProps) {
     const provider = await connector.getProvider();
     if (provider) {
       try {
-        // Generate a fresh nonce (this will be overwritten with the backend nonce)
-        const clientNonce =
-          Math.random().toString(36).substring(2, 15) +
-          Math.random().toString(36).substring(2, 15);
+        // Generate a cryptographically secure nonce using Web Crypto API
+        const clientNonce = crypto.randomUUID();
         console.log("clientNonce", clientNonce);
         // Connect with SIWE to get signature, message, and address
         const accounts = await (provider as any).request({
