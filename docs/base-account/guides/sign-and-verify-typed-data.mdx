@@ -172,6 +172,7 @@ export async function verifyTypedData(req, res) {
 ## Example Express Server
 
 ```ts title="server/typed-data.ts"
+import crypto from 'crypto';
 import express from 'express';
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
@@ -190,7 +191,7 @@ const usedNonces = new Set<string>();
 app.get('/typed-data/prepare', (req, res) => {
   const { userAddress, action, resource } = req.query;
   
-  const nonce = Math.floor(Math.random() * 1000000);
+  const nonce = crypto.randomInt(1_000_000);
   const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 hour
   
   const typedData = {
