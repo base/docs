@@ -147,11 +147,20 @@ try {
 ```ts Backend (Viem)
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
+import { parseSiweMessage } from 'viem/siwe';
 
 const client = createPublicClient({ chain: base, transport: http() });
 
 export async function verifySig(req, res) {
   const { address, message, signature } = req.body;
+  
+  // 1. Validate SIWE domain to prevent cross-domain replay attacks
+  const siweMessage = parseSiweMessage(message);
+  if (siweMessage.domain !== 'yourapp.com') {
+    return res.status(400).json({ error: 'Domain mismatch' });
+  }
+  
+  // 2. Verify signature
   const valid = await client.verifyMessage({ address, message, signature });
   if (!valid) return res.status(401).json({ error: 'Invalid signature' });
   // create session / JWT
@@ -185,6 +194,7 @@ import crypto from "crypto";
 import express from "express";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
+import { parseSiweMessage } from "viem/siwe";
 
 const app = express();
 app.use(express.json());
@@ -209,11 +219,17 @@ app.post("/auth/verify", async (req, res) => {
     return res.status(400).json({ error: "Invalid or reused nonce" });
   }
 
-  // 2. Verify signature
+  // 2. Validate SIWE domain to prevent cross-domain replay attacks
+  const siweMessage = parseSiweMessage(message);
+  if (siweMessage.domain !== 'yourapp.com') {
+    return res.status(400).json({ error: 'Domain mismatch' });
+  }
+
+  // 3. Verify signature
   const valid = await client.verifyMessage({ address, message, signature });
   if (!valid) return res.status(401).json({ error: "Invalid signature" });
 
-  // 3. Create session / JWT here
+  // 4. Create session / JWT here
   res.json({ ok: true });
 });
 
