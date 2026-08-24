@@ -1,0 +1,48 @@
+---
+title: "IB20.updatePolicy"
+description: "Generated B20 reference for updatePolicy(bytes32,uint64)."
+---
+
+
+
+## Signature
+
+```solidity
+function updatePolicy(bytes32 policyScope, uint64 newPolicyId) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xadf9c4ea` |
+| Canonical signature | `updatePolicy(bytes32,uint64)` |
+
+## Description
+
+Updates the policy ID assigned to `policyScope`. Takes effect immediately for the next operation that consults this slot. Emits `PolicyUpdated`.
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `policyScope` | Policy slot scope. |
+| `newPolicyId` | Policy ID to assign to the slot. |
+
+## Reverts
+
+- `AccessControlUnauthorizedAccount` when the caller does not hold `DEFAULT_ADMIN_ROLE`.
+- `UnsupportedPolicyType` when `policyScope` is not recognized by this token.
+- `PolicyNotFound` when `newPolicyId` is not a built-in sentinel and does not exist in the registry.
+
+## Access control
+
+`DEFAULT_ADMIN_ROLE` gates this call. Factory initCalls bypass the role gate during creation.
+
+## Policy interaction
+
+Reads or writes a token policy-scope pointer into the PolicyRegistry.
+
+## Example
+
+```solidity
+IB20(token).updatePolicy(B20Constants.MINT_RECEIVER_POLICY, policyId);
+```

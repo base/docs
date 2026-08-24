@@ -1,0 +1,56 @@
+---
+title: "IB20.seizeWithMemo"
+description: "Generated B20 reference for seizeWithMemo(address,address,uint256,bytes32)."
+---
+
+
+
+## Signature
+
+```solidity
+function seizeWithMemo(address from, address to, uint256 amount, bytes32 memo) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xf916d81b` |
+| Canonical signature | `seizeWithMemo(address,address,uint256,bytes32)` |
+
+## Description
+
+Seizes `amount` of `from`'s balance and reassigns it to `to` in a single admin operation. Emits, in order, `Transfer(from, to, amount)`, `Memo(caller, memo)`, and `Seized(caller, from, to, amount)`. A memo of `bytes32(0)` is permitted.
+
+Admin operation: skips allowance and the transfer policies. The membership checks are that `from` is blocked under `SEIZE_HOLDER_POLICY` and `to` is authorized under `SEIZE_RECEIVER_POLICY`.
+`to` is gated by `SEIZE_RECEIVER_POLICY`, which defaults to always-allow when unset, so an unconfigured token may seize to any destination (a treasury need not be allowlisted).
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `from` | Account whose balance is being seized. |
+| `to` | Destination address for the seized balance. |
+| `amount` | Amount to seize. |
+| `memo` | Memo payload. |
+
+## Reverts
+
+- `ContractPaused(SEIZE)` when `SEIZE` is paused.
+- `AccessControlUnauthorizedAccount` when the caller does not hold `SEIZE_ROLE`.
+- `InvalidReceiver` when `to == address(0)`.
+- `AccountNotSeizable` when `from` is currently authorized under `SEIZE_HOLDER_POLICY`.
+- `PolicyForbids(SEIZE_RECEIVER_POLICY, ...)` when `to` is not authorized under `SEIZE_RECEIVER_POLICY`.
+- `InsufficientBalance` when `from`'s balance is below `amount`.
+
+## Access control
+
+`SEIZE_ROLE` gates seizure calls.
+
+## Policy interaction
+
+Checks `SEIZE_HOLDER_POLICY` for the holder and `SEIZE_RECEIVER_POLICY` for the destination.
+
+## Example
+
+```solidity
+IB20(token).seizeWithMemo(holder, destination, amount, memo);
+```
