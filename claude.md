@@ -54,6 +54,9 @@ Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 | File | Purpose |
 |------|---------|
 | [content-instructions.md](content-instructions.md) | Writing guidelines |
+| [ia-guidelines.md](ia-guidelines.md) | What belongs in each tab and section |
+| [changelog-structure.md](changelog-structure.md) | Changelog entry template and naming convention |
+| [specs-guidelines.md](specs-guidelines.md) | Spec page types, structure, and writing rules |
 | [mintlify-reference.md](mintlify-reference.md) | Component syntax |
 | [scripts/README.md](scripts/README.md) | Linter usage |
 
