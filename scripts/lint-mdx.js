@@ -249,8 +249,20 @@ function checkMintlifyComponents(content, filePath) {
   // Valid callout components
   const validCallouts = ["Note", "Tip", "Warning", "Info", "Check"];
 
+  function collectTagText(start) {
+    let text = lines[start];
+    let end = start;
+    while (!text.includes(">") && end + 1 < lines.length) {
+      end += 1;
+      text += `\n${lines[end]}`;
+    }
+    return text;
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const startsSupportedTag = /<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup|img)(\s|>|$)/.test(line);
+    const tagText = startsSupportedTag ? collectTagText(i) : line;
 
     // Check for HTML comments
     if (line.includes("<!--")) {
@@ -274,11 +286,11 @@ function checkMintlifyComponents(content, filePath) {
     }
 
     // Check opening tags
-    const openTagMatch = line.match(/<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)(\s[^>]*)?\/?>/);
+    const openTagMatch = tagText.match(/<(Step|Tab|Accordion|Card|CardGroup|ParamField|ResponseField|Frame|Steps|Tabs|AccordionGroup)(\s[^>]*)?\/?>/);
     if (openTagMatch) {
       const tag = openTagMatch[1];
       const attrs = openTagMatch[2] || "";
-      const isSelfClosing = line.includes("/>");
+      const isSelfClosing = tagText.includes("/>");
 
       // Check required attributes
       if (requiredAttrs[tag]) {
@@ -328,7 +340,7 @@ function checkMintlifyComponents(content, filePath) {
     }
 
     // Check for img without alt
-    if (line.includes("<img") && !line.includes("alt=")) {
+    if (tagText.includes("<img") && !tagText.includes("alt=")) {
       issues.push({
         line: i + 1,
         severity: "warning",
