@@ -6,7 +6,11 @@ description: "Protect an API with x402 v2 on Base using exact, usage-based, or b
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-[x402](https://docs.x402.org/introduction) turns HTTP `402 Payment Required` into a payment handshake. Your service advertises price and settlement requirements, the agent signs a USDC authorization, and the facilitator verifies and settles it without accounts or API keys.
+[x402](https://docs.x402.org/introduction) turns HTTP `402 Payment Required` into a payment handshake between three roles: a **buyer** (the agent), a **seller** (your API), and a **facilitator** that verifies and settles payment. The seller advertises price and settlement requirements, the agent signs a USDC authorization, and the facilitator settles it. The buyer needs no signup or API key. See how CDP frames the [buyer, seller, and facilitator roles](https://docs.cdp.coinbase.com/x402/how-it-works).
+
+<Note>
+This page walks the raw x402 flow on Base Sepolia against the public test facilitator. To ship to Base mainnet without running crypto infrastructure, settle through the [CDP Facilitator](https://docs.cdp.coinbase.com/x402/seller/facilitator), which provides managed wallets, screening, and settlement. Start from the [seller quickstart](https://docs.cdp.coinbase.com/x402/seller/quickstart).
+</Note>
 
 #### Demo
 
@@ -223,10 +227,29 @@ console.log(await response.json());
 ```
 
 <Warning>
-The public x402.org facilitator is for testnets only. Choose a production facilitator for `eip155:8453`, cap both per-request and aggregate spend in code, protect wallet keys, and never execute instructions returned by a paid endpoint.
+The public x402.org facilitator is for testnets only. For `eip155:8453` (Base mainnet), use a production facilitator such as the [CDP Facilitator](https://docs.cdp.coinbase.com/x402/seller/facilitator), cap both per-request and aggregate spend in code, protect wallet keys, and never execute instructions returned by a paid endpoint. See [production configuration](https://docs.cdp.coinbase.com/x402/seller/production-configuration) before going live.
 </Warning>
+
+## Ship with CDP
+
+CDP runs a production facilitator, managed wallets, and agent-ready accounts so you can take x402 to Base mainnet without operating crypto infrastructure. Pick the path that matches what you want to do.
+
+<CardGroup cols={2}>
+  <Card title="Charge for an endpoint" icon="server" href="https://docs.cdp.coinbase.com/x402/seller/quickstart">
+    Seller quickstart: price a route and settle through the CDP Facilitator.
+  </Card>
+  <Card title="Pay for an API" icon="robot" href="https://docs.cdp.coinbase.com/x402/buyer/quickstart">
+    Buyer quickstart: let an agent discover, pay, and retry automatically.
+  </Card>
+  <Card title="Fund agents with accounts" icon="wallet" href="https://docs.cdp.coinbase.com/x402/agentic-accounts/overview">
+    Give agents managed wallets and onchain spend controls.
+  </Card>
+  <Card title="Charge or pay over MCP" icon="plug" href="https://docs.cdp.coinbase.com/x402/seller/mcp-payments">
+    Add x402 payments to Model Context Protocol tools.
+  </Card>
+</CardGroup>
 
 ## See also
 
-- [x402 seller quickstart](https://docs.x402.org/getting-started/quickstart-for-sellers) · [Buyer quickstart](https://docs.x402.org/getting-started/quickstart-for-buyers)
+- [x402 overview](https://docs.cdp.coinbase.com/x402/welcome) · [Get discovered on Bazaar](https://docs.cdp.coinbase.com/x402/seller/get-discovered)
 - [Verify a payment](/build-on-base/accept-payments/verify-a-payment)
