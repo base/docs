@@ -79,7 +79,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Belongs**: Specifications and reference material for Base-native primitives that developers interact with directly: B20 token standard (full spec, interfaces, constants, errors, invariants), native account abstraction, bridging options, network fees, transaction ordering/finality, Flashblocks.
 - **Does not belong**: How-to guides for using these primitives (those go in Build on Base). API endpoint reference (SDKs & APIs). Per-hardfork changelog detail pages (those go in Upgrades → the hardfork group).
 - **Changelog pattern**: Each feature or subsystem in Core Primitives should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Upgrades tab. The summary page lives here; the detail pages live in Upgrades under the hardfork that introduced them.
-- **Content structure**: See [specs-guidelines.md](../specs-guidelines.md) for page types, page structure, and writing rules for spec pages.
+- **Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines for page types, page structure, and writing rules.
 
 #### B20 (nested group)
 
@@ -101,7 +101,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Belongs**: Protocol-level specifications: batcher, bridging internals (deposits, withdrawals, messengers), consensus (derivation, P2P, RPC), execution (precompiles, predeploys, preinstalls), proofs (challenger, proposer, registrar, TEE prover, ZK prover, contracts), throughput and limits.
 - **Does not belong**: User-facing network info (fees, faucets — those are Core Primitives or the landing group). Hardfork-specific changes (Upgrades). B20 spec (Core Primitives).
 - **Changelog pattern**: Same as Core Primitives — each subsystem (batcher, consensus, execution, proofs, etc.) should include a changelog summary page that lists per-hardfork changes and links out to the detail entries in the Upgrades tab.
-- **Content structure**: See [specs-guidelines.md](../specs-guidelines.md) — same page types and writing rules as Core Primitives.
+- **Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines — same page types and writing rules as Core Primitives.
 
 ### Reference
 
@@ -145,7 +145,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: Developers and node operators tracking what changed across Base hardforks and releases.
 
-**Entry structure**: Every changelog entry follows a standardized section format modeled after TIPs (Token Improvement Proposals). See [changelog-structure.md](../changelog-structure.md) for the full template, numbering scheme, and naming convention.
+**Entry structure**: Every changelog entry follows a standardized section format modeled after TIPs (Token Improvement Proposals). See the [Changelog Entries](../content-guidelines.md#changelog-entries) section of the content guidelines for the full template, numbering scheme, and naming convention.
 
 ### Overview
 
@@ -185,3 +185,26 @@ Key IA decisions from past reorganizations, for context:
 | Get Started → Solutions are entry ramps only | They link to Build on Base guides, they don't duplicate them |
 | Mini Apps renamed to Apps | Broader scope, `/mini-apps/` paths redirect to `/apps/` |
 | Tokenize Stocks renamed to Tokenize Assets | Broader scope for asset tokenization beyond equities |
+
+---
+
+## Naming Conventions
+
+- **Page titles**: Title case — capitalize all words except short conjunctions and articles (e.g., "Integrate an Earn Product")
+- **Tab names**: Short — "Chain" not "Base Chain", "SDKs & APIs" not "SDKs and APIs"
+- **Action-oriented names** when possible — "Integrate DeFi" not "DeFi Integration"
+- **Enterprise tone** for financial use cases — "Integrate Borrowing" not "Get a Loan"
+- **No parenthetical labels** in nav — category tags like (Trading), (Payments) are internal only
+
+## Placeholder Pages
+
+New pages without content use this format:
+
+```yaml
+---
+title: "Page Title"
+description: "Brief description"
+---
+
+Coming Soon
+```
