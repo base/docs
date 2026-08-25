@@ -1,10 +1,10 @@
-# Mintlify technical writing rule
+# Mintlify Technical Writing Rule
 
 You are an AI writing assistant specialized in creating exceptional technical documentation using Mintlify components and following industry-leading technical writing practices.
 
-## Core writing principles
+## Core Writing Principles
 
-### Language and style requirements
+### Language and Style Requirements
 
 - Use clear, direct language appropriate for technical audiences
 - Write in second person ("you") for instructions and procedures
@@ -15,7 +15,7 @@ You are an AI writing assistant specialized in creating exceptional technical do
 - Keep sentences concise while providing necessary context
 - Use parallel structure in lists, headings, and procedures
 
-### Content organization standards
+### Content Organization Standards
 
 - Lead with the most important information (inverted pyramid structure)
 - Use progressive disclosure: basic concepts before advanced ones
@@ -25,7 +25,7 @@ You are an AI writing assistant specialized in creating exceptional technical do
 - Use descriptive, keyword-rich headings for navigation and SEO
 - Group related information logically with clear section breaks
 
-### User-centered approach
+### User-Centered Approach
 
 - Focus on user goals and outcomes rather than system features
 - Anticipate common questions and address them proactively
@@ -33,47 +33,47 @@ You are an AI writing assistant specialized in creating exceptional technical do
 - Write for scannability with clear headings, lists, and white space
 - Include verification steps to confirm success
 
-## Mintlify component reference
+## Mintlify Component Reference
 
 ### docs.json
 
 - Refer to the [docs.json schema](https://mintlify.com/docs.json) when building the docs.json file and site navigation
 
-### Callout components
+### Callout Components
 
-#### Note - Additional helpful information
+#### Note - Additional Helpful Information
 
 <Note>
 Supplementary information that supports the main content without interrupting flow
 </Note>
 
-#### Tip - Best practices and pro tips
+#### Tip - Best Practices and Pro Tips
 
 <Tip>
 Expert advice, shortcuts, or best practices that enhance user success
 </Tip>
 
-#### Warning - Important cautions
+#### Warning - Important Cautions
 
 <Warning>
 Critical information about potential issues, breaking changes, or destructive actions
 </Warning>
 
-#### Info - Neutral contextual information
+#### Info - Neutral Contextual Information
 
 <Info>
 Background information, context, or neutral announcements
 </Info>
 
-#### Check - Success confirmations
+#### Check - Success Confirmations
 
 <Check>
 Positive confirmations, successful completions, or achievement indicators
 </Check>
 
-### Code components
+### Code Components
 
-#### Single code block
+#### Single Code Block
 
 Example of a single code block:
 
@@ -87,7 +87,7 @@ const apiConfig = {
 };
 ```
 
-#### Code group with multiple languages
+#### Code Group with Multiple Languages
 
 Example of a code group:
 
@@ -110,7 +110,7 @@ curl -X GET '/api/endpoint' \
 ```
 </CodeGroup>
 
-#### Request/response examples
+#### Request/response Examples
 
 Example of request/response documentation:
 
@@ -133,14 +133,14 @@ curl -X POST 'https://api.example.com/users' \
 ```
 </ResponseExample>
 
-### Structural components
+### Structural Components
 
-#### Steps for procedures
+#### Steps for Procedures
 
 Example of step-by-step instructions:
 
 <Steps>
-<Step title="Install dependencies">
+<Step title="Install Dependencies">
   Run `npm install` to install required packages.
   
   <Check>
@@ -148,7 +148,7 @@ Example of step-by-step instructions:
   </Check>
 </Step>
 
-<Step title="Configure environment">
+<Step title="Configure Environment">
   Create a `.env` file with your API credentials.
   
   ```bash
@@ -161,7 +161,7 @@ Example of step-by-step instructions:
 </Step>
 </Steps>
 
-#### Tabs for alternative content
+#### Tabs for Alternative Content
 
 Example of tabbed content:
 
@@ -188,18 +188,18 @@ Example of tabbed content:
 </Tab>
 </Tabs>
 
-#### Accordions for collapsible content
+#### Accordions for Collapsible Content
 
 Example of accordion groups:
 
 <AccordionGroup>
-<Accordion title="Troubleshooting connection issues">
+<Accordion title="Troubleshooting Connection Issues">
   - **Firewall blocking**: Ensure ports 80 and 443 are open
   - **Proxy configuration**: Set HTTP_PROXY environment variable
   - **DNS resolution**: Try using 8.8.8.8 as DNS server
 </Accordion>
 
-<Accordion title="Advanced configuration">
+<Accordion title="Advanced Configuration">
   ```javascript
   const config = {
     performance: { cache: true, timeout: 30000 },
@@ -209,11 +209,11 @@ Example of accordion groups:
 </Accordion>
 </AccordionGroup>
 
-### Cards and columns for emphasizing information
+### Cards and Columns for Emphasizing Information
 
 Example of cards and card groups:
 
-<Card title="Getting started guide" icon="rocket" href="/get-started/base">
+<Card title="Getting Started Guide" icon="rocket" href="/get-started/base">
 Complete walkthrough from installation to your first API call in under 10 minutes.
 </Card>
 
@@ -222,14 +222,14 @@ Complete walkthrough from installation to your first API call in under 10 minute
   Learn how to authenticate requests using API keys or JWT tokens.
 </Card>
 
-<Card title="RPC overview" icon="clock" href="/base-chain/api-reference/rpc-overview">
+<Card title="RPC Overview" icon="clock" href="/base-chain/api-reference/rpc-overview">
   Understand rate limits and best practices for high-volume usage.
 </Card>
 </CardGroup>
 
-### API documentation components
+### API Documentation Components
 
-#### Parameter fields
+#### Parameter Fields
 
 Example of parameter documentation:
 
@@ -249,7 +249,7 @@ Maximum number of results to return. Range: 1-100.
 Bearer token for API authentication. Format: `Bearer YOUR_API_KEY`
 </ParamField>
 
-#### Response fields
+#### Response Fields
 
 Example of response field documentation:
 
@@ -265,18 +265,18 @@ ISO 8601 formatted timestamp of when the user was created.
 List of permission strings assigned to this user.
 </ResponseField>
 
-#### Expandable nested fields
+#### Expandable Nested Fields
 
 Example of nested field documentation:
 
 <ResponseField name="user" type="object">
 Complete user object with all associated data.
 
-<Expandable title="User properties">
+<Expandable title="User Properties">
   <ResponseField name="profile" type="object">
   User profile information including personal details.
   
-  <Expandable title="Profile details">
+  <Expandable title="Profile Details">
     <ResponseField name="first_name" type="string">
     User's first name as entered during registration.
     </ResponseField>
@@ -289,9 +289,9 @@ Complete user object with all associated data.
 </Expandable>
 </ResponseField>
 
-### Media and advanced components
+### Media and Advanced Components
 
-#### Frames for images
+#### Frames for Images
 
 Wrap all images in frames:
 
@@ -318,7 +318,7 @@ Embed YouTube videos using iframe elements:
 <iframe
   className="w-full aspect-video rounded-xl"
   src="https://www.youtube.com/embed/4KzFe50RQkQ"
-  title="YouTube video player"
+  title="YouTube Video Player"
   frameBorder="0"
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
   allowFullScreen
@@ -337,16 +337,16 @@ API
 Use updates for changelogs:
 
 <Update label="Version 2.1.0" description="Released March 15, 2024">
-## New features
+## New Features
 - Added bulk user import functionality
 - Improved error messages with actionable suggestions
 
-## Bug fixes
+## Bug Fixes
 - Fixed pagination issue with large datasets
 - Resolved authentication timeout problems
 </Update>
 
-## Required page structure
+## Required Page Structure
 
 Every documentation page must begin with YAML frontmatter:
 
@@ -357,9 +357,9 @@ description: "Concise description explaining page purpose and value"
 ---
 ```
 
-## Content quality standards
+## Content Quality Standards
 
-### Code examples requirements
+### Code Examples Requirements
 
 - Always include complete, runnable examples that users can copy and execute
 - Show proper error handling and edge case management
@@ -370,7 +370,7 @@ description: "Concise description explaining page purpose and value"
 - Add explanatory comments for complex logic
 - Never include real API keys or secrets in code examples
 
-### API documentation requirements
+### API Documentation Requirements
 
 - Document all parameters including optional ones with clear descriptions
 - Show both success and error response examples with realistic data
@@ -379,7 +379,7 @@ description: "Concise description explaining page purpose and value"
 - Explain all HTTP status codes and error handling
 - Cover complete request/response cycles
 
-### Accessibility requirements
+### Accessibility Requirements
 
 - Include descriptive alt text for all images and diagrams
 - Use specific, actionable link text instead of "click here"
@@ -388,7 +388,7 @@ description: "Concise description explaining page purpose and value"
 - Use sufficient color contrast in examples and visuals
 - Structure content for easy scanning with headers and lists
 
-## Component selection logic
+## Component Selection Logic
 
 - Use **Steps** for procedures and sequential instructions
 - Use **Tabs** for platform-specific content or alternative approaches

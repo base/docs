@@ -44,7 +44,7 @@ login_complete (Virtuals HTTP API) message + signature → { token, refreshToken
 Reuse `token` as the `token` parameter on every subsequent Virtuals API call.
 ```
 
-### Step-by-step
+### Step-by-Step
 
 1. **Fetch the wallet address.** Call Base MCP `get_wallets` and use `baseAccount.address`.
 2. **Start login.** POST `login_start` with `walletAddress`. Returns the SIWE `message` to sign and a `nonce` valid for 30 minutes.
@@ -76,7 +76,7 @@ Typical address-mismatch scenarios:
 
 Only after ruling out wallet mismatch, consider the signature-format cause below.
 
-##### Less common: ERC-6492 wrapped signature
+##### Less Common: ERC-6492 Wrapped Signature
 
 In some Base Account smart wallet flows, Base MCP `sign` returns an **ERC-6492 wrapped** signature (used for counterfactual or contract-deployment-attached signing), and the Virtuals verifier expects a plain **ERC-1271** signature.
 
@@ -88,7 +88,7 @@ Recognize ERC-6492 wrapped signatures by:
 
 Do **not** try to unwrap the ERC-6492 envelope manually and submit just the inner bytes — Virtuals rejects that too, because the inner Base Account smart wallet signature format isn't a vanilla ERC-1271 `(r, s, v)` either.
 
-#### 2. Address case mismatch
+#### 2. Address Case Mismatch
 
 Pass the wallet address to `login_start` exactly as returned by Base MCP `get_wallets`. The returned address is lowercase, which is fine — Virtuals normalises it. But when calling `login_complete`, **the `message` you pass must be the verbatim string returned by `login_start`** (which uses the EIP-55 checksummed address). Do not lowercase or otherwise reformat the message. A single character change in casing inside the message hashes to a different value than what was signed and the server will return `Invalid SIWE signature`.
 
@@ -96,19 +96,19 @@ Verified working pattern:
 - `login_start` input: lowercase address (e.g. `0xca8f1eb...`) → fine
 - `login_complete` `message`: verbatim string from the `login_start` response (contains the checksummed `0xCa8F1eB...`) → required
 
-#### 3. Nonce expired
+#### 3. Nonce Expired
 
 SIWE nonces expire 30 minutes after `login_start`. If the user took a long time to approve, or you waited and tried again later, `login_complete` will fail. Restart from `login_start` to get a fresh nonce — do not reuse an old one.
 
-#### 4. Message whitespace / newlines
+#### 4. Message Whitespace / Newlines
 
 The SIWE `message` field in `sign` (as `data.message`) and the `message` field in `login_complete` must be byte-identical to what `login_start` returned. JSON-escape `\n` correctly when embedding in the `sign` tool's `data` payload. When passing the message to `login_complete`, use real newlines (the same characters the JSON `\n` escapes decoded to). Any mismatch — extra trailing whitespace, CRLF vs LF, etc. — breaks the hash and yields `Invalid SIWE signature`.
 
-#### 5. Wallet not deployed on Base
+#### 5. Wallet Not Deployed on Base
 
 ERC-1271 verification calls the wallet contract on Base. If the Base Account smart wallet has never been activated on Base mainnet, the contract isn't deployed and verification will fail even with a structurally correct signature. Confirm deployment by checking `eth_getCode` for the address on Base mainnet — non-empty bytecode means it's deployed. Most Base MCP users will already have a deployed wallet; if not, ask the user to perform a no-op transaction first (any Base transaction will deploy the wallet).
 
-#### 6. Token expired mid-session
+#### 6. Token Expired Mid-Session
 
 JWTs returned by `login_complete` expire after about an hour. When a Virtuals API call returns a 401, POST `login_refresh` with the stored `refreshToken` to get a new access token; only re-run the full SIWE flow if the refresh token is also rejected.
 
@@ -151,7 +151,7 @@ Request example (list agents):
 }
 ```
 
-### Auth methods
+### Auth Methods
 
 | Method | Key args | Purpose |
 |--------|----------|---------|
@@ -159,7 +159,7 @@ Request example (list agents):
 | `login_complete` | `message*`, `signature*` | Exchange signed SIWE message for `{ token, refreshToken, walletAddress }`. |
 | `login_refresh` | `refreshToken*` | Refresh an expired access token without a full SIWE re-auth. |
 
-### Agent management methods
+### Agent Management Methods
 
 All require `token*`.
 
@@ -170,7 +170,7 @@ All require `token*`.
 | `agent_prepare_launch` | `agentId*`, `chainId*`, `symbol*`, `antiSniperTaxType*`, `needAcf*`, `isProject60days*`, `airdropPercent*`, `isRobotics*`, `prebuyAmount*` | Prepare a token launch for an agent. Returns an `approvalUrl` for user confirmation. |
 | `agent_prepare_launch_status` | `agentId*`, `referenceId*` | Poll the status of an in-progress token launch. |
 
-### Agent email methods
+### Agent Email Methods
 
 All require `token*` and `agentId*`.
 
@@ -187,7 +187,7 @@ All require `token*` and `agentId*`.
 | `agent_email_extract_links` | `messageId*` | Extract and categorize every link from a message body. |
 | `agent_email_get_attachment` | `attachmentId*` | Get attachment metadata (filename, MIME type, size). Does not return file content. |
 
-### Agent card methods
+### Agent Card Methods
 
 All require `token*` and `agentId*`.
 

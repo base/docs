@@ -27,7 +27,7 @@ In approval mode, every write call (send, swap, sign, batched calls, and any plu
 5. **Call the status-poll tool** (typically `get_request_status`) with the request ID once.
 6. **Only report success** when the status tool confirms completion.
 
-## Common mistakes
+## Common Mistakes
 
 - Reporting success before the status tool confirms it — the user may not have approved yet.
 - Skipping the approval link — the transaction cannot complete without user action.

@@ -1,4 +1,4 @@
-# SDK and API reference migration plan
+# SDK and API Reference Migration Plan
 
 ## Decision
 
@@ -11,14 +11,14 @@ Use a hybrid reference architecture based on each interface's real source format
 
 Do not model every `eth_*` or `debug_*` method as a separate OpenAPI operation. Base exposes JSON-RPC methods through the same `POST /` transport, while OpenAPI permits only one `post` operation per path. Inventing paths such as `/eth_call` would make the playground send invalid requests.
 
-## Current state
+## Current State
 
 - The Base Chain API has 37 curated MDX pages: one overview, 27 Ethereum JSON-RPC methods, three debug methods, two Flashblocks HTTP methods, three Flashblocks subscriptions, and one Flashblocks overview.
 - Base Account SDK guides and exported-symbol reference are both curated MDX.
 - `docs/openapi/onchainkit.yaml` was unreferenced, had no API server, and described legacy OnchainKit endpoints. It was removed during this planning pass rather than treated as a migration input.
 - API Reference remains in the **SDKs & APIs** tab. The tab keeps its `[WIP]` suffix until route parity and generated-reference validation are complete.
 
-## Target architecture
+## Target Architecture
 
 ### Base Account SDK
 
@@ -45,7 +45,7 @@ Adopt an OpenRPC-style schema as the canonical method inventory. Build a determi
 
 OpenAPI may document the shared `POST /` transport as a single operation, but it must not replace the per-method navigation or pretend that JSON-RPC method names are HTTP paths.
 
-### WebSockets and Flashblocks streams
+### WebSockets and Flashblocks Streams
 
 Create AsyncAPI 3.0 schemas for:
 
@@ -55,7 +55,7 @@ Create AsyncAPI 3.0 schemas for:
 
 Keep these schemas separate when they use different servers or message envelopes. Generated channel pages must retain links to the curated Flashblocks explanation and operational warnings.
 
-## Migration phases
+## Migration Phases
 
 1. **Assign sources and owners.** Identify the SDK release job that produces TypeDoc, the repository that owns the canonical RPC schema, and the owner of Flashblocks message schemas.
 2. **Prove the generators.** Generate three representative RPC pages (`eth_call`, `eth_getLogs`, and `debug_traceTransaction`), one JSON-RPC subscription, one raw Flashblocks channel, and three SDK symbols. Compare them with the current pages without changing navigation.
@@ -64,7 +64,7 @@ Keep these schemas separate when they use different servers or message envelopes
 5. **Migrate with route parity.** Replace one reference group at a time. Preserve URLs where possible and add redirects before removing any authored page.
 6. **Remove `[WIP]`.** Drop the suffix only after the complete reference passes route, search, playground, and example validation in production preview.
 
-## Acceptance criteria
+## Acceptance Criteria
 
 - Every current API and SDK reference route either remains available or has a tested redirect.
 - JSON-RPC playground requests use the real Base endpoint and valid JSON-RPC envelopes.
@@ -74,7 +74,7 @@ Keep these schemas separate when they use different servers or message envelopes
 - CI detects schema drift, broken references, duplicate routes, and stale generated output.
 - Search and `llms.txt` include generated content without duplicating curated pages.
 
-## Mintlify references
+## Mintlify References
 
 - [API playground overview](https://www.mintlify.com/docs/api-playground/overview)
 - [OpenAPI setup](https://www.mintlify.com/docs/api-playground/openapi-setup)

@@ -5,7 +5,7 @@ description: "What B20 is — Base's native token standard — how its factory, 
 
 B20 is Base's native token standard: an ERC-20 superset that runs as a native precompile, which makes transfers cheaper and higher-throughput than a standard contract token while keeping full ERC-20 compatibility. Roles, supply caps, pausing, policy gating, memos, and `permit` are built into the chain, so you don't build, audit, or maintain that logic yourself.
 
-## How B20 works
+## How B20 Works
 
 Every B20 token is created by the singleton [**B20 Factory**](/base-chain/specs/reference/b20#factory), which returns a fully configured token in a single transaction. Two variants cover the common cases:
 
@@ -16,7 +16,7 @@ Both variants share the same core surface: [role-based access control](/base-cha
 
 The rest of this page walks through launching a B20 Asset token: create it, mint its initial supply, and verify the balance onchain. To accept the token as payment in an app, continue with [Accept a B20 payment](/build-on-base/accept-payments/request-a-payment#accept-b20-with-a-memo).
 
-## Before you begin
+## Before You Begin
 
 You need **Base's Foundry build** (`base-forge`, `base-cast`, [`base-anvil`](https://github.com/base/base-anvil)). Install the Beryl-compatible `v1.1.1` release via `base-foundryup`:
 
@@ -29,7 +29,7 @@ You need **Base's Foundry build** (`base-forge`, `base-cast`, [`base-anvil`](htt
   Standard `forge` cannot simulate calls to B20 precompile addresses (they hold no contract bytecode) and aborts with `call to non-contract address`. Base's `base-forge` registers the precompiles into its EVM. It installs alongside your existing Foundry toolchain without overwriting it — use `base-forge`, `base-cast`, and `base-anvil` for all commands in this guide.
   </Note>
 
-## Verify the Activation Registry is enabled
+## Verify the Activation Registry Is Enabled
 
 <Warning>
 Attempting to deploy before the Activation Registry is enabled will revert with `FeatureNotActivated`. Run the check for the variant you plan to deploy and confirm it returns `true` before proceeding:
@@ -47,7 +47,7 @@ base-cast call $REG "isActivated(bytes32)(bool)" $(base-cast keccak "base.b20_st
 The examples in this guide and the use-case guides target the released Beryl interface in `base-std@v1.0.0`. Do not install from the moving `main` branch: unreleased interfaces can compile while targeting functions that are not part of the documented Beryl surface.
 </Warning>
 
-## Set up Foundry
+## Set Up Foundry
 
 ```bash Terminal theme={null}
 base-forge init b20-quickstart && cd b20-quickstart
@@ -70,7 +70,7 @@ remappings = [
 The interfaces compile with any Solidity `>=0.8.20 <0.9.0`.
 </Note>
 
-## Set up TypeScript and CLI clients
+## Set Up TypeScript and CLI Clients
 
 The task guides use `viem@2.55.11` for application code and `base-cast@v1.1.1` for operational commands. Install viem in a separate project and keep signing keys in environment variables:
 
@@ -112,7 +112,7 @@ Never put a funded private key in browser code, source control, shell history, o
 
 The [B20 specification](/base-chain/specs/reference/b20) documents the complete interface, ABIs, errors, and events used by these guides.
 
-## Choose a network
+## Choose a Network
 
 Pick a network with the B20 precompiles active, then create a `.env` **inside your `b20-quickstart` project directory**. For full network details, see [Connecting to Base](/base-chain/quickstart/connecting-to-base).
 
@@ -235,7 +235,7 @@ Pick a network with the B20 precompiles active, then create a `.env` **inside yo
   </Tab>
 </Tabs>
 
-## Create your token
+## Create Your Token
 
 The factory's single entry point is `createB20(variant, salt, params, initCalls)`:
 
@@ -245,7 +245,7 @@ The factory's single entry point is `createB20(variant, salt, params, initCalls)
 * `initCalls`: optional batch of config calls applied at creation.
 
 <Steps>
-<Step title="Write the create script">
+<Step title="Write the Create Script">
   Use `B20FactoryLib` to encode `params` and `initCalls`. Create `script/CreateToken.s.sol`:
 
   ```solidity script/CreateToken.s.sol highlight={26} theme={null}
@@ -290,7 +290,7 @@ The factory's single entry point is `createB20(variant, salt, params, initCalls)
   Asset decimals are fixed at creation and must be in `[6, 18]`. The supply cap is optional; the no-cap sentinel is `type(uint128).max` (the cap can never exceed `uint128.max`).
   </Info>
 
-  <Accordion title="Want a stablecoin instead?">
+  <Accordion title="Want a Stablecoin Instead?">
   Use the `STABLECOIN` variant and its params encoder. A stablecoin fixes decimals at 6 and carries an immutable ISO currency code (uppercase `A`–`Z`) instead of a configurable decimals value:
 
   ```solidity theme={null}
@@ -303,7 +303,7 @@ The factory's single entry point is `createB20(variant, salt, params, initCalls)
   </Accordion>
 </Step>
 
-<Step title="Deploy the factory call">
+<Step title="Deploy the Factory Call">
   ```bash Terminal theme={null}
   source .env
   base-forge script script/CreateToken.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
@@ -321,7 +321,7 @@ The factory's single entry point is `createB20(variant, salt, params, initCalls)
   ```
 </Step>
 
-<Step title="Capture the token address">
+<Step title="Capture the Token Address">
   Save the address to an environment variable so the next step needs no copy-paste. The broadcast artifact holds the return value:
 
   ```bash Terminal theme={null}
@@ -340,12 +340,12 @@ The factory's single entry point is `createB20(variant, salt, params, initCalls)
 </Step>
 </Steps>
 
-## Mint and verify
+## Mint and Verify
 
 Minting requires `MINT_ROLE`, which `initCalls` granted to your account.
 
 <Steps>
-<Step title="Mint supply">
+<Step title="Mint Supply">
   ```bash Terminal theme={null}
   base-cast send $TOKEN_ADDRESS "mint(address,uint256)" $ACCOUNT_ADDRESS 1000000000000000000000 \
     --rpc-url $RPC_URL --private-key $PRIVATE_KEY
@@ -354,7 +354,7 @@ Minting requires `MINT_ROLE`, which `initCalls` granted to your account.
   `base-cast send` prints a receipt with `status 1 (success)`.
 </Step>
 
-<Step title="Confirm the balance">
+<Step title="Confirm the Balance">
   ```bash Terminal theme={null}
   base-cast call $TOKEN_ADDRESS "balanceOf(address)(uint256)" $ACCOUNT_ADDRESS --rpc-url $RPC_URL
   # 1000000000000000000000 [1e21]
@@ -366,7 +366,7 @@ Minting requires `MINT_ROLE`, which `initCalls` granted to your account.
 </Step>
 </Steps>
 
-## What you built
+## What You Built
 
 In this guide you:
 
@@ -377,7 +377,7 @@ In this guide you:
 
 All without writing, deploying, or auditing a token contract.
 
-## Next steps
+## Next Steps
 
 * [Accept a B20 payment in an app](/build-on-base/accept-payments/request-a-payment#accept-b20-with-a-memo): wire this token into a checkout flow that tags each payment with an order ID and reconciles it from onchain events.
 * Gate transfers or mints with PolicyRegistry policies, add granular pause, or manage roles. See the [B20 token standard](/base-chain/specs/reference/b20).

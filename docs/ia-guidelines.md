@@ -74,7 +74,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: Developers and technical users who need to understand how Base works at the chain level — primitives, protocol internals, network configuration, and node operations.
 
-### Base Protocol (landing)
+### Base Protocol (Landing)
 
 - **Belongs**: Chain overview, connecting to Base quickstart, faucets. Entry points into the protocol tab.
 - **Does not belong**: Integration guides or solutions-first style writing. This section is meant for technical-first style writing. SDK setup (that's SDKs & APIs).
@@ -86,17 +86,17 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Changelog pattern**: Each feature or subsystem in Core Primitives should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Upgrades tab. The summary page lives here; the detail pages live in Upgrades under the hardfork that introduced them.
 - **Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines for page types, page structure, and writing rules.
 
-#### B20 (nested group)
+#### B20 (Nested Group)
 
 - **Belongs**: The normative B20 specification: index page, constants and addresses, errors and events, invariants and tests, interface reference pages (IActivationRegistry, IB20, IB20Asset, IB20Factory, IB20Stablecoin, IPolicyRegistry), and a changelog summary page that links to the per-hardfork detail entries in the Upgrades tab.
 - **Does not belong**: Tutorials on deploying B20 tokens (Build on Base → Issue Stablecoins). Per-hardfork changelog detail pages (Upgrades → Cobalt, Beryl, etc.). The "B20 token standard" overview for general audiences (that's a network-information page, not the spec).
 
-#### Bridging (nested group)
+#### Bridging (Nested Group)
 
 - **Belongs**: Ecosystem bridges overview, Base-Solana bridge, bridging and withdrawals user guide, and a changelog summary page linking to hardfork entries that changed bridging.
 - **Does not belong**: Protocol-level bridging specs (those go in Network Systems → Bridging).
 
-#### Transactions (nested group)
+#### Transactions (Nested Group)
 
 - **Belongs**: Transaction ordering, transaction finality — how users experience transactions. Include a changelog summary page linking to hardfork entries that changed transaction behavior.
 - **Does not belong**: Derivation pipeline or consensus specs (Network Systems → Consensus).
@@ -162,19 +162,19 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Belongs**: Configuration changelog — network parameter changes that don't belong to a specific hardfork.
 - **Does not belong**: Feature announcements or blog-style content.
 
-### Cobalt / Beryl / Azul (upgrade groups)
+### Cobalt / Beryl / Azul (Upgrade Groups)
 
 - **Belongs**: Per-hardfork overview and the specific changes introduced in that hardfork — including feature-specific entries (e.g., B20 improvements, EIP-8130, reth-v2, node upgrades, proof system changes). All per-feature changelog entries go under the hardfork that introduced them, not in a separate per-feature group.
 - **Does not belong**: The current/canonical specification for features modified in the hardfork. After a hardfork ships, the canonical spec lives in Base Protocol; the Upgrades entry records *what changed and how to migrate*. No standalone per-feature sections — B20 changes go under Cobalt/Beryl, not a separate "B20" group.
 
-### Optimism (hardfork groups)
+### Optimism (Hardfork Groups)
 
 - **Belongs**: Upstream OP Stack hardfork specs that Base inherits (Jovian, Isthmus, Holocene, Granite, Fjord, Ecotone, Delta, Canyon). Each gets an overview plus per-component pages (exec-engine, derivation, predeploys, etc.).
 - **Does not belong**: Base-specific hardfork content (use the Base-named groups above). Current protocol specs (Base Protocol → Network Systems).
 
 ---
 
-## Decision log
+## Decision Log
 
 Key IA decisions from past reorganizations, for context:
 

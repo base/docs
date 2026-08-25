@@ -3,7 +3,7 @@ title: "Verify Social Accounts"
 description: "Use Base Verify to let users prove ownership of verified accounts (X, Coinbase, Instagram, TikTok) without sharing credentials, enabling Sybil-resistant airdrops, gated content, and identity-based rewards."
 ---
 
-## What is Base Verify?
+## What Is Base Verify?
 
 Base Verify allows users to prove ownership of verified accounts on [X](https://x.com/), [Coinbase](https://www.coinbase.com/), [Instagram](https://www.instagram.com/), and [TikTok](https://www.tiktok.com/) without sharing credentials. Your app receives a deterministic token for Sybil resistance.
 
@@ -19,7 +19,7 @@ If you still need wallet connection or message signing in your app, start with [
 
 ---
 
-## Core concepts
+## Core Concepts
 
 ### Provider
 
@@ -52,7 +52,7 @@ A developer-defined string that identifies what the user is doing with their ver
 - `unlock_premium_content` — accessing gated content
 - `participate_in_raffle` — entering a raffle
 
-#### How actions work
+#### How Actions Work
 
 Actions are specified in the [Sign-In with Ethereum (SIWE)](https://eips.ethereum.org/EIPS/eip-4361) message resources:
 
@@ -73,7 +73,7 @@ The action is returned in the API response:
 }
 ```
 
-#### Why actions matter
+#### Why Actions Matter
 
 **Different actions produce different tokens.** This enables multiple independent claims from the same verified account:
 
@@ -87,7 +87,7 @@ The action is returned in the API response:
 - **Feature gating** — different tokens for different premium features
 - **Time-based events** — new action per event (e.g., `raffle_jan_2025`, `raffle_feb_2025`)
 
-#### Choosing action names
+#### Choosing Action Names
 
 Use descriptive, lowercase names with underscores:
 
@@ -101,18 +101,18 @@ Use descriptive, lowercase names with underscores:
 Once you launch with an action name, don't change it. Changing the action generates different tokens for the same users, breaking your Sybil resistance.
 </Warning>
 
-### Token — Sybil resistance
+### Token — Sybil Resistance
 
 A deterministic identifier tied to the provider account, not the wallet. **This is the key anti-Sybil mechanism.**
 
-#### How it works
+#### How It Works
 
 1. Wallet A verifies an X account → Base Verify returns `Token: abc123` → you have never seen it, so grant the airdrop.
 2. The same X account tries again with Wallet B → Base Verify returns `Token: abc123` → you have seen it, so block the duplicate claim.
 
 Without Base Verify, users could claim multiple times with different wallets. With Base Verify, one verified account = one token = one claim.
 
-#### Token properties
+#### Token Properties
 
 - **Deterministic** — the same provider account always produces the same token
 - **Unique per provider** — a user's X token is different from their Instagram token
@@ -121,7 +121,7 @@ Without Base Verify, users could claim multiple times with different wallets. Wi
 - **Persistent** — tokens don't expire or rotate (unless the user deletes their verification)
 - **Trait-independent** — tokens stay the same even if traits change (e.g., follower count increases)
 
-#### How to store tokens
+#### How to Store Tokens
 
 ```json Verification token storage record
 {
@@ -132,7 +132,7 @@ Without Base Verify, users could claim multiple times with different wallets. Wi
 }
 ```
 
-#### Prevent double claims
+#### Prevent Double Claims
 
 ```typescript Prevent duplicate claims by token expandable lines
 async function claimAirdrop(verificationToken: string, walletAddress: string) {
@@ -154,7 +154,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 
 ---
 
-## Architecture and flow
+## Architecture and Flow
 
 ```text Base Verify architecture and verification flow
                     ┌─────────────┐
@@ -209,7 +209,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
                         └─────────────┘
 ```
 
-### Your app's responsibilities
+### Your App's Responsibilities
 
 - Generate SIWE messages with trait requirements
 - Handle user wallet connection
@@ -217,7 +217,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 - Store the returned verification token to prevent reuse
 - Keep your secret key secure on the backend
 
-### Base Verify's responsibilities
+### Base Verify's Responsibilities
 
 - Validate SIWE signatures
 - Store provider verifications (X, Coinbase, Instagram, TikTok)
@@ -225,7 +225,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 - Facilitate OAuth flow with providers
 - Return deterministic tokens for Sybil resistance
 
-### Response codes
+### Response Codes
 
 | Code | Meaning | Action |
 | :--- | :--- | :--- |
@@ -235,7 +235,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 
 ---
 
-## Getting started
+## Getting Started
 
 ### Prerequisites
 
@@ -243,7 +243,7 @@ async function claimAirdrop(verificationToken: string, walletAddress: string) {
 2. **Wallet integration** — users must be able to connect and sign messages. See [Authenticate users](/sdks/base-account/guides/authenticate-users) or the [web React quickstart](/sdks/base-account/quickstart/web-react)
 3. **Backend server** — to securely call the Base Verify API and keep your secret key private. For a similar frontend-to-backend signing pattern, see [Sign and verify typed data](/sdks/base-account/guides/sign-and-verify-typed-data)
 
-### Register your app
+### Register Your App
 
 Provide the Base Verify team:
 
@@ -259,7 +259,7 @@ Your secret key must **never** be exposed in frontend code. All Base Verify API 
 ## Implementation
 
 <Steps>
-<Step title="Configure your app">
+<Step title="Configure Your App">
 
 Create a configuration file for your Base Verify integration:
 
@@ -280,7 +280,7 @@ BASE_VERIFY_SECRET_KEY=your_secret_key_here
 
 </Step>
 
-<Step title="Generate the SIWE signature (frontend)">
+<Step title="Generate the SIWE Signature (Frontend)">
 
 Build a [SIWE](https://eips.ethereum.org/EIPS/eip-4361) message that includes the provider, trait requirements, and action:
 
@@ -321,7 +321,7 @@ export async function generateSignature(
 
 </Step>
 
-<Step title="Check verification (frontend → backend)">
+<Step title="Check Verification (Frontend → Backend)">
 
 The frontend generates the signature and sends it to **your** backend, which calls the Base Verify API.
 
@@ -414,7 +414,7 @@ Your backend **must** validate that the trait requirements in the SIWE message m
 
 </Step>
 
-<Step title="Redirect to Base Verify (frontend)">
+<Step title="Redirect to Base Verify (Frontend)">
 
 If you receive a 404 response, redirect the user to the Base Verify App to complete OAuth:
 
@@ -437,7 +437,7 @@ After verification, the user returns to your `redirect_uri` with `?success=true`
 </Step>
 </Steps>
 
-### Error handling
+### Error Handling
 
 | Response | What to do |
 | :--- | :--- |
@@ -451,7 +451,7 @@ Do **not** retry 404 responses — the user simply hasn't verified yet. Do **not
 
 ---
 
-## API reference
+## API Reference
 
 ### Authentication
 
@@ -474,7 +474,7 @@ Check if a wallet has a specific verification and retrieve the verification toke
 }
 ```
 
-#### Example request
+#### Example Request
 
 ```bash POST /v1/base_verify_token cURL example wrap
 curl -X POST https://verify.base.dev/v1/base_verify_token \
@@ -536,7 +536,7 @@ The user has the provider account but doesn't meet trait requirements. Do not re
 
 Check that your secret key is correct and included in the Authorization header.
 
-### App redirect
+### App Redirect
 
 To redirect users to Base Verify for verification:
 
@@ -551,7 +551,7 @@ https://verify.base.dev?redirect_uri={your_app_url}&providers={provider}
 
 ---
 
-## Trait catalog
+## Trait Catalog
 
 Traits are specific attributes of a provider account that you can verify. They are specified in [SIWE](https://eips.ethereum.org/EIPS/eip-4361) message resources using this format:
 
@@ -570,7 +570,7 @@ urn:verify:provider:{provider}:{trait_name}:{operation}:{value}
 | Less/equal | `lte` | Integers | Less or equal | `followers:lte:5000` |
 | In (list) | `in` | Strings | Value in comma-separated list | `verified_type:in:blue,government` |
 
-### Type system
+### Type System
 
 **Boolean traits:**
 
@@ -590,7 +590,7 @@ urn:verify:provider:{provider}:{trait_name}:{operation}:{value}
 - Supports: `eq`, `in`
 - Example: `verified_type:eq:blue` or `verified_type:in:blue,government`
 
-### Combining traits
+### Combining Traits
 
 When you specify multiple traits for the same provider, **all** must be satisfied (AND logic):
 
@@ -606,7 +606,7 @@ resources: [
 You can only check one provider per request. To check multiple providers, make separate API calls.
 </Note>
 
-### Common patterns
+### Common Patterns
 
 **Tiered access:**
 
@@ -758,9 +758,9 @@ traits: { 'followers': 'gte:10000' }
 
 ---
 
-## Security and privacy
+## Security and Privacy
 
-### SIWE signature requirement
+### SIWE Signature Requirement
 
 Every API call requires a valid [SIWE](https://eips.ethereum.org/EIPS/eip-4361) signature from the wallet owner. This prevents:
 
@@ -783,7 +783,7 @@ The user signs a structured message proving they control the wallet and agree to
 }
 ```
 
-### Validate trait requirements
+### Validate Trait Requirements
 
 <Warning>
 When your backend receives a SIWE message from the frontend, you **must** validate that the trait requirements in the message match what your backend expects. This prevents users from modifying trait requirements on the frontend to bypass your access controls.
@@ -816,7 +816,7 @@ if (!validation.valid) {
 }
 ```
 
-### Protect your secret key
+### Protect Your Secret Key
 
 **Never:**
 
@@ -832,7 +832,7 @@ if (!validation.valid) {
 - Rotate keys immediately if accidentally exposed
 - Call the Base Verify API only from your backend
 
-### OAuth security model
+### OAuth Security Model
 
 Base Verify validates provider accounts through [OAuth](https://oauth.net/2/):
 
@@ -845,7 +845,7 @@ Base Verify validates provider accounts through [OAuth](https://oauth.net/2/):
 
 Your app never handles OAuth tokens or redirects — this is all handled within the Base Verify App.
 
-### Data storage
+### Data Storage
 
 **What Base Verify stores:**
 
@@ -865,7 +865,7 @@ Your app never handles OAuth tokens or redirects — this is all handled within 
 
 When you call `/v1/base_verify_token`, you receive only `token`, `action`, and `wallet`. No PII is returned.
 
-### User control
+### User Control
 
 Users can delete their verifications at any time:
 

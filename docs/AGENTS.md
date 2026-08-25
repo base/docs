@@ -16,15 +16,15 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, Base MCP for AI assistants, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
 - [Static](./static/llms.txt)
 
-## Tools available for AI assistants
+## Tools Available for AI Assistants
 
 These resources give AI assistants direct access to Base documentation and reusable workflows.
 
-### Base MCP server
+### Base MCP Server
 
 `https://docs.base.org/mcp`
 
-### Base skills
+### Base Skills
 
 AI agents can use Base skills to perform onchain actions directly from their tool loop — no custom integration required. Available skills include:
 
@@ -36,7 +36,7 @@ Install Base skills for your AI assistant:
 npx skills add base/base-skills
 ```
 
-## Compact docs index
+## Compact Docs Index
 
 [Docs]|root:./docs
 |agents:overview,quickstart

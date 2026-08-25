@@ -428,7 +428,7 @@ section, otherwise the batch is considered invalid and will be ignored.
 
 ---
 
-# Architecture
+## Architecture
 
 [architecture]: #architecture
 
@@ -557,7 +557,7 @@ A channel is ready if:
 
 If no channel is ready, the next frame is read and ingested into the channel bank.
 
-#### Loading frames
+#### Loading Frames
 
 When a channel ID referenced by a frame is not already present in the Channel Bank,
 a new channel is opened, tagged with the current L1 block, and appended to the channel-queue.
@@ -708,7 +708,7 @@ Additionally, it buffers a short history of references to recently processed saf
 from which L1 blocks each was derived.
 This history does not have to be complete, but enables later L1 finality signals to be translated into L2 finality.
 
-#### Engine API usage
+#### Engine API Usage
 
 To interact with the engine, the [execution engine API][exec-engine] is used, with the following JSON-RPC methods:
 
@@ -768,7 +768,7 @@ The `ExecutionPayload` has the following requirements:
   - The blob gas used field MUST be 0
   - The blob gas limit field MUST be 0
 
-#### Forkchoice synchronization
+#### Forkchoice Synchronization
 
 If there are any forkchoice updates to be applied, before additional inputs are derived or processed, then these are
 applied to the engine first.
@@ -782,7 +782,7 @@ This synchronization may happen when:
 The new forkchoice state is applied by calling [fork choice updated](#engine-api-usage) on the engine API.
 On forkchoice-state validity errors the derivation pipeline must be reset to recover to consistent state.
 
-#### L1-consolidation: payload attributes matching
+#### L1-consolidation: Payload Attributes Matching
 
 If the unsafe head is ahead of the safe head, then [consolidation][g-consolidation] is attempted, verifying that
 existing unsafe L2 chain matches the derived L2 inputs as derived from the canonical L1 data.
@@ -812,7 +812,7 @@ The payload attributes are chosen in favor of the previous unsafe L2 block, crea
 current safe block. Immediately processing the new alternative attributes enables execution engines to
 enact the change, as linear rewinds of the tip of the chain may not be supported.
 
-#### L1-sync: payload attributes processing
+#### L1-sync: Payload Attributes Processing
 
 [exec-engine-comm]: ../execution/index#engine-api
 
@@ -848,7 +848,7 @@ Engine API Error handling:
   - If the payload attributes only contained deposits, then it is a critical derivation error if these are invalid.
 - On forkchoice-state validity errors the derivation pipeline must be reset to recover to consistent state.
 
-#### Processing unsafe payload attributes
+#### Processing Unsafe Payload Attributes
 
 If no forkchoice updates or L1 data remain to be processed, and if the next possible L2 block is already available
 through an unsafe source such as the sequencer publishing it via the p2p network, then it is optimistically processed as
@@ -902,7 +902,7 @@ as it can undo the changes if the L1 later does recognize the data as canonical,
 The Engine Queue is first reset, to determine the L1 and L2 starting points to continue derivation from.
 After this, the other stages are reset independent of each other.
 
-#### Finding the sync starting point
+#### Finding the Sync Starting Point
 
 To find the starting point, there are several steps, relative to the head of the chain traversing back:
 
@@ -935,7 +935,7 @@ back compared to the existing forkchoice state, to avoid an intensive reorg beca
 Implementers note: step 1-4 are known as `FindL2Heads`. Step 5 is currently part of the Engine Queue reset.
 This may change to isolate the starting-point search from the bare reset logic.
 
-#### Resetting derivation stages
+#### Resetting Derivation Stages
 
 1. L1 Traversal: start at L1 `base` as first block to be pulled by next stage.
 2. L1 Retrieval: empty previous data, and fetch the `base` L1 data, or defer the fetching work to a later pipeline step.
@@ -952,7 +952,7 @@ This may change to isolate the starting-point search from the bare reset logic.
 
 Where necessary, stages starting at `base` can initialize their system-config from data encoded in the `l2base` block.
 
-#### About reorgs Post-Merge
+#### About Reorgs Post-Merge
 
 Note that post-[merge], the depth of reorgs will be bounded by the [L1 finality delay][l1-finality]
 (2 L1 beacon epochs, or approximately 13 minutes, unless more than 1/3 of the network consistently disagrees).
@@ -971,7 +971,7 @@ without dispute (fault proof challenge window), a name-collision with the proof-
 
 ---
 
-# Deriving Payload Attributes
+## Deriving Payload Attributes
 
 [deriving-payload-attr]: #deriving-payload-attributes
 
@@ -1016,7 +1016,7 @@ entries.
 Logs are derived from transactions following the future-proof best-effort process described in
 [On Future Proof Transaction Log Derivation](#on-future-proof-transaction-log-derivation)
 
-### Network upgrade automation transactions
+### Network Upgrade Automation Transactions
 
 [network upgrade automation transactions]: #network-upgrade-automation-transactions
 

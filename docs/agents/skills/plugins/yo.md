@@ -80,7 +80,7 @@ A user's holdings, read on-chain — block-fresh. This mirrors the dapp (`usePos
 
 Use **`convertToAssets`, not `previewRedeem`**, for displayed value — `previewRedeem` deducts the withdrawal fee and understates the holding. Report in underlying-asset units; do **not** attempt a USD conversion, and **never** use `get_portfolio` for YO vault tokens (its pricer mis-handles ERC-4626 shares — see [Notes](#notes)).
 
-### deposit
+### Deposit
 
 Same-chain deposit only. Approve the underlying to the Gateway, then call `Gateway.deposit`.
 
@@ -100,7 +100,7 @@ Same-chain deposit only. Approve the underlying to the Gateway, then call `Gatew
 
 `partnerId` is `uint32` — pass `0`. For **native ETH** into yoETH there is no ERC-20 to approve: the underlying is WETH, so the user must hold WETH first (wrap, then the two-call batch above). This plugin is **same-chain only** — cross-chain/zap deposits are out of scope; use the YO dapp.
 
-### withdraw
+### Withdraw
 
 Approve the vault share token to the Gateway (first time only), then call `Gateway.redeem`.
 
@@ -180,7 +180,7 @@ Mapping into `send_calls`:
 
 The same vault `id` is deployed at the **same share-token address on every chain** (e.g. yoUSD is `0x0000000f…` on Base, Ethereum, and Arbitrum) — the differentiator is the chain you call it on.
 
-### Vault registry
+### Vault Registry
 
 Baked-in and **verified on-chain** (symbol, decimals, and `asset()` read live on each chain). One row per deployment; the `share token` is the ERC-4626 vault you read/redeem, the `underlying` is what you approve for deposits.
 
@@ -208,7 +208,7 @@ The share-token address is identical across a vault's chains; only the **underly
 > [!CAUTION]
 > **Never report YO positions from `get_portfolio`.** Its pricer does not understand ERC-4626 vault shares and mis-prices them by 10–10,000×. Report positions in underlying-asset units from `convertToAssets(shares)` instead. `get_portfolio` is fine for plain ERC-20 holdings — just not YO vault tokens.
 
-### Calldata reference
+### Calldata Reference
 
 Encode args by left-padding each value to a 32-byte word and concatenating after the 4-byte selector.
 

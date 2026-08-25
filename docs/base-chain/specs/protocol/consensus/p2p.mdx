@@ -30,7 +30,7 @@ This document only specifies the composition and configuration of these network 
 These components have their own standards, implementations in Go/Rust/Java/Nim/JS/more,
 and are adopted by several other blockchains, most notably the [L1 consensus layer (Eth2)][eth2-p2p].
 
-## P2P configuration
+## P2P Configuration
 
 ### Identification
 
@@ -90,7 +90,7 @@ The listening endpoint must be publicly facing, but may be configured behind a N
 LibP2P will use PMP / UPNP based techniques to track the external IP of the node.
 It is recommended to disable the above if the external IP is static and configured manually.
 
-#### Peer management
+#### Peer Management
 
 The default is to maintain a peer count with a tide-system based on active peer count:
 
@@ -111,12 +111,12 @@ Peers may be banned if their performance score is too low, or if an objectively 
 
 Banned peers will be persisted to the same data-store as the peerstore records.
 
-#### Transport security
+#### Transport Security
 
 [Libp2p-noise][libp2p-noise], `XX` handshake, with the `secp256k1` P2P identity, as popularized in Eth2.
 The TLS option is available as well, but `noise` should be prioritized in negotiation.
 
-#### Protocol negotiation
+#### Protocol Negotiation
 
 [Multistream-select 1.0][multistream-select] (`/multistream/1.0.0`) is an interactive protocol
 used to negotiate sub-protocols supported in LibP2P peers. Multistream-select 2.0 may be used in the future.
@@ -142,7 +142,7 @@ For async communication over different channels over the same connection, multip
 [GossipSub 1.1][gossipsub] (`/meshsub/1.1.0`, i.e. with peer-scoring extension) is a pubsub protocol for mesh-networks,
 deployed on L1 consensus (Eth2) and other protocols such as Filecoin, offering lots of customization options.
 
-##### Content-based message identification
+##### Content-Based Message Identification
 
 Messages are deduplicated, and filtered through application-layer signature verification.
 Thus origin-stamping is disabled and published messages must only contain application data,
@@ -151,12 +151,12 @@ enforced through a [`StrictNoSign` Signature Policy][signature-policy]
 This provides greater privacy, and allows sequencers (consensus identity) to maintain
 multiple network identities for redundancy.
 
-##### Message compression and limits
+##### Message Compression and Limits
 
 The application contents are compressed with [snappy][snappy] single-block-compression
 (as opposed to frame-compression), and constrained to 10 MiB.
 
-##### Message ID computation
+##### Message ID Computation
 
 [Same as L1][l1-message-id], with recognition of compression:
 
@@ -167,7 +167,7 @@ The application contents are compressed with [snappy][snappy] single-block-compr
   the concatenation of `MESSAGE_DOMAIN_INVALID_SNAPPY` with the raw message data,
   i.e. `SHA256(MESSAGE_DOMAIN_INVALID_SNAPPY + message.data)[:20]`.
 
-#### Heartbeat and parameters
+#### Heartbeat and Parameters
 
 GossipSub [parameters][gossip-parameters]:
 
@@ -189,7 +189,7 @@ Notable differences from L1 consensus (Eth2):
 - `heartbeat_interval`: faster interval to reduce latency, bandwidth should still be reasonable since
   there are far fewer messages to gossip about each interval than on L1 which uses an interval of 0.7 seconds.
 
-#### Topic configuration
+#### Topic Configuration
 
 Topics have string identifiers and are communicated with messages and subscriptions.
 `/optimism/chain_id/hardfork_version/Name`
@@ -201,7 +201,7 @@ Topics have string identifiers and are communicated with messages and subscripti
 Note that the topic encoding depends on the topic, unlike L1,
 since there are less topics, and all are snappy-compressed.
 
-#### Topic validation
+#### Topic Validation
 
 To ensure only valid messages are relayed, and malicious peers get scored based on application behavior,
 an [extended validator][extended-validator] checks the message before it is relayed or processed.
@@ -231,7 +231,7 @@ Ecotone blocks are broadcast on `/optimism/<chainId>/2/blocks`.
 
 Isthmus blocks are broadcast on `/optimism/<chainId>/3/blocks`.
 
-### Block encoding
+### Block Encoding
 
 A block is structured as the concatenation of:
 
@@ -252,7 +252,7 @@ A block is structured as the concatenation of:
 All topics use Snappy block-compression (i.e. no snappy frames):
 the above needs to be compressed after encoding, and decompressed before decoding.
 
-### Block signatures
+### Block Signatures
 
 The `signature` is a `secp256k1` signature, and signs over a message:
 `keccak256(domain ++ chain_id ++ payload_hash)`, where:
@@ -266,7 +266,7 @@ The `signature` is a `secp256k1` signature, and signs over a message:
 
 The `secp256k1` signature must have `y_parity = 1 or 0`, the `chain_id` is already signed over.
 
-### Block validation
+### Block Validation
 
 An [extended-validator] checks the incoming messages as follows, in order of operation:
 
@@ -300,7 +300,7 @@ Note that blocks that a block may still be propagated even if the L1 already con
 The local L1 view of the node may be wrong, and the time and signature validation will prevent spam.
 Hence, calling into the execution engine with a block lookup every propagation step is not worth the added delay.
 
-#### Block processing
+#### Block Processing
 
 A node may apply the block to their local engine ahead of L1 availability, if it ensures that:
 
@@ -308,7 +308,7 @@ A node may apply the block to their local engine ahead of L1 availability, if it
 - The subsequent forkchoice-update ensures this block is recognized as "unsafe"
   (see [fork choice updated](./derivation#engine-api-usage))
 
-#### Branch selection
+#### Branch Selection
 
 Nodes expect that the sequencer will not equivocate, and therefore the fork choice rule for unsafe blocks
 is a "first block wins" model, where the unsafe chain will not change once it has been extended, unless
@@ -318,7 +318,7 @@ Nodes who see a different initial unsafe block will not reach consensus until th
 which resolves the disagreement. Because the L1 published data depends on the batcher's view of the data,
 the safe head will be based on whatever the batcher's source's unsafe head is.
 
-#### Block topic scoring parameters
+#### Block Topic Scoring Parameters
 
 ## Req-Resp
 

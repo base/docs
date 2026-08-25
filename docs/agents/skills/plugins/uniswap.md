@@ -61,7 +61,7 @@ Uniswap is HTTP-only; every capability follows the standard HTTP routing in [../
 
 ## Endpoints
 
-### Swap endpoints: proxy approval, no Permit2
+### Swap Endpoints: Proxy Approval, No Permit2
 
 Base URL: `https://trade-api.gateway.uniswap.org/v1`
 
@@ -152,7 +152,7 @@ Response:
 }
 ```
 
-### LP endpoints
+### LP Endpoints
 
 Base URL: `https://liquidity.api.uniswap.org/lp`
 
@@ -353,7 +353,7 @@ For V2 create, `/lp/check_approval` may return multiple approval transactions. B
 
 ## Orchestration
 
-### Swap orchestration
+### Swap Orchestration
 
 ```text
 1. get_wallets -> address; convert tokenIn amount to base units
@@ -366,7 +366,7 @@ For V2 create, `/lp/check_approval` may return multiple approval transactions. B
 8. get_request_status only after the user acts
 ```
 
-### LP orchestration
+### LP Orchestration
 
 ```text
 1. get_wallets -> address
