@@ -3,7 +3,44 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { buildProvenanceComment, routeCodeChange } from "../index.mjs";
+import { fileURLToPath } from "node:url";
+import {
+  buildProvenanceComment,
+  loadStyleGuide,
+  routeCodeChange,
+} from "../index.mjs";
+
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
+const B20_REFERENCE_GLOB = "docs/base-chain/specs/reference/b20/**/*.mdx";
+const B20_STANDALONE_PAGES = [
+  "docs/base-chain/network-information/b20-token-standard.mdx",
+  "docs/apps/guides/accept-b20-payments.mdx",
+  "docs/get-started/launch-b20-token.mdx",
+];
+const B20_MANUAL_UPDATE_PAGES = [
+  "docs/base-chain/specs/reference/b20/index.mdx",
+  ...B20_STANDALONE_PAGES,
+];
+
+async function listMdxFiles(root) {
+  const out = [];
+  async function walk(dir) {
+    for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) await walk(abs);
+      else if (entry.isFile() && entry.name.endsWith(".mdx")) {
+        out.push(path.relative(REPO_ROOT, abs));
+      }
+    }
+  }
+  await walk(root);
+  return out.sort();
+}
 
 test("routeCodeChange expands page_globs only to existing docs pages", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "base-std-routing-"));
@@ -38,6 +75,49 @@ test("routeCodeChange expands page_globs only to existing docs pages", async () 
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
+});
+
+test("B20 source changes route to the complete current B20 documentation set", async () => {
+  const routeTable = JSON.parse(
+    await fs.readFile(
+      path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"),
+      "utf8",
+    ),
+  );
+  const expected = [
+    ...(await listMdxFiles(
+      path.join(REPO_ROOT, "docs/base-chain/specs/reference/b20"),
+    )),
+    ...B20_STANDALONE_PAGES,
+  ].sort();
+
+  for (const rule of routeTable.code_changes) {
+    assert.deepEqual(rule.pages, B20_STANDALONE_PAGES);
+    assert.deepEqual(rule.page_globs, [B20_REFERENCE_GLOB]);
+  }
+  assert.deepEqual(routeTable.manual_update.allowed_pages, B20_MANUAL_UPDATE_PAGES);
+
+  const work = await routeCodeChange(
+    routeTable,
+    ["src/interfaces/IB20Asset.sol"],
+    { repoRoot: REPO_ROOT },
+  );
+  const routed = work.map((item) => item.page).sort();
+
+  assert.deepEqual(routed, expected);
+  assert.doesNotMatch(
+    JSON.stringify(routeTable),
+    /specs\/upgrades\/beryl\/b20\/specification|specs\/upgrades\/cobalt\/eip-8130|specs\/upgrades\/beryl\/b20\/demos/,
+  );
+});
+
+test("loadStyleGuide reads the root content instructions", async () => {
+  const expected = (
+    await fs.readFile(path.join(REPO_ROOT, "content-instructions.md"), "utf8")
+  ).trim();
+
+  assert.ok(expected.length > 0);
+  assert.equal(await loadStyleGuide({ repoRoot: REPO_ROOT }), expected);
 });
 
 test("buildProvenanceComment cannot inject a second HTML comment boundary", () => {

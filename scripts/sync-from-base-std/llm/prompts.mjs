@@ -134,16 +134,16 @@ const SHARED_RULES = `Hard requirements for your output:
 
 /**
  * Block embedded after SHARED_RULES in every prompt. Points the model at the
- * house writing style maintained in `global-tone-voice.mdx` at the repo root. Empty
+ * house writing style maintained in `content-instructions.md` at the repo root. Empty
  * `styleGuide` falls back to a neutral note that doesn't add tokens.
  *
- * Note on size: global-tone-voice.mdx is ~4kb, ~1100 input tokens. Cost per dispatch is
+ * Note on size: content-instructions.md is ~4kb, ~1100 input tokens. Cost per dispatch is
  * meaningful but acceptable (~$0.03 extra on a 9-page run). Brainstorm A
  * captures the option to distill this further if cost grows.
  */
 function styleGuideSection(styleGuide) {
   if (!styleGuide || !styleGuide.trim()) {
-    return ""; // global-tone-voice.mdx missing — skip section entirely.
+    return ""; // content-instructions.md missing or empty — skip section entirely.
   }
   return `
 
@@ -203,7 +203,7 @@ ${lines.join("\n")}
  *                                       before, after, summary}. Empty/missing → section is
  *                                       omitted and the model falls back to scanning the diff.
  * @param {string} ctx.current         — the current content of the page being edited
- * @param {string=} ctx.styleGuide     — full contents of global-tone-voice.mdx, embedded as a <style_guide> block
+ * @param {string=} ctx.styleGuide     — full contents of content-instructions.md, embedded as a <style_guide> block
  * @returns {string} prompt as a single string
  */
 export function codeChangePrompt(ctx) {
@@ -279,7 +279,7 @@ ${lines}${more}
  * @param {boolean=} ctx.diff_truncated — true if the upstream diff was capped before manifest extraction
  * @param {string} ctx.current         — current page content (already version-bumped)
  * @param {number} ctx.bumpCount       — how many version tokens the regex pass replaced
- * @param {string=} ctx.styleGuide     — full contents of global-tone-voice.mdx, embedded as a <style_guide> block
+ * @param {string=} ctx.styleGuide     — full contents of content-instructions.md, embedded as a <style_guide> block
  * @returns {string}
  */
 export function releasePrompt(ctx) {
@@ -379,7 +379,7 @@ Output ONLY a JSON array of page path strings, each drawn EXACTLY from the candi
  * @param {string} ctx.intent          — maintainer's intent text (free-form)
  * @param {string[]=} ctx.source_refs   — optional list of source-of-truth URLs
  * @param {string} ctx.current         — current page content
- * @param {string=} ctx.styleGuide     — full contents of global-tone-voice.mdx, embedded as a <style_guide> block
+ * @param {string=} ctx.styleGuide     — full contents of content-instructions.md, embedded as a <style_guide> block
  * @returns {string}
  */
 export function manualUpdatePrompt(ctx) {
