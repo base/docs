@@ -30,7 +30,7 @@ effect, no seize capability on that token.
 Cobalt hasn't gone live yet. Until it activates, only the Beryl surface exists on-chain, and every
 `seize*`/`SEIZE_*` selector below is undialable.
 
-## Mapping table
+## Mapping Table
 
 The selectors and topic0s below are the real values from the frozen ABIs:
 `crates/common/precompiles/src/common/abi/v1.rs` for Beryl,
@@ -62,7 +62,7 @@ at Cobalt. Seize lives on the shared `IB20` surface, so it's identical across As
 | `AccountNotBlocked(address)` `0x64a5cb46` | unchanged | present on Beryl already | Thrown by `burnBlocked` when `from` is authorized under `TRANSFER_SENDER_POLICY` (that is, not blocked). |
 | — | `AccountNotSeizable(address)` `0x91dbbc8d` | new | Thrown by `seizeWithMemo` when `from` is authorized under `SEIZE_HOLDER_POLICY` (that is, not seizable). |
 
-### Pause features
+### Pause Features
 
 `PausableFeature` is append-only. Cobalt adds one ordinal.
 
@@ -72,7 +72,7 @@ at Cobalt. Seize lives on the shared `IB20` surface, so it's identical across As
 
 `seizeWithMemo` is gated by the new `SEIZE` vector, not `BURN`. `burnBlocked` stays under `BURN`.
 
-## New at Cobalt: adopt these
+## New at Cobalt: Adopt These
 
 ### `seizeWithMemo(from, to, amount, memo)`
 
@@ -102,7 +102,7 @@ When multiple guards would fail, they take this precedence: holder gate, then de
 then balance. That is, `AccountNotSeizable` fires before `PolicyForbids(SEIZE_RECEIVER_POLICY,
 ...)`, which fires before `InsufficientBalance`.
 
-## `burnBlocked` is deprecated, but unchanged and still dialable
+## `burnBlocked` Is Deprecated, but Unchanged and Still Dialable
 
 `burnBlocked(from, amount)` keeps working exactly as it does on Beryl:
 
@@ -116,7 +116,7 @@ To migrate, replace `burnBlocked(from, amount)` with `seizeWithMemo(from, treasu
 then call `burn(amount)` from the treasury if you still want the supply destroyed. This crosses two
 policy, role, and pause domains (see the edge cases below), so it isn't a drop-in selector swap.
 
-## Guarantees and edge cases
+## Guarantees and Edge Cases
 
 **Q: Does seize change `totalSupply`? Is it a burn?**
 No. Seize is a transfer: it reassigns `amount` from `from` to `to` and leaves `totalSupply`

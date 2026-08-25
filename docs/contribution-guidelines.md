@@ -51,7 +51,7 @@ Upgrades are a top-level section within the Chain tab, not nested inside Protoco
 
 1. Create a new subgroup under Upgrades in `docs.json`
 2. Place it at the top of the list (newest first)
-3. Add an overview page and any spec-specific pages under `base-chain/specs/upgrades/<upgrade-name>/`
+3. Add an overview page and any spec-specific pages under `base-chain/specs/base-chain/specs/upgrades/<upgrade-name>/`
 4. Base-native upgrades go at the top level; Optimism-inherited upgrades go inside the Optimism subgroup
 
 ## Naming Conventions

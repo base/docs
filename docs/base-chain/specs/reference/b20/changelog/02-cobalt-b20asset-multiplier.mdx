@@ -19,7 +19,7 @@ To migrate, adopt the canonical ERC-8056 names (`uiMultiplier`, `toUIAmount`/`fr
 
 Cobalt hasn't gone live yet. Until it activates, only the Beryl surface exists on-chain.
 
-## Mapping table
+## Mapping Table
 
 The selectors and topic0s below are the real values from the frozen ABIs: `abi/v1.rs` for Beryl,
 `abi/v2.rs` for Cobalt. Every Beryl symbol keeps its selector at Cobalt.
@@ -62,9 +62,9 @@ over unchanged.
 | — | `UIMultiplierUpdateExists(uint256)` `0x4481a68e` | new | Thrown when a live pending update already exists. |
 | — | `UIMultiplierUpdateDoesNotExist()` `0xa7d6a5ca` | new | Thrown when you cancel with no live pending update. |
 
-## New at Cobalt: adopt these
+## New at Cobalt: Adopt These
 
-### Scheduled-update lifecycle
+### Scheduled-Update Lifecycle
 
 `updateUIMultiplier(newMultiplier, effectiveAt)` is the canonical path for corporate actions, such
 as stock splits and reinvested dividends. Only one pending update can be live at a time.
@@ -82,7 +82,7 @@ as stock splits and reinvested dividends. Only one pending update can be live at
 To reorder overlapping actions, cancel and reschedule atomically in one announcement:
 `announce([cancelUIMultiplierUpdate(), updateUIMultiplier(...)], ...)`.
 
-### ERC-8056 view aliases
+### ERC-8056 View Aliases
 
 - `uiMultiplier()` returns the same value as `multiplier()`.
 - `toUIAmount(raw)` returns the same value as `toScaledBalance(raw)`. `fromUIAmount(ui)` returns the
@@ -90,7 +90,7 @@ To reorder overlapping actions, cancel and reschedule atomically in one announce
 - `balanceOfUI(account)` returns the same value as `scaledBalanceOf(account)`.
 - `totalSupplyUI()` equals `totalSupply() * uiMultiplier() / WAD_PRECISION`.
 
-### Bound getter
+### Bound Getter
 
 `MAX_UI_MULTIPLIER()` returns `type(uint128).max`, the ceiling both setters enforce. This is the
 overflow guard that keeps `balance * multiplier` inside `uint256`.
@@ -101,7 +101,7 @@ overflow guard that keeps `balance * multiplier` inside `uint256`.
 a deprecated admin failsafe, kept for tech debt and emergency overrides, not routine use: use it to
 instantly reverse a scheduling mistake, and pair it with pausing in most cases.
 
-## Guarantees and edge cases
+## Guarantees and Edge Cases
 
 **Q: A scheduled update can be canceled. How do external consumers detect the cancellation?**
 `cancelUIMultiplierUpdate()` emits `UIMultiplierUpdateCancelled(cancelledMultiplier,

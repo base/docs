@@ -37,7 +37,7 @@ description: "Value description"
 ---
 ```
 
-**Writing**: American English, sentence case headings, second person ("you"), active voice.
+**Writing**: American English, title case headings, second person ("you"), active voice.
 
 **Code blocks**: Always specify language. Add filename or title. Use `highlight={}` for emphasis.
 

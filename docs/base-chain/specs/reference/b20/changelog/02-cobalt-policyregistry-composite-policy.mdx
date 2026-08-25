@@ -21,7 +21,7 @@ rejecting a composite `policyType` with the already-existing `IncompatiblePolicy
 Until Cobalt activates, only the Beryl (simple-policy) surface exists on-chain, and every composite
 selector below is undialable.
 
-## Mapping table
+## Mapping Table
 
 The selectors and topic0s below are computed directly from `src/interfaces/IPolicyRegistry.sol`
 with `cast sig` and `cast sig-event`. Every Beryl symbol keeps its selector at Cobalt.
@@ -70,7 +70,7 @@ own.
 | — | `ChildPoliciesOutsideOfRange()` `0x697ec868` | new | Thrown when the child count is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (`[2, 4]`). |
 | — | `InvalidChildPolicy(uint64)` `0x46508ef6` | new | Thrown when a child is itself a composite, or a built-in sentinel (`ALWAYS_ALLOW`/`ALWAYS_BLOCK`). |
 
-## New at Cobalt: adopt these
+## New at Cobalt: Adopt These
 
 ### `createCompositePolicy(admin, policyType, childPolicyIds)`
 
@@ -103,7 +103,7 @@ the composite; there's no partial-update or clear-the-list path. Checks run in t
 
 It emits `CompositePolicyUpdated(policyId, updater, childPolicyIds)`.
 
-### Live, depth-1 evaluation
+### Live, Depth-1 Evaluation
 
 `isAuthorized` on a composite calls each child policy's `isAuthorized`; it never uses a snapshot
 taken at creation or the last update. `UNION` returns `true` on the first authorizing child (it
@@ -111,7 +111,7 @@ short-circuits). `INTERSECT` returns `false` on the first non-authorizing child.
 exceeds depth 1, because every child is validated to be a simple (`ALLOWLIST`/`BLOCKLIST`) policy at
 write time, so a composite's children can never themselves be composites.
 
-## Guarantees and edge cases
+## Guarantees and Edge Cases
 
 **Q: Can a composite's child be another composite (nested composites)?**
 No. `createCompositePolicy` and `updateComposite` revert `InvalidChildPolicy(childPolicyId)` for any

@@ -1,0 +1,30 @@
+---
+title: "200ms Blocks"
+description: "Denim introduces native L2 blocks at a 200ms cadence, replacing Flashblocks with full standalone blocks at a faster cadence."
+---
+
+<Warning>
+**Flashblocks will be deprecated as part of this release.** Because native 200ms blocks deliver the same sub-second confirmation experience directly on the canonical chain, the Flashblocks WebSocket stream is no longer needed and will be removed. Migrate off the Flashblocks WebSocket stream before Denim activation.
+</Warning>
+
+## Motivation
+
+Flashblocks expose sub-second updates but build within a single canonical block. Moving to native 200ms blocks eliminates that indirection: every 200ms interval is a full standalone block with its own number, hash, state root, and receipts, delivering the same sub-second confirmation experience directly on the canonical chain.
+
+## What Changed
+
+Ethereum block headers and `block.timestamp` remain in whole seconds. The BaseTime predeploy records the sub-second component before user transactions, while optional `timestampMs` and `blockTimestampMs` RPC fields expose the complete millisecond timestamp to applications and infrastructure.
+
+## Migration
+
+**Application developers**
+
+Existing contracts and applications remain compatible. Use the BaseTime `timestampMs()` getter when contracts need same-block millisecond precision; continue using `block.timestamp` when second-level precision is sufficient.
+
+**RPC and indexing providers**
+
+Support the optional `timestampMs` block and header field and `blockTimestampMs` on mined transactions and logs. Do not infer millisecond timestamps from the whole-second header value.
+
+**Node operators**
+
+Upgrade to a Denim-compatible release before activation. Plan capacity for the higher native block rate across execution, storage, RPC events, and peer-to-peer propagation.
