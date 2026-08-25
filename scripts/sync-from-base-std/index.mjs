@@ -66,6 +66,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const ROUTE_TABLE_PATH = path.join(__dirname, "route-table.json");
+const STYLE_GUIDE_FILE = "content-instructions.md";
 const DRY_RUN = process.env.DRY_RUN === "1";
 const DOCS_ROOT = process.env.DOCS_CONTENT_ROOT || "docs";
 
@@ -847,22 +848,22 @@ async function loadKnownRoutes() {
 }
 
 /**
- * Read the house writing-style guide (global-tone-voice.mdx at repo root) once at
+ * Read the house writing-style guide (content-instructions.md at repo root) once at
  * script start. Returned content gets embedded in every Claude prompt as a
  * <style_guide>...</style_guide> block so the model writes in the
  * documented Mintlify-style voice.
  *
- * Missing-file is non-fatal: returns "" and the prompts include an empty
+ * A missing or empty file is non-fatal: returns "" and the prompts omit the
  * style-guide section. Keeps the script usable in test contexts and
  * avoids hard-coupling routing to a docs-side filename.
  *
  * @returns {Promise<string>}
  */
-async function loadStyleGuide() {
-  const stylePath = path.join(REPO_ROOT, "global-tone-voice.mdx");
+export async function loadStyleGuide({ repoRoot = REPO_ROOT } = {}) {
+  const stylePath = path.join(repoRoot, STYLE_GUIDE_FILE);
   if (!existsSync(stylePath)) return "";
   try {
-    return await fs.readFile(stylePath, "utf8");
+    return (await fs.readFile(stylePath, "utf8")).trim();
   } catch {
     return "";
   }
@@ -1153,12 +1154,13 @@ async function main() {
   const knownRoutes = await loadKnownRoutes();
   console.log(`[sync] loaded ${knownRoutes.size} known doc route(s) for link validation`);
   // Read the house writing-style guide once. Threaded into every Claude
-  // prompt via ctx.styleGuide. Empty string when global-tone-voice.mdx is missing.
+  // prompt via ctx.styleGuide. Empty string when content-instructions.md is
+  // missing or empty.
   const styleGuide = await loadStyleGuide();
   if (styleGuide) {
-    console.log(`[sync] loaded global-tone-voice.mdx style guide (${styleGuide.length} chars)`);
+    console.log(`[sync] loaded ${STYLE_GUIDE_FILE} style guide (${styleGuide.length} chars)`);
   } else {
-    console.log(`[sync] no global-tone-voice.mdx found at repo root — prompts will ship without a style guide section`);
+    console.log(`[sync] no usable ${STYLE_GUIDE_FILE} found at repo root — prompts will ship without a style guide section`);
   }
 
   const kind = payload.kind || (payload.tag ? "release" : "code-change");

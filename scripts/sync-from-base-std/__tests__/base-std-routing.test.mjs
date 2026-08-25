@@ -4,7 +4,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildProvenanceComment, routeCodeChange } from "../index.mjs";
+import {
+  buildProvenanceComment,
+  loadStyleGuide,
+  routeCodeChange,
+} from "../index.mjs";
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -105,6 +109,15 @@ test("B20 source changes route to the complete current B20 documentation set", a
     JSON.stringify(routeTable),
     /specs\/upgrades\/beryl\/b20\/specification|specs\/upgrades\/cobalt\/eip-8130|specs\/upgrades\/beryl\/b20\/demos/,
   );
+});
+
+test("loadStyleGuide reads the root content instructions", async () => {
+  const expected = (
+    await fs.readFile(path.join(REPO_ROOT, "content-instructions.md"), "utf8")
+  ).trim();
+
+  assert.ok(expected.length > 0);
+  assert.equal(await loadStyleGuide({ repoRoot: REPO_ROOT }), expected);
 });
 
 test("buildProvenanceComment cannot inject a second HTML comment boundary", () => {
