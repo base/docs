@@ -39,7 +39,11 @@ Updates the policy ID assigned to `policyScope`. Takes effect immediately for th
 
 ## Policy interaction
 
-Reads or writes a token policy-scope pointer into the PolicyRegistry.
+Reads or writes a token policy-scope pointer into the PolicyRegistry. The `newPolicyId` may reference a simple policy (`ALLOWLIST` or `BLOCKLIST`) or a composite policy (`UNION` or `INTERSECT`). B20 treats the value as an opaque `uint64` and delegates all authorization logic to the PolicyRegistry.
+
+<Warning>
+Before storing a composite policy ID, call `policyExists(policyId)` on the PolicyRegistry. An invalid `INTERSECT` ID with no children returns `true` for every account, behaving like `ALWAYS_ALLOW`.
+</Warning>
 
 ## Example
 

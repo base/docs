@@ -10,20 +10,20 @@ description: "Generated B20 reference for IPolicyRegistry functions, events, and
 |---|---|---|
 | [`createPolicy`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/createPolicy) | `0xca5d55f6` | Creates a new simple policy with no initial members. Permissionless. |
 | [`createPolicyWithAccounts`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/createPolicyWithAccounts) | `0xa2d3044f` | Creates a new simple policy seeded with `accounts` as initial members. Permissionless. |
-| [`createCompositePolicy`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/createCompositePolicy) | `0x6fdd1491` | Creates a new composite policy that combines existing simple policies under a logic |
+| [`createCompositePolicy`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/createCompositePolicy) | `0x6fdd1491` | Creates a new `UNION` or `INTERSECT` composite policy referencing two to four existing simple policies. |
 | [`stageUpdateAdmin`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/stageUpdateAdmin) | `0x1d7ae695` | Stages a proposed new admin for `policyId`. The active admin does not change |
 | [`finalizeUpdateAdmin`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/finalizeUpdateAdmin) | `0x33031a9c` | Completes a two-step admin transfer. Promotes the caller to active admin and clears the pending slot. |
 | [`renounceAdmin`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/renounceAdmin) | `0xefdb7fa3` | Permanently relinquishes administration of `policyId`. The member set is frozen |
 | [`updateAllowlist`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/updateAllowlist) | `0x3388fb5b` | Sets `accounts` membership in an ALLOWLIST policy to `allowed` in one batch. |
 | [`updateBlocklist`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/updateBlocklist) | `0x5c4e51b8` | Sets `accounts` membership in a BLOCKLIST policy to `blocked` in one batch. |
-| [`updateComposite`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/updateComposite) | `0xbfe142c0` | Replaces a composite policy's child-policy set in full with `childPolicyIds`. |
+| [`updateComposite`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/updateComposite) | `0xbfe142c0` | Replaces a composite policy's entire child set with two to four existing simple policies. |
 | [`isAuthorized`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/isAuthorized) | `0x55a1179e` | Returns whether `account` is authorized under `policyId`. Never reverts; unknown |
-| [`MIN_COMPOSITE_CHILD_POLICIES`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/MIN_COMPOSITE_CHILD_POLICIES) | `0xb3ae29f7` | Minimum number of child policies a composite must reference, inclusive. Never reverts. |
-| [`MAX_COMPOSITE_CHILD_POLICIES`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/MAX_COMPOSITE_CHILD_POLICIES) | `0x54309870` | Maximum number of child policies a composite may reference, inclusive. Never reverts. |
+| [`MIN_COMPOSITE_CHILD_POLICIES`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/MIN_COMPOSITE_CHILD_POLICIES) | `0xb3ae29f7` | Minimum number of child policies a composite must reference, inclusive. Returns `2`. Never reverts. |
+| [`MAX_COMPOSITE_CHILD_POLICIES`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/MAX_COMPOSITE_CHILD_POLICIES) | `0x54309870` | Maximum number of child policies a composite may reference, inclusive. Returns `4`. Never reverts. |
 | [`policyExists`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/policyExists) | `0x330f5637` | Returns whether `policyId` is a built-in sentinel or a previously-assigned custom ID. Never reverts. |
 | [`policyAdmin`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/policyAdmin) | `0x09dd0a47` | Returns the current admin of `policyId`, or `address(0)` for built-in sentinels, |
 | [`pendingPolicyAdmin`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/pendingPolicyAdmin) | `0x017548b7` | Returns the currently-staged pending admin for `policyId`, or `address(0)` when |
-| [`compositePolicyChildIds`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/compositePolicyChildIds) | `0x7c40df74` | Returns the child-policy set of the composite `policyId`. |
+| [`compositePolicyChildIds`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/compositePolicyChildIds) | `0x7c40df74` | Returns the child-policy set of the composite `policyId`. Returns an empty array for non-composites. |
 
 ## Events
 
@@ -34,7 +34,7 @@ description: "Generated B20 reference for IPolicyRegistry functions, events, and
 | `PolicyAdminUpdated` | `0x98925cfb1bc09c5b43dd0dd56d3d95aa04fb3300927580cc588c3f5dd58c15e1` | The active admin changed. `newAdmin == address(0)` indicates renunciation; |
 | `AllowlistUpdated` | `0x18c46532f90187ba11e436e21da087b684801d7f0787f2043f26f079c91e9ef0` | One or more accounts had their ALLOWLIST membership set to `allowed` in a single batch. |
 | `BlocklistUpdated` | `0x2ff63c102b1b9fd7f5d39f83039c5d6aaf50a414a4f2def2704e41be2628f1e3` | One or more accounts had their BLOCKLIST membership set to `blocked` in a single batch. |
-| `CompositePolicyUpdated` | `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363` | A composite policy's child set was set or replaced in full with `childPolicyIds`. Emitted |
+| `CompositePolicyUpdated` | `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363` | A composite policy's child set was set or replaced in full with `childPolicyIds`. Emitted by both `createCompositePolicy` and `updateComposite`. |
 
 ## Errors
 
@@ -43,9 +43,9 @@ description: "Generated B20 reference for IPolicyRegistry functions, events, and
 | `NonPayable` | `0x6fb1b0e9` | ETH was attached to a call targeting a nonpayable policy registry selector. |
 | `Unauthorized` | `0x82b42900` | Caller is not the admin required by the attempted operation. |
 | `PolicyNotFound` | `0x720caa4f` | The referenced policy ID does not exist. |
-| `IncompatiblePolicyType` | `0xf1011ef5` | The operation is incompatible with the policy's type. |
+| `IncompatiblePolicyType` | `0xf1011ef5` | The operation is incompatible with the policy's type. `createPolicy` and `createPolicyWithAccounts` revert with this error when called with `UNION` or `INTERSECT`. |
 | `ZeroAddress` | `0xd92e233d` | A required address argument was the zero address. |
 | `BatchSizeTooLarge` | `0x083e2f67` | A membership batch exceeded the registry limit. |
 | `NoPendingAdmin` | `0xb4539afa` | `finalizeUpdateAdmin` was called with no pending admin staged. |
-| `ChildPoliciesOutsideOfRange` | `0x697ec868` | A composite policy was created or updated with a child-policy count outside the |
-| `InvalidChildPolicy` | `0x46508ef6` | Composite policies are not simple policies. Child policies must be existing |
+| `ChildPoliciesOutsideOfRange` | `0x697ec868` | A composite policy was created or updated with a child-policy count outside the `[2, 4]` range enforced by `MIN_COMPOSITE_CHILD_POLICIES` and `MAX_COMPOSITE_CHILD_POLICIES`. |
+| `InvalidChildPolicy` | `0x46508ef6` | A child policy ID is not an existing simple policy. Composite policies and the built-in `ALWAYS_ALLOW` and `ALWAYS_BLOCK` sentinels are not valid children. |

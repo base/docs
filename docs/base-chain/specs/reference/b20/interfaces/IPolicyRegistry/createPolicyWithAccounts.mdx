@@ -19,14 +19,27 @@ function createPolicyWithAccounts(address admin, PolicyType policyType, address[
 ## Description
 
 Creates a new simple policy seeded with `accounts` as initial members. Permissionless.
-Dev: Reverts with `ZeroAddress` when `admin` is `address(0)`. Takes precedence over `BatchSizeTooLarge`.
-Dev: Reverts with `IncompatiblePolicyType` when `policyType` is a composite policyType.
-Dev: Reverts with `BatchSizeTooLarge` when `accounts.length` exceeds the registry limit.
-Dev: Panics with arithmetic overflow (Panic 0x11) when the policy counter has reached its maximum value.
-Param: admin      Initial admin authorized to modify membership and transfer or renounce administration.
-Param: policyType BLOCKLIST or ALLOWLIST.
-Param: accounts   Initial member set.
-Return: newPolicyId The newly assigned policy ID.
+
+**Revert conditions:**
+
+- `ZeroAddress` — `admin` is `address(0)`. Takes precedence over `BatchSizeTooLarge`.
+- `IncompatiblePolicyType` — `policyType` is `UNION` or `INTERSECT`. Use `createCompositePolicy` for composite policies.
+- `BatchSizeTooLarge` — `accounts.length` exceeds the registry limit.
+- `Panic(0x11)` — arithmetic overflow when the policy counter has reached its maximum value.
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `admin` | `address` | Initial admin authorized to modify membership and transfer or renounce administration. |
+| `policyType` | `PolicyType` | `BLOCKLIST` or `ALLOWLIST` only. `UNION` and `INTERSECT` are rejected. |
+| `accounts` | `address[]` | Initial member set. |
+
+## Returns
+
+| Name | Type | Description |
+|---|---|---|
+| `newPolicyId` | `uint64` | The newly assigned policy ID. |
 
 ## Access control
 
@@ -35,6 +48,10 @@ Permissionless creation, but state-changing registry calls require the feature t
 ## Policy interaction
 
 This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+
+<Warning>
+Passing `policyType` byte `2` (`UNION`) or `3` (`INTERSECT`) now reverts with `IncompatiblePolicyType`. Use `createCompositePolicy` to create composite policies.
+</Warning>
 
 ## Example
 

@@ -18,27 +18,32 @@ function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) exte
 
 ## Description
 
-Replaces a composite policy's child-policy set in full with `childPolicyIds`.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `IncompatiblePolicyType` when `policyId` is not a composite (UNION or INTERSECT).
-Dev: Reverts with `Unauthorized` when the caller is not the current admin. A renounced composite
-(admin `address(0)`) can never be updated.
-Dev: Reverts with `ChildPoliciesOutsideOfRange` when `childPolicyIds.length` is not in
-`[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]`; there is no clear-the-list
-path (the composite child-policy range, not the 64-account batch limit).
-Dev: Reverts with `PolicyNotFound` when any child policy does not exist.
-Dev: Reverts with `InvalidChildPolicy` when any child policy is itself a composite
-(not a simple policy).
-Param: policyId       Composite policy to update.
-Param: childPolicyIds Complete new set of existing simple policy IDs.
+Replaces a composite policy's entire child set with `childPolicyIds`. No partial update or clear-the-list operation is supported.
+
+The new child set must contain between `MIN_COMPOSITE_CHILD_POLICIES` (`2`) and `MAX_COMPOSITE_CHILD_POLICIES` (`4`) existing simple policies, subject to the same validation rules as `createCompositePolicy`. Authorization evaluates each child's current membership live on every call — the update takes effect immediately.
+
+## Revert conditions
+
+The canonical revert order is:
+
+1. `PolicyNotFound` — `policyId` does not exist.
+2. `IncompatiblePolicyType` — `policyId` is a simple policy, not a `UNION` or `INTERSECT` composite.
+3. `Unauthorized` — caller is not the current admin. A composite whose admin has been renounced (`address(0)`) can never be updated.
+4. `ChildPoliciesOutsideOfRange` — `childPolicyIds.length` is outside `[2, 4]`.
+5. `PolicyNotFound` — a child policy ID does not exist.
+6. `InvalidChildPolicy` — a child policy is itself a composite or a built-in sentinel (`ALWAYS_ALLOW` or `ALWAYS_BLOCK`).
+
+## Events emitted
+
+Emits only `CompositePolicyUpdated(policyId, updater, childPolicyIds)`. The admin does not change, so no `PolicyAdminUpdated` event is emitted.
 
 ## Access control
 
-Callable by the policy admin for the target policy.
+Callable by the current policy admin for the target composite policy.
 
 ## Policy interaction
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+This is part of the singleton PolicyRegistry surface used by B20 policy scopes. A composite policy ID is passed to a B20 policy slot as an opaque `uint64`, identical to a simple policy ID — no B20 contract changes are required.
 
 ## Example
 

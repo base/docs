@@ -20,9 +20,17 @@ function renounceAdmin(uint64 policyId) external;
 
 Permanently relinquishes administration of `policyId`. The member set is frozen
 and the policy can never be re-administered; `isAuthorized` queries continue to work.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Param: policyId Policy whose administration is being renounced.
+
+If `policyId` is a child of one or more composite policies, renouncing freezes future
+membership changes on that child but does not remove it from any composite. Each composite
+continues to evaluate the child's current authorization results unchanged.
+
+## Revert conditions
+
+| Condition | Error |
+|---|---|
+| `policyId` does not exist | `PolicyNotFound` |
+| Caller is not the current admin | `Unauthorized` |
 
 ## Access control
 
