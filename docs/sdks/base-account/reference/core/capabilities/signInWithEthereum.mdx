@@ -1,0 +1,336 @@
+---
+title: "signInWithEthereum"
+description: "Enable secure authentication using the Sign-In With Ethereum (SIWE) standard"
+---
+
+Defined in [EIP-4361](https://eips.ethereum.org/EIPS/eip-4361)
+
+<Info>
+The signInWithEthereum capability enables secure user authentication following the SIWE (Sign-In With Ethereum) standard. This capability is only available with the `wallet_connect` method and provides a standardized way to authenticate users with their Ethereum accounts.
+</Info>
+
+## Parameters
+
+<ParamField body="nonce" type="string" required>
+A unique random string to prevent replay attacks. Should be generated fresh for each authentication attempt.
+</ParamField>
+
+<ParamField body="chainId" type="string" required>
+The chain ID as a hexadecimal string (e.g., "0x2105" for Base Mainnet).
+</ParamField>
+
+## Returns
+
+<ResponseField name="signInWithEthereum" type="object">
+Authentication result containing the signed message and signature.
+
+<Expandable title="SignInWithEthereum properties">
+<ResponseField name="message" type="string">
+The SIWE-formatted message that was signed by the user.
+</ResponseField>
+
+<ResponseField name="signature" type="string">
+The cryptographic signature of the message, which can be verified on your backend.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Usage with wallet_connect
+
+The `signInWithEthereum` capability must be used with the `wallet_connect` method:
+
+<RequestExample>
+```typescript Basic Authentication
+import { createBaseAccountSDK } from '@base-org/account';
+
+const provider = createBaseAccountSDK().getProvider();
+
+// Generate a unique nonce
+const nonce = window.crypto.randomUUID().replace(/-/g, '');
+
+try {
+  // Connect with signInWithEthereum capability
+  const { accounts } = await provider.request({
+    method: 'wallet_connect',
+    params: [{
+      version: '1',
+      capabilities: {
+        signInWithEthereum: { 
+          nonce, 
+          chainId: '0x2105' // Base Mainnet
+        }
+      }
+    }]
+  });
+
+  // Extract authentication data
+  const { address } = accounts[0];
+  const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+
+  console.log('User address:', address);
+  console.log('Signed message:', message);
+  console.log('Signature:', signature);
+} catch (error) {
+  console.error('Authentication failed:', error);
+}
+```
+
+```typescript Backend Verification
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const client = createPublicClient({ 
+  chain: base, 
+  transport: http() 
+});
+
+export async function verifyAuthentication(req, res) {
+  const { address, message, signature } = req.body;
+  
+  try {
+    // Verify the signature
+    const isValid = await client.verifyMessage({ 
+      address, 
+      message, 
+      signature 
+    });
+    
+    if (!isValid) {
+      return res.status(401).json({ 
+        error: 'Invalid signature' 
+      });
+    }
+    
+    // Create session or JWT token
+    const token = generateAuthToken(address);
+    
+    res.json({ 
+      success: true, 
+      token 
+    });
+  } catch (error) {
+    console.error('Verification failed:', error);
+    res.status(500).json({ 
+      error: 'Verification failed' 
+    });
+  }
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Authentication Response
+{
+  "accounts": [{
+    "address": "0x1234567890123456789012345678901234567890",
+    "capabilities": {
+      "signInWithEthereum": {
+        "message": "localhost:3000 wants you to sign in with your Ethereum account:\n0x1234567890123456789012345678901234567890\n\nSign in with Ethereum to the app.\n\nURI: http://localhost:3000\nVersion: 1\nChain ID: 8453\nNonce: abc123def456\nIssued At: 2024-01-15T10:30:00Z",
+        "signature": "0x1234567890abcdef..."
+      }
+    }
+  }],
+  "chainId": "0x2105",
+  "isConnected": true
+}
+```
+</ResponseExample>
+
+## Security Considerations
+
+### Nonce Management
+
+Always use fresh, unique nonces for each authentication attempt:
+
+```typescript
+// Generate cryptographically secure nonce
+const nonce = window.crypto.randomUUID().replace(/-/g, '');
+
+// Or fetch from your backend
+const nonce = await fetch('/auth/nonce').then(r => r.text());
+```
+
+### Backend Verification
+
+Verify signatures on your backend to prevent tampering:
+
+```typescript
+// Server-side nonce tracking
+const usedNonces = new Set();
+
+export async function verifyAuth(req, res) {
+  const { address, message, signature } = req.body;
+  
+  // Extract nonce from message
+  const nonce = extractNonceFromMessage(message);
+  
+  // Check if nonce has been used
+  if (usedNonces.has(nonce)) {
+    return res.status(400).json({ 
+      error: 'Nonce already used' 
+    });
+  }
+  
+  // Verify signature
+  const isValid = await client.verifyMessage({ 
+    address, 
+    message, 
+    signature 
+  });
+  
+  if (isValid) {
+    usedNonces.add(nonce);
+    // Create session...
+  }
+}
+```
+
+## Integration Examples
+
+### Express.js Backend
+
+```typescript
+import express from 'express';
+import crypto from 'crypto';
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const app = express();
+app.use(express.json());
+
+const client = createPublicClient({ chain: base, transport: http() });
+const nonces = new Set<string>();
+
+// Generate nonce endpoint
+app.get('/auth/nonce', (_, res) => {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  nonces.add(nonce);
+  res.send(nonce);
+});
+
+// Verify authentication
+app.post('/auth/verify', async (req, res) => {
+  const { address, message, signature } = req.body;
+  
+  // Extract and validate nonce
+  const nonce = message.match(/Nonce: (\w+)/)?.[1];
+  if (!nonce || !nonces.delete(nonce)) {
+    return res.status(400).json({ 
+      error: 'Invalid or reused nonce' 
+    });
+  }
+  
+  // Verify signature
+  const valid = await client.verifyMessage({ 
+    address, 
+    message, 
+    signature 
+  });
+  
+  if (!valid) {
+    return res.status(401).json({ 
+      error: 'Invalid signature' 
+    });
+  }
+  
+  // Success - create session
+  res.json({ success: true });
+});
+```
+
+### React Integration
+
+```tsx
+import { useState } from 'react';
+import { createBaseAccountSDK } from '@base-org/account';
+import { SignInWithBaseButton } from '@base-org/account-ui/react';
+
+export function AuthComponent() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = async () => {
+    setLoading(true);
+    
+    try {
+      const provider = createBaseAccountSDK().getProvider();
+      
+      // Generate nonce
+      const nonce = window.crypto.randomUUID().replace(/-/g, '');
+      
+      // Authenticate with Base Account
+      const { accounts } = await provider.request({
+        method: 'wallet_connect',
+        params: [{
+          version: '1',
+          capabilities: {
+            signInWithEthereum: { 
+              nonce, 
+              chainId: '0x2105' 
+            }
+          }
+        }]
+      });
+      
+      const { address } = accounts[0];
+      const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+      
+      // Verify on backend
+      const response = await fetch('/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, message, signature })
+      });
+      
+      if (response.ok) {
+        setUser({ address });
+      }
+    } catch (error) {
+      console.error('Authentication failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {user ? (
+        <div>Welcome, {user.address}</div>
+      ) : (
+        <SignInWithBaseButton 
+          onClick={handleSignIn}
+          disabled={loading}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+## Error Handling
+
+| Code | Message | Description |
+| ---- | ------- | ----------- |
+| 4001 | User rejected the request | User denied the authentication request |
+| 4100 | Method not supported | Wallet doesn't support signInWithEthereum capability |
+| -32602 | Invalid params | Invalid nonce or chainId provided |
+
+<Warning>
+The `signInWithEthereum` capability only works with the `wallet_connect` method. Using it with other methods like `eth_requestAccounts` will not work.
+</Warning>
+
+<Info>
+Base Account signatures include ERC-6492 wrapper for undeployed smart wallets, which viem's `verifyMessage` handles automatically.
+</Info>
+
+## Best Practices
+
+1. **Fresh Nonces**: Always generate unique nonces for each authentication attempt
+2. **Secure Generation**: Use cryptographically secure random number generation
+3. **Nonce Tracking**: Track used nonces on your backend to prevent replay attacks
+4. **Signature Verification**: Always verify signatures on your backend, never trust client-side verification
+5. **Session Management**: Create secure sessions or JWT tokens after successful verification
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

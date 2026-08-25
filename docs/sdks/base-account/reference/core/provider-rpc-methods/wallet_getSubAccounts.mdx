@@ -1,0 +1,94 @@
+---
+title: "wallet_getSubAccounts"
+description: "Fetch the sub accounts of the wallet"
+---
+
+Experimental RPC method for fetching sub accounts
+
+<Info>
+Fetches the sub accounts associated with the main wallet account. Sub accounts allow for hierarchical account management and delegation.
+</Info>
+
+## Parameters
+
+<ParamField body="account" type="string" required>
+The address of the main wallet account.
+
+<ParamField body="domain" type="string" required>
+The fully qualified domain name of the app that the sub account is associated with.
+</ParamField>
+
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object" >
+Sub account information including address and deployment details.
+
+<Expandable title="Result properties">
+
+<ResponseField name="subAccounts" type="array">
+Array of sub account information.
+
+<Expandable title="Sub account properties">
+
+<ResponseField name="address" type="string">
+The address of the created sub account.
+</ResponseField>
+
+<ResponseField name="factory" type="string">
+The factory contract address.
+</ResponseField>
+
+<ResponseField name="factoryData" type="string">
+Factory deployment data.
+</ResponseField>
+
+</Expandable>
+</ResponseField>
+
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_getSubAccounts",
+  "params": [{
+    "account": "0x1234567890123456789012345678901234567890",
+    "domain": "https://app.example.com"
+  }]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "subAccounts": [
+      {
+        "address": "0x2345678901234567890123456789012345678901",
+        "factory": "0x1234567890123456789012345678901234567890",
+        "factoryData": "0x1234567890123456789012345678901234567890"
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message                        | Description |
+| ---- | ------------------------------ | ----------- |
+| 4100 | Requested method not supported | The method is not supported by the wallet |
+| -32602 | Invalid params                 | Invalid account configuration |
+
+<Warning>
+This is an experimental feature and the API may change in future versions.
+</Warning>

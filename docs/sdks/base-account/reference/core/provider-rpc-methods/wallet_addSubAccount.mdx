@@ -1,0 +1,123 @@
+---
+title: "wallet_addSubAccount"
+description: "Add a sub account to the wallet"
+---
+
+Experimental RPC method for creating sub accounts
+
+<Info>
+Creates a new sub account associated with the main wallet account. Sub accounts allow for hierarchical account management and delegation.
+</Info>
+
+## Parameters
+
+<ParamField body="account" type="object" required>
+The account configuration object.
+
+<Expandable title="Account object properties">
+<ParamField body="type" type="string" required>
+The type of sub account to create. Can be "create" or "deployed".
+</ParamField>
+
+<ParamField body="keys" type="array">
+Array of key objects for the sub account (required for "create" type).
+
+<Expandable title="Key object properties">
+<ParamField body="type" type="string" required>
+Type of key: "address", "p256", "webcrypto-p256", or "webauthn-p256".
+</ParamField>
+
+<ParamField body="publicKey" type="string" required>
+Hex string of the public key.
+</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField body="address" type="string">
+The address of the deployed account to add as a sub account. (required for "deployed" type).
+</ParamField>
+
+<ParamField body="chainId" type="number">
+The chain ID that the account is deployed on. (required for "deployed" type).
+</ParamField>
+</Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="object">
+Sub account information including address and deployment details.
+
+<Expandable title="Result properties">
+<ResponseField name="address" type="string">
+The address of the created sub account.
+</ResponseField>
+
+<ResponseField name="factory" type="string">
+The factory contract address (optional).
+</ResponseField>
+
+<ResponseField name="factoryData" type="string">
+Factory deployment data (optional).
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```json Create Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_addSubAccount",
+  "params": [{
+    "account": {
+      "type": "create",
+      "keys": [{
+        "type": "p256",
+        "publicKey": "0x0123456789abcdef..."
+      }]
+    }
+  }]
+}
+```
+
+```json Deployed Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "wallet_addSubAccount",
+  "params": [{
+    "account": {
+      "type": "deployed",
+      "address": "0x1234567890123456789012345678901234567890",
+      "chainId": 8453
+    }
+  }]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "address": "0x1234567890123456789012345678901234567890",
+    "chainId": "0x2105"
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message                        | Description |
+| ---- | ------------------------------ | ----------- |
+| 4001 | User rejected the request      | User denied creating the sub account |
+| 4100 | Requested method not supported | The method is not supported by the wallet |
+| -32602 | Invalid params                 | Invalid account configuration |
+
+<Warning>
+This is an experimental feature and the API may change in future versions.
+</Warning>

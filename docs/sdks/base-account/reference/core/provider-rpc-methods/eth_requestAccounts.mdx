@@ -1,0 +1,53 @@
+---
+title: "eth_requestAccounts"
+description: "Request account access and authorization from the user"
+---
+
+Defined in [EIP-1102](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1102.md)
+
+<Info>
+Requests that the user provides an Ethereum address to be identified by. This method will show a prompt to the user asking them to authorize the connection. Returns a promise that resolves to an array of accounts the user has authorized for the application.
+</Info>
+
+## Parameters
+
+This method does not accept any parameters.
+
+## Returns
+
+<ResponseField name="result" type="Array<string>">
+An array of Ethereum addresses (hexadecimal strings) that the user has authorized for the application. The array will typically contain a single address, which is the currently selected account in the wallet.
+</ResponseField>
+
+<RequestExample>
+```json Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_requestAccounts",
+  "params": []
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": ["0xabc123..."]
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message                        | Description                                             |
+| ---- | ------------------------------ | ------------------------------------------------------- |
+| 4001 | User rejected the request      | The user denied the connection request                  |
+| 4100 | Requested method not supported | The provider does not support the `eth_requestAccounts` method |
+| 4200 | Wallet not connected           | The wallet is not available or connected               |
+
+<Warning>
+Always handle the case where the user rejects the connection request (error code 4001) gracefully in your application.
+</Warning>

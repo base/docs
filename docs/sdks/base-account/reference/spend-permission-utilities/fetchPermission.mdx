@@ -1,0 +1,125 @@
+---
+title: "fetchPermission"
+description: "Retrieve a single Spend Permission by its hash"
+---
+
+Defined in the [Base Account SDK](https://github.com/base/account-sdk)
+
+<Info>
+  Returns a single spend permission by its unique hash identifier. This is useful when you have a permission hash from a previous operation and need to retrieve its current details.
+</Info>
+
+## Parameters
+
+<ParamField body="permissionHash" type="string" required>
+  The unique hash identifier of the permission to retrieve.
+</ParamField>
+
+<ParamField body="provider" type="EIP1193Provider">
+  Optional. EIP-1193 compliant Ethereum provider instance. Get this from `sdk.getProvider()`. If not provided, uses the default SDK provider.
+</ParamField>
+
+## Returns
+
+<ResponseField name="permission" type="SpendPermission | null">
+  The spend permission matching the hash, or null if not found.
+
+<Expandable title="SpendPermission properties">
+<ResponseField name="permissionHash" type="string">
+Deterministic EIP-712 hash of the permission.
+</ResponseField>
+
+<ResponseField name="signature" type="string">
+  Signature for the EIP-712 payload.
+</ResponseField>
+
+<ResponseField name="chainId" type="number">
+  Target chain ID.
+</ResponseField>
+
+<ResponseField name="permission" type="object">
+Underlying permission fields.
+
+<Expandable title="permission fields">
+<ResponseField name="account" type="address" />
+<ResponseField name="spender" type="address" />
+<ResponseField name="token" type="address" />
+<ResponseField name="allowance" type="bigint" />
+<ResponseField name="period" type="number">Duration in seconds.</ResponseField>
+<ResponseField name="start" type="number">Unix timestamp (seconds).</ResponseField>
+<ResponseField name="end" type="number">Unix timestamp (seconds).</ResponseField>
+<ResponseField name="salt" type="string" />
+<ResponseField name="extraData" type="string" />
+</Expandable>
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+<RequestExample>
+```typescript Fetch single permission
+import { fetchPermission } from "@base-org/account/spend-permission";
+import { createBaseAccountSDK } from "@base-org/account";
+
+const sdk = createBaseAccountSDK({
+  appName: 'My App',
+  appLogoUrl: 'https://example.com/logo.png',
+  appChainIds: [84532],
+});
+
+// Fetch a specific permission by its hash
+const permission = await fetchPermission({
+  permissionHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  provider: sdk.getProvider(),
+});
+
+if (permission) {
+  console.log('Permission found:', permission);
+} else {
+  console.log('Permission not found');
+}
+
+// Using without explicit provider (uses default SDK provider)
+const permission2 = await fetchPermission({
+  permissionHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+});
+```
+</RequestExample>
+
+## Error Handling
+
+The function returns `null` if the permission is not found rather than throwing an error. Always check for null values:
+
+```typescript
+const permission = await fetchPermission({
+  permissionHash: hash,
+});
+
+if (!permission) {
+  // Handle permission not found
+  console.error('Permission not found');
+  return;
+}
+
+// Safe to use permission here
+console.log('Permission details:', permission);
+```
+
+## Usage Notes
+
+<Note>
+This function is particularly useful when:
+- You have a permission hash from a previous operation (e.g., from `requestSpendPermission`)
+- You want to verify the current state of a specific permission
+- You need to look up permission details without knowing the account or spender information
+- You're tracking specific permissions across sessions
+</Note>
+
+Unlike `fetchPermissions`, this function:
+- Returns a single permission instead of an array
+- Does not require account, chain, or spender parameters
+- Provides direct access via the permission's unique identifier
+- Returns `null` instead of an empty array when no permission is found
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />

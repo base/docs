@@ -1,0 +1,73 @@
+---
+title: "personal_sign"
+description: "Sign data using a specific account with Ethereum-specific signature format"
+---
+
+Defined in [EIP-191](https://eips.ethereum.org/EIPS/eip-191)
+
+<Info>
+Signs data using a specific account. This method calculates an Ethereum specific signature with: `sign(keccak256("\x19Ethereum Signed Message:\n" + len(message) + message)))`.
+</Info>
+
+## Parameters
+
+<ParamField body="data" type="string" required>
+The data to sign, in hexadecimal format.
+</ParamField>
+
+<ParamField body="address" type="string" required>
+The address of the account that should sign the data.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+A signature string in hexadecimal format.
+</ResponseField>
+
+## Example Usage
+
+<RequestExample>
+```json Request
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "personal_sign",
+  "params": [
+    "0x48656c6c6f2c20576f726c6421",
+    "0xd46e8dd67c5d32be8058bb8eb970870f07244567"
+  ]
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success Response
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": "0x30755ed65396facf86c53e6217c52b4daebe72aa4941d89635409de4c9c7a9466d0e6928a2e2d2e8f8e8c8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e"
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+<ResponseField name="code" type="number">
+Error code indicating the type of error that occurred.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+Human-readable error message describing what went wrong.
+</ResponseField>
+
+| Code | Message                        | Description |
+| ---- | ------------------------------ | ----------- |
+| 4001 | User denied signature request  | User rejected the signing request |
+| 4100 | Requested method not supported | The method is not supported by the wallet |
+| 4200 | Wallet not connected           | No wallet connection available |
+| 4300 | Invalid parameters             | The provided parameters are invalid |
+
+<Warning>
+Always verify signatures on the server side before trusting them. Client-side signature verification should only be used for UX purposes.
+</Warning>

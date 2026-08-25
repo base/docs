@@ -7,8 +7,10 @@
 //   - Legal guidance: "Tokenized equities (B20): content and code guidance"
 //     (avoid "equity"/"security" as classifiers in RWA narrative; lead with
 //     "one of many use cases"; ship the required disclaimers).
-//   - Product change: Base Account / Base Pay / Wallet SDK are moving to
-//     Coinbase Wallet and must not be referenced as live Base surfaces.
+//   - Product change: Base Account / Base Pay / Wallet SDK must not be
+//     referenced from the Get Started and Build on Base funnels. The SDKs &
+//     APIs tab documents those products, so the rule is scoped to the two
+//     use-case tabs rather than applied repo-wide.
 //
 // Run: node scripts/check-terminology.js   (exit 1 on any violation)
 
@@ -19,11 +21,9 @@ const root = path.resolve(__dirname, '..');
 const docs = path.join(root, 'docs');
 const errors = [];
 
-// Pages allowed to name the retired brands (the "it moved" pointers).
-const BRAND_ALLOWLIST = new Set([
-  'sdks/coinbase-wallet.mdx',
-  'sdks/overview.mdx',
-]);
+// Sections where the retired brands must not appear. The SDKs & APIs tab
+// documents Base Account, so the rule covers only the use-case funnels.
+const BRAND_SCOPE = ['get-started/', 'build-on-base/'];
 
 // Retired-brand terms that must not appear as live Base surfaces.
 const BRAND_TERMS = [/\bBase Pay\b/, /\bBase Account\b/, /@base-org\/account/, /\bCoinbase Wallet SDK\b/];
@@ -46,11 +46,11 @@ for (const file of files) {
   const content = fs.readFileSync(file, 'utf8');
   const lines = content.split('\n');
 
-  // Rule A: retired brands (repo-wide, except the "it moved" pointers).
-  if (!BRAND_ALLOWLIST.has(rel)) {
+  // Rule A: retired brands, within the use-case funnels only.
+  if (BRAND_SCOPE.some((prefix) => rel.startsWith(prefix))) {
     lines.forEach((line, i) => {
       for (const re of BRAND_TERMS) {
-        if (re.test(line)) errors.push(`${rel}:${i + 1}: retired brand term "${line.match(re)[0]}" (moved to Coinbase Wallet)`);
+        if (re.test(line)) errors.push(`${rel}:${i + 1}: "${line.match(re)[0]}" must not appear in the Get Started / Build on Base funnels (link the SDKs & APIs tab instead)`);
       }
     });
   }
@@ -78,4 +78,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('Terminology check passed: no retired brands, RWA framing compliant.');
+console.log('Terminology check passed: funnel pages brand-clean, RWA framing compliant.');

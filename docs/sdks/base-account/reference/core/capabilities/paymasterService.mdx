@@ -1,0 +1,322 @@
+---
+title: "paymasterService"
+description: "Enable sponsored transactions using ERC-4337 paymaster web services"
+---
+
+Defined in [ERC-7677](https://eips.ethereum.org/EIPS/eip-7677)
+
+<Info>
+The paymasterService capability enables apps to sponsor user transactions using ERC-4337 paymaster web services. This allows users to execute transactions without paying gas fees directly.
+</Info>
+
+<Warning>
+This capability is not yet finalized and may change in future iterations.
+</Warning>
+
+## Parameters
+
+<ParamField body="url" type="string" required>
+The URL of the ERC-7677-compliant paymaster service that will sponsor the transactions.
+
+**Format:** Must be a valid HTTPS URL pointing to a paymaster service endpoint.
+</ParamField>
+
+## Returns
+
+<ResponseField name="paymasterService" type="object">
+The paymaster service capability configuration for the specified chain.
+
+<Expandable title="PaymasterService capability properties">
+<ResponseField name="supported" type="boolean">
+Indicates whether the wallet supports paymaster service integration.
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+## Example Usage
+
+<RequestExample>
+```typescript Check Paymaster Support
+const capabilities = await provider.request({
+  method: 'wallet_getCapabilities',
+  params: [userAddress]
+});
+
+const paymasterSupport = capabilities["0x2105"]?.paymasterService;
+```
+
+```typescript Send Sponsored Transaction
+const result = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: userAddress,
+    calls: [{
+      to: "0x1234567890123456789012345678901234567890",
+      value: "0x0",
+      data: "0xa9059cbb000000000000000000000000..."
+    }],
+    capabilities: {
+      paymasterService: {
+        url: "https://your-paymaster-service.xyz"
+      }
+    }
+  }]
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json Capability Response (Supported)
+{
+  "0x2105": {
+    "paymasterService": {
+      "supported": true
+    }
+  }
+}
+```
+
+```json Capability Response (Unsupported)
+{
+  "0x2105": {
+    "paymasterService": {
+      "supported": false
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Error Handling
+
+| Code | Message | Description |
+| ---- | ------- | ----------- |
+| 4100 | Paymaster service not supported | Wallet does not support paymaster service integration |
+| 4200 | Invalid paymaster URL | The provided paymaster service URL is invalid or unreachable |
+| 4300 | Paymaster service error | The paymaster service returned an error or is unavailable |
+| 5700 | Paymaster capability required | Transaction requires paymaster service but wallet doesn't support it |
+
+## Paymaster Service Implementation
+
+The paymaster service must implement ERC-7677 compliance with these endpoints:
+
+### 1. Gas Estimation Endpoint
+
+```typescript
+// pm_getPaymasterStubData
+POST /rpc
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "pm_getPaymasterStubData",
+  "params": [
+    userOp, // User operation object
+    entryPoint, // Entry point address
+    chainId, // Chain ID
+    context // Additional context
+  ]
+}
+```
+
+### 2. Paymaster Data Endpoint
+
+```typescript  
+// pm_getPaymasterData
+POST /rpc
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "pm_getPaymasterData", 
+  "params": [
+    userOp, // User operation object
+    entryPoint, // Entry point address
+    chainId, // Chain ID
+    context // Additional context
+  ]
+}
+```
+
+## Complete Example
+
+Here's a complete example of implementing sponsored transactions:
+
+```typescript
+class SponsoredTransactionManager {
+  private paymasterUrl = "https://api.example.com/paymaster";
+  
+  async executeSponsored(calls: any[]) {
+    try {
+      // 1. Check paymaster capability
+      const capabilities = await provider.request({
+        method: 'wallet_getCapabilities',
+        params: [userAddress]
+      });
+      
+      if (!capabilities["0x2105"]?.paymasterService?.supported) {
+        throw new Error("Paymaster services not supported");
+      }
+      
+      // 2. Execute sponsored transaction
+      const result = await provider.request({
+        method: 'wallet_sendCalls',
+        params: [{
+          version: "1.0",
+          chainId: "0x2105",
+          from: userAddress,
+          calls,
+          capabilities: {
+            paymasterService: {
+              url: this.paymasterUrl
+            }
+          }
+        }]
+      });
+      
+      console.log("Sponsored transaction submitted:", result);
+      return result;
+      
+    } catch (error) {
+      console.error("Sponsored transaction failed:", error);
+      throw error;
+    }
+  }
+  
+  // Example: Sponsored token transfer
+  async sponsoredTransfer(token: string, to: string, amount: string) {
+    const calls = [{
+      to: token,
+      value: "0x0",
+      data: this.encodeTransfer(to, amount)
+    }];
+    
+    return this.executeSponsored(calls);
+  }
+  
+  private encodeTransfer(to: string, amount: string): string {
+    // Encode ERC-20 transfer function call
+    // This is a simplified example
+    return `0xa9059cbb${to.slice(2).padStart(64, '0')}${BigInt(amount).toString(16).padStart(64, '0')}`;
+  }
+}
+
+// Usage
+const sponsoredTx = new SponsoredTransactionManager();
+
+// Execute sponsored token transfer
+await sponsoredTx.sponsoredTransfer(
+  "0xA0b86a33E6441b8a2f0d2d2a71Cba0F42c4B1D2E", // USDC token
+  "0x742d35Cc4Bf53E0e6C42E5d9F0A8D2F6D8A8B7C9", // recipient
+  "1000000" // 1 USDC (6 decimals)
+);
+```
+
+## Error Handling
+
+Handle paymaster-related errors appropriately:
+
+```typescript
+async function executeWithPaymaster(calls: any[]) {
+  try {
+    const result = await provider.request({
+      method: 'wallet_sendCalls',
+      params: [{
+        version: "1.0",
+        chainId: "0x2105",
+        from: userAddress,
+        calls,
+        capabilities: {
+          paymasterService: {
+            url: "https://paymaster.example.com"
+          }
+        }
+      }]
+    });
+    
+    return result;
+    
+  } catch (error) {
+    if (error.code === 4100) {
+      console.error("Paymaster service not supported");
+      // Fallback to regular transaction
+      return executeRegularTransaction(calls);
+    } else if (error.message.includes("paymaster")) {
+      console.error("Paymaster service error:", error);
+      // Handle paymaster-specific errors
+      throw new Error("Transaction sponsorship failed");
+    } else {
+      console.error("Transaction failed:", error);
+      throw error;
+    }
+  }
+}
+```
+
+## Use Cases
+
+### Gaming Applications
+
+```typescript
+// Sponsor in-game item purchases
+const gameItemPurchase = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0",
+    chainId: "0x2105",
+    from: playerAddress,
+    calls: [{
+      to: gameContractAddress,
+      value: "0x0",
+      data: purchaseItemCallData
+    }],
+    capabilities: {
+      paymasterService: {
+        url: "https://game-paymaster.example.com"
+      }
+    }
+  }]
+});
+```
+
+### DeFi Onboarding
+
+```typescript
+// Sponsor first-time user transactions
+const onboardingTx = await provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    version: "1.0", 
+    chainId: "0x2105",
+    from: newUserAddress,
+    calls: [
+      // Stake tokens
+      {
+        to: stakingContract,
+        value: "0x0",
+        data: stakeCallData
+      }
+    ],
+    capabilities: {
+      paymasterService: {
+        url: "https://defi-onboarding-paymaster.example.com"
+      }
+    }
+  }]
+});
+```
+
+## Best Practices
+
+1. **Validate Paymaster URLs**: Ensure paymaster service URLs are trustworthy and ERC-7677 compliant
+2. **Handle Failures Gracefully**: Implement fallbacks for when paymaster services are unavailable
+3. **Monitor Costs**: Track paymaster usage to manage sponsorship costs
+4. **User Communication**: Clearly communicate when transactions are sponsored
+
+<Info>
+The paymaster service capability enables seamless user experiences by removing the need for users to hold native tokens for gas fees.
+</Info>
+
+import PolicyBanner from "/snippets/PolicyBanner.mdx";
+
+<PolicyBanner />
