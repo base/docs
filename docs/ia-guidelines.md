@@ -16,7 +16,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 ### Solutions
 
-- **Belongs**: One-page overviews that explain each use case (integrate DeFi, accept payments, tokenize assets, issue stablecoins) and link out to the full Build on Base guides.
+- **Belongs**: One-page overviews that explain each use case (integrate DeFi, tokenize assets, issue stablecoins, accept payments) and link out to the full Build on Base guides.
 - **Does not belong**: The step-by-step guides themselves. Solutions pages are entry ramps, not the destination.
 
 ### References
@@ -50,11 +50,6 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Belongs**: Guides for integrating lending, borrowing, and earn products on Base.
 - **Does not belong**: Protocol-level specs for how DeFi contracts work under the hood.
 
-### Accept Payments
-
-- **Belongs**: Guides for accepting payments from humans and agents, verifying payments, collecting payer info, and subscriptions.
-- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
-
 ### Tokenize Assets
 
 - **Belongs**: Step-by-step guides for asset tokenization: create an asset token, issue units, restrict holders, cancel blocked units, announce distributions, apply multipliers, and pause transfers.
@@ -64,6 +59,11 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 - **Belongs**: End-to-end guides for stablecoin issuers: deploy, mint, burn, restrict holders, block accounts, recover funds, pause, reconcile with memos. Each page is a task the issuer completes.
 - **Does not belong**: The B20 specification itself (that's Base Protocol → Core Primitives → B20). These guides *use* B20 but don't *define* it.
+
+### Accept Payments
+
+- **Belongs**: Guides for accepting payments from humans and agents, verifying payments, collecting payer info, and subscriptions.
+- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
 
 ### Private Transactions
 

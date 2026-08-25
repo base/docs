@@ -18,7 +18,7 @@ Guidelines for contributing to Base documentation.
 The Get Started tab serves as an entry point that funnels users into deeper tabs:
 
 - **Start Here** — Connect to Base, Get Funds, Make a Transaction
-- **Solutions** — Ordered by prominence: Integrate DeFi, Accept Payments, Tokenize Assets, Issue Stablecoins
+- **Solutions** — Ordered by prominence: Integrate DeFi, Tokenize Assets, Issue Stablecoins, Accept Payments
 - **References** — Links that mirror top-level tabs (Chain, SDKs & APIs)
 - **Get Funding** — Base Batches, Base Ecosystem Fund, Base Services Hub
 - **Agents** — Use Base with AI
@@ -80,6 +80,6 @@ Coming Soon
 Order by prominence/demand. Current order:
 
 1. Integrate DeFi
-2. Accept Payments
-3. Tokenize Assets
-4. Issue Stablecoins
+2. Tokenize Assets
+3. Issue Stablecoins
+4. Accept Payments

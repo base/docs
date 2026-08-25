@@ -10,7 +10,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 
 - [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
 - [Base Chain](./base-chain/llms.txt) — Connect your app, wallet, contract, bridge, or infrastructure service to Base.
-- [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, accept payments, tokenize assets, or issue stablecoins.
+- [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
 - [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, Base MCP for AI assistants, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
