@@ -42,7 +42,7 @@ The overhead in the [V0 batch format][derivation] comes from:
 
 Span-batches address these inefficiencies, with a new batch format version.
 
-## Span batch format
+## Span Batch Format
 
 [span-batch-format]: #span-batch-format
 
@@ -123,7 +123,7 @@ In addition to the byte limit, the number of blocks, and total transactions is l
 This does imply that the max number of transactions per block is also `MAX_SPAN_BATCH_ELEMENT_COUNT`.
 `MAX_SPAN_BATCH_ELEMENT_COUNT` is defined in [Protocol Parameters table](../../protocol/consensus/derivation#protocol-parameters).
 
-### Future batch-format extension
+### Future Batch-Format Extension
 
 This is an experimental extension of the span-batch format, and not activated with the Delta upgrade yet.
 
@@ -158,7 +158,7 @@ i.e. Every block in the span is created, submitted to the L1, and derived from t
 
 ## Optimization Strategies
 
-### Truncating information and storing only necessary data
+### Truncating Information and Storing Only Necessary Data
 
 The following fields stores truncated data:
 
@@ -166,23 +166,23 @@ The following fields stores truncated data:
 - `parent_check` and `l1_origin_check`: We can save twelve bytes by truncating twelve bytes from the full hash,
   while having enough safety.
 
-### `tx_data_headers` removal from initial specs
+### `tx_data_headers` Removal From Initial Specs
 
 We do not need to store length per each `tx_datas` elements even if those are variable length,
 because the elements itself is RLP encoded, containing their length in RLP prefix.
 
-### `Chain ID` removal from initial specs
+### `Chain ID` Removal From Initial Specs
 
 Every transaction has chain id. We do not need to include chain id in span batch because L2 already knows its chain id,
 and use its own value for processing span batches while derivation.
 
-### Reorganization of constant length transaction fields
+### Reorganization of Constant Length Transaction Fields
 
 `signature`, `nonce`, `gaslimit`, `to` field are constant size, so these were split up completely and
 are grouped into individual arrays.
 This adds more complexity, but organizes data for improved compression by grouping data with similar data pattern.
 
-### RLP encoding for only variable length fields
+### RLP Encoding for Only Variable Length Fields
 
 Further size optimization can be done by packing variable length fields, such as `access_list`.
 However, doing this will introduce much more code complexity, compared to benefiting from size reduction.
@@ -191,7 +191,7 @@ Our goal is to find the sweet spot on code complexity - span batch size tradeoff
 I decided that using RLP for all variable length fields will be the best option,
 not risking codebase with gnarly custom encoding/decoding implementations.
 
-### Store `y_parity` and `protected_bit` instead of `v`
+### Store `y_parity` and `protected_bit` Instead of `v`
 
 Only legacy type transactions can be optionally protected. If protected([EIP-155]), `v = 2 * ChainID + 35 + y_parity`.
 Else, `v = 27 + y_parity`. For other types of transactions, `v = y_parity`.
@@ -220,7 +220,7 @@ we thought sequencer rotation happens not much often, so assumed that `K` will b
 The assumption makes upper inequality to hold. Therefore, we decided to manage `fee_recipients_idxs` and
 `fee_recipients_set` separately. This adds complexity but reduces data.
 
-## How Derivation works with Span Batches
+## How Derivation Works With Span Batches
 
 - Block Timestamp
   - The first L2 block's block timestamp is `rel_timestamp + L2Genesis.Timestamp`.

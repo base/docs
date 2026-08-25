@@ -13,7 +13,7 @@ Every feature or subsystem in Core Primitives and Network Systems uses a combina
 | **Overview / index** | What this feature is, why it exists, how the pieces fit together. Entry point for the subsystem. | B20 specification, Proofs index, Consensus index |
 | **Reference page** | One page per contract, interface, or component. Exhaustive: every function, error, event, constant. | IB20, IB20Asset, IPolicyRegistry |
 | **Supporting page** | Constants, errors, events, invariants, or test cases collected across the subsystem. | B20 constants and addresses, B20 errors and events |
-| **Changelog summary** | Per-hardfork summary of what changed in this feature, linking out to detail entries in the Changelog tab. | B20 changelog |
+| **Changelog summary** | Per-hardfork summary of what changed in this feature, linking out to detail entries in the Upgrades tab. | B20 changelog |
 
 Not every feature needs all four types. A single-page feature (e.g., network fees) can be one overview page. A multi-contract system (e.g., B20, proofs) needs the full set.
 
@@ -52,10 +52,10 @@ Not every feature needs all four types. A single-page feature (e.g., network fee
 
 1. **Hardfork table** — list all hardforks that touched this feature, with ordinal, name, and status.
 2. **Per-hardfork section** — newest first. Each section:
-   - Heading links to the hardfork overview in the Changelog tab (e.g., `## [Cobalt](/base-chain/specs/upgrades/cobalt/overview)`)
-   - Table of changes with links to the detail entries in the Changelog tab
+   - Heading links to the hardfork overview in the Upgrades tab (e.g., `## [Cobalt](/base-chain/specs/upgrades/cobalt/overview)`)
+   - Table of changes with links to the detail entries in the Upgrades tab
    - For the initial release hardfork: summary of what shipped (Added / Deprecated lists)
-3. **No detail content** — the summary page links out, it doesn't duplicate. The Changelog tab owns the migration details.
+3. **No detail content** — the summary page links out, it doesn't duplicate. The Upgrades tab owns the migration details.
 
 ---
 

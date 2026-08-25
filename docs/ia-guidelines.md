@@ -8,31 +8,32 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: First-time visitors who need to orient, pick a use case, and reach their first working interaction with Base.
 
-### Start Here
+### Solutions
+
+- **Belongs**: One-page overviews that explain each use case and link out to the full Build on Base guides: Integrate DeFi, Accept Payments, Tokenize Assets, Issue Stablecoins.
+- **Does not belong**: The step-by-step guides themselves. Solutions pages are entry ramps, not the destination.
+- **Governance**: Before adding a new solution or renaming a section, you need approval from Eric Brown and Mind Apivessa. Mind Apivessa will be responsible for getting approvals from BD and GTM.
+
+### Quickstart
 
 - **Belongs**: Minimal-step onboarding (connect wallet, get testnet funds, send a transaction). Each page should be completable in under 5 minutes.
 - **Iterate**: Surface high-traffic reference pages (e.g., contract addresses, network details, faucets) that are currently buried deep in the IA. If analytics show developers frequently need a page but it takes too many clicks to reach, add a shortcut or landing link here.
 - **Does not belong**: Detailed implementation guides (those go in Build on Base), SDK installation walkthroughs (those go in SDKs & APIs).
 
-### Solutions
+### Coding Agents
 
-- **Belongs**: One-page overviews that explain each use case (integrate DeFi, tokenize assets, issue stablecoins, accept payments) and link out to the full Build on Base guides.
-- **Does not belong**: The step-by-step guides themselves. Solutions pages are entry ramps, not the destination.
+- **Belongs**: Resources for AI coding agents — MCP server setup, llms.txt pointers, agent-oriented entry points.
+- **Does not belong**: Human-facing quickstarts or tutorials. This section serves agents, not developers directly.
+
+### Get Funding
+
+- **Belongs**: Grant programs, accelerator info, ecosystem fund applications, and the Base Services Hub for builder discounts and service credits.
+- **Does not belong**: Technical content of any kind. Full detail on the programs.
 
 ### References
 
 - **Belongs**: Short landing pages that point to the Base Protocol tab and the SDKs & APIs tab. Orientation only.
 - **Does not belong**: Actual reference content (contract addresses, glossaries, API docs). Those live in their respective tabs.
-
-### Get Funding
-
-- **Belongs**: Grant programs, accelerator info, ecosystem fund applications, and the Base Services Hub for builder discounts and service credits.
-- **Does not belong**: Technical content of any kind.
-
-### Coding Agents
-
-- **Belongs**: Resources for AI coding agents — MCP server setup, llms.txt pointers, agent-oriented entry points.
-- **Does not belong**: Human-facing quickstarts or tutorials. This section serves agents, not developers directly.
 
 ---
 
@@ -40,58 +41,50 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: Developers who have picked a use case and need step-by-step implementation guides to build on Base.
 
+**Governance**: Before adding a new solution or renaming a section, you need approval from Eric Brown and Mind Apivessa. Mind Apivessa will be responsible for getting approvals from BD and GTM.
+
 ### Overview
 
-- **Belongs**: Build on Base landing page, Vibenet testing guide.
+- **Belongs**: What this tab entails. A mini overview of the solutions.
 - **Does not belong**: Chain-level concepts (fees, finality, throughput) — those go in Base Protocol → Core Primitives.
 
-### Integrate DeFi
+### Accept Payments
 
-- **Belongs**: Guides for integrating lending, borrowing, and earn products on Base.
-- **Does not belong**: Protocol-level specs for how DeFi contracts work under the hood.
-
-### Tokenize Assets
-
-- **Belongs**: Step-by-step guides for asset tokenization: create an asset token, issue units, restrict holders, cancel blocked units, announce distributions, apply multipliers, and pause transfers.
-- **Does not belong**: B20 Asset variant specification details (those live in Base Protocol → Core Primitives → B20).
+- **Belongs**: Guides for requesting, authorizing, capturing, verifying, and reconciling payments, plus refunds, payouts, splits, scheduled charges, and agentic payments.
+- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
 
 ### Issue Stablecoins
 
 - **Belongs**: End-to-end guides for stablecoin issuers: deploy, mint, burn, restrict holders, block accounts, recover funds, pause, reconcile with memos. Each page is a task the issuer completes.
 - **Does not belong**: The B20 specification itself (that's Base Protocol → Core Primitives → B20). These guides *use* B20 but don't *define* it.
 
-### Accept Payments
+### Tokenize Assets
 
-- **Belongs**: Guides for accepting payments from humans and agents, verifying payments, collecting payer info, and subscriptions.
-- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
-
-### Private Transactions
-
-- **Belongs**: Ledger-based private transaction guides: deposit, transfer, withdraw.
-- **Does not belong**: Cryptographic protocol details or consensus-layer privacy specs.
+- **Belongs**: Step-by-step guides for asset tokenization: create a token, issue shares, restrict holders, cancel blocked shares, announce dividends, run stock splits, pause transfers.
+- **Does not belong**: B20 Asset variant specification details (those live in Base Protocol → Core Primitives → B20).
 
 ---
 
-## Base Protocol
+## Specifications
 
 **Audience**: Developers and technical users who need to understand how Base works at the chain level — primitives, protocol internals, network configuration, and node operations.
 
 ### Base Protocol (landing)
 
 - **Belongs**: Chain overview, connecting to Base quickstart, faucets. Entry points into the protocol tab.
-- **Does not belong**: Use-case-specific content (that's Build on Base). SDK setup (that's SDKs & APIs).
+- **Does not belong**: Integration guides or solutions-first style writing. This section is meant for technical-first style writing. SDK setup (that's SDKs & APIs).
 
 ### Core Primitives
 
 - **Belongs**: Specifications and reference material for Base-native primitives that developers interact with directly: B20 token standard (full spec, interfaces, constants, errors, invariants), native account abstraction, bridging options, network fees, transaction ordering/finality, Flashblocks.
-- **Does not belong**: How-to guides for using these primitives (those go in Build on Base). API endpoint reference (SDKs & APIs). Per-hardfork changelog detail pages (those go in Changelog → the hardfork group).
-- **Changelog pattern**: Each feature or subsystem in Core Primitives should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Changelog tab. The summary page lives here; the detail pages live in Changelog under the hardfork that introduced them.
+- **Does not belong**: How-to guides for using these primitives (those go in Build on Base). API endpoint reference (SDKs & APIs). Per-hardfork changelog detail pages (those go in Upgrades → the hardfork group).
+- **Changelog pattern**: Each feature or subsystem in Core Primitives should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Upgrades tab. The summary page lives here; the detail pages live in Upgrades under the hardfork that introduced them.
 - **Content structure**: See [specs-guidelines.md](../specs-guidelines.md) for page types, page structure, and writing rules for spec pages.
 
 #### B20 (nested group)
 
-- **Belongs**: The normative B20 specification: index page, constants and addresses, errors and events, invariants and tests, interface reference pages (IActivationRegistry, IB20, IB20Asset, IB20Factory, IB20Stablecoin, IPolicyRegistry), and a changelog summary page that links to the per-hardfork detail entries in the Changelog tab.
-- **Does not belong**: Tutorials on deploying B20 tokens (Build on Base → Issue Stablecoins). Per-hardfork changelog detail pages (Changelog → Cobalt, Beryl, etc.). The "B20 token standard" overview for general audiences (that's a network-information page, not the spec).
+- **Belongs**: The normative B20 specification: index page, constants and addresses, errors and events, invariants and tests, interface reference pages (IActivationRegistry, IB20, IB20Asset, IB20Factory, IB20Stablecoin, IPolicyRegistry), and a changelog summary page that links to the per-hardfork detail entries in the Upgrades tab.
+- **Does not belong**: Tutorials on deploying B20 tokens (Build on Base → Issue Stablecoins). Per-hardfork changelog detail pages (Upgrades → Cobalt, Beryl, etc.). The "B20 token standard" overview for general audiences (that's a network-information page, not the spec).
 
 #### Bridging (nested group)
 
@@ -106,8 +99,8 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 ### Network Systems
 
 - **Belongs**: Protocol-level specifications: batcher, bridging internals (deposits, withdrawals, messengers), consensus (derivation, P2P, RPC), execution (precompiles, predeploys, preinstalls), proofs (challenger, proposer, registrar, TEE prover, ZK prover, contracts), throughput and limits.
-- **Does not belong**: User-facing network info (fees, faucets — those are Core Primitives or the landing group). Hardfork-specific changes (Changelog). B20 spec (Core Primitives).
-- **Changelog pattern**: Same as Core Primitives — each subsystem (batcher, consensus, execution, proofs, etc.) should include a changelog summary page that lists per-hardfork changes and links out to the detail entries in the Changelog tab.
+- **Does not belong**: User-facing network info (fees, faucets — those are Core Primitives or the landing group). Hardfork-specific changes (Upgrades). B20 spec (Core Primitives).
+- **Changelog pattern**: Same as Core Primitives — each subsystem (batcher, consensus, execution, proofs, etc.) should include a changelog summary page that lists per-hardfork changes and links out to the detail entries in the Upgrades tab.
 - **Content structure**: See [specs-guidelines.md](../specs-guidelines.md) — same page types and writing rules as Core Primitives.
 
 ### Reference
@@ -136,33 +129,38 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Belongs**: SDK/API landing page with links to available SDKs and APIs.
 - **Does not belong**: Chain-level protocol content (Base Protocol).
 
-### Base Account SDK
-
-- **Belongs**: Everything about the Base Account SDK — quickstarts (web, React, mobile, AI tools), guides (auth, signing, social verification, batching, spend permissions, sub-accounts, gas sponsorship, migration), framework integrations (Wagmi, Privy, CDP, RainbowKit, Reown, Thirdweb), full API reference (Base Pay, Core, Spend Permissions, Prolink, UI Elements, Onchain Contracts), Basenames, troubleshooting.
-- **Does not belong**: Chain RPC methods (Base Chain API). Protocol specs (Base Protocol). Use-case guides that happen to use the SDK (Build on Base).
-
 ### Base Chain API
 
 - **Belongs**: RPC overview, Ethereum JSON-RPC API methods, Flashblocks API methods, Debug API methods. Each page documents one RPC endpoint.
 - **Does not belong**: SDK wrapper methods (Base Account SDK). Flashblocks conceptual explainer (Base Protocol → Core Primitives). Node setup (Base Protocol → Node Operators).
 
+### Base Account SDK
+
+- **Belongs**: Everything about the Base Account SDK — quickstarts (web, React, mobile, AI tools), guides (auth, signing, social verification, batching, spend permissions, sub-accounts, gas sponsorship, migration), framework integrations (Wagmi, Privy, CDP, RainbowKit, Reown, Thirdweb), full API reference (Base Pay, Core, Spend Permissions, Prolink, UI Elements, Onchain Contracts), Basenames, troubleshooting.
+- **Does not belong**: Chain RPC methods (Base Chain API). Protocol specs (Base Protocol). Use-case guides that happen to use the SDK (Build on Base).
+
 ---
 
-## Changelog
+## Upgrades
 
 **Audience**: Developers and node operators tracking what changed across Base hardforks and releases.
 
 **Entry structure**: Every changelog entry follows a standardized section format modeled after TIPs (Token Improvement Proposals). See [changelog-structure.md](../changelog-structure.md) for the full template, numbering scheme, and naming convention.
+
+### Overview
+
+- **Belongs**: Upgrades landing page with hardfork timeline, status table, and links to each hardfork overview.
+- **Does not belong**: Per-hardfork detail content (that goes in the hardfork groups below).
 
 ### General
 
 - **Belongs**: Configuration changelog — network parameter changes that don't belong to a specific hardfork.
 - **Does not belong**: Feature announcements or blog-style content.
 
-### Cobalt / Beryl / Azul (hardfork groups)
+### Cobalt / Beryl / Azul (upgrade groups)
 
 - **Belongs**: Per-hardfork overview and the specific changes introduced in that hardfork — including feature-specific entries (e.g., B20 improvements, EIP-8130, reth-v2, node upgrades, proof system changes). All per-feature changelog entries go under the hardfork that introduced them, not in a separate per-feature group.
-- **Does not belong**: The current/canonical specification for features modified in the hardfork. After a hardfork ships, the canonical spec lives in Base Protocol; the Changelog entry records *what changed and how to migrate*. No standalone per-feature sections — B20 changes go under Cobalt/Beryl, not a separate "B20" group.
+- **Does not belong**: The current/canonical specification for features modified in the hardfork. After a hardfork ships, the canonical spec lives in Base Protocol; the Upgrades entry records *what changed and how to migrate*. No standalone per-feature sections — B20 changes go under Cobalt/Beryl, not a separate "B20" group.
 
 ### Optimism (hardfork groups)
 
@@ -178,11 +176,12 @@ Key IA decisions from past reorganizations, for context:
 | Decision | Rationale |
 |----------|-----------|
 | B20 spec moved from Reference to Core Primitives | B20 is a first-class primitive developers interact with, not a lookup reference |
-| How-to guides separated from specs | Build on Base is task-oriented (issue, accept, tokenize); Base Protocol is concept/spec-oriented |
-| API reference lives in SDKs & APIs, not Base Protocol | Developers looking for RPC methods think "API docs", not "protocol" |
-| Hardfork specs live in Changelog, not Network Systems | Network Systems is the *current* canonical state; Changelog tracks *deltas* |
-| No per-feature changelog groups | Feature changes (e.g., B20) go under the hardfork that introduced them (Cobalt, Beryl), not a standalone section |
-| Changelog summary pages in Base Protocol | Each Core Primitives and Network Systems feature gets a changelog summary page that links out to detail entries in the Changelog tab — Base Protocol owns the spec and the summary, Changelog owns the migration details |
-| Node operators stay in Base Protocol | Node ops are protocol-adjacent, not SDK/API work |
+| How-to guides separated from specs | Build on Base is task-oriented (issue, accept, tokenize); Specifications is concept/spec-oriented |
+| API reference lives in SDKs & APIs, not Specifications | Developers looking for RPC methods think "API docs", not "protocol" |
+| Hardfork specs live in Upgrades, not Network Systems | Network Systems is the *current* canonical state; Upgrades tracks *deltas* |
+| No per-feature upgrade groups | Feature changes (e.g., B20) go under the hardfork that introduced them (Cobalt, Beryl), not a standalone section |
+| Changelog summary pages in Specifications | Each Core Primitives and Network Systems feature gets a changelog summary page that links out to detail entries in the Upgrades tab — Specifications owns the spec and the summary, Upgrades owns the migration details |
+| Node operators stay in Specifications | Node ops are protocol-adjacent, not SDK/API work |
 | Get Started → Solutions are entry ramps only | They link to Build on Base guides, they don't duplicate them |
 | Mini Apps renamed to Apps | Broader scope, `/mini-apps/` paths redirect to `/apps/` |
+| Tokenize Stocks renamed to Tokenize Assets | Broader scope for asset tokenization beyond equities |
