@@ -102,7 +102,7 @@ npx skills add base/base-skills
 |sdks/base-account/guides/tips:inspect-txn-simulation,popup-tips
 |sdks/base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
 |sdks/base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
-|sdks/base-account/more:base-gasless-campaign,telemetry
+|sdks/base-account/more:telemetry
 |sdks/base-account/more/troubleshooting/usage-details:gas-usage,popups,simulations,unsupported-calls,wallet-library-support
 |sdks/base-account/quickstart:ai-tools-available-for-devs,mobile-integration,web-react,web
 |sdks/base-account/reference/base-pay:charge,getOrCreateSubscriptionOwnerWallet,getPaymentStatus,getStatus,pay,prepareCharge,prepareRevoke,revoke,subscribe,subscriptions-overview
