@@ -45,23 +45,28 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 ### Overview
 
-- **Belongs**: What this tab entails. A mini overview of the solutions.
+- **Belongs**: Build on Base landing page and Vibenet testing guide.
 - **Does not belong**: Chain-level concepts (fees, finality, throughput) — those go in Base Protocol → Core Primitives.
 
-### Accept Payments
+### Integrate DeFi
 
-- **Belongs**: Guides for requesting, authorizing, capturing, verifying, and reconciling payments, plus refunds, payouts, splits, scheduled charges, and agentic payments.
-- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
+- **Belongs**: Guides for integrating trading, lending, borrowing, and earn products on Base.
+- **Does not belong**: Protocol-level specs for how DeFi contracts work under the hood.
+
+### Tokenize Assets
+
+- **Belongs**: Step-by-step guides for asset tokenization: create an asset token, issue units, restrict holders, cancel blocked units, announce distributions, apply multipliers, and pause transfers.
+- **Does not belong**: B20 Asset variant specification details (those live in Base Protocol → Core Primitives → B20).
 
 ### Issue Stablecoins
 
 - **Belongs**: End-to-end guides for stablecoin issuers: deploy, mint, burn, restrict holders, block accounts, recover funds, pause, reconcile with memos. Each page is a task the issuer completes.
 - **Does not belong**: The B20 specification itself (that's Base Protocol → Core Primitives → B20). These guides *use* B20 but don't *define* it.
 
-### Tokenize Assets
+### Accept Payments
 
-- **Belongs**: Step-by-step guides for asset tokenization: create a token, issue shares, restrict holders, cancel blocked shares, announce dividends, run stock splits, pause transfers.
-- **Does not belong**: B20 Asset variant specification details (those live in Base Protocol → Core Primitives → B20).
+- **Belongs**: Guides for requesting, authorizing, capturing, verifying, and reconciling payments, plus refunds, payouts, splits, scheduled charges, and agentic payments.
+- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
 
 ---
 
