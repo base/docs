@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.compositePolicyChildIds"
-description: "Generated B20 reference for compositePolicyChildIds(uint64)."
+description: "Returns the child-policy set of a composite policy."
 ---
-
-
 
 ## Signature
 
@@ -18,26 +16,39 @@ function compositePolicyChildIds(uint64 policyId) external view returns (uint64[
 
 ## Description
 
-Returns the child-policy set of the composite `policyId`.
-Dev: Child-policies are listed in the order they were last written.
-Dev: Returns an empty array for simple policies, built-in sentinels, unknown IDs, and
-malformed IDs. Never reverts.
-Dev: An empty return unambiguously means "not a composite".
-Dev: The registry preserves the caller's ordering verbatim and neither sorts nor
-de-duplicates.
-Param: policyId Policy to query.
-Return: Child policy IDs, or an empty array.
+Returns the child-policy IDs stored for `policyId` in the order they were last written. The registry preserves caller ordering verbatim and does not sort or deduplicate entries.
+
+Returns an empty array for simple policies, built-in sentinels (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`), unknown IDs, and malformed IDs. Never reverts. An empty return unambiguously means "not a composite."
+
+## Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `policyId` | `uint64` | Policy to query. |
+
+## Returns
+
+| Type | Description |
+| ---- | ----------- |
+| `uint64[] memory` | Child policy IDs, or an empty array if `policyId` is not a composite. |
+
+## Behavior notes
+
+- Evaluation is live. Each `isAuthorized` call on a composite reads the child IDs returned by this function at call time — not a snapshot from creation or the last `updateComposite`.
+- Child IDs are packed four per 256-bit slot. The two-to-four-child constraint means each composite occupies one element slot in the `children` mapping.
+- Duplicate child IDs are preserved; the registry does not deduplicate them.
 
 ## Access control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No caller restrictions.
 
 ## Policy interaction
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+This is part of the singleton `PolicyRegistry` surface used by B20 policy scopes.
 
 ## Example
 
-```solidity
-IPolicyRegistry(target).compositePolicyChildIds(arg0);
+```solidity Title Query composite children
+uint64[] memory children = IPolicyRegistry(target).compositePolicyChildIds(policyId);
+// Returns empty array if policyId is not a composite.
 ```

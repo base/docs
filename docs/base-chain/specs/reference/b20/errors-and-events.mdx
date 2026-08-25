@@ -22,8 +22,8 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `BatchSizeTooLarge` | `0x083e2f67` | `IPolicyRegistry` | A membership batch exceeded the registry limit. |
 | event | `BlocklistUpdated` | `0x2ff63c102b1b9fd7f5d39f83039c5d6aaf50a414a4f2def2704e41be2628f1e3` | `IPolicyRegistry` | One or more accounts had their BLOCKLIST membership set to `blocked` in a single batch. |
 | event | `BurnedBlocked` | `0x0b552e96653fd6842da37c477005d3b5c08a8c7d3631b1f43787b2dc9a1006a3` | `IB20` | Emitted by the deprecated `burnBlocked` in addition to `Transfer(from, address(0), amount)`. |
-| error | `ChildPoliciesOutsideOfRange` | `0x697ec868` | `IPolicyRegistry` | A composite policy was created or updated with a child-policy count outside the |
-| event | `CompositePolicyUpdated` | `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363` | `IPolicyRegistry` | A composite policy's child set was set or replaced in full with `childPolicyIds`. Emitted |
+| error | `ChildPoliciesOutsideOfRange` | `0x697ec868` | `IPolicyRegistry` | A composite policy was created or updated with a child-policy count outside the allowed range of 2 to 4. |
+| event | `CompositePolicyUpdated` | `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363` | `IPolicyRegistry` | A composite policy's child set was set or replaced in full with `childPolicyIds`. Emitted by `createCompositePolicy` and `updateComposite`. |
 | error | `ContractPaused` | `0xf9df5ac9` | `IB20` | The `PausableFeature` covering this operation is currently paused. |
 | event | `ContractURIUpdated` | `0xa5d4097edda6d87cb9329af83fb3712ef77eeb13738ffe43cc35a4ce305ad962` | `IB20` | Emitted by `updateContractURI`. Per ERC-7572, parameterless: integrators re-fetch `contractURI()`. |
 | error | `DelegateCallNotAllowed` | `0x0d89438e` | `IActivationRegistry` | The precompile was invoked via `DELEGATECALL` or `CALLCODE`. |
@@ -38,7 +38,7 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | event | `FeatureActivated` | `0x8c7a0ecdbb8d96e867e43ec1aef80027976ee493c18bef399fa799ed19752451` | `IActivationRegistry` | Emitted when `feature` is activated. |
 | event | `FeatureDeactivated` | `0x15bf65a782c3258c63268ba9d7aed710cf9f9315d3687d9a4632ccdad7926c84` | `IActivationRegistry` | Emitted when `feature` is deactivated. |
 | error | `FeatureNotActivated` | `0xb9b2a425` | `IActivationRegistry` | Feature is not activated. |
-| error | `IncompatiblePolicyType` | `0xf1011ef5` | `IPolicyRegistry` | The operation is incompatible with the policy's type. |
+| error | `IncompatiblePolicyType` | `0xf1011ef5` | `IPolicyRegistry` | The operation is incompatible with the policy's type. `createPolicy` and `createPolicyWithAccounts` revert with this error when called with `UNION` or `INTERSECT`. |
 | error | `InitCallFailed` | `0x4eae0860` | `IB20Factory` | One of the `initCalls` reverted. The factory bubbles the underlying revert reason |
 | error | `InsufficientAllowance` | `0x192b9e4e` | `IB20` | `spender`'s allowance is less than `needed` for the requested `transferFrom`. |
 | error | `InsufficientBalance` | `0xdb42144d` | `IB20` | `sender`'s balance is less than `needed` for the requested transfer or burn. |
@@ -46,7 +46,7 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `InternalCallMalformed` | `0x4e2f143e` | `IB20Asset` | An inner call dispatched by `announce` was shorter than four bytes. |
 | error | `InvalidAmount` | `0x2c5211c6` | `IB20` | An amount argument was zero where a non-zero value is required. Not used for ERC-20 amount arguments. |
 | error | `InvalidApprover` | `0x8bc146c4` | `IB20` | The approval's `owner` address is invalid (typically `address(0)`). |
-| error | `InvalidChildPolicy` | `0x46508ef6` | `IPolicyRegistry` | Composite policies are not simple policies. Child policies must be existing |
+| error | `InvalidChildPolicy` | `0x46508ef6` | `IPolicyRegistry` | A child policy ID passed to `createCompositePolicy` or `updateComposite` is not a valid simple policy. Child policies must be existing `ALLOWLIST` or `BLOCKLIST` policies; composite policies and the built-in sentinels `ALWAYS_ALLOW` and `ALWAYS_BLOCK` are not valid children. |
 | error | `InvalidCurrency` | `0x997c1de8` | `IB20Factory` | The stablecoin `currency` was non-empty but contained a non-`A`-`Z` byte. |
 | error | `InvalidDecimals` | `0xca950391` | `IB20Factory` | The asset `decimals` was outside the allowed inclusive range |
 | error | `InvalidMetadataKey` | `0x86ea3abb` | `IB20Asset` | `updateExtraMetadata` was called with an empty `key`. |
@@ -75,26 +75,4 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | event | `PolicyAdminStaged` | `0xdbf3b34a4c956c56ca05cd4b8f9293a4347ad61994445a4b89817d4a19561136` | `IPolicyRegistry` | A new admin was staged. `pendingAdmin == address(0)` clears a prior nomination. |
 | event | `PolicyAdminUpdated` | `0x98925cfb1bc09c5b43dd0dd56d3d95aa04fb3300927580cc588c3f5dd58c15e1` | `IPolicyRegistry` | The active admin changed. `newAdmin == address(0)` indicates renunciation; |
 | event | `PolicyCreated` | `0xdc870ce85be577234b8548f42b93f84bbff6d0c1f38ee725c809c49932a13885` | `IPolicyRegistry` | A new policy was created. |
-| error | `PolicyForbids` | `0xa43fec12` | `IB20` | A policy slot denied the operation. |
-| error | `PolicyNotFound` | `0xcccad523` | `IB20` | The provided policy ID does not exist in the policy registry. |
-| error | `PolicyNotFound` | `0x720caa4f` | `IPolicyRegistry` | The referenced policy ID does not exist. |
-| event | `PolicyUpdated` | `0x8b4790f7ff717fc8f60f07ae099e47ef318dc04b37ae98056b50a22b79056626` | `IB20` | Emitted by `updatePolicy` when a token's policy slot is changed. Initial slot assignment at |
-| event | `RoleAdminChanged` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | `IB20` | Emitted by `setRoleAdmin` when the admin role for `role` changes. |
-| event | `RoleGranted` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | `IB20` | Emitted when `account` is granted `role`. `sender` is the originating caller. |
-| event | `RoleRevoked` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | `IB20` | Emitted when `role` is revoked from `account`. `sender` is the originating caller |
-| error | `UIMultiplierUpdateExists` | `0x4481a68e` | `IB20Asset` | `updateUIMultiplier` was called while a live pending update already exists |
-| event | `Seized` | `0xa9aec5d8b86e2fa2fd6ac3af62f2622e3dfdab1967d4cbbb56a5df7d74cb887c` | `IB20` | Emitted by `seizeWithMemo` in addition to `Transfer(from, to, amount)` (and the |
-| error | `StaticCallNotAllowed` | `0xbeaba5b7` | `IActivationRegistry` | A state-mutating entry point was invoked from a `STATICCALL` frame. |
-| error | `SupplyCapExceeded` | `0x4b344b11` | `IB20` | The mint would push `totalSupply` past the configured cap. |
-| event | `SupplyCapUpdated` | `0x6d14f44808ce024f263432bc38d019a9951fbe674e9898b54844dbc8dc09c23a` | `IB20` | Emitted by `updateSupplyCap`. |
-| event | `SymbolUpdated` | `0x64e8b5c6dcea43dd79766bb3b8af7c45968d12b68c960cf2da23856f34d598d4` | `IB20` | Emitted by `updateSymbol`. Carries the new symbol string. |
-| error | `TokenAlreadyExists` | `0x15ef3a57` | `IB20Factory` | A token already exists at the deterministic address derived from |
-| event | `Transfer` | `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef` | `IB20` | ERC-20 transfer event. Emitted on every successful transfer (including memo'd variants), |
-| error | `Unauthorized` | `0x8e4a23d6` | `IActivationRegistry` | Caller is not the activation admin. |
-| error | `Unauthorized` | `0x82b42900` | `IB20` | Caller failed a positional authorization check that is not expressible as "missing role X". |
-| error | `Unauthorized` | `0x82b42900` | `IPolicyRegistry` | Caller is not the admin required by the attempted operation. |
-| event | `UIMultiplierUpdated` | `0x2205df4534432b2f60654a3fdb48737ffdaf3e9edb1a498bd985bc026b15b055` | `IB20Asset` | Emitted when the UI multiplier is updated. |
-| event | `Unpaused` | `0xdc6281474ea3dea2a856e225c7ba3edf427de9164495817c4d49a595e683fed4` | `IB20` | Emitted by `unpause`. `features` is the argument to the call (not the resulting paused state). |
-| error | `UnsupportedPolicyType` | `0xcdd98a4a` | `IB20` | `policyScope` is not a slot this token (or its variant) supports. |
-| error | `UnsupportedVersion` | `0xc0d8b4e0` | `IB20Factory` | The leading `version` byte in `params` does not match any known encoding for the requested variant. |
-| error | `ZeroAddress` | `0xd92e233d` | `IPolicyRegistry` | A required address argument was the zero address. |
+| error | `PolicyForbids` | `

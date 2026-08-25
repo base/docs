@@ -53,10 +53,16 @@ State-changing PolicyRegistry calls are ActivationRegistry-gated. Read functions
 |---|---|
 | `BLOCKLIST` | Account is authorized unless listed. |
 | `ALLOWLIST` | Account is authorized only if listed. |
-| `UNION` | Composite: account is authorized if any child simple policy authorizes it. |
-| `INTERSECT` | Composite: account is authorized only if every child simple policy authorizes it. |
+| `UNION` | Composite: account is authorized if any child simple policy authorizes it (OR). |
+| `INTERSECT` | Composite: account is authorized only if every child simple policy authorizes it (AND). |
 
-Composite policies reference existing simple `ALLOWLIST` or `BLOCKLIST` child policies. They cannot reference composites or built-ins as children.
+Composite policies reference two to four existing simple `ALLOWLIST` or `BLOCKLIST` child policies. They cannot reference other composites or built-in sentinel policies as children. This constraint is enforced at write time, so `isAuthorized` on a composite never recurses beyond depth 1.
+
+Evaluation is live: each `isAuthorized` call reads the current membership of each evaluated child. `UNION` short-circuits on the first authorizing child; `INTERSECT` short-circuits on the first non-authorizing child. Child order affects gas cost but never the authorization result.
+
+<Warning>
+`isAuthorized` on an uncreated `UNION` ID returns `false` (deny-all). `isAuthorized` on an uncreated `INTERSECT` ID returns `true` (allow-all), which behaves identically to `ALWAYS_ALLOW`. Always call `policyExists(policyId)` before storing a policy ID in a token scope.
+</Warning>
 
 ### Policy IDs
 
@@ -71,13 +77,13 @@ Counters `0` and `1` are reserved for built-ins:
 | Built-in | Value | Behavior |
 |---|---:|---|
 | `ALWAYS_ALLOW` | `0` | Authorizes every account. |
-| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) &lt;&lt; 56) \| 1` | Denies every account. |
+| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) << 56) \| 1` | Denies every account. |
 
-Custom policy creation starts at counter `2`.
+Custom policy creation starts at counter `2`. Simple and composite policies share the same global counter; composite policies do not use a separate counter.
 
 ### Admin Model
 
-Each policy has one admin. Admin transfer is two-step: `stageUpdateAdmin(policyId, newAdmin)` followed by `finalizeUpdateAdmin(policyId)` from the pending admin. `renounceAdmin(policyId)` permanently freezes membership or child-policy updates for that policy.
+Each policy has one admin. Admin transfer is two-step: `stageUpdateAdmin(policyId, newAdmin)` followed by `finalizeUpdateAdmin(policyId)` from the pending admin. `renounceAdmin(policyId)` permanently freezes membership or child-policy updates for that policy. A renounced child policy remains effective in composites that reference it; its current authorization results continue to apply.
 
 ### Read Interface
 
@@ -87,9 +93,28 @@ Each policy has one admin. Admin transfer is two-step: `stageUpdateAdmin(policyI
 | `policyExists(policyId)` | Returns whether a policy exists. |
 | `policyAdmin(policyId)` | Returns the current admin or zero. |
 | `pendingPolicyAdmin(policyId)` | Returns the staged admin or zero. |
-| `compositePolicyChildIds(policyId)` | Returns child policy IDs for composite policies. |
+| `compositePolicyChildIds(policyId)` | Returns child policy IDs for composite policies; empty for non-composites. |
 
 `isAuthorized` collapses uncreated IDs to empty-set semantics. Callers that write policy IDs into token scopes must validate `policyExists` unless writing a built-in.
+
+### Composite Policy Interface
+
+```solidity
+function createCompositePolicy(address admin, PolicyType policyType, uint64[] calldata childPolicyIds)
+    external
+    returns (uint64 newPolicyId);
+
+function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) external;
+
+function compositePolicyChildIds(uint64 policyId) external view returns (uint64[] memory);
+
+function MIN_COMPOSITE_CHILD_POLICIES() external view returns (uint256);
+function MAX_COMPOSITE_CHILD_POLICIES() external view returns (uint256);
+```
+
+`createCompositePolicy` accepts `UNION` or `INTERSECT` as `policyType` and requires `childPolicyIds` to contain at least `MIN_COMPOSITE_CHILD_POLICIES` (`2`) and no more than `MAX_COMPOSITE_CHILD_POLICIES` (`4`) entries. `updateComposite` replaces the entire child set and enforces the same range. Neither function supports partial updates or an empty child set.
+
+`createPolicy` and `createPolicyWithAccounts` revert with `IncompatiblePolicyType` when called with `UNION` or `INTERSECT`.
 
 ## Policy Integration
 
@@ -105,6 +130,8 @@ B20 tokens store one `uint64 policyId` per supported policy scope.
 | `SEIZE_RECEIVER_POLICY` | `to` | `seizeWithMemo`; destination must be authorized |
 
 All scopes default to `ALWAYS_ALLOW` at creation. `approve` and `permit` are not policy-gated.
+
+A composite policy ID is passed to a B20 policy scope exactly like a simple policy ID. B20 stores policy scopes as an opaque `uint64` and calls `isAuthorized` generically; no B20 contract changes are required to use composite policies.
 
 ## Mint
 

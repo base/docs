@@ -45,13 +45,15 @@ These addresses are identical on every network where B20 is active.
 | Name | Value |
 |---|---|
 | `ALWAYS_ALLOW` | `0` |
-| `ALWAYS_BLOCK` | `(uint64(uint8(IPolicyRegistry.PolicyType.ALLOWLIST)) &lt;&lt; 56) \| 1` |
+| `ALWAYS_BLOCK` | `(uint64(uint8(IPolicyRegistry.PolicyType.ALLOWLIST)) << 56) \| 1` |
 
 Custom policy IDs use this layout:
 
 ```text
 [8-bit PolicyType][56-bit counter]
 ```
+
+Simple and composite policies share the same global counter. The counter starts at `2` because `0` and `1` are reserved for `ALWAYS_ALLOW` and `ALWAYS_BLOCK`.
 
 Policy type bytes:
 
@@ -61,6 +63,12 @@ Policy type bytes:
 | `ALLOWLIST` | `0x01` |
 | `UNION` | `0x02` |
 | `INTERSECT` | `0x03` |
+
+`UNION` and `INTERSECT` are composite policy types. A `UNION` policy authorizes an account if any child policy authorizes it. An `INTERSECT` policy authorizes an account only if every child policy authorizes it. Each composite references two to four existing simple (`ALLOWLIST` or `BLOCKLIST`) policies. Composite policies cannot reference other composites.
+
+<Warning>
+A well-formed but never-created `INTERSECT` policy ID returns `true` for every account (vacuously authorized). Always call `policyExists(policyId)` before storing a composite policy ID; an invalid `INTERSECT` ID behaves like `ALWAYS_ALLOW`.
+</Warning>
 
 ## Variant bytes
 

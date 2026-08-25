@@ -3,8 +3,6 @@ title: "IPolicyRegistry.isAuthorized"
 description: "Generated B20 reference for isAuthorized(uint64,address)."
 ---
 
-
-
 ## Signature
 
 ```solidity
@@ -18,21 +16,64 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 
 ## Description
 
-Returns whether `account` is authorized under `policyId`. Never reverts; unknown
-or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -&gt; false,
-BLOCKLIST -&gt; true).
-Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
-Param: policyId Policy to query.
-Param: account  Account to check.
-Return: Whether `account` is authorized.
+Returns whether `account` is authorized under `policyId`. Never reverts.
+
+The evaluation logic depends on the policy type:
+
+```text
+isAuthorized(policyId, account):
+    if policy is ALLOWLIST:
+        return account is in the policy
+
+    if policy is BLOCKLIST:
+        return account is not in the policy
+
+    if policy is UNION:
+        for each child policy:
+            if isAuthorized(child, account):
+                return true
+        return false
+
+    if policy is INTERSECT:
+        for each child policy:
+            if not isAuthorized(child, account):
+                return false
+        return true
+```
+
+For composite policies (`UNION` and `INTERSECT`), evaluation is live — each call reads the current membership of every evaluated child. Short-circuiting applies: `UNION` stops at the first authorizing child, and `INTERSECT` stops at the first non-authorizing child. Child order can therefore affect gas cost but never the authorization result.
+
+Unknown or never-created policy IDs collapse to empty-member-set semantics:
+
+- `ALLOWLIST` → `false`
+- `BLOCKLIST` → `true`
+- `UNION` with no children → `false`
+- `INTERSECT` with no children → `true`
+
+<Warning>
+A never-created `INTERSECT` ID returns `true` for every account, behaving like `ALWAYS_ALLOW`. Callers that store policy IDs MUST call `policyExists(policyId)` before storing them.
+</Warning>
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. |
+| `account` | `address` | Account to check. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `bool` | `true` if `account` is authorized under `policyId`, `false` otherwise. |
 
 ## Access control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No caller restrictions.
 
 ## Policy interaction
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+This is part of the singleton PolicyRegistry surface used by B20 policy scopes. A composite policy ID is passed to a B20 policy slot exactly like a simple policy ID; B20 stores policy IDs as an opaque `uint64` and calls `isAuthorized` generically.
 
 ## Example
 
