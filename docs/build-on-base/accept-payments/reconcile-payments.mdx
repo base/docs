@@ -1,0 +1,83 @@
+---
+title: "Reconcile Payments"
+keywords: ["payment reconciliation Base", "ERC-20 settlement report", "B20 memo report", "merchant payment ledger"]
+description: "Build a merchant settlement report from token transfers and optional B20 memo events."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Turn confirmed token logs into ledger rows for captures, refunds, and payouts. This guide owns the merchant report; [Reconcile with memos](/build-on-base/issue-stablecoins/reconcile-with-memos) explains the B20 memo mechanics from an issuer's perspective.
+
+#### Demo
+
+<PaymentsDemo flow="reconcile" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Build a settlement report
+
+{/* sample: reconcile-payments-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={8-10,15,23}
+export async function buildSettlementReport(
+  token: Address,
+  merchant: Address,
+  fromBlock: bigint,
+  toBlock: bigint,
+) {
+  const [incoming, outgoing, memos] = await Promise.all([
+    publicClient.getLogs({ address: token, event: transferEvent, args: { to: merchant }, fromBlock, toBlock, strict: true }),
+    publicClient.getLogs({ address: token, event: transferEvent, args: { from: merchant }, fromBlock, toBlock, strict: true }),
+    publicClient.getLogs({ address: token, event: memoEvent, fromBlock, toBlock, strict: true }),
+  ]);
+  const memoByTransfer = new Map<string, Hex>();
+  for (const log of memos) {
+    if (!log.transactionHash || log.logIndex === null) continue;
+    memoByTransfer.set(`${log.transactionHash}:${log.logIndex - 1}`, log.args.memo);
+  }
+
+  const transfers = new Map(
+    [...incoming, ...outgoing].map((log) => [`${log.transactionHash}:${log.logIndex}`, log]),
+  );
+  return [...transfers.values()]
+    .sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex)
+    .map((log) => {
+      if (!log.transactionHash) throw new Error("Expected a mined log");
+      const memo = memoByTransfer.get(`${log.transactionHash}:${log.logIndex}`);
+      return {
+        transactionHash: log.transactionHash,
+        logIndex: log.logIndex,
+        direction: log.args.to.toLowerCase() === merchant.toLowerCase() ? "capture" : "outgoing",
+        counterparty: log.args.to.toLowerCase() === merchant.toLowerCase() ? log.args.from : log.args.to,
+        amount: log.args.amount,
+        reference: memo ? hexToString(memo, { size: 32 }).replace(/\0+$/, "") : undefined,
+      };
+    });
+}
+```
+
+A B20 `Memo` immediately follows its parent `Transfer`, so `(transactionHash, logIndex - 1)` joins the reference to the operation. Plain USDC has no memo event; join those transfers to your stored transaction hash, authorization nonce, or contract event.
+
+<Check>
+Every returned row has a stable transaction/log identity, direction, counterparty, amount, and an order reference when the token emitted a memo.
+</Check>
+
+<Warning>
+Run reports only through a finalized block range for accounting. If you also display recent confirmations, label them provisional and replace them after a reorg.
+</Warning>
+
+## Classify outgoing transfers
+
+A raw `Transfer` from the merchant can be a refund, payout, treasury move, or split leg. Join it to your refund ledger or the `PayoutSent(reference, ...)` event rather than guessing from direction alone.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reconcile with B20 memos" icon="tag" href="/build-on-base/issue-stablecoins/reconcile-with-memos">
+    Learn the token-level memo ordering guarantee.
+  </Card>
+  <Card title="Watch for payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
+    Keep the underlying event index current.
+  </Card>
+</CardGroup>

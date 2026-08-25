@@ -23,7 +23,7 @@ const b20PaymentAbi = parseAbi([
   "event Memo(address indexed caller,bytes32 indexed memo)",
 ]);
 
-async function browserClients() {
+export async function browserClients() {
   const provider = window.ethereum as EIP1193Provider | undefined;
   if (!provider) throw new Error("Install an EIP-1193 wallet");
   const [account] = await createWalletClient({ chain: baseSepolia, transport: custom(provider) }).requestAddresses();

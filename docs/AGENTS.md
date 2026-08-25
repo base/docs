@@ -85,7 +85,7 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
 |build-on-base:overview,test-on-vibenet
-|build-on-base/accept-payments:from-agents,from-humans,verify-a-payment
+|build-on-base/accept-payments:authorize-a-payment,batch-high-frequency-payments,call-a-paid-service,capture-a-partial-amount,capture-an-authorization,charge-for-an-api,charge-on-a-schedule,reconcile-payments,refund-a-payment,request-a-payment,send-a-payout,settle-usage-based-payments,split-a-payment,verify-a-payment,void-an-authorization,watch-for-payments
 |build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-trading
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold

@@ -1,0 +1,88 @@
+---
+title: "Authorize a Payment"
+keywords: ["EIP-3009 authorization", "deferred USDC payment", "receiveWithAuthorization Base", "USDC payment signature"]
+description: "Ask a buyer to sign a USDC authorization that your merchant backend can capture later on Base."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Ask the buyer to approve an exact USDC payment offchain, then decide when to settle it. EIP-3009 signs the payer, recipient, amount, validity window, and one-time nonce without sending a transaction.
+
+#### Demo
+
+<PaymentsDemo flow="authorize" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+<Warning>
+An EIP-3009 signature is deferred payment authorization, not a reserved balance. The payer can move funds before capture, and token policy can still block settlement. Only a successful capture transaction guarantees payment.
+</Warning>
+
+## Sign and store the authorization
+
+{/* sample: usdc-authorize-ts */}
+```typescript TypeScript lines wrap expandable highlight={8-11,17,21-24}
+export async function authorizePayment(
+  merchant: Address,
+  orderId: string,
+  amount: string,
+): Promise<StoredAuthorization> {
+  const { account, publicClient, walletClient } = await browserClients();
+  const [name, version] = await Promise.all([
+    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
+    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
+  ]);
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const authorization = {
+    from: account,
+    to: merchant,
+    value: parseUnits(amount, 6),
+    validAfter: now - 60n,
+    validBefore: now + 15n * 60n,
+    nonce: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
+  } as const;
+  const signature = await walletClient.signTypedData({
+    account,
+    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
+    types: transferAuthorizationTypes,
+    primaryType: "TransferWithAuthorization",
+    message: authorization,
+  });
+  return { orderId, authorization, signature };
+}
+```
+
+Store the returned payload and signature against the order on your backend. Generate a cryptographically random 32-byte nonce for every attempt, and never reuse it for another order.
+
+| Field | Purpose |
+|---|---|
+| `value` | Exact amount that can settle |
+| `validAfter` | Earliest valid capture time |
+| `validBefore` | Capture deadline |
+| `nonce` | One-time identifier consumed by capture or cancellation |
+
+<Check>
+The wallet returns a typed-data signature, while `authorizationState(payer, nonce)` remains `false` until the authorization is captured or canceled onchain.
+</Check>
+
+## Choose an authorization path
+
+| Need | Primitive | Continue with |
+|---|---|---|
+| Exact wallet payment captured later | EIP-3009 | [Capture an authorization](/build-on-base/accept-payments/capture-an-authorization) |
+| Variable total known later | EIP-2612 plus a constrained checkout | [Capture a partial amount](/build-on-base/accept-payments/capture-a-partial-amount) |
+| Repeated scheduled charges | Smart-account spend permission | [Charge on a schedule](/build-on-base/accept-payments/charge-on-a-schedule) |
+| Payment negotiated over HTTP | x402 exact | [Charge for an API](/build-on-base/accept-payments/charge-for-an-api) |
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Capture an authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
+    Submit the stored signature from the merchant account.
+  </Card>
+  <Card title="Void an authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
+    Let an authorization expire or cancel its nonce onchain.
+  </Card>
+</CardGroup>

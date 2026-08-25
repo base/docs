@@ -1,0 +1,98 @@
+---
+title: "Split a Payment"
+keywords: ["split USDC payment", "marketplace payment split", "basis point payout Base", "platform fee smart contract"]
+description: "Split one token amount across marketplace recipients with exact basis-point accounting and no stranded dust."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Pay a seller, platform, and referrer in one transaction. Express every share in basis points, require the shares to total 10,000, and assign integer-division remainder to one designated recipient.
+
+#### Demo
+
+<PaymentsDemo flow="split" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Calculate and send exact shares
+
+{/* sample: split-payment-solidity */}
+```solidity Payout.sol lines wrap expandable highlight={13-18,23}
+function splitPayment(
+    bytes32 splitId,
+    uint256 amount,
+    address[] calldata recipients,
+    uint16[] calldata sharesBps,
+    uint256 remainderRecipient
+) external {
+    if (processed[splitId]) revert BatchAlreadyProcessed(splitId);
+    if (recipients.length == 0 || recipients.length != sharesBps.length) revert InvalidArrayLengths();
+    if (recipients.length > MAX_RECIPIENTS || remainderRecipient >= recipients.length) revert TooManyRecipients();
+
+    uint256 totalBps;
+    uint256 distributed;
+    uint256[] memory amounts = new uint256[](recipients.length);
+    for (uint256 i; i < recipients.length; ++i) {
+        totalBps += sharesBps[i];
+        amounts[i] = amount * sharesBps[i] / 10_000;
+        distributed += amounts[i];
+    }
+    if (totalBps != 10_000) revert InvalidBasisPoints();
+    amounts[remainderRecipient] += amount - distributed;
+    processed[splitId] = true;
+
+    for (uint256 i; i < recipients.length; ++i) {
+        require(token.transferFrom(msg.sender, recipients[i], amounts[i]), "transfer failed");
+        emit PayoutSent(splitId, msg.sender, recipients[i], amounts[i]);
+    }
+}
+```
+
+{/* sample: split-payment-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={7-9,12-16}
+export async function splitPayment(
+  payout: Address,
+  splitReference: string,
+  amount: string,
+  recipients: Address[],
+  sharesBps: number[],
+  remainderRecipient = 0,
+) {
+  if (sharesBps.reduce((sum, share) => sum + share, 0) !== 10_000) {
+    throw new Error("Shares must total 10,000 basis points");
+  }
+  const splitId = keccak256(toHex(splitReference));
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: payout,
+    abi: payoutAbi,
+    functionName: "splitPayment",
+    args: [splitId, parseUnits(amount, 6), recipients, sharesBps, BigInt(remainderRecipient)],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
+```
+
+The contract emits `PayoutSent` for every leg with the shared `splitId`. That reference fills the role of a payout memo for both USDC and B20 without depending on token-specific memo methods.
+
+<Check>
+All shares sum to the input amount exactly, including the rounding remainder, and the split routes each leg directly from the payer to its recipient.
+</Check>
+
+<Warning>
+Define who receives rounding remainder in your commercial terms. Also approve only the amount needed for the split and verify recipient addresses before submitting the transaction.
+</Warning>
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Send a payout" icon="money-bill-transfer" href="/build-on-base/accept-payments/send-a-payout">
+    Send arbitrary amounts to a bounded recipient batch.
+  </Card>
+  <Card title="Reconcile payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
+    Export split legs under their shared reference.
+  </Card>
+</CardGroup>

@@ -35,6 +35,7 @@ export const PaymentsDemo = ({ flow }) => {
   const FLOWS = {
     accept: {
       label: "Accept", title: "Accept a USDC payment in one call", readout: true,
+      href: "/build-on-base/accept-payments/request-a-payment",
       erc20: "On card rails you wire a processor, pay fees, and wait days to settle.",
       steps: [
         { stage: "Charge", action: "Charge $5",
@@ -49,6 +50,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     verify: {
       label: "Verify", title: "Confirm a payment before you ship", readout: false,
+      href: "/build-on-base/accept-payments/verify-a-payment",
       erc20: "Never trust the browser — confirm settlement server-side before fulfilling.",
       steps: [
         { stage: "Send", action: "Send id",
@@ -67,6 +69,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     b20: {
       label: "B20", title: "Accept and reconcile a B20 payment", readout: false,
+      href: "/build-on-base/accept-payments/request-a-payment#accept-b20-with-a-memo",
       erc20: "A B20 memo ties the payment to your order without assigning a deposit address per customer.",
       steps: [
         { stage: "Pay", action: "Pay order",
@@ -81,6 +84,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     x402: {
       label: "Agent pays", title: "Let an agent pay per API call", readout: false,
+      href: "/build-on-base/accept-payments/charge-for-an-api",
       erc20: "Agents pay for data and services autonomously, one request at a time.",
       steps: [
         { stage: "Request", action: "Call API",
@@ -97,9 +101,218 @@ export const PaymentsDemo = ({ flow }) => {
           run: () => ({ entries: [err("blocked", "0.50 > maxValue 0.10")], caption: "Set a per-request cap; anything above it is refused." }) },
       ],
     },
+    authorize: {
+      label: "Authorize", title: "Authorize now and settle later", readout: false,
+      href: "/build-on-base/accept-payments/authorize-a-payment",
+      metrics: (s) => [["Authorization", s.authorization || "Not signed"], ["Funds reserved", "No"]],
+      erc20: "An EIP-3009 signature delegates one exact transfer; it does not reserve the payer's balance.",
+      steps: [
+        { stage: "Terms", action: "Set terms", text: "Bind the payer, merchant, exact amount, expiry, and a random nonce.",
+          summary: [["Amount", M("25.00 USDC")], ["Recipient", "Merchant"], ["Valid for", "15 minutes"], ["Nonce", M("0xa7…91")]],
+          run: (s) => { s.authorization = "Drafted"; return { entries: [nfo("authorization", "25.00 USDC · expires in 15m")] }; } },
+        { stage: "Sign", action: "Sign", text: "Alice signs typed data. No transaction or token transfer occurs.",
+          summary: [["Standard", "EIP-3009"], ["Signer", "Alice"], ["Method", M("eth_signTypedData_v4")], ["Onchain state", "Unused"]],
+          run: (s) => { s.authorization = "Signed · unused"; return { entries: [ok("signature", "stored offchain"), nfo("authorizationState", "false")], caption: "The signature is ready for merchant-controlled capture, but funds remain spendable." }; } },
+        { stage: "Store", action: "Store safely", text: "Persist the signed payload against the order and protect it like a payment credential.",
+          summary: [["Order", M("order-8842")], ["Storage", "Server-side"], ["Replay key", M("payer + nonce")]],
+          run: (s) => { s.authorization = "Stored · unused"; return { entries: [ok("order", "authorization attached"), nfo("reserved balance", "none")] }; } },
+      ],
+    },
+    capture: {
+      label: "Capture", title: "Capture a stored authorization", readout: true,
+      href: "/build-on-base/accept-payments/capture-an-authorization",
+      metrics: (s) => [["Authorization", s.authorization || "Stored · unused"]],
+      erc20: "receiveWithAuthorization lets only the named recipient submit the signed transfer.",
+      steps: [
+        { stage: "Check", action: "Check state", text: "Confirm the nonce is unused and the payer currently has enough USDC.",
+          summary: [["authorizationState", M("false")], ["Payer balance", M("40.00 USDC")], ["Amount", M("25.00 USDC")]],
+          run: (s) => { s.balances.Alice = 40; s.balances.Merchant = 0; s.authorization = "Stored · unused"; return { entries: [ok("authorizationState", "unused"), ok("balanceOf", "40.00 USDC")] }; } },
+        { stage: "Submit", action: "Capture $25", text: "The merchant submits receiveWithAuthorization before the deadline.",
+          summary: [["Caller", "Merchant"], ["From", "Alice"], ["To", "Merchant"], ["Amount", M("25.00 USDC")]],
+          run: (s) => { s.balances.Alice = 15; s.balances.Merchant = 25; s.authorization = "Used · captured"; return { entries: [ok("Transfer", "Alice → Merchant · 25.00"), ok("AuthorizationUsed", "0xa7…91")], caption: "Only the successful receipt is a payment guarantee." }; } },
+      ],
+    },
+    partial: {
+      label: "Variable", title: "Capture an amount below a signed maximum", readout: true,
+      href: "/build-on-base/accept-payments/capture-a-partial-amount",
+      metrics: (s) => [["Authorized maximum", M(`${s.authorizedMax || 0}.00 USDC`)], ["Captured actual", M(`${s.capturedActual || 0}.00 USDC`)]],
+      erc20: "A constrained checkout combines EIP-2612 permit and transferFrom in one merchant-submitted transaction.",
+      steps: [
+        { stage: "Authorize", action: "Authorize max", text: "Alice signs a permit capped at 100 USDC for the checkout contract.",
+          summary: [["Maximum", M("100.00 USDC")], ["Spender", "Checkout"], ["Deadline", "15 minutes"]],
+          run: (s) => { s.balances.Alice = 150; s.balances.Merchant = 0; s.authorizedMax = 100; s.capturedActual = 0; return { entries: [ok("Permit", "maximum 100.00 USDC")] }; } },
+        { stage: "Finalize", action: "Set total", text: "The merchant computes the final total after service.",
+          summary: [["Authorized maximum", M("100.00 USDC")], ["Actual total", M("64.00 USDC")], ["Difference", M("36.00 USDC")]],
+          run: (s) => { s.capturedActual = 64; return { entries: [nfo("order total", "64.00 USDC")], caption: "The actual amount remains visibly distinct from the signed cap." }; } },
+        { stage: "Capture", action: "Capture $64", text: "The checkout submits permit and transferFrom atomically for the final total.",
+          summary: [["Payer", "Alice"], ["Merchant", "Merchant"], ["Captured", M("64.00 USDC")], ["Order", M("order-8842")]],
+          run: (s) => { s.balances.Alice = 86; s.balances.Merchant = 64; return { entries: [ok("PaymentCaptured", "64.00 of 100.00 USDC"), ok("Transfer", "Alice → Merchant · 64.00")] }; } },
+      ],
+    },
+    void: {
+      label: "Void", title: "Make an unused authorization unspendable", readout: false,
+      href: "/build-on-base/accept-payments/void-an-authorization",
+      metrics: (s) => [["Order state", s.authorization || "Authorized"], ["Token state", s.tokenState || "Unused"]],
+      erc20: "The merchant can let a signature expire; immediate onchain cancellation requires the buyer's signature.",
+      steps: [
+        { stage: "Decide", action: "Void order", text: "Mark the order void so your own backend will never submit its payment signature.",
+          summary: [["Order", M("order-8842")], ["Capture policy", "Disabled"], ["Onchain nonce", "Still unused"]],
+          run: (s) => { s.authorization = "Voided offchain"; s.tokenState = "Unused"; return { entries: [nfo("order", "voided offchain")] }; } },
+        { stage: "Cancel", action: "Cancel nonce", text: "Alice signs a cancellation and the merchant relays it before expiry.",
+          summary: [["Signer", "Alice"], ["Method", M("cancelAuthorization")], ["Nonce", M("0xa7…91")]],
+          run: (s) => { s.authorization = "Canceled"; s.tokenState = "Used · canceled"; return { entries: [ok("AuthorizationCanceled", "0xa7…91"), err("later capture", "reverts")], caption: "The token records used-or-canceled as one consumed state." }; } },
+      ],
+    },
+    schedule: {
+      label: "Schedule", title: "Charge within a recurring spend permission", readout: true,
+      href: "/build-on-base/accept-payments/charge-on-a-schedule",
+      metrics: (s) => [["Period remaining", M(`${s.periodRemaining || 20}.00 USDC`)]],
+      erc20: "A spend permission sets the allowance window; your durable billing job chooses when to charge.",
+      steps: [
+        { stage: "Inspect", action: "Check permission", text: "Confirm the permission is active and this period has enough remaining allowance.",
+          summary: [["Allowance", M("20.00 USDC / month")], ["Requested", M("8.00 USDC")], ["Status", "Active"]],
+          run: (s) => { s.balances.Alice = 50; s.balances.Merchant = 0; s.periodRemaining = 20; return { entries: [ok("permission", "active"), nfo("remainingSpend", "20.00 USDC")] }; } },
+        { stage: "Charge", action: "Charge $8", text: "Submit the prepared spend call from the approved merchant spender.",
+          summary: [["Billing period", M("2026-08")], ["Amount", M("8.00 USDC")], ["Idempotency key", M("sub-42:2026-08")]],
+          run: (s) => { s.balances.Alice = 42; s.balances.Merchant = 8; s.periodRemaining = 12; return { entries: [ok("spend", "8.00 USDC"), nfo("remainingSpend", "12.00 USDC")] }; } },
+      ],
+    },
+    x402Upto: {
+      label: "Usage", title: "Settle actual API usage below a maximum", readout: false,
+      href: "/build-on-base/accept-payments/settle-usage-based-payments",
+      metrics: (s) => [["Authorized maximum", M("0.10 USDC")], ["Settled actual", M(`${s.usageCharge || "0.00"} USDC`)]],
+      erc20: "x402 upto separates the maximum a buyer approves from the amount a successful handler settles.",
+      steps: [
+        { stage: "Authorize", action: "Authorize max", text: "The 402 response advertises a maximum price of 0.10 USDC.",
+          summary: [["Scheme", M("upto")], ["Maximum", M("0.10 USDC")], ["Endpoint", M("GET /metered")]],
+          run: () => ({ entries: [ok("authorization", "up to 0.10 USDC")] }) },
+        { stage: "Measure", action: "Run workload", text: "The protected handler measures 812 generated tokens.",
+          summary: [["Usage", M("812 tokens")], ["Calculated charge", M("0.04 USDC")]],
+          run: (s) => { s.usageCharge = "0.04"; return { entries: [nfo("usage", "812 tokens"), nfo("settlement override", "0.04 USDC")] }; } },
+        { stage: "Settle", action: "Settle $0.04", text: "The facilitator settles the actual charge, not the maximum.",
+          summary: [["Maximum", M("0.10 USDC")], ["Actual", M("0.04 USDC")], ["Response", M("200 OK")]],
+          run: () => ({ entries: [ok("settlement", "0.04 USDC"), ok("200", "response delivered")] }) },
+      ],
+    },
+    x402Batch: {
+      label: "Batch", title: "Settle many small API calls as a channel", readout: false,
+      href: "/build-on-base/accept-payments/batch-high-frequency-payments",
+      metrics: (s) => [["Latest voucher", M(`${s.voucher || "0.00"} USDC`)], ["Onchain claims", String(s.claims || 0)]],
+      erc20: "Cumulative vouchers keep per-call latency offchain while the latest channel state remains claimable.",
+      steps: [
+        { stage: "Open", action: "Open channel", text: "The buyer funds a channel and starts at a zero cumulative voucher.",
+          summary: [["Scheme", M("batch-settlement")], ["Channel", M("0x51…aa")], ["Voucher", M("0.00 USDC")]],
+          run: (s) => { s.voucher = "0.00"; s.claims = 0; return { entries: [ok("channel", "opened") ] }; } },
+        { stage: "Advance", action: "Process calls", text: "Ten API calls advance one signed cumulative voucher.",
+          summary: [["Calls", "10"], ["Price per call", M("0.01 USDC")], ["Latest voucher", M("0.10 USDC")]],
+          run: (s) => { s.voucher = "0.10"; return { entries: [nfo("voucher", "0.10 USDC cumulative")], caption: "Store the newest voucher atomically; older vouchers must never replace it." }; } },
+        { stage: "Claim", action: "Claim batch", text: "The receiver submits the latest voucher once.",
+          summary: [["Settled", M("0.10 USDC")], ["Requests covered", "10"], ["Transactions", "1"]],
+          run: (s) => { s.claims = 1; return { entries: [ok("claim", "0.10 USDC · 10 calls")] }; } },
+      ],
+    },
+    x402Buyer: {
+      label: "Agent buys", title: "Apply policy before an agent pays", readout: false,
+      href: "/build-on-base/accept-payments/call-a-paid-service",
+      erc20: "The x402 wrapper retries automatically, but your local wallet policy remains the final signing gate.",
+      steps: [
+        { stage: "Discover", action: "Read 402", text: "The agent receives payment requirements from the service.",
+          summary: [["Network", M("eip155:84532")], ["Asset", "Base Sepolia USDC"], ["Amount", M("0.02 USDC")]],
+          run: () => ({ entries: [err("402", "Payment Required"), nfo("requirements", "exact · 0.02 USDC")] }) },
+        { stage: "Policy", action: "Check policy", text: "Reject wrong networks, wrong tokens, and spend above either cap.",
+          summary: [["Per request", M("≤ 0.10 USDC")], ["Per session", M("≤ 1.00 USDC")], ["Decision", "Allow"]],
+          run: () => ({ entries: [ok("network", "allowed"), ok("asset", "allowed"), ok("spend", "within cap")] }) },
+        { stage: "Retry", action: "Pay & retry", text: "The wallet signs, the wrapper retries, and the agent validates the response.",
+          summary: [["Paid", M("0.02 USDC")], ["Response", M("200 OK")], ["Validation", "Schema checked"]],
+          run: () => ({ entries: [ok("payment", "0.02 USDC"), ok("response", "validated")], caption: "Paid content is still untrusted input." }) },
+      ],
+    },
+    watch: {
+      label: "Watch", title: "Watch and backfill confirmed transfers", readout: false,
+      href: "/build-on-base/accept-payments/watch-for-payments",
+      metrics: (s) => [["Confirmed cursor", M(s.cursor || "#21,499,988")], ["Indexed events", String(s.indexed || 0)]],
+      erc20: "WebSocket logs wake the worker; an overlapping eth_getLogs scan restores canonical state.",
+      steps: [
+        { stage: "Subscribe", action: "Subscribe", text: "Listen for USDC Transfer logs whose recipient is your merchant address.",
+          summary: [["Method", M("eth_subscribe(logs)")], ["Recipient", "Merchant"], ["Status", "Connected"]],
+          run: () => ({ entries: [ok("subscription", "Transfer → Merchant")] }) },
+        { stage: "Confirm", action: "Wait 12 blocks", text: "Hold candidates until they pass your confirmation policy.",
+          summary: [["Head", M("#21,500,012")], ["Confirmed through", M("#21,500,000")], ["Depth", "12 blocks"]],
+          run: (s) => { s.cursor = "#21,500,000"; return { entries: [nfo("confirmations", "12 blocks") ] }; } },
+        { stage: "Backfill", action: "Replace window", text: "Rescan an overlap and replace stored rows in one database transaction.",
+          summary: [["From", M("#21,499,988")], ["To", M("#21,500,000")], ["New transfers", "3"]],
+          run: (s) => { s.indexed = 3; return { entries: [ok("eth_getLogs", "3 canonical transfers"), ok("cursor", "advanced")], caption: "The overlap removes orphaned reorg rows and keeps retries idempotent." }; } },
+      ],
+    },
+    reconcile: {
+      label: "Reconcile", title: "Turn token logs into settlement rows", readout: false,
+      href: "/build-on-base/accept-payments/reconcile-payments",
+      metrics: (s) => [["Rows exported", String(s.rows || 0)], ["Unmatched", String(s.unmatched || 0)]],
+      erc20: "Transfers are the settlement source of truth; memos and contract events provide order references.",
+      steps: [
+        { stage: "Query", action: "Query range", text: "Fetch confirmed incoming and outgoing transfers for the accounting window.",
+          summary: [["From block", M("#21,400,000")], ["To block", M("#21,499,999")], ["Token", "USDC / B20"]],
+          run: (s) => { s.rows = 7; s.unmatched = 2; return { entries: [ok("eth_getLogs", "7 transfers") ] }; } },
+        { stage: "Join", action: "Join references", text: "Attach B20 memos, authorization nonces, refund records, and payout references.",
+          summary: [["Memo joins", "3"], ["Ledger joins", "4"], ["Unmatched", "0"]],
+          run: (s) => { s.unmatched = 0; return { entries: [ok("join", "7 of 7 matched") ] }; } },
+        { stage: "Export", action: "Export report", text: "Write one deterministic row per transaction log to your ledger import.",
+          summary: [["Captures", "4"], ["Refunds", "1"], ["Payout legs", "2"], ["Format", "CSV"]],
+          run: () => ({ entries: [ok("report", "7 rows exported")], caption: "Classify outgoing transfers from your own ledger or contract events, not direction alone." }) },
+      ],
+    },
+    refund: {
+      label: "Refund", title: "Refund the verified payer", readout: true,
+      href: "/build-on-base/accept-payments/refund-a-payment",
+      metrics: (s) => [["Refundable", M(`${s.refundable || 5}.00 USDC`)]],
+      erc20: "Derive the recipient from the capture log and keep order-level refundable balance offchain.",
+      steps: [
+        { stage: "Verify", action: "Load capture", text: "Read the original receipt and derive the payer from its canonical Transfer event.",
+          summary: [["Capture", M("0x9f…c2")], ["Payer", "Alice"], ["Captured", M("5.00 USDC")]],
+          run: (s) => { s.balances.Alice = 5; s.balances.Merchant = 5; s.refundable = 5; return { entries: [ok("payer", "Alice from Transfer log") ] }; } },
+        { stage: "Check", action: "Check balance", text: "Ensure this partial refund stays within captured minus prior refunds.",
+          summary: [["Requested", M("2.00 USDC")], ["Refundable", M("5.00 USDC")], ["Decision", "Allow"]],
+          run: () => ({ entries: [ok("refund policy", "2.00 ≤ 5.00") ] }) },
+        { stage: "Return", action: "Refund $2", text: "Transfer to Alice and record the refund atomically in your ledger.",
+          summary: [["Recipient", "Alice"], ["Amount", M("2.00 USDC")], ["Order", M("order-8842")]],
+          run: (s) => { s.balances.Alice = 7; s.balances.Merchant = 3; s.refundable = 3; return { entries: [ok("Transfer", "Merchant → Alice · 2.00"), ok("refund", "recorded") ] }; } },
+      ],
+    },
+    payout: {
+      label: "Payout", title: "Send one referenced payout batch", readout: false,
+      href: "/build-on-base/accept-payments/send-a-payout",
+      metrics: (s) => [["Recipients paid", String(s.recipientsPaid || 0)], ["Total", M(`${s.payoutTotal || 0}.00 USDC`)]],
+      erc20: "A bounded payout contract pulls tokens directly from sender to recipients and emits one reference per leg.",
+      steps: [
+        { stage: "Approve", action: "Approve total", text: "Approve the payout contract for exactly the planned batch total.",
+          summary: [["Batch", M("payroll-2026-08")], ["Recipients", "3"], ["Total", M("300.00 USDC")]],
+          run: () => ({ entries: [ok("Approval", "300.00 USDC → Payout") ] }) },
+        { stage: "Send", action: "Send batch", text: "The contract transfers each amount directly and emits the shared batch reference.",
+          summary: [["Alice", M("120.00 USDC")], ["Bob", M("100.00 USDC")], ["Carol", M("80.00 USDC")]],
+          run: (s) => { s.recipientsPaid = 3; s.payoutTotal = 300; return { entries: [ok("PayoutSent", "Alice · 120.00"), ok("PayoutSent", "Bob · 100.00"), ok("PayoutSent", "Carol · 80.00")] }; } },
+      ],
+    },
+    split: {
+      label: "Split", title: "Split one amount without stranded dust", readout: false,
+      href: "/build-on-base/accept-payments/split-a-payment",
+      metrics: (s) => [["Distributed", M(`${s.distributed || 0} units`)], ["Contract balance", M("0 units")]],
+      erc20: "Basis-point math rounds down; assigning the remainder makes the split equal the input exactly.",
+      steps: [
+        { stage: "Define", action: "Define shares", text: "Set seller, platform, and referrer shares that total 10,000 basis points.",
+          summary: [["Seller", "9,500 bps"], ["Platform", "400 bps"], ["Referrer", "100 bps"]],
+          run: () => ({ entries: [ok("shares", "10,000 bps") ] }) },
+        { stage: "Calculate", action: "Calculate legs", text: "Round each leg down and assign the remainder unit to the seller.",
+          summary: [["Input", M("10,001 units")], ["Floor sum", M("10,000 units")], ["Remainder", M("1 unit → Seller")]],
+          run: () => ({ entries: [nfo("rounding", "1 remainder unit assigned") ] }) },
+        { stage: "Distribute", action: "Send split", text: "Pull each leg directly from the payer to its recipient in one transaction.",
+          summary: [["Distributed", M("10,001 units")], ["Dust", M("0 units")], ["Reference", M("split-2026-08")]],
+          run: (s) => { s.distributed = "10,001"; return { entries: [ok("PayoutSent", "3 referenced legs"), ok("sum", "10,001 units") ] }; } },
+      ],
+    },
   };
 
-  const order = ["accept", "verify", "b20", "x402"];
+  const order = ["accept", "authorize", "capture", "x402", "verify", "refund", "payout"];
+  const invalidFlow = flow && !FLOWS[flow];
   const pinned = flow && FLOWS[flow] ? flow : null;
 
   const [active, setActive] = useState(pinned || "accept");
@@ -115,7 +328,7 @@ export const PaymentsDemo = ({ flow }) => {
   const reset = () => { setSim(freshSim()); setResults([]); };
   const runStep = () => {
     if (done) return;
-    const s = { balances: { ...sim.balances }, blocked: sim.blocked };
+    const s = { ...sim, balances: { ...sim.balances } };
     const out = f.steps[stepIndex].run(s) || { entries: [] };
     setSim(s);
     setResults((r) => [...r, out]);
@@ -151,6 +364,10 @@ export const PaymentsDemo = ({ flow }) => {
   };
 
   const levelColor = { EVENT: C.blue, INFO: C.sec, ERROR: C.error, PENDING: C.sub };
+
+  if (invalidFlow) {
+    return <div style={{ margin: "22px 0", padding: 16, border: `1px solid ${C.error}`, borderRadius: 8, color: C.error }}>Unknown payment demo flow: {flow}</div>;
+  }
 
   return (
     <div className="wf" style={{ margin: "22px 0", maxWidth: 760, borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, overflow: "hidden", boxShadow: "var(--wf-shadow)" }}>
@@ -318,6 +535,23 @@ export const PaymentsDemo = ({ flow }) => {
               </div>
             </div>
           )}
+
+          {f.metrics && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+              <div className="wf-t-caption" style={{ color: C.sub, marginBottom: 8 }}>Flow state</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {f.metrics(sim).map(([name, value]) => {
+                  const isM = value && typeof value === "object" && value.mono;
+                  return (
+                    <div key={name} className="wf-t-body" style={{ display: "flex", justifyContent: "space-between", gap: 8, color: C.body }}>
+                      <span>{name}</span>
+                      <span style={{ fontFamily: isM ? mono : sans, fontSize: 12.5, fontWeight: 600, color: C.ink }}>{isM ? value.v : value}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right inspector */}
@@ -328,9 +562,9 @@ export const PaymentsDemo = ({ flow }) => {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 Flow complete
               </div>
-              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
+              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step completed in the mock simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href="/build-on-base/accept-payments/from-humans" style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href={f.href || "/build-on-base/accept-payments/request-a-payment"} style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
@@ -368,7 +602,7 @@ export const PaymentsDemo = ({ flow }) => {
       {/* Event log */}
       <div style={{ borderTop: `1px solid ${C.border}`, background: C.white }}>
         <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="wf-t-headline" style={{ fontSize: 13, color: C.ink }}>Transaction event log</span>
+          <span className="wf-t-headline" style={{ fontSize: 13, color: C.ink }}>Activity log</span>
         </div>
         <div style={{ maxHeight: 168, overflowY: "auto", padding: "6px 0" }}>
           {logRows.map((r, i) => (

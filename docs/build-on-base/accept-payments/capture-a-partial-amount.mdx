@@ -1,0 +1,110 @@
+---
+title: "Capture a Partial Amount"
+keywords: ["partial payment capture", "EIP-2612 permit checkout", "variable USDC payment", "capture maximum amount"]
+description: "Authorize a maximum USDC amount and capture the final total through a constrained one-use checkout contract."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Use a capped EIP-2612 permit when the final total is unknown at authorization time, such as an open tab, a post-service tip, or shipping calculated during fulfillment. EIP-3009 fixes the exact value, so it cannot partially capture one authorization.
+
+#### Demo
+
+<PaymentsDemo flow="partial" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Constrain the allowance in a checkout contract
+
+This contract accepts the permit and transfers the actual amount in the same transaction. It has no general-purpose transfer function, requires the merchant caller, and allows each order ID once.
+
+{/* sample: variable-amount-checkout-solidity */}
+```solidity VariableAmountCheckout.sol lines wrap expandable highlight={12-15,18-19}
+function capture(
+    bytes32 orderId,
+    address payer,
+    uint256 actualAmount,
+    uint256 authorizedMaximum,
+    uint256 permitDeadline,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) external {
+    if (msg.sender != merchant) revert NotMerchant();
+    if (captured[orderId]) revert OrderAlreadyCaptured(orderId);
+    if (actualAmount > authorizedMaximum) revert AmountExceedsMaximum();
+    captured[orderId] = true;
+
+    token.permit(payer, address(this), authorizedMaximum, permitDeadline, v, r, s);
+    require(token.transferFrom(payer, merchant, actualAmount), "transfer failed");
+    emit PaymentCaptured(orderId, payer, actualAmount, authorizedMaximum);
+}
+```
+
+## Sign the maximum and capture the actual total
+
+{/* sample: usdc-variable-payment-ts */}
+```typescript TypeScript lines wrap expandable highlight={10,18-23,37}
+export async function authorizeVariablePayment(
+  checkout: Address,
+  orderId: string,
+  maximum: string,
+): Promise<VariablePayment> {
+  const { account: payer, publicClient: browserClient, walletClient } = await browserClients();
+  const [name, version, nonce] = await Promise.all([
+    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
+    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
+    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "nonces", args: [payer] }),
+  ]);
+  const value = parseUnits(maximum, 6);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
+  const signature = await walletClient.signTypedData({
+    account: payer,
+    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
+    types: permitTypes,
+    primaryType: "Permit",
+    message: { owner: payer, spender: checkout, value, nonce, deadline },
+  });
+  return { orderId: stringToHex(orderId, { size: 32 }), payer, maximum: value, deadline, signature };
+}
+
+export async function captureVariablePayment(
+  checkout: Address,
+  payment: VariablePayment,
+  actual: string,
+) {
+  const actualAmount = parseUnits(actual, 6);
+  if (actualAmount > payment.maximum) throw new Error("Actual amount exceeds the signed maximum");
+  const { v, r, s } = parseSignature(payment.signature);
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: checkout,
+    abi: checkoutAbi,
+    functionName: "capture",
+    args: [payment.orderId, payment.payer, actualAmount, payment.maximum, payment.deadline, Number(v), r, s],
+  });
+  const hash = await merchantWallet.writeContract(simulation.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
+```
+
+<Check>
+The `PaymentCaptured` event records both the signed maximum and the actual amount, and the merchant receives only the actual amount.
+</Check>
+
+<Warning>
+A permit deadline limits when the permit signature can be submitted; it does not make an ERC-20 allowance expire after submission. Use a reviewed, immutable checkout with no path that can spend leftover allowance, keep the deadline short, and never use a merchant EOA as the capped spender.
+</Warning>
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Settle usage-based payments" icon="gauge" href="/build-on-base/accept-payments/settle-usage-based-payments">
+    Use x402 `upto` when an API computes the final charge.
+  </Card>
+  <Card title="Verify a payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Confirm the resulting token transfer before fulfillment.
+  </Card>
+</CardGroup>

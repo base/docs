@@ -1,0 +1,79 @@
+---
+title: "Send a Payout"
+keywords: ["batch USDC payout", "merchant disbursement Base", "ERC-20 payout contract", "pay multiple recipients"]
+description: "Send a referenced batch of token payouts in one transaction without leaving funds in the payout contract."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Send one referenced batch to employees, creators, suppliers, or sellers. The contract pulls each amount directly from the sender to its recipient, so it does not retain a pooled token balance between transactions.
+
+#### Demo
+
+<PaymentsDemo flow="payout" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Deploy the payout contract
+
+{/* sample: payout-batch-solidity */}
+```solidity Payout.sol lines wrap expandable highlight={2-4,8-9}
+function sendPayouts(bytes32 batchId, address[] calldata recipients, uint256[] calldata amounts) external {
+    if (processed[batchId]) revert BatchAlreadyProcessed(batchId);
+    if (recipients.length == 0 || recipients.length != amounts.length) revert InvalidArrayLengths();
+    if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
+    processed[batchId] = true;
+
+    for (uint256 i; i < recipients.length; ++i) {
+        require(token.transferFrom(msg.sender, recipients[i], amounts[i]), "transfer failed");
+        emit PayoutSent(batchId, msg.sender, recipients[i], amounts[i]);
+    }
+}
+```
+
+Approve the deployed contract for the total batch amount, then submit recipients and amounts from the same sender.
+
+{/* sample: send-payout-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={2,4-8}
+export async function sendPayouts(
+  payout: Address,
+  batchReference: string,
+  recipients: Address[],
+  amounts: string[],
+) {
+  if (recipients.length !== amounts.length) throw new Error("Recipient and amount counts differ");
+  const batchId = keccak256(toHex(batchReference));
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: payout,
+    abi: payoutAbi,
+    functionName: "sendPayouts",
+    args: [batchId, recipients, amounts.map((amount) => parseUnits(amount, 6))],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
+```
+
+<Check>
+The transaction emits one `PayoutSent` event per recipient under the same `batchId`, and the sum of token transfers matches your approved batch total.
+</Check>
+
+<Warning>
+Cap batch size from measured gas usage and keep the contract's `MAX_RECIPIENTS` bound. A single failed token transfer reverts the entire batch.
+</Warning>
+
+Do not approve the public `Multicall3` contract as an ERC-20 spender. Downstream token calls see Multicall3 as `msg.sender`, and any caller can ask that general-purpose contract to invoke `transferFrom` against an allowance you grant it. Use a purpose-built contract that fixes who can initiate payouts and how recipients are selected.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Split a payment" icon="divide" href="/build-on-base/accept-payments/split-a-payment">
+    Calculate basis-point shares and assign rounding exactly.
+  </Card>
+  <Card title="Reconcile payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
+    Join payout events to your ledger reference.
+  </Card>
+</CardGroup>

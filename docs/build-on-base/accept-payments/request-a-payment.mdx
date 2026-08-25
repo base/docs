@@ -1,12 +1,14 @@
 ---
-title: "Accept Payments From Humans"
-keywords: ["accept USDC payment", "wallet USDC checkout", "B20 payment memo", "human checkout Base"]
-description: "Choose a wallet-native USDC transfer or a memo-enabled B20 checkout and confirm the payment on Base."
+title: "Request a Payment"
+keywords: ["request USDC payment", "wallet USDC checkout", "B20 payment memo", "onchain checkout Base"]
+description: "Request an immediately settled USDC or memo-enabled B20 payment from a wallet on Base."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Choose the payment rail that matches your checkout. A direct USDC transfer works with any EIP-1193 wallet, and B20 adds issuer-defined policy controls and an onchain order memo.
+Request and settle a payment in one wallet interaction. A direct USDC transfer works with any EIP-1193 wallet, while B20 adds issuer-defined policy controls and an onchain order memo.
+
+This is the auto-settle path: the wallet approval and token transfer happen in one flow. If you need to approve now and settle later, [authorize a payment](/build-on-base/accept-payments/authorize-a-payment) instead.
 
 #### Demo
 
@@ -33,20 +35,20 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 
     {/* sample: usdc-accept-ts */}
     ```typescript TypeScript lines wrap expandable highlight={3,10}
-    export async function sendUsdc(merchant: Address) {
-      const { account, publicClient, walletClient } = await browserClients();
-      const simulation = await publicClient.simulateContract({
-        account,
-        address: USDC,
-        abi: erc20Abi,
-        functionName: "transfer",
-        args: [merchant, parseUnits("5", 6)],
-      });
-      const hash = await walletClient.writeContract(simulation.request);
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      if (receipt.status !== "success") throw new Error("USDC transfer reverted");
-      return hash;
-    }
+export async function sendUsdc(merchant: Address) {
+  const { account, publicClient, walletClient } = await browserClients();
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: USDC,
+    abi: erc20Abi,
+    functionName: "transfer",
+    args: [merchant, parseUnits("5", 6)],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("USDC transfer reverted");
+  return hash;
+}
     ```
 
     <Check>
@@ -67,33 +69,33 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
     <CodeGroup>
       {/* sample: b20-accept-ts */}
       ```typescript TypeScript lines wrap expandable highlight={4,8,11}
-      export async function sendB20WithMemo(token: Address, merchant: Address) {
-        const { account, publicClient, walletClient } = await browserClients();
-        const memo = stringToHex("order-8842", { size: 32 });
-        const simulation = await publicClient.simulateContract({
-          account,
-          address: token,
-          abi: b20PaymentAbi,
-          functionName: "transferWithMemo",
-          args: [merchant, parseUnits("25", 6), memo],
-        });
-        const hash = await walletClient.writeContract(simulation.request);
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        const events = parseEventLogs({ abi: b20PaymentAbi, logs: receipt.logs, strict: true });
-        if (events[0]?.eventName !== "Transfer" || events[1]?.eventName !== "Memo") {
-          throw new Error("Expected adjacent Transfer and Memo events");
-        }
-        return hash;
-      }
+export async function sendB20WithMemo(token: Address, merchant: Address) {
+  const { account, publicClient, walletClient } = await browserClients();
+  const memo = stringToHex("order-8842", { size: 32 });
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: token,
+    abi: b20PaymentAbi,
+    functionName: "transferWithMemo",
+    args: [merchant, parseUnits("25", 6), memo],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const events = parseEventLogs({ abi: b20PaymentAbi, logs: receipt.logs, strict: true });
+  if (events[0]?.eventName !== "Transfer" || events[1]?.eventName !== "Memo") {
+    throw new Error("Expected adjacent Transfer and Memo events");
+  }
+  return hash;
+}
       ```
       {/* sample: b20-accept-solidity */}
       ```solidity Solidity lines wrap expandable highlight={4}
-      function pay(bytes32 orderId, uint256 amount) external {
-          if (paid[orderId]) revert OrderAlreadyPaid(orderId);
-          paid[orderId] = true;
-          bool transferred = token.transferFromWithMemo(msg.sender, merchant, amount, orderId);
-          require(transferred, "B20 transfer failed");
-      }
+function pay(bytes32 orderId, uint256 amount) external {
+    if (paid[orderId]) revert OrderAlreadyPaid(orderId);
+    paid[orderId] = true;
+    bool transferred = token.transferFromWithMemo(msg.sender, merchant, amount, orderId);
+    require(transferred, "B20 transfer failed");
+}
       ```
     </CodeGroup>
 
@@ -116,10 +118,10 @@ Validate settlement and claim each transaction hash exactly once.
 ## See also
 
 <CardGroup cols={2}>
+  <Card title="Authorize a payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
+    Separate wallet approval from merchant-controlled capture.
+  </Card>
   <Card title="Verify a payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
     Confirm settlement server-side before you ship.
-  </Card>
-  <Card title="B20 memos (B20 standard)" icon="tag" href="/base-chain/specs/reference/b20#memos">
-    The memo field in the B20 standard.
   </Card>
 </CardGroup>

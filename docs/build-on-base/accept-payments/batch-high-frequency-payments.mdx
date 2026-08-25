@@ -1,0 +1,80 @@
+---
+title: "Batch High-Frequency Payments"
+keywords: ["x402 batch settlement", "payment channel API", "high frequency agent payments", "x402 vouchers"]
+description: "Verify cumulative x402 vouchers per request and settle high-frequency API usage in batches."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Use `batch-settlement` when an agent makes many small requests and per-request settlement would dominate cost. Each request advances a cumulative voucher; your channel manager later claims, settles, or refunds the latest state.
+
+#### Demo
+
+<PaymentsDemo flow="x402Batch" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Price a high-frequency route
+
+<CodeGroup>
+{/* sample: x402-batch-ts */}
+```typescript TypeScript · Express lines wrap expandable highlight={1,3,9}
+app.use(paymentMiddleware({
+  "GET /stream": {
+    accepts: [{ scheme: "batch-settlement", price: "$0.01", network, payTo }],
+    description: "High-frequency price tick",
+    mimeType: "application/json",
+  },
+}, resourceServer));
+app.get("/stream", (_request, response) => {
+  setSettlementOverrides(response, { amount: "50%" });
+  response.json({ asset: "ETH", price: "3200.00" });
+});
+```
+{/* sample: x402-batch-go */}
+```go Go · net/http lines wrap expandable highlight={2,6}
+routes["GET /stream"] = x402http.RouteConfig{
+	Accepts: x402http.PaymentOptions{{Scheme: batchsettlement.SchemeBatched, Price: "$0.01", Network: network, PayTo: payTo}},
+	Description: "High-frequency price tick", MimeType: "application/json",
+}
+mux.HandleFunc("GET /stream", func(w http.ResponseWriter, _ *http.Request) {
+	nethttpmw.SetSettlementOverrides(w, &x402.SettlementOverrides{Amount: "50%"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"asset": "ETH", "price": "3200.00"})
+})
+```
+{/* sample: x402-batch-python */}
+```python Python · FastAPI lines wrap expandable highlight={2,10}
+routes["GET /stream"] = RouteConfig(
+    accepts=[PaymentOption(scheme=SCHEME_BATCH_SETTLEMENT, price="$0.01", network=network, pay_to=pay_to)],
+    description="High-frequency price tick",
+    mime_type="application/json",
+)
+
+
+@app.get("/stream")
+async def stream(response: Response) -> dict[str, str]:
+    set_settlement_overrides(response, {"amount": "50%"})
+    return {"asset": "ETH", "price": "3200.00"}
+```
+</CodeGroup>
+
+<Check>
+Each accepted request advances the stored cumulative voucher, while onchain transactions occur only when the channel is claimed, settled, or refunded.
+</Check>
+
+<Note>
+The complete fixtures configure a dedicated `RECEIVER_AUTHORIZER_PRIVATE_KEY` for channel claim and refund signatures. Keep it separate from the receiving wallet and store it in a server-side key manager.
+</Note>
+
+<Warning>
+The examples use file-backed storage for one process. Use Redis, Valkey, or a transactional database with atomic updates for serverless or multi-instance deployments.
+</Warning>
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Charge for an API" icon="server" href="/build-on-base/accept-payments/charge-for-an-api">Use exact per-request settlement for lower frequency traffic.</Card>
+  <Card title="Call a paid service" icon="robot" href="/build-on-base/accept-payments/call-a-paid-service">Configure the buyer to support batch settlement.</Card>
+</CardGroup>

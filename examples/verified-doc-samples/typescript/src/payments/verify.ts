@@ -22,15 +22,24 @@ export async function verifyTokenPayment(args: {
   orderId: string;
   store: PaymentStore;
 }) {
-  const receipt = await publicClient.getTransactionReceipt({ hash: args.hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: args.hash, confirmations: 2 });
   if (receipt.status !== "success") throw new Error("Transaction reverted");
+  const expectedAmount = parseUnits(args.amount, 6);
   const transfers = parseEventLogs({ abi: tokenEvents, eventName: "Transfer", logs: receipt.logs, strict: true });
-  const transfer = transfers.find((log) => log.address.toLowerCase() === args.token.toLowerCase());
-  if (!transfer || transfer.args.from.toLowerCase() !== args.payer.toLowerCase()) throw new Error("Wrong sender");
-  if (transfer.args.to.toLowerCase() !== args.merchant.toLowerCase()) throw new Error("Wrong recipient");
-  if (transfer.args.amount !== parseUnits(args.amount, 6)) throw new Error("Wrong amount");
+  const transfer = transfers.find(
+    (log) =>
+      log.address.toLowerCase() === args.token.toLowerCase() &&
+      log.args.from.toLowerCase() === args.payer.toLowerCase() &&
+      log.args.to.toLowerCase() === args.merchant.toLowerCase() &&
+      log.args.amount === expectedAmount,
+  );
+  if (!transfer) throw new Error("Expected payment transfer not found");
   const memos = parseEventLogs({ abi: tokenEvents, eventName: "Memo", logs: receipt.logs, strict: true });
-  if (args.memo && !memos.some((log) => log.args.memo === args.memo)) throw new Error("Wrong memo");
+  if (args.memo && !memos.some((log) =>
+    log.address.toLowerCase() === args.token.toLowerCase() &&
+    log.logIndex === transfer.logIndex + 1 &&
+    log.args.memo === args.memo
+  )) throw new Error("Expected adjacent memo not found");
   if (!(await args.store.claimOnce(args.hash, args.orderId))) throw new Error("Payment already used");
 }
 // docs:end verify-token-payment-ts
