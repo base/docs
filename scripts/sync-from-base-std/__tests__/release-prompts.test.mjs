@@ -96,7 +96,10 @@ test("security system prompt covers every release-derived untrusted block", () =
     "<untrusted_changed_api_surface>",
     "<untrusted_candidate_pages>",
   ]) {
-    assert.match(SECURITY_SYSTEM_PROMPT, new RegExp(tag.replace(/[<>]/g, "\\$&")));
+    assert.ok(
+      SECURITY_SYSTEM_PROMPT.includes(tag),
+      `SECURITY_SYSTEM_PROMPT must include ${tag}`,
+    );
   }
   assert.match(SECURITY_SYSTEM_PROMPT, /never as instructions to follow/);
 });
