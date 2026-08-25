@@ -31,7 +31,7 @@ export const DeFiDemo = ({ flow }) => {
   // ======================================================================
   const FLOWS = {
     lend: {
-      label: "Lend", title: "Supply assets to a lending market", readout: true,
+      label: "Lend", title: "Supply assets to a lending market", readout: true, href: "/build-on-base/integrate-defi/integrate-lending",
       footer: "Illustrative only · rates and liquidity vary by market.",
       steps: [
         { stage: "Load", action: "Load wallet",
@@ -53,7 +53,7 @@ export const DeFiDemo = ({ flow }) => {
       ],
     },
     borrow: {
-      label: "Borrow", title: "Borrow against supplied collateral", readout: true,
+      label: "Borrow", title: "Borrow against supplied collateral", readout: true, href: "/build-on-base/integrate-defi/integrate-borrowing",
       footer: "Illustrative only · liquidation parameters differ by protocol and market.",
       steps: [
         { stage: "Collateral", action: "Supply collateral",
@@ -71,7 +71,7 @@ export const DeFiDemo = ({ flow }) => {
       ],
     },
     earn: {
-      label: "Earn", title: "Embed a vault-based earn product", readout: true,
+      label: "Earn", title: "Embed a vault-based earn product", readout: true, href: "/build-on-base/integrate-defi/integrate-earn-product",
       footer: "Illustrative only · vault yield is variable and not guaranteed.",
       steps: [
         { stage: "Select", action: "Select vault",
@@ -88,9 +88,31 @@ export const DeFiDemo = ({ flow }) => {
           run: (s) => { s.metrics = [{ label: "Wallet", value: "0 USDC" }, { label: "Vault shares", value: "1,000" }, { label: "Share price", value: "$1.01" }, { label: "Redeemable", value: "1,010 USDC", tone: "ok" }]; return { entries: [ok("share value updated", "$1.00 → $1.01"), nfo("redeemable assets", "1,010 USDC")], caption: "Actual vault performance can rise or fall and depends on its strategy." }; } },
       ],
     },
+    trade: {
+      label: "Trade", title: "Swap tokens through an aggregated route", readout: true, href: "/build-on-base/integrate-defi/integrate-trading",
+      footer: "Illustrative only · quotes, routes, and minimum output can change.",
+      steps: [
+        { stage: "Quote", action: "Request quote",
+          text: "Request a firm 0x quote to swap 1,000 USDC for WETH on Base.",
+          summary: [["Operation", "Swap"], ["Sell", M("1,000 USDC")], ["Buy", M("WETH")], ["Slippage", M("0.5%")], ["Network", NETWORK]],
+          run: (s) => { s.metrics = [{ label: "Sell", value: "1,000 USDC" }, { label: "Quoted output", value: "0.397 WETH" }, { label: "Minimum output", value: "0.395 WETH" }]; return { entries: [nfo("route quoted", "0x · 0.397 WETH"), nfo("minimum output", "0.395 WETH")], caption: "Show the user the minimum output, fees, and route before approval." }; } },
+        { stage: "Approve", action: "Approve USDC",
+          text: "Approve only the AllowanceHolder address returned by the quote for the exact sell amount.",
+          summary: [["Operation", "Token approval"], ["Asset", M("USDC")], ["Amount", M("1,000 USDC")], ["Spender", "0x AllowanceHolder"], ["Network", NETWORK]],
+          run: (s) => { s.metrics = [{ label: "Sell", value: "1,000 USDC" }, { label: "Quoted output", value: "0.397 WETH" }, { label: "Allowance", value: "1,000 USDC", tone: "ok" }]; return { entries: [ok("approve", "1,000 USDC · AllowanceHolder")], caption: "Never approve the 0x Settler contract; use the spender returned by the API." }; } },
+        { stage: "Simulate", action: "Simulate swap",
+          text: "Fetch a fresh quote, then simulate its transaction data against the user's current wallet state.",
+          summary: [["Operation", "Simulate"], ["Expected", M("0.397 WETH")], ["Minimum", M("0.395 WETH")], ["Result", "No revert"], ["Network", NETWORK]],
+          run: (s) => { s.metrics = [{ label: "Sell", value: "1,000 USDC" }, { label: "Quoted output", value: "0.397 WETH" }, { label: "Minimum output", value: "0.395 WETH", tone: "ok" }]; return { entries: [ok("simulation", "transaction succeeds"), nfo("quote refreshed", "allowance satisfied")], caption: "Do not submit stale calldata after balances, allowances, or market prices change." }; } },
+        { stage: "Swap", action: "Submit swap",
+          text: "Ask the wallet to sign the prepared transaction and wait for its receipt.",
+          summary: [["Operation", "Execute swap"], ["Sell", M("1,000 USDC")], ["Receive", M("0.397 WETH")], ["Minimum", M("0.395 WETH")], ["Network", NETWORK]],
+          run: (s) => { s.metrics = [{ label: "USDC spent", value: "1,000 USDC" }, { label: "WETH received", value: "0.397 WETH", tone: "ok" }, { label: "Status", value: "Confirmed", tone: "ok" }]; return { entries: [ok("swap submitted", "0x route"), ok("swap confirmed", "0.397 WETH received")], caption: "Refresh balances from Base after the receipt confirms." }; } },
+      ],
+    },
   };
 
-  const order = ["lend", "borrow", "earn"];
+  const order = ["trade", "lend", "borrow", "earn"];
   const pinned = flow ? (FLOWS[flow] ? flow : order[0]) : null;
 
   const [active, setActive] = useState(pinned || "lend");
@@ -317,7 +339,7 @@ export const DeFiDemo = ({ flow }) => {
               </div>
               <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href="/build-on-base/integrate-defi/integrate-lending" style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href={f.href} style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>

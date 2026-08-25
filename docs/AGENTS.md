@@ -86,7 +86,7 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
 |build-on-base:overview,test-on-vibenet
 |build-on-base/accept-payments:from-agents,from-humans,verify-a-payment
-|build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending
+|build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-trading
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base,block-explorers,connect-to-base,data-indexers,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
