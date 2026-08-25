@@ -20,7 +20,7 @@ The Get Started tab serves as an entry point that funnels users into deeper tabs
 - **Start Here** — Connect to Base, Get Funds, Make a Transaction
 - **Solutions** — Ordered by prominence: Issue Stablecoins, Integrate DeFi, Tokenize Stocks, then the rest
 - **References** — Links that mirror top-level tabs (Chain, SDKs & APIs)
-- **Get Funded** — Base Batches, Base Ecosystem Fund
+- **Get Funding** — Base Batches, Base Ecosystem Fund, Base Services Hub
 - **Agents** — Use Base with AI
 
 ## Chain Tab Structure

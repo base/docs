@@ -24,9 +24,9 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 - **Belongs**: Short landing pages that point to the Base Protocol tab and the SDKs & APIs tab. Orientation only.
 - **Does not belong**: Actual reference content (contract addresses, glossaries, API docs). Those live in their respective tabs.
 
-### Get Funded
+### Get Funding
 
-- **Belongs**: Grant programs, accelerator info, ecosystem fund applications.
+- **Belongs**: Grant programs, accelerator info, ecosystem fund applications, and the Base Services Hub for builder discounts and service credits.
 - **Does not belong**: Technical content of any kind.
 
 ### Coding Agents

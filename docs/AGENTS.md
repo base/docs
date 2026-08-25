@@ -53,7 +53,7 @@ npx skills add base/base-skills
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
 |base-chain/flashblocks:faq
 |base-chain/network-information:b20-token-standard,base-contracts,base-solana-bridge,bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets,network-fees,smart-contracts,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
-|base-chain/node-operators:node-providers,performance-tuning,run-a-base-node,snapshots,troubleshooting
+|base-chain/node-operators:performance-tuning,run-a-base-node,snapshots,troubleshooting
 |base-chain/quickstart:connecting-to-base
 |base-chain/security:avoid-malicious-flags,report-vulnerability,security-council
 |base-chain/specs:native-account-abstraction,overview
@@ -89,7 +89,7 @@ npx skills add base/base-skills
 |build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-trading
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
-|get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base,block-explorers,connect-to-base,data-indexers,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
+|get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base-services-hub,base,connect-to-base,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
 |root:changes,contribution-guidelines,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
 |sdks:base-anvil,overview
 |sdks/base-account:overview
