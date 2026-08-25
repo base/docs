@@ -32,7 +32,11 @@ jobs:
   authorize:
     name: Authorize trigger
     if: github.event.repository.fork == false
-    runs-on: ubuntu-latest
+    # Keep every job in this workflow on BaseRunnerGroup. Besides providing a
+    # consistent trusted execution environment, the downstream apply job uses
+    # Base's internal LLM Gateway.
+    runs-on:
+      group: BaseRunnerGroup
     permissions:
       contents: read
     steps:
@@ -117,7 +121,10 @@ jobs:
     # above. Flipping vars.DISABLE_BASE_SYNC to 'true' skips this job
     # without affecting authorize (so the banner still fires).
     if: github.event.repository.fork == false && vars.DISABLE_BASE_SYNC != 'true'
-    runs-on: ubuntu-latest
+    # Run where Base's internal LLM Gateway is available. The corresponding
+    # Base gateway integration documents BaseRunnerGroup as a requirement.
+    runs-on:
+      group: BaseRunnerGroup
     permissions:
       contents: write
       pull-requests: write
