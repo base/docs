@@ -9,7 +9,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
 - [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
-- [Base Chain](./base-chain/llms.txt) — Connect your app, wallet, contract, bridge, or infrastructure service to Base.
+- [Base Chain](./base-chain/llms.txt) — Base protocol specifications, core primitives, and network systems.
 - [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
@@ -73,11 +73,13 @@ npx skills add base/base-skills
 |base-chain/specs/reference/b20/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
 |base-chain/specs/reference/b20/interfaces/IB20Stablecoin:currency
 |base-chain/specs/reference/b20/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
+|base-chain/specs/upgrades:overview
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20,overview,reducing-canonical-withdrawal-delay,reth-v2
 |base-chain/specs/upgrades/canyon:overview
-|base-chain/specs/upgrades/cobalt:eip-8130,overview
+|base-chain/specs/upgrades/cobalt:dynamic-upgrades,eip-8130,overview
 |base-chain/specs/upgrades/delta:overview,span-batches
+|base-chain/specs/upgrades/denim:200ms-blocks,overview
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
 |base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys
 |base-chain/specs/upgrades/granite:derivation,exec-engine,overview
@@ -90,7 +92,7 @@ npx skills add base/base-skills
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base-services-hub,base,connect-to-base,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
-|root:changes,contribution-guidelines,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
+|root:changes,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
 |sdks:base-anvil,overview
 |sdks/base-account:overview
 |sdks/base-account/basenames:basename-transfer,basenames-faq
