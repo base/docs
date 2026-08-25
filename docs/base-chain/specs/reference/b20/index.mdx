@@ -192,7 +192,9 @@ Asset tokens add `OPERATOR_ROLE`, scaled UI balance support, scheduled and insta
 
 #### Multiplier
 
-The multiplier is WAD-precision and scales UI balance reads while raw balances remain unchanged.
+The multiplier is WAD-precision and scales UI balance reads while raw balances remain unchanged. `toUIAmount(rawAmount)` / `fromUIAmount(uiAmount)` are the canonical ERC-8056 Conversion extension converters (`0x57854fc3`). The deprecated `toScaledBalance` / `toRawBalance` aliases are retained in `IB20Asset` for backward compatibility. `MAX_UI_MULTIPLIER()` exposes the `type(uint128).max` overflow guard.
+
+Multiplier updates are scheduled with `updateUIMultiplier(newMultiplier, effectiveAt)`. Only one pending update may exist at a time; a second call reverts `UIMultiplierUpdateExists`. Cancel with `cancelUIMultiplierUpdate()` (reverts `UIMultiplierUpdateDoesNotExist` when nothing is pending). The deprecated instant setter `updateMultiplier` is retained (dialable) for backward compatibility; it emits both the deprecated `MultiplierUpdated` event and the ERC-8056 `UIMultiplierUpdated` event. `OPERATOR_ROLE` gates `announce`, `updateUIMultiplier`, `cancelUIMultiplierUpdate`, and the deprecated `updateMultiplier`.
 
 #### Announcements
 
