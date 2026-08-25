@@ -8,17 +8,17 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: First-time visitors who need to orient, pick a use case, and reach their first working interaction with Base.
 
-### Solutions
-
-- **Belongs**: One-page overviews that explain each use case and link out to the full Build on Base guides: Integrate DeFi, Accept Payments, Tokenize Assets, Issue Stablecoins.
-- **Does not belong**: The step-by-step guides themselves. Solutions pages are entry ramps, not the destination.
-- **Governance**: Before adding a new solution or renaming a section, you need approval from Eric Brown and Mind Apivessa. Mind Apivessa will be responsible for getting approvals from BD and GTM.
-
 ### Quickstart
 
 - **Belongs**: Minimal-step onboarding (connect wallet, get testnet funds, send a transaction). Each page should be completable in under 5 minutes.
 - **Iterate**: Surface high-traffic reference pages (e.g., contract addresses, network details, faucets) that are currently buried deep in the IA. If analytics show developers frequently need a page but it takes too many clicks to reach, add a shortcut or landing link here.
 - **Does not belong**: Detailed implementation guides (those go in Build on Base), SDK installation walkthroughs (those go in SDKs & APIs).
+
+### Solutions
+
+- **Belongs**: One-page overviews that explain each use case and link out to the full Build on Base guides: Integrate DeFi, Accept Payments, Tokenize Assets, Issue Stablecoins.
+- **Does not belong**: The step-by-step guides themselves. Solutions pages are entry ramps, not the destination.
+- **Governance**: Before adding a new solution or renaming a section, you need approval from Eric Brown and Mind Apivessa. Mind Apivessa will be responsible for getting approvals from BD and GTM.
 
 ### Coding Agents
 
