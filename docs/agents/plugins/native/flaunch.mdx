@@ -1,0 +1,41 @@
+---
+title: "Flaunch"
+description: "Prepare Base token launches through Flaunch and trade deployed Flaunch tokens with Base MCP."
+keywords: ["Flaunch plugin", "Base MCP Flaunch", "token launch", "Base memecoin", "Flaunch swap"]
+---
+
+Flaunch is a token launch and discovery surface for Base memecoins. The plugin uses `mcp.flaunch.gg` to upload media, prepare launch metadata, discover launched coins, and build Base-compatible transaction previews. Base MCP handles the approval and submission.
+
+**Chain:** Base mainnet.
+
+**Operations:** media upload, token launch preparation, new coin discovery, token lookup, token buys, and token sells.
+
+<Tip>
+Launches and swaps are irreversible. New tokens can have thin liquidity, so the assistant confirms token details and slippage-sensitive trades before calling Base MCP tools.
+</Tip>
+
+## Try it
+
+```text Launch
+Launch a memecoin on Base
+```
+
+```text Discover
+Show me the newest Flaunch coins
+```
+
+```text Buy
+Buy 0.001 ETH of a Flaunch coin
+```
+
+## Pattern
+
+For launches, the assistant confirms name, symbol, description, image, creator address, and social URLs, then calls `POST /v1/base/launch/prepare`. The returned `input` is already in Base MCP `send_calls` shape.
+
+For deployed token trades, the assistant resolves the token address from Flaunch discovery or user input and uses Base MCP `swap` with `chain: "base"`. If `swap` cannot route the token, the assistant stops instead of inventing raw calldata.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/flaunch.md">
+  Launch preparation, media upload, discovery endpoints, swap mapping, and risk checks.
+</Card>

@@ -1,0 +1,53 @@
+---
+title: "Balancer"
+description: "Swaps and liquidity on Balancer through shell-driven API reads, SDK calldata building, and Base MCP send_calls."
+keywords: ["Balancer plugin", "Base MCP Balancer", "Balancer swap", "Balancer liquidity", "Balancer SDK"]
+---
+
+Balancer is an automated market maker for token swaps and liquidity provision. The plugin reads pool data and Smart Order Router quotes from the Balancer API, builds unsigned calldata with `@balancer/sdk`, and submits the resulting calls through Base MCP `send_calls`.
+
+**Chains:** Base, Ethereum, Arbitrum, Optimism, and Avalanche.
+
+**Operations:** pool discovery, swap quotes, swap execution, add liquidity, remove liquidity, and version-aware approval batching.
+
+<Tip>
+**CLI-only plugin.** Balancer requires shell access for both reads and calldata building. It works in CLI harnesses such as Claude Code, Codex, and Cursor terminal, and does not run from chat-only surfaces.
+</Tip>
+
+## Install Balancer SDK tooling
+
+Use a working directory with Node available:
+
+```bash
+npm init -y
+npm i @balancer/sdk viem
+export RPC_URL="<a Base RPC HTTPS endpoint>"
+```
+
+The SDK simulation needs an RPC URL. The plugin spec includes the Node scripts and approval rules needed to emit Base MCP-ready calls.
+
+## Try it
+
+```text Swap
+Swap 100 USDC for WETH on Base through Balancer
+```
+
+```text Find yield
+What's the best Balancer pool for ETH yield on Base?
+```
+
+```text Add liquidity
+Add 500 USDC and 0.2 WETH to a Balancer pool on Base
+```
+
+## Pattern
+
+The assistant fetches Balancer SOR paths with the API, then runs the SDK script to produce `{ chain, protocolVersion, minAmountOut, calls }`. For v2 routes, the batch includes ERC-20 approval to the Balancer Vault plus the Vault call. For v3 routes, it includes ERC-20 approval to Permit2, Permit2 approval to the router, then the router call. Native ETH input omits approvals and carries ETH in `value`.
+
+The emitted `calls` array maps directly to Base MCP `send_calls`. The assistant reviews output, shows the approval link, and polls `get_request_status` after approval.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/balancer.md">
+  Shell setup, GraphQL queries, SDK scripts, v2/v3 approval rules, and risk handling.
+</Card>

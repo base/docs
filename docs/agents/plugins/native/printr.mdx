@@ -1,0 +1,41 @@
+---
+title: "Printr"
+description: "Launch cross-chain tokens through Printr's HTTP API and Base MCP send_calls."
+keywords: ["Printr plugin", "Base MCP Printr", "cross-chain token launch", "Printr launchpad", "token deployment"]
+---
+
+Printr is a cross-chain token launchpad where a creator deploys a token and seeds initial liquidity in one transaction. The plugin quotes launch cost, builds unsigned creation calldata through Printr's HTTP API, and submits the result with Base MCP `send_calls`.
+
+**Chains:** Base, Arbitrum, Optimism, Polygon, BSC, Avalanche, and Ethereum.
+
+**Operations:** launch quotes, token creation, deployment status checks, cross-chain launch setup, and initial-buy configuration.
+
+<Tip>
+**Multi-chain launchpad.** Printr uses CAIP chain identifiers in API payloads, then maps returned payloads back to Base MCP chain names for `send_calls`.
+</Tip>
+
+## Try it
+
+```text Launch
+Launch a memecoin called Doge Supreme (DSUP) on Base
+```
+
+```text Quote
+What would it cost to launch on Base and Arbitrum?
+```
+
+```text Status
+Did my token deploy on every chain?
+```
+
+## Pattern
+
+The assistant calls `/print/quote` first, shows per-chain and combined launch cost, then calls `/print` only after confirmation and valid token metadata. The returned `payload.to` includes a CAIP chain prefix, `payload.calldata` is base64, and `payload.value` is decimal wei.
+
+The assistant strips the `eip155:<chainId>:` prefix from `to`, base64-decodes calldata to hex, converts value to hex, maps the chain ID to a Base MCP chain string, and submits `send_calls`.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/printr.md">
+  Quote schema, print schema, payload transforms, supported chains, and token metadata constraints.
+</Card>

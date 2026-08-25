@@ -1,0 +1,41 @@
+---
+title: "GMGN"
+description: "Token swap quotes, gas-price tiers, and trending-token market intelligence on Base via GMGN."
+keywords: ["GMGN plugin", "Base MCP GMGN", "GMGN swap", "Base trending tokens", "GMGN quote"]
+---
+
+GMGN provides token swap routing and onchain market intelligence for Base. The plugin calls the GMGN HTTP API to obtain unsigned swap calldata, gas-price tiers, and trending token data, then submits prepared swap calls through Base MCP `send_calls`.
+
+**Chain:** Base mainnet.
+
+**Operations:** swap quotes, ERC-20 approval calls, swap execution, gas-price reads, trending-token reads, and market-intelligence summaries.
+
+<Tip>
+**CLI-only and API-key authenticated.** Every GMGN request needs a fresh shell-generated timestamp and UUID plus the `X-APIKEY` header. Confirm slippage and inspect low-liquidity tokens before swaps.
+</Tip>
+
+## Try it
+
+```text Swap ETH
+Swap 0.00001 ETH for a token on Base
+```
+
+```text Swap USDC
+Swap 100 USDC for ETH on Base
+```
+
+```text Trending
+Show trending tokens on Base
+```
+
+## Pattern
+
+The assistant generates auth parameters with shell commands, fetches a GMGN quote, shows expected output and minimum output, then builds a `send_calls` batch from `data.tx.approve_txs` followed by the swap call `{ to: data.tx.to, value: data.tx.value, data: data.tx.data }`.
+
+Native ETH inputs usually have no approval calls. ERC-20 inputs include the returned approval transaction before the swap. The assistant polls `get_request_status` only after Base Account approval.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/gmgn.md">
+  Auth parameters, quote endpoint, gas-price endpoint, trending-token endpoint, calldata mapping, and risk notes.
+</Card>

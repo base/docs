@@ -55,6 +55,11 @@ for (const page of navPages) {
 //   - generated B20 interface *method* pages are deliberately interface-first
 //     (reached from their interface index page), matching upstream convention
 const INTERFACE_PREFIX = 'base-chain/specs/reference/b20/interfaces/';
+// Landing pages that are intentionally linked from content but omitted from
+// the sidebar to avoid a redundant nested "Overview" entry.
+const LINKED_HUB_PAGES = new Set([
+  'agents/guides/index',
+]);
 const mintignore = fs.existsSync(path.join(docs, '.mintignore'))
   ? new Set(
       fs
@@ -84,6 +89,7 @@ function isExemptFromOrphan(page) {
   if (page.startsWith('snippets/')) return true;
   if (mintignore.has(page)) return true;
   if (footerLinks.has(page)) return true;
+  if (LINKED_HUB_PAGES.has(page)) return true;
   // interface method page = under interfaces/<IFace>/<method>, i.e. one level
   // deeper than the interface index pages themselves
   if (page.startsWith(INTERFACE_PREFIX) && page.slice(INTERFACE_PREFIX.length).includes('/')) return true;

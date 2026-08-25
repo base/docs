@@ -1,0 +1,51 @@
+---
+title: "OpenSea"
+description: "NFT marketplace trading, token swaps, and drops or minting through OpenSea API or CLI and Base MCP send_calls."
+keywords: ["OpenSea plugin", "Base MCP OpenSea", "NFT trading", "OpenSea swaps", "OpenSea drops"]
+---
+
+OpenSea is an NFT marketplace and token trading platform. The plugin covers token swaps, NFT drops and minting, and marketplace trading, fetching unsigned calldata from the OpenSea REST API or CLI and submitting transactions through Base MCP `send_calls`.
+
+**Chains:** Ethereum, Base, Polygon, Arbitrum, Optimism, and Avalanche.
+
+**Operations:** token swaps, NFT best-listing reads, NFT purchases, cross-chain fulfillment, listing flows, drops discovery, and minting.
+
+<Tip>
+**API key required.** The assistant creates or uses an OpenSea API key before calling endpoints. NFT trades and swaps are irreversible, so collection, token ID, payment token, price, and chain are confirmed first.
+</Tip>
+
+## Install OpenSea CLI
+
+Shell-capable harnesses can use the OpenSea CLI:
+
+```bash
+npx @opensea/cli@latest --help
+```
+
+The REST API path is also supported when `api.opensea.io` is reachable and an API key is available.
+
+## Try it
+
+```text Swap
+Swap 0.02 ETH for USDC on Base
+```
+
+```text Buy NFT
+Buy a Bored Ape on Ethereum
+```
+
+```text Drops
+What drops are coming up on Base?
+```
+
+## Pattern
+
+The assistant creates or loads an API key, gets the wallet address, then calls OpenSea API or CLI commands for quotes, listings, drops, or fulfillment data. OpenSea write responses contain unsigned transaction objects. The assistant converts decimal `value` fields to hex, maps each transaction to `{ to, value, data }`, and submits `send_calls` on the matching chain.
+
+Cross-chain fulfillment may require multiple transactions on different chains. Those are submitted in order, waiting for confirmation before the next step.
+
+## Reference
+
+<Card title="Full plugin spec on GitHub" icon="github" href="https://github.com/base/skills/blob/master/skills/base-mcp/plugins/opensea.md">
+  API key flow, CLI usage, swaps, drops, NFT fulfillment, value conversion, and risk checks.
+</Card>

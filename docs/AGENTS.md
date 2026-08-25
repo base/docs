@@ -8,11 +8,12 @@ description: Look up Base documentation with a compact directory-grouped index b
 
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
+- [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
 - [Base Chain](./base-chain/llms.txt) — Connect your app, wallet, contract, bridge, or infrastructure service to Base.
-- [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: issue stablecoins, integrate DeFi, issue real-world assets, accept payments, or run private transactions.
+- [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: issue stablecoins, integrate DeFi, issue real-world assets, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
-- [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
+- [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, Base MCP for AI assistants, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
 - [Static](./static/llms.txt)
 
 ## Tools available for AI assistants
@@ -38,6 +39,13 @@ npx skills add base/base-skills
 ## Compact docs index
 
 [Docs]|root:./docs
+|agents:index,quickstart
+|agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
+|agents/plugins:custom-plugins,index
+|agents/plugins/native:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,index,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
+|agents/skills:SKILL
+|agents/skills/plugins:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
+|agents/skills/references:approval-mode,batch-calls,custom-plugins,install,plugin-spec,tone
 |base-chain:overview
 |base-chain/api-reference:rpc-overview
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
@@ -81,8 +89,7 @@ npx skills add base/base-skills
 |build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
-|build-on-base/ledgers:deposit,transfer,withdraw
-|get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base,block-explorers,connect-to-base,data-indexers,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,private-transactions,resources-for-ai-agents,sdks-and-apis
+|get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base,block-explorers,connect-to-base,data-indexers,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
 |root:changes,contribution-guidelines,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
 |sdks:base-anvil,overview
 |sdks/base-account:overview
