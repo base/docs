@@ -17,3 +17,21 @@ function toUIAmount(uint256 rawAmount) external view returns (uint256);
 ## Description
 
 Converts `rawAmount` to its UI representation at the effective multiplier.
+
+Part of the ERC-8056 optional Conversion extension (`IScaledUIAmountConversion`, interface ID `0x57854fc3`). The effective multiplier is the pending slot's value when a scheduled update is live; otherwise it is the current stored multiplier.
+
+The computation is `rawAmount * multiplier / WAD_PRECISION`, where `WAD_PRECISION` is `1e18`. Integer division truncates toward zero, so the round-trip `fromUIAmount(toUIAmount(x))` may return a value up to one ULP below `x`.
+
+The legacy `toScaledBalance(uint256)` is a deprecated alias with identical behavior, retained in `IB20Asset` for backward compatibility.
+
+## Parameters
+
+<ParamField path="rawAmount" type="uint256">
+  Raw token amount to convert to its UI representation.
+</ParamField>
+
+## Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _(unnamed)_ | `uint256` | UI amount at the effective multiplier. |

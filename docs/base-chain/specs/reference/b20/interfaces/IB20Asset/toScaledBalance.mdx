@@ -3,7 +3,9 @@ title: "IB20Asset.toScaledBalance"
 description: "Generated B20 reference for toScaledBalance(uint256)."
 ---
 
-
+<Warning>
+**Deprecated.** `toScaledBalance` is retained in `IB20Asset` for backward compatibility but is superseded by the ERC-8056 Conversion extension function `toUIAmount(uint256)`. Prefer `toUIAmount` in new integrations.
+</Warning>
 
 ## Signature
 
@@ -18,13 +20,23 @@ function toScaledBalance(uint256 rawBalance) external view returns (uint256);
 
 ## Description
 
-Converts a raw balance to its scaled view: `rawBalance * multiplier / WAD_PRECISION`.
-Param: rawBalance Raw token amount to scale.
-Return: Scaled balance at the current multiplier.
+**DEPRECATED.** Converts a raw balance to its scaled view: `rawBalance * multiplier / WAD_PRECISION`. Retained (dialable) for backward compatibility as an alias of `toUIAmount`. Prefer the ERC-8056 Conversion extension `toUIAmount(uint256)` in new code.
+
+**Parameters**
+
+| Name | Type | Description |
+|---|---|---|
+| `rawBalance` | `uint256` | Raw token amount to scale. |
+
+**Returns**
+
+| Type | Description |
+|---|---|
+| `uint256` | Scaled balance at the current multiplier. |
 
 ## Access control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only; no role required.
 
 ## Policy interaction
 
@@ -32,6 +44,10 @@ No direct policy interaction.
 
 ## Example
 
-```solidity
-IB20Asset(target).toScaledBalance(arg0);
+```solidity Title Deprecated usage — prefer toUIAmount
+// Deprecated — retained for backward compatibility only.
+uint256 scaled = IB20Asset(target).toScaledBalance(rawBalance);
+
+// Preferred ERC-8056 canonical form:
+uint256 scaled = IB20Asset(target).toUIAmount(rawBalance);
 ```

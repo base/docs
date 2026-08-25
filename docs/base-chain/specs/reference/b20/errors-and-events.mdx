@@ -50,7 +50,7 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `InvalidCurrency` | `0x997c1de8` | `IB20Factory` | The stablecoin `currency` was non-empty but contained a non-`A`-`Z` byte. |
 | error | `InvalidDecimals` | `0xca950391` | `IB20Factory` | The asset `decimals` was outside the allowed inclusive range |
 | error | `InvalidMetadataKey` | `0x86ea3abb` | `IB20Asset` | `updateExtraMetadata` was called with an empty `key`. |
-| error | `InvalidMultiplier` | `0x6f12f3dc` | `IB20Asset` | A multiplier setter (`updateUIMultiplier` or `updateMultiplier`) was called with a |
+| error | `InvalidMultiplier` | `0x6f12f3dc` | `IB20Asset` | A multiplier setter (`updateUIMultiplier` or the deprecated `updateMultiplier`) was called with a multiplier of zero or above the `type(uint128).max` overflow guard. |
 | error | `InvalidReceiver` | `0x9cfea583` | `IB20` | The transfer's destination address is invalid (typically `address(0)`). |
 | error | `InvalidSender` | `0x4c14f64c` | `IB20` | The transfer's source address is invalid (typically `address(0)`). |
 | error | `InvalidSigner` | `0x7ba5ffb5` | `IB20` | ECDSA recovery on an EIP-2612 `permit` returned `signer`, which does not match the claimed `owner`. |
@@ -62,8 +62,8 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | error | `LengthMismatch` | `0xab8b67c6` | `IB20Asset` | A batched function was called with parallel arrays of differing lengths. |
 | event | `Memo` | `0x6989f5818dcfd11f8cd53b27c94cec33dae1589735f03e639cba54553a1825e8` | `IB20` | Emitted by `transferWithMemo`, `transferFromWithMemo`, `mintWithMemo`, and `burnWithMemo` |
 | error | `MissingRequiredField` | `0x4a43ae87` | `IB20Factory` | A required string argument was the empty string. |
-| event | `MultiplierUpdated` | `0x4dbe4840d7465bd162f67814cea0b519567a2e0e578bcde61e7f4ced361e5a3d` | `IB20Asset` | Deprecated multiplier-change event emitted by `updateMultiplier` alongside `UIMultiplierUpdated`. |
-| event | `UIMultiplierUpdateCancelled` | `0x883856335ba5f60c18b9817c4505d3c7d3f6223dcf39516b30c508c46a5e1cad` | `IB20Asset` | A scheduled multiplier update was cancelled. |
+| event | `MultiplierUpdated` | `0x4dbe4840d7465bd162f67814cea0b519567a2e0e578bcde61e7f4ced361e5a3d` | `IB20Asset` | Deprecated multiplier-change event emitted by the instant setter (`updateMultiplier`) alongside `UIMultiplierUpdated` for backward compatibility with indexers on the legacy topic. The scheduled `updateUIMultiplier` emits only `UIMultiplierUpdated`. |
+| event | `UIMultiplierUpdateCancelled` | `0x883856335ba5f60c18b9817c4505d3c7d3f6223dcf39516b30c508c46a5e1cad` | `IB20Asset` | A scheduled multiplier update was cancelled. Emitted by `cancelUIMultiplierUpdate` and by the instant setter when it clears a live pending update. |
 | event | `NameUpdated` | `0x74321da206c1b9fa34367f7ece59ca49371dcd13820b9a5c3767ae1ecceed51a` | `IB20` | Emitted by `updateName`. Carries the new name string. |
 | error | `NonPayable` | `0x6fb1b0e9` | `IB20` | ETH was attached to a call targeting a nonpayable token selector. |
 | error | `NonPayable` | `0x6fb1b0e9` | `IB20Factory` | ETH was attached to a call targeting a nonpayable factory selector. |
@@ -76,25 +76,4 @@ description: "Reverse lookup B20 errors and events by selector or topic."
 | event | `PolicyAdminUpdated` | `0x98925cfb1bc09c5b43dd0dd56d3d95aa04fb3300927580cc588c3f5dd58c15e1` | `IPolicyRegistry` | The active admin changed. `newAdmin == address(0)` indicates renunciation; |
 | event | `PolicyCreated` | `0xdc870ce85be577234b8548f42b93f84bbff6d0c1f38ee725c809c49932a13885` | `IPolicyRegistry` | A new policy was created. |
 | error | `PolicyForbids` | `0xa43fec12` | `IB20` | A policy slot denied the operation. |
-| error | `PolicyNotFound` | `0xcccad523` | `IB20` | The provided policy ID does not exist in the policy registry. |
-| error | `PolicyNotFound` | `0x720caa4f` | `IPolicyRegistry` | The referenced policy ID does not exist. |
-| event | `PolicyUpdated` | `0x8b4790f7ff717fc8f60f07ae099e47ef318dc04b37ae98056b50a22b79056626` | `IB20` | Emitted by `updatePolicy` when a token's policy slot is changed. Initial slot assignment at |
-| event | `RoleAdminChanged` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | `IB20` | Emitted by `setRoleAdmin` when the admin role for `role` changes. |
-| event | `RoleGranted` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | `IB20` | Emitted when `account` is granted `role`. `sender` is the originating caller. |
-| event | `RoleRevoked` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | `IB20` | Emitted when `role` is revoked from `account`. `sender` is the originating caller |
-| error | `UIMultiplierUpdateExists` | `0x4481a68e` | `IB20Asset` | `updateUIMultiplier` was called while a live pending update already exists |
-| event | `Seized` | `0xa9aec5d8b86e2fa2fd6ac3af62f2622e3dfdab1967d4cbbb56a5df7d74cb887c` | `IB20` | Emitted by `seizeWithMemo` in addition to `Transfer(from, to, amount)` (and the |
-| error | `StaticCallNotAllowed` | `0xbeaba5b7` | `IActivationRegistry` | A state-mutating entry point was invoked from a `STATICCALL` frame. |
-| error | `SupplyCapExceeded` | `0x4b344b11` | `IB20` | The mint would push `totalSupply` past the configured cap. |
-| event | `SupplyCapUpdated` | `0x6d14f44808ce024f263432bc38d019a9951fbe674e9898b54844dbc8dc09c23a` | `IB20` | Emitted by `updateSupplyCap`. |
-| event | `SymbolUpdated` | `0x64e8b5c6dcea43dd79766bb3b8af7c45968d12b68c960cf2da23856f34d598d4` | `IB20` | Emitted by `updateSymbol`. Carries the new symbol string. |
-| error | `TokenAlreadyExists` | `0x15ef3a57` | `IB20Factory` | A token already exists at the deterministic address derived from |
-| event | `Transfer` | `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef` | `IB20` | ERC-20 transfer event. Emitted on every successful transfer (including memo'd variants), |
-| error | `Unauthorized` | `0x8e4a23d6` | `IActivationRegistry` | Caller is not the activation admin. |
-| error | `Unauthorized` | `0x82b42900` | `IB20` | Caller failed a positional authorization check that is not expressible as "missing role X". |
-| error | `Unauthorized` | `0x82b42900` | `IPolicyRegistry` | Caller is not the admin required by the attempted operation. |
-| event | `UIMultiplierUpdated` | `0x2205df4534432b2f60654a3fdb48737ffdaf3e9edb1a498bd985bc026b15b055` | `IB20Asset` | Emitted when the UI multiplier is updated. |
-| event | `Unpaused` | `0xdc6281474ea3dea2a856e225c7ba3edf427de9164495817c4d49a595e683fed4` | `IB20` | Emitted by `unpause`. `features` is the argument to the call (not the resulting paused state). |
-| error | `UnsupportedPolicyType` | `0xcdd98a4a` | `IB20` | `policyScope` is not a slot this token (or its variant) supports. |
-| error | `UnsupportedVersion` | `0xc0d8b4e0` | `IB20Factory` | The leading `version` byte in `params` does not match any known encoding for the requested variant. |
-| error | `ZeroAddress` | `0xd92e233d` | `IPolicyRegistry` | A required address argument was the zero address. |
+| error | `PolicyNotFound` | `0xcccad523

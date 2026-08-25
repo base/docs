@@ -18,12 +18,20 @@ function updateMultiplier(uint256 newMultiplier) external;
 
 ## Description
 
-DEPRECATED. Instant failsafe / emergency override — sets the current multiplier immediately and
-cancels any live pending update without a scheduling window. Emits both `MultiplierUpdated` and
-`UIMultiplierUpdated`. Prefer `updateUIMultiplier` for routine corporate actions.
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
-Dev: Reverts with `InvalidMultiplier` when `newMultiplier` is zero or above `type(uint128).max`.
-Param: newMultiplier New multiplier scaled to `WAD_PRECISION`; must be in `(0, type(uint128).max]`.
+<Warning>
+`updateMultiplier` is deprecated. Prefer the scheduled `updateUIMultiplier` for routine corporate actions. This function is retained in `IB20Asset` (still dialable) for backward compatibility only.
+</Warning>
+
+Instant failsafe / emergency override — sets the current multiplier immediately and cancels any live pending update without a scheduling window. Emits the deprecated `MultiplierUpdated(newMultiplier)` event alongside the ERC-8056 `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)` so indexers watching the legacy topic continue to work through the transition. When it clears a live pending update, it also emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)` before the multiplier-change events.
+
+Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
+Reverts with `InvalidMultiplier` when `newMultiplier` is zero or above `type(uint128).max` (see `MAX_UI_MULTIPLIER()`).
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `newMultiplier` | `uint256` | New multiplier scaled to `WAD_PRECISION`; must be in `(0, type(uint128).max]`. |
 
 ## Access control
 
