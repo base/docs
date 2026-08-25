@@ -39,7 +39,7 @@ npx skills add base/base-skills
 ## Compact docs index
 
 [Docs]|root:./docs
-|agents:index,quickstart
+|agents:overview,quickstart
 |agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
 |agents/plugins:custom-plugins,index
 |agents/plugins/native:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,index,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
