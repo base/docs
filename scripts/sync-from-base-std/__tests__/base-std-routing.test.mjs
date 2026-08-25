@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { routeCodeChange } from "../index.mjs";
+import { buildProvenanceComment, routeCodeChange } from "../index.mjs";
 
 test("routeCodeChange expands page_globs only to existing docs pages", async () => {
   const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "base-std-routing-"));
@@ -38,4 +38,16 @@ test("routeCodeChange expands page_globs only to existing docs pages", async () 
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
+});
+
+test("buildProvenanceComment cannot inject a second HTML comment boundary", () => {
+  const comment = buildProvenanceComment("manual-update", {
+    intent: "Update docs --> <script>alert(1)</script> --!>",
+    source_refs: ["https://example.test/<!--> --!>"],
+  });
+  const body = comment.split("\n").slice(1, -1).join("\n");
+
+  assert.match(comment, /^<!--\n/);
+  assert.match(comment, /\n-->$/);
+  assert.doesNotMatch(body, /[<>]/);
 });

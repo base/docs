@@ -672,12 +672,26 @@ function sourceRepo(payload) {
 
 // ----------------------------------------------------------- provenance
 /**
+ * Convert untrusted metadata to a single-line value that is safe to embed in
+ * an HTML comment. HTML comments are not a data container: any literal `<` or
+ * `>` can form a comment opener/terminator (including non-obvious terminators
+ * such as `--!>`), so remove both characters rather than trying to maintain a
+ * denylist of individual comment tokens.
+ */
+function commentValue(value, maxLength = 280) {
+  return String(value ?? "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/[<>]/g, "")
+    .slice(0, maxLength);
+}
+
+/**
  * Build the HTML comment that gets injected at the top of each touched page.
  * Visible in the PR diff (so a reviewer can click straight to the source
  * commit/files); stripped by the docs build because it's a standard MDX
  * comment.
  */
-function buildProvenanceComment(kind, payload, sourceFiles) {
+export function buildProvenanceComment(kind, payload, sourceFiles) {
   const source = sourceRepo(payload);
   const lines = [];
   lines.push("<!--");
@@ -697,9 +711,9 @@ function buildProvenanceComment(kind, payload, sourceFiles) {
     lines.push(`  source-tag: ${payload.tag}`);
     lines.push(`  source-commit: https://github.com/${source}/commit/${payload.sha}`);
   } else if (kind === "manual-update") {
-    lines.push(`  intent: ${(payload.intent || "").replace(/-->|<!--/g, "").slice(0, 280)}`);
+    lines.push(`  intent: ${commentValue(payload.intent)}`);
     for (const ref of payload.source_refs || []) {
-      lines.push(`  source-ref: ${String(ref).replace(/-->|<!--/g, "")}`);
+      lines.push(`  source-ref: ${commentValue(ref)}`);
     }
   }
   lines.push(
