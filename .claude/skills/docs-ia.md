@@ -8,7 +8,7 @@ description: Determines which tab and section a new documentation page belongs i
 Read the full guidelines:
 
 ```bash
-cat docs-ia-guidelines.md
+cat docs/ia-guidelines.md
 ```
 
 ## Quick decision tree
@@ -24,7 +24,7 @@ When adding a new page, ask in order:
 
 ## Workflow
 
-1. Read `docs-ia-guidelines.md` for full tab and section descriptions
+1. Read `docs/ia-guidelines.md` for full tab and section descriptions
 2. Identify the correct tab and section using the decision tree
 3. Suggest placement with reasoning
 4. If moving a page, add a redirect in `docs/docs.json`
