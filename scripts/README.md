@@ -47,6 +47,23 @@ node scripts/lint-mdx.js all
 node scripts/lint-mdx.js all || exit 1
 ```
 
+## Redirect destination auditor
+
+`audit-redirects.js` checks every internal destination in `docs/docs.json` against the current MDX route tree. It follows redirect chains, detects cycles, and groups repeated broken destinations so large redirect migrations can be audited without guessing from individual entries.
+
+```bash
+# Report broken internal redirect destinations without failing
+node scripts/audit-redirects.js
+
+# Exit with code 1 when broken destinations are found
+node scripts/audit-redirects.js --strict
+
+# Run the focused unit tests
+node --test scripts/audit-redirects.test.js
+```
+
+External redirect destinations are treated as valid terminal targets. The default report-only mode is useful while known redirect debt is being repaired; `--strict` can be used once the tree is clean or in targeted validation workflows.
+
 ## Docs index generators
 
 Two generators emit AI-facing site indexes from the `docs/` tree. Both share helpers in `lib/docs-utils.js` (frontmatter parser, `.mintignore` loader, file walker, section discovery).
