@@ -125,13 +125,21 @@ export function SignInWithBase() {
 ```
 ```ts Backend (Viem)
 import { createPublicClient, http } from 'viem';
+import { verifySiweMessage } from 'viem/siwe';
 import { base } from 'viem/chains';
 
 const client = createPublicClient({ chain: base, transport: http() });
 
 export async function verifySig(req, res) {
   const { address, message, signature } = req.body;
-  const valid = await client.verifyMessage({ address, message, signature });
+  const { isValid } = await verifySiweMessage(client, {
+  address,
+  message,
+  signature,
+  domain: req.headers.host ?? 'yourapp.com',
+  nonce: req.body.nonce || 'server-nonce',
+});
+const valid = isValid;
   if (!valid) return res.status(401).json({ error: 'Invalid signature' });
   // create session / JWT
   res.json({ ok: true });
