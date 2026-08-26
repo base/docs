@@ -445,7 +445,7 @@ Below is an example of how to configure NextAuth to use Base Account as a creden
 
 import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { verifyMessage } from 'viem'
+import { verifySiweMessage } from 'viem/siwe'
 
 export default NextAuth({
   providers: [
@@ -458,10 +458,14 @@ export default NextAuth({
       },
       async authorize(credentials) {
         try {
-          const isValid = await verifyMessage({
+          // Extract nonce from SIWE message for validation
+          const nonce = credentials.message.match(/Nonce: (\w+)/)?.[1] || 'server-nonce';
+          const { isValid } = await verifySiweMessage(client, {
             address: credentials.address,
             message: credentials.message,
             signature: credentials.signature,
+            domain: 'yourapp.com', // In production: req.headers.host
+            nonce: nonce,
           });
 
           if (isValid) {
