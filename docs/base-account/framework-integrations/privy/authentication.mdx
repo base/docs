@@ -212,6 +212,7 @@ export async function GET() {
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
+import { verifySiweMessage } from 'viem/siwe';
 import { nonceStore } from '@/lib/nonce-store';
 
 const client = createPublicClient({ 
@@ -233,12 +234,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify signature using viem
-    const valid = await client.verifyMessage({ 
-      address: address as `0x${string}`, 
-      message, 
-      signature: signature as `0x${string}` 
+    // Verify signature using viem with SIWE validation
+    const { isValid } = await verifySiweMessage(client, {
+      address: address as `0x${string}`,
+      message,
+      signature: signature as `0x${string}`,
+      domain: request.headers.get('host') ?? 'yourapp.com',
+      nonce: nonce,
     });
+    const valid = isValid;
 
     if (!valid) {
       return NextResponse.json(
