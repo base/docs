@@ -13,7 +13,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 - [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
-- [Sdks](./sdks/llms.txt) — Every SDK and API for building on Base in one place — the Base Account SDK for wallet, auth, and payments, Base MCP for AI assistants, and the Base Chain API for JSON-RPC, Flashblocks, and tracing.
+- [Sdks](./sdks/llms.txt) — SDKs and APIs for accounts, identity verification, attribution, AI assistants, and direct Base chain access.
 - [Static](./static/llms.txt)
 
 ## Tools Available for AI Assistants
@@ -64,7 +64,7 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
 |base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
 |base-chain/specs/reference:configurability,glossary,native-account-abstraction
-|base-chain/specs/reference/b20:changelog,constants-and-addresses,errors-and-events,index,invariants-and-tests
+|base-chain/specs/reference/b20:changelog,constants-and-addresses,errors-and-events,index,invariants-and-tests,tokenized-stocks-on-base
 |base-chain/specs/reference/b20/changelog:02-cobalt-b20-seize,02-cobalt-b20asset-multiplier,02-cobalt-policyregistry-composite-policy
 |base-chain/specs/reference/b20/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
 |base-chain/specs/reference/b20/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
@@ -86,7 +86,7 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
 |base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|build-on-base:overview,test-on-vibenet
+|build-on-base:assign-user-attributes,overview,test-on-vibenet
 |build-on-base/accept-payments:authorize-a-payment,batch-high-frequency-payments,call-a-paid-service,capture-a-partial-amount,capture-an-authorization,charge-for-an-api,charge-on-a-schedule,reconcile-payments,refund-a-payment,request-a-payment,send-a-payout,settle-usage-based-payments,split-a-payment,verify-a-payment,void-an-authorization,watch-for-payments
 |build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-trading
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
@@ -100,7 +100,7 @@ npx skills add base/base-skills
 |sdks/base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
 |sdks/base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
 |sdks/base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
-|sdks/base-account/guides:authenticate-users,migration-guide,sign-and-verify-typed-data,verify-social-accounts
+|sdks/base-account/guides:authenticate-users,migration-guide,sign-and-verify-typed-data
 |sdks/base-account/guides/tips:inspect-txn-simulation,popup-tips
 |sdks/base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
 |sdks/base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
@@ -115,3 +115,5 @@ npx skills add base/base-skills
 |sdks/base-account/reference/prolink-utilities:createProlinkUrl,decodeProlink,encodeProlink
 |sdks/base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
 |sdks/base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button
+|sdks/base-verify:overview,verify-social-accounts,verify-users-onchain
+|sdks/builder-codes:agent-developers,app-developers,overview,wallet-developers
