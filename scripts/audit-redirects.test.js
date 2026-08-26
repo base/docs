@@ -36,6 +36,7 @@ test('matches trailing Mintlify wildcard destinations against the published rout
   assert.equal(matchesRoutePattern('/base-chain/specs/reference/b20/:slug*', routes), true);
   assert.equal(matchesRoutePattern('/base-chain/specs/reference/missing/:slug*', routes), false);
   assert.equal(matchesRoutePattern('/base-chain/specs/reference/b20/:slug', routes), false);
+  assert.equal(matchesRoutePattern('/only-prefix/:slug*', new Set(['/only-prefix'])), false);
 });
 
 test('collects published md and mdx routes, including hidden pages, and collapses index files', (t) => {
@@ -95,6 +96,27 @@ test('accepts wildcard redirect destinations that target an existing docs subtre
     ),
     [],
   );
+});
+
+test('reports wildcard redirect destinations when only the target prefix page exists', () => {
+  const config = {
+    redirects: [
+      {
+        source: '/legacy/:slug*',
+        destination: '/target/:slug*',
+      },
+    ],
+  };
+
+  assert.deepEqual(auditRedirects(config, new Set(['/target'])), [
+    {
+      destination: '/target/:slug*',
+      terminal: '/target/:slug*',
+      reason: 'missing',
+      count: 1,
+      sources: ['/legacy/:slug*'],
+    },
+  ]);
 });
 
 test('reports wildcard redirect destinations whose target subtree does not exist', () => {

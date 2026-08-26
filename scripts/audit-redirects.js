@@ -26,7 +26,7 @@ function matchesRoutePattern(value, routes) {
   if (!match) return false;
 
   const prefix = match[1] || '/';
-  return routes.has(prefix) || [...routes].some((route) => route.startsWith(`${prefix}/`));
+  return [...routes].some((route) => route.startsWith(`${prefix}/`));
 }
 
 function isMintIgnored(docsDir, fullPath, ignored) {
