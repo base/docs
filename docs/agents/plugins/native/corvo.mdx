@@ -1,0 +1,39 @@
+---
+title: "Corvo Edge"
+description: "Token safety checks, live market data and self-custody swap preparation through Corvo Edge and Base MCP send_calls."
+keywords: ["Corvo plugin", "Base MCP Corvo", "token safety", "honeypot check", "rug check", "swap prepare", "Base trading terminal"]
+---
+
+Corvo Edge is a chat-first, self-custody trading terminal on Base. The plugin uses Corvo as a safety oracle and market brain: honeypot and tax checks, tradeability, live prices and movers, then builds unsigned swap calldata the user signs through Base MCP `send_calls`. Corvo never holds keys and cannot execute on anyone's behalf.
+
+**Chains:** Base (reads also cover Solana, Fogo and Robinhood Chain listings).
+
+**Operations:** token safety scans, tradeability checks, curated token set, live prices, market pulse and movers, best-route swap quotes, swap calldata building.
+
+<Tip>
+**Safety first.** Run the safety read before preparing any trade on an unfamiliar token. `tradeability.can_sell: false` is a stop, not a warning.
+</Tip>
+
+## Try it
+
+```text Safety check
+Is 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 safe to trade on Base?
+```
+
+```text Market read
+What are the top movers on Base right now?
+```
+
+```text Prepared swap
+Swap 0.001 ETH to USDC on Base and let me sign it
+```
+
+## Pattern
+
+The assistant calls `GET /api/public/token/safety` and blocks on honeypot or can_sell false, then `GET /api/swap/route` for the quote and builds calldata for the sender. Native-token input maps to one router call with `value` set. Prepared responses may include `simulated`, an eth_simulateV1 preview of the exact calldata, and a `revert` preview means do not send.
+
+## Reference
+
+<Card title="Full plugin spec" icon="book" href="https://app.corvoedge.xyz/docs/base-mcp-plugin.md">
+  Read endpoints, keyed prepare, send_calls mapping, decimals rules and stop conditions.
+</Card>
