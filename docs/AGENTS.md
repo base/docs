@@ -64,7 +64,7 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
 |base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
 |base-chain/specs/reference:configurability,glossary,native-account-abstraction
-|base-chain/specs/reference/b20:changelog,constants-and-addresses,errors-and-events,index,invariants-and-tests
+|base-chain/specs/reference/b20:build-with-b20,changelog,constants-and-addresses,errors-and-events,index,precompiles,try-b20
 |base-chain/specs/reference/b20/changelog:02-cobalt-b20-seize,02-cobalt-b20asset-multiplier,02-cobalt-policyregistry-composite-policy
 |base-chain/specs/reference/b20/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
 |base-chain/specs/reference/b20/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
