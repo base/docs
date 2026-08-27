@@ -4,8 +4,8 @@
  * Uses @anthropic-ai/sdk only as the message-protocol client for Coinbase's
  * internal LLM Gateway (https://llm-gateway.coinbase-corp.com). The base URL
  * is explicitly set to the Gateway and authentication uses the internal
- * LLM_GATEWAY_API_KEY as a Bearer token. This client does not make direct
- * requests to an external model-provider API.
+ * LLM_GATEWAY_API_KEY sent as the standard Anthropic `x-api-key` header. This
+ * client does not make direct requests to an external model-provider API.
  *
  * Owns three responsibilities:
  *
@@ -74,8 +74,13 @@ function getClient() {
     );
   }
   _client = new GatewayMessagesClient({
-    // The internal Gateway requires Bearer-token authentication.
-    authToken: gatewayToken,
+    // The Gateway authenticates on the standard Anthropic `x-api-key` header.
+    // Using `apiKey` (not `authToken`) makes the SDK send `x-api-key` rather
+    // than `Authorization: Bearer`; requests without `x-api-key` are treated
+    // as untrusted by the Gateway's Cloudflare edge and get a 403 bot
+    // challenge before reaching the app. This matches base/base's working
+    // Claude Code workflow, which passes the same key via `anthropic_api_key`.
+    apiKey: gatewayToken,
     baseURL: GATEWAY_BASE_URL,
     // Retries cover 408 / 429 / 5xx / network errors with exponential backoff.
     maxRetries: 4,
