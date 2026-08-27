@@ -6,8 +6,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildProvenanceComment,
+  loadKnownRoutes,
   loadStyleGuide,
+  renderProvenanceSection,
   routeCodeChange,
+  validateMdx,
 } from "../index.mjs";
 
 const REPO_ROOT = path.resolve(
@@ -118,6 +121,97 @@ test("loadStyleGuide reads the root content instructions", async () => {
 
   assert.ok(expected.length > 0);
   assert.equal(await loadStyleGuide({ repoRoot: REPO_ROOT }), expected);
+});
+
+test("internal-link validation accepts index aliases and configured redirects", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "base-std-routes-"));
+  const docsRoot = path.join(repoRoot, "docs");
+  const b20Root = path.join(docsRoot, "base-chain", "specs", "reference", "b20");
+  await fs.mkdir(b20Root, { recursive: true });
+  await fs.writeFile(path.join(b20Root, "index.mdx"), "---\ntitle: B20\n---\n");
+  await fs.writeFile(
+    path.join(docsRoot, "docs.json"),
+    JSON.stringify({
+      redirects: [
+        { source: "/legacy-b20" },
+        { source: "/legacy-reference/:slug*" },
+      ],
+    }),
+  );
+
+  try {
+    const routes = await loadKnownRoutes({ repoRoot });
+    assert.ok(routes.exact.has("/base-chain/specs/reference/b20"));
+    assert.ok(routes.exact.has("/base-chain/specs/reference/b20/index"));
+
+    const current = "---\ntitle: Example\n---\n\nExisting copy.\n";
+    const withValidLinks = `${current}\n[B20](/base-chain/specs/reference/b20#factory)\n[literal](/legacy-b20)\n[old](/legacy-reference/interfaces/IB20)\n`;
+    assert.equal(
+      validateMdx(withValidLinks, "docs/example.mdx", routes, current),
+      null,
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("internal-link validation ignores retained legacy links but rejects new broken links", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "base-std-link-delta-"));
+  const docsRoot = path.join(repoRoot, "docs");
+  await fs.mkdir(docsRoot, { recursive: true });
+  await fs.writeFile(path.join(docsRoot, "index.mdx"), "---\ntitle: Home\n---\n");
+
+  try {
+    const routes = await loadKnownRoutes({ repoRoot });
+    const current = "---\ntitle: Example\n---\n\n[Legacy](/retired-page)\n";
+    const retainedLegacyLink = `${current}\nUpdated copy.\n`;
+    assert.equal(
+      validateMdx(retainedLegacyLink, "docs/example.mdx", routes, current),
+      null,
+    );
+
+    const newBrokenLink = `${retainedLegacyLink}\n[Broken](/missing-page)\n`;
+    assert.match(
+      validateMdx(newBrokenLink, "docs/example.mdx", routes, current),
+      /broken new internal link\(s\): `\/missing-page`/,
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("renderProvenanceSection combines touched docs pages and source files", () => {
+  const section = renderProvenanceSection(
+    "code-change",
+    { source_repo: "base/base-std", sha: "abcdef0123456789" },
+    [
+      {
+        page: "docs/base-chain/specs/reference/b20/index.mdx",
+        sourceFiles: ["changelog/02_policy.md"],
+      },
+    ],
+  );
+
+  assert.match(section, /^\n## Files touched & source provenance\n/m);
+  assert.match(section, /\| Docs page \| Source file\(s\) in base \|/);
+  assert.match(section, /`docs\/base-chain\/specs\/reference\/b20\/index\.mdx`/);
+  assert.match(section, /https:\/\/github\.com\/base\/base-std\/blob\/abcdef0123456789\/changelog\/02_policy\.md/);
+  assert.doesNotMatch(section, /^## Files touched$/m);
+
+  const releaseSection = renderProvenanceSection(
+    "release",
+    { source_repo: "base/base-std", tag: "v1.2.3" },
+    [{ page: "docs/base-chain/specs/reference/b20/index.mdx" }],
+  );
+  assert.match(releaseSection, /\| Docs page \| Source provenance \|/);
+  assert.match(releaseSection, /releases\/tag\/v1\.2\.3/);
+
+  const manualSection = renderProvenanceSection(
+    "manual-update",
+    { source_refs: ["https://example.test/source"] },
+    [{ page: "docs/base-chain/specs/reference/b20/index.mdx" }],
+  );
+  assert.match(manualSection, /https:\/\/example\.test\/source/);
 });
 
 test("buildProvenanceComment cannot inject a second HTML comment boundary", () => {

@@ -728,6 +728,60 @@ export function buildProvenanceComment(kind, payload, sourceFiles) {
 }
 
 /**
+ * Render the single PR-body section that identifies every modified docs page
+ * and the upstream source that justified its edit. Keeping this pure makes
+ * the reviewer-facing table easy to test without running the workflow.
+ */
+export function renderProvenanceSection(kind, payload, provenance) {
+  const source = sourceRepo(payload);
+  const sha = payload.sha || "";
+  const rows = ["", "## Files touched & source provenance", ""];
+
+  if (kind === "code-change") {
+    rows.push(
+      `Each row shows which file(s) in [\`${source}@${shortSha(sha)}\`](https://github.com/${source}/commit/${sha}) drove an edit to a docs page. Click into a source file to verify the claim before merging.`,
+      "",
+      "| Docs page | Source file(s) in base |",
+      "|---|---|",
+    );
+    for (const item of provenance) {
+      const files = (item.sourceFiles || [])
+        .map(
+          (file) =>
+            `[\`${file}\`](https://github.com/${source}/blob/${sha}/${file})`,
+        )
+        .join("<br>") || "_(unknown)_";
+      rows.push(`| \`${item.page}\` | ${files} |`);
+    }
+  } else if (kind === "release") {
+    const releaseUrl = `https://github.com/${source}/releases/tag/${payload.tag}`;
+    rows.push(
+      `Driven by release \`${payload.tag}\` of [${source}](${releaseUrl}).`,
+      "",
+      "| Docs page | Source provenance |",
+      "|---|---|",
+    );
+    for (const item of provenance) {
+      rows.push(`| \`${item.page}\` | [release notes](${releaseUrl}) |`);
+    }
+  } else if (kind === "manual-update") {
+    const refs = (payload.source_refs || []).join("<br>") || "_(none provided)_";
+    rows.push(
+      "Maintainer-curated update.",
+      "",
+      "| Docs page | Source provenance |",
+      "|---|---|",
+    );
+    for (const item of provenance) {
+      rows.push(`| \`${item.page}\` | ${refs} |`);
+    }
+  }
+
+  rows.push("");
+  return rows.join("\n");
+}
+
+/**
  * Insert the provenance comment right after the frontmatter block in an MDX
  * file, or at the top if there's no frontmatter (e.g. llms.txt).
  *
@@ -810,20 +864,39 @@ const REASONING_LEAK_PATTERNS = [
 
 
 /**
- * Walk docs/ once and return the set of canonical site-internal route
- * paths the agent can legally link to. A route is the file's path under
- * docs/, with the leading slash present and the `.mdx`/`.txt` suffix
- * stripped — same convention Mintlify uses in Base Docs.
+ * Walk docs/ once and return the runtime site-internal route inventory the
+ * agent can legally link to. Exact routes come from documentation files and
+ * configured redirect sources are compiled separately.
  *
  *   docs/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer.mdx
  *     → /base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer
  *
- * Used by `validateMdx` to reject pages whose internal Markdown links
- * point at a route that doesn't exist.
+ * `index.mdx` is served at both its file-style path (`/guide/index`) and its
+ * directory path (`/guide`). The latter is what writers normally use. Static
+ * and parameterized redirect sources in docs/docs.json are runtime-valid too,
+ * even when they do not have a matching file under docs/.
  */
-async function loadKnownRoutes() {
-  const contentRoot = path.join(REPO_ROOT, DOCS_ROOT);
-  const out = new Set();
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function redirectSourceToRegExp(source) {
+  const segments = String(source || "").split("/");
+  const pattern = segments
+    .map((segment, index) => {
+      if (index === 0) return "";
+      if (segment === "*") return ".*";
+      if (/^:[A-Za-z_][A-Za-z0-9_]*\*$/.test(segment)) return ".+";
+      if (/^:[A-Za-z_][A-Za-z0-9_]*$/.test(segment)) return "[^/]+";
+      return escapeRegExp(segment);
+    })
+    .join("/");
+  return new RegExp(`^${pattern || "/"}$`);
+}
+
+export async function loadKnownRoutes({ repoRoot = REPO_ROOT } = {}) {
+  const contentRoot = path.join(repoRoot, DOCS_ROOT);
+  const exact = new Set();
   async function walk(dir) {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -837,14 +910,33 @@ async function loadKnownRoutes() {
         if (entry.name.startsWith(".")) continue;
         const rel = path.relative(contentRoot, abs);
         const noSuffix = rel.replace(/\.(mdx|md|txt)$/i, "");
-        out.add("/" + noSuffix);
+        const fileRoute = "/" + noSuffix;
+        exact.add(fileRoute);
+        if (path.posix.basename(noSuffix) === "index") {
+          const directoryRoute = path.posix.dirname(fileRoute);
+          exact.add(directoryRoute === "/" ? "/" : directoryRoute);
+        }
       }
     }
   }
   if (existsSync(contentRoot)) {
     await walk(contentRoot);
   }
-  return out;
+  const redirectMatchers = [];
+  const docsConfigPath = path.join(contentRoot, "docs.json");
+  if (existsSync(docsConfigPath)) {
+    try {
+      const config = JSON.parse(await fs.readFile(docsConfigPath, "utf8"));
+      for (const redirect of config.redirects || []) {
+        if (typeof redirect?.source === "string" && redirect.source.startsWith("/")) {
+          redirectMatchers.push(redirectSourceToRegExp(redirect.source));
+        }
+      }
+    } catch (err) {
+      console.warn(`[routes] could not read ${docsConfigPath}: ${err.message}`);
+    }
+  }
+  return { exact, redirectMatchers };
 }
 
 /**
@@ -874,8 +966,8 @@ export async function loadStyleGuide({ repoRoot = REPO_ROOT } = {}) {
  * A site-internal link is a `[label](/path...)` whose target starts with
  * '/' (i.e. an absolute path on this docs site). External links
  * (`https://...`) and relative links (`./foo`, `#anchor`) are NOT
- * site-internal and are ignored here. The returned target preserves the
- * route but strips any `#anchor` fragment so the route check is exact.
+ * site-internal and are ignored here. The route path is returned without any
+ * `#anchor` fragment or query string so route matching is exact.
  *
  * We also pick up `<a href="/path">` style links in raw HTML/MDX, since
  * a few legacy pages use them.
@@ -895,16 +987,27 @@ function extractInternalLinks(content) {
   while ((m = hrefRe.exec(content)) !== null) {
     targets.push(m[1]);
   }
-  // Dedup + strip fragments/queries for the route check.
-  const cleaned = new Set();
-  for (const t of targets) {
-    const noFrag = t.replace(/[#?].*$/, "");
-    cleaned.add(noFrag);
-  }
-  return [...cleaned];
+  // Strip fragments/queries for the route check, but retain duplicate targets
+  // so validation can distinguish an existing link from an added occurrence.
+  return targets.map((target) => target.replace(/[#?].*$/, ""));
 }
 
-function validateMdx(content, pagePath, knownRoutes) {
+function countInternalLinks(content) {
+  const counts = new Map();
+  for (const target of extractInternalLinks(content)) {
+    counts.set(target, (counts.get(target) || 0) + 1);
+  }
+  return counts;
+}
+
+function isKnownRoute(target, knownRoutes) {
+  return (
+    knownRoutes.exact.has(target) ||
+    knownRoutes.redirectMatchers.some((matcher) => matcher.test(target))
+  );
+}
+
+export function validateMdx(content, pagePath, knownRoutes, currentContent = "") {
   if (pagePath.endsWith(".mdx")) {
     if (!/^---\n[\s\S]+?\n---/m.test(content)) {
       return "missing or malformed frontmatter block";
@@ -938,23 +1041,24 @@ function validateMdx(content, pagePath, knownRoutes) {
   if (seen.size > 0) {
     return `output uses MDX component(s) not registered in Base Docs: ${[...seen].join(", ")}`;
   }
-  // Check every site-internal `/`-rooted Markdown/HTML link target against
-  // the route set built from docs/. The route set is the full truth of
-  // what Mintlify serves at build time, so a target absent from it 404s at
-  // runtime. The check is unscoped: a target's prefix isn't a reliable
-  // signal of whether it should match a content route.
+  // Validate only targets added or changed by the model. Existing links are
+  // part of the repository baseline and must not reject an otherwise-valid
+  // sync because a legacy route is absent from this validator's inventory.
   //
   // Asset paths under Next.js public folders (`/images/...`, `/static/...`,
   // etc.) are valid runtime URLs but live outside docs/, so we exempt
   // the known asset prefixes.
-  if (knownRoutes && knownRoutes.size > 0) {
+  if (knownRoutes && knownRoutes.exact.size > 0) {
+    const currentCounts = countInternalLinks(currentContent);
+    const outputCounts = countInternalLinks(content);
     const broken = [];
-    for (const target of extractInternalLinks(content)) {
+    for (const [target, count] of outputCounts) {
+      if (count <= (currentCounts.get(target) || 0)) continue;
       if (ASSET_PREFIXES.test(target)) continue;
-      if (!knownRoutes.has(target)) broken.push(target);
+      if (!isKnownRoute(target, knownRoutes)) broken.push(target);
     }
     if (broken.length > 0) {
-      return `broken internal link(s): ${broken.slice(0, 3).map((t) => `\`${t}\``).join(", ")}${broken.length > 3 ? ` (+${broken.length - 3} more)` : ""}. Use the full route path that exists under docs/ (e.g. \`/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer\`).`;
+      return `broken new internal link(s): ${broken.slice(0, 3).map((t) => `\`${t}\``).join(", ")}${broken.length > 3 ? ` (+${broken.length - 3} more)` : ""}. The target does not resolve to a docs page or configured redirect.`;
     }
   }
   // Server-side mirror of system-prompt rules 3–5: raw HTML, dangerous URL
@@ -1067,7 +1171,7 @@ async function processPage(item, shared, useGroups) {
       console.log(`[claude] ${item.page} — ${prompt.length} prompt chars`);
       const out = await callClaude(prompt, item.page, { system: SYSTEM_PROMPT });
 
-      const err = validateMdx(out, item.page, knownRoutes);
+      const err = validateMdx(out, item.page, knownRoutes, current);
       if (err) {
         console.error(`[reject] ${item.page}: ${err}`);
         return { page: item.page, status: "rejected", reason: err };
@@ -1152,7 +1256,9 @@ async function main() {
   // routes that don't exist on disk. Empty (skipped) when docs/ is
   // missing — keeps the script usable in dry-test contexts.
   const knownRoutes = await loadKnownRoutes();
-  console.log(`[sync] loaded ${knownRoutes.size} known doc route(s) for link validation`);
+  console.log(
+    `[sync] loaded ${knownRoutes.exact.size} exact doc route(s) and ${knownRoutes.redirectMatchers.length} redirect pattern(s) for link validation`,
+  );
   // Read the house writing-style guide once. Threaded into every Claude
   // prompt via ctx.styleGuide. Empty string when content-instructions.md is
   // missing or empty.
@@ -1295,53 +1401,13 @@ async function main() {
         `rejected_pages=${rejectedLine}\n`,
     );
   }
-  // Emit a markdown fragment the workflow splices into the PR body — gives a
-  // reviewer a clickable mapping from each modified doc page back to the
-  // source files in base that drove the edit. This is Plan A from NOTES.md.
+  // Emit the combined touched-files / source-provenance section the workflow
+  // splices into the PR body. The table itself is the authoritative list of
+  // files changed by this sync, so reviewers do not have to reconcile two
+  // separate sections.
   if (provenance.length > 0 && process.env.RUNNER_TEMP) {
-    const source = sourceRepo(payload);
     const provPath = path.join(process.env.RUNNER_TEMP, "sync-provenance.md");
-    const rows = [];
-    rows.push("");
-    rows.push("## Source provenance");
-    rows.push("");
-    if (kind === "code-change") {
-      rows.push(
-        `Each row shows which file(s) in [\`${source}@${shortSha(sha)}\`](https://github.com/${source}/commit/${sha}) drove an edit to a docs page. Click into a source file to verify the claim before merging.`,
-      );
-      rows.push("");
-      rows.push("| Docs page | Source file(s) in base |");
-      rows.push("|---|---|");
-      for (const p of provenance) {
-        const files = (p.sourceFiles || [])
-          .map(
-            (f) =>
-              `[\`${f}\`](https://github.com/${source}/blob/${sha}/${f})`,
-          )
-          .join("<br>") || "_(unknown)_";
-        rows.push(`| \`${p.page}\` | ${files} |`);
-      }
-    } else if (kind === "release") {
-      rows.push(
-        `Driven by release \`${payload.tag}\` of [${source}](https://github.com/${source}/releases/tag/${payload.tag}).`,
-      );
-      rows.push("");
-      rows.push("| Docs page | Source |");
-      rows.push("|---|---|");
-      for (const p of provenance) {
-        rows.push(
-          `| \`${p.page}\` | [release notes](https://github.com/${source}/releases/tag/${payload.tag}) |`,
-        );
-      }
-    } else if (kind === "manual-update") {
-      rows.push("Maintainer-curated update. See PR body for intent + refs.");
-      rows.push("");
-      rows.push("| Docs page |");
-      rows.push("|---|");
-      for (const p of provenance) rows.push(`| \`${p.page}\` |`);
-    }
-    rows.push("");
-    const md = rows.join("\n");
+    const md = renderProvenanceSection(kind, payload, provenance);
     await fs.writeFile(provPath, md, "utf8");
     console.log(`[provenance] wrote table to ${provPath}`);
     if (process.env.GITHUB_OUTPUT) {
