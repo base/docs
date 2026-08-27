@@ -141,7 +141,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 ### Base Account SDK
 
-- **Belongs**: Everything about the Base Account SDK — quickstarts (web, React, mobile, AI tools), guides (auth, signing, social verification, batching, spend permissions, sub-accounts, gas sponsorship, migration), framework integrations (Wagmi, Privy, CDP, RainbowKit, Reown, Thirdweb), full API reference (Base Pay, Core, Spend Permissions, Prolink, UI Elements, Onchain Contracts), Basenames, troubleshooting.
+- **Belongs**: Everything about the Base Account SDK — quickstarts (web, React, mobile, AI tools), guides (auth, one-time and recurring Base Pay payments, signing, social verification, batching, spend permissions, sub-accounts, gas sponsorship, migration), framework integrations (Wagmi, Privy, CDP, RainbowKit, Reown, Thirdweb), full API reference (Base Pay, Core, Spend Permissions, Prolink, UI Elements, Onchain Contracts), Basenames, troubleshooting.
 - **Does not belong**: Chain RPC methods (Base Chain API). Protocol specs (Base Protocol). Use-case guides that happen to use the SDK (Build on Base).
 
 ---

@@ -100,7 +100,7 @@ npx skills add base/base-skills
 |sdks/base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
 |sdks/base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
 |sdks/base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
-|sdks/base-account/guides:authenticate-users,migration-guide,sign-and-verify-typed-data
+|sdks/base-account/guides:accept-payments,accept-recurring-payments,authenticate-users,migration-guide,sign-and-verify-typed-data
 |sdks/base-account/guides/tips:inspect-txn-simulation,popup-tips
 |sdks/base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
 |sdks/base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
