@@ -63,7 +63,7 @@ npx skills add base/base-skills
 |base-chain/specs/protocol/execution:index
 |base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
 |base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
-|base-chain/specs/reference:configurability,glossary,native-account-abstraction
+|base-chain/specs/reference:configurability,glossary
 |base-chain/specs/reference/b20:changelog,constants-and-addresses,errors-and-events,index,invariants-and-tests,tokenized-stocks-on-base
 |base-chain/specs/reference/b20/changelog:02-cobalt-b20-seize,02-cobalt-b20asset-multiplier,02-cobalt-policyregistry-composite-policy
 |base-chain/specs/reference/b20/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
@@ -73,6 +73,7 @@ npx skills add base/base-skills
 |base-chain/specs/reference/b20/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
 |base-chain/specs/reference/b20/interfaces/IB20Stablecoin:currency
 |base-chain/specs/reference/b20/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
+|base-chain/specs/reference/builder-codes:agent-developers,app-developers,overview,wallet-developers
 |base-chain/specs/upgrades:overview
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20,overview,reducing-canonical-withdrawal-delay,reth-v2
@@ -116,4 +117,3 @@ npx skills add base/base-skills
 |sdks/base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
 |sdks/base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button
 |sdks/base-verify:overview,verify-social-accounts,verify-users-onchain
-|sdks/builder-codes:agent-developers,app-developers,overview,wallet-developers
