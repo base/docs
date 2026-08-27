@@ -111,21 +111,20 @@ for (const page of allMdx(docs)) {
   errors.push(`orphan page (not in nav, no redirect exemption): ${page}`);
 }
 
-// --- Redirects: duplicate sources + payment-scoped chain/target checks ---
+// --- Redirects: duplicate sources, resolvable targets, and avoidable chains ---
 const redirects = new Map();
 for (const redirect of config.redirects) {
   if (redirects.has(redirect.source)) errors.push(`duplicate redirect source ${redirect.source}`);
+  if (redirect.source.includes('#')) errors.push(`redirect source cannot include a URL fragment ${redirect.source}`);
   redirects.set(redirect.source, redirect.destination);
 }
 
 for (const [source, destination] of redirects) {
-  const paymentMigration = source.includes('accept-payments') || source.includes('agentic-payments') ||
-    source.includes('accept-b20') || destination.includes('/accept-payments/');
-  if (!paymentMigration) continue;
   const target = destination.split('#')[0];
-  if (redirects.has(target)) errors.push(`payment redirect chain ${source} -> ${target}`);
-  if (target.startsWith('/') && !target.includes(':') && !pageExists(target.slice(1))) {
-    errors.push(`payment redirect ${source} has missing target ${target}`);
+  const dynamicTarget = target.includes(':') || target.includes('*');
+  if (!dynamicTarget && redirects.has(target)) errors.push(`redirect chain ${source} -> ${target}`);
+  if (target.startsWith('/') && !dynamicTarget && !pageExists(target.replace(/^\//, '').replace(/\/$/, ''))) {
+    errors.push(`redirect ${source} has missing target ${target}`);
   }
 }
 
@@ -165,4 +164,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('Navigation, orphans, duplicates, payment redirects, and scoped internal links are valid.');
+console.log('Navigation, orphans, redirects, and scoped internal links are valid.');

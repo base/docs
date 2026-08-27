@@ -1,16 +1,16 @@
 ---
 title: "200ms Blocks"
-description: "Specification for Denim's canonical 200ms blocks, including BaseTime, derivation, validation, RPC behavior, and migration guidance."
+description: "Specification for Denim's canonical 200ms blocks, including BaseTime, derivation, validation, and RPC behavior."
 tag: "Soon"
 ---
 
 <Warning>
 This specification is provided for informational and feedback purposes only. It does not constitute a commitment to ship any feature, on any timeline, or in this form. Integrators should not rely on this specification for production decisions until it is designated final.
 
-Denim is not active on Base Sepolia or Base Mainnet. The upgrade is in planning for November 2026; exact activation timestamps and required client versions remain undecided.
+Denim is not active on Base Sepolia or Base Mainnet; activation times and required client versions remain undecided.
 </Warning>
 
-## Abstract
+## Summary
 
 Denim changes Base block production from one canonical block every two seconds to five complete canonical blocks per second. Each 200ms block has its own block number, hash, state root, receipts, forkchoice updates, and unsafe, safe, and finalized lifecycle.
 
@@ -18,24 +18,18 @@ Denim replaces [Flashblocks](/base-chain/flashblocks/faq), which publish increme
 
 Denim keeps the Ethereum block header and its seconds-based `timestamp` unchanged. A BaseTime metadata deposit supplies the sub-second component. Together, these values identify a canonical block's full millisecond timestamp.
 
-## Tentative Activation
+## Tentative activation
 
 | Network | Activation timestamp | Required client versions |
 | --- | --- | --- |
-| `sepolia` | November 2026 (`TBD`) | `TBD` |
-| `mainnet` | November 2026 (`TBD`) | `TBD` |
+| `sepolia` | `TBD` | `TBD` |
+| `mainnet` | `TBD` | `TBD` |
 
-Exact activation timestamps have not been scheduled. A later node upgrade guide will provide release and rollout instructions.
+No Denim activation has been scheduled. A later node upgrade guide will provide release and rollout instructions.
 
-## Motivation
+## Execution
 
-Flashblocks expose sub-second updates while building within a single canonical block. Native 200ms blocks remove that indirection: every 200ms interval becomes a complete standalone block with its own number, hash, state root, receipts, and unsafe-to-finalized lifecycle. Applications retain a sub-second confirmation experience while consuming canonical block data.
-
-## What Changed
-
-### Execution
-
-#### Full Block Timestamp
+### Full block timestamp
 
 Denim leaves `block.header.timestamp` as Unix time in whole seconds. For an activated block `b`, its full timestamp is:
 
@@ -51,7 +45,7 @@ $$
 
 Blocks cannot skip slots. The seconds header and millisecond part must come from the same scheduled timestamp; wall-clock time controls when the sequencer starts a build, not the timestamp assigned to that block. EVM `block.timestamp` remains the whole-second header value.
 
-#### BaseTime Metadata Deposit
+### BaseTime metadata deposit
 
 After activation, every block contains the canonical BaseTime update at `tx[1]`, immediately after the L1 information deposit at `tx[0]` and before user transactions. The deposit is bound to the current block number by source-hash domain `3`.
 
@@ -69,7 +63,7 @@ After activation, every block contains the canonical BaseTime update at `tx[1]`,
 
 Before activation, blocks must not contain this metadata transaction or the Engine millisecond field. After activation, implementations validate the transaction's position, source hash, sender, recipient, mint, value, gas limit, system flag, calldata shape, and lattice value.
 
-#### BaseTime Predeploy
+### BaseTime predeploy
 
 The initial design exposes the current block's millisecond part to contracts through a predeploy.
 
@@ -88,7 +82,7 @@ Fresh chains install the linked BaseTime predeploy in genesis. On existing chain
 
 At activation, before transaction execution, the protocol installs the canonical BaseTime implementation and links the existing proxy. It preserves the proxy admin and any implementation already set through governance.
 
-#### Engine Payload Attributes
+### Engine payload attributes
 
 The Engine API uses `BasePayloadAttributes`, which flattens the standard `PayloadAttributes` fields alongside Base-specific fields.
 
@@ -102,15 +96,15 @@ The payload ID includes `timestampMillisPart`, so builds that differ only in the
 
 All existing Engine timestamp fields remain seconds-based.
 
-#### Validation
+### Validation
 
 When processing `forkchoiceUpdated`, the execution client performs checks that do not require reading contract state. Before Denim, `timestampMillisPart` must be absent. After Denim, it must be present and equal `0`, `200`, `400`, `600`, or `800`. The block's whole-second timestamp must not be earlier than its parent's. Because block headers do not store milliseconds, the client checks exact 200ms progression after execution.
 
 After execution, the client **MUST** verify that the block's full timestamp is exactly 200ms after its parent's. Blocks that do not satisfy this requirement are invalid.
 
-### Derivation
+## Derivation
 
-#### Scheduled Timestamps
+### Scheduled timestamps
 
 After activation, the derivation pipeline computes each block's timestamp from the Denim activation schedule and absolute L2 block number. It does not read the millisecond part from batch data or derive it from the local wall clock. The sequence is:
 
@@ -118,25 +112,25 @@ After activation, the derivation pipeline computes each block's timestamp from t
 
 The pipeline splits the scheduled timestamp into the seconds-based header timestamp and the BaseTime millisecond part, then reconstructs the BaseTime deposit at `tx[1]`.
 
-#### Block Lifecycle
+### Block lifecycle
 
 The sequencer builds and executes a complete block for every selected 200ms slot. Each block receives its own hash, state root, receipts, Engine payload, forkchoice update, and unsafe-to-safe-to-finalized lifecycle.
 
 The block begins with the L1 information deposit at `tx[0]` and the BaseTime metadata deposit at `tx[1]`. User transactions and other applicable transactions follow. The design intends the payload attribute, `tx[1]`, and the value written to the BaseTime predeploy to represent the same planned millisecond part.
 
-### RPC
+## RPC
 
 <Note>
 The RPC behavior below is planned for Denim and is not available on production endpoints.
 </Note>
 
-#### Seconds Compatibility
+### Seconds compatibility
 
 Denim keeps the existing `timestamp` JSON-RPC field in Unix seconds. Engine timestamps, transaction-validity timestamps, `eth_call` timestamps, and EVM `block.timestamp` also remain seconds-based. RPC responses do not expose the internal `timestampMillisPart` field.
 
 After the Denim rollout, use canonical block responses and subscriptions such as `eth_subscribe("newHeads")` for sub-second updates. Flashblocks streams will stop.
 
-#### Block and Header Timestamps
+### Block and header timestamps
 
 The following responses will add optional `timestampMs`, encoded as a JSON-RPC quantity containing the full Unix timestamp in milliseconds:
 
@@ -155,7 +149,7 @@ For example, a block at 42.200 seconds has:
 
 Clients will derive `timestampMs` from authenticated BaseTime metadata rather than estimate it from the seconds field. If a historical block body or its BaseTime metadata has been pruned or is otherwise unavailable, the response will omit `timestampMs`.
 
-#### Transaction Timestamps
+### Transaction timestamps
 
 Mined transaction objects will add optional `blockTimestampMs` for these methods:
 
@@ -165,7 +159,7 @@ Mined transaction objects will add optional `blockTimestampMs` for these methods
 
 Full transaction objects nested in block responses will follow the same mined-transaction behavior. Pending transactions will omit `blockTimestampMs` because they do not yet belong to a canonical block.
 
-#### Log and Receipt Timestamps
+### Log and receipt timestamps
 
 Mined log objects will add optional `blockTimestampMs` when returned by:
 
@@ -181,21 +175,6 @@ Receipts will expose the field on their nested logs, not at the receipt's top le
 
 As with block responses, pruned or unprovenanced transaction and log data will omit `blockTimestampMs`. The fields are optional so pre-Denim history and clients without the required body data remain representable.
 
-#### Tooling
+### Tooling
 
 Foundry's `AnyRpcBlock` and `OtherFields` paths can preserve an unknown block-level `timestampMs`, while EVM execution continues to use seconds. Plain Alloy `AnyRpcHeader` drops unknown fields; consumers that need Denim timestamps can use `WithOtherFields<AnyRpcHeader>` or a typed Base response. Locally mined Anvil blocks are not expected to produce BaseTime metadata in the initial rollout.
-
-
-## Migration
-
-### Application Developers
-
-Stop consuming Flashblocks-specific WebSocket streams and move to canonical block responses and subscriptions such as `eth_subscribe("newHeads")`. Existing contracts and applications remain compatible. Use the BaseTime `timestampMs()` getter only when a contract needs same-block millisecond precision; continue using `block.timestamp` when second-level precision is sufficient.
-
-### RPC and Indexing Providers
-
-Support the optional `timestampMs` field on blocks and headers and `blockTimestampMs` on mined transactions and logs. Preserve the fields when proxying or indexing responses, and do not infer millisecond timestamps from the whole-second header value.
-
-### Node Operators
-
-Upgrade to a Denim-compatible release before activation. Plan capacity for the higher native block rate across execution, storage, RPC events, and peer-to-peer propagation. Required versions and rollout instructions will be published in the Denim node upgrade guide.
