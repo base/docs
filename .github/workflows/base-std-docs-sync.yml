@@ -1076,7 +1076,6 @@ jobs:
           # deriving it avoids another hardcoded main/master mismatch.
           DOCS_BASE_BRANCH: ${{ github.event.repository.default_branch }}
           BRANCH: ${{ steps.sync.outputs.branch }}
-          TOUCHED_PATHS: ${{ steps.sync.outputs.touched_paths }}
           REJECTED_PAGES: ${{ steps.sync.outputs.rejected_pages }}
           REJECTED_COUNT: ${{ steps.sync.outputs.rejected_count }}
           PROVENANCE_MD_PATH: ${{ steps.sync.outputs.provenance_md_path }}
@@ -1164,7 +1163,7 @@ jobs:
             fi
 
             # Reviewer checklist + newly-introduced external URLs. Placed
-            # ahead of the file-touched / provenance sections so the
+            # ahead of the combined touched-files / provenance table so the
             # action-required items are the first thing a reviewer reads
             # after the source-PR link. Sync script writes the file at
             # $REVIEW_MD_PATH; we splice it in verbatim.
@@ -1172,11 +1171,12 @@ jobs:
               cat "${REVIEW_MD_PATH}"
             fi
 
-            echo
-            echo "## Files touched"
-            for p in ${TOUCHED_PATHS:-}; do
-              echo "- \`${p}\`"
-            done
+            # The sync script writes one table containing both the docs files
+            # changed and their upstream provenance. It is the authoritative
+            # touched-file list, avoiding a redundant standalone list.
+            if [[ -n "${PROVENANCE_MD_PATH:-}" ]] && [[ -f "${PROVENANCE_MD_PATH}" ]]; then
+              cat "${PROVENANCE_MD_PATH}"
+            fi
 
             # Surface pages that Claude tried to write but the validator
             # rejected. Reviewer should expect those pages to be missing from
@@ -1193,13 +1193,6 @@ jobs:
                 reason="${tup#*|}"
                 echo "- \`${page}\` — ${reason}"
               done
-            fi
-
-            # Splice in the source-provenance markdown table the script wrote.
-            # Lets a reviewer click straight from each doc page to the source
-            # file(s) in base that drove its edit.
-            if [[ -n "${PROVENANCE_MD_PATH:-}" ]] && [[ -f "${PROVENANCE_MD_PATH}" ]]; then
-              cat "${PROVENANCE_MD_PATH}"
             fi
 
             echo
