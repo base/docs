@@ -41,7 +41,7 @@ description: "Value description"
 
 **Code blocks**: Always specify language. Add filename or title. Use `highlight={}` for emphasis.
 
-**Components**: See [mintlify-reference.md](mintlify-reference.md) for syntax.
+**Components**: See [mintlify-reference.md](docs/mintlify-reference.md) for syntax.
 
 **Images**: Wrap in `<Frame>`, include `alt` attribute.
 
@@ -53,9 +53,9 @@ Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 
 | File | Purpose |
 |------|---------|
-| [content-guidelines.md](content-guidelines.md) | Writing rules, spec page structure, changelog format |
+| [content-guidelines.md](docs/content-guidelines.md) | Writing rules, spec page structure, changelog format |
 | [docs/ia-guidelines.md](docs/ia-guidelines.md) | What belongs in each tab and section |
-| [mintlify-reference.md](mintlify-reference.md) | Component syntax |
+| [mintlify-reference.md](docs/mintlify-reference.md) | Component syntax |
 | [scripts/README.md](scripts/README.md) | Linter usage |
 
 ## Before Committing
