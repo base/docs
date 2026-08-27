@@ -1,7 +1,7 @@
 ---
 title: "Integrate Borrowing"
-description: "Let users borrow USDC against WETH collateral with Morpho, Moonwell, or Aave on Base."
-keywords: ["integrate borrowing Base", "borrow USDC against WETH", "Morpho borrow", "Moonwell borrow", "Aave borrow Base"]
+description: "Let users borrow USDC against WETH collateral with Morpho or Aave on Base."
+keywords: ["integrate borrowing Base", "borrow USDC against WETH", "Morpho borrow", "Aave borrow Base"]
 ---
 
 import { DeFiDemo } from "/snippets/DeFiDemo.jsx"
@@ -21,7 +21,7 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 `clients.ts` creates Base mainnet public and wallet clients from a server-side `PRIVATE_KEY` that every example imports.
 
 <Info>
-These snippets are illustrative. They show the shape of a borrowing integration on Base, not production-ready code. Follow each protocol's own documentation for current addresses, SDK details, and risk parameters: [Morpho](https://docs.morpho.org), [Moonwell](https://docs.moonwell.fi), and [Aave](https://aave.com/docs).
+These snippets are illustrative. They show the shape of a borrowing integration on Base, not production-ready code. Follow each protocol's own documentation for current addresses, SDK details, and risk parameters: [Morpho](https://docs.morpho.org) and [Aave](https://aave.com/docs).
 </Info>
 
 <Tabs>
@@ -70,69 +70,6 @@ These snippets are illustrative. They show the shape of a borrowing integration 
     ```
   </Tab>
 
-  <Tab title="Moonwell">
-    Supply WETH to its market, enter that market as collateral, then borrow from the USDC market.
-
-    {/* sample: defi-borrow-moonwell */}
-    ```typescript borrow-moonwell.ts lines wrap expandable highlight={23,28,31,49,55}
-    import { publicClient, walletClient } from './clients.js';
-    import { createMoonwellClient } from '@moonwell-fi/moonwell-sdk';
-    import { parseAbi, parseUnits } from 'viem';
-
-    const env = createMoonwellClient({
-      networks: { base: { rpcUrls: ['https://mainnet.base.org'] } },
-    }).environments.base;
-    const weth = env.tokens.WETH.address;
-    const mWeth = env.tokens.MOONWELL_ETH.address;
-    const mUsdc = env.tokens.MOONWELL_USDC.address;
-    const comptroller = env.contracts.comptroller.address;
-    const user = walletClient.account;
-
-    const erc20Abi = parseAbi(['function approve(address,uint256) returns (bool)']);
-    const marketAbi = parseAbi([
-      'function mint(uint256) returns (uint256)',
-      'function borrow(uint256) returns (uint256)',
-    ]);
-    const comptrollerAbi = parseAbi([
-      'function enterMarkets(address[]) returns (uint256[])',
-    ]);
-
-    const approval = await publicClient.simulateContract({
-      account: user, address: weth, abi: erc20Abi, functionName: 'approve',
-      args: [mWeth, parseUnits('2', 18)],
-    });
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.writeContract(approval.request),
-    });
-
-    const supplied = await publicClient.simulateContract({
-      account: user, address: mWeth, abi: marketAbi, functionName: 'mint',
-      args: [parseUnits('2', 18)],
-    });
-    if (supplied.result !== 0n) throw new Error(`Moonwell error ${supplied.result}`);
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.writeContract(supplied.request),
-    });
-
-    const entered = await publicClient.simulateContract({
-      account: user, address: comptroller, abi: comptrollerAbi,
-      functionName: 'enterMarkets', args: [[mWeth]],
-    });
-    if (entered.result.some((code) => code !== 0n)) throw new Error('enterMarkets failed');
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.writeContract(entered.request),
-    });
-
-    const loan = await publicClient.simulateContract({
-      account: user, address: mUsdc, abi: marketAbi, functionName: 'borrow',
-      args: [parseUnits('2000', 6)],
-    });
-    if (loan.result !== 0n) throw new Error(`Moonwell error ${loan.result}`);
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.writeContract(loan.request),
-    });
-    ```
-  </Tab>
 
   <Tab title="Aave">
     Use Aave's official address book with the Base Aave V3 Pool. Supply WETH, explicitly enable it as collateral, then borrow USDC at the variable rate.

@@ -1,7 +1,7 @@
 ---
 title: "Integrate Lending"
-description: "Let users supply USDC directly to Morpho, Moonwell, or Aave lending markets on Base."
-keywords: ["integrate lending Base", "Morpho supply USDC", "Moonwell supply", "Aave supply Base", "DeFi lending app"]
+description: "Let users supply USDC directly to Morpho or Aave lending markets on Base."
+keywords: ["integrate lending Base", "Morpho supply USDC", "Aave supply Base", "DeFi lending app"]
 ---
 
 import { DeFiDemo } from "/snippets/DeFiDemo.jsx"
@@ -21,7 +21,7 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 `clients.ts` creates Base mainnet public and wallet clients from a server-side `PRIVATE_KEY` that every example imports.
 
 <Info>
-These snippets are illustrative. They show the shape of a supply integration on Base, not production-ready code. Follow each protocol's own documentation for current addresses, SDK details, and risk parameters: [Morpho](https://docs.morpho.org), [Moonwell](https://docs.moonwell.fi), and [Aave](https://aave.com/docs).
+These snippets are illustrative. They show the shape of a supply integration on Base, not production-ready code. Follow each protocol's own documentation for current addresses, SDK details, and risk parameters: [Morpho](https://docs.morpho.org) and [Aave](https://aave.com/docs).
 </Info>
 
 <Tabs>
@@ -68,43 +68,6 @@ These snippets are illustrative. They show the shape of a supply integration on 
     ```
   </Tab>
 
-  <Tab title="Moonwell">
-    Use the Moonwell SDK as the source of current Base deployment addresses, then call the USDC market with viem.
-
-    {/* sample: defi-supply-moonwell */}
-    ```typescript supply-moonwell.ts lines wrap expandable highlight={15,20,23,29}
-    import { publicClient, walletClient } from './clients.js';
-    import { createMoonwellClient } from '@moonwell-fi/moonwell-sdk';
-    import { parseAbi, parseUnits } from 'viem';
-
-    const moonwell = createMoonwellClient({
-      networks: { base: { rpcUrls: ['https://mainnet.base.org'] } },
-    });
-    const env = moonwell.environments.base;
-    const usdc = env.tokens.USDC.address;
-    const mUsdc = env.tokens.MOONWELL_USDC.address;
-    const amount = parseUnits('1000', 6);
-
-    const erc20Abi = parseAbi(['function approve(address,uint256) returns (bool)']);
-    const marketAbi = parseAbi(['function mint(uint256) returns (uint256)']);
-    const approval = await publicClient.simulateContract({
-      account: walletClient.account,
-      address: usdc, abi: erc20Abi, functionName: 'approve', args: [mUsdc, amount],
-    });
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.writeContract(approval.request),
-    });
-
-    const supply = await publicClient.simulateContract({
-      account: walletClient.account,
-      address: mUsdc, abi: marketAbi, functionName: 'mint', args: [amount],
-    });
-    if (supply.result !== 0n) throw new Error(`Moonwell error code ${supply.result}`);
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.writeContract(supply.request),
-    });
-    ```
-  </Tab>
 
   <Tab title="Aave">
     Resolve the Base Pool and asset addresses from Aave's official address book, then approve and supply through the Aave V3 Pool with viem.
