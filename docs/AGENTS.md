@@ -79,7 +79,7 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/canyon:overview
 |base-chain/specs/upgrades/cobalt:dynamic-upgrades,eip-8130,overview
 |base-chain/specs/upgrades/delta:overview,span-batches
-|base-chain/specs/upgrades/denim:200ms-blocks,overview
+|base-chain/specs/upgrades/denim:200ms-blocks
 |base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
 |base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys
 |base-chain/specs/upgrades/granite:derivation,exec-engine,overview
