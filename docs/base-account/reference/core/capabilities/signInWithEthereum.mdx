@@ -78,6 +78,7 @@ try {
 ```typescript Backend Verification
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
+import { verifySiweMessage } from 'viem/siwe';
 
 const client = createPublicClient({ 
   chain: base, 
@@ -89,11 +90,15 @@ export async function verifyAuthentication(req, res) {
   
   try {
     // Verify the signature
-    const isValid = await client.verifyMessage({ 
-      address, 
-      message, 
-      signature 
-    });
+// Nonce'u mesajın içinden çıkarıyoruz
+const nonce = message.match(/Nonce: (\w+)/)?.[1];
+const { isValid } = await verifySiweMessage(client, {
+  address,
+  message,
+  signature,
+  domain: req.headers.host ?? 'yourapp.com',
+  nonce: nonce,
+});
     
     if (!isValid) {
       return res.status(401).json({ 
@@ -172,11 +177,14 @@ export async function verifyAuth(req, res) {
   }
   
   // Verify signature
-  const isValid = await client.verifyMessage({ 
-    address, 
-    message, 
-    signature 
-  });
+// Nonce daha önce 'extractNonceFromMessage' ile çıkarılmıştı
+const { isValid } = await verifySiweMessage(client, {
+  address,
+  message,
+  signature,
+  domain: req.headers.host ?? 'yourapp.com',
+  nonce: nonce,
+});
   
   if (isValid) {
     usedNonces.add(nonce);
@@ -221,11 +229,15 @@ app.post('/auth/verify', async (req, res) => {
   }
   
   // Verify signature
-  const valid = await client.verifyMessage({ 
-    address, 
-    message, 
-    signature 
-  });
+// Nonce daha önce 'message.match' ile çıkarılmıştı
+const { isValid } = await verifySiweMessage(client, {
+  address,
+  message,
+  signature,
+  domain: req.headers.host ?? 'yourapp.com',
+  nonce: nonce,
+});
+const valid = isValid; // Eski kodla uyumlu olması için
   
   if (!valid) {
     return res.status(401).json({ 
