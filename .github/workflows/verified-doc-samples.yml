@@ -37,10 +37,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install Base Foundry
+        env:
+          FOUNDRY_DIR: ${{ runner.temp }}/base-foundry
         run: |
           curl -L https://raw.githubusercontent.com/base/base-anvil/HEAD/foundryup/install | bash
-          "$HOME/.foundry/bin/base-foundryup" --install v1.1.1
-          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          "$FOUNDRY_DIR/bin/base-foundryup" --install v1.1.1
+          echo "$FOUNDRY_DIR/bin" >> "$GITHUB_PATH"
 
       - name: Verify published samples
         run: scripts/verify-doc-samples.sh
