@@ -35,9 +35,18 @@ bash -n "$ROOT/examples/verified-doc-samples/cli/b20-operations.sh"
 
 (
   cd "$ROOT/examples/verified-doc-samples/solidity"
-  if [[ ! -d lib/base-std ]]; then forge install base/base-std@v1.0.0 --no-git; fi
-  if [[ ! -d lib/forge-std ]]; then forge install foundry-rs/forge-std@v1.9.7 --no-git; fi
-  if command -v base-forge >/dev/null 2>&1; then base-forge build; else forge build; fi
+  if command -v base-forge >/dev/null 2>&1; then
+    forge_cmd=base-forge
+  elif command -v forge >/dev/null 2>&1; then
+    forge_cmd=forge
+  else
+    echo "Neither base-forge nor forge is available on PATH." >&2
+    exit 127
+  fi
+
+  if [[ ! -d lib/base-std ]]; then "$forge_cmd" install base/base-std@v1.0.0 --no-git; fi
+  if [[ ! -d lib/forge-std ]]; then "$forge_cmd" install foundry-rs/forge-std@v1.9.7 --no-git; fi
+  "$forge_cmd" build
 )
 
 echo "All verified documentation samples passed."
