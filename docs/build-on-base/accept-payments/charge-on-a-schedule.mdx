@@ -1,0 +1,77 @@
+---
+title: "Charge on a Schedule"
+keywords: ["USDC subscription Base", "spend permission recurring payment", "scheduled crypto charge", "smart account subscription"]
+description: "Charge a smart account on a recurring schedule within a buyer-approved period allowance."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Use a smart-account spend permission when the buyer approves repeated USDC charges. The permission bounds the spender, token, amount per period, start time, and end time; your backend decides when each scheduled charge runs.
+
+#### Demo
+
+<PaymentsDemo flow="schedule" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Charge an Active Permission
+
+First collect and store a permission with the [Spend Permissions guide](/sdks/base-account/improve-ux/spend-permissions). At each billing time, check its current status before preparing calls.
+
+{/* sample: scheduled-charge-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={8,13,17}
+export async function chargeSubscription(permission: SpendPermission, amount: string) {
+  if (permission.permission.spender.toLowerCase() !== account.address.toLowerCase()) {
+    throw new Error("Connected account is not the approved spender");
+  }
+  const charge = parseUnits(amount, 6);
+  const status = await getPermissionStatus(permission, { rpcUrl: process.env.RPC_URL });
+  if (!status.isActive || status.isRevoked || status.isExpired) {
+    throw new Error("Spend permission is not active");
+  }
+  if (status.remainingSpend < charge) throw new Error("Period allowance is exhausted");
+
+  const calls = await prepareSpendCallData(permission, charge, account.address, {
+    rpcUrl: process.env.RPC_URL,
+  });
+  for (const call of calls) {
+    const hash = await walletClient.sendTransaction({
+      account,
+      to: call.to,
+      data: call.data,
+      value: call.value,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+    if (receipt.status !== "success") throw new Error("Scheduled charge reverted");
+  }
+}
+```
+
+<Check>
+Every call receipt succeeds, the period's `remainingSpend` decreases, and the recipient receives the scheduled amount.
+</Check>
+
+## Handle Renewal Failures
+
+Treat these outcomes as normal billing states:
+
+- **Revoked or expired:** stop retries and ask the buyer for a new permission.
+- **Insufficient token balance:** notify the buyer and retry according to your billing policy.
+- **Period allowance exhausted:** wait for `nextPeriodStart` or collect a new permission.
+
+<Warning>
+A spend permission is not a subscription scheduler. Run billing from a durable job queue, use an idempotency key for each billing period, and reconcile the emitted transfer before marking an invoice paid.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Spend Permissions SDK" icon="key" href="/sdks/base-account/improve-ux/spend-permissions">
+    Request, inspect, spend, and revoke permissions.
+  </Card>
+  <Card title="Subscriptions API Reference" icon="calendar" href="/sdks/base-account/reference/base-pay/subscriptions-overview">
+    Review the subscription lifecycle and SDK surface.
+  </Card>
+</CardGroup>

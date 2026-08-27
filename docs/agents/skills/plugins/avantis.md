@@ -48,7 +48,7 @@ No API key or Authorization header is required for the documented public endpoin
 >
 > Base MCP `web_request` is a server-side fetch and is not affected by browser CORS, so these still work from `web_request`. Only flag this if you ever proxy these requests from a browser context.
 
-### Chat-only fallback: Avantis UI
+### Chat-Only Fallback: Avantis UI
 
 When the user wants a tx-builder action (open, close, cancel, margin update, TP/SL change, USDC approval, delegate set/remove) and there is no shell, terminal, or direct HTTP tool in the current surface (typical for ChatGPT, Claude.ai):
 
@@ -88,7 +88,7 @@ GET https://tx-builder.avantisfi.com/openapi.json
 GET https://tx-builder.avantisfi.com/docs
 ```
 
-### Step 1 — Pair, Leverage, Liquidity (data API)
+### Step 1 — Pair, Leverage, Liquidity (Data API)
 
 ```
 GET https://data.avantisfi.com/v2/trading
@@ -151,7 +151,7 @@ minLeverage   = ceil(pair.pairMinLevPosUSDC / collateralUsdc)
 
 The data API is cached server-side (`~5 min` TTL). If you call it directly from a hot path, cache locally too.
 
-### Step 2 — Positions and Limit Orders (core backend)
+### Step 2 — Positions and Limit Orders (Core Backend)
 
 ```
 GET https://core.avantisfi.com/user-data?trader=<address>
@@ -268,7 +268,7 @@ GET https://tx-builder.avantisfi.com/token/approve
 
 `spender` defaults to `TradingStorage`. `to` is USDC; `value` is `0x0`. Approval must be confirmed on chain before trade calls that require allowance can succeed, unless approval and action are submitted as a valid batch and the wallet/account contract supports the batch.
 
-### Step 4 — Open A Trade
+### Step 4 — Open a Trade
 
 ```
 GET https://tx-builder.avantisfi.com/trade/open
@@ -287,7 +287,7 @@ GET https://tx-builder.avantisfi.com/trade/open
   &skipValidation=true           # optional, default false; bypasses pre-trade checks
 ```
 
-#### Order types (and on-chain enum)
+#### Order Types (and On-Chain Enum)
 
 | `orderType` (skill) | On-chain enum | Numeric | Notes |
 | --- | --- | --- | --- |
@@ -328,7 +328,7 @@ GET https://tx-builder.avantisfi.com/trade/open
   &stopLoss=55000
 ```
 
-#### Pair separators
+#### Pair Separators
 
 `pair` accepts `/`, `-`, or `_`. `BTC/USD`, `btc-usd`, `eth_usd` all resolve. Use `&pairIndex=` directly if you already have the integer.
 
@@ -380,7 +380,7 @@ GET https://tx-builder.avantisfi.com/trade/close
 
 `value` is the execution fee in wei.
 
-#### Cancel resting limit / stop-limit
+#### Cancel Resting Limit / Stop-Limit
 
 ```
 GET https://tx-builder.avantisfi.com/trade/cancel
@@ -392,7 +392,7 @@ GET https://tx-builder.avantisfi.com/trade/cancel
 
 `value` is `0x0`.
 
-#### Deposit / withdraw margin
+#### Deposit / Withdraw Margin
 
 ```
 GET https://tx-builder.avantisfi.com/margin/update
@@ -408,7 +408,7 @@ GET https://tx-builder.avantisfi.com/margin/update
 
 `value` is `0x1`. When `priceUpdateData` is omitted, tx-builder fetches it from `feed-v3.avantisfi.com` and picks `priceSourcing` based on the pair's Lazer status (`lazerFeed.state === 'stable'` → `1`; otherwise `0`). To run fully offline supply **both** `priceUpdateData` and `priceSourcing`.
 
-#### Set / update TP and SL
+#### Set / Update TP and SL
 
 ```
 GET https://tx-builder.avantisfi.com/tpsl/update
@@ -437,7 +437,7 @@ GET https://tx-builder.avantisfi.com/delegate/remove?trader=<address>
 
 Only one delegate per trader; `/delegate/set` replaces any prior delegate.
 
-### History And PnL (history API)
+### History and PnL (History API)
 
 All `api.avantisfi.com` endpoints return **HTTP 200 even on logical failure** and use the legacy envelope:
 
@@ -448,7 +448,7 @@ All `api.avantisfi.com` endpoints return **HTTP 200 even on logical failure** an
 
 Always check `success` before reading data. `userAddress` must be `0x`-prefixed; the service short-circuits otherwise.
 
-#### Endpoint reference
+#### Endpoint Reference
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -467,7 +467,7 @@ GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/1/20   # �
 GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/0/20   # ❌ undefined behavior
 ```
 
-#### `/history` response
+#### `/history` Response
 
 ```json
 {
@@ -496,7 +496,7 @@ GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/0/20   # �
 - `event.args.positionSizeUSDC` is the **collateral closed in this event**, not the position notional.
 - `_grossPnl` is per-close gross PnL in USDC (negative = loss).
 
-#### `/all` response adds
+#### `/all` Response Adds
 
 ```json
 {
@@ -518,7 +518,7 @@ GET https://api.avantisfi.com/v2/history/portfolio/history/<address>/0/20   # �
 
 `open` flips from `true` to `false` after the trade closes.
 
-#### `/profit-loss` response
+#### `/profit-loss` Response
 
 ```json
 {
@@ -537,7 +537,7 @@ Per-row PnL convention:
 
 In the **ungrouped** case `pairIndex` is `null`.
 
-#### `/referral/stats` response
+#### `/referral/stats` Response
 
 ```json
 {
@@ -551,11 +551,11 @@ In the **ungrouped** case `pairIndex` is `null`.
 
 USDC fields here are already plain decimals (pre-divided by `1e6`).
 
-#### Rate limit
+#### Rate Limit
 
 History API: ~10 req/s per IP. Batch and cache when possible.
 
-### Current tx-builder Endpoint Inventory
+### Current Tx-Builder Endpoint Inventory
 
 | Endpoint | Calldata? | Purpose | `value` |
 | --- | --- | --- | --- |
@@ -643,7 +643,7 @@ Every flow above (open, close, cancel, TP/SL, margin, delegate, approve) is one 
 
 Target tool: **`send_calls`** (chain `"base"`). tx-builder endpoints return unsigned calldata; forward `{ to, value, data }` into `send_calls`, walk the approval flow (see [../references/approval-mode.md](../references/approval-mode.md)), and for market opens/closes confirm settlement by polling the history API (below).
 
-### tx-builder Response Envelope
+### Tx-Builder Response Envelope
 
 All calldata-producing tx-builder endpoints return:
 
@@ -689,7 +689,7 @@ Modern codes: `BAD_REQUEST`, `VALIDATION_ERROR` (with `details.fieldErrors`), `U
 }
 ```
 
-### Batching With send_calls
+### Batching with send_calls
 
 ```json
 {
@@ -710,7 +710,7 @@ Useful preview batches:
 
 Keep approval before the action that needs allowance. Do not mix chains. See [../references/batch-calls.md](../references/batch-calls.md).
 
-### Settlement Polling (history API)
+### Settlement Polling (History API)
 
 Market opens and closes settle after the submitted transaction emits a `MarketOrderInitiated` event. Only poll when you have a real tx hash from a submitted transaction.
 
@@ -853,7 +853,7 @@ GET https://tx-builder.avantisfi.com/addresses
 | `Multicall` | `0xA7cFc43872F4D7B0E6141ee8c36f1F7FEe5d099e` |
 | `Referral` | `0x1A110bBA13A1f16cCa4b79758BD39290f29De82D` |
 
-### Units And Scaling
+### Units and Scaling
 
 | Surface | Unit behavior |
 | --- | --- |
@@ -897,7 +897,7 @@ Recommended handling:
 - For management actions, do not rely on tx-builder to prove the position/order exists. Verify via `core /user-data`.
 - Never silently retry a `BAD_REQUEST` with adjusted parameters; show options and ask the user.
 
-### Sanity Caps (tx-builder server-side)
+### Sanity Caps (Tx-Builder Server-Side)
 
 These are looser than per-pair envelopes — the per-pair check still applies.
 
@@ -910,7 +910,7 @@ These are looser than per-pair envelopes — the per-pair check still applies.
 
 EIP-55 address handling: `trader`, `delegate`, `spender` accept both checksummed and all-lowercase; the service normalizes to checksum in the response.
 
-### Scaling Quick Reference (on-chain side)
+### Scaling Quick Reference (On-Chain Side)
 
 | Domain | Scale | Example |
 | --- | --- | --- |

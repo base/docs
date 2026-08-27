@@ -37,7 +37,7 @@ description: "Value description"
 ---
 ```
 
-**Writing**: American English, sentence case headings, second person ("you"), active voice.
+**Writing**: American English, title case headings, second person ("you"), active voice.
 
 **Code blocks**: Always specify language. Add filename or title. Use `highlight={}` for emphasis.
 
@@ -53,7 +53,8 @@ Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 
 | File | Purpose |
 |------|---------|
-| [content-instructions.md](content-instructions.md) | Writing guidelines |
+| [content-guidelines.md](content-guidelines.md) | Writing rules, spec page structure, changelog format |
+| [docs/ia-guidelines.md](docs/ia-guidelines.md) | What belongs in each tab and section |
 | [mintlify-reference.md](mintlify-reference.md) | Component syntax |
 | [scripts/README.md](scripts/README.md) | Linter usage |
 

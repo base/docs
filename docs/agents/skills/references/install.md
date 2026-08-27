@@ -11,7 +11,7 @@ The MCP server URL is the same everywhere: **`https://mcp.base.org`**
 
 ---
 
-## Claude (Claude.ai web, Claude Desktop, iOS, Android)
+## Claude (Claude.ai Web, Claude Desktop, iOS, Android)
 
 One-click add:
 
@@ -132,13 +132,13 @@ Then start a new chat (or `/reload-mcp` in an existing one).
 
 ---
 
-## Authorization (first use)
+## Authorization (First Use)
 
 The first time a wallet tool is called, an auth modal opens for the user to authorize the Base Account. Click **Allow** once. (See the live demo on the quickstart page.) After that, write operations still require per-transaction approval — see [approval-mode.md](approval-mode.md).
 
 ---
 
-## Did it work?
+## Did It Work?
 
 Ask the assistant:
 

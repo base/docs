@@ -1,0 +1,167 @@
+---
+title: "Integrate Trading"
+description: "Let users swap tokens on Base with executable routes from the 0x Swap API."
+keywords: ["integrate trading Base", "0x Swap API Base", "token swap API", "DEX aggregator Base", "AllowanceHolder"]
+---
+
+import { DeFiDemo } from "/snippets/DeFiDemo.jsx"
+
+Add token swaps to your app with the 0x Swap API. 0x searches liquidity across decentralized exchanges and market makers, then returns a transaction that the user's wallet can simulate, sign, and submit on Base.
+
+#### Demo
+
+<DeFiDemo flow="trade" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Route a Swap with 0x
+
+Use the [AllowanceHolder flow](https://docs.0x.org/docs/introduction/quickstart/swap-tokens-with-0x-swap-api) for a straightforward ERC-20 swap:
+
+1. Request an indicative `/price` while the user edits the trade.
+2. Request a firm `/quote` when the user is ready to review and sign.
+3. If `issues.allowance` is present, approve only the returned `spender` for the sell amount.
+4. Fetch a fresh quote, simulate its `transaction`, submit it, and wait for confirmation.
+
+<Warning>
+Never approve the 0x Settler contract. Approve only the AllowanceHolder or Permit2 address returned by the API in `issues.allowance.spender` or `allowanceTarget`.
+</Warning>
+
+Install `viem@2.55.19`, create Base `publicClient` and `walletClient` instances in `clients.ts`, and keep `ZERO_EX_API_KEY` on your server. This example sells 100 USDC for WETH on Base mainnet.
+
+<Note>
+The verified sample uses a server-side wallet only to keep the example runnable. In a user-facing app, request the quote from your backend, return the reviewed transaction fields to the frontend, and submit them with the user's connected wallet.
+</Note>
+
+<Info>
+This snippet is illustrative. It shows the shape of a routed trading integration on Base, not production-ready code. Follow the [0x Swap API documentation](https://docs.0x.org/evm/0x-swap-api/introduction) for current API behavior, supported liquidity sources, fees, and contract details.
+</Info>
+
+{/* sample: defi-trade-0x */}
+```typescript trade-0x.ts lines wrap expandable highlight={24-30,39-48,60-66}
+import { publicClient, walletClient } from './clients.js';
+import { formatUnits, parseAbi, parseUnits, type Address, type Hex } from 'viem';
+import { required } from '../shared/env.js';
+
+const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const WETH = '0x4200000000000000000000000000000000000006';
+const sellAmount = parseUnits('100', 6);
+const user = walletClient.account.address;
+
+type Quote = {
+  liquidityAvailable: boolean;
+  buyAmount: string;
+  minBuyAmount: string;
+  issues: {
+    allowance: null | { spender: Address };
+    balance: null | { actual: string; expected: string };
+    simulationIncomplete: boolean;
+  };
+  transaction?: { to: Address; data: Hex; value: string | null };
+};
+
+async function getQuote(): Promise<Quote> {
+  const params = new URLSearchParams({
+    chainId: '8453', sellToken: USDC, buyToken: WETH,
+    sellAmount: sellAmount.toString(), taker: user, slippageBps: '50',
+  });
+  const response = await fetch(
+    `https://api.0x.org/swap/allowance-holder/quote?${params}`,
+    { headers: { '0x-api-key': required('ZERO_EX_API_KEY'), '0x-version': 'v2' } },
+  );
+  if (!response.ok) throw new Error(`0x quote failed: ${response.status} ${await response.text()}`);
+  return (await response.json()) as Quote;
+}
+
+let quote = await getQuote();
+if (!quote.liquidityAvailable) throw new Error('No route is currently available');
+if (quote.issues.balance) throw new Error('Insufficient USDC balance');
+
+if (quote.issues.allowance) {
+  const approval = await publicClient.simulateContract({
+    account: user, address: USDC,
+    abi: parseAbi(['function approve(address,uint256) returns (bool)']),
+    functionName: 'approve', args: [quote.issues.allowance.spender, sellAmount],
+  });
+  await publicClient.waitForTransactionReceipt({
+    hash: await walletClient.writeContract(approval.request),
+  });
+  quote = await getQuote();
+}
+
+if (quote.issues.allowance) throw new Error('Token allowance is still insufficient');
+if (quote.issues.simulationIncomplete) throw new Error('0x could not complete its simulation');
+if (!quote.transaction) throw new Error('Quote did not include transaction data');
+
+const transaction = {
+  account: walletClient.account,
+  to: quote.transaction.to,
+  data: quote.transaction.data,
+  value: BigInt(quote.transaction.value ?? '0'),
+};
+await publicClient.call({ ...transaction, account: user });
+const hash = await walletClient.sendTransaction(transaction);
+await publicClient.waitForTransactionReceipt({ hash });
+
+console.log(`Swap confirmed: ${hash}`);
+console.log(`Minimum WETH output: ${formatUnits(BigInt(quote.minBuyAmount), 18)} WETH`);
+```
+
+## Build a Safe Trade Review
+
+Before the user signs, display values from the latest quote rather than calculating them yourself:
+
+| Quote field | Show or check |
+| --- | --- |
+| `buyAmount` | Estimated output at the quoted route |
+| `minBuyAmount` | Minimum output after the configured slippage tolerance |
+| `fees` and `totalNetworkFee` | 0x, integrator, and estimated network costs |
+| `route.fills` | Liquidity sources and how the route is split |
+| `issues.balance` | Whether the taker has enough sell tokens |
+| `issues.allowance.spender` | The only address to approve when allowance is required |
+| `issues.simulationIncomplete` | Whether 0x completed its transaction simulation |
+
+Request a new quote after an approval transaction or any change to the amount, tokens, taker, recipient, or slippage. Simulate the exact returned transaction against the user's current state before sending it.
+
+## Production Checklist
+
+- Proxy 0x requests through your backend so the API key never reaches the browser.
+- Validate Base chain ID `8453`, token addresses, the taker, and any separate recipient on the server.
+- Use `/price` for frequently refreshed previews and reserve `/quote` for the confirmation step.
+- Show the quoted output, minimum received, fees, gas estimate, and route before requesting a signature.
+- Use an exact or deliberately bounded allowance instead of granting unlimited approval by default.
+- Handle unavailable liquidity, insufficient balance, incomplete simulation, rate limits, reverted transactions, and user rejection.
+- Refresh the quote after approval and refresh wallet balances only after the swap receipt confirms.
+
+## 0x Documentation
+
+<CardGroup cols={2}>
+  <Card title="Swap API Quickstart" icon="bolt" href="https://docs.0x.org/docs/introduction/quickstart/swap-tokens-with-0x-swap-api">
+    Follow the full price, allowance, quote, and submission flow.
+  </Card>
+  <Card title="AllowanceHolder Quote" icon="code" href="https://docs.0x.org/api-reference/evm-ap-is/swap/allowanceholder-getquote">
+    Review every request parameter and response field.
+  </Card>
+  <Card title="Token Allowances" icon="shield" href="https://docs.0x.org/evm/0x-swap-api/additional-topics/how-to-set-your-token-allowances">
+    Approve the correct spender and avoid unsafe approvals.
+  </Card>
+  <Card title="Supported Chains" icon="link" href="https://docs.0x.org/docs/introduction/supported-chains">
+    Confirm Base support and the current Swap API feature matrix.
+  </Card>
+</CardGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Integrate Lending" icon="landmark" href="/build-on-base/integrate-defi/integrate-lending">
+    Let users supply USDC to a money market.
+  </Card>
+  <Card title="Integrate Borrowing" icon="hand-holding-dollar" href="/build-on-base/integrate-defi/integrate-borrowing">
+    Open a collateralized loan against WETH.
+  </Card>
+  <Card title="Integrate an Earn Product" icon="vault" href="/build-on-base/integrate-defi/integrate-earn-product">
+    Route deposits into yield-bearing vaults.
+  </Card>
+</CardGroup>

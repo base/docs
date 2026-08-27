@@ -61,7 +61,7 @@ After Base MCP is available (`SKILL.md`), pick a path:
 
 Never scrape `https://www.bitrefill.com` (403 from datacenters). Paths 1–2: Base MCP `web_request` to allowlisted `api.bitrefill.com` (`custom-plugins.md`). Paths 3–4: Bitrefill CLI or Bitrefill MCP.
 
-## Path 4 setup (Bitrefill MCP)
+## Path 4 Setup (Bitrefill MCP)
 
 `https://api.bitrefill.com/mcp` — OAuth at connector setup.
 
@@ -90,13 +90,13 @@ Never scrape `https://www.bitrefill.com` (403 from datacenters). Paths 1–2: Ba
 
 Path 1 connect uses **SIWX → JWT**. Path 2 needs no auth. Post-purchase **redemption codes** on `invoice/status` require SIWX from the **paying wallet** (Path 1 JWT covers browse/status polling; if codes are missing, run **SIWX for codes** below). Path 3/4 use CLI/MCP OAuth.
 
-### EIP-55 checksum (required)
+### EIP-55 Checksum (Required)
 
 The address in the signed message and SIWX payload must be **EIP-55 checksummed** (mixed case). Lowercase addresses from `get_wallets` cause the API to reject the signature and return another `402`. Always run `toChecksumAddress` before building the message.
 
 Base Account signatures are ERC-1271/6492 wrapped (~224 bytes). Pass the **full** signature unchanged; header `type` stays `"eip191"`. Wallet reads and write approvals follow `approval-mode.md`.
 
-### SIWX timing
+### SIWX Timing
 
 Challenge nonce expires in **5 minutes** and is **single-use**. Fetch challenge → build message → `sign` → send header within that window. If connect returns `402` again, fetch a fresh challenge and repeat — do not reuse a stale nonce or signature.
 
@@ -111,7 +111,7 @@ Challenge nonce expires in **5 minutes** and is **single-use**. Fetch challenge 
 7. `web_request` `POST https://api.bitrefill.com/x402/connect` with body `{}`, `Content-Type: application/json`, and header `sign-in-with-x: <base64>` → **200** with `{ token, token_header: "X-Access-Token", expires_in }` (default ~7200 s).
 8. Store `token` in memory only. Attach `X-Access-Token: <token>` (raw JWT, **no** `Bearer`) on every subsequent gated `web_request`. Re-connect when expired.
 
-### SIWX for codes (after `invoice/pay`)
+### SIWX for Codes (After `invoice/pay`)
 
 When `invoice/status` returns delivery complete but no `redemption_info`, or Path 2 without JWT:
 
@@ -123,7 +123,7 @@ When `invoice/status` returns delivery complete but no `redemption_info`, or Pat
 
 `my/orders` and `my/esims` use the same SIWX flow (Path 1 JWT also works on these routes).
 
-### Decomposed SIWX payload
+### Decomposed SIWX Payload
 
 Base64 of this JSON (send as `sign-in-with-x` header):
 
@@ -146,7 +146,7 @@ Base64 of this JSON (send as `sign-in-with-x` header):
 
 Chain ID is numeric (`8453`) inside the signed message but CAIP-2 (`eip155:8453`) in the payload.
 
-### SIWX message shape
+### SIWX Message Shape
 
 ```
 <domain> wants you to sign in with your Ethereum account:
@@ -164,7 +164,7 @@ Resources:
 - <resource_url>
 ```
 
-### SIWX helpers (no external libraries)
+### SIWX Helpers (No External Libraries)
 
 Verified against `siwe@2.3.2` and `@x402/extensions@2.3.0`. Run in Node 18+ or any JS shell.
 
@@ -249,7 +249,7 @@ function encodeSiwxHeader(payload){
 
 Run the JavaScript block in Node (`node -e '…'`) or any harness with `BigInt`. Do not hand-type checksummed addresses. If no JavaScript runtime is available, use **Path 2** (no connect SIWX) or obtain checksum/message from a one-line Node invocation before calling `sign`.
 
-## Business domain
+## Business Domain
 
 Bitrefill API names do not match everyday ecommerce wording — map them when talking to users:
 
@@ -296,7 +296,7 @@ With valid **`X-Access-Token`**, the gate bypasses micro-fees and SIWX on all ga
 
 All checkout and x402 pay flows use **USDC on Base only**.
 
-### `package_value` (critical)
+### `package_value` (Critical)
 
 Use the **exact** string from `products/detail` `packages[].package_value` — do not transform.
 
@@ -308,7 +308,7 @@ Use the **exact** string from `products/detail` `packages[].package_value` — d
 
 Wrong `package_value` → HTTP **500** on `invoice/create` (no charge). Confirm no charge before retry (see **Notes**).
 
-### Request shapes
+### Request Shapes
 
 **invoice/create** — gift card:
 
@@ -328,7 +328,7 @@ Response: `{ "invoice_id", "price_usdc", "price_usd", "expires_in_minutes", "nex
 
 **invoice/status** — without SIWX/JWT: status fields only. With SIWX from payer or Path 1 JWT: adds `redemption_info.orders[].redemption_info` (`code`, `pin`, `extra_fields`).
 
-## Surface routing
+## Surface Routing
 
 | Capability | Path 1 | Path 2 | Path 3 | Path 4 |
 | --- | --- | --- | --- | --- |
@@ -351,7 +351,7 @@ One primary + one secondary CTA. Primary follows `next_step` ("See details for �
 
 ## Orchestration
 
-### Path 1: Connect → browse → buy (default)
+### Path 1: Connect → Browse → Buy (Default)
 
 1. **Connect** — SIWX flow above → store JWT and `expires_in`. Do this **once** per session.
 2. **Confirm funds** — when needed, check USDC on Base before pay.
@@ -363,7 +363,7 @@ One primary + one secondary CTA. Primary follows `next_step` ("See details for �
 8. **Poll** — `web_request` `GET /x402/invoice/status?invoice_id=<id>` + token until `delivery_status` is `all_delivered`.
 9. **Codes** — if `redemption_info` missing, run **SIWX for codes** with the paying wallet. Deliver `code` / `pin` securely (**Risks & Warnings**).
 
-### Path 2: Pay-per-call x402
+### Path 2: Pay-per-Call x402
 
 1. Confirm USDC on Base when needed.
 2. For each gated step: `web_request` → 402 → x402 pay that URL/method/body, `maxPayment: "0.01"` → `approval-mode.md`.
@@ -410,7 +410,7 @@ Bitrefill uses Base MCP for reads, SIWX, x402, and direct USDC — not `send_cal
 
 All write paths: `approval-mode.md`. On 402 responses, pay the **Base USDC** (`eip155:8453`) entry from `accepts[]`.
 
-## Example prompts
+## Example Prompts
 
 **$25 Amazon US — Path 1:** Connect → JWT → search + token → detail → create → confirm → x402 pay → poll → deliver code.
 

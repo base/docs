@@ -115,15 +115,15 @@ ${bullets}`;
 }
 
 function buildToolsSection() {
-  return `## Tools available for AI assistants
+  return `## Tools Available for AI Assistants
 
 These resources give AI assistants direct access to Base documentation and reusable workflows.
 
-### Base MCP server
+### Base MCP Server
 
 \`${CONFIG.mcpUrl}\`
 
-### Base skills
+### Base Skills
 
 AI agents can use Base skills to perform onchain actions directly from their tool loop — no custom integration required. Available skills include:
 
@@ -171,7 +171,7 @@ function generateAgentsMd() {
     buildEntryPointSection(sections),
     buildToolsSection(),
     buildFeaturedSection(featured),
-    `## Compact docs index\n\n[Docs]|root:./docs\n${indexLines.join('\n')}`,
+    `## Compact Docs Index\n\n[Docs]|root:./docs\n${indexLines.join('\n')}`,
   ].filter(Boolean);
 
   const content = `---

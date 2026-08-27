@@ -21,7 +21,7 @@ risk: [slippage, low-liquidity]
 > Run Base MCP onboarding first (see SKILL.md). No per-session auth — the Balancer API is public. Fetch the user's wallet address (via `get_wallets`) when a quote/build needs it; the SDK also needs it as `sender`/`recipient` for any v2-routed swap.
 
 > [!WARNING]
-> ## CLI-only plugin
+> ## CLI-only Plugin
 >
 > Every step — reads, quotes, and calldata — runs in the agent's shell: `curl` for the Balancer API and a short Node script (`@balancer/sdk`) to encode transactions. It works only in harnesses with shell/terminal access (Claude Code, Codex, Cursor, …). On chat-only surfaces (Claude.ai, ChatGPT) it does **not** work — do not fall back to a user-paste URL or a substitute MCP. If there is no shell, tell the user the Balancer plugin requires terminal access and stop (they can use `https://balancer.fi` manually). Quotes are not offered without the ability to execute them.
 
@@ -50,7 +50,7 @@ export RPC_URL="<a Base RPC HTTPS endpoint>"   # buildCall's query() simulation 
 
 `chain` arguments take the API's uppercase `GqlChain` enum (`BASE`, `MAINNET`, `ARBITRUM`, `OPTIMISM`, `AVALANCHE`), not the Base MCP chain string — see [`## Notes`](#notes). The API is keyless and self-documenting via GraphQL introspection; if a query errors on a field, confirm names against the live schema.
 
-### Read pools & quotes
+### Read Pools & Quotes
 
 Single endpoint: `POST https://api-v3.balancer.fi/` with a JSON `{ "query", "variables" }` body, run with `curl`.
 
@@ -84,7 +84,7 @@ query Pools($first: Int, $orderBy: GqlPoolOrderBy, $orderDirection: GqlPoolOrder
 
 Example variables: `{ "first": 10, "orderBy": "totalLiquidity", "orderDirection": "desc", "where": { "chainIn": ["BASE"], "minTvl": 100000 } }`. Single pool: `poolGetPool(id, chain)`. Tokens/prices: `tokenGetTokens(chains)`, `tokenGetCurrentPrices(chains)`. A pool's `id` is the argument to the SDK's `fetchPoolState`.
 
-### Build a swap (`build-swap.mjs`)
+### Build a Swap (`build-swap.mjs`)
 
 Fetch SOR paths, simulate, then encode the action call **together with its version-correct approval(s)** and emit a ready-to-submit payload — `{ chain, calls }` (plus `protocolVersion`/`minAmountOut` for display) that maps straight onto `send_calls`. Building the whole batch in the script (not just the action call) is deliberate: each approval's target is derived from the **same `call.to` the SDK returns**, so a v3 Permit2 approval can never be hand-paired with a v2 Vault target. That mismatch passes per-call encoding (each approval is individually valid) and only reverts at the action call — usually as an uninformative `unable to estimate gas`. ERC20 input only; for native-ETH input set `wethIsEth: true` and drop the approval call(s) (see [`## Submission`](#submission)).
 
@@ -155,7 +155,7 @@ console.log(JSON.stringify({
 
 > Verified live on Base: USDC→WETH currently routes **v2**, so the `sender`/`recipient` branch is the common path, not an edge case — omitting it throws the error above.
 
-### Add / remove liquidity
+### Add / Remove Liquidity
 
 Same shape with `AddLiquidity` / `RemoveLiquidity` instead of `Swap`:
 
@@ -187,7 +187,7 @@ Every step runs in the shell — no shell, no flow (see [`## Surface Routing`](#
 4. Verify the emitted `calls` (targets, amounts, `minAmountOut`), then submit them directly with `send_calls` — the script has already assembled the version-correct approvals ([`## Submission`](#submission)).
 5. Submit → approval URL + request ID → user approves → `get_request_status` ([../references/approval-mode.md](../references/approval-mode.md)).
 
-### Add / remove liquidity
+### Add / Remove Liquidity
 
 1. `get_wallets` → address. Pick a pool: `curl` `poolGetPools` (by TVL/APR) or `poolGetPool` for a known `id`.
 2. Run the `AddLiquidity` / `RemoveLiquidity` script → `{ to, callData, value, minBptOut | minAmountsOut }`.

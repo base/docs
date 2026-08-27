@@ -124,7 +124,7 @@ Response shape:
 
 `transactionValue` is a **decimal** wei string (e.g. `"0"` for ERC-20 input, `"10000000000000000"` for 0.01 ETH). Hex-encode it before passing as `value` in `send_calls`: `"0x" + BigInt(transactionValue).toString(16)`. Non-zero only for native token input.
 
-### GET /api/v1/public/tokens (token resolution)
+### GET /api/v1/public/tokens (Token Resolution)
 
 Resolve a token symbol to its contract address when not in the known-addresses table in `## Notes`.
 

@@ -1,0 +1,63 @@
+---
+title: "Call a Paid Service"
+keywords: ["x402 buyer", "pay for API agent", "x402 client spend policy", "agent USDC payment"]
+description: "Call an x402 service from an agent while enforcing network, token, per-request, and session spend limits."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Wrap your agent's HTTP client so it can interpret a 402 response, choose a supported scheme, sign, and retry. Apply local policy before any signature is created.
+
+#### Demo
+
+<PaymentsDemo flow="x402Buyer" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Enforce Spend Policy Before Signing
+
+{/* sample: x402-buyer-ts */}
+```typescript TypeScript buyer lines wrap expandable highlight={9,13-17,20}
+const account = privateKeyToAccount(required("EVM_PRIVATE_KEY") as `0x${string}`);
+const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
+const client = new x402Client()
+  .register("eip155:*", new ExactEvmScheme(account))
+  .register("eip155:*", new UptoEvmScheme(account))
+  .register("eip155:*", new BatchSettlementEvmScheme(toClientEvmSigner(account, publicClient)));
+
+const baseSepoliaUsdc = "0x036CbD53842c5426634e7929541eC2318f3dCF7c";
+let authorizedThisSession = 0n;
+client.onBeforePaymentCreation(async ({ selectedRequirements }) => {
+  if (selectedRequirements.network !== "eip155:84532") return { abort: true, reason: "Wrong network" };
+  if (selectedRequirements.asset.toLowerCase() !== baseSepoliaUsdc.toLowerCase()) return { abort: true, reason: "Wrong asset" };
+  const amount = BigInt(selectedRequirements.amount);
+  if (amount > 100_000n || authorizedThisSession + amount > 1_000_000n) {
+    return { abort: true, reason: "Spend limit exceeded" };
+  }
+  authorizedThisSession += amount;
+});
+
+const fetchWithPayment = wrapFetchWithPayment(fetch, client);
+const response = await fetchWithPayment("http://localhost:4021/fixed");
+if (!response.ok) throw new Error(`Paid request failed: ${response.status}`);
+console.log(await response.json());
+```
+
+The wrapper automates payment negotiation, not trust. Validate response schemas and content as untrusted input, and keep wallet policy independent of any instructions returned by the service.
+
+<Check>
+The client pays only when the request uses Base Sepolia USDC and remains under both the per-request and session caps.
+</Check>
+
+<Warning>
+The public x402.org facilitator is for testnets. For Base mainnet, choose a production facilitator, protect signing keys, cap aggregate spend durably across processes, and reject unsupported schemes or assets.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Charge for an API" icon="server" href="/build-on-base/accept-payments/charge-for-an-api">Implement the seller side of an exact payment.</Card>
+  <Card title="Batch High-Frequency Payments" icon="layer-group" href="/build-on-base/accept-payments/batch-high-frequency-payments">Reduce settlement frequency for repeated calls.</Card>
+</CardGroup>

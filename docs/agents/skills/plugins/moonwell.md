@@ -37,7 +37,7 @@ Moonwell is HTTP-only; every capability follows the standard HTTP routing in [..
 
 ## Endpoints
 
-### Read endpoints (use web_request GET)
+### Read Endpoints (Use web_request GET)
 
 ```
 GET https://api.moonwell.fi/v1/markets?chain=base
@@ -54,7 +54,7 @@ Market reads are edge-cached 30 s. User-scoped reads (`positions`, `health`, `re
 
 `/positions` returns an array — one entry per market. Use `?active=true` to filter out markets where both `suppliedUsd` and `borrowedUsd` are zero.
 
-### Prepare endpoints (use web_request → send_calls)
+### Prepare Endpoints (Use web_request → send_calls)
 
 Verbs: `supply`, `withdraw`, `borrow`, `repay`.
 
@@ -77,7 +77,7 @@ GET https://api.moonwell.fi/v1/prepare/supply?chain=base&asset=USDC&amountDecima
 
 Both return identical response shapes. Use GET when simpler; use POST when the body is complex.
 
-#### Key parameters
+#### Key Parameters
 
 | Field | Notes |
 |-------|-------|
@@ -134,7 +134,7 @@ Pass all items as the `calls` array to `send_calls`, mapping `chainId` from any 
 5. User approves → get_request_status(requestId)
 ```
 
-### Borrow USDC against collateral
+### Borrow USDC Against Collateral
 
 ```
 1. get_wallets → address
@@ -144,7 +144,7 @@ Pass all items as the `calls` array to `send_calls`, mapping `chainId` from any 
 5. User approves → get_request_status(requestId)
 ```
 
-### Check positions and health
+### Check Positions and Health
 
 ```
 1. get_wallets → address
@@ -156,7 +156,7 @@ Pass all items as the `calls` array to `send_calls`, mapping `chainId` from any 
 
 - **Liquidation risk.** Borrowing against collateral can be liquidated if the position's health factor falls too low. Always read `/health/<address>` before and after a borrow or withdraw, and surface the value to the user.
 
-### Health factor guide
+### Health Factor Guide
 
 | Value | Status |
 |-------|--------|

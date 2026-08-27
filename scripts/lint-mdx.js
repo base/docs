@@ -183,6 +183,7 @@ function checkCodeBlocks(content, filePath) {
   const issues = [];
   const lines = content.split("\n");
   let inCodeGroup = false;
+  let activeFence = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -190,31 +191,38 @@ function checkCodeBlocks(content, filePath) {
     if (line.includes("<CodeGroup>")) inCodeGroup = true;
     if (line.includes("</CodeGroup>")) inCodeGroup = false;
 
-    // Check for code block opening
-    const codeBlockMatch = line.match(/^```(\S*)/);
-    if (codeBlockMatch) {
-      const lang = codeBlockMatch[1];
+    const fenceMatch = line.match(/^(`{3,}|~{3,})(.*)$/);
+    if (!fenceMatch) continue;
 
-      // Check for empty language
-      if (!lang) {
+    const fence = fenceMatch[1];
+    const metadata = fenceMatch[2].trim();
+
+    if (activeFence) {
+      const sameCharacter = fence[0] === activeFence.character;
+      const longEnough = fence.length >= activeFence.length;
+      if (sameCharacter && longEnough && metadata === "") activeFence = null;
+      continue;
+    }
+
+    activeFence = { character: fence[0], length: fence.length };
+    const lang = metadata.split(/\s+/, 1)[0];
+
+    if (!lang) {
+      issues.push({
+        line: i + 1,
+        severity: "error",
+        message: "Code block missing language specifier",
+      });
+    }
+
+    if (inCodeGroup && lang) {
+      const afterLang = metadata.slice(lang.length).trim();
+      if (!afterLang) {
         issues.push({
           line: i + 1,
-          severity: "error",
-          message: "Code block missing language specifier",
+          severity: "warning",
+          message: "Code block in <CodeGroup> should have a label (e.g., ```javascript Node.js)",
         });
-      }
-
-      // In CodeGroup, should have language AND label
-      if (inCodeGroup && lang && !lang.includes(" ") && !/\s+\S+/.test(line.slice(3 + lang.length))) {
-        // Check if there's a label after the language
-        const afterLang = line.slice(3 + lang.length).trim();
-        if (!afterLang) {
-          issues.push({
-            line: i + 1,
-            severity: "warning",
-            message: "Code block in <CodeGroup> should have a label (e.g., ```javascript Node.js)",
-          });
-        }
       }
     }
   }
@@ -249,8 +257,17 @@ function checkMintlifyComponents(content, filePath) {
   // Valid callout components
   const validCallouts = ["Note", "Tip", "Warning", "Info", "Check"];
 
+  let inCodeBlock = false;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Skip anything inside fenced code blocks — example code is not doc markup.
+    if (/^```/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
 
     // Check for HTML comments
     if (line.includes("<!--")) {

@@ -8,7 +8,7 @@ version: 0.1.0
 # Base MCP
 
 > [!IMPORTANT]
-> ## Run onboarding at the start of every conversation that touches Base MCP
+> ## Run Onboarding at the Start of Every Conversation That Touches Base MCP
 >
 > Including conversations that jump straight to a plugin topic. Onboarding is short — see below.
 
@@ -44,7 +44,7 @@ Two patterns deserve their own references because they span multiple tools:
 | Platform install steps | [references/install.md](references/install.md) |
 | Tone and language rules | [references/tone.md](references/tone.md) |
 
-### Loading referenced files
+### Loading Referenced Files
 
 - **Default — local.** Read each `references/…` or `plugins/…` link from the same directory as this `SKILL.md` (filesystem read, e.g. `Read`/`cat`). This is the canonical source — always try this first.
 - **Fallback — web (only when local read fails).** If — and only if — the local file is genuinely unreadable (e.g. you were handed `SKILL.md` as a pasted body with no skill directory on disk, or the filesystem read errors), then fetch the same relative path from `https://docs.base.org/ai-agents/skills/<path>` (replace `<path>` with the relative link, e.g. `references/tone.md`, `plugins/morpho.md`). Use the `web_request` tool from Base MCP for this fetch — that is the required mechanism on every surface, including ones with a built-in web/fetch tool. Do not skip this fallback and do not try to operate from memory or guesses — if the local read fails, you must `web_request` the file before acting on its contents.
@@ -81,7 +81,7 @@ Plugins currently maintained alongside this skill (the **native plugins**). Use 
 
 Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own external tools, defer to the plugin file first, then to any CLI help, API schema, or MCP tool descriptions it explicitly tells you to use.
 
-### Native plugins vs. custom / user-supplied plugins
+### Native Plugins vs. Custom / User-Supplied Plugins
 
 Native plugin HTTP hosts may be allowlisted in the Base MCP `web_request` tool. Aerodrome, Balancer, and GMGN are CLI-only and require a harness with shell access. Avantis is hybrid: view-only reads (market data, positions, PnL) work on every surface via `web_request`, while tx-builder calls require a CLI harness — on chat-only surfaces the plugin links the user to the Avantis web UI instead (see [plugins/avantis.md](plugins/avantis.md)). Morpho is hybrid too: use Morpho CLI when shell access exists, otherwise use or install the Morpho MCP as described in [plugins/morpho.md](plugins/morpho.md). Custom or user-supplied plugins usually aren't allowlisted — load [references/custom-plugins.md](references/custom-plugins.md) for the decision tree on which HTTP path to use (harness HTTP tool vs. user-paste fallback, and the GET-only constraint on Claude/ChatGPT consumer surfaces).
 

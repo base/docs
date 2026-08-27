@@ -1,0 +1,79 @@
+---
+title: "Void an Authorization"
+keywords: ["cancel EIP-3009 authorization", "void USDC payment", "cancelAuthorization", "authorization expiry"]
+description: "Expire an unused USDC authorization or cancel its nonce onchain with the buyer's signature."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Close an authorization that you will not capture. Because no funds were reserved, a merchant can stop using the signature offchain, but only the buyer can authorize an onchain nonce cancellation.
+
+#### Demo
+
+<PaymentsDemo flow="void" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+| Path | Cost | Use when |
+|---|---|---|
+| Mark void and let `validBefore` pass | No transaction | The short validity window is acceptable |
+| Submit `cancelAuthorization` | One transaction | You need the nonce to become unusable immediately |
+
+## Cancel the Nonce Onchain
+
+{/* sample: usdc-void-ts */}
+```typescript TypeScript lines wrap expandable highlight={2,13,24}
+export async function signCancellation(authorization: PaymentAuthorization) {
+  const { account: buyer, publicClient: browserClient, walletClient } = await browserClients();
+  if (buyer.toLowerCase() !== authorization.from.toLowerCase()) {
+    throw new Error("Only the authorizer can sign a cancellation");
+  }
+  const [name, version] = await Promise.all([
+    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
+    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
+  ]);
+  return walletClient.signTypedData({
+    account: buyer,
+    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
+    types: cancelAuthorizationTypes,
+    primaryType: "CancelAuthorization",
+    message: { authorizer: authorization.from, nonce: authorization.nonce },
+  });
+}
+
+export async function submitCancellation(authorizer: `0x${string}`, nonce: Hex, signature: Hex) {
+  const { v, r, s } = parseSignature(signature);
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: USDC,
+    abi: usdcAbi,
+    functionName: "cancelAuthorization",
+    args: [authorizer, nonce, Number(v), r, s],
+  });
+  const hash = await merchantWallet.writeContract(simulation.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
+```
+
+The buyer signs `CancelAuthorization`; the merchant or another relayer can submit that signature. The token marks the nonce used, so the original transfer authorization can no longer settle.
+
+<Check>
+After cancellation, `authorizationState(authorizer, nonce)` returns `true`, and a later capture with the original signature reverts.
+</Check>
+
+<Warning>
+`authorizationState` does not distinguish captured from canceled. Persist your own order state and transition it atomically before accepting a cancellation or capture request.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
+    Create a short-lived exact authorization.
+  </Card>
+  <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
+    Settle an authorization you intend to fulfill.
+  </Card>
+</CardGroup>
