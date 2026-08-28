@@ -95,11 +95,11 @@ description: "Concise description explaining page purpose and value"
 
 ## Specification Pages
 
-Content structure and writing guidelines for Base Protocol specification pages — Core Primitives and Network Systems.
+Content structure and writing guidelines for Specifications pages.
 
 ### Page Types
 
-Every feature or subsystem in Core Primitives and Network Systems uses a combination of these page types:
+Every feature or subsystem in the Specifications tab uses a combination of these page types:
 
 | Page type | Purpose | Example |
 |-----------|---------|---------|
@@ -162,12 +162,7 @@ Not every feature needs all four types. A single-page feature (e.g., network fee
 
 A feature gets a nested group in the sidebar (like B20, Bridging, Proofs) when it has 3+ pages. Features with 1–2 pages sit as flat entries in the parent group.
 
-| Core Primitives | Network Systems |
-|-----------------|-----------------|
-| Things developers interact with directly | Protocol internals that power the chain |
-| User-facing behavior: tokens, transactions, fees, bridges | Infrastructure: batcher, derivation, execution, proofs |
-| "What can I do on Base?" | "How does Base work under the hood?" |
-| Audience: app developers, integrators | Audience: protocol engineers, node operators, researchers |
+Content is organized by topic (B20, Bridging, Transactions, Consensus, Execution, Proofs, etc.), not by abstraction level. Each topic group flows from user-facing overview to deep protocol spec. A feature gets a nested group in the sidebar when it has 3+ pages; features with 1–2 pages sit as flat entries or single-page groups.
 
 ---
 
