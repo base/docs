@@ -96,18 +96,14 @@ export const DeFiDemo = ({ flow }) => {
           text: "Request a firm 0x quote to swap 1,000 USDC for WETH on Base.",
           summary: [["Operation", "Swap"], ["Sell", M("1,000 USDC")], ["Buy", M("WETH")], ["Slippage", M("0.5%")], ["Network", NETWORK]],
           run: (s) => { s.metrics = [{ label: "Sell", value: "1,000 USDC" }, { label: "Quoted output", value: "0.397 WETH" }, { label: "Minimum output", value: "0.395 WETH" }]; return { entries: [nfo("route quoted", "0x · 0.397 WETH"), nfo("minimum output", "0.395 WETH")], caption: "Show the user the minimum output, fees, and route before approval." }; } },
-        { stage: "Approve", action: "Approve USDC",
-          text: "Approve only the AllowanceHolder address returned by the quote for the exact sell amount.",
-          summary: [["Operation", "Token approval"], ["Asset", M("USDC")], ["Amount", M("1,000 USDC")], ["Spender", "0x AllowanceHolder"], ["Network", NETWORK]],
-          run: (s) => { s.metrics = [{ label: "Sell", value: "1,000 USDC" }, { label: "Quoted output", value: "0.397 WETH" }, { label: "Allowance", value: "1,000 USDC", tone: "ok" }]; return { entries: [ok("approve", "1,000 USDC · AllowanceHolder")], caption: "Never approve the 0x Settler contract; use the spender returned by the API." }; } },
         { stage: "Simulate", action: "Simulate swap",
           text: "Fetch a fresh quote, then simulate its transaction data against the user's current wallet state.",
           summary: [["Operation", "Simulate"], ["Expected", M("0.397 WETH")], ["Minimum", M("0.395 WETH")], ["Result", "No revert"], ["Network", NETWORK]],
           run: (s) => { s.metrics = [{ label: "Sell", value: "1,000 USDC" }, { label: "Quoted output", value: "0.397 WETH" }, { label: "Minimum output", value: "0.395 WETH", tone: "ok" }]; return { entries: [ok("simulation", "transaction succeeds"), nfo("quote refreshed", "allowance satisfied")], caption: "Do not submit stale calldata after balances, allowances, or market prices change." }; } },
-        { stage: "Swap", action: "Submit swap",
-          text: "Ask the wallet to sign the prepared transaction and wait for its receipt.",
-          summary: [["Operation", "Execute swap"], ["Sell", M("1,000 USDC")], ["Receive", M("0.397 WETH")], ["Minimum", M("0.395 WETH")], ["Network", NETWORK]],
-          run: (s) => { s.metrics = [{ label: "USDC spent", value: "1,000 USDC" }, { label: "WETH received", value: "0.397 WETH", tone: "ok" }, { label: "Status", value: "Confirmed", tone: "ok" }]; return { entries: [ok("swap submitted", "0x route"), ok("swap confirmed", "0.397 WETH received")], caption: "Refresh balances from Base after the receipt confirms." }; } },
+        { stage: "Swap", action: "Approve and submit swap",
+          text: "Approve only the AllowanceHolder address returned by the quote for the exact sell amount, then ask the wallet to sign the prepared transaction and wait for its receipt.",
+          summary: [["Operation", "Approve and execute swap"], ["Sell", M("1,000 USDC")], ["Receive", M("0.397 WETH")], ["Minimum", M("0.395 WETH")], ["Spender", "0x AllowanceHolder"], ["Network", NETWORK]],
+          run: (s) => { s.metrics = [{ label: "USDC spent", value: "1,000 USDC" }, { label: "WETH received", value: "0.397 WETH", tone: "ok" }, { label: "Status", value: "Confirmed", tone: "ok" }]; return { entries: [ok("approve", "1,000 USDC · AllowanceHolder"), ok("swap submitted", "0x route"), ok("swap confirmed", "0.397 WETH received")], caption: "Never approve the 0x Settler contract; use the spender returned by the API. Refresh balances from Base after the receipt confirms." }; } },
       ],
     },
   };
@@ -237,6 +233,7 @@ export const DeFiDemo = ({ flow }) => {
         .wf-btn { font-family: ${sans}; font-size: 13px; font-weight: 600; border-radius: 6px; padding: 10px 14px; cursor: pointer; transition: filter .15s ease; border: 1px solid ${C.blue}; background: ${C.blue}; color: ${C.onBlue}; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
         .wf-btn:hover { filter: brightness(1.1); }
         .wf-btn:disabled { background: ${C.panel}; border-color: ${C.border}; color: ${C.sub}; cursor: default; filter: none; }
+        a.wf-btn, a.wf-btn:visited { color: ${C.onBlue}; }
         .wf-btn2 { font-family: ${sans}; font-size: 13px; font-weight: 600; border-radius: 6px; padding: 10px 14px; cursor: pointer; background: ${C.white}; border: 1px solid ${C.border}; color: ${C.body}; width: 100%; transition: background .15s ease; }
         .wf-btn2:hover { background: ${C.panel}; }
         .wf-pill { font-family: ${sans}; font-size: 12px; font-weight: 500; border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap; color: ${C.sec}; background: ${C.white}; border: 1px solid ${C.border}; transition: all .12s ease; }

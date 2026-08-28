@@ -18,7 +18,7 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 
 ## Route a Swap with 0x
 
-Use the [AllowanceHolder flow](https://docs.0x.org/docs/introduction/quickstart/swap-tokens-with-0x-swap-api) for a straightforward ERC-20 swap:
+Use the [AllowanceHolder flow](https://docs.0x.org/docs/introduction/quickstart/swap-tokens-with-0x-swap-api) for a B20 or ERC-20 swap:
 
 1. Request an indicative `/price` while the user edits the trade.
 2. Request a firm `/quote` when the user is ready to review and sign.
@@ -109,32 +109,6 @@ console.log(`Swap confirmed: ${hash}`);
 console.log(`Minimum WETH output: ${formatUnits(BigInt(quote.minBuyAmount), 18)} WETH`);
 ```
 
-## Build a Safe Trade Review
-
-Before the user signs, display values from the latest quote rather than calculating them yourself:
-
-| Quote field | Show or check |
-| --- | --- |
-| `buyAmount` | Estimated output at the quoted route |
-| `minBuyAmount` | Minimum output after the configured slippage tolerance |
-| `fees` and `totalNetworkFee` | 0x, integrator, and estimated network costs |
-| `route.fills` | Liquidity sources and how the route is split |
-| `issues.balance` | Whether the taker has enough sell tokens |
-| `issues.allowance.spender` | The only address to approve when allowance is required |
-| `issues.simulationIncomplete` | Whether 0x completed its transaction simulation |
-
-Request a new quote after an approval transaction or any change to the amount, tokens, taker, recipient, or slippage. Simulate the exact returned transaction against the user's current state before sending it.
-
-## Production Checklist
-
-- Proxy 0x requests through your backend so the API key never reaches the browser.
-- Validate Base chain ID `8453`, token addresses, the taker, and any separate recipient on the server.
-- Use `/price` for frequently refreshed previews and reserve `/quote` for the confirmation step.
-- Show the quoted output, minimum received, fees, gas estimate, and route before requesting a signature.
-- Use an exact or deliberately bounded allowance instead of granting unlimited approval by default.
-- Handle unavailable liquidity, insufficient balance, incomplete simulation, rate limits, reverted transactions, and user rejection.
-- Refresh the quote after approval and refresh wallet balances only after the swap receipt confirms.
-
 ## 0x Documentation
 
 <CardGroup cols={2}>
@@ -146,9 +120,6 @@ Request a new quote after an approval transaction or any change to the amount, t
   </Card>
   <Card title="Token Allowances" icon="shield" href="https://docs.0x.org/evm/0x-swap-api/additional-topics/how-to-set-your-token-allowances">
     Approve the correct spender and avoid unsafe approvals.
-  </Card>
-  <Card title="Supported Chains" icon="link" href="https://docs.0x.org/docs/introduction/supported-chains">
-    Confirm Base support and the current Swap API feature matrix.
   </Card>
 </CardGroup>
 
