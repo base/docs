@@ -111,9 +111,9 @@ Content is organized by topic, not by abstraction level. Each topic group flows 
 - **Belongs**: Flashblocks reference — key concepts, architecture, and FAQ about block building, WebSocket data, RPC usage, and node setup.
 - **Does not belong**: Flashblocks API methods (SDKs & APIs → Base Chain API). Transaction ordering details (Transactions).
 
-### Protocol Overview
+### Base Protocol
 
-- **Belongs**: Design philosophy and lineage (specs/overview), and the detailed protocol architecture with component diagrams and user flow walkthroughs (specs/protocol/overview).
+- **Belongs**: Design goals, lineage, network participants, system architecture diagrams, protocol component summaries, and core user flows (deposits, transactions, withdrawals). Listed as a top-level page, not a dropdown group.
 - **Does not belong**: Per-component specs (those go in their respective topic groups: Consensus, Execution, Proofs, etc.).
 
 ### Batcher
