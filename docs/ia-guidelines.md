@@ -46,7 +46,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 ### Overview
 
 - **Belongs**: Build on Base landing page and Vibenet testing guide.
-- **Does not belong**: Chain-level concepts (fees, finality, throughput) — those go in Base Protocol → Core Primitives.
+- **Does not belong**: Chain-level concepts (fees, finality, throughput) — those go in Specifications → Transactions.
 
 ### Integrate DeFi
 
@@ -56,17 +56,17 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 ### Tokenize Assets
 
 - **Belongs**: Step-by-step guides for asset tokenization: create an asset token, issue units, restrict holders, cancel blocked units, announce distributions, apply multipliers, and pause transfers.
-- **Does not belong**: B20 Asset variant specification details (those live in Base Protocol → Core Primitives → B20).
+- **Does not belong**: B20 Asset variant specification details (those live in Specifications → B20).
 
 ### Issue Stablecoins
 
 - **Belongs**: End-to-end guides for stablecoin issuers: deploy, mint, burn, restrict holders, block accounts, recover funds, pause, reconcile with memos. Each page is a task the issuer completes.
-- **Does not belong**: The B20 specification itself (that's Base Protocol → Core Primitives → B20). These guides *use* B20 but don't *define* it.
+- **Does not belong**: The B20 specification itself (that's Specifications → B20). These guides *use* B20 but don't *define* it.
 
 ### Accept Payments
 
 - **Belongs**: Guides for requesting, authorizing, capturing, verifying, and reconciling payments, plus refunds, payouts, splits, scheduled charges, and agentic payments.
-- **Does not belong**: B20 memo specification (Base Protocol → Core Primitives → B20). x402 protocol spec.
+- **Does not belong**: B20 memo specification (Specifications → B20). x402 protocol spec.
 
 ---
 
@@ -74,44 +74,72 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: Developers and technical users who need to understand how Base works at the chain level — primitives, protocol internals, network configuration, and node operations.
 
-### Base Protocol (Landing)
+Content is organized by topic, not by abstraction level. Each topic group flows from user-facing overview to deep protocol spec, so developers find everything about a subject in one place.
 
-- **Belongs**: Chain overview, connecting to Base quickstart, faucets. Entry points into the protocol tab.
-- **Does not belong**: Integration guides or solutions-first style writing. This section is meant for technical-first style writing. SDK setup (that's SDKs & APIs).
+**Changelog pattern**: Each topic group should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Upgrades tab. The summary page lives here; the detail pages live in Upgrades under the hardfork that introduced them.
 
-### Core Primitives
+**Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines for page types, page structure, and writing rules.
 
-- **Belongs**: Specifications and reference material for Base-native primitives that developers interact with directly: B20 token standard (full spec, interfaces, constants, errors, invariants), native account abstraction, bridging options, network fees, transaction ordering/finality, Flashblocks.
-- **Does not belong**: How-to guides for using these primitives (those go in Build on Base). API endpoint reference (SDKs & APIs). Per-hardfork changelog detail pages (those go in Upgrades → the hardfork group).
-- **Changelog pattern**: Each feature or subsystem in Core Primitives should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Upgrades tab. The summary page lives here; the detail pages live in Upgrades under the hardfork that introduced them.
-- **Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines for page types, page structure, and writing rules.
+### Specifications (Landing)
 
-#### B20 (Nested Group)
+- **Belongs**: Chain overview, connecting to Base quickstart, faucets. Entry points into the Specifications tab.
+- **Does not belong**: Integration guides or solutions-first style writing. This tab is meant for technical-first style writing. SDK setup (that's SDKs & APIs).
+
+### B20
 
 - **Belongs**: The normative B20 specification: index page, constants and addresses, errors and events, invariants and tests, interface reference pages (IActivationRegistry, IB20, IB20Asset, IB20Factory, IB20Stablecoin, IPolicyRegistry), and a changelog summary page that links to the per-hardfork detail entries in the Upgrades tab.
 - **Does not belong**: Tutorials on deploying B20 tokens (Build on Base → Issue Stablecoins). Per-hardfork changelog detail pages (Upgrades → Cobalt, Beryl, etc.). The "B20 token standard" overview for general audiences (that's a network-information page, not the spec).
 
-#### Bridging (Nested Group)
+### Account Abstraction
 
-- **Belongs**: Ecosystem bridges overview, Base-Solana bridge, bridging and withdrawals user guide, and a changelog summary page linking to hardfork entries that changed bridging.
-- **Does not belong**: Protocol-level bridging specs (those go in Network Systems → Bridging).
+- **Belongs**: Native account abstraction specification for Base. Listed as a top-level page, not a dropdown group (single-page groups should be promoted to top-level pages).
+- **Does not belong**: SDK integration guides for smart wallets (SDKs & APIs → Base Account SDK).
 
-#### Transactions (Nested Group)
+### Bridging
 
-- **Belongs**: Transaction ordering, transaction finality — how users experience transactions. Include a changelog summary page linking to hardfork entries that changed transaction behavior.
-- **Does not belong**: Derivation pipeline or consensus specs (Network Systems → Consensus).
+- **Belongs**: Standard bridges contract spec, deposits spec, withdrawals spec, cross-domain messengers spec, Base-Solana bridge. Include a changelog summary page linking to hardfork entries that changed bridging.
+- **Does not belong**: User-facing bridge route picker (that's Get Started → Quickstart). How-to guides for building bridge integrations (Build on Base). Per-hardfork changelog detail pages (Upgrades).
+- **Ordering**: Standard bridges → deposits → withdrawals → cross-domain messengers → Base-Solana bridge. Protocol specs first (general to specific), then the first-party ecosystem bridge.
 
-### Network Systems
+### Transactions
 
-- **Belongs**: Protocol-level specifications: batcher, bridging internals (deposits, withdrawals, messengers), consensus (derivation, P2P, RPC), execution (precompiles, predeploys, preinstalls), proofs (challenger, proposer, registrar, TEE prover, ZK prover, contracts), throughput and limits.
-- **Does not belong**: User-facing network info (fees, faucets — those are Core Primitives or the landing group). Hardfork-specific changes (Upgrades). B20 spec (Core Primitives).
-- **Changelog pattern**: Same as Core Primitives — each subsystem (batcher, consensus, execution, proofs, etc.) should include a changelog summary page that lists per-hardfork changes and links out to the detail entries in the Upgrades tab.
-- **Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines — same page types and writing rules as Core Primitives.
+- **Belongs**: Transaction ordering, transaction finality, network fees, throughput and limits, troubleshooting transactions. Everything about how transactions work on Base, from user experience to network parameters.
+- **Does not belong**: Derivation pipeline or consensus specs (Consensus). Per-hardfork changelog detail pages (Upgrades).
+
+### Flashblocks
+
+- **Belongs**: Flashblocks reference — key concepts, architecture, and FAQ about block building, WebSocket data, RPC usage, and node setup.
+- **Does not belong**: Flashblocks API methods (SDKs & APIs → Base Chain API). Transaction ordering details (Transactions).
+
+### Protocol Overview
+
+- **Belongs**: Design philosophy and lineage (specs/overview), and the detailed protocol architecture with component diagrams and user flow walkthroughs (specs/protocol/overview).
+- **Does not belong**: Per-component specs (those go in their respective topic groups: Consensus, Execution, Proofs, etc.).
+
+### Batcher
+
+- **Belongs**: Batcher specification — how transaction batches are compressed and posted to Ethereum for data availability.
+- **Does not belong**: Derivation details (Consensus). Hardfork-specific batcher changes (Upgrades).
+
+### Consensus
+
+- **Belongs**: Consensus specifications: derivation pipeline, P2P networking, RPC methods for consensus.
+- **Does not belong**: Batcher (separate group). Execution engine details (Execution). Hardfork-specific changes (Upgrades).
+
+### Execution
+
+- **Belongs**: Execution specifications: EVM precompiles, predeploys, preinstalls.
+- **Does not belong**: Consensus or derivation details (Consensus). Hardfork-specific changes (Upgrades).
+
+### Proofs
+
+- **Belongs**: Proof system specifications: challenger, proposer, registrar, TEE prover, ZK prover, proof contracts.
+- **Does not belong**: Consensus or derivation details (Consensus). Hardfork-specific changes (Upgrades).
 
 ### Reference
 
-- **Belongs**: Node providers list, base contracts, glossary, configurability reference, troubleshooting transactions. Lookup-oriented content.
-- **Does not belong**: The B20 spec (that moved to Core Primitives). API endpoints (SDKs & APIs). Step-by-step guides of any kind.
+- **Belongs**: Builder codes, base contracts, smart contracts, configurability reference, glossary. Lookup-oriented content.
+- **Does not belong**: The B20 spec (that's in B20). API endpoints (SDKs & APIs). Step-by-step guides of any kind.
 
 ### Node Operators
 
@@ -137,7 +165,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 ### Base Chain API
 
 - **Belongs**: RPC overview, Ethereum JSON-RPC API methods, Flashblocks API methods, Debug API methods. Each page documents one RPC endpoint.
-- **Does not belong**: SDK wrapper methods (Base Account SDK). Flashblocks conceptual explainer (Base Protocol → Core Primitives). Node setup (Base Protocol → Node Operators).
+- **Does not belong**: SDK wrapper methods (Base Account SDK). Flashblocks conceptual explainer (Specifications → Flashblocks). Node setup (Base Protocol → Node Operators).
 
 ### Base Account SDK
 
@@ -170,7 +198,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 ### Optimism (Hardfork Groups)
 
 - **Belongs**: Upstream OP Stack hardfork specs that Base inherits (Jovian, Isthmus, Holocene, Granite, Fjord, Ecotone, Delta, Canyon). Each gets an overview plus per-component pages (exec-engine, derivation, predeploys, etc.).
-- **Does not belong**: Base-specific hardfork content (use the Base-named groups above). Current protocol specs (Base Protocol → Network Systems).
+- **Does not belong**: Base-specific hardfork content (use the Base-named groups above). Current protocol specs (Specifications → topic groups).
 
 ---
 
@@ -180,16 +208,23 @@ Key IA decisions from past reorganizations, for context:
 
 | Decision | Rationale |
 |----------|-----------|
-| B20 spec moved from Reference to Core Primitives | B20 is a first-class primitive developers interact with, not a lookup reference |
+| Topic-based groups replace Core Primitives / Network Systems | Developers navigate by topic (bridging, transactions), not by abstraction level (user-facing vs protocol internals). The old split created duplicate sidebar groups (two "Bridging" sections) and arbitrary placement decisions. Topic-based groups flow from overview → deep spec within each subject. |
+| B20 spec moved from Reference to its own group | B20 is a first-class primitive developers interact with, not a lookup reference |
 | How-to guides separated from specs | Build on Base is task-oriented (issue, accept, tokenize); Specifications is concept/spec-oriented |
 | API reference lives in SDKs & APIs, not Specifications | Developers looking for RPC methods think "API docs", not "protocol" |
-| Hardfork specs live in Upgrades, not Network Systems | Network Systems is the *current* canonical state; Upgrades tracks *deltas* |
+| Hardfork specs live in Upgrades, not topic groups | Topic groups are the *current* canonical state; Upgrades tracks *deltas* |
 | No per-feature upgrade groups | Feature changes (e.g., B20) go under the hardfork that introduced them (Cobalt, Beryl), not a standalone section |
-| Changelog summary pages in Specifications | Each Core Primitives and Network Systems feature gets a changelog summary page that links out to detail entries in the Upgrades tab — Specifications owns the spec and the summary, Upgrades owns the migration details |
+| Changelog summary pages in Specifications | Each topic group gets a changelog summary page that links out to detail entries in the Upgrades tab — Specifications owns the spec and the summary, Upgrades owns the migration details |
 | Node operators stay in Specifications | Node ops are protocol-adjacent, not SDK/API work |
 | Get Started → Solutions are entry ramps only | They link to Build on Base guides, they don't duplicate them |
 | Mini Apps renamed to Apps | Broader scope, `/mini-apps/` paths redirect to `/apps/` |
 | Tokenize Stocks renamed to Tokenize Assets | Broader scope for asset tokenization beyond equities |
+
+---
+
+## Navigation Structure
+
+- **No single-page dropdown groups**: If a group contains only one page, remove the group wrapper and list the page as a top-level nav item instead. A dropdown that expands to reveal a single link adds a click without adding value.
 
 ---
 
