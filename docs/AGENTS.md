@@ -31,7 +31,7 @@ AI agents can use Base skills to perform onchain actions directly from their too
 Install Base skills for your AI assistant:
 
 ```
-npx skills add base/base-skills
+npx skills add base/skills --skill base-mcp
 ```
 
 ## Compact Docs Index
