@@ -29,7 +29,7 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 ## Local development
 
-Prerequisite: Node.js v19+.
+Prerequisite: Node.js v20 (LTS).
 
 1. Clone the repository.
 2. Install the Mint CLI to preview documentation changes locally:
@@ -53,7 +53,7 @@ npx mint dev
 
 ### Troubleshooting
 
-- Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
+- Ensure Node.js v20 (LTS) is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
 - Local preview differs from production: run `mint update` to update the CLI.
 
 ## How to contribute
