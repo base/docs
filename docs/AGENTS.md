@@ -9,12 +9,11 @@ description: Look up Base documentation with a compact directory-grouped index b
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
 - [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
-- [Base Chain](./base-chain/llms.txt) — Base protocol specifications, core primitives, and network systems.
+- [Base Chain](./base-chain/llms.txt) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
 - [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
 - [Sdks](./sdks/llms.txt) — SDKs and APIs for accounts, identity verification, attribution, AI assistants, and direct Base chain access.
-- [Static](./static/llms.txt)
 
 ## Tools Available for AI Assistants
 
@@ -50,7 +49,7 @@ npx skills add base/base-skills
 |base-chain/api-reference:rpc-overview
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
-|base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
+|base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblocks,newFlashblockTransactions,pendingLogs
 |base-chain/flashblocks:faq
 |base-chain/network-information:b20-token-standard,base-contracts,base-solana-bridge,bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets,network-fees,smart-contracts,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
 |base-chain/node-operators:performance-tuning,run-a-base-node,snapshots,troubleshooting
@@ -68,11 +67,11 @@ npx skills add base/base-skills
 |base-chain/specs/reference/b20/changelog:02-cobalt-b20-seize,02-cobalt-b20asset-multiplier,02-cobalt-policyregistry-composite-policy
 |base-chain/specs/reference/b20/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
 |base-chain/specs/reference/b20/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
-|base-chain/specs/reference/b20/interfaces/IB20:BURN_BLOCKED_ROLE,BURN_ROLE,DEFAULT_ADMIN_ROLE,DOMAIN_SEPARATOR,METADATA_ROLE,MINT_RECEIVER_POLICY,MINT_ROLE,PAUSE_ROLE,SEIZE_HOLDER_POLICY,SEIZE_RECEIVER_POLICY,SEIZE_ROLE,TRANSFER_EXECUTOR_POLICY,TRANSFER_RECEIVER_POLICY,TRANSFER_SENDER_POLICY,UNPAUSE_ROLE,allowance,approve,balanceOf,burn,burnBlocked,burnWithMemo,contractURI,decimals,eip712Domain,getRoleAdmin,grantRole,hasRole,isPaused,mint,mintWithMemo,name,nonces,pause,pausedFeatures,permit,policyId,renounceLastAdmin,renounceRole,revokeRole,seizeWithMemo,setRoleAdmin,supplyCap,symbol,totalSupply,transfer,transferFrom,transferFromWithMemo,transferWithMemo,unpause,updateContractURI,updateName,updatePolicy,updateSupplyCap,updateSymbol
-|base-chain/specs/reference/b20/interfaces/IB20Asset:MAX_UI_MULTIPLIER,OPERATOR_ROLE,WAD_PRECISION,announce,balanceOfUI,batchMint,cancelUIMultiplierUpdate,effectiveAt,extraMetadata,fromUIAmount,isAnnouncementIdUsed,multiplier,newUIMultiplier,scaledBalanceOf,toRawBalance,toScaledBalance,toUIAmount,totalSupplyUI,uiMultiplier,updateExtraMetadata,updateMultiplier,updateUIMultiplier
+|base-chain/specs/reference/b20/interfaces/IB20:allowance,approve,balanceOf,burn,burnBlocked,burnWithMemo,BURN_BLOCKED_ROLE,BURN_ROLE,contractURI,decimals,DEFAULT_ADMIN_ROLE,DOMAIN_SEPARATOR,eip712Domain,getRoleAdmin,grantRole,hasRole,isPaused,METADATA_ROLE,mint,mintWithMemo,MINT_RECEIVER_POLICY,MINT_ROLE,name,nonces,pause,pausedFeatures,PAUSE_ROLE,permit,policyId,renounceLastAdmin,renounceRole,revokeRole,seizeWithMemo,SEIZE_HOLDER_POLICY,SEIZE_RECEIVER_POLICY,SEIZE_ROLE,setRoleAdmin,supplyCap,symbol,totalSupply,transfer,transferFrom,transferFromWithMemo,transferWithMemo,TRANSFER_EXECUTOR_POLICY,TRANSFER_RECEIVER_POLICY,TRANSFER_SENDER_POLICY,unpause,UNPAUSE_ROLE,updateContractURI,updateName,updatePolicy,updateSupplyCap,updateSymbol
+|base-chain/specs/reference/b20/interfaces/IB20Asset:announce,balanceOfUI,batchMint,cancelUIMultiplierUpdate,effectiveAt,extraMetadata,fromUIAmount,isAnnouncementIdUsed,MAX_UI_MULTIPLIER,multiplier,newUIMultiplier,OPERATOR_ROLE,scaledBalanceOf,toRawBalance,toScaledBalance,totalSupplyUI,toUIAmount,uiMultiplier,updateExtraMetadata,updateMultiplier,updateUIMultiplier,WAD_PRECISION
 |base-chain/specs/reference/b20/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
 |base-chain/specs/reference/b20/interfaces/IB20Stablecoin:currency
-|base-chain/specs/reference/b20/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
+|base-chain/specs/reference/b20/interfaces/IPolicyRegistry:compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
 |base-chain/specs/reference/builder-codes:agent-developers,app-developers,overview,wallet-developers
 |base-chain/specs/upgrades:overview
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
@@ -93,7 +92,7 @@ npx skills add base/base-skills
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base-services-hub,base,connect-to-base,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
-|root:changes,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
+|root:changes,content-guidelines,contribution-guidelines,cookie-policy,ia-guidelines,mintlify-reference,privacy-policy,terms-of-service
 |sdks:base-anvil,overview
 |sdks/base-account:overview
 |sdks/base-account/basenames:basename-transfer,basenames-faq
@@ -110,7 +109,7 @@ npx skills add base/base-skills
 |sdks/base-account/quickstart:ai-tools-available-for-devs,mobile-integration,web-react,web
 |sdks/base-account/reference/base-pay:charge,getOrCreateSubscriptionOwnerWallet,getPaymentStatus,getStatus,pay,prepareCharge,prepareRevoke,revoke,subscribe,subscriptions-overview
 |sdks/base-account/reference/core:createBaseAccount,generateKeyPair,getCryptoKeyAccount,getKeypair,getProvider,sdk-utilities
-|sdks/base-account/reference/core/capabilities:atomic,auxiliaryFunds,dataSuffix,datacallback,flowControl,gasLimitOverride,overview,paymasterService,signInWithEthereum
+|sdks/base-account/reference/core/capabilities:atomic,auxiliaryFunds,datacallback,dataSuffix,flowControl,gasLimitOverride,overview,paymasterService,signInWithEthereum
 |sdks/base-account/reference/core/provider-rpc-methods:coinbase_fetchPermission,coinbase_fetchPermissions,eth_accounts,eth_blockNumber,eth_chainId,eth_coinbase,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getProof,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_getUncleCountByBlockHash,eth_getUncleCountByBlockNumber,eth_requestAccounts,eth_sendRawTransaction,eth_sendTransaction,eth_signTypedData_v4,personal_sign,request-overview,sdk-overview,standard-rpc-methods,wallet_addEthereumChain,wallet_addSubAccount,wallet_connect,wallet_getCallsStatus,wallet_getCapabilities,wallet_getSubAccounts,wallet_sendCalls,wallet_switchEthereumChain,wallet_watchAsset,web3_clientVersion
 |sdks/base-account/reference/onchain-contracts:basenames,smart-wallet,spend-permissions
 |sdks/base-account/reference/prolink-utilities:createProlinkUrl,decodeProlink,encodeProlink
