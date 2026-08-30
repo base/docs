@@ -40,7 +40,9 @@ Reference `mintlify-reference.md` for correct component syntax.
 Check for correct syntax on these components:
 
 **Callouts** — must be self-closing or have content:
-- `<Note>`, `<Tip>`, `<Warning>`, `<Info>`, `<Check>`
+- <Note>This is important</Note>
+<Tip>Remember to enable cookies</Tip>
+<Warning>Do not share your API key</Warning>
 
 **Structural** — check for proper nesting:
 - `<Steps>` must contain `<Step title="...">` children
