@@ -1,0 +1,181 @@
+---
+title: "Network Fees"
+description: "Understand Base gas fees, estimation, optimization strategies, and best practices for efficient, reliable transactions on Base Mainnet and Sepolia."
+---
+
+# Fees
+
+## How do network fees on Base work?
+
+Every Base transaction consists of two costs: an L2 (execution) fee and an L1 (security) fee. The L2 fee is the cost to execute your transaction on the L2, and the L1 fee is the estimated cost to publish the transaction on the L1. Typically the L1 security fee is higher than the L2 execution fee.
+
+The L1 fee will vary depending on the amount of transactions on the L1. If the timing of your transaction is flexible, you can save costs by submitting transactions during periods of lower gas on the L1 (for example, over the weekend).
+
+Similarly, the L2 fee can increase and decrease depending on how many transactions are being submitted to the L2. This adjustment mechanism has the same implementation as the L1; you can read more about it [here](https://help.coinbase.com/en/coinbase/getting-started/crypto-education/eip-1559).
+
+For additional details about fee calculation on Base, please refer to the [op-stack developer documentation](https://docs.optimism.io/stack/transactions/fees).
+
+## Minimum Base Fee
+
+As part of the [Jovian upgrade](https://docs.optimism.io/notices/upgrade-17), Base introduced a minimum base fee. This feature sets a floor for the L2 base fee, preventing it from dropping to extremely low levels during periods of low network activity.
+
+The minimum base fee for Base Mainnet is 5,000,000 wei (0.005 gwei). This value may be periodically adjusted as we gather data on how it affects the chain. For reference, a minimum base fee of 0.005 gwei results in a cost of approximately $0.002 for a typical 200,000 gas transaction at an ETH price of $2000.
+
+### Benefits
+
+- **Faster Transaction Inclusion**: Previously, when low activity caused the base fee to drop very low, spikes in demand could lead to extended periods of congestion before fees rose enough to clear the backlog. With a minimum base fee, transactions are typically included more quickly without users needing to manually adjust priority fees.
+- **More Predictable Fees**: During normal operation, the base fee will remain at or near the minimum. During congestion, the base fee rises above the minimum. This creates a more predictable fee structure similar to surge pricing.
+- **Spam Prevention**: Extremely low fees can incentivize spam transactions that don't provide value to the network. The minimum base fee helps price out such activity while keeping fees affordable for legitimate use.
+
+### Current Configuration
+
+| Network      | Minimum Base Fee          |
+|--------------|---------------------------|
+| Base Mainnet | 5,000,000 wei (0.005 gwei) |
+| Base Sepolia | 5,000,000 wei (0.005 gwei) |
+
+See the [Configuration Changelog](/base-chain/network-information/configuration-changelog) for a history of changes to the minimum base fee and other network parameters.
+
+## EIP-1559 Fee Parameters
+
+Base uses the OP Stack's implementation of EIP-1559, which controls how the L2 base fee adjusts in response to network demand. Two key parameters govern this behavior:
+
+### Elasticity Multiplier
+
+The **Elasticity Multiplier** determines the maximum gas capacity of a block relative to the target gas usage. With an elasticity of 6, blocks can contain up to 6× the target gas, allowing the network to absorb sudden demand spikes.
+
+### Base Fee Change Denominator
+
+The **Base Fee Change Denominator** controls how quickly the base fee adjusts. A larger denominator means slower, more gradual fee changes. With a denominator of 125, the base fee changes more smoothly compared to lower values.
+
+### Maximum Rate of Change
+
+The maximum rate of base fee change per block is calculated as:
+
+**Max increase per block = (Elasticity - 1) / Denominator**
+
+With the current parameters (Elasticity = 6, Denominator = 125):
+
+- Maximum increase per block: (6 - 1) / 125 = **4%**
+- Minimum time to double the base fee: 18 blocks × 2 seconds = **36 seconds**
+
+This gradual adjustment helps prevent extreme fee volatility during traffic spikes while still allowing the network to respond to sustained demand.
+
+### Current Configuration
+
+| Network      | Elasticity | Denominator | Max Change/Block |
+|--------------|------------|-------------|------------------|
+| Base Mainnet | 6          | 125         | 4%               |
+| Base Sepolia | 6          | 125         | 4%               |
+
+## Querying the L1 Fee
+
+The **GasPriceOracle** predeployment at `0x420000000000000000000000000000000000000F` (listed in [Contract Addresses](/base-chain/network-information/base-contracts)) lets you programmatically estimate the L1 fee component before signing and submitting a transaction.
+
+| Method                        | Returns |
+|-------------------------------|---------|
+| `getL1Fee(bytes)`             | Exact L1 fee for a fully serialized (RLP-encoded) transaction |
+| `getL1FeeUpperBound(uint256 txSize)` | Upper-bound L1 fee estimate from approximate transaction byte length |
+| `l1BaseFee()`                 | Current Ethereum L1 base fee as seen by Base |
+| `blobBaseFee()`               | Current EIP-4844 blob base fee |
+| `baseFeeScalar()`             | Scalar applied to the L1 base fee component |
+| `blobBaseFeeScalar()`         | Scalar applied to the blob base fee component |
+
+Use `getL1FeeUpperBound` when you need a quick estimate before the transaction is fully constructed. Use `getL1Fee` with the complete serialized transaction for an exact value before signing.
+
+## Estimating and Sending Transactions (Best Practices)
+
+Use modern libraries like **viem** (recommended) or ethers.js for accurate gas estimation and fee handling. Always estimate on-chain rather than hardcoding values.
+
+<Steps>
+<Step>
+
+### 1. Estimate Gas & Fees
+
+```typescript filename="estimate-fees.ts"
+import { createPublicClient, http, parseEther } from 'viem'
+import { base } from 'viem/chains' // or baseSepolia for testnet
+
+const client = createPublicClient({
+  chain: base,
+  transport: http()
+})
+
+async function estimate() {
+  const gasEstimate = await client.estimateGas({
+    account: '0xYourAddressHere',
+    to: '0xRecipientAddress',
+    value: parseEther('0.001')
+  })
+
+  const fees = await client.estimateFeesPerGas()
+
+  console.log('Gas estimate:', gasEstimate)
+  console.log('Fees:', fees)
+  
+  return { gasEstimate, fees }
+}
+
+estimate()
+```
+
+</Step>
+<Step>
+
+### 2. Send Transaction with Safe Fees
+
+```typescript filename="send-tx.ts"
+import { createWalletClient, http } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+// import { base } from 'viem/chains'
+
+const account = privateKeyToAccount('0xYourPrivateKey') // Use secure methods in production
+
+const walletClient = createWalletClient({
+  account,
+  chain: base,
+  transport: http()
+})
+
+async function sendTx() {
+  const { gasEstimate, fees } = await estimate() // from previous step
+
+  const hash = await walletClient.sendTransaction({
+    to: '0xRecipientAddress',
+    value: parseEther('0.001'),
+    gas: gasEstimate,
+    maxFeePerGas: (fees.maxFeePerGas * 120n) / 100n, // 20% buffer for spikes / Flashblocks
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas
+  })
+
+  console.log('Transaction hash:', hash)
+}
+
+sendTx()
+```
+
+## Best Practices
+
+- **Always estimate dynamically** using `estimateGas` and `estimateFeesPerGas`.
+
+- **Add a safety buffer** (10-30%) on `maxFeePerGas` during volatile periods or when using Flashblocks.
+
+- **Query L1 fees** via GasPriceOracle for precise total cost prediction.
+
+- **For high-volume apps**: Consider batching transactions or Base Account Abstraction / sponsored transactions (paymasters).
+
+- Monitor real-time fees and implement retries with exponential backoff using `waitForTransactionReceipt`.
+
+- **Security note**: Never hardcode or commit raw private keys. Use environment variables, keystores, or hardware wallets in production.
+
+> **Tip**: Post-Azúl and recent upgrades, fee behavior remains EIP-1559 compatible but benefits from accurate client-side estimation. Combine with tools like Blocknative or viem watchers for production reliability.
+
+> **Warning**: Insufficient gas or under-estimated fees are common failure reasons. See [Troubleshooting Transactions](/base-chain/network-information/troubleshooting-transactions) for common issues and solutions.
+
+## Cross-references
+
+- [Quickstart](https://github.com/base/docs/tree/ae5e35e3809f26c180c2d44b85329525df4b4799/docs/base-chain/quickstart) 
+
+- [Deploy Smart Contracts](https://github.com/base/docs/blob/ae5e35e3809f26c180c2d44b85329525df4b4799/docs/get-started/deploy-smart-contracts.mdx) 
+
+- [Base Contracts](https://github.com/base/docs/blob/ae5e35e3809f26c180c2d44b85329525df4b4799/docs/base-chain/network-information/base-contracts.mdx) 
