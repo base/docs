@@ -1,0 +1,208 @@
+---
+  title: "Build USDC payments on Base with BasePay"
+  description: "A practical guide to sending, requesting, batch-paying, escrowing, and automating recurring USDC payments on Base using BasePay's open-source smart contracts."
+  ---
+
+  BasePay is an open-source USDC payments dApp deployed on Base Mainnet. It demonstrates production patterns for every major payment flow — single transfers, batch disbursements, escrow, and recurring subscriptions — using wagmi v2, viem, and four verified on-chain contracts.
+
+  <Tip>
+  All four BasePay contracts are source-verified on BaseScan and live on Base Mainnet. You can fork the contracts, reuse the ABIs, or build on top of them.
+  </Tip>
+
+  ## What BasePay enables
+
+  | Flow | Contract | Use case |
+  |---|---|---|
+  | Single transfer | BasePayRouter | Instant USDC payment to any address |
+  | Batch payment | BatchPay | Payroll, airdrops, splits — up to 200 recipients in one tx |
+  | Escrow | Escrow | Freelance, milestone, or conditional payments with timeout |
+  | Subscriptions | SubscriptionManager | Recurring SaaS, memberships, and service payments |
+
+  ---
+
+  ## Live app and contracts
+
+  **Live app:** https://base-pay.replit.app  
+  **Source:** https://github.com/osr21/basepay-dapp  
+  **Network:** Base Mainnet (Chain ID 8453)  
+  **USDC:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+
+  | Contract | Address | BaseScan |
+  |---|---|---|
+  | BasePayRouter | `0x2d7ba7ed34f8fa16fe4d0d11b51306dc753812c8` | [Verified ↗](https://basescan.org/address/0x2d7ba7ed34f8fa16fe4d0d11b51306dc753812c8#code) |
+  | BatchPay | `0x82569caf7847040a03ad2c6545ade5af2bdcf47c` | [Verified ↗](https://basescan.org/address/0x82569caf7847040a03ad2c6545ade5af2bdcf47c#code) |
+  | Escrow | `0x5b3241a47acfda41f15dfd7260339e2a88d52318` | [Verified ↗](https://basescan.org/address/0x5b3241a47acfda41f15dfd7260339e2a88d52318#code) |
+  | SubscriptionManager | `0x546093b0476b4b7909cd84f3a0fef813c421d14a` | [Verified ↗](https://basescan.org/address/0x546093b0476b4b7909cd84f3a0fef813c421d14a#code) |
+
+  ---
+
+  ## Pattern 1 — Single USDC transfer via BasePayRouter
+
+  The router deducts a protocol fee and forwards the net amount to the recipient. Callers approve the gross amount, then call `pay()`.
+
+  ```solidity BasePayRouter.sol
+  function pay(
+      address token,   // USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+      address to,
+      uint256 amount,  // gross (in USDC decimals, 6)
+      string calldata memo
+  ) external returns (uint256 net, uint256 fee);
+  ```
+
+  ```typescript Frontend (wagmi v2)
+  import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+
+  // 1. Approve USDC for the router
+  writeContract({
+    address: USDC_ADDRESS,
+    abi: USDC_ABI,
+    functionName: "approve",
+    args: [ROUTER_ADDRESS, amountRaw],  // exact amount, not unlimited
+  });
+
+  // 2. After approval confirms, call pay()
+  writeContract({
+    address: ROUTER_ADDRESS,
+    abi: ROUTER_ABI,
+    functionName: "pay",
+    args: [USDC_ADDRESS, recipient, amountRaw, memo],
+  });
+  ```
+
+  <Note>
+  Always approve the exact amount rather than `uint256.max`. Security scanners like Blockaid flag unlimited approvals to new contracts as high-risk. Exact approvals are the safest pattern and are equally convenient for single-use flows.
+  </Note>
+
+  ---
+
+  ## Pattern 2 — Batch payment to multiple recipients
+
+  BatchPay lets you send USDC to up to 200 addresses in a single transaction — ideal for payroll, airdrops, or revenue splits.
+
+  ```solidity BatchPay.sol
+  function batchPay(
+      address token,
+      address[] calldata recipients,
+      uint256[] calldata amounts,  // gross per recipient
+      string  calldata  memo
+  ) external returns (uint256 totalGross, uint256 totalFee, uint256 totalNet);
+  ```
+
+  ```typescript Frontend
+  // Approve the total gross amount first
+  const total = amounts.reduce((a, b) => a + b, 0n);
+  await approve(BATCH_PAY_ADDRESS, total);
+
+  // Then batch send
+  writeContract({
+    address: BATCH_PAY_ADDRESS,
+    abi: BATCH_PAY_ABI,
+    functionName: "batchPay",
+    args: [USDC_ADDRESS, recipients, amounts, memo],
+  });
+  ```
+
+  <Tip>
+  Batching 200 transfers costs roughly the same as 3-4 individual transactions on Base, thanks to L2 calldata compression. This makes on-chain payroll and splits economically practical for the first time.
+  </Tip>
+
+  ---
+
+  ## Pattern 3 — Escrow with timeout
+
+  Lock USDC for a payee. The payee claims it on completion, or the depositor refunds after a configurable timeout.
+
+  ```solidity Escrow.sol
+  // Depositor: lock funds
+  function deposit(
+      address token,
+      address payee,
+      uint256 amount,
+      uint256 timeout,  // seconds (e.g. 7 days = 604800)
+      string calldata memo
+  ) external returns (uint256 id);
+
+  // Payee: claim on delivery
+  function claim(uint256 id) external;
+
+  // Depositor: refund if payee doesn't deliver
+  function refund(uint256 id) external;  // only after timeout
+  ```
+
+  ```typescript Frontend
+  // Approve and deposit
+  await approve(ESCROW_ADDRESS, grossAmount);
+  const { id } = await deposit(USDC_ADDRESS, payee, grossAmount, 7 * 86400, "Freelance milestone 1");
+
+  // Share the escrow ID with the payee
+  // Payee calls claim(id) on completion
+  // Depositor calls refund(id) after timeout if unclaimed
+  ```
+
+  ---
+
+  ## Pattern 4 — Recurring subscriptions
+
+  SubscriptionManager enables pull-payment subscriptions. The payer pre-authorises a per-period amount; the payee (or anyone) triggers a charge once per interval.
+
+  ```solidity SubscriptionManager.sol
+  function subscribe(
+      address token,
+      address payee,
+      uint256 amount,    // gross per charge
+      uint256 interval,  // seconds (min 86400 = 1 day, max 31622400 = 366 days)
+      string calldata memo
+  ) external returns (uint256 id);
+
+  function charge(uint256 id) external;  // callable by anyone, once per interval
+  function cancel(uint256 id) external;  // only payer or payee
+  ```
+
+  ```typescript Frontend — approve one period, auto-reapprove
+  // Approve exactly one period's gross amount
+  await approve(SUB_MANAGER_ADDRESS, amountPerPeriod);
+
+  // Subscribe
+  const id = await subscribe(USDC_ADDRESS, payee, amountPerPeriod, 30 * 86400, "SaaS plan");
+
+  // Payee's backend calls charge(id) once per month
+  // UI monitors allowance and re-approves before each charge
+  ```
+
+  <Warning>
+  Approve only the per-charge amount, not a large allowance. Re-approve before each charge. This limits maximum exposure to one payment period and prevents security scanners from flagging the transaction.
+  </Warning>
+
+  ---
+
+  ## Fee structure
+
+  All contracts share the same 0.30% fee model:
+
+  ```
+  fee = gross_amount * 30 / 10_000
+  net = gross_amount - fee
+  ```
+
+  Use `quote(amount)` on any contract to preview fee and net before transacting.
+
+  ---
+
+  ## Why Base for USDC payments
+
+  - **Near-zero gas:** A batch of 50 USDC transfers costs under $0.05 in gas on Base
+  - **2-second finality:** Payments confirm fast enough for real-time UX
+  - **Native USDC:** Circle's official USDC is deployed natively on Base — no bridging risk
+  - **EVM compatible:** All standard wagmi/viem tooling works without modification
+  - **Open source:** BasePay's contracts and frontend are MIT-licensed and forkable
+
+  ---
+
+  ## Resources
+
+  - [BasePay live app](https://base-pay.replit.app)
+  - [Source code](https://github.com/osr21/basepay-dapp)
+  - [Contract reference](https://github.com/osr21/basepay-dapp/blob/main/docs/CONTRACTS.md)
+  - [Architecture guide](https://github.com/osr21/basepay-dapp/blob/main/docs/ARCHITECTURE.md)
+  - [USDC on Base](https://www.circle.com/blog/usdc-now-available-natively-on-base)
+  
