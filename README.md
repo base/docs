@@ -29,7 +29,7 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 ## Local development
 
-Prerequisite: Node.js v19+.
+Prerequisite: Node.js v19+
 
 1. Clone the repository.
 2. Install the Mint CLI to preview documentation changes locally:
@@ -95,7 +95,7 @@ The Base documentation is organized into established sections (for example: `get
 > - Organize Reference by component/feature, not per use case.
 > - Use cross-links instead of adding new structural layers.
 
-## Style and formatting
+### Style and formatting
 
 ### Writing style
 
@@ -161,6 +161,6 @@ If your goal is to increase discoverability of your product, please request incl
 
 The core team will review opened PRs. The SLA is 2 weeks, generally on a first-come, first-served basis outside of urgent changes. 
 
-## Storybook for UI components
+### Storybook for UI components
 
 See `storybook/README.md` for details on local Storybook and component docs.
