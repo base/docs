@@ -29,16 +29,37 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 ## Local development
 
-Prerequisite: Node.js v19+.
+### Prerequisites
 
-1. Clone the repository.
+Before you begin, ensure you have the following installed:
+
+- **Git** - for cloning the repository
+- **Node.js v19+** - required for the Mint CLI
+
+Verify your Node.js version:
+
+```bash
+node --version
+```
+
+If you need to install or update Node.js, visit [nodejs.org](https://nodejs.org/) or use a version manager like [nvm](https://github.com/nvm-sh/nvm).
+
+### Setup steps
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/base/docs.git
+cd docs
+```
+
 2. Install the Mint CLI to preview documentation changes locally:
 
 ```bash
 npm i -g mint
 ```
 
-3. Preview locally (run from the `docs/` directory where `docs.json` lives):
+3. Navigate to the `docs/` directory (where `docs.json` lives) and start the local server:
 
 ```bash
 cd docs
@@ -48,13 +69,21 @@ mint dev
 Alternatively, without a global install:
 
 ```bash
+cd docs
 npx mint dev
 ```
 
+4. Open your browser and visit the local URL shown in the terminal (typically `http://localhost:3000`).
+
 ### Troubleshooting
 
-- Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
-- Local preview differs from production: run `mint update` to update the CLI.
+| Issue | Solution |
+|-------|----------|
+| `mint: command not found` | Ensure npm global binaries are in your PATH, or use `npx mint dev` instead |
+| `node: command not found` | Install Node.js v19+ from [nodejs.org](https://nodejs.org/) |
+| `Error: docs.json not found` | Make sure you run `mint dev` from the `docs/` directory, not the repository root |
+| Local preview differs from production | Run `mint update` to update the CLI to the latest version |
+| Port already in use | Stop other processes using port 3000, or specify a different port with `mint dev --port 3001` |
 
 ## How to contribute
 
