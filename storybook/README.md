@@ -1,16 +1,26 @@
 ### Install Dependencies
 
-```bash install dependencies
+```bash
+# Install dependencies
 npm install
 ```
 
-```bash update dependencies
+```bash
+# Update dependencies
 npm update
+```
+
+### Build Project
+
+```bash
+# Build the project
+npm run build
 ```
 
 ### Run Storybook
 
 ```bash
+# Start Storybook
 npm run storybook
 ```
 
