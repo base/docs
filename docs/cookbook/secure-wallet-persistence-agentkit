@@ -1,0 +1,249 @@
+# Secure Your Agent: Encrypted Wallet Persistence
+
+**Author:** jadonamite
+**Topic:** Security & DevOps
+**Level:** Intermediate
+**Prerequisites:** Node.js v18+, CDP API Key, Basic Crypto Knowledge
+
+In our previous tutorials, we stored our agent's wallet in a plaintext file (`wallet_data.txt`). While great for prototyping, this is a **security nightmare** in production. If that file leaks, your agent's funds are gone. Furthermore, improperly handling file saves can lead to data corruption during restarts, causing your agent to "forget" who it is and spin up a new, empty wallet.
+
+In this tutorial, we will build a **Secure Wallet Manager** that:
+
+1. **Encrypts** wallet data at rest using AES-256-GCM.
+2. **Atomically saves** data to prevent corruption.
+3. **Decouples** storage logic, allowing you to easily swap the file system for a database (Postgres, Redis, etc.) later.
+
+---
+
+## 1. Architecture
+
+* **Encryption:** Node.js native `crypto` module (AES-256-GCM).
+* **Key Management:** Master Key stored in Environment Variables (never in code!).
+* **Storage Pattern:** Read-Modify-Write with atomic handling.
+
+---
+
+## 2. Prerequisites
+
+1. **Existing AgentKit Project:** You can use the `agent-cli` project from the previous guide.
+2. **Master Encryption Key:** You need a 32-byte hex string.
+* Generate one by running this in your terminal:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+```
+
+
+* *Copy this string immediately.*
+
+
+
+---
+
+## 3. Implementation
+
+### Step 1: Update Environment
+
+Add your new master key to your `.env` file.
+
+```env
+# .env
+# ... existing keys ...
+ENCRYPTION_KEY=your_generated_32_byte_hex_string_here
+
+```
+
+### Step 2: Create the Wallet Manager (`src/wallet_manager.ts`)
+
+Create a new file `src/wallet_manager.ts`. This class handles the "Lock" and "Unlock" logic for your wallet data.
+
+```typescript
+import * as fs from 'fs';
+import * as crypto from 'crypto';
+import * as path from 'path';
+
+const ALGORITHM = 'aes-256-gcm';
+const STORAGE_FILE = 'secure_wallet.json';
+
+export class WalletManager {
+  private encryptionKey: Buffer;
+
+  constructor() {
+    const keyString = process.env.ENCRYPTION_KEY;
+    if (!keyString) {
+      throw new Error("ENCRYPTION_KEY is missing from .env");
+    }
+    // Ensure key is 32 bytes
+    this.encryptionKey = Buffer.from(keyString, 'hex');
+  }
+
+  // ENCRYPT: Object -> { iv, authTag, encryptedData }
+  private encrypt(text: string): string {
+    const iv = crypto.randomBytes(16); // Initialization Vector
+    const cipher = crypto.createCipheriv(ALGORITHM, this.encryptionKey, iv);
+    
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    const authTag = cipher.getAuthTag();
+
+    // Store all components needed for decryption
+    return JSON.stringify({
+      iv: iv.toString('hex'),
+      authTag: authTag.toString('hex'),
+      data: encrypted
+    });
+  }
+
+  // DECRYPT: { iv, authTag, encryptedData } -> Object
+  private decrypt(encryptedWrapper: string): string {
+    const { iv, authTag, data } = JSON.parse(encryptedWrapper);
+    
+    const decipher = crypto.createDecipheriv(
+      ALGORITHM, 
+      this.encryptionKey, 
+      Buffer.from(iv, 'hex')
+    );
+    
+    decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+    
+    let decrypted = decipher.update(data, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  }
+
+  // SAVE: Encrypt and write to disk
+  public async saveWalletData(data: string): Promise<void> {
+    try {
+      const encryptedData = this.encrypt(data);
+      // Write to a temporary file first (Atomic Write pattern)
+      const tempPath = `${STORAGE_FILE}.tmp`;
+      fs.writeFileSync(tempPath, encryptedData);
+      fs.renameSync(tempPath, STORAGE_FILE);
+      console.log("🔒 Wallet data encrypted and saved securely.");
+    } catch (error) {
+      console.error("Failed to save wallet data:", error);
+      throw error;
+    }
+  }
+
+  // LOAD: Read from disk and decrypt
+  public async loadWalletData(): Promise<string | undefined> {
+    if (!fs.existsSync(STORAGE_FILE)) {
+      return undefined;
+    }
+
+    try {
+      const fileContent = fs.readFileSync(STORAGE_FILE, 'utf8');
+      const decryptedData = this.decrypt(fileContent);
+      console.log("🔓 Wallet data loaded and decrypted successfully.");
+      return decryptedData;
+    } catch (error) {
+      console.error("Error decrypting wallet. Key mismatch or file corruption?");
+      return undefined;
+    }
+  }
+}
+
+```
+
+### Step 3: Integrate into Agent (`src/index.ts`)
+
+Now, modify your main entry point to use this secure manager instead of raw `fs` calls.
+
+```typescript
+import { AgentKit, CdpWalletProvider, wethActionProvider, walletActionProvider, erc20ActionProvider, cdpApiActionProvider, cdpWalletActionProvider } from "@coinbase/agentkit";
+import { getLangChainTools } from "@coinbase/agentkit-langchain";
+import { HumanMessage } from "@langchain/core/messages";
+import { MemorySaver } from "@langchain/langgraph";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { ChatOpenAI } from "@langchain/openai";
+import * as dotenv from "dotenv";
+import * as readline from "readline";
+import { WalletManager } from "./wallet_manager"; // Import our new class
+
+dotenv.config();
+
+async function main() {
+  console.log("Initializing Secure Agent...");
+
+  // 1. Initialize Wallet Manager
+  const walletManager = new WalletManager();
+
+  const llm = new ChatOpenAI({ model: "gpt-4o-mini" });
+
+  // 2. Load Decrypted Data
+  const walletDataStr = await walletManager.loadWalletData();
+
+  // 3. Configure Provider
+  const walletProvider = await CdpWalletProvider.configureWithWallet({
+    apiKeyName: process.env.CDP_API_KEY_NAME,
+    apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    cdpWalletData: walletDataStr, // Pass the string (undefined = create new)
+    networkId: process.env.NETWORK_ID || "base-sepolia",
+  });
+
+  // 4. Setup AgentKit
+  const agentKit = await AgentKit.from({
+    walletProvider,
+    actionProviders: [
+      wethActionProvider(),
+      walletActionProvider(),
+      erc20ActionProvider(),
+      cdpApiActionProvider({
+        apiKeyName: process.env.CDP_API_KEY_NAME,
+        apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      }),
+      cdpWalletActionProvider({
+        apiKeyName: process.env.CDP_API_KEY_NAME,
+        apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      }),
+    ],
+  });
+
+  const tools = await getLangChainTools(agentKit);
+  const memory = new MemorySaver();
+
+  // 5. Initial Save (Encrypt immediately on creation)
+  const exportedWallet = await walletProvider.exportWallet();
+  await walletManager.saveWalletData(JSON.stringify(exportedWallet));
+
+  const agent = createReactAgent({
+    llm,
+    tools,
+    checkpointSaver: memory,
+    messageModifier: `You are a secure trading agent.`,
+  });
+
+  console.log(`Agent Active. Address: ${await walletProvider.getAddress()}`);
+  
+  // ... (Rest of your interaction loop logic remains the same) ...
+}
+
+main();
+
+```
+
+---
+
+## 4. Why This Solves the "Restart Issue"
+
+1. **Atomic Writes:** By writing to `.tmp` and renaming, we ensure that if the process crashes *during* a save, the original `secure_wallet.json` is not corrupted. You either have the old valid file or the new valid file, never a half-written file.
+2. **Portability:** The `secure_wallet.json` is encrypted. You can safely commit this to a private repo or upload it to S3 without exposing your private keys (as long as you keep `ENCRYPTION_KEY` secret).
+3. **Database Ready:** The `saveWalletData` and `loadWalletData` methods can easily be swapped to read/write from a Postgres database column instead of a file, which is the ultimate solution for containerized environments (Docker/Kubernetes).
+
+---
+
+## 5. Common Pitfalls
+
+1. **Losing the Encryption Key:**
+* **Gotcha:** If you change or lose your `ENCRYPTION_KEY` in the `.env` file, your `secure_wallet.json` becomes garbage. You will lose access to that wallet address forever.
+* **Fix:** Back up your encryption key securely (Password Manager, AWS Secrets Manager).
+
+
+2. **Git Ignore:**
+* **Gotcha:** Even though it's encrypted, it's best practice *not* to commit wallet files to public repos.
+* **Fix:** Add `secure_wallet.json` and `*.tmp` to your `.gitignore`.
+
+
