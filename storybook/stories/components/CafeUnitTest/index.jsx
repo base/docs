@@ -493,29 +493,35 @@ export function CafeUnitTest({ nftNum }) {
           </div>
         );
       }
-    if (chain?.id !== baseSepolia.id) {
-              return (
-          <div style={{ textAlign: "center", padding: "20px" }}>
-            <div style={{
+    const supportedChainIds = [baseSepolia.id, base.id];
+
+    // Allow users to run the exercise on both Base Sepolia (recommended) and Base mainnet.
+    // The deployment used for Base mainnet is the same as the Sepolia deployment.
+    if (!supportedChainIds.includes(chain?.id)) {
+      return (
+        <div style={{ textAlign: "center", padding: "20px" }}>
+          <div
+            style={{
               color: "#e53e3e",
               fontSize: "16px",
               fontWeight: "600",
-              marginBottom: "16px"
-            }}>
-              ⚠️ You are not connected to Base Sepolia
-            </div>
-            <button
-              style={{
-                ...buttonStyle,
-                ...buttonEnabledColor,
-                marginTop: "10px",
-              }}
-              onClick={() => switchChain({ chainId: baseSepolia.id })}
-            >
-              Switch to Base Sepolia
-            </button>
+              marginBottom: "16px",
+            }}
+          >
+            ⚠️ You are not connected to Base Sepolia
           </div>
-        );
+          <button
+            style={{
+              ...buttonStyle,
+              ...buttonEnabledColor,
+              marginTop: "10px",
+            }}
+            onClick={() => switchChain({ chainId: baseSepolia.id })}
+          >
+            Switch to Base Sepolia
+          </button>
+        </div>
+      );
     }
     return (
               <div style={{
