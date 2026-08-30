@@ -1,0 +1,98 @@
+---
+title: Troubleshooting AI Agents on Base
+description: Common issues, errors, and best practices when building autonomous onchain agents.
+---
+
+# Troubleshooting AI Agents on Base
+
+Common pitfalls and fixes for wallet setup, payments, transactions, and more.
+
+## Wallet & Signing Issues
+
+### Agent can't sign transactions
+**Symptoms**: "Insufficient funds", signing failures, or nonce errors.
+
+**Fixes**:
+- Ensure the agent wallet (e.g., via CDP, Sponge, or Bankr) has sufficient ETH for gas + USDC/approved tokens. [](grok_render_citation_card_json={"cardIds":["c5f80d"]})
+- Use proper nonce management for autonomous agents:
+
+```tsx filename="agent-signer.ts"
+import { createWalletClient } from 'viem';
+import { baseSepolia } from 'viem/chains';
+
+const client = createWalletClient({
+  chain: baseSepolia,
+  // ... account setup
+});
+
+// For agents: track nonce explicitly
+let currentNonce = await publicClient.getTransactionCount({ address: agentAddress });
+const tx = await client.sendTransaction({
+  ...params,
+  nonce: currentNonce++,
+});
+```
+
+> **Tip**: Implement retry logic with exponential backoff for transient RPC issues.
+
+> **Warning**: Avoid hardcoding gas limits; use `estimateGas` and add 20-50% buffer for Flashblocks variability.
+
+### x402 Payment Failures
+
+402 responses not handled or payments rejected
+
+**Common causes**:
+
+- Missing or invalid `PAYMENT-SIGNATURE` header.
+
+- Token approval not granted.
+
+- Incorrect chain ID or amount.
+
+**Solution steps**:
+
+1. Parse the `PAYMENT-REQUIRED` header correctly.
+
+2. Sign the exact payload expected by the facilitator.
+
+3. Verify approvals onchain.
+
+**Cross-link**: [Pay for services with x402](https://github.com/base/docs/blob/master/docs/ai-agents/payments/pay-for-services-with-x402.mdx)
+
+### Identity & Registration
+
+**ERC-8004 / Basename issues**:
+
+- Registration reverts → Check Basename availability and sufficient funds for registration fee.
+
+- Verification fails for other agents → Ensure the identity is published and queryable via the registry contract.
+
+### Transaction & Performance
+
+- **High gas / failed txs**: Use Flashblocks-aware strategies or batch where possible. Monitor via Basescan or data indexers. 
+
+- **State drift in long-running agents**: Persist agent state offchain (e.g., via data indexers) or use onchain checkpoints sparingly.
+
+- **Rate limits / RPC issues**: Rotate providers or use Base Services Hub recommendations. 
+
+## Best Practices for Reliable Agents
+
+| Practice                          | Why                              | How |
+|-----------------------------------|----------------------------------|-----|
+| **Explicit error handling & logging** | Agents run autonomously         | Wrap actions in `try/catch`; log to onchain events or offchain observability. |
+| **Idempotency keys**              | Prevent double-spends            | Include unique `idempotencyKey` in payment payloads. |
+| **Testing**                       | Edge cases                       | Use Base Sepolia + local forks; simulate 402 responses. |
+| **Monitoring**                    | Uptime                           | Integrate alerts for low balance or failed actions. |
+
+**Example prompt for your AI coding assistant**: "Debug why my Base agent fails x402 payments and add retry logic with proper nonce handling."
+
+## Related Resources
+
+- [AI Agents Overview](https://github.com/base/docs/tree/master/docs/ai-agents)
+
+- [Wallet Setup](https://github.com/base/docs/blob/master/docs/ai-agents/setup/wallet-setup.mdx) 
+
+- [Network Information](https://github.com/base/docs/tree/master/docs/base-chain/network-information)
+
+- [Block Explorers](https://github.com/base/docs/blob/master/docs/get-started/block-explorers.mdx)
+
