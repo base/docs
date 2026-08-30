@@ -13,7 +13,7 @@
 <!-- Badge row 2 - links and profiles -->
 
 [![Website base.org](https://img.shields.io/website-up-down-green-red/https/base.org.svg)](https://base.org)
-[![Blog](https://img.shields.io/badge/blog-up-green)](https://base.mirror.xyz/)
+[![Blog](https://img.shields.io/badge/blog-up-green)](https://paragraph.com/@base-8)
 [![Docs](https://img.shields.io/badge/docs-up-green)](https://docs.base.org/)
 [![Discord](https://img.shields.io/discord/1067165013397213286?label=discord)](https://base.org/discord)
 [![Twitter Base](https://img.shields.io/twitter/follow/Base?style=social)](https://twitter.com/Base)
