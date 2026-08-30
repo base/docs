@@ -1,0 +1,255 @@
+---
+title: Debug Base Account Transactions
+description: Learn how to diagnose failed Base Account transactions, identify where failures occur, and collect useful debugging information.
+---
+
+# Debug Base Account Transactions
+
+When a Base Account transaction fails, the error can originate from several different layers of the transaction lifecycle. This guide explains how to identify where a failure occurred, investigate the cause, and collect useful information for troubleshooting.
+
+## Understand the transaction lifecycle
+
+A Base Account transaction typically passes through the following stages:
+
+```text
+Application
+    ↓
+Base Account SDK
+    ↓
+Bundler
+    ↓
+Paymaster (optional)
+    ↓
+Smart Account Validation
+    ↓
+Execution Onchain
+```
+
+Understanding which layer generated the error is the fastest way to diagnose a failed transaction.
+
+| Layer | Common Issues |
+|---------|---------|
+| Application | Invalid input, malformed call data |
+| SDK | Incorrect configuration, unsupported parameters |
+| Bundler | UserOperation rejected, timeout |
+| Paymaster | Sponsorship denied, policy restrictions |
+| Validation | Invalid signature, account state mismatch |
+| Execution | Contract revert, insufficient permissions |
+
+## Capture transaction information
+
+Whenever you submit a transaction, record identifying information that can be used later for debugging.
+
+```ts
+const result = await account.sendCalls({
+  calls,
+});
+
+console.log({
+  chainId,
+  transactionHash: result.transactionHash,
+  timestamp: Date.now(),
+});
+```
+
+For production applications, consider logging:
+
+- Chain ID
+- Transaction hash
+- UserOperation ID (if available)
+- SDK version
+- Environment
+- Timestamp
+- Error message
+
+## Identify the failure stage
+
+### SDK errors
+
+SDK errors typically occur before a transaction is submitted.
+
+Common causes:
+
+- Missing required parameters
+- Invalid address format
+- Unsupported chain configuration
+- Incorrect SDK initialization
+
+Example:
+
+```ts
+try {
+  await account.sendCalls({
+    calls,
+  });
+} catch (error) {
+  console.error(error);
+}
+```
+
+If the error occurs immediately and no transaction hash is generated, the issue is often within the application or SDK layer.
+
+---
+
+### Bundler errors
+
+Bundlers validate and submit UserOperations.
+
+Common causes:
+
+- Invalid UserOperation structure
+- Gas estimation failures
+- Unsupported operation parameters
+- Temporary service issues
+
+Symptoms:
+
+- UserOperation rejected
+- Request timeout
+- Simulation failure
+
+When investigating bundler issues:
+
+1. Review the returned error message.
+2. Verify all call parameters.
+3. Retry after confirming network connectivity.
+4. Confirm the selected chain is supported.
+
+---
+
+### Paymaster errors
+
+If gas sponsorship is enabled, the paymaster may reject a request before execution.
+
+Common causes:
+
+- Sponsorship policy restrictions
+- Unsupported transaction type
+- Spending limit exceeded
+- Missing permissions
+
+Symptoms:
+
+- Sponsorship denied
+- Paymaster validation failure
+- Sponsored transaction unavailable
+
+Before investigating further, confirm:
+
+- Sponsorship is enabled
+- The correct chain is selected
+- The transaction meets paymaster requirements
+- Any spending limits have not been exceeded
+
+## Investigate validation failures
+
+Validation occurs before execution.
+
+Common causes include:
+
+- Invalid signatures
+- Expired authorization
+- Incorrect account state
+- Permission restrictions
+
+Typical symptoms:
+
+```text
+Validation reverted
+Invalid signature
+Account validation failed
+```
+
+If validation fails:
+
+1. Verify signer configuration.
+2. Ensure the correct account is connected.
+3. Confirm signatures were generated for the intended chain.
+4. Review any permission or policy restrictions.
+
+## Investigate execution failures
+
+Execution failures occur after validation succeeds.
+
+Common causes:
+
+- Contract revert
+- Access control restrictions
+- Invalid function parameters
+- Application-level business logic failures
+
+Symptoms:
+
+```text
+Execution reverted
+Call failed
+Contract error
+```
+
+In these cases:
+
+1. Inspect the target contract.
+2. Verify function arguments.
+3. Simulate the transaction if possible.
+4. Review contract-specific error messages.
+
+## Troubleshooting checklist
+
+Before opening an issue or requesting support, verify the following:
+
+- [ ] Correct chain selected
+- [ ] SDK version is current
+- [ ] Wallet connected successfully
+- [ ] Contract addresses are correct
+- [ ] Transaction parameters are valid
+- [ ] Sponsorship configuration is correct
+- [ ] Required permissions have been granted
+- [ ] Error message has been captured
+
+## Information to collect for support
+
+Providing complete debugging information helps reduce investigation time.
+
+Use the following template when reporting an issue:
+
+```text
+Chain:
+SDK Version:
+Framework:
+Wallet Type:
+Transaction Hash:
+UserOperation ID:
+Expected Result:
+Actual Result:
+Error Message:
+Steps to Reproduce:
+```
+
+Include:
+
+- Relevant code snippets
+- Complete error messages
+- Transaction hashes
+- Environment information
+
+## Common symptoms and likely causes
+
+| Symptom | Likely Cause |
+|----------|----------|
+| UserOperation rejected | Invalid request parameters |
+| Sponsorship denied | Paymaster policy restrictions |
+| Validation reverted | Signature or authorization issue |
+| Execution reverted | Contract logic failure |
+| Timeout | Bundler or network issue |
+| Missing transaction hash | SDK or application error |
+
+## Next steps
+
+Additional resources:
+
+- [Accept Payments](/base-account/guides/accept-payments)
+- [Gas Sponsorship](/base-account/guides/gas-sponsorship)
+- [Spend Permissions](/base-account/guides/spend-permissions)
+- [Provider Methods Reference](/base-account/reference/provider-methods)
+
+If the issue persists after completing this guide, collect the troubleshooting information above and open a support request with all relevant transaction details.
