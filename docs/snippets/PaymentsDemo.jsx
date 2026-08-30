@@ -447,7 +447,7 @@ export const PaymentsDemo = ({ flow }) => {
         .wf-btn2 { font-family: ${sans}; font-size: 13px; font-weight: 600; border-radius: 6px; padding: 10px 14px; cursor: pointer; background: ${C.white}; border: 1px solid ${C.border}; color: ${C.body}; width: 100%; transition: background .15s ease; }
         .wf-btn2:hover { background: ${C.panel}; }
         .wf-pill { font-family: ${sans}; font-size: 12px; font-weight: 500; border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap; color: ${C.sec}; background: ${C.white}; border: 1px solid ${C.border}; transition: all .12s ease; }
-        .wf-pill:hover { color: ${C.ink}; border-color: ${C.sub}; }
+        .wf-pill:not(.wf-pill-on):hover { color: ${C.ink}; border-color: ${C.sub}; }
         .wf-pill-on { color: ${C.onBlue}; background: ${C.blue}; border-color: ${C.blue}; }
         .wf-stage { font-family: ${sans}; font-size: 12.5px; white-space: nowrap; padding: 11px 2px; border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 7px; }
         @media (max-width: 640px) {
@@ -565,7 +565,7 @@ export const PaymentsDemo = ({ flow }) => {
               </div>
               <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step completed in the mock simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href={f.href || "/build-on-base/accept-payments/request-a-payment"} style={{ textDecoration: "none", marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href={f.href || "/build-on-base/accept-payments/request-a-payment"} style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
