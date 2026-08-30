@@ -1,0 +1,260 @@
+# Build a Base MCP Server: Connect Claude to the Blockchain
+
+**Author:** @jadonamite
+**Topic:** Model Context Protocol (MCP) & AI Integration
+**Level:** Advanced
+**Prerequisites:** Node.js v18+, Claude Desktop (optional but recommended)
+
+The **Model Context Protocol (MCP)** is the new standard for connecting AI models to external data and tools. Instead of building a standalone bot (like we did with AgentKit), an MCP Server allows *existing* AI interfaces—like **Claude Desktop** or **Cursor**—to directly interact with the Base blockchain.
+
+Imagine typing into Claude: *"Check the balance of this wallet on Base Sepolia"* and it just works, because you gave it the tools.
+
+In this tutorial, we will build a **Base MCP Server** that exposes blockchain tools (via Viem) to any MCP-compliant client.
+
+---
+
+## 1. Architecture
+
+* **MCP Host:** The AI interface (e.g., Claude Desktop).
+* **Transport:** `stdio` (Standard Input/Output) communication.
+* **MCP Server:** A TypeScript application running locally.
+* **Tools:** Viem functions wrapped as MCP Tools.
+* **Network:** Base Sepolia.
+
+---
+
+## 2. Prerequisites
+
+1. **Node.js v18+** installed.
+2. **Claude Desktop** installed (if you want to test the UI integration).
+3. **Base RPC URL:** You can use the public endpoint `https://sepolia.base.org` or a dedicated provider.
+
+---
+
+## 3. Implementation
+
+### Step 1: Project Setup
+
+Initialize a new TypeScript project and install the SDK.
+
+```bash
+mkdir base-mcp-server
+cd base-mcp-server
+npm init -y
+npm install typescript @types/node tsx --save-dev
+npm install @modelcontextprotocol/sdk viem zod
+
+```
+
+Create a `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"]
+}
+
+```
+
+### Step 2: The MCP Server (`src/index.ts`)
+
+Create `src/index.ts`. We will define a server that exposes one specific tool: `get_base_balance`.
+
+```typescript
+#!/usr/bin/env node
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import { createPublicClient, http, formatEther } from "viem";
+import { baseSepolia } from "viem/chains";
+import { z } from "zod";
+
+// 1. Setup Viem Client
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(),
+});
+
+// 2. Define Tool Schemas (Zod for validation)
+const GetBalanceSchema = z.object({
+  address: z.string().describe("The 0x wallet address to check"),
+});
+
+// 3. Initialize MCP Server
+const server = new Server(
+  {
+    name: "base-mcp-server",
+    version: "1.0.0",
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
+
+// 4. List Available Tools
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: [
+      {
+        name: "get_base_balance",
+        description: "Fetch the ETH balance of a wallet on Base Sepolia",
+        inputSchema: {
+          type: "object",
+          properties: {
+            address: {
+              type: "string",
+              description: "The 0x wallet address",
+            },
+          },
+          required: ["address"],
+        },
+      },
+    ],
+  };
+});
+
+// 5. Handle Tool Execution
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name === "get_base_balance") {
+    try {
+      // Validate input using Zod
+      const { address } = GetBalanceSchema.parse(request.params.arguments);
+
+      if (!address.startsWith("0x")) {
+        throw new Error("Invalid address format");
+      }
+
+      // Execute Blockchain Call
+      const balance = await client.getBalance({
+        address: address as `0x${string}`,
+      });
+
+      const formatted = formatEther(balance);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Balance: ${formatted} ETH (Base Sepolia)`,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  throw new Error("Tool not found");
+});
+
+// 6. Connect Transport
+const transport = new StdioServerTransport();
+await server.connect(transport);
+
+```
+
+### Step 3: Build & Configure
+
+Add a build script to `package.json`:
+
+```json
+"scripts": {
+  "build": "tsc",
+  "start": "node dist/index.js"
+}
+
+```
+
+Build the project:
+
+```bash
+npm run build
+
+```
+
+**Get the absolute path** to your project:
+
+```bash
+pwd
+# Example output: /Users/jadonamite/Dev/base-mcp-server
+
+```
+
+### Step 4: Integrate with Claude Desktop
+
+To make Claude see your new server, you need to edit its config file.
+
+**MacOS Path:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows Path:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Open the file and add your server:
+
+```json
+{
+  "mcpServers": {
+    "base-chain": {
+      "command": "node",
+      "args": [
+        "/YOUR/ABSOLUTE/PATH/TO/base-mcp-server/dist/index.js"
+      ]
+    }
+  }
+}
+
+```
+
+*Note: Replace `/YOUR/ABSOLUTE/PATH/...` with the real path from Step 3.*
+
+### Step 5: Test It
+
+1. Restart **Claude Desktop**.
+2. Look for the electrical plug icon 🔌 (MCP indicator) in the top right. It should show "base-chain" as connected.
+3. **Prompt Claude:** *"What is the balance of 0x036CbD53842c5426634e7929541eC2318f3dCF7e on Base?"*
+4. **Claude's Action:**
+* It will identify the tool `get_base_balance`.
+* It will execute the code locally on your machine via the MCP server.
+* It will return the real-time balance from Viem.
+
+
+
+---
+
+## 4. Common Pitfalls
+
+1. **Stdio Noise:**
+* **Gotcha:** If you put `console.log("Hello")` in your code, it will break the MCP protocol (which relies on standard output for JSON messages).
+* **Fix:** Only use `console.error()` for debugging logs; `console.log()` is reserved for the protocol transport.
+
+
+2. **Path Issues:**
+* **Gotcha:** Claude Desktop fails to start the server.
+* **Fix:** Ensure you used the **absolute path** in the config JSON. Relative paths often fail.
+
+
+3. **Build Errors:**
+* **Gotcha:** `npm run start` fails with "Cannot find module".
+* **Fix:** Ensure you ran `npm run build` first to generate the `dist/` folder.
+
+
+
+
