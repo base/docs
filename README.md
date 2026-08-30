@@ -29,14 +29,18 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 ## Local development
 
-Prerequisite: Node.js v19+.
+Prerequisite: Node.js v20+ (v19+ minimum, v20+ recommended).
 
 1. Clone the repository.
 2. Install the Mint CLI to preview documentation changes locally:
 
 ```bash
-npm i -g mint
+npm i -g mintlify
 ```
+
+<Note>
+The package is now called `mintlify` (formerly `mint`). Make sure you have the latest version installed.
+</Note>
 
 3. Preview locally (run from the `docs/` directory where `docs.json` lives):
 
@@ -54,7 +58,7 @@ npx mint dev
 ### Troubleshooting
 
 - Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
-- Local preview differs from production: run `mint update` to update the CLI.
+- Local preview differs from production: run `mintlify update` to update the CLI.
 
 ## How to contribute
 
