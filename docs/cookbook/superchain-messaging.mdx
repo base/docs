@@ -1,0 +1,265 @@
+# Superchain Native Message Passing: Base to Optimism
+
+**Author:** @jadonamite
+**Topic:** Interoperability
+**Level:** Advanced
+**Prerequisites:** Foundry, Base Sepolia ETH, OP Sepolia ETH
+
+The Superchain isn't just a collection of chains; it's a unified network. Previously, moving data between L2s required settling to L1 (Ethereum) first, which was slow and expensive.
+
+With **Superchain Native Message Passing**, you can send messages directly between chains (e.g., Base to Optimism) with low latency and without touching L1 execution. This is powered by the **`L2ToL2CrossDomainMessenger`** system contract.
+
+In this tutorial, we will build a **Cross-Chain Greeter**. You will update a greeting on **Base Sepolia**, and it will automatically propagate to **OP Sepolia**.
+
+---
+
+## 1. Architecture
+
+1. **Source (Base):** You call `sendGreeting()` on your contract.
+2. **System Contract:** Your contract calls the `L2ToL2CrossDomainMessenger` (at `0x4200...0023`).
+3. **Relayer:** The Superchain relayer observes the log, generates a proof, and submits it to the destination.
+4. **Destination (Optimism):** The `L2ToL2CrossDomainMessenger` on Optimism calls `setGreeting()` on your target contract.
+
+---
+
+## 2. Prerequisites
+
+You need wallets funded on **two** chains.
+
+* **Base Sepolia:** Chain ID `84532`
+* **OP Sepolia:** Chain ID `11155420`
+* **Foundry:** Installed and up to date.
+
+---
+
+## 3. Smart Contracts
+
+Initialize a Foundry project:
+
+```bash
+forge init superchain-greeting --no-commit
+cd superchain-greeting
+
+```
+
+### The Interface (`src/interfaces/IL2ToL2CrossDomainMessenger.sol`)
+
+The system contract lives at a known address (`0x4200000000000000000000000000000000000023`), but we need the interface to call it.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IL2ToL2CrossDomainMessenger {
+    function sendMessage(
+        uint256 _destinationChainId,
+        address _target,
+        bytes calldata _message,
+        uint32 _minGasLimit
+    ) external returns (bytes32);
+
+    function crossDomainMessageSender() external view returns (address);
+    function crossDomainMessageSource() external view returns (uint256);
+}
+
+```
+
+### The Receiver Contract (`src/GreeterReceiver.sol`)
+
+Deploy this on **OP Sepolia**. It listens for messages from the Messenger.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {IL2ToL2CrossDomainMessenger} from "./interfaces/IL2ToL2CrossDomainMessenger.sol";
+
+contract GreeterReceiver {
+    string public greeting;
+    address public sender;
+    
+    // The specific system address for L2-to-L2 messaging
+    address constant MESSENGER = 0x4200000000000000000000000000000000000023;
+    
+    // Security: Only allow updates from a specific contract on a specific chain
+    address public immutable expectedSender;
+    uint256 public immutable expectedSourceChainId;
+
+    event GreetingReceived(string newGreeting, uint256 sourceChain);
+
+    constructor(address _expectedSender, uint256 _expectedSourceChainId) {
+        expectedSender = _expectedSender;
+        expectedSourceChainId = _expectedSourceChainId;
+    }
+
+    function setGreeting(string memory _newGreeting) external {
+        // 1. Check that the caller is the Messenger
+        require(msg.sender == MESSENGER, "Caller is not the Messenger");
+
+        // 2. Check the cross-domain sender (The contract on Base)
+        require(
+            IL2ToL2CrossDomainMessenger(MESSENGER).crossDomainMessageSender() == expectedSender,
+            "Invalid cross-domain sender"
+        );
+
+        // 3. Check the source chain (Base Sepolia ID)
+        require(
+            IL2ToL2CrossDomainMessenger(MESSENGER).crossDomainMessageSource() == expectedSourceChainId,
+            "Invalid source chain"
+        );
+
+        greeting = _newGreeting;
+        emit GreetingReceived(_newGreeting, expectedSourceChainId);
+    }
+}
+
+```
+
+### The Sender Contract (`src/GreeterSender.sol`)
+
+Deploy this on **Base Sepolia**. It initiates the message.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {IL2ToL2CrossDomainMessenger} from "./interfaces/IL2ToL2CrossDomainMessenger.sol";
+
+contract GreeterSender {
+    address constant MESSENGER = 0x4200000000000000000000000000000000000023;
+    
+    // Target configuration
+    address public targetReceiver;
+    uint256 public targetChainId;
+
+    event GreetingSent(string greeting, bytes32 msgHash);
+
+    constructor(address _targetReceiver, uint256 _targetChainId) {
+        targetReceiver = _targetReceiver;
+        targetChainId = _targetChainId;
+    }
+
+    function sendGreeting(string memory _greeting) external {
+        // 1. Encode the function call we want to execute on the destination
+        bytes memory message = abi.encodeWithSignature("setGreeting(string)", _greeting);
+
+        // 2. Send the message
+        bytes32 msgHash = IL2ToL2CrossDomainMessenger(MESSENGER).sendMessage(
+            targetChainId,
+            targetReceiver,
+            message,
+            200_000 // Gas limit for execution on destination
+        );
+
+        emit GreetingSent(_greeting, msgHash);
+    }
+}
+
+```
+
+---
+
+## 4. Deployment & Execution
+
+We need to deploy the Receiver *first* so we know its address.
+
+### Step 1: Deploy Receiver (OP Sepolia)
+
+```bash
+# OP Sepolia Chain ID: 11155420
+# Note: We don't know the sender address yet. 
+# For this tutorial, we will use CREATE2 or update the sender address later.
+# SIMPLIFICATION: We will pre-calculate the sender address or make it setable.
+
+```
+
+*Refined Strategy:* Deploy the Sender first, get its address, then deploy the Receiver with the correct config. But the Sender needs the Receiver's address too? **Circular dependency.**
+
+**Solution:** Deterministic Deployment (CREATE2) or a `setTarget` function. Let's add `setTarget` to our Sender contract for simplicity.
+
+**Updated `GreeterSender.sol` Logic:**
+
+```solidity
+    function setTarget(address _targetReceiver, uint256 _targetChainId) external {
+        targetReceiver = _targetReceiver;
+        targetChainId = _targetChainId;
+    }
+
+```
+
+**Execution:**
+
+1. **Deploy Sender (Base Sepolia):**
+```bash
+forge create src/GreeterSender.sol:GreeterSender \
+  --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY \
+  --constructor-args 0x0000000000000000000000000000000000000000 11155420
+
+```
+
+
+*Copy the Sender Address: `0xSender...*`
+2. **Deploy Receiver (OP Sepolia):**
+```bash
+forge create src/GreeterReceiver.sol:GreeterReceiver \
+  --rpc-url https://sepolia.optimism.io \
+  --private-key $PRIVATE_KEY \
+  --constructor-args 0xSender... 84532
+
+```
+
+
+*Copy the Receiver Address: `0xReceiver...*`
+3. **Configure Sender (Base Sepolia):**
+Using `cast`:
+```bash
+cast send 0xSender... "setTarget(address,uint256)" 0xReceiver... 11155420 \
+  --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY
+
+```
+
+
+4. **Send Message (Base Sepolia):**
+```bash
+cast send 0xSender... "sendGreeting(string)" "Hello Superchain" \
+  --rpc-url https://sepolia.base.org \
+  --private-key $PRIVATE_KEY
+
+```
+
+
+
+---
+
+## 5. Verification
+
+1. Wait a few minutes. Superchain relayers are fast, but testnet can vary.
+2. Check the **Receiver** on OP Sepolia:
+```bash
+cast call 0xReceiver... "greeting()(string)" --rpc-url https://sepolia.optimism.io
+
+```
+
+
+**Output:** `"Hello Superchain"`
+
+---
+
+## 6. Common Pitfalls
+
+1. **Wrong Gas Limit:**
+* If you set the gas limit too low in `sendMessage` (`200_000` in example), the transaction will revert on the destination chain.
+
+
+2. **Chain ID Mismatch:**
+* Ensure you use the correct Chain IDs (`84532` for Base Sepolia, `11155420` for OP Sepolia).
+
+
+3. **Permissions:**
+* If `crossDomainMessageSender()` doesn't match your expected address, the `require` in the receiver will fail silently on the destination chain.
+
+
+
+```
