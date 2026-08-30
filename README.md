@@ -164,3 +164,11 @@ The core team will review opened PRs. The SLA is 2 weeks, generally on a first-c
 ## Storybook for UI components
 
 See `storybook/README.md` for details on local Storybook and component docs.
+
+Added extra explanation for beginners
+## Additional Beginner Explanation
+
+Base is very friendly for new users, but some steps may still be confusing for first-time explorers.
+
+This note is added to improve clarity for beginners learning how to interact with Base ecosystem tools and documentation.
+
