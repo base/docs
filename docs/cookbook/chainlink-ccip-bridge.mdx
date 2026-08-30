@@ -1,0 +1,248 @@
+
+# Chainlink CCIP Token Bridge: Burn & Mint
+
+**Author:** @jadonamite
+**Topic:** Cross-Chain Interoperability
+**Level:** Intermediate
+**Prerequisites:** Foundry, Base Sepolia ETH, Arbitrum Sepolia ETH
+
+In this tutorial, we will build a **"Burn and Mint" Bridge** using **Chainlink CCIP**.
+Unlike standard lock-and-mint bridges, this architecture keeps the total supply constant across chains without locking liquidity in a vault.
+
+1. **Source (Base):** You burn tokens and send a CCIP message.
+2. **Destination (Arbitrum):** The CCIP Router verifies the message and your contract mints new tokens.
+
+## 1. Architecture
+
+* **Source Chain:** Base Sepolia (Selector: `10344971235874465080`)
+* **Destination Chain:** Arbitrum Sepolia (Selector: `3478487238524512106`)
+* **Router (Base):** `0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93`
+* **Router (Arbitrum):** `0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165`
+
+---
+
+## 2. Smart Contracts
+
+Initialize a Foundry project:
+
+```bash
+forge init ccip-bridge --no-commit
+cd ccip-bridge
+forge install smartcontractkit/ccip-contracts --no-commit
+
+```
+
+### The Token (`src/BridgeToken.sol`)
+
+We need a token that allows our bridge contracts to mint and burn.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract BridgeToken is ERC20, AccessControl {
+    bytes32 public constant BRIDGE_ROLE = keccak256("BRIDGE_ROLE");
+
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(BRIDGE_ROLE, msg.sender); // Allow deployer to mint initially
+    }
+
+    function mint(address to, uint256 amount) external onlyRole(BRIDGE_ROLE) {
+        _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) external onlyRole(BRIDGE_ROLE) {
+        _burn(from, amount);
+    }
+}
+
+```
+
+### The Source Bridge (`src/SourceBridge.sol`)
+
+This contract lives on **Base Sepolia**. It burns tokens and dispatches the message.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {BridgeToken} from "./BridgeToken.sol";
+
+contract SourceBridge {
+    IRouterClient public router;
+    BridgeToken public token;
+    uint64 public destinationChainSelector;
+    address public destinationBridge;
+
+    error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees);
+
+    constructor(address _router, address _token, uint64 _destinationChainSelector) {
+        router = IRouterClient(_router);
+        token = BridgeToken(_token);
+        destinationChainSelector = _destinationChainSelector;
+    }
+
+    // Set the address of the contract on the other side
+    function setDestinationBridge(address _destinationBridge) external {
+        destinationBridge = _destinationBridge;
+    }
+
+    function bridgeTokens(uint256 _amount) external payable returns (bytes32 messageId) {
+        // 1. Burn tokens on Source (User must approve this contract first)
+        token.burn(msg.sender, _amount);
+
+        // 2. Construct CCIP Message
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(destinationBridge),
+            data: abi.encode(msg.sender, _amount), // Send who to mint to and how much
+            tokenAmounts: new Client.EVMTokenAmount[](0), // No tokens transferred directly, just data
+            extraArgs: Client._argsToBytes(
+                // Set gas limit for the destination execution (minting is cheap, 200k is plenty)
+                Client.EVMExtraArgsV1({gasLimit: 200_000})
+            ),
+            feeToken: address(0) // Pay in Native (ETH)
+        });
+
+        // 3. Calculate Fee
+        uint256 fees = router.getFee(destinationChainSelector, message);
+        if (fees > address(this).balance + msg.value) revert NotEnoughBalance(address(this).balance, fees);
+
+        // 4. Send Message
+        messageId = router.ccipSend{value: fees}(destinationChainSelector, message);
+    }
+    
+    // Allow contract to receive ETH for fees
+    receive() external payable {}
+}
+
+```
+
+### The Destination Bridge (`src/DestinationBridge.sol`)
+
+This contract lives on **Arbitrum Sepolia**. It receives the message and mints tokens.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
+import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
+import {BridgeToken} from "./BridgeToken.sol";
+
+contract DestinationBridge is CCIPReceiver {
+    BridgeToken public token;
+    address public sourceBridge;
+    uint64 public sourceChainSelector;
+
+    event Minted(address indexed recipient, uint256 amount);
+
+    constructor(address _router, address _token, uint64 _sourceChainSelector, address _sourceBridge) 
+        CCIPReceiver(_router) 
+    {
+        token = BridgeToken(_token);
+        sourceChainSelector = _sourceChainSelector;
+        sourceBridge = _sourceBridge;
+    }
+
+    function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
+        // 1. Security Check: Only allow messages from our specific Source Bridge on Base
+        require(
+            message.sourceChainSelector == sourceChainSelector,
+            "Invalid source chain"
+        );
+        require(
+            abi.decode(message.sender, (address)) == sourceBridge,
+            "Invalid source bridge"
+        );
+
+        // 2. Decode the payload
+        (address recipient, uint256 amount) = abi.decode(message.data, (address, uint256));
+
+        // 3. Mint tokens (This contract must have BRIDGE_ROLE)
+        token.mint(recipient, amount);
+        
+        emit Minted(recipient, amount);
+    }
+}
+
+```
+
+---
+
+## 3. Deployment
+
+### Step 1: Deploy on Arbitrum Sepolia (Destination)
+
+1. **Deploy Token:**
+```bash
+forge create src/BridgeToken.sol:BridgeToken --constructor-args "ArbToken" "ATK" ...
+
+```
+
+
+2. **Deploy Destination Bridge:**
+* Router: `0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165`
+* Source Selector (Base): `10344971235874465080`
+* Source Bridge: (We don't have it yet! Use a placeholder or deploy Deterministically).
+* *Simpler Flow:* Deploy Source first, then Dest, then update Source. But Dest needs Source address in constructor? We can remove the immutable check for the tutorial or use `setSourceBridge`. Let's assume we update `DestinationBridge` to verify `sourceBridge` from a state variable.
+
+
+*(Revised for simplicity)*:
+```bash
+# Deploy Token
+forge create ...
+# Deploy DestinationBridge (Pass Router and Token. We will set Source later)
+forge create ...
+# Grant BRIDGE_ROLE to DestinationBridge
+cast send <TOKEN_ADDR> "grantRole(bytes32,address)" <BRIDGE_ROLE_HASH> <DEST_BRIDGE_ADDR> ...
+
+```
+
+
+
+### Step 2: Deploy on Base Sepolia (Source)
+
+1. **Deploy Token:**
+```bash
+forge create src/BridgeToken.sol:BridgeToken --constructor-args "BaseToken" "BTK" ...
+
+```
+
+
+2. **Deploy Source Bridge:**
+* Router: `0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93`
+* Dest Selector (Arb): `3478487238524512106`
+
+
+```bash
+forge create src/SourceBridge.sol:SourceBridge ...
+
+```
+
+
+3. **Link Bridges:**
+* Call `setDestinationBridge(<DEST_BRIDGE_ADDR>)` on **SourceBridge**.
+* (If you added a setter to Dest) Call `setSourceBridge(<SOURCE_BRIDGE_ADDR>)` on **DestinationBridge**.
+
+
+
+### Step 3: Execute Bridge
+
+1. **Mint Test Tokens (Base):** Call `mint` on your Token contract to yourself.
+2. **Approve Bridge:** Call `approve(<SOURCE_BRIDGE_ADDR>, 100)` on the Token.
+3. **Bridge:**
+```bash
+cast send <SOURCE_BRIDGE_ADDR> "bridgeTokens(uint256)" 100 --value 0.01ether ...
+
+```
+
+
+4. **Verify:** Check the **CCIP Explorer** with your transaction hash to see the message land on Arbitrum and mint your new tokens.
+
