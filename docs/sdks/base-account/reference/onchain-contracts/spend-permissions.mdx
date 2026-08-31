@@ -9,9 +9,9 @@ You can find the open-source contracts repository by clicking the button below:
 
 <GithubRepoCard title="Spend Permissions" githubUrl="https://github.com/coinbase/spend-permissions" />
 
-### Structs
+## Structs
 
-#### `SpendPermission`
+### `SpendPermission`
 
 Defines the complete parameters of a spend permission.
 
@@ -32,7 +32,7 @@ Defines the complete parameters of a spend permission.
 | `salt`      | `uint256` | An arbitrary salt to differentiate unique spend permissions with otherwise identical data. |
 | `extraData` | `bytes`   | Arbitrary data to include in the permission.                                               |
 
-#### `PeriodSpend`
+### `PeriodSpend`
 
 Describes the cumulative spend for the current active period.
 
@@ -44,114 +44,114 @@ Describes the cumulative spend for the current active period.
 
 ---
 
-### Contract Functions
+## Contract Functions
 
-#### `approve`
+### `approve`
 
 Approve a spend permission via a direct call from the `account`. Only callable by the `account` specified in the spend permission.
 
-```solidity
+```solidity approve
 function approve(SpendPermission calldata spendPermission) external;
 ```
 
 ---
 
-#### `approveWithSignature`
+### `approveWithSignature`
 
 Approve a spend permission via a signature from the `account` owner. Compatible with [ERC-6492](https://eips.ethereum.org/EIPS/eip-6492) signatures for automatic account creation if needed.
 
-```solidity
+```solidity approveWithSignature
 function approveWithSignature(SpendPermission calldata spendPermission, bytes calldata signature) external;
 ```
 
 ---
 
-#### `spend`
+### `spend`
 
 Spend tokens using a spend permission, transferring them from the `account` to the `spender`. Only callable by the `spender` specified in the permission.
 
-```solidity
+```solidity spend
 function spend(SpendPermission memory spendPermission, uint160 value) external;
 ```
 
 ---
 
-#### `revoke`
+### `revoke`
 
 Revoke a spend permission, permanently disabling its use. Only callable by the `account` specified in the spend permission.
 
-```solidity
+```solidity revoke
 function revoke(SpendPermission calldata spendPermission) external;
 ```
 
 ---
 
-#### `revokeAsSpender`
+### `revokeAsSpender`
 
 Revoke a spend permission, permanently disabling its use. Only callable by the `spender` specified in the spend permission.
 
-```solidity
+```solidity revokeAsSpender
 function revokeAsSpender(SpendPermission calldata spendPermission) external;
 ```
 
 ---
 
-#### `getHash`
+### `getHash`
 
 Generate a hash of a `SpendPermission` struct for signing, in accordance with [EIP-712](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md).
 
-```solidity
+```solidity getHash
 function getHash(SpendPermission memory spendPermission) public view returns (bytes32);
 ```
 
 ---
 
-#### `isApproved`
+### `isApproved`
 
 Check if a spend permission is approved, regardless of whether the current time is within the valid time range of the permission.
 
-```solidity
+```solidity isApproved
 function isApproved(SpendPermission memory spendPermission) public view returns (bool);
 ```
 
 ---
 
-#### `isRevoked`
+### `isRevoked`
 
 Check if a spend permission is revoked, regardless of whether the current time is within the valid time range of the permission.
 
-```solidity
+```solidity isRevoked
 function isRevoked(SpendPermission memory spendPermission) public view returns (bool);
 ```
 
 ---
 
-#### `isValid`
+### `isValid`
 
 Check if a spend permission is approved and not revoked, regardless of whether the current time is within the valid time range of the permission.
 
-```solidity
+```solidity isValid
 function isValid(SpendPermission memory spendPermission) public view returns (bool);
 ```
 
 ---
 
-#### `getLastUpdatedPeriod`
+### `getLastUpdatedPeriod`
 
 Retrieve the `start`, `end`, and accumulated `spend` for the last updated period of a spend permission.
 
-```solidity
+```solidity getLastUpdatedPeriod
 function getLastUpdatedPeriod(SpendPermission memory spendPermission) public view returns (PeriodSpend memory);
 ```
 
 ---
 
-#### `getCurrentPeriod`
+### `getCurrentPeriod`
 
 Retrieve the `start`, `end`, and accumulated `spend` for the current period of a spend permission.
 Reverts if the current time is outside the valid time range of the permission, but does not validate whether the
 spend permission has been approved or revoked.
 
-```solidity
+```solidity getCurrentPeriod
 function getCurrentPeriod(SpendPermission memory spendPermission) public view returns (PeriodSpend memory);
 ```

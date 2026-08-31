@@ -21,7 +21,7 @@ This page specifies the contract behavior used by the proof system:
 
 ## Contract Graph
 
-```mermaid
+```mermaid Contract Graph lines wrap expandable
 flowchart TB
     Factory[DisputeGameFactory] -->|clones| Game[AggregateVerifier game]
     Game -->|validates parent and finality| ASR[AnchorStateRegistry]
@@ -56,7 +56,7 @@ The contracts share the same dispute-game types:
 
 The `AggregateVerifier` game uses two block intervals:
 
-```text
+```text Block Intervals
 BLOCK_INTERVAL
 INTERMEDIATE_BLOCK_INTERVAL
 ```
@@ -68,7 +68,7 @@ divisible by `INTERMEDIATE_BLOCK_INTERVAL`.
 
 The number of intermediate roots in every game is:
 
-```text
+```text Intermediate Root Count
 BLOCK_INTERVAL / INTERMEDIATE_BLOCK_INTERVAL
 ```
 
@@ -98,7 +98,7 @@ The final intermediate root must equal the game's `rootClaim`.
 
 `DisputeGameFactory` creates and indexes dispute-game clones. Each game is uniquely identified by:
 
-```text
+```text Game UUID
 keccak256(abi.encode(gameType, rootClaim, extraData))
 ```
 
@@ -213,7 +213,7 @@ claim:
 
 Unlocks are keyed by:
 
-```text
+```text Withdrawal Request Key
 withdrawals[msg.sender][subAccount]
 ```
 
@@ -268,7 +268,7 @@ ZK proof, or both.
 
 where:
 
-```text
+```text Extra Data Root Count
 n = BLOCK_INTERVAL / INTERMEDIATE_BLOCK_INTERVAL
 ```
 
@@ -329,7 +329,7 @@ A game cannot store more than one proof of the same type.
 
 TEE and ZK proofs commit to the same transition shape:
 
-```text
+```text Proof Journal Fields lines wrap expandable
 proposer
 l1OriginHash
 startingRoot
@@ -344,14 +344,14 @@ proof-system-specific hash
 For TEE proofs, the final field is `TEE_IMAGE_HASH` and the journal is checked by `TEEVerifier`.
 The game calls:
 
-```text
+```text TEE Journal Verification Call
 TEE_VERIFIER.verify(proposer || signature, TEE_IMAGE_HASH, keccak256(journal))
 ```
 
 For ZK proofs, the final field is `ZK_RANGE_HASH` and the proof is checked by `ZKVerifier`. The
 game calls:
 
-```text
+```text ZK Journal Verification Call
 ZK_VERIFIER.verify(proofBytes, ZK_AGGREGATE_HASH, keccak256(journal))
 ```
 
@@ -441,13 +441,13 @@ from locking the bond forever.
 
 The call:
 
-```text
+```text ZKVerifier Verify Call
 verify(proofBytes, imageId, journal)
 ```
 
 performs:
 
-```text
+```text SP1 Verification Call
 SP1_VERIFIER.verifyProof(imageId, abi.encodePacked(journal), proofBytes)
 ```
 
@@ -506,7 +506,7 @@ and deregister signers.
 
 The registry reads the expected TEE image hash from the current game implementation:
 
-```text
+```text Expected Image Hash Lookup
 DisputeGameFactory.gameImpls(gameType).TEE_IMAGE_HASH()
 ```
 
@@ -522,7 +522,7 @@ the game implementation's `TEE_IMAGE_HASH` matches their registered image hash.
 
 `registerSigner(output, proofBytes)` calls:
 
-```text
+```text Attestation Verification Call
 NITRO_VERIFIER.verify(output, ZkCoProcessorType.RiscZero, proofBytes)
 ```
 
@@ -530,19 +530,19 @@ The returned journal must have `VerificationResult.Success`. The attestation tim
 older than `MAX_AGE`, which is fixed at 60 minutes. The public key must be exactly 65 bytes in
 uncompressed ANSI X9.62 form:
 
-```text
+```text Uncompressed Public Key Layout
 0x04 || x || y
 ```
 
 The registry derives the signer address as:
 
-```text
+```text Signer Address Derivation
 address(uint160(uint256(keccak256(x || y))))
 ```
 
 The registry extracts PCR0 from the journal and stores:
 
-```text
+```text Signer Image Hash
 signerImageHash[signer] = keccak256(pcr0.first || pcr0.second)
 ```
 
@@ -614,13 +614,13 @@ permanently reverts.
 
 For RISC Zero, proof verification uses:
 
-```text
+```text RISC Zero Verification Call
 IRiscZeroVerifier.verify(proofBytes, programId, sha256(output))
 ```
 
 For Succinct, proof verification uses:
 
-```text
+```text Succinct Verification Call
 ISP1Verifier.verifyProof(programId, output, proofBytes)
 ```
 
@@ -650,7 +650,7 @@ A successful journal remains successful only when:
 Attestation timestamps are provided in milliseconds and converted to seconds. The timestamp is
 valid only when:
 
-```text
+```text Timestamp Validity Conditions
 timestamp + maxTimeDiff > block.timestamp
 timestamp < block.timestamp
 ```
