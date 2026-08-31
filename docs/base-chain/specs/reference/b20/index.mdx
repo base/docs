@@ -13,7 +13,69 @@ B20 is Base's native ERC-20-compatible token standard implemented as Rust precom
 
 ## ERC-20 Compatibility
 
-B20 is a superset of ERC-20. Standard ERC-20 calls and events keep selector and behavior parity for `transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, `name`, `symbol`, `decimals`, `Transfer`, and `Approval`.
+## Precompile Architecture & Addresses
+
+B20 relies on singleton system precompiles:
+
+| Precompile | Address | Description |
+| :--- | :--- | :--- |
+| **B20 Factory** | `0xB20f000000000000000000000000000000000000` | Creates deterministic B20 tokens |
+| **Policy Registry** | `0x8453000000000000000000000000000000000002` | Manages allowlists and blocklists |
+| **Activation Registry** | `0x8453000000000000000000000000000000000001` | Feature-flag and network activation gate |
+
+Token addresses are deterministically formatted as:
+`[10-byte B20 prefix (0xB200...)] [1-byte variant] [9-byte hash(deployer, salt)]`
+
+## Access Control & Roles Model
+
+Access control follows standard role constants:
+* `DEFAULT_ADMIN_ROLE`
+* `MINT_ROLE`
+* `BURN_ROLE`
+* `SEIZE_ROLE` (replaces legacy `BURN_BLOCKED_ROLE`)
+* `PAUSE_ROLE` & `UNPAUSE_ROLE`
+* `METADATA_ROLE`
+* `OPERATOR_ROLE` (Asset variant only)
+
+### Admin Renunciation
+Tokens can launch admin-less by setting `initialAdmin == address(0)` at creation. The final admin cannot renounce via `renounceRole` or `revokeRole` (reverts with `LastAdminCannotRenounce`); permanent renunciation requires calling `renounceLastAdmin()`.
+
+## Policy Scopes & Registry Integration
+
+The `PolicyRegistry` stores allowlists and blocklists referenced by `uint64 policyId`. All scopes default to `ALWAYS_ALLOW` upon token creation.
+
+* `TRANSFER_SENDER_POLICY`: Checked against `from` on transfers.
+* `TRANSFER_RECEIVER_POLICY`: Checked against `to` on transfers.
+* `TRANSFER_EXECUTOR_POLICY`: Checked against `msg.sender`.
+* `MINT_RECEIVER_POLICY`: Checked against `to` on minting.
+* `SEIZE_HOLDER_POLICY`: Account `from` must be **denied** by this policy to qualify for seizure.
+* `SEIZE_RECEIVER_POLICY`: Account `to` must be **authorized** by this policy.
+
+## Core Extensions
+
+* **Memos:** `transferWithMemo`, `transferFromWithMemo`, `mintWithMemo`, `burnWithMemo`, and `seizeWithMemo` emit standard `Transfer` and `Memo` events with a `bytes32` payload.
+* **Seize:** `seizeWithMemo(from, to, amount, memo)` bypasses allowances and standard transfer policies, requiring `SEIZE_ROLE`.
+* **Supply Cap:** Optional `uint128` cap. `type(uint128).max` denotes no practical cap. Modifications are admin-gated via `updateSupplyCap`.
+* **Granular Pause:** Independent pause controls for `TRANSFER`, `MINT`, `BURN`, and `SEIZE`.
+* **ERC-2612 Permit & EIP-712:** Native signed approvals using domain `(name, version="1", chainId, verifyingContract)`. `updateName` rotates the domain separator and emits `EIP712DomainChanged`. ERC-1271 contract signatures are unsupported.
+* **Metadata & Contract URI:** ERC-7572 `contractURI()` and mutable metadata (`updateName`, `updateSymbol`) gated by `METADATA_ROLE`.
+
+## Token Variants
+
+* **Asset:** Supports customizable decimals (6–18), rebase multipliers, batch issuance, and metadata announcements.
+* **Stablecoin:** Fixed at 6 decimals with an immutable uppercase ISO currency code (`currency()`, e.g., `USD`).
+
+## Factory Deployment Interface
+
+Deployed via the singleton factory precompile:
+```solidity
+function createB20(
+    Variant variant,
+    bytes32 salt,
+    bytes calldata params,
+    bytes[] calldata initCalls
+) external returns (address tokenAddress);
+``` B20 is a superset of ERC-20. Standard ERC-20 calls and events keep selector and behavior parity for `transfer`, `transferFrom`, `approve`, `allowance`, `balanceOf`, `totalSupply`, `name`, `symbol`, `decimals`, `Transfer`, and `Approval`.
 
 B20-specific methods extend the standard without changing the ERC-20 surface.
 
