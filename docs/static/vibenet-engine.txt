@@ -31,6 +31,7 @@ export const EXPLORER_URL = "https://chain.base.org/vibenet/explorer";
 export const B20_FACTORY = "0xB20f000000000000000000000000000000000000";
 export const ACTIVATION_REGISTRY = "0x8453000000000000000000000000000000000001";
 export const POLICY_REGISTRY = "0x8453000000000000000000000000000000000002";
+export const ASSET_FEATURE = "0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c";
 export const STABLECOIN_FEATURE = "0xecfa0def2c10020caaf65e6155aa69c84b24892aaef76eeac52e0e2b3a0b8601";
 export const POLICY_FEATURE = "0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f";
 export const ACCOUNT_STORAGE_KEY = "base.docs.vibenet.account.v1";
@@ -49,6 +50,7 @@ const ROLE_NAMES = [
   "UNPAUSE_ROLE",
   "METADATA_ROLE",
 ];
+const ASSET_ROLE_NAMES = [...ROLE_NAMES, "OPERATOR_ROLE"];
 
 const POLICY_SCOPES = {
   TRANSFER_SENDER_POLICY: keccak256(toHex("TRANSFER_SENDER_POLICY")),
@@ -155,6 +157,17 @@ const b20Abi = [
   { type: "function", name: "pause", stateMutability: "nonpayable", inputs: [{ type: "uint8[]" }], outputs: [] },
   { type: "function", name: "unpause", stateMutability: "nonpayable", inputs: [{ type: "uint8[]" }], outputs: [] },
   { type: "function", name: "isPaused", stateMutability: "view", inputs: [{ type: "uint8" }], outputs: [{ type: "bool" }] },
+];
+
+const assetAbi = [
+  { type: "function", name: "batchMint", stateMutability: "nonpayable", inputs: [{ type: "address[]" }, { type: "uint256[]" }], outputs: [] },
+  { type: "function", name: "announce", stateMutability: "nonpayable", inputs: [{ type: "bytes[]" }, { type: "string" }, { type: "string" }, { type: "string" }], outputs: [] },
+  { type: "function", name: "isAnnouncementIdUsed", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "updateExtraMetadata", stateMutability: "nonpayable", inputs: [{ type: "string" }, { type: "string" }], outputs: [] },
+  { type: "function", name: "extraMetadata", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "string" }] },
+  { type: "function", name: "updateMultiplier", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
+  { type: "function", name: "multiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "scaledBalanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ];
 
 const client = createPublicClient({
@@ -305,23 +318,25 @@ export async function contracts() {
   return response.json();
 }
 
-export async function probeCapabilities() {
-  const [chainId, blockNumber, stablecoin, policy] = await Promise.all([
+export async function probeCapabilities(domain = "stablecoin") {
+  const [chainId, blockNumber, asset, stablecoin, policy] = await Promise.all([
     rpc("eth_chainId"),
     rpc("eth_blockNumber"),
+    readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [ASSET_FEATURE]),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [STABLECOIN_FEATURE]),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [POLICY_FEATURE]),
   ]);
   const expectedChain = BigInt(chainId) === BigInt(CHAIN_ID);
+  const domainActive = domain === "asset" ? asset : stablecoin;
   return {
-    live: expectedChain && stablecoin && policy,
+    live: expectedChain && domainActive && policy,
     chainId: Number(BigInt(chainId)),
     blockNumber: Number(BigInt(blockNumber)),
-    capabilities: { stablecoin: Boolean(stablecoin), policy: Boolean(policy) },
+    capabilities: { asset: Boolean(asset), stablecoin: Boolean(stablecoin), policy: Boolean(policy) },
     reason: !expectedChain
       ? `Unexpected chain ${Number(BigInt(chainId))}`
-      : !stablecoin
-        ? "B20 stablecoin creation is not activated"
+      : !domainActive
+        ? `B20 ${domain} creation is not activated`
         : !policy
           ? "B20 policy writes are not activated"
           : null,
@@ -523,6 +538,113 @@ export async function createStablecoin({
   return { token, ...tx };
 }
 
+export async function createAsset({
+  name = "Docs Demo Asset",
+  symbol = "EXM",
+  decimals = TOKEN_DECIMALS,
+  roles = ASSET_ROLE_NAMES,
+  initialMints = [],
+  supplyCap,
+  policies = [],
+} = {}) {
+  const { account } = await getSharedAccount();
+  const salt = keccak256(toHex(`${name}:${symbol}:${Date.now()}:${randomHex(8)}`));
+  const params = encodeAbiParameters(
+    [{ type: "tuple", components: [{ type: "uint8" }, { type: "string" }, { type: "string" }, { type: "address" }, { type: "uint8" }] }],
+    [[1, name, symbol, account.address, decimals]],
+  );
+  const token = await readFunction(B20_FACTORY, factoryAbi, "getB20Address", [0, account.address, salt]);
+  const initCalls = roles.map((role) => encodeB20("grantRole", [roleId(role), account.address]));
+  if (supplyCap !== undefined) initCalls.push(encodeB20("updateSupplyCap", [BigInt(supplyCap)]));
+  for (const policy of policies) initCalls.push(encodeB20("updatePolicy", [scopeId(policy.scope), BigInt(policy.id)]));
+  if (initialMints.length) {
+    initCalls.push(encodeFunctionData({
+      abi: assetAbi,
+      functionName: "batchMint",
+      args: [initialMints.map((mint) => mint.to), initialMints.map((mint) => BigInt(mint.amount))],
+    }));
+  }
+  const createData = encodeFunctionData({ abi: factoryAbi, functionName: "createB20", args: [0, salt, params, initCalls] });
+  const tx = await sendCalls({
+    calls: [{ to: B20_FACTORY, data: createData }],
+    metadata: `Create ${symbol}`,
+    gasFloor: 2_000_000n,
+  });
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if (await readFunction(B20_FACTORY, factoryAbi, "isB20Initialized", [token])) break;
+    if (attempt === 11) throw new Error("The B20 transaction landed, but the asset is not initialized yet");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return { token, ...tx };
+}
+
+export async function configureAssetControls({ token, roles = [], supplyCap }) {
+  const { account } = await getSharedAccount();
+  const calls = roles.map((role) => ({ to: token, data: encodeB20("grantRole", [roleId(role), account.address]) }));
+  if (supplyCap !== undefined) calls.push({ to: token, data: encodeB20("updateSupplyCap", [BigInt(supplyCap)]) });
+  return sendCalls({ calls, metadata: "Configure asset controls" });
+}
+
+export async function updateAssetMetadata({ token, key, value }) {
+  const data = encodeFunctionData({ abi: assetAbi, functionName: "updateExtraMetadata", args: [key, value] });
+  return sendCalls({ calls: [{ to: token, data }], metadata: `Update asset metadata: ${key}` });
+}
+
+export async function batchMint({ token, recipients, amounts }) {
+  const data = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "batchMint",
+    args: [recipients, amounts.map((amount) => BigInt(amount))],
+  });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Batch issue asset units" });
+}
+
+export async function announceDistribution({ token, recipients, amounts, id, description, uri }) {
+  const batch = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "batchMint",
+    args: [recipients, amounts.map((amount) => BigInt(amount))],
+  });
+  const data = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "announce",
+    args: [[batch], id, description, uri],
+  });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Announce asset distribution" });
+}
+
+export async function isAnnouncementIdUsed(token, id) {
+  return readFunction(token, assetAbi, "isAnnouncementIdUsed", [id]);
+}
+
+export async function updateMultiplier({ token, multiplier }) {
+  const data = encodeFunctionData({ abi: assetAbi, functionName: "updateMultiplier", args: [BigInt(multiplier)] });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Update asset multiplier" });
+}
+
+export async function assetMultiplier(token) {
+  return readFunction(token, assetAbi, "multiplier");
+}
+
+export async function scaledBalanceOf(token, address) {
+  return readFunction(token, assetAbi, "scaledBalanceOf", [address]);
+}
+
+export async function assetMetadata(token, key) {
+  return readFunction(token, assetAbi, "extraMetadata", [key]);
+}
+
+export async function assetDetails(token) {
+  const [name, decimals, totalSupply, supplyCap, multiplier] = await Promise.all([
+    readFunction(token, b20Abi, "name"),
+    readFunction(token, b20Abi, "decimals"),
+    readFunction(token, b20Abi, "totalSupply"),
+    readFunction(token, b20Abi, "supplyCap"),
+    readFunction(token, assetAbi, "multiplier"),
+  ]);
+  return { name, decimals: Number(decimals), totalSupply, supplyCap, multiplier };
+}
+
 export async function createPolicy({ kind, accounts = [] }) {
   const { account } = await getSharedAccount();
   const policyType = kind === "allowlist" ? 1 : 0;
@@ -661,6 +783,7 @@ const api = {
   B20_FACTORY,
   ACTIVATION_REGISTRY,
   POLICY_REGISTRY,
+  ASSET_FEATURE,
   STABLECOIN_FEATURE,
   POLICY_FEATURE,
   TOKEN_DECIMALS,
@@ -678,6 +801,17 @@ const api = {
   isDeployed,
   sendCalls,
   createStablecoin,
+  createAsset,
+  configureAssetControls,
+  updateAssetMetadata,
+  batchMint,
+  announceDistribution,
+  isAnnouncementIdUsed,
+  updateMultiplier,
+  assetMultiplier,
+  scaledBalanceOf,
+  assetMetadata,
+  assetDetails,
   createPolicy,
   attachPolicy,
   updateAllowlist,
