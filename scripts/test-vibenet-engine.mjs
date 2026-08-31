@@ -41,6 +41,7 @@ assert.equal(engine.memoToBytes32("invoice-8842").length, 66);
 assert.equal(engine.bytes32ToMemo(engine.memoToBytes32("invoice-8842")), "invoice-8842");
 assert.equal(engine.decodeRevert({ data: "0x4b344b11" }).name, "SupplyCapExceeded");
 assert.equal(engine.decodeRevert({ data: "0xa43fec12" }).name, "PolicyForbids");
+assert.equal(engine.decodeRevert({ data: "0xfd8c4245" }).name, "ContractPaused");
 const memoTopic = engine.memoToBytes32("invoice-8842");
 const decodedMemo = engine.readMemoFromReceipt({
   logs: [{
