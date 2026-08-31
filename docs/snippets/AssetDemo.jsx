@@ -74,15 +74,17 @@ export const AssetDemo = ({ flow }) => {
       const result = await rpc("eth_call", [{ to: "0x8453000000000000000000000000000000000001", data }, "latest"]);
       return BigInt(result) === 1n;
     };
-    const [chainId, blockNumber, asset, policy] = await Promise.all([
+    const [chainId, blockNumber, genesis, asset, policy] = await Promise.all([
       rpc("eth_chainId"),
       rpc("eth_blockNumber"),
+      rpc("eth_getBlockByNumber", ["0x0", false]),
       isActivated("0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c"),
       isActivated("0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f"),
     ]);
     return {
       live: BigInt(chainId) === 84538453n && asset && policy,
       blockNumber: Number(BigInt(blockNumber)),
+      genesisHash: genesis?.hash || null,
       reason: !asset ? "B20 Asset creation is not activated" : !policy ? "Policy writes are not activated" : null,
     };
   };
@@ -249,6 +251,8 @@ export const AssetDemo = ({ flow }) => {
   const [probeInfo, setProbeInfo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [accountAddress, setAccountAddress] = useState(null);
+  const [accountCopied, setAccountCopied] = useState(false);
   const liveContext = useRef(null);
 
   useEffect(() => {
@@ -258,6 +262,14 @@ export const AssetDemo = ({ flow }) => {
         if (cancelled) return;
         setProbeInfo(info);
         setLiveState(info.live ? "live" : "offline");
+        if (info.live && info.genesisHash) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("base.docs.vibenet.account.v1") || "null");
+            if (stored?.genesisHash === info.genesisHash && stored.address) setAccountAddress(stored.address);
+          } catch {
+            // The engine will replace corrupt or stale state on first use.
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setLiveState("offline");
@@ -276,6 +288,7 @@ export const AssetDemo = ({ flow }) => {
   const ensureLiveContext = async (engine) => {
     if (liveContext.current) return liveContext.current;
     const shared = await engine.getSharedAccount();
+    setAccountAddress(shared.account.address);
     liveContext.current = {
       account: shared.account.address,
       token: null,
@@ -662,8 +675,25 @@ export const AssetDemo = ({ flow }) => {
   };
 
   const levelColor = { EVENT: C.blue, INFO: C.sec, ERROR: C.error, PENDING: C.sub };
+  const copyAccountAddress = async () => {
+    if (!accountAddress) return;
+    try {
+      await navigator.clipboard.writeText(accountAddress);
+    } catch {
+      const input = document.createElement("textarea");
+      input.value = accountAddress;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+    }
+    setAccountCopied(true);
+    setTimeout(() => setAccountCopied(false), 1_500);
+  };
   const badge = liveState === "live"
-    ? { text: `Live · Vibenet${probeInfo?.blockNumber ? ` · #${fmt(probeInfo.blockNumber)}` : ""}`, color: C.sub, border: C.border }
+    ? { text: accountAddress ? short(accountAddress) : "Vibenet account", color: C.sub, border: C.border }
     : liveState === "offline"
       ? { text: "Offline mock", color: C.warn, border: C.warn }
       : { text: "Checking Vibenet", color: C.sub, border: C.border };
@@ -784,13 +814,27 @@ export const AssetDemo = ({ flow }) => {
             );
           })}
         </div>
-        <span
-          className="wf-t-caption"
-          title={liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
-          style={{ color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}
+        <div
+          title={liveState === "live" && accountAddress ? `Vibenet demo account: ${accountAddress}` : liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
+          style={{ display: "inline-flex", alignItems: "center", gap: 3, color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: accountAddress && liveState === "live" ? "2px 3px 2px 6px" : "2px 6px", flexShrink: 0 }}
         >
-          {badge.text}
-        </span>
+          <span className="wf-t-caption" style={accountAddress && liveState === "live" ? { fontFamily: mono, textTransform: "none", letterSpacing: 0 } : undefined}>{badge.text}</span>
+          {liveState === "live" && accountAddress && (
+            <button
+              type="button"
+              aria-label={accountCopied ? "Account address copied" : "Copy account address"}
+              title={accountCopied ? "Copied" : "Copy address"}
+              onClick={copyAccountAddress}
+              style={{ width: 19, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", color: accountCopied ? C.success : C.sub, background: "transparent", border: 0, borderRadius: 3, padding: 0, cursor: "pointer" }}
+            >
+              {accountCopied ? (
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></svg>
+              )}
+            </button>
+          )}
+        </div>
         {results.length > 0 && (
           <button onClick={reset} title="Reset" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", color: C.sec, flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
