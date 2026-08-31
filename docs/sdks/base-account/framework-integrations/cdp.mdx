@@ -3,7 +3,7 @@ title: "Coinbase Developer Platform"
 description: "Build onchain apps supporting both Base Account and CDP Embedded Wallets"
 ---
 
-# Integrate Base Account with CDP Embedded Wallets
+## Integrate Base Account with CDP Embedded Wallets
 
 Learn how to build an onchain app that seamlessly supports both **existing Base Account users** and **new users** through CDP Embedded Wallets, providing unified authentication and wallet management.
 
@@ -32,7 +32,7 @@ Both user types get the same app functionality while using their preferred walle
 
 Install the required packages for both CDP Embedded Wallets and Base Account support:
 
-```bash
+```bash Terminal
 npm install @coinbase/cdp-core @coinbase/cdp-hooks @base-org/account @tanstack/react-query viem wagmi
 ```
 
@@ -46,7 +46,7 @@ You can use the Base Account Wagmi connector alongside CDP's React provider syst
 
 Create environment variables for your CDP project:
 
-```bash
+```bash .env.local
 # .env.local
 NEXT_PUBLIC_CDP_PROJECT_ID=your_cdp_project_id
 NEXT_PUBLIC_APP_NAME="Your App Name"
@@ -60,7 +60,7 @@ Get your CDP Project ID from the [CDP Portal](https://portal.cdp.coinbase.com/).
 
 Set up Wagmi with the Base Account connector (embedded wallets will be handled separately via CDP React providers):
 
-```typescript
+```typescript config/wagmi.ts lines wrap expandable
 // config/wagmi.ts
 import { createConfig, http } from 'wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
@@ -86,7 +86,7 @@ export const wagmiConfig = createConfig({
 
 Wrap your application with the necessary providers. **Important**: Use `CDPHooksProvider` to properly manage embedded wallet authentication state:
 
-```typescript
+```typescript app/layout.tsx lines wrap expandable
 // app/layout.tsx
 'use client';
 
@@ -127,7 +127,7 @@ export default function RootLayout({
 Build a custom hook to manage both wallet types. Using `CDPHooksProvider` ensures users get their existing embedded wallets when they sign in again, rather than creating new ones each time.
 
 
-```typescript
+```typescript hooks/useUnifiedAuth.ts lines wrap expandable
 // hooks/useUnifiedAuth.ts
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { useSignInWithEmail, useVerifyEmailOTP, useIsSignedIn, useEvmAddress, useSignOut } from '@coinbase/cdp-hooks';
@@ -231,7 +231,7 @@ export function useUnifiedAuth() {
 
 Create a component that presents both authentication options:
 
-```typescript
+```typescript components/WalletAuthButton.tsx lines wrap expandable
 // components/WalletAuthButton.tsx
 'use client';
 
@@ -392,7 +392,7 @@ export function WalletAuthButton() {
 
 Create a transaction component that adapts to each wallet type:
 
-```typescript
+```typescript components/SendTransaction.tsx lines wrap expandable
 // components/SendTransaction.tsx
 import { useState } from 'react';
 import { parseEther } from 'viem';
@@ -543,7 +543,7 @@ export function SendTransaction() {
 
 Put everything together in your main application:
 
-```typescript
+```typescript app/page.tsx lines wrap expandable
 // app/page.tsx
 'use client';
 

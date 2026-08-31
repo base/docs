@@ -22,7 +22,7 @@ This function:
 4. Returns the smart wallet address (not the EOA address)
 
 **Architecture:**
-```text
+```text Wallet Architecture
 CDP Account
   └── EOA (wallet owner)
        └── Smart Wallet (subscription owner) ← This address is returned
@@ -81,7 +81,7 @@ The EOA address that owns the smart wallet (for reference only).
 Get CDP credentials from the [CDP Portal](https://portal.cdp.coinbase.com/projects/api-keys).
 
 Set as environment variables:
-```bash
+```bash Terminal
 export CDP_API_KEY_ID="your-api-key-id"
 export CDP_API_KEY_SECRET="your-api-key-secret"
 export CDP_WALLET_SECRET="your-wallet-secret"
@@ -90,7 +90,7 @@ export CDP_WALLET_SECRET="your-wallet-secret"
 Or pass directly as parameters (see examples below).
 
 <RequestExample>
-```typescript Recommended: Basic Usage with Environment Variables
+```typescript Recommended: Basic Usage with Environment Variables lines wrap expandable
 import { base } from '@base-org/account/node';
 
 // Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET env vars
@@ -109,7 +109,7 @@ const subscription = await base.subscription.subscribe({
 });
 ```
 
-```typescript With Explicit Credentials
+```typescript With Explicit Credentials lines wrap expandable
 import { base } from '@base-org/account/node';
 
 const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
@@ -121,7 +121,7 @@ const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet({
 console.log(`Created wallet: ${wallet.address}`);
 ```
 
-```typescript Complete Setup Flow
+```typescript Complete Setup Flow lines wrap expandable
 import { base } from '@base-org/account/node';
 
 async function setupSubscriptionService() {
@@ -142,7 +142,7 @@ async function setupSubscriptionService() {
 setupSubscriptionService();
 ```
 
-```typescript Advanced: Custom Wallet Names (Optional)
+```typescript Advanced: Custom Wallet Names (Optional) lines wrap expandable
 import { base } from '@base-org/account/node';
 
 // Only use custom names if you need separate wallets for different purposes
@@ -182,7 +182,7 @@ console.log(`Basic wallet: ${basicWallet.address}`);
 
 This function is **idempotent**: Calling it multiple times with the same `walletName` returns the same wallet.
 
-```typescript
+```typescript Idempotent Calls lines wrap expandable
 // First call creates the wallet
 const wallet1 = await base.subscription.getOrCreateSubscriptionOwnerWallet({
   walletName: 'my-wallet'
@@ -198,7 +198,7 @@ console.log(wallet1.address === wallet2.address); // true
 
 ## Error Handling
 
-```typescript
+```typescript Error Handling lines wrap expandable
 try {
   const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
   
@@ -217,7 +217,7 @@ try {
 
 <AccordionGroup>
 <Accordion title="Missing CDP Credentials">
-```text
+```text Error
 Failed to initialize CDP client for subscription owner wallet
 ```
 
@@ -232,7 +232,7 @@ Get credentials from [CDP Portal](https://portal.cdp.coinbase.com/projects/api-k
 </Accordion>
 
 <Accordion title="Invalid Credentials">
-```text
+```text Error
 Failed to get or create subscription owner smart wallet
 ```
 
@@ -252,7 +252,7 @@ The smart wallet handles all transaction details including nonce management, gas
 <Accordion title="Gas Sponsorship">
 Smart wallets support paymasters, allowing you to sponsor gas fees for subscription charges and revocations.
 
-```typescript
+```typescript Sponsor Gas for Charges
 const result = await base.subscription.charge({
   id: subscriptionId,
   amount: 'max-remaining-charge',
@@ -283,7 +283,7 @@ CDP_WALLET_SECRET=your-wallet-secret
 ```
 
 Then use them:
-```typescript
+```typescript Use Environment Variables
 const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
 // Automatically uses environment variables
 ```
@@ -292,7 +292,7 @@ const wallet = await base.subscription.getOrCreateSubscriptionOwnerWallet();
 <Tab title="One-Time Setup">
 Call this function once during your application initialization, not on every request:
 
-```typescript server.ts
+```typescript server.ts lines wrap expandable
 let subscriptionOwnerAddress: string;
 
 async function initialize() {
@@ -309,7 +309,7 @@ initialize().catch(console.error);
 <Tab title="Advanced: Multiple Wallets">
 Only if you need separate wallets for different subscription tiers:
 
-```typescript
+```typescript Multiple Wallets lines wrap expandable
 // ADVANCED: Most apps don't need this
 // Only use if you need to segregate funds by subscription type
 

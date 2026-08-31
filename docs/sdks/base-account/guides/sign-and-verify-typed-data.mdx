@@ -31,7 +31,7 @@ Smart contract wallets handle signatures differently from EOAs in several ways:
 
 In this guide, we'll walk through the high-level flow of signing and verifying messages using Base Account.
 
-```mermaid
+```mermaid Signing Flow lines wrap expandable
 sequenceDiagram
     participant User
     participant Browser
@@ -61,7 +61,7 @@ to spend user's funds (see [Spend Permissions](/sdks/base-account/improve-ux/spe
 ### Code Snippets
 
 <CodeGroup>
-```ts Browser (SDK)
+```ts Browser (SDK) lines wrap expandable
 import { createBaseAccountSDK } from "@base-org/account";
 
 // Initialize the SDK
@@ -121,7 +121,7 @@ try {
 }
 ```
 
-```ts Backend (Viem)
+```ts Backend (Viem) lines wrap expandable
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
 
@@ -171,7 +171,7 @@ export async function verifyTypedData(req, res) {
 
 ## Example Express Server
 
-```ts title="server/typed-data.ts"
+```ts title="server/typed-data.ts" lines wrap expandable
 import express from 'express';
 import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
@@ -254,7 +254,7 @@ app.listen(3001, () => console.log('Typed data server listening on :3001'));
 ### Domain Separation
 Always use unique domain parameters to prevent signature replay across different applications:
 
-```tsx
+```tsx Domain Separation
 const domain = {
   name: 'Your App Name',           // Unique app identifier
   version: '1',                    // Version your types
@@ -266,7 +266,7 @@ const domain = {
 ### Nonce Management
 Include nonces to prevent replay attacks:
 
-```tsx
+```tsx Nonce Management
 // Generate unique nonces
 const nonce = crypto.randomBytes(16).toString('hex');
 
@@ -277,6 +277,6 @@ const usedNonces = new Set(); // Use Redis/DB in production
 ### Expiry Times
 Always include expiry timestamps for time-bound signatures:
 
-```tsx
+```tsx Expiry Times
 const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 hour
 ```
