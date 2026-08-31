@@ -3,8 +3,6 @@ title: "Holocene L2 Chain Derivation Changes"
 description: "Derivation changes in the Holocene upgrade, introducing stricter pipeline rules that simplify derivation and improve fault proof worst-case behavior."
 ---
 
-# Holocene Derivation
-
 ## Summary
 
 The Holocene hardfork introduces several changes to block derivation rules that render the
@@ -218,9 +216,9 @@ partially submitted channel that were included pre-Holocene must be sent again. 
 unlikely scenario since production batchers are usually configured to submit a channel in a single
 transaction.
 
-# Rationale
+## Rationale
 
-## Strict Frame and Batch Ordering
+### Strict Frame and Batch Ordering
 
 Strict Frame and Batch Ordering simplifies implementations of the derivation pipeline, and leads to
 better worst-case cached data usage.
@@ -234,7 +232,7 @@ batch (from the span batch, or the staging channel directly)
 
 This has advantages for Fault Proof program implementations.
 
-## Partial Span Batch Validity
+### Partial Span Batch Validity
 
 Partial Span Batch Validity guarantees that a valid singular batch derived from a span batch can
 immediately be processed as valid and advance the safe chain, instead of being in an undecided state
@@ -243,14 +241,14 @@ gives strong worst-case guarantees for Fault Proofs because the validity of a bl
 on the validity of any future blocks any more. Note that before Holocene, to verify the first block
 of a span batch required validating the full span batch.
 
-## Fast Channel Invalidation
+### Fast Channel Invalidation
 
 The new Fast Channel Invalidation rule is a consistency implication of the Strict Ordering Rules.
 Because batches inside channels must be ordered and contiguous, assuming that all batches inside a
 channel are self-consistent (i.e., parent L2 hashes point to the block resulting from the previous
 batch), an invalid batch also forward-invalidates all remaining batches of the same channel.
 
-## Steady Block Derivation
+### Steady Block Derivation
 
 Steady Block Derivation changes the derivation rules for invalid payload attributes, replacing an
 invalid payload by a deposit-only/empty payload. Crucially, this means that the effect of an invalid
@@ -259,7 +257,7 @@ and Interop, because it guarantees that batch validity is not influenced by futu
 block derived from a valid batch will be determined by the engine stage before it pulls new payload
 attributes from the previous stage. This avoids larger derivation pipeline resets.
 
-## Less Defensive Protocol
+### Less Defensive Protocol
 
 The stricter derivation rules lead to a less defensive protocol. The old protocol rules allowed for
 second chances for invalid payloads and submitting frames and batches within channels out of order.
@@ -271,9 +269,9 @@ Furthermore, the more relaxed rules created a lot more corner cases and complex 
 made it harder to reason about and test the protocol, increasing the risk of chain splits between
 different implementations.
 
-# Security and Implementation Considerations
+## Security and Implementation Considerations
 
-## Reorgs
+### Reorgs
 
 Before Steady Block Derivation, invalid payloads got second chances to be replaced by valid future
 payloads. Because they will now be immediately replaced by as deposit-only payloads, there is a
@@ -290,7 +288,7 @@ It is this latter case that inspired the Steady Block Derivation rule. It guaran
 secondary effects of an invalid Interop dependency are contained to a single block only, which
 avoids a cascade of cross-L2 Interop reorgs that revisit L2 chains more than once.
 
-## Batcher Hardening
+### Batcher Hardening
 
 In a sense, Holocene shifts some complexity from derivation to the batching phase. Simpler and
 stricter derivation rules need to be met by a more complex batcher implementation.
@@ -318,7 +316,7 @@ sync-status should repeatedly be queried and matched against the expected safe c
 discrepancy, the batcher should then stop batching and wait for the sequencer to fully derive up
 until the latest L1 batcher transactions, and only then continue batching.
 
-## Sync Start
+### Sync Start
 
 Thanks to the new strict frame and batch ordering rules, the sync start algorithm can be simplified
 in the average case. The rules guarantee that
