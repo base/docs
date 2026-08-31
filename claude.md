@@ -80,3 +80,32 @@ sidebar label is `sidebarTitle` if present, otherwise `title`.
 3. Run `node scripts/validate-docs-structure.js` if `docs.json` or page frontmatter changed (nav, orphans, redirects, redundant sidebar labels)
 4. Add redirects for removed pages
 5. Verify links work
+
+## CI Approval Gates
+
+Structural changes to the documentation are gated by required status checks. Ordinary content
+edits are unaffected — the gates only activate when a pull request touches a protected surface.
+
+| Check | Activates when | Requires |
+|-------|----------------|----------|
+| `IA Gate / Get Started Pages` | Adds a page under `docs/get-started/`, or adds a page reference to the Get Started tab in `docs.json` | 3 Writer approvals |
+| `IA Gate / Build on Base Solutions` | Adds, renames or removes a top-level group in the Build on Base tab | 1 Governance Owner |
+| `IA Gate / Guideline Files` | Touches `docs/ia-guidelines.md` or `docs/content-guidelines.md` | 1 Governance Owner |
+| `IA Gate / CI Configuration` | Touches the gate workflows, `.github/ia-governance.json`, `.github/CODEOWNERS` or `.github/scripts/` | 3 Writer approvals |
+| `Docs Style / Conformance` | Always; lints the pages the PR changes | Zero lint errors |
+
+Notes for anyone working on these:
+
+- Config lives in [`.github/ia-governance.json`](.github/ia-governance.json) — owner handles,
+  thresholds and protected path globs. Changing it needs 3 Writer approvals.
+- Only approvals on the **current head SHA** count, and the author's own approval never counts.
+  Pushing a new commit resets the tally.
+- Reordering groups in `docs.json` does not trip a gate; renaming one does.
+- Approvals are picked up by a scheduled sweep, so a check can take up to ~10 minutes to turn
+  green after a review lands. `IA approval gates` also accepts a manual `workflow_dispatch`
+  with a PR number if you need it sooner.
+- `.github/workflows/ia-approval-gates.yml` is privileged and must stay on
+  `pull_request_target` with a default-branch checkout. Read the trust-model comment at the
+  top of that file before changing its triggers.
+- `npm test` runs the gate engine and linter unit tests; the style workflow runs it on every
+  pull request.
