@@ -31,7 +31,7 @@ const CONSTANTS = {
 
   skipDirs: [
     'node_modules', '.git', 'dist', 'build', 'coverage',
-    '.next', 'images', 'videos', 'logo', 'openapi', '.claude', 'snippets'
+    '.next', 'images', 'videos', 'logo', 'openapi', '.claude', 'snippets', 'static'
   ],
 
   extensions: ['.md', '.mdx'],
