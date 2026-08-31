@@ -5,16 +5,16 @@ export const StablecoinDemo = ({ flow }) => {
   // npm packages. The live engine therefore ships as .txt, is converted to a Blob
   // module on first interaction, and publishes its API on window.
   const loadVibenetEngine = () => {
-    if (window.__baseDocsVibenetEngineV1) return Promise.resolve(window.__baseDocsVibenetEngineV1);
-    if (window.__baseDocsVibenetEnginePromiseV1) return window.__baseDocsVibenetEnginePromiseV1;
+    if (window.__baseDocsVibenetEngineV2) return Promise.resolve(window.__baseDocsVibenetEngineV2);
+    if (window.__baseDocsVibenetEnginePromiseV2) return window.__baseDocsVibenetEnginePromiseV2;
 
-    window.__baseDocsVibenetEnginePromiseV1 = new Promise((resolve, reject) => {
+    window.__baseDocsVibenetEnginePromiseV2 = new Promise((resolve, reject) => {
       const onReady = () => {
         cleanup();
-        resolve(window.__baseDocsVibenetEngineV1);
+        resolve(window.__baseDocsVibenetEngineV2);
       };
-      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:ready", onReady);
-      window.addEventListener("base-docs-vibenet-engine:ready", onReady, { once: true });
+      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v2-ready", onReady);
+      window.addEventListener("base-docs-vibenet-engine:v2-ready", onReady, { once: true });
 
       (async () => {
         try {
@@ -26,7 +26,7 @@ export const StablecoinDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt"),
+            fetchText("/static/vibenet-engine.txt?v=2"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
@@ -37,18 +37,18 @@ export const StablecoinDemo = ({ flow }) => {
           tag.dataset.baseDocsVibenetEngine = "true";
           tag.onerror = () => {
             cleanup();
-            window.__baseDocsVibenetEnginePromiseV1 = null;
+            window.__baseDocsVibenetEnginePromiseV2 = null;
             reject(new Error("Failed to evaluate the Vibenet engine"));
           };
           document.head.appendChild(tag);
         } catch (error) {
           cleanup();
-          window.__baseDocsVibenetEnginePromiseV1 = null;
+          window.__baseDocsVibenetEnginePromiseV2 = null;
           reject(error);
         }
       })();
     });
-    return window.__baseDocsVibenetEnginePromiseV1;
+    return window.__baseDocsVibenetEnginePromiseV2;
   };
 
   // Lightweight capability probe. This deliberately does not load aa.txt: the

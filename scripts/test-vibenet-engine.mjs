@@ -25,11 +25,11 @@ assert.match(engineSource, /from "\.\/aa\.txt"/, "engine keeps the loader-rewrit
 assert.match(snippet, /replace\('\"\.\/aa\.txt\"'/, "snippet rewrites the AA specifier before Blob evaluation");
 assert.doesNotMatch(snippet, /^\s*import\s/m, "Mintlify snippet must not contain imports");
 assert.match(snippet, /fetchText\("\/static\/aa\.txt"\)/, "AA artifact is fetched lazily by the snippet loader");
-assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt"\)/, "shared engine is fetched by the snippet loader");
+assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=2"\)/, "versioned shared engine is fetched by the snippet loader");
 assert.match(assetSnippet, /replace\('\"\.\/aa\.txt\"'/, "Asset snippet rewrites the AA specifier before Blob evaluation");
 assert.doesNotMatch(assetSnippet, /^\s*import\s/m, "Asset Mintlify snippet must not contain imports");
 assert.match(assetSnippet, /fetchText\("\/static\/aa\.txt"\)/, "Asset snippet lazy-loads the AA artifact");
-assert.match(assetSnippet, /fetchText\("\/static\/vibenet-engine\.txt"\)/, "Asset snippet uses the shared engine");
+assert.match(assetSnippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=2"\)/, "Asset snippet uses the versioned shared engine");
 
 const tempAa = "/tmp/base-docs-aa-test.mjs";
 const tempEngine = "/tmp/base-docs-vibenet-engine-test.mjs";
@@ -41,6 +41,7 @@ await writeFile(
 const engine = await import(`${pathToFileURL(tempEngine).href}?v=${Date.now()}`);
 
 assert.equal(engine.CHAIN_ID, 84538453);
+assert.equal(engine.ENGINE_VERSION, 2);
 assert.equal(engine.ASSET_FEATURE, "0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c");
 assert.equal(engine.units(1), 1_000_000n);
 assert.equal(engine.displayUnits(25_500_000n), 25.5);
