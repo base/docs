@@ -1,0 +1,107 @@
+---
+title: "Integrate Tokenized Stocks"
+description: "Step-by-step guide to integrating Coinbase tokenized stocks (B20) into any app: discover the official token list, read balances and prices, and handle corporate actions."
+---
+
+This guide covers the common integration path for building on Coinbase tokenized stocks, using a trading app as the worked example. Most app types (trading, wallet, portfolio tracker, analytics, DeFi) start from the same core steps; the [trading app example](#trading-app-example) below walks one through end to end.
+
+For the underlying token standard and full technical reference, see [Tokenized Stocks on Base](/base-chain/specs/reference/b20/tokenized-stocks-on-base) and the [B20 specification](/base-chain/specs/reference/b20/index).
+
+<Note>
+**Source of truth for the token list.** Until the Coinbase Developer Platform (CDP) API is available, the authoritative list of live Coinbase tokenized stocks is the [Contract addresses](/base-chain/specs/reference/b20/tokenized-stocks-on-base#contract-addresses) table. This page is updated as each new wave of tokens lands. When the CDP API ships, migrate discovery to it.
+</Note>
+
+## Before You Start
+
+- **Know the standard.** Tokenized stocks are [B20](/base-chain/network-information/b20-token-standard) tokens, an extension of ERC-20. Standard ERC-20 methods and events work natively, so most of your existing token tooling applies.
+- **Identify tokens by address, not ticker.** Name, symbol, and metadata are mutable onchain and should be indexed by contract address.
+- **Have an RPC endpoint.** Use a [node provider](/get-started/base-services-hub) or your own [Base node](/base-chain/node-operators/run-a-base-node).
+
+## The Core Integration Path
+
+<Steps>
+<Step title="Get the Canonical Token List">
+Start every integration by resolving which tokens are official Coinbase stocks. The motivating use case ("show me all Coinbase stocks available") resolves to the [Contract addresses](/base-chain/specs/reference/b20/tokenized-stocks-on-base#contract-addresses) table, which is the interim source of truth.
+
+<Warning>
+Do not treat every token from the B20 factory or [`B20Created`](/base-chain/specs/reference/b20/interfaces/IB20Factory) event as an official Coinbase stock. The factory also carries test deployments and tokens in pre-launch phases that do not yet have full legal protections. If you enumerate onchain, always reconcile the result against the published list before surfacing a token to users.
+</Warning>
+</Step>
+
+<Step title="Resolve Token Metadata">
+For each address, read the display metadata:
+
+- **Onchain:** [`name`](/base-chain/specs/reference/b20/interfaces/IB20/name), [`symbol`](/base-chain/specs/reference/b20/interfaces/IB20/symbol), [`decimals`](/base-chain/specs/reference/b20/interfaces/IB20/decimals), and [`contractURI`](/base-chain/specs/reference/b20/interfaces/IB20/contractURI) ([ERC-7572](https://eips.ethereum.org/EIPS/eip-7572) metadata).
+- **Offchain:** logos and market data are available from the canonical token list and market-data aggregators.
+
+Name and symbol are updatable onchain, so re-index them rather than caching once. See [Token information and listings](/base-chain/specs/reference/b20/tokenized-stocks-on-base#token-information-and-listings).
+</Step>
+
+<Step title="Read Balances with the Multiplier">
+A B20 balance is denominated in raw token units, not shares. Corporate actions (dividends, splits) change the redemption ratio through the token's [multiplier](/base-chain/specs/reference/b20/tokenized-stocks-on-base#multipliers).
+
+<Warning>
+One B20 token does not permanently equal one share. Always apply the current multiplier when converting between token units and underlying shares.
+</Warning>
+
+Use the built-in helpers rather than computing by hand:
+
+| Function | Description |
+|----------|-------------|
+| [`scaledBalanceOf(account)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/scaledBalanceOf) | Raw balance × multiplier (shares redeemable) |
+| [`toScaledBalance(raw)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/toScaledBalance) | Convert raw amount to shares |
+| [`toRawBalance(scaled)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/toRawBalance) | Convert shares to raw amount |
+</Step>
+
+<Step title="Source a Price">
+A tokenized stock's price is the underlying equity price scaled by the token's multiplier. Pick the source that fits your app:
+
+- **Onchain (Chainlink):** each equity has a total-return feed read via `latestRoundData()`. Feeds run 24/5, hold last close off-hours, and freeze during corporate actions. Always read `updatedAt` and apply staleness bounds; never settle or liquidate against a frozen feed.
+- **Offchain (aggregators):** providers such as CoinGecko, CoinMarketCap, or RWA track the token's live DEX price 24/7.
+
+See [Price feeds](/base-chain/specs/reference/b20/tokenized-stocks-on-base#price-feeds) for feed addresses, decimals, and staleness handling.
+</Step>
+
+<Step title="Handle Corporate Actions and Pauses">
+- **Multiplier updates:** watch [`MultiplierUpdated`](/base-chain/specs/reference/b20/interfaces/IB20Asset) so balances and prices stay correct across splits and dividends.
+- **Announcements:** index [`Announcement` / `EndAnnouncement`](/base-chain/specs/reference/b20/tokenized-stocks-on-base#announcements) events to catch corporate actions as they execute.
+- **Pauses:** specific functions can be [paused](/base-chain/specs/reference/b20/tokenized-stocks-on-base#pauses); monitor so you know whether transfers are currently possible.
+</Step>
+
+<Step title="Respect Compliance Policies">
+Holding and secondary-market trading are permissionless, but transfers can be gated by [policies](/base-chain/specs/reference/b20/tokenized-stocks-on-base#policies) (eg, blocking sanctioned addresses).
+
+- Check [`isAuthorized(policyID, account)`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/isAuthorized) before presenting a transfer as available; a blocked transfer reverts.
+- [`approve()`](/base-chain/specs/reference/b20/interfaces/IB20/approve) is not policy gated, so an existing approval does not guarantee the transfer will succeed.
+</Step>
+</Steps>
+
+## Trading App Example
+
+All app types run the core path above; this is one worked example end to end.
+
+1. **Populate the tradable universe** from the [published token list](/base-chain/specs/reference/b20/tokenized-stocks-on-base#contract-addresses); reconcile any onchain discovery against it.
+2. **Render each market** using onchain metadata (address-keyed) and a price source.
+3. **Quote and value positions** with `scaledBalanceOf` and the current multiplier, never raw units.
+4. **Gate the trade path** on `isAuthorized` and current pause state before submitting a transfer.
+5. **Guard settlement** by rejecting stale or frozen feeds so you never fill against a corporate-action price.
+
+## Keep Your Integration Current
+
+- **Token list:** re-check the [Contract addresses](/base-chain/specs/reference/b20/tokenized-stocks-on-base#contract-addresses) table as new waves land, and migrate to the CDP API once it is available.
+- **Corporate actions:** subscribe to `MultiplierUpdated` and announcement events rather than polling balances.
+- **Prices:** enforce staleness bounds on every read; treat a non-advancing `updatedAt` as off-hours or paused, not as a live price.
+
+## Additional Resources
+
+- [Tokenized Stocks on Base](/base-chain/specs/reference/b20/tokenized-stocks-on-base) (technical reference)
+- [B20 Standard](/base-chain/specs/reference/b20/index)
+- [Base Standard Library](https://github.com/base/base-std/tree/main)
+
+## Disclaimer
+
+<p style={{ fontSize: "0.85rem", fontStyle: "italic" }}>Coinbase tokenized stocks are only available to persons in eligible jurisdictions outside of the U.S.</p>
+
+<p style={{ fontSize: "0.85rem", fontStyle: "italic" }}>Inclusion of any third-party protocol or venue is for developer reference only and is not an endorsement, partnership, or warranty. Confirm addresses, feeds, and the token list against official sources before integrating.</p>
+
+<p style={{ fontSize: "0.85rem", fontStyle: "italic" }}>Base is open-source, permissionless blockchain infrastructure. Each B20 token is deployed and configured by its issuer, who sets and controls all token parameters and administrative permissions; Base does not configure, administer, or control tokens deployed on the protocol.</p>

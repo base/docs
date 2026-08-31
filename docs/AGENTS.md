@@ -9,7 +9,7 @@ description: Look up Base documentation with a compact directory-grouped index b
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
 - [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
-- [Base Chain](./base-chain/llms.txt) — Base protocol specifications, core primitives, and network systems.
+- [Base Chain](./base-chain/llms.txt) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
 - [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
@@ -89,11 +89,11 @@ npx skills add base/base-skills
 |base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
 |build-on-base:assign-user-attributes,overview,test-on-vibenet
 |build-on-base/accept-payments:authorize-a-payment,batch-high-frequency-payments,call-a-paid-service,capture-a-partial-amount,capture-an-authorization,charge-for-an-api,charge-on-a-schedule,reconcile-payments,refund-a-payment,request-a-payment,send-a-payout,settle-usage-based-payments,split-a-payment,verify-a-payment,void-an-authorization,watch-for-payments
-|build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-trading
+|build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-tokenized-stocks,integrate-trading
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base-services-hub,base,connect-to-base,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
-|root:changes,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
+|root:changes,content-guidelines,contribution-guidelines,cookie-policy,ia-guidelines,mintlify-reference,privacy-policy,terms-of-service
 |sdks:base-anvil,overview
 |sdks/base-account:overview
 |sdks/base-account/basenames:basename-transfer,basenames-faq
