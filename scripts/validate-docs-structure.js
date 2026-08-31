@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseFrontmatter } = require('./lib/docs-utils');
 
 const root = path.resolve(__dirname, '..');
 const docs = path.join(root, 'docs');
@@ -46,6 +47,65 @@ for (const page of navPages) {
   if (seenNav.has(page)) errors.push(`duplicate nav entry ${page}`);
   seenNav.add(page);
 }
+
+// --- Redundant sidebar labels ---
+// A page must not carry the same sidebar label as the group that contains it,
+// and a group must not be nested inside a group of the same name. Mintlify
+// renders those as a collapsible whose only visible child repeats the parent
+// ("Flashblocks > Flashblocks"), which reads like a bug. Fix by flattening a
+// single-page group into a bare page entry, or by giving the page a distinct
+// `sidebarTitle` (usually "Overview").
+function pageFile(page) {
+  const candidates = [`${page}.mdx`, `${page}.md`, path.join(page, 'index.mdx')];
+  for (const candidate of candidates) {
+    const full = path.join(docs, candidate);
+    if (fs.existsSync(full)) return full;
+  }
+  return null;
+}
+
+function sidebarLabel(page) {
+  const file = pageFile(page);
+  if (!file) return null;
+  const { frontmatter } = parseFrontmatter(fs.readFileSync(file, 'utf8'));
+  return frontmatter.sidebarTitle || frontmatter.title || null;
+}
+
+const labelKey = (value) => String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function walkGroupLabels(node, parentGroup) {
+  if (Array.isArray(node)) {
+    node.forEach((item) => walkGroupLabels(item, parentGroup));
+    return;
+  }
+  if (typeof node === 'string') {
+    if (!parentGroup) return;
+    const label = sidebarLabel(node);
+    if (label && labelKey(label) === labelKey(parentGroup)) {
+      errors.push(
+        `redundant sidebar label: page ${node} ("${label}") repeats its parent group "${parentGroup}" - flatten the group into a bare page entry or set a distinct sidebarTitle`,
+      );
+    }
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+  // Tabs and anchors start a fresh sidebar; only groups nest labels.
+  const scope = node.tab !== undefined || node.anchor !== undefined ? null : parentGroup;
+  if (node.group !== undefined) {
+    if (scope && labelKey(node.group) === labelKey(scope)) {
+      errors.push(`redundant sidebar label: group "${node.group}" is nested inside a group with the same name`);
+    }
+    walkGroupLabels(node.pages || [], node.group);
+    walkGroupLabels(node.groups || [], node.group);
+    return;
+  }
+  walkGroupLabels(node.tabs || [], null);
+  walkGroupLabels(node.anchors || [], null);
+  walkGroupLabels(node.groups || [], scope);
+  walkGroupLabels(node.pages || [], scope);
+}
+
+walkGroupLabels(config.navigation, null);
 
 // --- Orphan detection: every publishable .mdx must be reachable from nav ---
 // Exemptions:
