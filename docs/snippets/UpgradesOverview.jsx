@@ -152,7 +152,7 @@ export const UpgradesOverview = () => {
             </div>
 
             <a className="upg-button" href={upgrade.href}>
-              View features
+              View Features
             </a>
           </div>
         </div>
@@ -272,6 +272,8 @@ export const UpgradesOverview = () => {
           --upg-plan-br: #dee1e7;
           --upg-plan-dot: #9aa1ae;
           --upg-accent: #0000ff;
+          --upg-btn: #eef0f3;
+          --upg-btn-hover: #e3e6eb;
         }
         /* ---- Dark theme: system preference ---- */
         @media (prefers-color-scheme: dark) {
@@ -297,6 +299,8 @@ export const UpgradesOverview = () => {
             --upg-plan-br: #2b2f36;
             --upg-plan-dot: #6d7482;
             --upg-accent: #578bfa;
+            --upg-btn: rgba(255,255,255,.10);
+            --upg-btn-hover: rgba(255,255,255,.16);
           }
         }
         /* ---- Dark theme: docs explicit toggle wins over system ---- */
@@ -322,6 +326,8 @@ export const UpgradesOverview = () => {
           --upg-plan-br: #2b2f36;
           --upg-plan-dot: #6d7482;
           --upg-accent: #578bfa;
+          --upg-btn: rgba(255,255,255,.10);
+          --upg-btn-hover: rgba(255,255,255,.16);
         }
         /* ---- Light theme: docs explicit toggle wins over system dark ---- */
         html.light .upg, :root[data-theme="light"] .upg, [data-theme="light"] .upg {
@@ -346,6 +352,8 @@ export const UpgradesOverview = () => {
           --upg-plan-br: #dee1e7;
           --upg-plan-dot: #9aa1ae;
           --upg-accent: #0000ff;
+          --upg-btn: #eef0f3;
+          --upg-btn-hover: #e3e6eb;
         }
 
         .upg, .upg * { box-sizing: border-box; }
@@ -398,16 +406,21 @@ export const UpgradesOverview = () => {
           gap: 12px; margin-top: auto; padding-top: 16px;
           border-top: 1px solid var(--upg-border);
         }
-        .upg-dates { display: flex; flex-wrap: wrap; gap: 4px 40px; }
+        .upg-dates { display: flex; flex-wrap: wrap; gap: 4px 24px; }
         .upg-date { display: flex; flex-direction: column; gap: 2px; }
-        .upg-date-label { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--upg-sub); }
+        .upg-date-label { font-size: 13px; color: var(--upg-sub); }
         .upg-date-value { font-size: 14px; white-space: nowrap; color: var(--upg-ink); }
+        /* A filled pill, as on chain.base.org. An outlined button reads as
+           empty at the bottom here: it is bottom-aligned with the date text,
+           so its own padding shows up as slack under the label. */
         .upg-button {
-          padding: 8px 14px; border: 1px solid var(--upg-border); border-radius: 10px;
-          font-size: 14px; white-space: nowrap; color: var(--upg-ink);
+          padding: 7px 16px; border: 0; border-radius: 999px;
+          background: var(--upg-btn); color: var(--upg-ink);
+          font-size: 14px; line-height: 20px; white-space: nowrap;
           transition: background-color .15s ease;
         }
-        .upg-button:hover { background: var(--upg-panel); }
+        .upg-button { margin-left: auto; }
+        .upg-button:hover { background: var(--upg-btn-hover); }
 
         /* ---- Timeline view ---- */
         /* The rail sits under the node centers: a 96px date column, a 12px gap,
