@@ -59,7 +59,7 @@ node scripts/audit-redirects.js
 node scripts/audit-redirects.js --strict
 
 # Run the focused unit tests
-node --test scripts/audit-redirects.test.js
+node --test scripts/audit-redirects*.test.js
 ```
 
 External redirect destinations are treated as valid terminal targets. The default report-only mode is useful while known redirect debt is being repaired; `--strict` can be used once the tree is clean or in targeted validation workflows.
