@@ -129,7 +129,7 @@ export const StablecoinDemo = ({ flow }) => {
           summary: [["Operation", "Create token"], ["Token", TOKEN], ["Standard", "B20"], ["Network", NETWORK]],
           run: () => ({ entries: [ok("createB20", "stablecoin · aUSD · 0xB20…a1c9"), nfo("initCalls", "grantRole(MINT_ROLE, Issuer)")], caption: "One factory call, with no contract to write or audit." }) },
         { stage: "Confirm", action: "Confirm",
-          text: "It's live and fully ERC-20 compatible.",
+          text: "It's live and fully B20 compatible.",
           summary: [["currency()", M('"USD"')], ["decimals()", M("6")], ["Network", NETWORK]],
           run: () => ({ entries: [nfo("currency()", '"USD"'), nfo("decimals()", "6")], caption: "Every wallet and exchange that speaks ERC-20 works with it unchanged." }) },
       ],
