@@ -711,10 +711,10 @@ export const StablecoinDemo = ({ flow }) => {
 
   const levelColor = { EVENT: C.blue, INFO: C.sec, ERROR: C.error, PENDING: C.sub };
   const badge = liveState === "live"
-    ? { text: `Live · Vibenet${probeInfo?.blockNumber ? ` · #${fmt(probeInfo.blockNumber)}` : ""}`, color: C.success }
+    ? { text: `Live · Vibenet${probeInfo?.blockNumber ? ` · #${fmt(probeInfo.blockNumber)}` : ""}`, color: C.sub, border: C.border }
     : liveState === "offline"
-      ? { text: "Offline mock", color: C.warn }
-      : { text: "Checking Vibenet", color: C.sub };
+      ? { text: "Offline mock", color: C.warn, border: C.warn }
+      : { text: "Checking Vibenet", color: C.sub, border: C.border };
 
   return (
     <div className="wf" style={{ margin: "22px 0", maxWidth: 760, borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, overflow: "hidden", boxShadow: "var(--wf-shadow)" }}>
@@ -797,6 +797,8 @@ export const StablecoinDemo = ({ flow }) => {
         .wf-pill:not(.wf-pill-on):hover { color: ${C.ink}; border-color: ${C.sub}; }
         .wf-pill-on { color: ${C.onBlue}; background: ${C.blue}; border-color: ${C.blue}; }
         .wf-stage { font-family: var(--wf-sans); font-size: 12.5px; white-space: nowrap; padding: 11px 2px; border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 7px; }
+        .wf .wf-log-link, .wf .wf-log-link:visited { text-decoration: none !important; border-bottom: 0 !important; background-image: none !important; box-shadow: none !important; }
+        .wf .wf-log-link:hover .wf-log-label { color: ${C.blue}; }
         @media (max-width: 640px) {
           .wf-split { grid-template-columns: 1fr; }
           .wf-rail { border-right: none; border-bottom: 1px solid ${C.border}; }
@@ -834,7 +836,7 @@ export const StablecoinDemo = ({ flow }) => {
         <span
           className="wf-t-caption"
           title={liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
-          style={{ color: badge.color, border: `1px solid ${badge.color}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}
+          style={{ color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}
         >
           {badge.text}
         </span>
@@ -952,8 +954,11 @@ export const StablecoinDemo = ({ flow }) => {
               <span style={{ fontFamily: "var(--wf-mono)", fontSize: 11, color: C.sub, flexShrink: 0 }}>{r.t}</span>
               <span style={{ fontFamily: "var(--wf-mono)", fontSize: 10.5, fontWeight: 600, color: levelColor[r.level], flexShrink: 0, width: 58 }}>[{r.level}]</span>
               {r.href ? (
-                <a href={r.href} target="_blank" rel="noreferrer" style={{ fontFamily: "var(--wf-mono)", fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textUnderlineOffset: 2 }}>
-                  {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
+                <a className="wf-log-link" href={r.href} target="_blank" rel="noreferrer" style={{ fontFamily: "var(--wf-mono)", fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className="wf-log-label" style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
+                  </span>
+                  <span aria-hidden="true" style={{ color: C.sub, flexShrink: 0 }}>↗</span>
                 </a>
               ) : (
                 <span style={{ fontFamily: "var(--wf-mono)", fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -973,7 +978,7 @@ export const StablecoinDemo = ({ flow }) => {
       {/* Footer */}
       <div style={{ padding: "10px 16px", background: C.panel, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
         <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{f.erc20}</span>
-        <span className="wf-t-footnote" style={{ color: liveState === "live" ? C.success : C.sub, whiteSpace: "nowrap" }}>
+        <span className="wf-t-footnote" style={{ color: C.sub, whiteSpace: "nowrap" }}>
           {liveState === "live" ? "Real Vibenet transactions" : liveState === "offline" ? "Illustrative fallback" : "Network check"}
         </span>
       </div>
