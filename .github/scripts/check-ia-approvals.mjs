@@ -16,6 +16,7 @@
  * Usage:
  *   node .github/scripts/check-ia-approvals.mjs --pr 1234
  *   node .github/scripts/check-ia-approvals.mjs --sweep
+ *   node .github/scripts/check-ia-approvals.mjs --pr 1234 --dry-run   # compute, never publish
  *
  * Env: GITHUB_TOKEN (required), GITHUB_REPOSITORY (required), GITHUB_STEP_SUMMARY (optional)
  */
@@ -221,7 +222,7 @@ function renderSummary({ gateId, gate, reasons, requirement, discarded, permissi
 // Evaluate one pull request
 // ---------------------------------------------------------------------------
 
-async function evaluatePull(gh, config, prNumber, { stepSummary }) {
+async function evaluatePull(gh, config, prNumber, { stepSummary, dryRun = false } = {}) {
   // Re-read the pull request: the webhook payload snapshots head at event time, so a push
   // racing this run would otherwise have us count reviews for one SHA and publish against
   // another.
@@ -302,7 +303,7 @@ async function evaluatePull(gh, config, prNumber, { stepSummary }) {
             gate.count - requirement.qualifying.length === 1 ? "" : "s"
           }`;
 
-    await gh.createCheckRun({
+    const payload = {
       name: gate.checkName,
       head_sha: headSha,
       status: "completed",
@@ -319,9 +320,15 @@ async function evaluatePull(gh, config, prNumber, { stepSummary }) {
           permissionNotes,
         }),
       },
-    });
+    };
 
-    log(`  ${gate.checkName}: ${conclusion} — ${title}`);
+    if (dryRun) {
+      log(`\n  [dry run] ${gate.checkName}: ${conclusion} — ${title}`);
+      log(payload.output.summary.split("\n").map((l) => `      ${l}`).join("\n"));
+    } else {
+      await gh.createCheckRun(payload);
+      log(`  ${gate.checkName}: ${conclusion} — ${title}`);
+    }
     results.push({ gateId, checkName: gate.checkName, conclusion, title, reasons });
   }
 
@@ -364,7 +371,7 @@ export function sweepNeedsEvaluation(checkRuns, expectedNames, now = Date.now())
   return null;
 }
 
-async function sweep(gh, config, { stepSummary }) {
+async function sweep(gh, config, { stepSummary, dryRun = false } = {}) {
   const expectedNames = Object.values(config.gates).map((g) => g.checkName);
   const open = (await gh.listOpenPulls()).slice(0, SWEEP_LIMIT);
   log(`Sweep: ${open.length} open pull request(s) under review (cap ${SWEEP_LIMIT}).`);
@@ -393,7 +400,7 @@ async function sweep(gh, config, { stepSummary }) {
 
     log(`#${pr.number}: ${reason}`);
     try {
-      await evaluatePull(gh, config, pr.number, { stepSummary });
+      await evaluatePull(gh, config, pr.number, { stepSummary, dryRun });
       evaluated++;
     } catch (err) {
       // One bad PR must not abort the sweep for the rest.
@@ -435,9 +442,10 @@ export function loadConfig(configPath = CONFIG_PATH) {
 }
 
 function parseArgs(argv) {
-  const out = { sweep: false, pr: null };
+  const out = { sweep: false, pr: null, dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--sweep") out.sweep = true;
+    else if (argv[i] === "--dry-run") out.dryRun = true;
     else if (argv[i] === "--pr") out.pr = Number(argv[++i]);
   }
   return out;
@@ -455,10 +463,12 @@ async function main() {
   const config = loadConfig();
   const gh = new GitHub({ token, repo, log });
 
+  if (args.dryRun) log("Dry run: verdicts are computed and printed, never published.\n");
+
   if (args.sweep) {
-    await sweep(gh, config, { stepSummary });
+    await sweep(gh, config, { stepSummary, dryRun: args.dryRun });
   } else if (Number.isInteger(args.pr) && args.pr > 0) {
-    await evaluatePull(gh, config, args.pr, { stepSummary });
+    await evaluatePull(gh, config, args.pr, { stepSummary, dryRun: args.dryRun });
   } else {
     throw new Error("pass --pr <number> or --sweep");
   }
