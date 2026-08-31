@@ -47,6 +47,25 @@ node scripts/lint-mdx.js all
 node scripts/lint-mdx.js all || exit 1
 ```
 
+## Documentation structure validator
+
+```bash
+node scripts/validate-docs-structure.js
+```
+
+Runs in CI through `scripts/verify-doc-samples.sh` on any `docs/**` change.
+
+| Check | Description |
+|-------|-------------|
+| Nav pages | Every `docs.json` page reference resolves to a file |
+| Duplicate nav entries | A page appears at most once in the nav |
+| Redundant sidebar labels | No page (or nested group) repeats its parent group's name — flatten single-page groups, or set a distinct `sidebarTitle` |
+| Orphans | Every publishable `.mdx` is reachable from the nav |
+| Redirects | No duplicate sources, fragments in sources, chains, or missing targets |
+| Internal links | Scoped link check across the use-case sections |
+
+Exit code `1` on any violation.
+
 ## Docs index generators
 
 Two generators emit AI-facing site indexes from the `docs/` tree. Both share helpers in `lib/docs-utils.js` (frontmatter parser, `.mintignore` loader, file walker, section discovery).
