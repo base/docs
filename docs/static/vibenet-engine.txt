@@ -1,0 +1,841 @@
+// Shared native-account and B20 engine for Base docs demos.
+//
+// Mintlify snippets cannot import modules. A snippet fetches this file and aa.txt,
+// rewrites the relative AA specifier to aa.txt's Blob URL, evaluates this module
+// with a <script type="module"> tag, and reads the published API from window.
+
+import {
+  canonicalAuthenticators,
+  createPublicClient,
+  decodeAbiParameters,
+  encodeAbiParameters,
+  encodeFunctionData,
+  encodeWalletCalls,
+  estimateGas,
+  generatePrivateKey,
+  getTransactionCount,
+  http,
+  key,
+  keccak256,
+  newSmartAccount,
+  privateKeyToAccount,
+  toHex,
+  waitForTransactionReceipt,
+} from "./aa.txt";
+
+export const CHAIN_ID = 84538453;
+export const ENGINE_VERSION = 2;
+export const NETWORK_NAME = "Base Vibenet";
+export const API_URL = "https://api.vibes.base.org";
+export const ACCOUNT_RPC = `${API_URL}/api/vibenet/account/rpc`;
+export const EXPLORER_URL = "https://chain.base.org/vibenet/explorer";
+export const B20_FACTORY = "0xB20f000000000000000000000000000000000000";
+export const ACTIVATION_REGISTRY = "0x8453000000000000000000000000000000000001";
+export const POLICY_REGISTRY = "0x8453000000000000000000000000000000000002";
+export const ASSET_FEATURE = "0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c";
+export const STABLECOIN_FEATURE = "0xecfa0def2c10020caaf65e6155aa69c84b24892aaef76eeac52e0e2b3a0b8601";
+export const POLICY_FEATURE = "0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f";
+export const ACCOUNT_STORAGE_KEY = "base.docs.vibenet.account.v1";
+export const TOKEN_DECIMALS = 6;
+
+const MIN_GAS_BALANCE = 5_000_000_000_000_000n; // 0.005 ETH
+const DEFAULT_MAX_FEE = 1_000_000_000n;
+const DEFAULT_PRIORITY_FEE = 1_000_000n;
+const ZERO_MEMO = `0x${"0".repeat(64)}`;
+
+const ROLE_NAMES = [
+  "MINT_ROLE",
+  "BURN_ROLE",
+  "BURN_BLOCKED_ROLE",
+  "PAUSE_ROLE",
+  "UNPAUSE_ROLE",
+  "METADATA_ROLE",
+];
+const ASSET_ROLE_NAMES = [...ROLE_NAMES, "OPERATOR_ROLE"];
+
+const POLICY_SCOPES = {
+  TRANSFER_SENDER_POLICY: keccak256(toHex("TRANSFER_SENDER_POLICY")),
+  TRANSFER_RECEIVER_POLICY: keccak256(toHex("TRANSFER_RECEIVER_POLICY")),
+  TRANSFER_EXECUTOR_POLICY: keccak256(toHex("TRANSFER_EXECUTOR_POLICY")),
+  MINT_RECEIVER_POLICY: keccak256(toHex("MINT_RECEIVER_POLICY")),
+};
+
+const ERROR_NAMES = {
+  "0xb9b2a425": "FeatureNotActivated",
+  "0x4b344b11": "SupplyCapExceeded",
+  "0xa43fec12": "PolicyForbids",
+  "0xfd8c4245": "ContractPaused",
+  "0xf9df5ac9": "ContractPaused",
+  "0x64a5cb46": "AccountNotBlocked",
+  "0xe2517d3f": "AccessControlUnauthorizedAccount",
+  "0x30b1b565": "InsufficientBalance",
+  "0x8e4a23d6": "Unauthorized",
+};
+
+const activationAbi = [
+  {
+    type: "function",
+    name: "isActivated",
+    stateMutability: "view",
+    inputs: [{ type: "bytes32" }],
+    outputs: [{ type: "bool" }],
+  },
+];
+
+const factoryAbi = [
+  {
+    type: "function",
+    name: "getB20Address",
+    stateMutability: "view",
+    inputs: [{ type: "uint8" }, { type: "address" }, { type: "bytes32" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "createB20",
+    stateMutability: "payable",
+    inputs: [{ type: "uint8" }, { type: "bytes32" }, { type: "bytes" }, { type: "bytes[]" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "isB20Initialized",
+    stateMutability: "view",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "bool" }],
+  },
+];
+
+const policyRegistryAbi = [
+  {
+    type: "function",
+    name: "createPolicyWithAccounts",
+    stateMutability: "nonpayable",
+    inputs: [{ type: "address" }, { type: "uint8" }, { type: "address[]" }],
+    outputs: [{ type: "uint64" }],
+  },
+  {
+    type: "function",
+    name: "updateAllowlist",
+    stateMutability: "nonpayable",
+    inputs: [{ type: "uint64" }, { type: "bool" }, { type: "address[]" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "updateBlocklist",
+    stateMutability: "nonpayable",
+    inputs: [{ type: "uint64" }, { type: "bool" }, { type: "address[]" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "isAuthorized",
+    stateMutability: "view",
+    inputs: [{ type: "uint64" }, { type: "address" }],
+    outputs: [{ type: "bool" }],
+  },
+];
+
+const b20Abi = [
+  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "currency", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "supplyCap", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "policyId", stateMutability: "view", inputs: [{ type: "bytes32" }], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "grantRole", stateMutability: "nonpayable", inputs: [{ type: "bytes32" }, { type: "address" }], outputs: [] },
+  { type: "function", name: "updateSupplyCap", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
+  { type: "function", name: "updatePolicy", stateMutability: "nonpayable", inputs: [{ type: "bytes32" }, { type: "uint64" }], outputs: [] },
+  { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [] },
+  { type: "function", name: "mintWithMemo", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }], outputs: [] },
+  { type: "function", name: "burn", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
+  { type: "function", name: "burnWithMemo", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "bytes32" }], outputs: [] },
+  { type: "function", name: "burnBlocked", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [] },
+  { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "transferWithMemo", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "pause", stateMutability: "nonpayable", inputs: [{ type: "uint8[]" }], outputs: [] },
+  { type: "function", name: "unpause", stateMutability: "nonpayable", inputs: [{ type: "uint8[]" }], outputs: [] },
+  { type: "function", name: "isPaused", stateMutability: "view", inputs: [{ type: "uint8" }], outputs: [{ type: "bool" }] },
+];
+
+const assetAbi = [
+  { type: "function", name: "batchMint", stateMutability: "nonpayable", inputs: [{ type: "address[]" }, { type: "uint256[]" }], outputs: [] },
+  { type: "function", name: "announce", stateMutability: "nonpayable", inputs: [{ type: "bytes[]" }, { type: "string" }, { type: "string" }, { type: "string" }], outputs: [] },
+  { type: "function", name: "isAnnouncementIdUsed", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "updateExtraMetadata", stateMutability: "nonpayable", inputs: [{ type: "string" }, { type: "string" }], outputs: [] },
+  { type: "function", name: "extraMetadata", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "string" }] },
+  { type: "function", name: "updateMultiplier", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
+  { type: "function", name: "multiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "scaledBalanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+];
+
+const client = createPublicClient({
+  chain: {
+    id: CHAIN_ID,
+    name: NETWORK_NAME,
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: [ACCOUNT_RPC] } },
+  },
+  transport: http(ACCOUNT_RPC),
+});
+
+let inTabLock = Promise.resolve();
+let memoryStoredAccount = null;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function rpc(method, params = []) {
+  const response = await fetchWithTimeout(ACCOUNT_RPC, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || body?.error) {
+    const error = new Error(body?.error?.message ?? `${method} returned ${response.status}`);
+    error.code = body?.error?.code;
+    error.data = body?.error?.data;
+    throw error;
+  }
+  return body.result;
+}
+
+async function post(path, body) {
+  const response = await fetchWithTimeout(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const parsed = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(parsed?.error ?? `${path} returned ${response.status}`);
+  return parsed;
+}
+
+async function withAccountLock(fn) {
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request("base-docs-vibenet-account", { mode: "exclusive" }, fn);
+  }
+  const previous = inTabLock;
+  let release;
+  inTabLock = new Promise((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
+function randomHex(bytes) {
+  const buffer = new Uint8Array(bytes);
+  crypto.getRandomValues(buffer);
+  return `0x${Array.from(buffer, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function randomAddress() {
+  return randomHex(20);
+}
+
+export function explorerTx(hash) {
+  return `${EXPLORER_URL}/tx/${hash}`;
+}
+
+export function explorerAddress(address) {
+  return `${EXPLORER_URL}/address/${address}`;
+}
+
+export function units(value) {
+  return BigInt(value) * 10n ** BigInt(TOKEN_DECIMALS);
+}
+
+export function displayUnits(value) {
+  const raw = BigInt(value);
+  const scale = 10n ** BigInt(TOKEN_DECIMALS);
+  const whole = raw / scale;
+  const fraction = (raw % scale).toString().padStart(TOKEN_DECIMALS, "0").replace(/0+$/, "");
+  return Number(fraction ? `${whole}.${fraction}` : whole.toString());
+}
+
+export function memoToBytes32(value) {
+  if (/^0x[\da-fA-F]{64}$/.test(value)) return value;
+  const encoded = new TextEncoder().encode(value);
+  if (encoded.length > 32) throw new Error("Memo text must be 32 UTF-8 bytes or fewer.");
+  return `0x${Array.from(encoded, (byte) => byte.toString(16).padStart(2, "0")).join("")}${"0".repeat((32 - encoded.length) * 2)}`;
+}
+
+export function bytes32ToMemo(value) {
+  const bytes = [];
+  for (let index = 2; index < value.length; index += 2) {
+    const byte = Number.parseInt(value.slice(index, index + 2), 16);
+    if (byte === 0) break;
+    bytes.push(byte);
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+function roleId(name) {
+  return keccak256(toHex(name));
+}
+
+function scopeId(name) {
+  const value = POLICY_SCOPES[name];
+  if (!value) throw new Error(`Unsupported policy scope: ${name}`);
+  return value;
+}
+
+function functionItem(abi, name) {
+  const item = abi.find((entry) => entry.type === "function" && entry.name === name);
+  if (!item) throw new Error(`Unknown function ${name}`);
+  return item;
+}
+
+async function readFunction(address, abi, functionName, args = []) {
+  const item = functionItem(abi, functionName);
+  const data = encodeFunctionData({ abi, functionName, args });
+  const raw = await rpc("eth_call", [{ to: address, data }, "latest"]);
+  const decoded = decodeAbiParameters(item.outputs ?? [], raw);
+  return decoded.length === 1 ? decoded[0] : decoded;
+}
+
+export async function genesisHash() {
+  const block = await rpc("eth_getBlockByNumber", ["0x0", false]);
+  if (!block?.hash) throw new Error("Vibenet returned no genesis block hash");
+  return block.hash;
+}
+
+export async function contracts() {
+  const response = await fetchWithTimeout(`${API_URL}/api/vibenet/contracts`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Contract lookup failed (${response.status})`);
+  return response.json();
+}
+
+export async function probeCapabilities(domain = "stablecoin") {
+  const [chainId, blockNumber, asset, stablecoin, policy] = await Promise.all([
+    rpc("eth_chainId"),
+    rpc("eth_blockNumber"),
+    readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [ASSET_FEATURE]),
+    readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [STABLECOIN_FEATURE]),
+    readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [POLICY_FEATURE]),
+  ]);
+  const expectedChain = BigInt(chainId) === BigInt(CHAIN_ID);
+  const domainActive = domain === "asset" ? asset : stablecoin;
+  return {
+    live: expectedChain && domainActive && policy,
+    chainId: Number(BigInt(chainId)),
+    blockNumber: Number(BigInt(blockNumber)),
+    capabilities: { asset: Boolean(asset), stablecoin: Boolean(stablecoin), policy: Boolean(policy) },
+    reason: !expectedChain
+      ? `Unexpected chain ${Number(BigInt(chainId))}`
+      : !domainActive
+        ? `B20 ${domain} creation is not activated`
+        : !policy
+          ? "B20 policy writes are not activated"
+          : null,
+  };
+}
+
+function loadStoredAccount() {
+  if (memoryStoredAccount) return memoryStoredAccount;
+  if (typeof localStorage === "undefined") return null;
+  try {
+    memoryStoredAccount = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY) || "null");
+    return memoryStoredAccount;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAccount(value) {
+  memoryStoredAccount = value;
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Private browsing or an unavailable storage quota: keep the account for
+    // this page session in memory and continue.
+  }
+}
+
+export async function getSharedAccount() {
+  const [deployment, genesis] = await Promise.all([contracts(), genesisHash()]);
+  const implementation = deployment.eip8130?.DefaultAccount;
+  if (!implementation) throw new Error("Vibenet reported no DefaultAccount implementation");
+
+  let stored = loadStoredAccount();
+  if (
+    !stored ||
+    stored.version !== 1 ||
+    stored.genesisHash !== genesis ||
+    stored.implementation?.toLowerCase() !== implementation.toLowerCase()
+  ) {
+    stored = {
+      version: 1,
+      genesisHash: genesis,
+      implementation,
+      privateKey: generatePrivateKey(),
+      salt: randomHex(32),
+    };
+  }
+
+  const signer = privateKeyToAccount(stored.privateKey);
+  const account = newSmartAccount({ signer, implementation, salt: stored.salt });
+  if (stored.address && stored.address.toLowerCase() !== account.address.toLowerCase()) {
+    stored.privateKey = generatePrivateKey();
+    stored.salt = randomHex(32);
+    const nextSigner = privateKeyToAccount(stored.privateKey);
+    const nextAccount = newSmartAccount({ signer: nextSigner, implementation, salt: stored.salt });
+    stored.address = nextAccount.address;
+    saveStoredAccount(stored);
+    return { account: nextAccount, signer: nextSigner, genesisHash: genesis, implementation };
+  }
+  stored.address = account.address;
+  saveStoredAccount(stored);
+  return { account, signer, genesisHash: genesis, implementation };
+}
+
+export async function isDeployed(address) {
+  const code = await rpc("eth_getCode", [address, "latest"]);
+  return Boolean(code && code !== "0x");
+}
+
+async function ensureFunded(address) {
+  const balance = BigInt(await rpc("eth_getBalance", [address, "latest"]));
+  if (balance >= MIN_GAS_BALANCE) return null;
+  const drip = await post("/api/vibenet/faucet/drip", { address });
+  await waitForTransactionReceipt(client, { hash: drip.tx_hash, timeout: 60_000 });
+  return drip.tx_hash;
+}
+
+async function highestNonce(address) {
+  let highest = 0n;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const value = await getTransactionCount(client, { address, nonceKey: 0n });
+    if (value > highest) highest = value;
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  return highest;
+}
+
+function structuralGas({ deployed, calls }) {
+  const base = 45_000n;
+  const deploy = deployed ? 0n : 160_000n;
+  const perCall = 22_000n * BigInt(Math.max(calls, 1));
+  const batch = calls > 1 ? 9_000n : 0n;
+  return 2n * (base + deploy + perCall + batch);
+}
+
+async function waitUntilDeployed(address) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if (await isDeployed(address)) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+export async function sendCalls({ calls, metadata = "", gasFloor = 0n }) {
+  if (!calls?.length) throw new Error("No calls to send");
+  return withAccountLock(async () => {
+    const { account, signer } = await getSharedAccount();
+    const faucetHash = await ensureFunded(account.address);
+    const deployed = await isDeployed(account.address);
+    const accountChanges = deployed ? [] : [account.createChange];
+    const nonceSequence = await highestNonce(account.address);
+    const phases = [calls.map((call) => ({ to: call.to, value: call.value ?? 0n, data: call.data ?? "0x" }))];
+    const floor = [structuralGas({ deployed, calls: calls.length }), BigInt(gasFloor)].reduce((a, b) => a > b ? a : b);
+    let gas = floor;
+
+    if (deployed) {
+      try {
+        const estimated = await estimateGas(client, {
+          sender: account.address,
+          senderActorId: key.k1(signer.address).actorId,
+          senderAuthAuthenticator: canonicalAuthenticators.k1,
+          accountChanges,
+          calls: phases,
+          nonceSequence: Number(nonceSequence),
+        });
+        const buffered = BigInt(estimated) * 13n / 10n;
+        if (buffered > gas) gas = buffered;
+      } catch {
+        // Expected for calls intentionally demonstrating an on-chain rejection.
+        // Normal write paths still use the conservative structural floor.
+      }
+    }
+
+    const serialized = await account.signTransaction({
+      chainId: CHAIN_ID,
+      accountChanges,
+      calls: encodeWalletCalls({ account: account.address, calls: phases }),
+      metadata: metadata ? toHex(metadata) : undefined,
+      nonceKey: 0n,
+      nonceSequence,
+      maxFeePerGas: DEFAULT_MAX_FEE,
+      maxPriorityFeePerGas: DEFAULT_PRIORITY_FEE,
+      gas,
+    });
+    const hash = await rpc("eth_sendRawTransaction", [serialized]);
+    const receipt = await waitForTransactionReceipt(client, { hash, timeout: 60_000 });
+    if (receipt.status === "0x0") throw Object.assign(new Error(`Transaction reverted (${hash})`), { hash, receipt });
+    const phasesStatus = receipt.eip8130?.phaseStatuses ?? receipt.phaseStatuses ?? [];
+    const failedPhase = phasesStatus.findIndex((status) => status === "0x0");
+    if (failedPhase !== -1) {
+      throw Object.assign(new Error(`Phase ${failedPhase} reverted (${hash})`), { hash, receipt });
+    }
+    if (!deployed) await waitUntilDeployed(account.address);
+    return { hash, receipt, faucetHash, account: account.address, deployedByThisTx: !deployed };
+  });
+}
+
+function encodeB20(functionName, args = []) {
+  return encodeFunctionData({ abi: b20Abi, functionName, args });
+}
+
+function encodePolicy(functionName, args = []) {
+  return encodeFunctionData({ abi: policyRegistryAbi, functionName, args });
+}
+
+export async function createStablecoin({
+  name = "Docs Demo USD",
+  symbol = "aUSD",
+  currency = "USD",
+  initialMint,
+  mintTo,
+  supplyCap,
+  policies = [],
+} = {}) {
+  const { account } = await getSharedAccount();
+  const salt = keccak256(toHex(`${name}:${symbol}:${Date.now()}:${randomHex(8)}`));
+  const params = encodeAbiParameters(
+    [{ type: "tuple", components: [{ type: "uint8" }, { type: "string" }, { type: "string" }, { type: "address" }, { type: "string" }] }],
+    [[1, name, symbol, account.address, currency]],
+  );
+  const token = await readFunction(B20_FACTORY, factoryAbi, "getB20Address", [1, account.address, salt]);
+  const initCalls = ROLE_NAMES.map((role) => encodeB20("grantRole", [roleId(role), account.address]));
+  if (supplyCap !== undefined) initCalls.push(encodeB20("updateSupplyCap", [BigInt(supplyCap)]));
+  for (const policy of policies) initCalls.push(encodeB20("updatePolicy", [scopeId(policy.scope), BigInt(policy.id)]));
+  if (initialMint !== undefined) {
+    initCalls.push(encodeB20("mintWithMemo", [mintTo ?? account.address, BigInt(initialMint), memoToBytes32("docs-demo-setup")]));
+  }
+  const createData = encodeFunctionData({ abi: factoryAbi, functionName: "createB20", args: [1, salt, params, initCalls] });
+  const tx = await sendCalls({
+    calls: [{ to: B20_FACTORY, data: createData }],
+    metadata: `Create ${symbol}`,
+    gasFloor: 2_000_000n,
+  });
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if (await readFunction(B20_FACTORY, factoryAbi, "isB20Initialized", [token])) break;
+    if (attempt === 11) throw new Error("The B20 transaction landed, but the token is not initialized yet");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return { token, ...tx };
+}
+
+export async function createAsset({
+  name = "Docs Demo Asset",
+  symbol = "EXM",
+  decimals = TOKEN_DECIMALS,
+  roles = ASSET_ROLE_NAMES,
+  initialMints = [],
+  supplyCap,
+  policies = [],
+} = {}) {
+  const { account } = await getSharedAccount();
+  const salt = keccak256(toHex(`${name}:${symbol}:${Date.now()}:${randomHex(8)}`));
+  const params = encodeAbiParameters(
+    [{ type: "tuple", components: [{ type: "uint8" }, { type: "string" }, { type: "string" }, { type: "address" }, { type: "uint8" }] }],
+    [[1, name, symbol, account.address, decimals]],
+  );
+  const token = await readFunction(B20_FACTORY, factoryAbi, "getB20Address", [0, account.address, salt]);
+  const initCalls = roles.map((role) => encodeB20("grantRole", [roleId(role), account.address]));
+  if (supplyCap !== undefined) initCalls.push(encodeB20("updateSupplyCap", [BigInt(supplyCap)]));
+  for (const policy of policies) initCalls.push(encodeB20("updatePolicy", [scopeId(policy.scope), BigInt(policy.id)]));
+  if (initialMints.length) {
+    initCalls.push(encodeFunctionData({
+      abi: assetAbi,
+      functionName: "batchMint",
+      args: [initialMints.map((mint) => mint.to), initialMints.map((mint) => BigInt(mint.amount))],
+    }));
+  }
+  const createData = encodeFunctionData({ abi: factoryAbi, functionName: "createB20", args: [0, salt, params, initCalls] });
+  const tx = await sendCalls({
+    calls: [{ to: B20_FACTORY, data: createData }],
+    metadata: `Create ${symbol}`,
+    gasFloor: 2_000_000n,
+  });
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if (await readFunction(B20_FACTORY, factoryAbi, "isB20Initialized", [token])) break;
+    if (attempt === 11) throw new Error("The B20 transaction landed, but the asset is not initialized yet");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return { token, ...tx };
+}
+
+export async function configureAssetControls({ token, roles = [], supplyCap }) {
+  const { account } = await getSharedAccount();
+  const calls = roles.map((role) => ({ to: token, data: encodeB20("grantRole", [roleId(role), account.address]) }));
+  if (supplyCap !== undefined) calls.push({ to: token, data: encodeB20("updateSupplyCap", [BigInt(supplyCap)]) });
+  return sendCalls({ calls, metadata: "Configure asset controls" });
+}
+
+export async function updateAssetMetadata({ token, key, value }) {
+  const data = encodeFunctionData({ abi: assetAbi, functionName: "updateExtraMetadata", args: [key, value] });
+  return sendCalls({ calls: [{ to: token, data }], metadata: `Update asset metadata: ${key}` });
+}
+
+export async function batchMint({ token, recipients, amounts }) {
+  const data = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "batchMint",
+    args: [recipients, amounts.map((amount) => BigInt(amount))],
+  });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Batch issue asset units" });
+}
+
+export async function announceDistribution({ token, recipients, amounts, id, description, uri }) {
+  const batch = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "batchMint",
+    args: [recipients, amounts.map((amount) => BigInt(amount))],
+  });
+  const data = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "announce",
+    args: [[batch], id, description, uri],
+  });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Announce asset distribution" });
+}
+
+export async function isAnnouncementIdUsed(token, id) {
+  return readFunction(token, assetAbi, "isAnnouncementIdUsed", [id]);
+}
+
+export async function updateMultiplier({ token, multiplier }) {
+  const data = encodeFunctionData({ abi: assetAbi, functionName: "updateMultiplier", args: [BigInt(multiplier)] });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Update asset multiplier" });
+}
+
+export async function assetMultiplier(token) {
+  return readFunction(token, assetAbi, "multiplier");
+}
+
+export async function scaledBalanceOf(token, address) {
+  return readFunction(token, assetAbi, "scaledBalanceOf", [address]);
+}
+
+export async function assetMetadata(token, key) {
+  return readFunction(token, assetAbi, "extraMetadata", [key]);
+}
+
+export async function assetDetails(token) {
+  const [name, decimals, totalSupply, supplyCap, multiplier] = await Promise.all([
+    readFunction(token, b20Abi, "name"),
+    readFunction(token, b20Abi, "decimals"),
+    readFunction(token, b20Abi, "totalSupply"),
+    readFunction(token, b20Abi, "supplyCap"),
+    readFunction(token, assetAbi, "multiplier"),
+  ]);
+  return { name, decimals: Number(decimals), totalSupply, supplyCap, multiplier };
+}
+
+export async function createPolicy({ kind, accounts = [] }) {
+  const { account } = await getSharedAccount();
+  const policyType = kind === "allowlist" ? 1 : 0;
+  const data = encodePolicy("createPolicyWithAccounts", [account.address, policyType, accounts]);
+  const tx = await sendCalls({ calls: [{ to: POLICY_REGISTRY, data }], metadata: `Create ${kind} policy` });
+  const topic = keccak256(toHex("PolicyCreated(uint64,address,uint8)"));
+  const log = tx.receipt.logs.find((entry) => entry.address?.toLowerCase() === POLICY_REGISTRY.toLowerCase() && entry.topics?.[0]?.toLowerCase() === topic.toLowerCase());
+  if (!log?.topics?.[1]) throw new Error("PolicyCreated was missing from the receipt");
+  return { id: BigInt(log.topics[1]), ...tx };
+}
+
+export async function attachPolicy({ token, scope, id }) {
+  const data = encodeB20("updatePolicy", [scopeId(scope), BigInt(id)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: `Attach ${scope}` });
+}
+
+export async function updateAllowlist({ id, allowed, accounts }) {
+  const data = encodePolicy("updateAllowlist", [BigInt(id), Boolean(allowed), accounts]);
+  return sendCalls({ calls: [{ to: POLICY_REGISTRY, data }], metadata: allowed ? "Add allowlist members" : "Remove allowlist members" });
+}
+
+export async function updateBlocklist({ id, blocked, accounts }) {
+  const data = encodePolicy("updateBlocklist", [BigInt(id), Boolean(blocked), accounts]);
+  return sendCalls({ calls: [{ to: POLICY_REGISTRY, data }], metadata: blocked ? "Block accounts" : "Unblock accounts" });
+}
+
+export async function mint({ token, to, amount, memo }) {
+  const data = memo === undefined
+    ? encodeB20("mint", [to, BigInt(amount)])
+    : encodeB20("mintWithMemo", [to, BigInt(amount), memoToBytes32(memo)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Mint stablecoin" });
+}
+
+export async function burn({ token, amount, memo }) {
+  const data = memo === undefined
+    ? encodeB20("burn", [BigInt(amount)])
+    : encodeB20("burnWithMemo", [BigInt(amount), memoToBytes32(memo)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Burn stablecoin" });
+}
+
+export async function burnBlocked({ token, from, amount }) {
+  const data = encodeB20("burnBlocked", [from, BigInt(amount)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Recover blocked stablecoin" });
+}
+
+export async function setSupplyCap({ token, amount }) {
+  const data = encodeB20("updateSupplyCap", [BigInt(amount)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Update stablecoin supply cap" });
+}
+
+export async function transfer({ token, to, amount, memo }) {
+  const data = memo === undefined
+    ? encodeB20("transfer", [to, BigInt(amount)])
+    : encodeB20("transferWithMemo", [to, BigInt(amount), memoToBytes32(memo)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: memo === undefined ? "Transfer stablecoin" : "Transfer stablecoin with memo" });
+}
+
+export async function setTransfersPaused({ token, paused }) {
+  const data = encodeB20(paused ? "pause" : "unpause", [[0]]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: paused ? "Pause transfers" : "Resume transfers" });
+}
+
+export async function balanceOf(token, address) {
+  return readFunction(token, b20Abi, "balanceOf", [address]);
+}
+
+export async function tokenDetails(token) {
+  const [name, currency, decimals, totalSupply, supplyCap] = await Promise.all([
+    readFunction(token, b20Abi, "name"),
+    readFunction(token, b20Abi, "currency"),
+    readFunction(token, b20Abi, "decimals"),
+    readFunction(token, b20Abi, "totalSupply"),
+    readFunction(token, b20Abi, "supplyCap"),
+  ]);
+  return { name, currency, decimals: Number(decimals), totalSupply, supplyCap };
+}
+
+export async function isAuthorized(id, address) {
+  return readFunction(POLICY_REGISTRY, policyRegistryAbi, "isAuthorized", [BigInt(id), address]);
+}
+
+export async function isTransferPaused(token) {
+  return readFunction(token, b20Abi, "isPaused", [0]);
+}
+
+function findRevertData(error) {
+  const candidates = [error?.data, error?.cause?.data, error?.details, error?.message];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const match = candidate.match(/0x[\da-fA-F]{8,}/);
+      if (match) return match[0];
+    }
+    if (candidate && typeof candidate === "object") {
+      const nested = findRevertData(candidate);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+export function decodeRevert(error) {
+  const data = findRevertData(error);
+  const selector = data?.slice(0, 10)?.toLowerCase();
+  return { name: ERROR_NAMES[selector] ?? "ExecutionReverted", selector, data };
+}
+
+export async function expectRevert({ from, token, functionName, args, expected }) {
+  const data = encodeB20(functionName, args);
+  try {
+    await rpc("eth_call", [{ from, to: token, data }, "latest"]);
+  } catch (error) {
+    const decoded = decodeRevert(error);
+    if (expected && decoded.name !== expected) {
+      throw new Error(`Expected ${expected}, received ${decoded.name}`);
+    }
+    return decoded;
+  }
+  throw new Error(`Expected ${expected ?? "the call"} to revert, but it succeeded`);
+}
+
+export function readMemoFromReceipt(receipt) {
+  const memoTopic = keccak256(toHex("Memo(address,bytes32)"));
+  const log = receipt.logs.find((entry) => entry.topics?.[0]?.toLowerCase() === memoTopic.toLowerCase());
+  // Both Memo fields are indexed: topics[1] is caller and topics[2] is memo.
+  const raw = log?.topics?.[2];
+  if (!raw || raw.length !== 66) throw new Error("Memo was missing from the receipt");
+  return { raw, text: bytes32ToMemo(raw), logIndex: Number(BigInt(log.logIndex)) };
+}
+
+const api = {
+  CHAIN_ID,
+  ENGINE_VERSION,
+  NETWORK_NAME,
+  API_URL,
+  ACCOUNT_RPC,
+  EXPLORER_URL,
+  B20_FACTORY,
+  ACTIVATION_REGISTRY,
+  POLICY_REGISTRY,
+  ASSET_FEATURE,
+  STABLECOIN_FEATURE,
+  POLICY_FEATURE,
+  TOKEN_DECIMALS,
+  randomAddress,
+  explorerTx,
+  explorerAddress,
+  units,
+  displayUnits,
+  memoToBytes32,
+  bytes32ToMemo,
+  genesisHash,
+  contracts,
+  probeCapabilities,
+  getSharedAccount,
+  isDeployed,
+  sendCalls,
+  createStablecoin,
+  createAsset,
+  configureAssetControls,
+  updateAssetMetadata,
+  batchMint,
+  announceDistribution,
+  isAnnouncementIdUsed,
+  updateMultiplier,
+  assetMultiplier,
+  scaledBalanceOf,
+  assetMetadata,
+  assetDetails,
+  createPolicy,
+  attachPolicy,
+  updateAllowlist,
+  updateBlocklist,
+  mint,
+  burn,
+  burnBlocked,
+  setSupplyCap,
+  transfer,
+  setTransfersPaused,
+  balanceOf,
+  tokenDetails,
+  isAuthorized,
+  isTransferPaused,
+  decodeRevert,
+  expectRevert,
+  readMemoFromReceipt,
+};
+
+if (typeof window !== "undefined") {
+  window.__baseDocsVibenetEngineV2 = api;
+  window.dispatchEvent(new CustomEvent("base-docs-vibenet-engine:v2-ready"));
+}
+
+export default api;
