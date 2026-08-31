@@ -40,12 +40,36 @@ export const VibenetPaymentsDemo = () => {
     const onReady = () => done(window.__vibenetAa);
     window.addEventListener("vibenet-aa:ready", onReady, { once: true });
     if (!document.querySelector("script[data-vibenet-aa]")) {
-      const tag = document.createElement("script");
-      tag.type = "module";
-      tag.src = "/static/aa-payments.mjs";
-      tag.dataset.vibenetAa = "true";
-      tag.onerror = () => alive && setError("Could not load /static/aa-payments.mjs");
-      document.head.appendChild(tag);
+      // Mintlify's hosted build only serves a whitelist of static extensions —
+      // .mjs 404s in production even though `mint dev` serves it. .txt is
+      // served, so the modules ship as .txt and are turned into real ES modules
+      // client-side via blob URLs, which carry their own MIME type.
+      (async () => {
+        try {
+          const blobUrl = async (src) =>
+            URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+          const fetchText = async (path) => {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+            return response.text();
+          };
+          const aaUrl = await blobUrl(await fetchText("/static/aa.txt"));
+          // Rewrite the bare relative specifier: the payments module resolves
+          // "./aa.mjs" against its own blob URL otherwise, which does not exist.
+          const paySrc = (await fetchText("/static/aa-payments.txt")).replace(
+            '"./aa.mjs"',
+            JSON.stringify(aaUrl),
+          );
+          const tag = document.createElement("script");
+          tag.type = "module";
+          tag.src = await blobUrl(paySrc);
+          tag.dataset.vibenetAa = "true";
+          tag.onerror = () => alive && setError("Failed to evaluate the EIP-8130 client");
+          document.head.appendChild(tag);
+        } catch (e) {
+          if (alive) setError(`Could not load the EIP-8130 client: ${e.message}`);
+        }
+      })();
     }
     return () => { alive = false; window.removeEventListener("vibenet-aa:ready", onReady); };
   }, []);
