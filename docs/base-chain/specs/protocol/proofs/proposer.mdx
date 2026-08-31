@@ -45,13 +45,13 @@ At startup, the proposer connects to:
 
 The proposer reads the game implementation address from:
 
-```text
+```text Game Implementation Lookup
 DisputeGameFactory.gameImpls(gameType)
 ```
 
 The implementation address must be non-zero. The proposer then reads:
 
-```text
+```text Startup Reads
 AggregateVerifier.BLOCK_INTERVAL()
 AggregateVerifier.INTERMEDIATE_BLOCK_INTERVAL()
 DisputeGameFactory.initBonds(gameType)
@@ -61,7 +61,7 @@ DisputeGameFactory.initBonds(gameType)
 `BLOCK_INTERVAL % INTERMEDIATE_BLOCK_INTERVAL` must be `0`. The number of intermediate roots in a
 proposal is:
 
-```text
+```text Intermediate Root Count
 BLOCK_INTERVAL / INTERMEDIATE_BLOCK_INTERVAL
 ```
 
@@ -73,7 +73,7 @@ proposals, it may use the rollup node's safe L2 state instead.
 The proposer recovers the latest onchain parent state from L1 before planning new work. The parent
 state is:
 
-```text
+```text Parent State Fields
 parentAddress
 parentOutputRoot
 parentL2BlockNumber
@@ -81,7 +81,7 @@ parentL2BlockNumber
 
 If no matching games exist, the parent is the anchor root from `AnchorStateRegistry`:
 
-```text
+```text Anchor Parent State
 parentAddress = AnchorStateRegistry address
 parentOutputRoot = AnchorStateRegistry.getAnchorRoot().root
 parentL2BlockNumber = AnchorStateRegistry.getAnchorRoot().l2BlockNumber
@@ -124,13 +124,13 @@ key and is ignored by parent recovery.
 
 After recovery, the next proposal target is:
 
-```text
+```text Target Block Formula
 targetBlock = parentL2BlockNumber + BLOCK_INTERVAL
 ```
 
 The proposer must not request or submit a proof for `targetBlock` unless:
 
-```text
+```text Safe Head Constraint
 targetBlock <= safeHead
 ```
 
@@ -162,7 +162,7 @@ For a checkpoint range, the proposer builds a `ProofRequest` with:
 
 The prover RPC method is:
 
-```text
+```text Prover RPC Method
 prover_prove(ProofRequest) -> ProofResult
 ```
 
@@ -178,7 +178,7 @@ The TEE prover returns:
 
 The aggregate proposal contains:
 
-```text
+```text Aggregate Proposal Fields
 outputRoot
 signature
 l1OriginHash
@@ -190,13 +190,13 @@ configHash
 
 The TEE signature is over:
 
-```text
+```text TEE Signature Preimage
 keccak256(journal)
 ```
 
 where `journal` is packed as:
 
-```text
+```text Journal Packing lines wrap expandable
 proposer(20)
 || l1OriginHash(32)
 || prevOutputRoot(32)
@@ -210,7 +210,7 @@ proposer(20)
 
 For aggregate proposals:
 
-```text
+```text Aggregate Proposal Values
 startingL2Block = parentL2BlockNumber
 endingL2Block = targetBlock
 prevOutputRoot = parentOutputRoot
@@ -238,7 +238,7 @@ or L2 reorgs.
 When `TEEProverRegistry` is configured, the proposer should recover the TEE signer from the
 aggregate proposal signature and call:
 
-```text
+```text Signer Validity Check
 TEEProverRegistry.isValidSigner(signer)
 ```
 
@@ -251,7 +251,7 @@ validity.
 
 The proposer creates a game with:
 
-```solidity
+```solidity Game Creation Call
 DisputeGameFactory.createWithInitData{value: initBond}(
     gameType,
     rootClaim,
@@ -262,13 +262,13 @@ DisputeGameFactory.createWithInitData{value: initBond}(
 
 where:
 
-```text
+```text Root Claim
 rootClaim = aggregateProposal.outputRoot
 ```
 
 `extraData` is packed, not ABI-encoded:
 
-```text
+```text Extra Data Packing
 l2BlockNumber(32) || parentAddress(20) || intermediateRoots(32 * N)
 ```
 
@@ -277,13 +277,13 @@ game proxy address, or the `AnchorStateRegistry` address for the first game afte
 
 `initData` is the TEE proof bytes for `AggregateVerifier.initializeWithInitData()`:
 
-```text
+```text Init Data Packing
 proofType(1) || l1OriginHash(32) || l1OriginNumber(32) || signature(65)
 ```
 
 For TEE proofs:
 
-```text
+```text TEE Proof Type
 proofType = 0
 ```
 
@@ -297,7 +297,7 @@ by the L1 transaction manager.
 
 The factory key for a game is:
 
-```text
+```text Factory Game Key
 gameType || rootClaim || extraData
 ```
 

@@ -43,7 +43,7 @@ For efficient data encoding, `254` bits (equivalent to `31.75` bytes) are utiliz
 
 `127` bytes of application-layer rollup data is encoded at a time, into 4 adjacent field elements of the blob:
 
-```python
+```python Blob Encoding Pseudocode lines wrap expandable
 # read(N): read the next N bytes from the application-layer rollup-data. The next read starts where the last stopped.
 # write(V): append V (one or more bytes) to the raw blob.
 bytes tailA = read(31)
@@ -77,7 +77,7 @@ Each written field element looks like this:
 
 The written output should look like this:
 
-```text
+```text Blob Element Layout
 <----- element 0 -----><----- element 1 -----><----- element 2 -----><----- element 3 ----->
 | byte A |  tailA...  || byte B |  tailB...  || byte C |  tailC...  || byte D |  tailD...  |
 ```
@@ -132,21 +132,21 @@ A deposit transaction is derived with the following attributes:
 
 This results in the Ecotone L1Block contract being deployed to `0x07dbe8500fc591d1852B76feE44d5a05e13097Ff`, to verify:
 
-```bash
+```bash Terminal
 cast compute-address --nonce=0 0x4210000000000000000000000000000000000000
 Computed Address: 0x07dbe8500fc591d1852B76feE44d5a05e13097Ff
 ```
 
 Verify `sourceHash`:
 
-```bash
+```bash Terminal
 cast keccak $(cast concat-hex 0x0000000000000000000000000000000000000000000000000000000000000002 $(cast keccak "Ecotone: L1 Block Deployment"))
 # 0x877a6077205782ea15a6dc8699fa5ebcec5e0f4389f09cb8eda09488231346f8
 ```
 
 Verify `data`:
 
-```bash
+```bash Terminal
 git checkout 5996d0bc1a4721f2169ba4366a014532f31ea932
 pnpm clean && pnpm install && pnpm build
 jq -r ".bytecode.object" packages/contracts-bedrock/forge-artifacts/L1Block.sol/L1Block.json
@@ -174,21 +174,21 @@ A deposit transaction is derived with the following attributes:
 This results in the Ecotone GasPriceOracle contract being deployed to `0xb528D11cC114E026F138fE568744c6D45ce6Da7A`,
 to verify:
 
-```bash
+```bash Terminal
 cast compute-address --nonce=0 0x4210000000000000000000000000000000000001
 Computed Address: 0xb528D11cC114E026F138fE568744c6D45ce6Da7A
 ```
 
 Verify `sourceHash`:
 
-```bash
+```bash Terminal
 ❯ cast keccak $(cast concat-hex 0x0000000000000000000000000000000000000000000000000000000000000002 $(cast keccak "Ecotone: Gas Price Oracle Deployment"))
 # 0xa312b4510adf943510f05fcc8f15f86995a5066bd83ce11384688ae20e6ecf42
 ```
 
 Verify `data`:
 
-```bash
+```bash Terminal
 git checkout 5996d0bc1a4721f2169ba4366a014532f31ea932
 pnpm clean && pnpm install && pnpm build
 jq -r ".bytecode.object" packages/contracts-bedrock/forge-artifacts/GasPriceOracle.sol/GasPriceOracle.json
@@ -214,14 +214,14 @@ A deposit transaction is derived with the following attributes:
 
 Verify data:
 
-```bash
+```bash Terminal
 cast concat-hex $(cast sig "upgradeTo(address)") $(cast abi-encode "upgradeTo(address)" 0x07dbe8500fc591d1852B76feE44d5a05e13097Ff)
 0x3659cfe600000000000000000000000007dbe8500fc591d1852b76fee44d5a05e13097ff
 ```
 
 Verify `sourceHash`:
 
-```bash
+```bash Terminal
 cast keccak $(cast concat-hex 0x0000000000000000000000000000000000000000000000000000000000000002 $(cast keccak "Ecotone: L1 Block Proxy Update"))
 # 0x18acb38c5ff1c238a7460ebc1b421fa49ec4874bdf1e0a530d234104e5e67dbc
 ```
@@ -244,14 +244,14 @@ A deposit transaction is derived with the following attributes:
 
 Verify data:
 
-```bash
+```bash Terminal
 cast concat-hex $(cast sig "upgradeTo(address)") $(cast abi-encode "upgradeTo(address)" 0xb528D11cC114E026F138fE568744c6D45ce6Da7A)
 0x3659cfe6000000000000000000000000b528d11cc114e026f138fe568744c6d45ce6da7a
 ```
 
 Verify `sourceHash`:
 
-```bash
+```bash Terminal
 cast keccak $(cast concat-hex 0x0000000000000000000000000000000000000000000000000000000000000002 $(cast keccak "Ecotone: Gas Price Oracle Proxy Update"))
 # 0xee4f9385eceef498af0be7ec5862229f426dec41c8d42397c7257a5117d9230a
 ```
@@ -273,14 +273,14 @@ A deposit transaction is derived with the following attributes:
 
 Verify data:
 
-```bash
+```bash Terminal
 cast sig "setEcotone()"
 0x22b90ab3
 ```
 
 Verify `sourceHash`:
 
-```bash
+```bash Terminal
 cast keccak $(cast concat-hex 0x0000000000000000000000000000000000000000000000000000000000000002 $(cast keccak "Ecotone: Gas Price Oracle Set Ecotone"))
 # 0x0c1cb38e99dbc9cbfab3bb80863380b0905290b37eb3d6ab18dc01c1f3e75f93
 ```
@@ -323,14 +323,14 @@ The contract address upon deployment is computed as `rlp([sender, nonce])`, whic
 
 Verify `BEACON_ROOTS_ADDRESS`:
 
-```bash
+```bash Terminal
 cast compute-address --nonce=0 0x0B799C86a49DEeb90402691F1041aa3AF2d3C875
 # Computed Address: 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02
 ```
 
 Verify `sourceHash`:
 
-```bash
+```bash Terminal
 cast keccak $(cast concat-hex 0x0000000000000000000000000000000000000000000000000000000000000002 $(cast keccak "Ecotone: beacon block roots contract deployment"))
 # 0x69b763c48478b9dc2f65ada09b3d92133ec592ea715ec65ad6e7f3dc519dc00c
 ```

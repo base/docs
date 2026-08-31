@@ -134,7 +134,7 @@ ones. This prevents an instance that is rotating in or out from being deregister
 The registrar produces proof material for every signer not yet onchain by calling an
 `AttestationProofProvider`. The provider returns:
 
-```text
+```text Attestation Proof Provider Output
 output      // ABI-encoded VerifierJournal (PCRs, public key, timestamp, cert hashes)
 proofBytes  // Groth16 seal
 ```
@@ -165,7 +165,7 @@ behind a mutex to avoid wallet nonce races.
 The registrar process is itself ephemeral. Across restarts, it must not re-spend proving work and
 must not submit stale proofs. Boundless `RequestId` slots are derived deterministically:
 
-```text
+```text Request Index Derivation
 request_index(signer, attempt) = u32::from_be_bytes(keccak256(signer || attempt)[..4])
 ```
 
@@ -286,7 +286,7 @@ registrations can short-circuit without re-fetching the CRL.
 Each per-signer pipeline is keyed by Ethereum signer address. The Boundless proof slot for a
 signer transitions through:
 
-```mermaid
+```mermaid Pending Registration Lifecycle lines wrap expandable
 flowchart TB
     Start([process_instance]) --> Recover[Recovery scan]
     Recover -->|Locked slot| Wait[wait_for_request_fulfillment]

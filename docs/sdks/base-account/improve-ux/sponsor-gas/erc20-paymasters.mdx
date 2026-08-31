@@ -9,7 +9,7 @@ Tokens can be accepted for payment by passed in app paymasters in addition to a 
 
 This guide outlines how to set up your own app paymaster which will accept your token as payment.
 
-### Choose a Paymaster Service Provider
+## Choose a Paymaster Service Provider
 
 As a prerequisite, you'll need to obtain a paymaster service URL from a paymaster service provider. ERC20 paymasters have additional requirements that will be outlined below.
 
@@ -17,11 +17,11 @@ We recommend the [Coinbase Developer Platform](https://www.coinbase.com/develope
 
 Otherwise if using a different paymaster provider, it must conform to the specification outlined in [ERC20 Compatible Paymasters](#erc20-compatible-paymasters) to correctly work with Base Account.
 
-### App Setup for Custom Token
+## App Setup for Custom Token
 
 Once you have a paymaster that is compatible with ERC20 gas payments on Base Account, you are only responsible for including the approvals to the paymaster for your token. It is recommended to periodically top up the allowance once they hit some threshold.
 
-```js
+```js Top Up Paymaster Allowance lines wrap expandable
 
 const tokenDecimals = 6
 const minTokenThreshold = 1 * 10 ** tokenDecimals // $1
@@ -60,13 +60,13 @@ if (allowance < minTokenThreshold) {
 
 That is it! Base Account will handle the rest as long as it is compatible as outlined below.
 
-### ERC20 Compatible Paymasters
+## ERC20 Compatible Paymasters
 
 Coinbase Developer Platform is compatible out of the box and we will be working with other teams to include support soon!
 
 The paymaster must handle the `pm_getPaymasterStubData` and `pm_getPaymasterData` JSON-RPC requests specified by ERC-7677 in addition to `pm_getAcceptedPaymentTokens`. We step through each request and response below.
 
-#### pm_getPaymasterStubData and pm_getPaymasterData
+### pm_getPaymasterStubData and pm_getPaymasterData
 
 1. The paymaster must use the specified ERC20 for payment if specified in the 7677 context field under `erc20`.
 2. Upon rejection / failure the paymaster should return a `data` field in the JSONRPC response which could be used to approve the paymaster and includes:
@@ -83,11 +83,11 @@ The paymaster must handle the `pm_getPaymasterStubData` and `pm_getPaymasterData
 
 Base Account will simulate the transaction to ensure success and accurate information.
 
-##### Request
+#### Request
 
 This is a standard V0.6 Entrypoint request example with the additional context for the specified token to be used.
 
-```json
+```json Request lines wrap expandable
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -115,11 +115,11 @@ This is a standard V0.6 Entrypoint request example with the additional context f
 }
 ```
 
-##### Response
+#### Response
 
 Successful response:
 
-```json
+```json Success Response lines wrap expandable
 {
   "id": 1,
   "jsonrpc": "2.0",
@@ -137,7 +137,7 @@ Successful response:
 
 Rejection response:
 
-```json
+```json Rejection Response lines wrap expandable
 {
   "id": 1,
   "jsonrpc": "2.0",
@@ -156,14 +156,14 @@ Rejection response:
 }
 ```
 
-#### pm_getAcceptedPaymentTokens
+### pm_getAcceptedPaymentTokens
 
 `pm_getAcceptedPaymentTokens` returns an array of tokens the paymaster will accept for payment.
 The request contains the entrypoint and the chain id with optional context.
 
-##### Request
+#### Request
 
-```json
+```json Request
 {
   "jsonrpc": "2.0", "id": 1,
   "method": "pm_getAcceptedPaymentTokens",
@@ -171,9 +171,9 @@ The request contains the entrypoint and the chain id with optional context.
 }
 ```
 
-##### Response
+#### Response
 
-```json
+```json Response lines wrap expandable
 {
   "id": 1,
   "jsonrpc": "2.0",
