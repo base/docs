@@ -253,6 +253,7 @@ export const AssetDemo = ({ flow }) => {
   const [actionError, setActionError] = useState(null);
   const [accountAddress, setAccountAddress] = useState(null);
   const [accountCopied, setAccountCopied] = useState(false);
+  const [accountTokenBalance, setAccountTokenBalance] = useState(null);
   const liveContext = useRef(null);
 
   useEffect(() => {
@@ -295,7 +296,7 @@ export const AssetDemo = ({ flow }) => {
       policyId: null,
       addresses: {
         Issuer: shared.account.address,
-        Alice: engine.randomAddress(),
+        Alice: shared.account.address,
         Bob: engine.randomAddress(),
         Carol: engine.randomAddress(),
       },
@@ -322,7 +323,7 @@ export const AssetDemo = ({ flow }) => {
   const createEligibilitySetup = async (engine, ctx, options = {}) => {
     const policy = await engine.createPolicy({
       kind: "allowlist",
-      accounts: [ctx.addresses.Issuer, ctx.addresses.Alice, ctx.addresses.Bob],
+      accounts: [...new Set([ctx.addresses.Issuer, ctx.addresses.Alice, ctx.addresses.Bob])],
     });
     ctx.policyId = policy.id;
     const created = await createAsset(engine, ctx, {
@@ -590,12 +591,14 @@ export const AssetDemo = ({ flow }) => {
     setSim(freshSim());
     setResults([]);
     setActionError(null);
+    setAccountTokenBalance(null);
     liveContext.current = null;
   };
   const reset = () => {
     setSim(freshSim());
     setResults([]);
     setActionError(null);
+    setAccountTokenBalance(null);
     liveContext.current = null;
   };
   const runMockStep = () => {
@@ -618,6 +621,13 @@ export const AssetDemo = ({ flow }) => {
       const ctx = await ensureLiveContext(engine);
       const state = { balances: { ...sim.balances }, blocked: sim.blocked, multiplier: sim.multiplier, paused: sim.paused };
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
+      if (ctx.token) {
+        try {
+          setAccountTokenBalance(engine.displayUnits(await engine.scaledBalanceOf(ctx.token, ctx.account)));
+        } catch {
+          setAccountTokenBalance(null);
+        }
+      }
       setSim(state);
       setResults((current) => [...current, out || { entries: [] }]);
     } catch (error) {
@@ -627,12 +637,14 @@ export const AssetDemo = ({ flow }) => {
           if (!latest.live) {
             setProbeInfo(latest);
             setLiveState("offline");
+            setAccountTokenBalance(null);
             liveContext.current = null;
             runMockStep();
             return;
           }
         } catch {
           setLiveState("offline");
+          setAccountTokenBalance(null);
           liveContext.current = null;
           runMockStep();
           return;
@@ -815,10 +827,16 @@ export const AssetDemo = ({ flow }) => {
           })}
         </div>
         <div
-          title={liveState === "live" && accountAddress ? `Vibenet demo account: ${accountAddress}` : liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
+          title={liveState === "live" && accountAddress ? `Vibenet demo account: ${accountAddress}${accountTokenBalance !== null ? ` · ${fmt(accountTokenBalance)} ${TOKEN}` : ""}` : liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
           style={{ display: "inline-flex", alignItems: "center", gap: 3, color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: accountAddress && liveState === "live" ? "2px 3px 2px 6px" : "2px 6px", flexShrink: 0 }}
         >
           <span className="wf-t-caption" style={accountAddress && liveState === "live" ? { fontFamily: mono, textTransform: "none", letterSpacing: 0 } : undefined}>{badge.text}</span>
+          {liveState === "live" && accountAddress && accountTokenBalance !== null && (
+            <>
+              <span aria-hidden="true" style={{ color: C.border }}>·</span>
+              <span className="wf-t-caption" style={{ color: C.body, fontFamily: mono, textTransform: "none", letterSpacing: 0, whiteSpace: "nowrap" }}>{fmt(accountTokenBalance)} {TOKEN}</span>
+            </>
+          )}
           {liveState === "live" && accountAddress && (
             <button
               type="button"

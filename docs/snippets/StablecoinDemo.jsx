@@ -280,6 +280,7 @@ export const StablecoinDemo = ({ flow }) => {
   const [actionError, setActionError] = useState(null);
   const [accountAddress, setAccountAddress] = useState(null);
   const [accountCopied, setAccountCopied] = useState(false);
+  const [accountTokenBalance, setAccountTokenBalance] = useState(null);
   const liveContext = useRef(null);
 
   useEffect(() => {
@@ -636,12 +637,14 @@ export const StablecoinDemo = ({ flow }) => {
     setSim(freshSim());
     setResults([]);
     setActionError(null);
+    setAccountTokenBalance(null);
     liveContext.current = null;
   };
   const reset = () => {
     setSim(freshSim());
     setResults([]);
     setActionError(null);
+    setAccountTokenBalance(null);
     liveContext.current = null;
   };
   const runMockStep = () => {
@@ -664,6 +667,13 @@ export const StablecoinDemo = ({ flow }) => {
       const ctx = await ensureLiveContext(engine);
       const state = { balances: { ...sim.balances }, blocked: sim.blocked };
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
+      if (ctx.token) {
+        try {
+          setAccountTokenBalance(engine.displayUnits(await engine.balanceOf(ctx.token, ctx.account)));
+        } catch {
+          setAccountTokenBalance(null);
+        }
+      }
       setSim(state);
       setResults((current) => [...current, out || { entries: [] }]);
     } catch (error) {
@@ -675,12 +685,14 @@ export const StablecoinDemo = ({ flow }) => {
           if (!latest.live) {
             setProbeInfo(latest);
             setLiveState("offline");
+            setAccountTokenBalance(null);
             liveContext.current = null;
             runMockStep();
             return;
           }
         } catch {
           setLiveState("offline");
+          setAccountTokenBalance(null);
           liveContext.current = null;
           runMockStep();
           return;
@@ -864,10 +876,16 @@ export const StablecoinDemo = ({ flow }) => {
           })}
         </div>
         <div
-          title={liveState === "live" && accountAddress ? `Vibenet demo account: ${accountAddress}` : liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
+          title={liveState === "live" && accountAddress ? `Vibenet demo account: ${accountAddress}${accountTokenBalance !== null ? ` · ${fmt(accountTokenBalance)} ${TOKEN}` : ""}` : liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
           style={{ display: "inline-flex", alignItems: "center", gap: 3, color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: accountAddress && liveState === "live" ? "2px 3px 2px 6px" : "2px 6px", flexShrink: 0 }}
         >
           <span className="wf-t-caption" style={accountAddress && liveState === "live" ? { fontFamily: "var(--wf-mono)", textTransform: "none", letterSpacing: 0 } : undefined}>{badge.text}</span>
+          {liveState === "live" && accountAddress && accountTokenBalance !== null && (
+            <>
+              <span aria-hidden="true" style={{ color: C.border }}>·</span>
+              <span className="wf-t-caption" style={{ color: C.body, fontFamily: "var(--wf-mono)", textTransform: "none", letterSpacing: 0, whiteSpace: "nowrap" }}>{fmt(accountTokenBalance)} {TOKEN}</span>
+            </>
+          )}
           {liveState === "live" && accountAddress && (
             <button
               type="button"
