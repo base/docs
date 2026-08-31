@@ -185,7 +185,7 @@ Extract fields by position:
 
 ## Orchestration
 
-### Standard swap (no Permit2)
+### Standard Swap (No Permit2)
 
 1. `get_wallets` → wallet address.
 2. Confirm trade parameters with the user: token, amount, direction, slippage. See [Risks & Warnings](#risks--warnings) before proceeding with elevated slippage.
@@ -196,7 +196,7 @@ Extract fields by position:
 7. Present the approval URL: [Approve Transaction](approvalUrl). In CLI harnesses, also auto-open the link. Do not approve on the user's behalf.
 8. After the user confirms approval, call `get_request_status(requestId)` once.
 
-### Permit2 swap (Base only)
+### Permit2 Swap (Base Only)
 
 When `transactions[].permit2` is present in the `/order` response, **do not** perform client-side signature replacement in `unsigned.data`. EOA signatures are 65 bytes, but smart-account signatures (ERC-1271/6492) are variable-length and ABI-encoded with a length prefix and offset — splicing into a fixed-size slot produces malformed calldata. Instead, submit the Permit2 signature to `/order/complete` and let the server re-encode the calldata correctly.
 

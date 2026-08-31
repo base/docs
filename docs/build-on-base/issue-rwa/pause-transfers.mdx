@@ -1,0 +1,71 @@
+---
+title: "Pause Transfers"
+description: "Pause transfers on a B20 Asset token during an incident while leaving minting and burning available."
+keywords: ["pause tokenized asset transfers", "B20 pause", "token incident response", "granular token pause"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Pause the `TRANSFER` feature during an incident without stopping issuance or cancellation. B20 grants pause and unpause through separate roles so you can separate emergency response from recovery authority.
+
+<RwaDisclaimer />
+
+#### Demo
+
+<AssetDemo flow="pause" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/base-chain/network-information/b20-token-standard) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Pause and Resume Stock Transfers
+
+<CodeGroup>
+{/* sample: stock-pause-ts */}
+```typescript TypeScript lines wrap expandable highlight={7}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function setStockTransfersPaused(token: Address, paused: boolean) {
+  await sendContract({ address: token, abi: b20Abi, functionName: paused ? "pause" : "unpause", args: [[0]] });
+  const current = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "isPaused", args: [0] });
+  if (current !== paused) throw new Error("Unexpected transfer pause state");
+}
+```
+{/* sample: stock-pause-cli */}
+```bash CLI lines wrap expandable highlight={1,4}
+base-cast send "$TOKEN_ADDRESS" "pause(uint8[])" "[0]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "isPaused(uint8)(bool)" 0 --rpc-url "$RPC_URL"
+base-cast send "$TOKEN_ADDRESS" "unpause(uint8[])" "[0]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+```
+</CodeGroup>
+
+See the [B20 token standard](/base-chain/network-information/b20-token-standard) for the complete interface, roles, and policies.
+
+<Check>
+Transfer pause state changes without pausing mint or burn.
+</Check>
+
+<Note>
+Pause and unpause use separate roles. Grant recovery authority more narrowly than emergency pause authority.
+</Note>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Restrict Eligible Holders" icon="user-check" href="/build-on-base/issue-rwa/restrict-eligible-holders">
+    Gate who can hold with policies.
+  </Card>
+  <Card title="Cancel Blocked Shares" icon="ban" href="/build-on-base/issue-rwa/cancel-blocked-units">
+    Burn units from a blocked account.
+  </Card>
+</CardGroup>

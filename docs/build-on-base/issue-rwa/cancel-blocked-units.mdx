@@ -1,0 +1,75 @@
+---
+title: "Cancel Blocked Units"
+description: "Cancel units from a holder after removing the holder from a B20 sender allowlist."
+keywords: ["cancel tokenized units", "B20 burnBlocked", "blocked holder", "burn regulated token"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Cancel shares from a holder who is already denied by the token's transfer-sender policy. Removing the holder from an allowlist freezes outgoing transfers; `burnBlocked` then burns the specified shares and reduces total supply.
+
+<RwaDisclaimer />
+
+#### Demo
+
+<AssetDemo flow="cancel" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/base-chain/network-information/b20-token-standard) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Cancel and Verify Blocked Shares
+
+<CodeGroup>
+{/* sample: stock-cancel-ts */}
+```typescript TypeScript lines wrap expandable highlight={8}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function cancelBlockedShares(token: Address, holder: Address) {
+  const amount = parseUnits("100", 6);
+  await sendContract({ address: token, abi: b20Abi, functionName: "burnBlocked", args: [holder, amount] });
+  return publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [holder] });
+}
+```
+{/* sample: stock-cancel-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function cancelBlockedShares(address token, address holder) public {
+        IB20(token).burnBlocked(holder, 100e6);
+    }
+```
+{/* sample: stock-cancel-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "burnBlocked(address,uint256)" "$BLOCKED_HOLDER" 100000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$BLOCKED_HOLDER" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [B20 token standard](/base-chain/network-information/b20-token-standard) for the complete interface, roles, and policies.
+
+<Check>
+The holder balance and total supply each fall by 100 EXM.
+</Check>
+
+<Warning>
+`burnBlocked` destroys shares; it does not move them to the issuer. Block the holder under `TRANSFER_SENDER_POLICY` first.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Restrict Eligible Holders" icon="user-check" href="/build-on-base/issue-rwa/restrict-eligible-holders">
+    Gate who can hold with policies.
+  </Card>
+  <Card title="Issue Shares" icon="coins" href="/build-on-base/issue-rwa/issue-units">
+    Mint asset units to holders.
+  </Card>
+</CardGroup>

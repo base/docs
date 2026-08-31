@@ -66,7 +66,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const ROUTE_TABLE_PATH = path.join(__dirname, "route-table.json");
-const STYLE_GUIDE_FILE = "content-instructions.md";
+const GUIDELINE_FILES = ["content-guidelines.md", "docs/ia-guidelines.md"];
 const DRY_RUN = process.env.DRY_RUN === "1";
 const DOCS_ROOT = process.env.DOCS_CONTENT_ROOT || "docs";
 
@@ -380,6 +380,7 @@ async function selectReleasePages(routeTable, candidates, signals) {
         manifest_summary: manifestSummary,
         changed_paths: changedSample,
         candidates: batch,
+        documentationGuidelines: signals.documentationGuidelines,
       });
       try {
         const raw = await callClaude(prompt, `release-selection-${idx}`, {
@@ -848,25 +849,31 @@ async function loadKnownRoutes() {
 }
 
 /**
- * Read the house writing-style guide (content-instructions.md at repo root) once at
+ * Read the canonical content and information-architecture guidelines once at
  * script start. Returned content gets embedded in every Claude prompt as a
- * <style_guide>...</style_guide> block so the model writes in the
- * documented Mintlify-style voice.
+ * <documentation_guidelines>...</documentation_guidelines> block so generated
+ * updates follow both the writing rules and the current IA.
  *
  * A missing or empty file is non-fatal: returns "" and the prompts omit the
  * style-guide section. Keeps the script usable in test contexts and
- * avoids hard-coupling routing to a docs-side filename.
+ * avoids hard-coupling routing to either guideline file in test contexts.
  *
  * @returns {Promise<string>}
  */
-export async function loadStyleGuide({ repoRoot = REPO_ROOT } = {}) {
-  const stylePath = path.join(repoRoot, STYLE_GUIDE_FILE);
-  if (!existsSync(stylePath)) return "";
-  try {
-    return (await fs.readFile(stylePath, "utf8")).trim();
-  } catch {
-    return "";
+export async function loadDocumentationGuidelines({ repoRoot = REPO_ROOT } = {}) {
+  const sections = [];
+  for (const relativePath of GUIDELINE_FILES) {
+    const guidelinePath = path.join(repoRoot, relativePath);
+    if (!existsSync(guidelinePath)) continue;
+    try {
+      const content = (await fs.readFile(guidelinePath, "utf8")).trim();
+      if (content) sections.push(`Source: ${relativePath}\n\n${content}`);
+    } catch {
+      // A missing or unreadable guideline is non-fatal. The startup log makes
+      // it clear when the combined guideline block could not be loaded.
+    }
   }
+  return sections.join("\n\n---\n\n");
 }
 
 /**
@@ -982,13 +989,13 @@ const ASSET_PREFIXES = /^\/(images|static|public|_next|assets|fonts|favicon|api)
  *
  * @param {{page: string, transformer: string, sourceFiles?: string[]}} item
  * @param {{kind: string, payload: object, sha: string, manifest: Array,
- *          styleGuide: string, knownRoutes: Set<string>, route: object}} shared
+ *          documentationGuidelines: string, knownRoutes: Set<string>, route: object}} shared
  * @param {boolean} useGroups — wrap logs in ::group::/::endgroup:: (serial path)
  * @returns {Promise<{page: string, status: "written"|"noop"|"skip"|"rejected",
  *          reason?: string, sourceFiles?: string[], newExternalUrls?: string[]}>}
  */
 async function processPage(item, shared, useGroups) {
-  const { kind, payload, sha, manifest, styleGuide, knownRoutes, route } = shared;
+  const { kind, payload, sha, manifest, documentationGuidelines, knownRoutes, route } = shared;
   if (useGroups) console.log(`::group::${item.page}`);
   else console.log(`[page] ${item.page}`);
   try {
@@ -1032,7 +1039,7 @@ async function processPage(item, shared, useGroups) {
           diff_truncated: !!payload.diff_truncated,
           current: next,
           bumpCount,
-          styleGuide,
+          documentationGuidelines,
         };
       } else if (kind === "manual-update") {
         ctx = {
@@ -1040,7 +1047,7 @@ async function processPage(item, shared, useGroups) {
           intent: payload.intent,
           source_refs: payload.source_refs || [],
           current: next,
-          styleGuide,
+          documentationGuidelines,
         };
       } else {
         // code-change
@@ -1060,7 +1067,7 @@ async function processPage(item, shared, useGroups) {
           sourceFiles: item.sourceFiles,
           manifest: pageManifest,
           current,
-          styleGuide,
+          documentationGuidelines,
         };
       }
       const prompt = buildClaudePrompt(kind, ctx);
@@ -1153,14 +1160,17 @@ async function main() {
   // missing — keeps the script usable in dry-test contexts.
   const knownRoutes = await loadKnownRoutes();
   console.log(`[sync] loaded ${knownRoutes.size} known doc route(s) for link validation`);
-  // Read the house writing-style guide once. Threaded into every Claude
-  // prompt via ctx.styleGuide. Empty string when content-instructions.md is
-  // missing or empty.
-  const styleGuide = await loadStyleGuide();
-  if (styleGuide) {
-    console.log(`[sync] loaded ${STYLE_GUIDE_FILE} style guide (${styleGuide.length} chars)`);
+  // Read the canonical content and IA guidelines once. Threaded into every
+  // Claude prompt via ctx.documentationGuidelines.
+  const documentationGuidelines = await loadDocumentationGuidelines();
+  if (documentationGuidelines) {
+    console.log(
+      `[sync] loaded ${GUIDELINE_FILES.join(" + ")} (${documentationGuidelines.length} chars)`,
+    );
   } else {
-    console.log(`[sync] no usable ${STYLE_GUIDE_FILE} found at repo root — prompts will ship without a style guide section`);
+    console.log(
+      `[sync] no usable documentation guidelines found (${GUIDELINE_FILES.join(", ")}) — prompts will omit the guidelines section`,
+    );
   }
 
   const kind = payload.kind || (payload.tag ? "release" : "code-change");
@@ -1202,6 +1212,7 @@ async function main() {
       releaseNotes: payload.release_notes,
       manifest,
       changedPaths: payload.changed_paths || [],
+      documentationGuidelines,
     });
   } else if (kind === "manual-update") {
     if (!payload.intent || typeof payload.intent !== "string") {
@@ -1241,7 +1252,15 @@ async function main() {
   // we use it for the serial path and fall back to a plain header when pages
   // run concurrently.
   const useGroups = concurrency === 1;
-  const shared = { kind, payload, sha, manifest, styleGuide, knownRoutes, route };
+  const shared = {
+    kind,
+    payload,
+    sha,
+    manifest,
+    documentationGuidelines,
+    knownRoutes,
+    route,
+  };
   if (concurrency > 1) {
     console.log(`[sync] processing ${work.length} page(s) with concurrency ${concurrency}`);
   }

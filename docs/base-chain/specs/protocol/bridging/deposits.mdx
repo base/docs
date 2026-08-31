@@ -1,6 +1,6 @@
 ---
 title: "Deposits"
-description: "Specification of the deposit mechanism for Base, detailing how L1 transactions are converted into L2 deposit transactions."
+description: "How deposits work on Base — from user experience to the protocol-level deposit transaction type and guaranteed gas market."
 ---
 
 [g-transaction-type]: ../../reference/glossary#transaction-type
@@ -11,6 +11,12 @@ description: "Specification of the deposit mechanism for Base, detailing how L1 
 [g-user-deposited]: ../../reference/glossary#user-deposited-transaction
 [g-eoa]: ../../reference/glossary#eoa
 [g-exec-engine]: ../../reference/glossary#execution-engine
+
+A deposit is a transaction initiated outside Base that becomes a transaction on Base. For Ethereum deposits, the L1 transaction emits data that Base nodes use to derive a corresponding L2 deposit transaction.
+
+Deposit transactions are included as part of the protocol. They do not use the same signature, nonce, or fee fields as ordinary L2 transactions because they are authorized by the L1 deposit event and pay for L2 gas on L1. For most users, the practical result is simple: after the source-chain transaction is confirmed and processed, the asset or message appears on Base.
+
+For available bridge routes, see [Bridge to Base](/base-chain/network-information/ecosystem-bridges).
 
 ## Overview
 
@@ -69,7 +75,7 @@ Picking a high identifier minimizes the risk that the identifier will be used by
 transaction type on the L1 chain in the future. We don't pick `0x7F` itself in case it becomes used
 for a variable-length encoding scheme.
 
-### Source hash computation
+### Source Hash Computation
 
 The `sourceHash` of a deposit transaction is computed based on the origin:
 
@@ -452,7 +458,7 @@ require(now_bought_gas < MAX_RESOURCE_LIMIT)
 store_values(now_base_fee, now_bought_gas, now_num)
 ```
 
-### Rationale for burning L1 Gas
+### Rationale for Burning L1 Gas
 
 There must be a sybil resistance mechanism for usage of the network. If it is very cheap to get
 guaranteed gas on L2, then it would be possible to spam the network. Burning a dynamic amount

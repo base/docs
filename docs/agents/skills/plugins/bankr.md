@@ -141,7 +141,7 @@ Use this endpoint when the user names a token by **address** (instead of picking
 
 Do not auto-buy. Always require an explicit "buy X amount of `<symbol>`" confirmation from the user before calling `swap` — the launches feed contains low-liquidity and meme tokens, and the swap is irreversible.
 
-### Discovery call
+### Discovery Call
 
 ```text
 web_request:
@@ -157,7 +157,7 @@ const fresh = response.launches
   .slice(0, 10);
 ```
 
-### Presenting launches to the user
+### Presenting Launches to the User
 
 Surface enough context that the user can judge whether to buy — at minimum: symbol, name, deployer handle (if any), website/tweet link, and how recent the launch is. Do **not** echo the full IPFS metadata or all 50 entries; that's noise.
 

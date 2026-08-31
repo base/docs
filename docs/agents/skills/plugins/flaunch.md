@@ -244,7 +244,7 @@ Response:
 
 ## Orchestration
 
-### Launch a token on Base
+### Launch a Token on Base
 
 1. Run Base MCP onboarding first.
 2. Confirm the target chain is `base` for production launch.
@@ -263,7 +263,7 @@ Response:
 
 Do not submit launches silently. Do not report success until Base MCP request status confirms completion.
 
-### Discover launches and buy one
+### Discover Launches and Buy One
 
 1. Run Base MCP onboarding first.
 2. Fetch `GET /v1/base/coins/new` for newest launches, or `GET /v1/base/coins/market-cap` for top market-cap coins.
@@ -274,7 +274,7 @@ Do not submit launches silently. Do not report success until Base MCP request st
 7. Surface the approval URL as "Approve Transaction".
 8. Poll Base MCP request status only after the user says they acted.
 
-### Swap a token by contract address
+### Swap a Token by Contract Address
 
 1. Run Base MCP onboarding first.
 2. Use the user-provided contract address directly. No launch flow is required.

@@ -125,13 +125,13 @@ For pending operations, use Brickken `get_transaction_status` through exposed MC
 brickken tx status --hash <operation-hash> --json
 ```
 
-### Ownership transfer
+### Ownership Transfer
 
 Prepare `agentTransferOwnership` with `agentUuid` or `agentId` and `newOwner`. This creates an ERC-721 `safeTransferFrom` from Brickken custody to the requested wallet.
 
 Ownership transfer is separate from `agentSetWallet`. After transfer, Brickken's relayer can no longer perform owner-only operations unless ownership is returned.
 
-### Base Sepolia testing
+### Base Sepolia Testing
 
 - Use operation and payment network `eip155:84532` (`base-sepolia` in Base MCP).
 - The Brickken x402 test USDC is Circle USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` with 6 decimals, settled via EIP-3009 (EIP-712 name `USDC`, version `2`, authorization window 300s).

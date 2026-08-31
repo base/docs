@@ -125,7 +125,7 @@ const SHARED_RULES = `Hard requirements for your output:
      • default value changed → update the default column or the prose that states the default
    You must make EVERY edit step 2 surfaced. A single missed intersection is a defect, regardless of how minor.
 
-   STEP 4 — POLISH (apply the style guide's writing techniques). After step-3 edits, look at the page with a writer's eye. The <style_guide> below contains the "Writing techniques" the author would use. Apply them. Ask yourself "what am I trying to say?" for each paragraph that touched a step-3 edit, and rewrite if the answer reveals a clearer way to say it. Add transition phrasing where it helps; remove transition phrasing where it makes the page stilted. If a step-3 edit changed a contract consumers depend on, add a brief <Warning>. If a new field needs an example to be understood, add one. If a conceptual or quickstart page hand-waves around something step 3 just changed in a reference page, tighten the conceptual page's prose to match — link to the reference page for the specifics. Clarity beats tone; useful information in a clear and direct way is the most important part. Editorial work that earns its place is welcome; filler that doesn't help the reader isn't.
+   STEP 4 — POLISH (apply the documentation guidelines). After step-3 edits, look at the page with a writer's eye. The <documentation_guidelines> block below contains the canonical content and information-architecture rules. Apply them. Ask yourself "what am I trying to say?" for each paragraph that touched a step-3 edit, and rewrite if the answer reveals a clearer way to say it. Add transition phrasing where it helps; remove transition phrasing where it makes the page stilted. If a step-3 edit changed a contract consumers depend on, add a brief <Warning>. If a new field needs an example to be understood, add one. If a conceptual or quickstart page hand-waves around something step 3 just changed in a reference page, tighten the conceptual page's prose to match — link to the reference page for the specifics. Clarity beats tone; useful information in a clear and direct way is the most important part. Editorial work that earns its place is welcome; filler that doesn't help the reader isn't.
 
    Return the page UNCHANGED only when step 2 found ZERO intersections — i.e., the page genuinely documents APIs that the diff does not touch. If step 2 found ANY intersection, you MUST output the modified page with the step-3 edits applied. Returning the page byte-equal to current after step 2 surfaced intersections is the failure mode this rule exists to prevent.
 7. Keep prose terse. Do not add filler.
@@ -133,25 +133,21 @@ const SHARED_RULES = `Hard requirements for your output:
 9. CRITICAL — source-grounded claims. Every concrete identifier you write — interface and function names, selectors, parameter and return types, errors, events, roles, policies, addresses, versions, and file paths — MUST appear verbatim in the verified source diff, release notes, listed source files, or current page. Omit information that is not grounded rather than guessing.`;
 
 /**
- * Block embedded after SHARED_RULES in every prompt. Points the model at the
- * house writing style maintained in `content-instructions.md` at the repo root. Empty
- * `styleGuide` falls back to a neutral note that doesn't add tokens.
- *
- * Note on size: content-instructions.md is ~4kb, ~1100 input tokens. Cost per dispatch is
- * meaningful but acceptable (~$0.03 extra on a 9-page run). Brainstorm A
- * captures the option to distill this further if cost grows.
+ * Block embedded after SHARED_RULES in every page-editing prompt. It contains
+ * the full canonical content guidelines and IA guidelines loaded from the
+ * repository. Empty input omits the section.
  */
-function styleGuideSection(styleGuide) {
-  if (!styleGuide || !styleGuide.trim()) {
-    return ""; // content-instructions.md missing or empty — skip section entirely.
+function documentationGuidelinesSection(documentationGuidelines) {
+  if (!documentationGuidelines || !documentationGuidelines.trim()) {
+    return "";
   }
   return `
 
-In addition to the rules above, write in the house voice and follow every standard described inside <style_guide>...</style_guide> below. The style guide is the canonical reference for HOW to write (voice, second person, active voice, code-block fencing conventions, Mintlify-component selection, accessibility, etc.). The SHARED_RULES above are the canonical reference for WHAT not to do. Where the two conflict, the SHARED_RULES win.
+Follow every rule described inside <documentation_guidelines>...</documentation_guidelines> below. The content guidelines control writing, page structure, specification structure, and changelog format. The IA guidelines control audience, page ownership, navigation placement, naming, and what must not be added to each section. Follow both files exactly and do not introduce a new page, section, solution, or information architecture. Security, source-grounding, and required-output constraints above still apply.
 
-<style_guide>
-${styleGuide}
-</style_guide>`;
+<documentation_guidelines>
+${documentationGuidelines}
+</documentation_guidelines>`;
 }
 
 /**
@@ -203,7 +199,7 @@ ${lines.join("\n")}
  *                                       before, after, summary}. Empty/missing → section is
  *                                       omitted and the model falls back to scanning the diff.
  * @param {string} ctx.current         — the current content of the page being edited
- * @param {string=} ctx.styleGuide     — full contents of content-instructions.md, embedded as a <style_guide> block
+ * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
  * @returns {string} prompt as a single string
  */
 export function codeChangePrompt(ctx) {
@@ -233,7 +229,7 @@ ${ctx.diff || "(diff omitted — over size limit)"}
 
 Below is the CURRENT content of the page you are editing. Output the page's NEW content in full.
 
-${SHARED_RULES}${styleGuideSection(ctx.styleGuide)}
+${SHARED_RULES}${documentationGuidelinesSection(ctx.documentationGuidelines)}
 
 <current_page>
 ${ctx.current}
@@ -279,7 +275,7 @@ ${lines}${more}
  * @param {boolean=} ctx.diff_truncated — true if the upstream diff was capped before manifest extraction
  * @param {string} ctx.current         — current page content (already version-bumped)
  * @param {number} ctx.bumpCount       — how many version tokens the regex pass replaced
- * @param {string=} ctx.styleGuide     — full contents of content-instructions.md, embedded as a <style_guide> block
+ * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
  * @returns {string}
  */
 export function releasePrompt(ctx) {
@@ -304,7 +300,7 @@ ${changeManifestSection(ctx.manifest)}${changedPathsSection(ctx.changed_paths)}
 Your job: apply the STRUCTURED REFLECTION in rule #6 below to THIS page. Intersect the change manifest, changed source files, and release notes against what this page documents, and make every grounded edit they imply (field/type/signature changes, new fields, breaking-change Warnings, version-table rows, prose consistency after the version bump).
 
 ${SHARED_RULES}
-10. Return the page UNCHANGED only when the manifest, changed files, AND release notes contain nothing this page documents. If any of them intersect this page's surface, output the edited page. Do not invent identifiers that are not present in your inputs.${styleGuideSection(ctx.styleGuide)}
+10. Return the page UNCHANGED only when the manifest, changed files, AND release notes contain nothing this page documents. If any of them intersect this page's surface, output the edited page. Do not invent identifiers that are not present in your inputs.${documentationGuidelinesSection(ctx.documentationGuidelines)}
 
 <current_page>
 ${ctx.current}
@@ -330,6 +326,7 @@ ${ctx.current}
  * @param {string=} ctx.manifest_summary   — compact, newline-joined manifest subjects
  * @param {string[]=} ctx.changed_paths    — sample of changed source paths (already truncated by caller)
  * @param {Array<{path:string,title?:string,description?:string}>} ctx.candidates
+ * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
  * @returns {string}
  */
 export function releaseSelectionPrompt(ctx) {
@@ -369,6 +366,8 @@ ${candidateLines || "  (none)"}
 
 Task: decide which candidate pages plausibly need a content edit to reflect this release. Include a page when the changed interface, function, event, error, role, policy, address, source documentation, or release note touches something that page documents. Exclude clearly unrelated pages. When in doubt, include the page; a later per-page pass can return it unchanged.
 
+Use the canonical documentation guidelines below when deciding which existing page owns the content. Do not propose or invent a new page, section, solution, or IA location.${documentationGuidelinesSection(ctx.documentationGuidelines)}
+
 Output ONLY a JSON array of page path strings, each drawn EXACTLY from the candidate paths above. No preamble, no markdown fence, no commentary. If no candidate page is affected, output an empty array [].`;
 }
 
@@ -379,7 +378,7 @@ Output ONLY a JSON array of page path strings, each drawn EXACTLY from the candi
  * @param {string} ctx.intent          — maintainer's intent text (free-form)
  * @param {string[]=} ctx.source_refs   — optional list of source-of-truth URLs
  * @param {string} ctx.current         — current page content
- * @param {string=} ctx.styleGuide     — full contents of content-instructions.md, embedded as a <style_guide> block
+ * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
  * @returns {string}
  */
 export function manualUpdatePrompt(ctx) {
@@ -397,7 +396,7 @@ ${refs || "  (none provided)"}
 
 ${SHARED_RULES}
 10. If the intent describes a command/CLI change, update every occurrence of the old command in the page (tables, examples, prose) consistently. Pay attention to subtle changes (quoting, flags, the use of \`curl -s\` vs \`curl\`).
-11. If the page already matches the intent, return the page UNCHANGED.${styleGuideSection(ctx.styleGuide)}
+11. If the page already matches the intent, return the page UNCHANGED.${documentationGuidelinesSection(ctx.documentationGuidelines)}
 
 <current_page>
 ${ctx.current}

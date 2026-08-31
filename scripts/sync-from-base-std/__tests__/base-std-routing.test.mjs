@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildProvenanceComment,
-  loadStyleGuide,
+  loadDocumentationGuidelines,
   routeCodeChange,
 } from "../index.mjs";
 
@@ -111,13 +111,21 @@ test("B20 source changes route to the complete current B20 documentation set", a
   );
 });
 
-test("loadStyleGuide reads the root content instructions", async () => {
-  const expected = (
-    await fs.readFile(path.join(REPO_ROOT, "content-instructions.md"), "utf8")
+test("loadDocumentationGuidelines reads the canonical content and IA guidelines", async () => {
+  const contentGuidelines = (
+    await fs.readFile(path.join(REPO_ROOT, "content-guidelines.md"), "utf8")
   ).trim();
+  const iaGuidelines = (
+    await fs.readFile(path.join(REPO_ROOT, "docs/ia-guidelines.md"), "utf8")
+  ).trim();
+  const loaded = await loadDocumentationGuidelines({ repoRoot: REPO_ROOT });
 
-  assert.ok(expected.length > 0);
-  assert.equal(await loadStyleGuide({ repoRoot: REPO_ROOT }), expected);
+  assert.ok(contentGuidelines.length > 0);
+  assert.ok(iaGuidelines.length > 0);
+  assert.match(loaded, /Source: content-guidelines\.md/);
+  assert.match(loaded, /Source: docs\/ia-guidelines\.md/);
+  assert.ok(loaded.includes(contentGuidelines));
+  assert.ok(loaded.includes(iaGuidelines));
 });
 
 test("buildProvenanceComment cannot inject a second HTML comment boundary", () => {

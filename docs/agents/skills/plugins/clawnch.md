@@ -305,7 +305,7 @@ Do not auto-buy. Always require an explicit "buy X amount of `<symbol>`"
 confirmation before calling `swap` — the launches feed is unfiltered and
 contains low-liquidity / meme / experimental tokens.
 
-### Recent-launches discovery
+### Recent-Launches Discovery
 
 ```text
 web_request:
@@ -316,7 +316,7 @@ web_request:
 The response is already sorted newest-first. Take `launches[]` and surface
 each as one line.
 
-### Top-by-volume discovery
+### Top-by-Volume Discovery
 
 ```text
 web_request:
@@ -329,7 +329,7 @@ This is the differentiator vs. just-launched feeds — it tells the user
 `priceUsd`, `marketCap`, `volume24h`, and `priceChange24h` alongside the
 symbol.
 
-### Source filtering
+### Source Filtering
 
 To narrow to a specific platform (e.g. "show me clawmes launches"), pass
 `source=clawmes` to `/api/launches`. Valid values:
@@ -346,7 +346,7 @@ To narrow to a specific platform (e.g. "show me clawmes launches"), pass
   * `clawtomaton` — deploys from the Clawtomaton automation surface.
   * `moltx` — deploys from the Moltx surface.
 
-### Presenting launches to the user
+### Presenting Launches to the User
 
 Surface enough context that the user can judge whether to buy — at minimum:
 symbol, name, source/agent, age, and contract address. Don't echo the full
@@ -366,7 +366,7 @@ CLAWNCH — $0.0000105 · mc $1.0M · vol24h $77.7k · 24h -9.9%
   0xa1F72459dfA10BAD200Ac160eCd78C6b77a747be
 ```
 
-### Launch orchestration
+### Launch Orchestration
 
 ```text
 1. get_wallets → from
@@ -389,7 +389,7 @@ CLAWNCH. State it explicitly and get a separate confirmation for the burn
 before sending it — never bundle the burn confirmation into the deploy
 confirmation.
 
-### Burn-and-vault mechanics (optional)
+### Burn-and-Vault Mechanics (Optional)
 
 Burning CLAWNCH is optional — it's only used to claim a creator vault (locked
 supply released after a 7-day Clanker lockup). Skip it for a free launch:

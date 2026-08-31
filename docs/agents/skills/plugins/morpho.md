@@ -115,7 +115,7 @@ Request example (top USDC vaults on Base):
 
 Every method requires `chain` (one of: `ethereum`, `base`, `arbitrum`, `optimism`, `polygon`, `unichain`, `worldchain`, `katana`, `hyperevm`, `monad`, `stable`). For Base Account flows use `chain: "base"` and submit through Base MCP with `chain: "base"`. Send `method: "tools/list"` to enumerate the live method set and exact parameters — the catalog below mirrors the CLI but may evolve.
 
-### Read methods
+### Read Methods
 
 | Method | Purpose / key args |
 |--------|--------------------|
@@ -128,7 +128,7 @@ Every method requires `chain` (one of: `ethereum`, `base`, `arbitrum`, `optimism
 | `morpho_query_docs` | Search Morpho protocol docs. `question`. |
 | `morpho_health_check`, `morpho_get_supported_chains` | Service and supported-chain metadata. |
 
-### Prepare methods
+### Prepare Methods
 
 Each returns a `PreparedOperation` with `transactions`, `requirements`, `outcome` (preview-derived post-state estimate), and `warnings`.
 
@@ -147,7 +147,7 @@ Amounts are human-readable units, not raw base units. Any required approval tran
 
 ## Orchestration
 
-### CLI path
+### CLI Path
 
 ```
 get_wallets -> user address
@@ -161,7 +161,7 @@ get_request_status(request ID) -> confirmed
 
 `prepare-*` commands simulate by default. Check `simulationOk` before presenting an approval link. If `simulationOk` is `false`, inspect and report the revert reason instead of submitting the batch.
 
-### HTTP API path
+### HTTP API Path
 
 ```
 get_wallets -> user address

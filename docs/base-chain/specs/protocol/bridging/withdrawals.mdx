@@ -1,12 +1,24 @@
 ---
 title: "Withdrawals"
-description: "Specification of the withdrawal mechanism for Base, describing how L2 state is proven on L1 and funds are released from the bridge."
+description: "How withdrawals work on Base — the standard 3-step flow, the 7-day challenge period, faster options, and the full protocol specification."
 ---
 
 [g-deposits]: ../../reference/glossary#deposits
 [g-withdrawal]: ../../reference/glossary#withdrawal
 [g-relayer]: ../../reference/glossary#withdrawals
 [g-execution-engine]: ../../reference/glossary#execution-engine
+
+A standard withdrawal is a cross-domain transaction initiated on Base and finalized on Ethereum. Standard withdrawals can transfer ETH, bridge supported ERC-20 tokens, or send a message from Base to an L1 contract. The flow has three stages:
+
+1. **Initiate on Base:** the withdrawal transaction is sent on Base. This records the withdrawal message in the `L2ToL1MessagePasser` contract.
+2. **Prove on Ethereum:** after the relevant Base state has been posted to Ethereum, anyone can submit a proof to the `OptimismPortal` contract showing that the withdrawal message exists on Base.
+3. **Finalize on Ethereum:** after the 7-day challenge period has passed, anyone can finalize the withdrawal on Ethereum. Finalization releases the assets or relays the message to the target contract.
+
+<Note>
+Standard withdrawals to Ethereum must wait 7 days before they can be finalized. Base uses fault proofs to secure withdrawals — the challenge period gives network participants time to dispute an invalid output root before withdrawals that depend on it can be finalized. See [Transaction Finality](/base-chain/network-information/transaction-finality#finality-for-withdrawal-transactions) for how withdrawal finality differs from ordinary Base transaction finality.
+</Note>
+
+Some bridge providers offer faster withdrawals by using liquidity, relayers, or market makers to give users funds before the standard withdrawal has fully finalized. See [Bridge to Base](/base-chain/network-information/ecosystem-bridges) for available routes.
 
 ## Overview
 
@@ -98,7 +110,7 @@ interface L2ToL1MessagePasser {
 The `MessagePassed` event includes all of the data that is hashed and
 stored in the `sentMessages` mapping, as well as the hash itself.
 
-### Addresses are not Aliased on Withdrawals
+### Addresses Are Not Aliased on Withdrawals
 
 When a contract makes a deposit, the sender's address is [aliased](./deposits#address-aliasing). The same is not true
 of withdrawals, which do not modify the sender's address. The difference is that:
@@ -196,7 +208,7 @@ contracts if desired.
 [`WithdrawalTransaction` type]: https://github.com/ethereum-optimism/optimism/blob/08daf8dbd38c9ffdbd18fc9a211c227606cdb0ad/packages/contracts-bedrock/src/libraries/Types.sol#L62-L69
 [`OutputRootProof` type]: https://github.com/ethereum-optimism/optimism/blob/08daf8dbd38c9ffdbd18fc9a211c227606cdb0ad/packages/contracts-bedrock/src/libraries/Types.sol#L25-L30
 
-### OptimismPortal can send arbitrary messages on L1
+### OptimismPortal Can Send Arbitrary Messages on L1
 
 The `L2ToL1MessagePasser` contract's `initiateWithdrawal` function accepts a `_target` address and `_data` bytes,
 which is passed to a `CALL` opcode on L1 when `finalizeWithdrawalTransaction` is called after the challenge

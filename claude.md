@@ -37,11 +37,11 @@ description: "Value description"
 ---
 ```
 
-**Writing**: American English, sentence case headings, second person ("you"), active voice.
+**Writing**: American English, title case headings, second person ("you"), active voice.
 
 **Code blocks**: Always specify language. Add filename or title. Use `highlight={}` for emphasis.
 
-**Components**: See [mintlify-reference.md](mintlify-reference.md) for syntax.
+**Components**: See [mintlify-reference.md](docs/mintlify-reference.md) for syntax.
 
 **Images**: Wrap in `<Frame>`, include `alt` attribute.
 
@@ -49,12 +49,27 @@ description: "Value description"
 
 Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 
+**Sidebar labels must not repeat their parent group.** A group whose child page
+carries the same label renders as a collapsible that expands to reveal one
+identical entry ("Flashblocks > Flashblocks"), which reads like a bug. The
+sidebar label is `sidebarTitle` if present, otherwise `title`.
+
+- **Single-page group**: drop the group wrapper and list the page as a bare
+  string in the parent's `pages` array.
+- **Multi-page group**: keep the group and give the duplicate child a distinct
+  `sidebarTitle` — usually `"Overview"` (or a qualified name when a sibling
+  already uses "Overview").
+
+`node scripts/validate-docs-structure.js` fails on violations; it runs in CI via
+`scripts/verify-doc-samples.sh` on any `docs/**` change.
+
 ## References
 
 | File | Purpose |
 |------|---------|
-| [content-instructions.md](content-instructions.md) | Writing guidelines |
-| [mintlify-reference.md](mintlify-reference.md) | Component syntax |
+| [content-guidelines.md](docs/content-guidelines.md) | Writing rules, spec page structure, changelog format |
+| [docs/ia-guidelines.md](docs/ia-guidelines.md) | What belongs in each tab and section |
+| [mintlify-reference.md](docs/mintlify-reference.md) | Component syntax |
 | [scripts/README.md](scripts/README.md) | Linter usage |
 
 ## Before Committing
@@ -62,5 +77,6 @@ Edit `docs.json` to add/remove pages. Add redirects when removing pages.
 1. Run `/lint` and fix errors
 2. Run `/agents` if docs structure changed
    - Or include `agents.md` / `llms.txt` in your commit message — the `githooks/post-commit` hook will regenerate the matching index files and create a follow-up commit. Enable hooks once per clone with `git config --local core.hooksPath githooks` (repo-scoped, never global).
-3. Add redirects for removed pages
-4. Verify links work
+3. Run `node scripts/validate-docs-structure.js` if `docs.json` or page frontmatter changed (nav, orphans, redirects, redundant sidebar labels)
+4. Add redirects for removed pages
+5. Verify links work

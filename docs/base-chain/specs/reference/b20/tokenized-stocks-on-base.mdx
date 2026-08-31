@@ -1,0 +1,195 @@
+---
+title: "Tokenized Stocks on Base"
+description: "Technical guide to integrating tokenized stocks on Base, including B20 contracts, multipliers, compliance policies, and price feeds."
+---
+
+Tokenized Stocks on Base are built on the Base-native token standard, [B20](/base-chain/network-information/b20-token-standard). B20 is an extension of the ERC-20 token standard and is intended to be asset-agnostic, with tokenized stocks being one of several possible use cases.
+
+Product-specific details about Tokenized Stocks on Base can be found within [coinbase.com/tokenize](https://coinbase.com/tokenize).
+
+## Token information and listings
+
+Tokenized stocks launch similarly to any ERC-20 token: name, symbol, and icon come from the usual sources, along with a few notable B20 specifics. Standard ERC-20 methods and events are supported natively.
+
+- **Onchain:** [`name`](/base-chain/specs/reference/b20/interfaces/IB20/name), [`symbol`](/base-chain/specs/reference/b20/interfaces/IB20/symbol), [`decimals`](/base-chain/specs/reference/b20/interfaces/IB20/decimals), and [`contractURI`](/base-chain/specs/reference/b20/interfaces/IB20/contractURI) ([ERC-7572](https://eips.ethereum.org/EIPS/eip-7572) metadata).
+- **Offchain:** logos are also available from the canonical token list and market-data aggregators.
+
+B20 specifics:
+
+- Tokens should be identified by address rather than ticker or symbol. Metadata is mutable onchain and should be indexed accordingly.
+- Discover new tokens by watching the [`B20Created`](/base-chain/specs/reference/b20/interfaces/IB20Factory) event.
+
+## What B20 adds beyond ERC-20
+
+### Multipliers
+
+An underlying real-world asset may undergo events that change the redemption ratio of a B20 token. For tokenized stocks, these events include dividends or stock splits, which must be passed along to the holder of the B20 tokenized equity onchain. The [multiplier](/base-chain/specs/reference/b20/interfaces/IB20Asset/multiplier) variable instantly updates the redemption ratio of a B20 token based on any corporate actions that occur.
+
+<Warning>
+One B20 token does not permanently equal one share. Always apply the current multiplier when converting between token units and the number of underlying shares.
+</Warning>
+
+Asset-level events are reflected by updating the multiplier. For example, after a dividend on a tokenized equity, the multiplier increases to `1.02`, representing that 1 B20 token is redeemable for 1.02 shares of the equity.
+
+At this time, for tokenized stocks, cash dividends are converted to shares of the underlying equity and reflected via a multiplier update rather than distributed as cash to the B20 holder. This allows B20 holder balances to automatically reflect corporate actions without changing their balance of the B20 token.
+
+Multiplier updates come in two forms:
+
+- **Scheduled (ERC-8056):** set a future-dated change with [`updateUIMultiplier`](/base-chain/specs/reference/b20/interfaces/IB20Asset/updateUIMultiplier), which gives advance onchain notice. Use this for routine corporate actions.
+- **Instant (deprecated):** [`updateMultiplier`](/base-chain/specs/reference/b20/interfaces/IB20Asset/updateMultiplier) applies immediately and clears any pending scheduled change. It is a retained emergency failsafe; prefer the scheduled path.
+- **Cancellation:** clear a pending scheduled update with [`cancelUIMultiplierUpdate`](/base-chain/specs/reference/b20/interfaces/IB20Asset/cancelUIMultiplierUpdate).
+
+The B20 contract provides several helper functions for common calculations, where `raw` is the number of B20 units and `scaled` is the quantity of stocks redeemable:
+
+| Function | Description |
+|----------|-------------|
+| [`scaledBalanceOf(account)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/scaledBalanceOf) | Raw balance × multiplier |
+| [`toScaledBalance(raw)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/toScaledBalance) | Convert raw amount to scaled |
+| [`toRawBalance(scaled)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/toRawBalance) | Convert scaled amount to raw |
+
+### Policies
+
+To comply with any regulatory requirements that apply to a particular asset, [policies](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry) that manage allowlists and blocklists may be implemented. Policies determine whether a transfer is allowed or rejected.
+
+The B20 contract provides the [`isAuthorized(policyID, account)`](/base-chain/specs/reference/b20/interfaces/IPolicyRegistry/isAuthorized) function, which you can use to determine whether a specific account is allowed to transfer funds.
+
+<Note>
+The standard [`approve()`](/base-chain/specs/reference/b20/interfaces/IB20/approve) function is not policy gated. Checking whether a quantity of funds is approved to be transferred does not guarantee that the funds aren't blocked by a policy.
+</Note>
+
+### Pauses
+
+Onchain [pauses](/base-chain/specs/reference/b20/interfaces/IB20/pause) are unlikely, but be aware that B20s allow specific functions within a contract to be paused. Monitor these to maintain an accurate understanding of whether funds can be transferred at a given point in time.
+
+### Announcements
+
+Sensitive operations are wrapped in onchain [announcement events](/base-chain/specs/reference/b20/interfaces/IB20Asset/announce): [`announce`](/base-chain/specs/reference/b20/interfaces/IB20Asset/announce) emits [`Announcement (id, description, uri)`](/base-chain/specs/reference/b20/interfaces/IB20Asset), then [`EndAnnouncement`](/base-chain/specs/reference/b20/interfaces/IB20Asset). Integrators index these to catch corporate actions as they execute.
+
+Two design points:
+
+- Announcements can be atomically bundled with the token change they describe (for example, the multiplier update for a stock split), keeping onchain records clean.
+- Descriptions are intentionally human-readable onchain to support public reporting requirements.
+
+**Admin actions:** admin operations and `updateMultiplier` ([`OPERATOR_ROLE`](/base-chain/specs/reference/b20/interfaces/IB20Asset/OPERATOR_ROLE)) execute immediately when the role holder calls; the B20 standard has no built-in timelock. The `Announcement` and `EndAnnouncement` events are public notice, not an enforced delay. Any timelock or multisig is applied by the issuer at the governance layer.
+
+### Extra metadata
+
+Issuers can store arbitrary key/value data onchain via [`extraMetadata(key)`](/base-chain/specs/reference/b20/interfaces/IB20Asset/extraMetadata) (for example, security identifiers such as ISIN and CUSIP).
+
+### Name and symbol
+
+Name and symbol are updatable onchain ([`updateName`](/base-chain/specs/reference/b20/interfaces/IB20/updateName), [`updateSymbol`](/base-chain/specs/reference/b20/interfaces/IB20/updateSymbol)), so the token can track offchain changes to the underlying without redeploying.
+
+### Memos
+
+[`transferWithMemo`](/base-chain/specs/reference/b20/interfaces/IB20/transferWithMemo) and [`transferFromWithMemo`](/base-chain/specs/reference/b20/interfaces/IB20/transferFromWithMemo) attach a `bytes32` reference to an individual transfer (emitted as a `Memo` event), for annotating transfers with offchain data for reconciliation and reporting.
+
+### Supply cap
+
+An optional supply cap bounds total supply, mitigating over-minting from operational errors or a compromise.
+
+## Compliance
+
+Holding and trading on the secondary market is permissionless. KYC only happens during mint and redeem flows taken by Authorized Participants (APs).
+
+- Onchain policies can block specific addresses, such as sanctioned addresses; a blocked transfer reverts (see [Policies](#policies) above).
+- Minting and redeeming the underlying shares is a separate, restricted issuer flow, as it is restricted to APs.
+
+**Security and audits:** tokenized stocks are B20 native precompiles, not separately deployed contracts, so there is no per-asset contract and no per-address verified contract on Basescan (precompiles hold no bytecode). B20 shipped in Base's Beryl upgrade on code audited by Base and Spearbit, with ongoing Cantina (smart contract) and HackerOne (offchain and infrastructure) bug-bounty coverage. Every token shares the same audited implementation.
+
+## Price feeds
+
+A tokenized stock's price is available from both onchain and offchain sources. In every case, the price is derived from the same relationship: the underlying equity's market price scaled by the token's multiplier.
+
+```text Token price formula
+Token Price = Underlying Equity Market Price × Multiplier
+```
+
+The multiplier is sourced per token and is WAD-scaled (a fixed-point number with 18 decimals). To get the real factor, divide the onchain value by that scale; call [`WAD_PRECISION()`](/base-chain/specs/reference/b20/interfaces/IB20Asset/WAD_PRECISION) to read the scale (it returns `1e18`).
+
+### Onchain
+
+Chainlink is the onchain price option at launch. Each tokenized equity has a Chainlink feed that runs 24/5, holds the last close on weekends and holidays, and freezes during corporate actions. Feeds implement the standard Chainlink V3 aggregator interface and are read through the proxy, exactly like a crypto price feed; read the latest value with `latestRoundData()`.
+
+Unlike standard market-rate feeds, Coinbase feeds report **Total Return Values** rather than raw equity prices, so the price reflects the underlying's total return including corporate-action adjustments. Chainlink uses this same approach for other tokenized-equity issuers, including [Ondo and Robinhood](https://docs.chain.link/data-feeds/tokenized-equity-feeds/providers). The underlying price is sourced from Chainlink's equity price feeds (traditional market data), not from onchain or DEX trading of the token; the token's DEX price does not feed the oracle.
+
+The feed reads the multiplier and a pause flag from Coinbase's onchain oracle registry, a single contract (separate from the tokens) that returns both values for a token in one call:
+
+- **Normal (`paused = false`):** the feed publishes underlying price × multiplier.
+- **Paused (`paused = true`):** the feed stops publishing and holds the last known good value.
+
+<Warning>
+During market hours the feed updates on a 0.5% price deviation or at least every 24 hours (its heartbeat). Off-hours (nights, weekends, holidays, and corporate-action pauses) it stops updating and holds the last value, so `updatedAt` stops advancing while the contract stays callable. Always read `updatedAt` and apply staleness bounds before relying on the price; never settle or liquidate against a frozen feed.
+</Warning>
+
+During a corporate action:
+
+- Mint and redeem pause offchain, but the token is not paused onchain, so transfers are not blocked.
+- The feed freezes (the registry pause flag is set) and its price goes stale.
+- Because the feed is total-return, there is no price discontinuity: the multiplier and underlying price move in opposite directions and cancel (a 10:1 split drops the price ~10x and raises the multiplier ~10x).
+- **Fail-safe:** the feed resumes only after Coinbase confirms the underlying price and multiplier both reflect the new values. If one updates before the other, the feed stays frozen at the pre-pause price rather than publishing a half-applied value.
+
+**Chainlink data feeds on Base.** Read each via `latestRoundData()` on the proxy address below. All feeds return 8 decimals, cover US equities (24/5 market hours), and update on a 0.5% price deviation or a 24-hour heartbeat. Values are total-return; apply the pause and staleness handling above.
+
+| Feed | Address |
+|------|---------|
+| Coinbase AAPL | `0x787f13dEa48Db0897CbCDD985de77809D837F988` |
+| Coinbase AMZN | `0x06A8E4b3aBB3B7543d8396FB2B763d22820cB295` |
+| Coinbase COIN | `0x408e44f504A7371a345F03a73dDC96A4b48e8aa7` |
+| Coinbase CRCL | `0x0231cF2635D1E17bB5c2462cc7504Ba1fBd61f33` |
+| Coinbase GOOGL | `0x5bF49E0ffA937CE2FfF033c739aD7C634c4D34F2` |
+| Coinbase INTC | `0xAB657C39bac0D5886250D70849e2E3E008F2EECB` |
+| Coinbase META | `0x6526aE6797A76123638b863AeE4dD27Ba4E4b27D` |
+| Coinbase MSFT | `0xeB10A6c9aa7E537aEd766C08c35Dae35B321b18c` |
+| Coinbase MSTR | `0xB3cE282CD188b35DA0E38D8Bc7d58e33173D202a` |
+| Coinbase NVDA | `0x04689a41629776563E6822F76f2e57D148d28513` |
+| Coinbase SNDK | `0x388b0dC46C0Fb05A74BeE0994fa5b02c6Fcca2eA` |
+| Coinbase SPCX | `0x6A634B235903C4ad6376892180d6fF8612e3Fa68` |
+| Coinbase TSLA | `0xFaf869185383a24F8cb00e27BdA6b63B9905DCb4` |
+
+### Offchain
+
+Offchain price data can be sourced from providers such as CoinGecko, CoinMarketCap, or RWA. These aggregators track the token's live market price from the DEXs where the B20 trades, which runs 24/7 whenever the secondary market is active.
+
+Two common patterns are used to determine value:
+
+- Directly reading the token's market price from a provider that tracks the B20 asset.
+- Reading the underlying reference price and applying the multiplier calculation manually.
+
+### Historical data
+
+For historical OHLC and time-series data, use market-data providers or query Chainlink round history by `roundId`.
+
+Since prices are total-return (multiplier-adjusted), reconstruct the series consistently by applying the multiplier history ([`MultiplierUpdated`](/base-chain/specs/reference/b20/interfaces/IB20Asset) events, emitted by both scheduled and instant multiplier changes) if starting from raw share prices.
+
+## Contract addresses
+
+| Ticker | Contract address |
+|--------|------------------|
+| Onchain Registry | `0x3f3E8cf41cdd3b1D118c16471aB0113DfDDd5CaD` |
+| AAPLc | `0xb200000000000000000000C2e324d24d7eEcd1fb` |
+| AMZNc | `0xb200000000000000000000d9192b6B456483C2E8` |
+| COINc | `0xb200000000000000000000c85a31389D71F3ecfb` |
+| CRCLc | `0xB20000000000000000000019f6E7C675b73C2e4D` |
+| GOOGLc | `0xb2000000000000000000002D0BA3164cc74f58B7` |
+| INTCc | `0xB2000000000000000000004AFF16039bA04bdFBc` |
+| METAc | `0xb2000000000000000000008bC8786B856E61707C` |
+| MSFTc | `0xB200000000000000000000Ab99cFa739E253872B` |
+| MSTRc | `0xb2000000000000000000004884b426556b92883d` |
+| NVDAc | `0xb20000000000000000000078ee7ce2fE4908108C` |
+| SNDKc | `0xb200000000000000000000397293Cb8cda9a10c5` |
+| SPCXc | `0xb2000000000000000000007b9fcbd005511aCBd5` |
+| TSLAc | `0xb2000000000000000000001e800a7f5189430cD0` |
+
+## Additional resources
+
+- [B20 Standard](/base-chain/specs/reference/b20/index)
+- [Base Standard Library](https://github.com/base/base-std/tree/main)
+
+## Disclaimer
+
+<p style={{ fontSize: "0.85rem", fontStyle: "italic" }}>Coinbase tokenized stocks are only available to persons in eligible jurisdictions outside of the U.S.</p>
+
+<p style={{ fontSize: "0.85rem", fontStyle: "italic" }}>Inclusion of any third-party protocol or venue is for developer reference only and is not an endorsement, partnership, or warranty. Confirm addresses, feeds, and the token list against official sources before integrating.</p>
+
+<p style={{ fontSize: "0.85rem", fontStyle: "italic" }}>Base is open-source, permissionless blockchain infrastructure. Each B20 token is deployed and configured by its issuer, who sets and controls all token parameters and administrative permissions; Base does not configure, administer, or control tokens deployed on the protocol.</p>
