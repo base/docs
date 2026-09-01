@@ -94,7 +94,9 @@ function scanDocs(dir, basePath = '', ignored) {
   }
 
   if (files.length > 0 && !ignored.dirs.has(basePath)) {
-    const key = (basePath || 'root').replace(/\/?\d+-/g, '/').replace(/^\//, '');
+    // Strip numeric ordering prefixes only when they begin a path segment.
+    // A global `\d+-` match corrupts names such as `ib20-asset`.
+    const key = (basePath || 'root').replace(/(^|\/)\d+-/g, '$1');
     index[key] = files;
   }
   return index;
