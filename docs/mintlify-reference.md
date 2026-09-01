@@ -119,17 +119,17 @@ Example of accordion groups:
 
 Example of cards and card groups:
 
-<Card title="Getting started guide" icon="rocket" href="/quickstart">
+<Card title="Getting started guide" icon="rocket" href="/get-started/base">
 Complete walkthrough from installation to your first API call in under 10 minutes.
 </Card>
 
 <CardGroup cols={2}>
-<Card title="Authentication" icon="key" href="/auth">
+<Card title="Authentication" icon="key" href="/sdks/base-account/guides/authenticate-users">
   Learn how to authenticate requests using API keys or JWT tokens.
 </Card>
 
-<Card title="Rate limiting" icon="clock" href="/rate-limits">
-  Understand rate limits and best practices for high-volume usage.
+<Card title="Network fees" icon="clock" href="/specifications/transactions/network-fees">
+  Understand network fees and best practices for estimating transaction costs.
 </Card>
 </CardGroup>
 
@@ -202,11 +202,11 @@ Complete user object with all associated data.
 Wrap all images in frames:
 
 <Frame>
-<img src="/images/dashboard.png" alt="Main dashboard showing analytics overview" />
+<img src="/images/build-with-zora/dashboard.png" alt="Example dashboard" />
 </Frame>
 
-<Frame caption="The analytics dashboard provides real-time insights">
-<img src="/images/analytics.png" alt="Analytics dashboard with charts" />
+<Frame caption="The dashboard provides real-time insights">
+<img src="/images/account-abstraction/privy-dashboard-page.png" alt="Example dashboard page" />
 </Frame>
 
 #### Videos
@@ -251,4 +251,3 @@ Use updates for changelogs:
 - Fixed pagination issue with large datasets
 - Resolved authentication timeout problems
 </Update>
-
