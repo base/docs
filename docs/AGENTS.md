@@ -1,21 +1,18 @@
 ---
 title: Base Docs Index
-description: Look up Base documentation with a compact directory-grouped index built for AI coding agents. Lists every markdown page by parent directory so agents find context before generating code.
+description: Look up Base documentation with a compact sidebar-aligned index built for AI coding agents. Lists every navigation page in its public documentation hierarchy.
 ---
 # https://docs.base.org/llms.txt
 
 ## Base Documentation — LLM Entry Point
 
-> High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
+> High-signal index of the public documentation tabs. Jump to each tab's primary page for concise intros, curated links, and fast navigation.
 
-- [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
-- [Base Chain](./base-chain/llms.txt) — Network details and wallet setup for Base Mainnet, Base Testnet (Sepolia), and Base Vibenet.
-- [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
-- [Fonts](./fonts/llms.txt)
-- [Get Started](./get-started/llms.txt)
-- [Sdks](./sdks/llms.txt) — SDKs and APIs for accounts, identity verification, attribution, AI assistants, and direct Base chain access.
-- [Specifications](./specifications/llms.txt) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
-- [Static](./static/llms.txt)
+- [Get Started](https://docs.base.org/get-started/base) — The blockchain for global finance.
+- [Build on Base](https://docs.base.org/build-on-base/overview) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
+- [Specifications](https://docs.base.org/specifications/overview) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
+- [SDKs & APIs](https://docs.base.org/sdks/overview) — SDKs and APIs for accounts, identity verification, attribution, AI assistants, and direct Base chain access.
+- [Upgrades](https://docs.base.org/upgrades/overview) — Base evolves through named hardforks. Each hardfork introduces protocol changes, new features, or parameter updates that take effect at a specific activation block. This tab tracks what changed, when, and how to migrate.
 
 ## Tools Available for AI Assistants
 
@@ -39,81 +36,71 @@ npx skills add base/base-skills
 
 ## Compact Docs Index
 
-[Docs]|root:./docs
-|agents:overview,quickstart
-|agents/guides:batch-calls,check-balance,index,send-tokens,sign-messages,swap-tokens,view-history,x402-payments
-|agents/plugins:custom-plugins,index
-|agents/plugins/native:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,index,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
-|agents/skills:SKILL
-|agents/skills/plugins:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
-|agents/skills/references:approval-mode,batch-calls,custom-plugins,install,plugin-spec,tone
-|base-chain/api-reference:rpc-overview
-|base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
-|base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
-|base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
-|base-chain/network-information:bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets
-|base-chain/quickstart:connecting-to-base
-|base-chain/specs/protocol:overview
-|base-chain/specs/reference/b20/changelog:02-cobalt-b20-seize,02-cobalt-b20asset-multiplier,02-cobalt-policyregistry-composite-policy
-|base-chain/specs/upgrades:overview
-|base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
-|base-chain/specs/upgrades/beryl:b20,overview,reducing-canonical-withdrawal-delay,reth-v2
-|base-chain/specs/upgrades/canyon:overview
-|base-chain/specs/upgrades/cobalt:dynamic-upgrades,eip-8130,overview
-|base-chain/specs/upgrades/delta:overview,span-batches
-|base-chain/specs/upgrades/denim:200ms-blocks
-|base-chain/specs/upgrades/ecotone:derivation,l1-attributes,overview
-|base-chain/specs/upgrades/fjord:derivation,exec-engine,overview,predeploys
-|base-chain/specs/upgrades/granite:derivation,exec-engine,overview
-|base-chain/specs/upgrades/holocene:derivation,exec-engine,overview,system-config
-|base-chain/specs/upgrades/isthmus:derivation,exec-engine,l1-attributes,overview,predeploys,system-config
-|base-chain/specs/upgrades/jovian:derivation,exec-engine,l1-attributes,overview,system-config
-|build-on-base:assign-user-attributes,overview,test-on-vibenet
-|build-on-base/accept-payments:authorize-a-payment,batch-high-frequency-payments,call-a-paid-service,capture-a-partial-amount,capture-an-authorization,charge-for-an-api,charge-on-a-schedule,reconcile-payments,refund-a-payment,request-a-payment,send-a-payout,settle-usage-based-payments,split-a-payment,verify-a-payment,void-an-authorization,watch-for-payments
-|build-on-base/integrate-defi:integrate-borrowing,integrate-earn-product,integrate-lending,integrate-trading
-|build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
-|build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
-|get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base-services-hub,base,connect-to-base,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
-|root:changes,content-guidelines,contribution-guidelines,cookie-policy,ia-guidelines,mintlify-reference,privacy-policy,terms-of-service
-|sdks:base-anvil,overview
-|sdks/base-account:overview
-|sdks/base-account/basenames:basename-transfer,basenames-faq
-|sdks/base-account/contribute:contribute-to-base-account-docs,security-and-bug-bounty
-|sdks/base-account/framework-integrations:cdp,rainbowkit,reown,thirdweb
-|sdks/base-account/framework-integrations/privy:authentication,setup,spend-permissions,sub-accounts,wallet-actions
-|sdks/base-account/framework-integrations/wagmi:base-pay,basenames,batch-transactions,other-use-cases,setup,sign-in-with-base,sub-accounts
-|sdks/base-account/guides:accept-payments,accept-recurring-payments,authenticate-users,migration-guide,sign-and-verify-typed-data
-|sdks/base-account/guides/tips:inspect-txn-simulation,popup-tips
-|sdks/base-account/improve-ux:batch-transactions,spend-permissions,sub-accounts
-|sdks/base-account/improve-ux/sponsor-gas:erc20-paymasters,paymasters
-|sdks/base-account/more:telemetry
-|sdks/base-account/more/troubleshooting/usage-details:gas-usage,popups,simulations,unsupported-calls,wallet-library-support
-|sdks/base-account/quickstart:ai-tools-available-for-devs,mobile-integration,web-react,web
-|sdks/base-account/reference/base-pay:charge,getOrCreateSubscriptionOwnerWallet,getPaymentStatus,getStatus,pay,prepareCharge,prepareRevoke,revoke,subscribe,subscriptions-overview
-|sdks/base-account/reference/core:createBaseAccount,generateKeyPair,getCryptoKeyAccount,getKeypair,getProvider,sdk-utilities
-|sdks/base-account/reference/core/capabilities:atomic,auxiliaryFunds,dataSuffix,datacallback,flowControl,gasLimitOverride,overview,paymasterService,signInWithEthereum
-|sdks/base-account/reference/core/provider-rpc-methods:coinbase_fetchPermission,coinbase_fetchPermissions,eth_accounts,eth_blockNumber,eth_chainId,eth_coinbase,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getProof,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_getUncleCountByBlockHash,eth_getUncleCountByBlockNumber,eth_requestAccounts,eth_sendRawTransaction,eth_sendTransaction,eth_signTypedData_v4,personal_sign,request-overview,sdk-overview,standard-rpc-methods,wallet_addEthereumChain,wallet_addSubAccount,wallet_connect,wallet_getCallsStatus,wallet_getCapabilities,wallet_getSubAccounts,wallet_sendCalls,wallet_switchEthereumChain,wallet_watchAsset,web3_clientVersion
-|sdks/base-account/reference/onchain-contracts:basenames,smart-wallet,spend-permissions
-|sdks/base-account/reference/prolink-utilities:createProlinkUrl,decodeProlink,encodeProlink
-|sdks/base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
-|sdks/base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button
-|sdks/base-verify:overview,verify-social-accounts,verify-users-onchain
-|specifications:flashblocks,native-account-abstraction,overview
-|specifications/b20:changelog,launch-a-b20-token,specification-overview,tokenized-stocks-on-base
-|specifications/b20/reference:constants-addresses,errors-events,invariants-tests
-|specifications/b20/reference/interfaces/i-activation-registry:activate,admin,check-activated,deactivate,index,is-activated
-|specifications/b20/reference/interfaces/i-policy-registry:composite-policy-child-ids,create-composite-policy,create-policy-with-accounts,create-policy,finalize-update-admin,index,is-authorized,max-composite-child-policies,min-composite-child-policies,pending-policy-admin,policy-admin,policy-exists,renounce-admin,stage-update-admin,update-allowlist,update-blocklist,update-composite
-|specifications/b20/reference/interfaces/ib20:allowance,approve,balance-of,burn-blocked-role,burn-blocked,burn-role,burn-with-memo,burn,contract-uri,decimals,default-admin-role,domain-separator,eip712-domain,get-role-admin,grant-role,has-role,index,is-paused,metadata-role,mint-receiver-policy,mint-role,mint-with-memo,mint,name,nonces,pause-role,pause,paused-features,permit,policy-id,renounce-last-admin,renounce-role,revoke-role,seize-holder-policy,seize-receiver-policy,seize-role,seize-with-memo,set-role-admin,supply-cap,symbol,total-supply,transfer-executor-policy,transfer-from-with-memo,transfer-from,transfer-receiver-policy,transfer-sender-policy,transfer-with-memo,transfer,unpause-role,unpause,update-contract-uri,update-name,update-policy,update-supply-cap,update-symbol
-|specifications/b20/reference/interfaces/ib20-asset:announce,balance-of-ui,batch-mint,cancel-ui-multiplier-update,effective-at,extra-metadata,from-ui-amount,index,is-announcement-id-used,max-ui-multiplier,multiplier,new-ui-multiplier,operator-role,scaled-balance-of,to-raw-balance,to-scaled-balance,to-ui-amount,total-supply-ui,ui-multiplier,update-extra-metadata,update-multiplier,update-ui-multiplier,wad-precision
-|specifications/b20/reference/interfaces/ib20-factory:create-b20,get-b20-address,index,is-b20-initialized,is-b20
-|specifications/b20/reference/interfaces/ib20-stablecoin:currency,index
-|specifications/base-protocol:batcher,design-goals,overview
-|specifications/base-protocol/bridging:base-solana-bridge,cross-domain-messengers,deposits,standard-bridges,withdrawals
-|specifications/base-protocol/consensus:derivation,p2p,rpc,specification
-|specifications/base-protocol/execution:l2-execution-engine,precompiles,predeploys,preinstalls
-|specifications/base-protocol/proofs:challenger,overview,proof-contracts,proposer,registrar,tee-prover,zk-prover
-|specifications/builder-codes:for-agent-developers,for-app-developers,for-wallet-developers,overview
-|specifications/node-operators:performance-tuning,run-a-node,snapshots,troubleshooting
-|specifications/reference:base-contracts,configuration,glossary,smart-contracts
-|specifications/security:avoid-malicious-flags,report-a-vulnerability,security-council-for-base
-|specifications/transactions:network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
+[Docs Navigation]
+|Get Started/Quickstart:get-started/base,get-started/connect-to-base,get-started/get-funds,get-started/make-a-transaction,base-chain/network-information/ecosystem-bridges
+|Get Started/Solutions:get-started/integrate-defi,get-started/issue-rwa,get-started/issue-stablecoins,get-started/accept-payments
+|Get Started/Coding Agents:get-started/resources-for-ai-agents,get-started/docs-mcp,get-started/docs-llms
+|Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/base-services-hub
+|Get Started/References:get-started/base-chain,get-started/sdks-and-apis
+|Build on Base/Overview:build-on-base/overview,build-on-base/test-on-vibenet,build-on-base/assign-user-attributes
+|Build on Base/Integrate DeFi:build-on-base/integrate-defi/integrate-trading,build-on-base/integrate-defi/integrate-lending,build-on-base/integrate-defi/integrate-borrowing,build-on-base/integrate-defi/integrate-earn-product
+|Build on Base/Tokenize Assets:build-on-base/issue-rwa/create-an-asset-token,build-on-base/issue-rwa/issue-units,build-on-base/issue-rwa/restrict-eligible-holders,build-on-base/issue-rwa/cancel-blocked-units,build-on-base/issue-rwa/announce-a-distribution,build-on-base/issue-rwa/apply-a-multiplier,build-on-base/issue-rwa/pause-transfers
+|Build on Base/Issue Stablecoins:build-on-base/issue-stablecoins/issue-your-stablecoin,build-on-base/issue-stablecoins/mint-supply,build-on-base/issue-stablecoins/burn-supply,build-on-base/issue-stablecoins/restrict-who-can-hold,build-on-base/issue-stablecoins/block-an-account,build-on-base/issue-stablecoins/recover-funds,build-on-base/issue-stablecoins/pause-activity,build-on-base/issue-stablecoins/reconcile-with-memos
+|Build on Base/Accept Payments/Take a Payment:build-on-base/accept-payments/request-a-payment,build-on-base/accept-payments/authorize-a-payment,build-on-base/accept-payments/capture-an-authorization,build-on-base/accept-payments/capture-a-partial-amount,build-on-base/accept-payments/void-an-authorization,build-on-base/accept-payments/charge-on-a-schedule
+|Build on Base/Accept Payments/Confirm and Reconcile:build-on-base/accept-payments/verify-a-payment,build-on-base/accept-payments/watch-for-payments,build-on-base/accept-payments/reconcile-payments
+|Build on Base/Accept Payments/Return and Pay Out:build-on-base/accept-payments/refund-a-payment,build-on-base/accept-payments/send-a-payout,build-on-base/accept-payments/split-a-payment
+|Build on Base/Accept Payments/Accept Agentic Payments:build-on-base/accept-payments/charge-for-an-api,build-on-base/accept-payments/settle-usage-based-payments,build-on-base/accept-payments/batch-high-frequency-payments,build-on-base/accept-payments/call-a-paid-service
+|Specifications/Specifications:specifications/overview,specifications/native-account-abstraction,specifications/flashblocks
+|Specifications/Specifications/Base Protocol:specifications/base-protocol/overview,specifications/base-protocol/batcher,specifications/base-protocol/design-goals
+|Specifications/Specifications/Base Protocol/Consensus:specifications/base-protocol/consensus/specification,specifications/base-protocol/consensus/derivation,specifications/base-protocol/consensus/p2p,specifications/base-protocol/consensus/rpc
+|Specifications/Specifications/Base Protocol/Execution:specifications/base-protocol/execution/l2-execution-engine,specifications/base-protocol/execution/precompiles,specifications/base-protocol/execution/predeploys,specifications/base-protocol/execution/preinstalls
+|Specifications/Specifications/Base Protocol/Bridging:specifications/base-protocol/bridging/standard-bridges,specifications/base-protocol/bridging/deposits,specifications/base-protocol/bridging/withdrawals,specifications/base-protocol/bridging/cross-domain-messengers,specifications/base-protocol/bridging/base-solana-bridge
+|Specifications/Specifications/Base Protocol/Proofs:specifications/base-protocol/proofs/overview,specifications/base-protocol/proofs/challenger,specifications/base-protocol/proofs/proposer,specifications/base-protocol/proofs/registrar,specifications/base-protocol/proofs/tee-prover,specifications/base-protocol/proofs/zk-prover,specifications/base-protocol/proofs/proof-contracts
+|Specifications/Specifications/B20:specifications/b20/specification-overview,specifications/b20/launch-a-b20-token,specifications/b20/tokenized-stocks-on-base,specifications/b20/changelog
+|Specifications/Specifications/B20/Reference:specifications/b20/reference/constants-addresses,specifications/b20/reference/errors-events,specifications/b20/reference/invariants-tests
+|Specifications/Specifications/B20/Reference/Interfaces:specifications/b20/reference/interfaces/i-activation-registry,specifications/b20/reference/interfaces/ib20,specifications/b20/reference/interfaces/ib20-asset,specifications/b20/reference/interfaces/ib20-factory,specifications/b20/reference/interfaces/ib20-stablecoin,specifications/b20/reference/interfaces/i-policy-registry
+|Specifications/Specifications/Transactions:specifications/transactions/transaction-ordering,specifications/transactions/transaction-finality,specifications/transactions/network-fees,specifications/transactions/throughput-and-limits,specifications/transactions/troubleshooting-transactions
+|Specifications/Specifications/Builder Codes:specifications/builder-codes/overview,specifications/builder-codes/for-app-developers,specifications/builder-codes/for-wallet-developers,specifications/builder-codes/for-agent-developers
+|Specifications/Reference:specifications/reference/base-contracts,specifications/reference/smart-contracts,specifications/reference/configuration,specifications/reference/glossary
+|Specifications/Node Operators:specifications/node-operators/run-a-node,specifications/node-operators/performance-tuning,specifications/node-operators/snapshots,specifications/node-operators/troubleshooting
+|Specifications/Security:specifications/security/security-council-for-base,specifications/security/avoid-malicious-flags,specifications/security/report-a-vulnerability
+|SDKs & APIs/Overview:sdks/overview
+|SDKs & APIs/CLIs:sdks/base-anvil
+|SDKs & APIs/Base Chain API:base-chain/api-reference/rpc-overview
+|SDKs & APIs/Base Chain API/Ethereum JSON-RPC API:base-chain/api-reference/ethereum-json-rpc-api/eth_blockNumber,base-chain/api-reference/ethereum-json-rpc-api/eth_call,base-chain/api-reference/ethereum-json-rpc-api/eth_chainId,base-chain/api-reference/ethereum-json-rpc-api/eth_estimateGas,base-chain/api-reference/ethereum-json-rpc-api/eth_feeHistory,base-chain/api-reference/ethereum-json-rpc-api/eth_gasPrice,base-chain/api-reference/ethereum-json-rpc-api/eth_getBalance,base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByHash,base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockByNumber,base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockReceipts,base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockTransactionCountByHash,base-chain/api-reference/ethereum-json-rpc-api/eth_getBlockTransactionCountByNumber,base-chain/api-reference/ethereum-json-rpc-api/eth_getCode,base-chain/api-reference/ethereum-json-rpc-api/eth_getLogs,base-chain/api-reference/ethereum-json-rpc-api/eth_getStorageAt,base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByBlockHashAndIndex,base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByBlockNumberAndIndex,base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionByHash,base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionCount,base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt,base-chain/api-reference/ethereum-json-rpc-api/eth_maxPriorityFeePerGas,base-chain/api-reference/ethereum-json-rpc-api/eth_sendRawTransaction,base-chain/api-reference/ethereum-json-rpc-api/eth_subscribe,base-chain/api-reference/ethereum-json-rpc-api/eth_syncing,base-chain/api-reference/ethereum-json-rpc-api/eth_unsubscribe,base-chain/api-reference/ethereum-json-rpc-api/net_version,base-chain/api-reference/ethereum-json-rpc-api/web3_clientVersion
+|SDKs & APIs/Base Chain API/Flashblocks API:base-chain/api-reference/flashblocks-api/flashblocks-api-overview,base-chain/api-reference/flashblocks-api/base_transactionStatus,base-chain/api-reference/flashblocks-api/eth_simulateV1,base-chain/api-reference/flashblocks-api/newFlashblockTransactions,base-chain/api-reference/flashblocks-api/newFlashblocks,base-chain/api-reference/flashblocks-api/pendingLogs
+|SDKs & APIs/Base Chain API/Debug API:base-chain/api-reference/debug-api/debug_traceTransaction,base-chain/api-reference/debug-api/debug_traceBlockByHash,base-chain/api-reference/debug-api/debug_traceBlockByNumber
+|SDKs & APIs/Base Account SDK:sdks/base-account/overview
+|SDKs & APIs/Base Account SDK/Get Started:sdks/base-account/quickstart/web,sdks/base-account/quickstart/web-react,sdks/base-account/quickstart/mobile-integration,sdks/base-account/quickstart/ai-tools-available-for-devs
+|SDKs & APIs/Base Account SDK/Guides:sdks/base-account/guides/authenticate-users,sdks/base-account/guides/accept-payments,sdks/base-account/guides/accept-recurring-payments,sdks/base-account/guides/sign-and-verify-typed-data,sdks/base-account/improve-ux/batch-transactions,sdks/base-account/improve-ux/spend-permissions,sdks/base-account/improve-ux/sub-accounts,sdks/base-account/improve-ux/sponsor-gas/paymasters,sdks/base-account/improve-ux/sponsor-gas/erc20-paymasters,sdks/base-account/guides/migration-guide,sdks/base-account/guides/tips/popup-tips,sdks/base-account/guides/tips/inspect-txn-simulation
+|SDKs & APIs/Base Account SDK/Framework Integrations:sdks/base-account/framework-integrations/cdp,sdks/base-account/framework-integrations/rainbowkit,sdks/base-account/framework-integrations/reown,sdks/base-account/framework-integrations/thirdweb
+|SDKs & APIs/Base Account SDK/Framework Integrations/Wagmi:sdks/base-account/framework-integrations/wagmi/setup,sdks/base-account/framework-integrations/wagmi/sign-in-with-base,sdks/base-account/framework-integrations/wagmi/base-pay,sdks/base-account/framework-integrations/wagmi/basenames,sdks/base-account/framework-integrations/wagmi/batch-transactions,sdks/base-account/framework-integrations/wagmi/sub-accounts,sdks/base-account/framework-integrations/wagmi/other-use-cases
+|SDKs & APIs/Base Account SDK/Framework Integrations/Privy:sdks/base-account/framework-integrations/privy/setup,sdks/base-account/framework-integrations/privy/authentication,sdks/base-account/framework-integrations/privy/wallet-actions,sdks/base-account/framework-integrations/privy/spend-permissions,sdks/base-account/framework-integrations/privy/sub-accounts
+|SDKs & APIs/Base Account SDK/Reference/Base Pay:sdks/base-account/reference/base-pay/pay,sdks/base-account/reference/base-pay/getPaymentStatus,sdks/base-account/reference/base-pay/subscribe,sdks/base-account/reference/base-pay/getStatus,sdks/base-account/reference/base-pay/charge,sdks/base-account/reference/base-pay/prepareCharge,sdks/base-account/reference/base-pay/revoke,sdks/base-account/reference/base-pay/prepareRevoke,sdks/base-account/reference/base-pay/getOrCreateSubscriptionOwnerWallet,sdks/base-account/reference/base-pay/subscriptions-overview
+|SDKs & APIs/Base Account SDK/Reference/Core:sdks/base-account/reference/core/createBaseAccount,sdks/base-account/reference/core/getProvider,sdks/base-account/reference/core/getCryptoKeyAccount,sdks/base-account/reference/core/generateKeyPair,sdks/base-account/reference/core/getKeypair,sdks/base-account/reference/core/sdk-utilities
+|SDKs & APIs/Base Account SDK/Reference/Core/Capabilities:sdks/base-account/reference/core/capabilities/overview,sdks/base-account/reference/core/capabilities/atomic,sdks/base-account/reference/core/capabilities/auxiliaryFunds,sdks/base-account/reference/core/capabilities/datacallback,sdks/base-account/reference/core/capabilities/dataSuffix,sdks/base-account/reference/core/capabilities/flowControl,sdks/base-account/reference/core/capabilities/gasLimitOverride,sdks/base-account/reference/core/capabilities/paymasterService,sdks/base-account/reference/core/capabilities/signInWithEthereum
+|SDKs & APIs/Base Account SDK/Reference/Core/Provider RPC Methods:sdks/base-account/reference/core/provider-rpc-methods/sdk-overview,sdks/base-account/reference/core/provider-rpc-methods/request-overview,sdks/base-account/reference/core/provider-rpc-methods/standard-rpc-methods,sdks/base-account/reference/core/provider-rpc-methods/coinbase_fetchPermission,sdks/base-account/reference/core/provider-rpc-methods/coinbase_fetchPermissions,sdks/base-account/reference/core/provider-rpc-methods/eth_accounts,sdks/base-account/reference/core/provider-rpc-methods/eth_blockNumber,sdks/base-account/reference/core/provider-rpc-methods/eth_chainId,sdks/base-account/reference/core/provider-rpc-methods/eth_coinbase,sdks/base-account/reference/core/provider-rpc-methods/eth_estimateGas,sdks/base-account/reference/core/provider-rpc-methods/eth_feeHistory,sdks/base-account/reference/core/provider-rpc-methods/eth_gasPrice,sdks/base-account/reference/core/provider-rpc-methods/eth_getBalance,sdks/base-account/reference/core/provider-rpc-methods/eth_getBlockByHash,sdks/base-account/reference/core/provider-rpc-methods/eth_getBlockByNumber,sdks/base-account/reference/core/provider-rpc-methods/eth_getBlockTransactionCountByHash,sdks/base-account/reference/core/provider-rpc-methods/eth_getBlockTransactionCountByNumber,sdks/base-account/reference/core/provider-rpc-methods/eth_getCode,sdks/base-account/reference/core/provider-rpc-methods/eth_getLogs,sdks/base-account/reference/core/provider-rpc-methods/eth_getProof,sdks/base-account/reference/core/provider-rpc-methods/eth_getStorageAt,sdks/base-account/reference/core/provider-rpc-methods/eth_getTransactionByBlockHashAndIndex,sdks/base-account/reference/core/provider-rpc-methods/eth_getTransactionByBlockNumberAndIndex,sdks/base-account/reference/core/provider-rpc-methods/eth_getTransactionByHash,sdks/base-account/reference/core/provider-rpc-methods/eth_getTransactionCount,sdks/base-account/reference/core/provider-rpc-methods/eth_getTransactionReceipt,sdks/base-account/reference/core/provider-rpc-methods/eth_getUncleCountByBlockHash,sdks/base-account/reference/core/provider-rpc-methods/eth_getUncleCountByBlockNumber,sdks/base-account/reference/core/provider-rpc-methods/eth_requestAccounts,sdks/base-account/reference/core/provider-rpc-methods/eth_sendRawTransaction,sdks/base-account/reference/core/provider-rpc-methods/eth_sendTransaction,sdks/base-account/reference/core/provider-rpc-methods/eth_signTypedData_v4,sdks/base-account/reference/core/provider-rpc-methods/personal_sign,sdks/base-account/reference/core/provider-rpc-methods/wallet_addEthereumChain,sdks/base-account/reference/core/provider-rpc-methods/wallet_addSubAccount,sdks/base-account/reference/core/provider-rpc-methods/wallet_connect,sdks/base-account/reference/core/provider-rpc-methods/wallet_getCallsStatus,sdks/base-account/reference/core/provider-rpc-methods/wallet_getCapabilities,sdks/base-account/reference/core/provider-rpc-methods/wallet_getSubAccounts,sdks/base-account/reference/core/provider-rpc-methods/wallet_sendCalls,sdks/base-account/reference/core/provider-rpc-methods/wallet_switchEthereumChain,sdks/base-account/reference/core/provider-rpc-methods/wallet_watchAsset,sdks/base-account/reference/core/provider-rpc-methods/web3_clientVersion
+|SDKs & APIs/Base Account SDK/Reference/Spend Permissions:sdks/base-account/reference/spend-permission-utilities/requestSpendPermission,sdks/base-account/reference/spend-permission-utilities/fetchPermission,sdks/base-account/reference/spend-permission-utilities/fetchPermissions,sdks/base-account/reference/spend-permission-utilities/getPermissionStatus,sdks/base-account/reference/spend-permission-utilities/prepareSpendCallData,sdks/base-account/reference/spend-permission-utilities/requestRevoke,sdks/base-account/reference/spend-permission-utilities/prepareRevokeCallData
+|SDKs & APIs/Base Account SDK/Reference/Prolink:sdks/base-account/reference/prolink-utilities/createProlinkUrl,sdks/base-account/reference/prolink-utilities/encodeProlink,sdks/base-account/reference/prolink-utilities/decodeProlink
+|SDKs & APIs/Base Account SDK/Reference/UI Elements:sdks/base-account/reference/ui-elements/sign-in-with-base-button,sdks/base-account/reference/ui-elements/base-pay-button,sdks/base-account/reference/ui-elements/brand-guidelines
+|SDKs & APIs/Base Account SDK/Reference/Onchain Contracts:sdks/base-account/reference/onchain-contracts/smart-wallet,sdks/base-account/reference/onchain-contracts/spend-permissions,sdks/base-account/reference/onchain-contracts/basenames
+|SDKs & APIs/Base Account SDK/Basenames:sdks/base-account/basenames/basename-transfer,sdks/base-account/basenames/basenames-faq
+|SDKs & APIs/Base Account SDK/More:sdks/base-account/more/telemetry,sdks/base-account/more/troubleshooting/usage-details/gas-usage,sdks/base-account/more/troubleshooting/usage-details/popups,sdks/base-account/more/troubleshooting/usage-details/simulations,sdks/base-account/more/troubleshooting/usage-details/unsupported-calls,sdks/base-account/more/troubleshooting/usage-details/wallet-library-support,sdks/base-account/contribute/contribute-to-base-account-docs,sdks/base-account/contribute/security-and-bug-bounty
+|SDKs & APIs/Base Verify API:sdks/base-verify/overview,sdks/base-verify/verify-social-accounts,sdks/base-verify/verify-users-onchain
+|SDKs & APIs/Base MCP:agents/overview,agents/quickstart
+|SDKs & APIs/Base MCP/Guides:agents/guides/check-balance,agents/guides/send-tokens,agents/guides/swap-tokens,agents/guides/view-history,agents/guides/sign-messages,agents/guides/batch-calls,agents/guides/x402-payments
+|SDKs & APIs/Base MCP/Skill & Plugins:agents/plugins/index,agents/plugins/custom-plugins
+|SDKs & APIs/Base MCP/Skill & Plugins/Native Plugins:agents/plugins/native/index,agents/plugins/native/aerodrome,agents/plugins/native/avantis,agents/plugins/native/balancer,agents/plugins/native/bankr,agents/plugins/native/bitrefill,agents/plugins/native/brickken,agents/plugins/native/clawnch,agents/plugins/native/flaunch,agents/plugins/native/gmgn,agents/plugins/native/hydrex,agents/plugins/native/kyberswap,agents/plugins/native/moonwell,agents/plugins/native/morpho,agents/plugins/native/o1-exchange,agents/plugins/native/opensea,agents/plugins/native/printr,agents/plugins/native/uniswap,agents/plugins/native/venice,agents/plugins/native/virtuals,agents/plugins/native/yo
+|Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
+|Upgrades/Denim:upgrades/denim/200ms-blocks
+|Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/eip-8130,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy
+|Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
+|Upgrades/Azul:upgrades/azul/overview,upgrades/azul/node-upgrade,upgrades/azul/exec-engine,upgrades/azul/proofs
+|Upgrades/Optimism:upgrades/canyon/overview
+|Upgrades/Optimism/Jovian:upgrades/jovian/overview,upgrades/jovian/exec-engine,upgrades/jovian/derivation,upgrades/jovian/l1-attributes,upgrades/jovian/system-config
+|Upgrades/Optimism/Isthmus:upgrades/isthmus/overview,upgrades/isthmus/exec-engine,upgrades/isthmus/derivation,upgrades/isthmus/l1-attributes,upgrades/isthmus/predeploys,upgrades/isthmus/system-config
+|Upgrades/Optimism/Holocene:upgrades/holocene/overview,upgrades/holocene/exec-engine,upgrades/holocene/derivation,upgrades/holocene/system-config
+|Upgrades/Optimism/Granite:upgrades/granite/overview,upgrades/granite/exec-engine,upgrades/granite/derivation
+|Upgrades/Optimism/Fjord:upgrades/fjord/overview,upgrades/fjord/exec-engine,upgrades/fjord/derivation,upgrades/fjord/predeploys
+|Upgrades/Optimism/Ecotone:upgrades/ecotone/overview,upgrades/ecotone/derivation,upgrades/ecotone/l1-attributes
+|Upgrades/Optimism/Delta:upgrades/delta/overview,upgrades/delta/span-batches

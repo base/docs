@@ -816,8 +816,8 @@ const REASONING_LEAK_PATTERNS = [
  * docs/, with the leading slash present and the `.mdx`/`.txt` suffix
  * stripped — same convention Mintlify uses in Base Docs.
  *
- *   docs/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer.mdx
- *     → /base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer
+ *   docs/specifications/b20/reference/interfaces/ib20/transfer.mdx
+ *     → /specifications/b20/reference/interfaces/ib20/transfer
  *
  * Used by `validateMdx` to reject pages whose internal Markdown links
  * point at a route that doesn't exist.
@@ -961,7 +961,7 @@ function validateMdx(content, pagePath, knownRoutes) {
       if (!knownRoutes.has(target)) broken.push(target);
     }
     if (broken.length > 0) {
-      return `broken internal link(s): ${broken.slice(0, 3).map((t) => `\`${t}\``).join(", ")}${broken.length > 3 ? ` (+${broken.length - 3} more)` : ""}. Use the full route path that exists under docs/ (e.g. \`/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer\`).`;
+      return `broken internal link(s): ${broken.slice(0, 3).map((t) => `\`${t}\``).join(", ")}${broken.length > 3 ? ` (+${broken.length - 3} more)` : ""}. Use the full route path that exists under docs/ (e.g. \`/specifications/b20/reference/interfaces/ib20/transfer\`).`;
     }
   }
   // Server-side mirror of system-prompt rules 3–5: raw HTML, dangerous URL
