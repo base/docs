@@ -114,7 +114,10 @@ walkGroupLabels(config.navigation, null);
 //   - footer-linked legal pages (privacy/terms/cookie) live outside the nav tree
 //   - generated B20 interface *method* pages are deliberately interface-first
 //     (reached from their interface index page), matching upstream convention
-const INTERFACE_PREFIX = 'base-chain/specs/reference/b20/interfaces/';
+const INTERFACE_PREFIXES = [
+  'base-chain/specs/reference/b20/interfaces/',
+  'specifications/b20/reference/interfaces/',
+];
 // Landing pages that are intentionally linked from content but omitted from
 // the sidebar to avoid a redundant nested "Overview" entry.
 const LINKED_HUB_PAGES = new Set([
@@ -152,7 +155,11 @@ function isExemptFromOrphan(page) {
   if (LINKED_HUB_PAGES.has(page)) return true;
   // interface method page = under interfaces/<IFace>/<method>, i.e. one level
   // deeper than the interface index pages themselves
-  if (page.startsWith(INTERFACE_PREFIX) && page.slice(INTERFACE_PREFIX.length).includes('/')) return true;
+  // Generated B20 interface member pages are intentionally linked from their
+  // interface landing page rather than repeated in the sidebar.
+  for (const prefix of INTERFACE_PREFIXES) {
+    if (page.startsWith(prefix) && page.slice(prefix.length).includes('/')) return true;
+  }
   return false;
 }
 

@@ -2,9 +2,9 @@
  * Shared primitives for docs-tree generators (agents.js, llms.js).
  *
  * Pure helpers + a base CONSTANTS object with the file/dir skiplists, file
- * extensions, acronym set, and section-discovery fallback lists. Each generator
- * imports CONSTANTS and the helpers it needs; generator-specific config (output
- * paths, hardcoded URLs, etc.) stays in the generator script.
+ * extensions, acronym set, section-discovery fallback lists, and navigation
+ * readers. Each generator imports the helpers it needs; generator-specific
+ * config (output paths, hardcoded URLs, etc.) stays in the generator script.
  */
 
 const fs = require('fs');
@@ -140,6 +140,42 @@ function discoverTopLevelSections(docsDir) {
     .sort((a, b) => a.title.localeCompare(b.title));
 }
 
+// The sidebar is the source of truth for the public documentation hierarchy.
+// Keep the traversal order aligned with Mintlify's `pages`, `groups`, and
+// `tabs` fields so generated AI indexes follow the same organization.
+function loadNavigation(docsDir) {
+  const configFile = path.join(docsDir, 'docs.json');
+  const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+  return config.navigation || {};
+}
+
+function collectNavigationPages(value, pages = []) {
+  if (typeof value === 'string') {
+    pages.push(value);
+    return pages;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectNavigationPages(item, pages));
+    return pages;
+  }
+  if (!value || typeof value !== 'object') return pages;
+
+  for (const key of ['pages', 'groups', 'tabs', 'anchors']) {
+    if (value[key]) collectNavigationPages(value[key], pages);
+  }
+  return pages;
+}
+
+function resolvePageFile(docsDir, page) {
+  const candidates = [
+    path.join(docsDir, `${page}.mdx`),
+    path.join(docsDir, `${page}.md`),
+    path.join(docsDir, page, 'index.mdx'),
+    path.join(docsDir, page, 'index.md'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || '';
+}
+
 function walkDocFiles(dir, results = []) {
   if (!fs.existsSync(dir)) return results;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -166,5 +202,8 @@ module.exports = {
   firstDocFileIn,
   readSectionDescription,
   discoverTopLevelSections,
+  loadNavigation,
+  collectNavigationPages,
+  resolvePageFile,
   walkDocFiles,
 };

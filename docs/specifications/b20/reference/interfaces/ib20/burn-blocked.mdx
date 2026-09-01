@@ -1,0 +1,51 @@
+---
+title: "IB20.burnBlocked"
+description: "Generated B20 reference for burnBlocked(address,uint256)."
+---
+
+
+
+## Signature
+
+```solidity IB20.sol
+function burnBlocked(address from, uint256 amount) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xec0cf3dc` |
+| Canonical signature | `burnBlocked(address,uint256)` |
+
+## Description
+
+DEPRECATED. Burns `amount` from a `from` account that is blocked under `TRANSFER_SENDER_POLICY`, without spending an allowance. Retained for back-compat; prefer `seizeWithMemo` (to a treasury/self address) followed by `burn`. Emits `Transfer(from, address(0), amount)` and `BurnedBlocked(caller, from, amount)`.
+
+Gated by `BURN_BLOCKED_ROLE` and the `BURN` pause vector (not `SEIZE`). Its blocked check reads `TRANSFER_SENDER_POLICY`, distinct from `seizeWithMemo`'s `SEIZE_HOLDER_POLICY`.
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `from` | Account whose blocked balance is being burned. |
+| `amount` | Amount to burn. |
+
+## Reverts
+
+- `ContractPaused(BURN)` when `BURN` is paused.
+- `AccessControlUnauthorizedAccount` when the caller does not hold `BURN_BLOCKED_ROLE`.
+- `AccountNotBlocked` when `from` is currently authorized under `TRANSFER_SENDER_POLICY`.
+- `InsufficientBalance` when `from`'s balance is below `amount`.
+
+## Access Control
+
+`BURN_BLOCKED_ROLE` gates deprecated blocked-burn calls.
+
+## Policy Interaction
+
+Checks `TRANSFER_SENDER_POLICY`; the account can be burned only when not authorized by that policy.
+
+## Example
+
+```solidity Usage Example
+IB20(token).burnBlocked(from, amount);
+```

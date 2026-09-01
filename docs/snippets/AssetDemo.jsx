@@ -1,5 +1,93 @@
 export const AssetDemo = ({ flow }) => {
   // No imports allowed in Mintlify snippets: useState/useEffect/useRef are injected globally.
+
+  // Mintlify snippets cannot import npm packages or sibling modules. Load the
+  // shared .txt engine and vendored AA client as Blob ES modules on first use.
+  const loadVibenetEngine = () => {
+    if (window.__baseDocsVibenetEngineV2) return Promise.resolve(window.__baseDocsVibenetEngineV2);
+    if (window.__baseDocsVibenetEnginePromiseV2) return window.__baseDocsVibenetEnginePromiseV2;
+
+    window.__baseDocsVibenetEnginePromiseV2 = new Promise((resolve, reject) => {
+      const onReady = () => {
+        cleanup();
+        resolve(window.__baseDocsVibenetEngineV2);
+      };
+      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v2-ready", onReady);
+      window.addEventListener("base-docs-vibenet-engine:v2-ready", onReady, { once: true });
+
+      (async () => {
+        try {
+          const fetchText = async (path) => {
+            const response = await fetch(path, { cache: "force-cache" });
+            if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+            return response.text();
+          };
+          const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+          const [aaSource, engineSource] = await Promise.all([
+            fetchText("/static/aa.txt"),
+            fetchText("/static/vibenet-engine.txt?v=2"),
+          ]);
+          const aaUrl = moduleUrl(aaSource);
+          const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
+          if (rewritten === engineSource) throw new Error("Could not connect the Vibenet engine to the AA bundle");
+          const tag = document.createElement("script");
+          tag.type = "module";
+          tag.src = moduleUrl(rewritten);
+          tag.dataset.baseDocsVibenetEngine = "true";
+          tag.onerror = () => {
+            cleanup();
+            window.__baseDocsVibenetEnginePromiseV2 = null;
+            reject(new Error("Failed to evaluate the Vibenet engine"));
+          };
+          document.head.appendChild(tag);
+        } catch (error) {
+          cleanup();
+          window.__baseDocsVibenetEnginePromiseV2 = null;
+          reject(error);
+        }
+      })();
+    });
+    return window.__baseDocsVibenetEnginePromiseV2;
+  };
+
+  // Capability-only check; it intentionally avoids downloading the AA bundle.
+  const probeVibenet = async () => {
+    const rpc = async (method, params = []) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4_000);
+      try {
+        const response = await fetch("https://api.vibes.base.org/api/vibenet/account/rpc", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
+          signal: controller.signal,
+        });
+        const body = await response.json().catch(() => null);
+        if (!response.ok || body?.error) throw new Error(body?.error?.message || `Vibenet returned ${response.status}`);
+        return body.result;
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+    const isActivated = async (feature) => {
+      const data = `0xba87af80${feature.slice(2)}`;
+      const result = await rpc("eth_call", [{ to: "0x8453000000000000000000000000000000000001", data }, "latest"]);
+      return BigInt(result) === 1n;
+    };
+    const [chainId, blockNumber, genesis, asset, policy] = await Promise.all([
+      rpc("eth_chainId"),
+      rpc("eth_blockNumber"),
+      rpc("eth_getBlockByNumber", ["0x0", false]),
+      isActivated("0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c"),
+      isActivated("0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f"),
+    ]);
+    return {
+      live: BigInt(chainId) === 84538453n && asset && policy,
+      blockNumber: Number(BigInt(blockNumber)),
+      genesisHash: genesis?.hash || null,
+      reason: !asset ? "B20 Asset creation is not activated" : !policy ? "Policy writes are not activated" : null,
+    };
+  };
   const sans = "'Base Sans','Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
   const mono = "'Base Mono','Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 
@@ -21,9 +109,9 @@ export const AssetDemo = ({ flow }) => {
   const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
-  const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });
-  const err = (name, detail) => ({ kind: "err", name, detail: detail || "" });
-  const nfo = (name, detail) => ({ kind: "info", name, detail: detail || "" });
+  const ok = (name, detail, href) => ({ kind: "ok", name, detail: detail || "", href });
+  const err = (name, detail, href) => ({ kind: "err", name, detail: detail || "", href });
+  const nfo = (name, detail, href) => ({ kind: "info", name, detail: detail || "", href });
   const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const M = (v) => ({ v, mono: true });
 
@@ -32,7 +120,7 @@ export const AssetDemo = ({ flow }) => {
   // ======================================================================
   // Scripted flows. Each step mutates a cloned sim and returns log lines.
   // ======================================================================
-  const FLOWS = {
+  const MOCK_FLOWS = {
     create: {
       label: "Create", title: "Create a stock token", readout: false,
       erc20: "B20 supplies a shared Asset standard instead of a custom token contract.",
@@ -43,8 +131,8 @@ export const AssetDemo = ({ flow }) => {
           run: () => ({ entries: [ok("createB20", "ASSET · EXM · 0xB200…e7a1"), nfo("decimals()", "6")], caption: "The factory creates an ERC-20-compatible B20 Asset token." }) },
         { stage: "Controls", action: "Apply controls",
           text: "Set issuer roles and a technical issuance ceiling in the same transaction.",
-          summary: [["Operation", "Apply controls"], ["Roles", "MINT, OPERATOR"], ["Supply cap", M("1,000,000 EXM")], ["Network", NETWORK]],
-          run: () => ({ entries: [ok("grantRole", "MINT_ROLE, OPERATOR_ROLE → Issuer"), ok("SupplyCapUpdated", "1,000,000 EXM")], caption: "The ceiling limits token supply; it does not define legally authorized shares." }) },
+          summary: [["Operation", "Apply controls"], ["Roles", "MINT, OPERATOR, METADATA"], ["Supply cap", M("1,000,000 EXM")], ["Network", NETWORK]],
+          run: () => ({ entries: [ok("grantRole", "MINT_ROLE, OPERATOR_ROLE, METADATA_ROLE → Issuer"), ok("SupplyCapUpdated", "1,000,000 EXM")], caption: "The ceiling limits token supply; it does not define legally authorized shares." }) },
         { stage: "Identify", action: "Add identifier",
           text: "Attach an issuer-defined identifier for integrations and records.",
           summary: [["Operation", "Set metadata"], ["Field", M("asset-id")], ["Value", M('"EXAMPLE-CLASS-A"')], ["Network", NETWORK]],
@@ -154,27 +242,421 @@ export const AssetDemo = ({ flow }) => {
   };
 
   const order = ["create", "issue", "restrict", "cancel", "dividend", "split", "pause"];
-  const pinned = flow ? (FLOWS[flow] ? flow : order[0]) : null;
+  const pinned = flow ? (MOCK_FLOWS[flow] ? flow : order[0]) : null;
 
   const [active, setActive] = useState(pinned || "create");
   const [sim, setSim] = useState(freshSim);
   const [results, setResults] = useState([]);
+  const [liveState, setLiveState] = useState("probing");
+  const [probeInfo, setProbeInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [accountAddress, setAccountAddress] = useState(null);
+  const [accountCopied, setAccountCopied] = useState(false);
+  const [accountTokenBalance, setAccountTokenBalance] = useState(null);
+  const liveContext = useRef(null);
 
-  const f = FLOWS[active] || FLOWS.create;
+  useEffect(() => {
+    let cancelled = false;
+    probeVibenet()
+      .then((info) => {
+        if (cancelled) return;
+        setProbeInfo(info);
+        setLiveState(info.live ? "live" : "offline");
+        if (info.live && info.genesisHash) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("base.docs.vibenet.account.v1") || "null");
+            if (stored?.genesisHash === info.genesisHash && stored.address) setAccountAddress(stored.address);
+          } catch {
+            // The engine will replace corrupt or stale state on first use.
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLiveState("offline");
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const f = MOCK_FLOWS[active] || MOCK_FLOWS.create;
   const stepIndex = results.length;
   const done = stepIndex >= f.steps.length;
   const cur = done ? f.steps[f.steps.length - 1] : f.steps[stepIndex];
 
-  const select = (k) => { setActive(k); setSim(freshSim()); setResults([]); };
-  const reset = () => { setSim(freshSim()); setResults([]); };
-  const runStep = () => {
+  const short = (address) => `${address.slice(0, 6)}…${address.slice(-4)}`;
+  const txOk = (engine, name, detail, tx) => ok(name, detail, engine.explorerTx(tx.hash));
+
+  const ensureLiveContext = async (engine) => {
+    if (liveContext.current) return liveContext.current;
+    const shared = await engine.getSharedAccount();
+    setAccountAddress(shared.account.address);
+    liveContext.current = {
+      account: shared.account.address,
+      token: null,
+      policyId: null,
+      addresses: {
+        Issuer: shared.account.address,
+        Alice: shared.account.address,
+        Bob: engine.randomAddress(),
+        Carol: engine.randomAddress(),
+      },
+    };
+    return liveContext.current;
+  };
+
+  const setBalance = async (engine, ctx, state, label) => {
+    state.balances[label] = engine.displayUnits(await engine.balanceOf(ctx.token, ctx.addresses[label]));
+  };
+
+  const createAsset = async (engine, ctx, options = {}) => {
+    const created = await engine.createAsset({
+      name: `Docs ${active[0].toUpperCase()}${active.slice(1)} Asset`,
+      symbol: TOKEN,
+      decimals: 6,
+      ...options,
+    });
+    ctx.token = created.token;
+    ctx.createTx = created;
+    return created;
+  };
+
+  const createEligibilitySetup = async (engine, ctx, options = {}) => {
+    const policy = await engine.createPolicy({
+      kind: "allowlist",
+      accounts: [...new Set([ctx.addresses.Issuer, ctx.addresses.Alice, ctx.addresses.Bob])],
+    });
+    ctx.policyId = policy.id;
+    const created = await createAsset(engine, ctx, {
+      policies: [
+        { scope: "MINT_RECEIVER_POLICY", id: policy.id },
+        { scope: "TRANSFER_SENDER_POLICY", id: policy.id },
+        { scope: "TRANSFER_RECEIVER_POLICY", id: policy.id },
+      ],
+      ...options,
+    });
+    return { policy, created };
+  };
+
+  const LIVE_RUNNERS = {
+    create: [
+      async (engine, ctx) => {
+        const created = await createAsset(engine, ctx, { roles: [] });
+        const details = await engine.assetDetails(created.token);
+        return {
+          entries: [
+            txOk(engine, "B20Created", `ASSET · ${TOKEN} · ${short(created.token)}`, created),
+            nfo("decimals()", String(details.decimals), engine.explorerAddress(created.token)),
+          ],
+          caption: "The Vibenet B20 factory created the six-decimal Asset token.",
+        };
+      },
+      async (engine, ctx) => {
+        const tx = await engine.configureAssetControls({
+          token: ctx.token,
+          roles: ["MINT_ROLE", "OPERATOR_ROLE", "METADATA_ROLE"],
+          supplyCap: engine.units(1_000_000),
+        });
+        return {
+          entries: [
+            txOk(engine, "RoleGranted", "MINT_ROLE, OPERATOR_ROLE, METADATA_ROLE → Issuer", tx),
+            txOk(engine, "SupplyCapUpdated", "1,000,000 EXM", tx),
+          ],
+          caption: "The technical ceiling and issuer roles are now onchain.",
+        };
+      },
+      async (engine, ctx) => {
+        const tx = await engine.updateAssetMetadata({ token: ctx.token, key: "asset-id", value: "EXAMPLE-CLASS-A" });
+        const value = await engine.assetMetadata(ctx.token, "asset-id");
+        return {
+          entries: [txOk(engine, "ExtraMetadataUpdated", `asset-id → "${value}"`, tx)],
+          caption: "The issuer-defined identifier was read back from the live Asset token.",
+        };
+      },
+    ],
+    issue: [
+      async (engine, ctx) => {
+        const { policy, created } = await createEligibilitySetup(engine, ctx);
+        return {
+          entries: [
+            txOk(engine, "PolicyCreated", `#${policy.id} · ALLOWLIST`, policy),
+            txOk(engine, "PolicyUpdated", "MINT_RECEIVER, TRANSFER_SENDER, TRANSFER_RECEIVER", created),
+          ],
+          caption: "Alice and Bob are members of the live eligibility policy.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.batchMint({
+          token: ctx.token,
+          recipients: [ctx.addresses.Alice, ctx.addresses.Bob],
+          amounts: [engine.units(600), engine.units(400)],
+        });
+        await Promise.all([setBalance(engine, ctx, state, "Alice"), setBalance(engine, ctx, state, "Bob")]);
+        return {
+          entries: [
+            txOk(engine, "batchMint", "2 recipients · 1,000 EXM", tx),
+            txOk(engine, "Transfer", "0x0 → Alice · 600", tx),
+            txOk(engine, "Transfer", "0x0 → Bob · 400", tx),
+          ],
+          caption: "One atomic batch recorded the two-holder distribution.",
+        };
+      },
+    ],
+    restrict: [
+      async (engine, ctx) => {
+        const { policy, created } = await createEligibilitySetup(engine, ctx);
+        return {
+          entries: [
+            txOk(engine, "PolicyCreated", `#${policy.id} · ALLOWLIST`, policy),
+            txOk(engine, "PolicyUpdated", "MINT_RECEIVER, TRANSFER_SENDER, TRANSFER_RECEIVER", created),
+          ],
+          caption: "The same live policy now gates issuance and transfers.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.batchMint({ token: ctx.token, recipients: [ctx.addresses.Alice], amounts: [engine.units(100)] });
+        await setBalance(engine, ctx, state, "Alice");
+        return { entries: [txOk(engine, "Transfer", "0x0 → Alice · 100 EXM", tx)] };
+      },
+      async (engine, ctx) => {
+        const rejected = await engine.expectRevert({
+          from: ctx.addresses.Alice,
+          token: ctx.token,
+          functionName: "transfer",
+          args: [ctx.addresses.Carol, engine.units(1)],
+          expected: "PolicyForbids",
+        });
+        return {
+          entries: [err(rejected.name, "TRANSFER_RECEIVER · Carol · Vibenet eth_call")],
+          caption: "Carol is not in the live eligibility policy, so the B20 precompile rejected the transfer.",
+        };
+      },
+    ],
+    cancel: [
+      async (engine, ctx, state) => {
+        const { policy, created } = await createEligibilitySetup(engine, ctx, {
+          initialMints: [{ to: ctx.addresses.Bob, amount: engine.units(100) }],
+        });
+        ctx.policyId = policy.id;
+        await setBalance(engine, ctx, state, "Bob");
+        return {
+          entries: [
+            txOk(engine, "PolicyCreated", `#${policy.id} · ALLOWLIST`, policy),
+            txOk(engine, "Transfer", "0x0 → Bob · 100 EXM", created),
+          ],
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.updateAllowlist({ id: ctx.policyId, allowed: false, accounts: [ctx.addresses.Bob] });
+        const rejected = await engine.expectRevert({
+          from: ctx.addresses.Bob,
+          token: ctx.token,
+          functionName: "transfer",
+          args: [ctx.addresses.Alice, engine.units(1)],
+          expected: "PolicyForbids",
+        });
+        state.blocked = "Bob";
+        return {
+          entries: [
+            txOk(engine, "AllowlistUpdated", "remove Bob", tx),
+            err(rejected.name, "TRANSFER_SENDER · Bob · Vibenet eth_call"),
+          ],
+          caption: "Bob is now denied by the sender policy.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.burnBlocked({ token: ctx.token, from: ctx.addresses.Bob, amount: engine.units(100) });
+        await setBalance(engine, ctx, state, "Bob");
+        return {
+          entries: [
+            txOk(engine, "burnBlocked", "Bob · 100 EXM", tx),
+            txOk(engine, "Transfer", "Bob → 0x0 · 100 EXM", tx),
+          ],
+          caption: "Bob's balance and the Asset token's total supply both fell by 100.",
+        };
+      },
+    ],
+    dividend: [
+      async (engine, ctx, state) => {
+        const created = await createAsset(engine, ctx, {
+          initialMints: [
+            { to: ctx.addresses.Alice, amount: engine.units(600) },
+            { to: ctx.addresses.Bob, amount: engine.units(400) },
+          ],
+        });
+        await Promise.all([setBalance(engine, ctx, state, "Alice"), setBalance(engine, ctx, state, "Bob")]);
+        return {
+          entries: [
+            txOk(engine, "B20Created", short(created.token), created),
+            nfo("record date", "Alice 600 · Bob 400", engine.explorerAddress(created.token)),
+          ],
+          caption: "The live holder balances establish the distribution baseline.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const id = `dividend-${Date.now()}`;
+        const tx = await engine.announceDistribution({
+          token: ctx.token,
+          recipients: [ctx.addresses.Alice, ctx.addresses.Bob],
+          amounts: [engine.units(30), engine.units(20)],
+          id,
+          description: "Five-percent stock dividend",
+          uri: "https://example.com/actions/dividend",
+        });
+        const used = await engine.isAnnouncementIdUsed(ctx.token, id);
+        await Promise.all([setBalance(engine, ctx, state, "Alice"), setBalance(engine, ctx, state, "Bob")]);
+        return {
+          entries: [
+            txOk(engine, "Announcement", `${id} · stock dividend`, tx),
+            txOk(engine, "batchMint", "Alice 30 · Bob 20", tx),
+            txOk(engine, "EndAnnouncement", used ? id : "announcement not found", tx),
+          ],
+          caption: "The announcement brackets the two mint events in one Vibenet transaction.",
+        };
+      },
+    ],
+    split: [
+      async (engine, ctx, state) => {
+        const created = await createAsset(engine, ctx, {
+          initialMints: [
+            { to: ctx.addresses.Alice, amount: engine.units(100) },
+            { to: ctx.addresses.Bob, amount: engine.units(50) },
+          ],
+        });
+        await Promise.all([setBalance(engine, ctx, state, "Alice"), setBalance(engine, ctx, state, "Bob")]);
+        const multiplier = await engine.assetMultiplier(ctx.token);
+        state.multiplier = Number(multiplier / 10n ** 18n);
+        return {
+          entries: [
+            txOk(engine, "B20Created", short(created.token), created),
+            nfo("multiplier()", `${state.multiplier}.0 WAD`, engine.explorerAddress(ctx.token)),
+          ],
+          caption: "Raw and displayed balances currently match.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.updateMultiplier({ token: ctx.token, multiplier: 2n * 10n ** 18n });
+        const [multiplier, displayed] = await Promise.all([
+          engine.assetMultiplier(ctx.token),
+          engine.scaledBalanceOf(ctx.token, ctx.addresses.Alice),
+        ]);
+        state.multiplier = Number(multiplier / 10n ** 18n);
+        return {
+          entries: [
+            txOk(engine, "MultiplierUpdated", "1.0 → 2.0 WAD", tx),
+            nfo("scaledBalanceOf(Alice)", `${engine.displayUnits(displayed)} EXM`, engine.explorerAddress(ctx.token)),
+          ],
+          caption: "Displayed balances doubled while the raw balances stayed unchanged.",
+        };
+      },
+    ],
+    pause: [
+      async (engine, ctx, state) => {
+        const created = await createAsset(engine, ctx, {
+          initialMints: [{ to: ctx.addresses.Alice, amount: engine.units(100) }],
+        });
+        await setBalance(engine, ctx, state, "Alice");
+        return { entries: [txOk(engine, "Transfer", "0x0 → Alice · 100 EXM", created)] };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.setTransfersPaused({ token: ctx.token, paused: true });
+        state.paused = await engine.isTransferPaused(ctx.token);
+        return { entries: [txOk(engine, "Paused", "TRANSFER", tx)], caption: "Mint and burn remain available." };
+      },
+      async (engine, ctx) => {
+        const rejected = await engine.expectRevert({
+          from: ctx.addresses.Alice,
+          token: ctx.token,
+          functionName: "transfer",
+          args: [ctx.addresses.Bob, engine.units(10)],
+          expected: "ContractPaused",
+        });
+        return {
+          entries: [err(rejected.name, "TRANSFER · Vibenet eth_call")],
+          caption: "The paused transfer path was rejected by the live precompile.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.batchMint({ token: ctx.token, recipients: [ctx.addresses.Bob], amounts: [engine.units(25)] });
+        await setBalance(engine, ctx, state, "Bob");
+        return {
+          entries: [txOk(engine, "Transfer", "0x0 → Bob · 25 EXM", tx)],
+          caption: "Issuance succeeded while the independent transfer feature remained paused.",
+        };
+      },
+    ],
+  };
+
+  const select = (key) => {
+    setActive(key);
+    setSim(freshSim());
+    setResults([]);
+    setActionError(null);
+    setAccountTokenBalance(null);
+    liveContext.current = null;
+  };
+  const reset = () => {
+    setSim(freshSim());
+    setResults([]);
+    setActionError(null);
+    setAccountTokenBalance(null);
+    liveContext.current = null;
+  };
+  const runMockStep = () => {
     if (done) return;
     const s = { balances: { ...sim.balances }, blocked: sim.blocked, multiplier: sim.multiplier, paused: sim.paused };
     const out = f.steps[stepIndex].run(s) || { entries: [] };
     setSim(s);
     setResults((r) => [...r, out]);
   };
+  const runStep = async () => {
+    if (done || busy || liveState === "probing") return;
+    if (liveState === "offline") {
+      runMockStep();
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const engine = await loadVibenetEngine();
+      const ctx = await ensureLiveContext(engine);
+      const state = { balances: { ...sim.balances }, blocked: sim.blocked, multiplier: sim.multiplier, paused: sim.paused };
+      const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
+      if (ctx.token) {
+        try {
+          setAccountTokenBalance(engine.displayUnits(await engine.scaledBalanceOf(ctx.token, ctx.account)));
+        } catch {
+          setAccountTokenBalance(null);
+        }
+      }
+      setSim(state);
+      setResults((current) => [...current, out || { entries: [] }]);
+    } catch (error) {
+      if (results.length === 0) {
+        try {
+          const latest = await probeVibenet();
+          if (!latest.live) {
+            setProbeInfo(latest);
+            setLiveState("offline");
+            setAccountTokenBalance(null);
+            liveContext.current = null;
+            runMockStep();
+            return;
+          }
+        } catch {
+          setLiveState("offline");
+          setAccountTokenBalance(null);
+          liveContext.current = null;
+          runMockStep();
+          return;
+        }
+      }
+      setActionError(error?.message || String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
   const back = () => {
+    if (liveState === "live") return;
     const n = results.length - 1;
     if (n < 0) return;
     let s = freshSim();
@@ -190,7 +672,7 @@ export const AssetDemo = ({ flow }) => {
   let sec = 0;
   results.forEach((res) => {
     (res.entries || []).forEach((e) => {
-      logRows.push({ t: ts(sec++), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind });
+      logRows.push({ t: ts(sec++), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
     });
   });
   f.steps.slice(stepIndex).forEach((st) => { logRows.push({ t: ts(sec++), level: "PENDING", name: st.action, detail: "", kind: "pending" }); });
@@ -205,6 +687,28 @@ export const AssetDemo = ({ flow }) => {
   };
 
   const levelColor = { EVENT: C.blue, INFO: C.sec, ERROR: C.error, PENDING: C.sub };
+  const copyAccountAddress = async () => {
+    if (!accountAddress) return;
+    try {
+      await navigator.clipboard.writeText(accountAddress);
+    } catch {
+      const input = document.createElement("textarea");
+      input.value = accountAddress;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+    }
+    setAccountCopied(true);
+    setTimeout(() => setAccountCopied(false), 1_500);
+  };
+  const badge = liveState === "live"
+    ? { text: accountAddress ? short(accountAddress) : "Vibenet account", color: C.sub, border: C.border }
+    : liveState === "offline"
+      ? { text: "Offline mock", color: C.warn, border: C.warn }
+      : { text: "Checking Vibenet", color: C.sub, border: C.border };
 
   return (
     <div className="wf" style={{ margin: "22px 0", maxWidth: 760, borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, overflow: "hidden", boxShadow: "var(--wf-shadow)" }}>
@@ -287,6 +791,8 @@ export const AssetDemo = ({ flow }) => {
         .wf-pill:not(.wf-pill-on):hover { color: ${C.ink}; border-color: ${C.sub}; }
         .wf-pill-on { color: ${C.onBlue}; background: ${C.blue}; border-color: ${C.blue}; }
         .wf-stage { font-family: ${sans}; font-size: 12.5px; white-space: nowrap; padding: 11px 2px; border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 7px; }
+        .wf .wf-log-link, .wf .wf-log-link:visited { text-decoration: none !important; border-bottom: 0 !important; background-image: none !important; box-shadow: none !important; }
+        .wf .wf-log-link:hover .wf-log-label { color: ${C.blue}; }
         @media (max-width: 640px) {
           .wf-split { grid-template-columns: 1fr; }
           .wf-rail { border-right: none; border-bottom: 1px solid ${C.border}; }
@@ -301,7 +807,7 @@ export const AssetDemo = ({ flow }) => {
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "10px 16px", borderBottom: `1px solid ${C.border}`, background: C.panel }}>
           <span className="wf-t-caption" style={{ color: C.sub, marginRight: 4 }}>Scenario</span>
           {order.map((k) => (
-            <button key={k} className={k === active ? "wf-pill wf-pill-on" : "wf-pill"} onClick={() => select(k)}>{FLOWS[k].label}</button>
+            <button key={k} className={k === active ? "wf-pill wf-pill-on" : "wf-pill"} onClick={() => select(k)}>{MOCK_FLOWS[k].label}</button>
           ))}
         </div>
       )}
@@ -320,7 +826,33 @@ export const AssetDemo = ({ flow }) => {
             );
           })}
         </div>
-        <span className="wf-t-caption" style={{ color: C.sub, border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}>Demo</span>
+        <div
+          title={liveState === "live" && accountAddress ? `Vibenet demo account: ${accountAddress}${accountTokenBalance !== null ? ` · ${fmt(accountTokenBalance)} ${TOKEN}` : ""}` : liveState === "offline" ? (probeInfo?.reason || "Vibenet is unavailable") : NETWORK}
+          style={{ display: "inline-flex", alignItems: "center", gap: 3, color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: accountAddress && liveState === "live" ? "2px 3px 2px 6px" : "2px 6px", flexShrink: 0 }}
+        >
+          <span className="wf-t-caption" style={accountAddress && liveState === "live" ? { fontFamily: mono, textTransform: "none", letterSpacing: 0 } : undefined}>{badge.text}</span>
+          {liveState === "live" && accountAddress && accountTokenBalance !== null && (
+            <>
+              <span aria-hidden="true" style={{ color: C.border }}>·</span>
+              <span className="wf-t-caption" style={{ color: C.body, fontFamily: mono, textTransform: "none", letterSpacing: 0, whiteSpace: "nowrap" }}>{fmt(accountTokenBalance)} {TOKEN}</span>
+            </>
+          )}
+          {liveState === "live" && accountAddress && (
+            <button
+              type="button"
+              aria-label={accountCopied ? "Account address copied" : "Copy account address"}
+              title={accountCopied ? "Copied" : "Copy address"}
+              onClick={copyAccountAddress}
+              style={{ width: 19, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", color: accountCopied ? C.success : C.sub, background: "transparent", border: 0, borderRadius: 3, padding: 0, cursor: "pointer" }}
+            >
+              {accountCopied ? (
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></svg>
+              )}
+            </button>
+          )}
+        </div>
         {results.length > 0 && (
           <button onClick={reset} title="Reset" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", color: C.sec, flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
@@ -384,7 +916,9 @@ export const AssetDemo = ({ flow }) => {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 Flow complete
               </div>
-              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step ran onchain in the simulation above.</div>
+              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>
+                {f.title} — {liveState === "live" ? "the write steps ran on Base Vibenet." : "the scripted offline fallback completed."}
+              </div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
               <a className="wf-btn" href="/base-chain/network-information/b20-token-standard" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
@@ -410,11 +944,12 @@ export const AssetDemo = ({ flow }) => {
               </div>
 
               <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-                <button className="wf-btn" onClick={runStep}>
-                  {cur.action}
+                <button className="wf-btn" onClick={runStep} disabled={busy || liveState === "probing"}>
+                  {liveState === "probing" ? "Checking Vibenet…" : busy ? "Submitting…" : cur.action}
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 </button>
-                {results.length > 0 && <button className="wf-btn2" onClick={back}>Back</button>}
+                {actionError && <div className="wf-t-footnote" role="alert" style={{ color: C.error, background: C.errorSoft, borderRadius: 6, padding: "8px 10px" }}>{actionError}</div>}
+                {results.length > 0 && liveState !== "live" && <button className="wf-btn2" onClick={back}>Back</button>}
               </div>
             </div>
           )}
@@ -431,9 +966,18 @@ export const AssetDemo = ({ flow }) => {
             <div key={i} className={r.kind === "pending" ? "" : "wf-anim"} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 16px", opacity: r.kind === "pending" ? 0.5 : 1 }}>
               <span style={{ fontFamily: mono, fontSize: 11, color: C.sub, flexShrink: 0 }}>{r.t}</span>
               <span style={{ fontFamily: mono, fontSize: 10.5, fontWeight: 600, color: levelColor[r.level], flexShrink: 0, width: 58 }}>[{r.level}]</span>
-              <span style={{ fontFamily: mono, fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
-              </span>
+              {r.href ? (
+                <a className="wf-log-link" href={r.href} target="_blank" rel="noreferrer" style={{ fontFamily: mono, fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className="wf-log-label" style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
+                  </span>
+                  <span aria-hidden="true" style={{ color: C.sub, flexShrink: 0 }}>↗</span>
+                </a>
+              ) : (
+                <span style={{ fontFamily: mono, fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
+                </span>
+              )}
               <span style={{ flexShrink: 0, width: 14, display: "inline-flex", justifyContent: "center" }}>
                 {r.kind === "err" ? <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke={C.error} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
                   : r.kind === "pending" ? <span style={{ width: 9, height: 9, borderRadius: "50%", border: `1.5px solid ${C.border}` }} />
@@ -446,7 +990,10 @@ export const AssetDemo = ({ flow }) => {
 
       {/* Footer */}
       <div style={{ padding: "10px 16px", background: C.panel, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="wf-t-footnote" style={{ color: C.sub }}>{f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: C.sub, whiteSpace: "nowrap" }}>
+          {liveState === "live" ? "Real Vibenet transactions" : liveState === "offline" ? "Illustrative fallback" : "Network check"}
+        </span>
       </div>
     </div>
   );
