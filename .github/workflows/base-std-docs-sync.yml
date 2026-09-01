@@ -1077,8 +1077,6 @@ jobs:
           DOCS_BASE_BRANCH: ${{ github.event.repository.default_branch }}
           BRANCH: ${{ steps.sync.outputs.branch }}
           TOUCHED_PATHS: ${{ steps.sync.outputs.touched_paths }}
-          REJECTED_PAGES: ${{ steps.sync.outputs.rejected_pages }}
-          REJECTED_COUNT: ${{ steps.sync.outputs.rejected_count }}
           PROVENANCE_MD_PATH: ${{ steps.sync.outputs.provenance_md_path }}
           REVIEW_MD_PATH: ${{ steps.sync.outputs.review_md_path }}
           # All payload fields come from $PAYLOAD_* env vars set by Materialize
@@ -1177,23 +1175,6 @@ jobs:
             for p in ${TOUCHED_PATHS:-}; do
               echo "- \`${p}\`"
             done
-
-            # Surface pages that Claude tried to write but the validator
-            # rejected. Reviewer should expect those pages to be missing from
-            # the diff and act accordingly (manual edit, retry, or accept the
-            # gap).
-            if [[ -n "${REJECTED_PAGES:-}" ]]; then
-              echo
-              echo "## Skipped pages (validator rejected the model output)"
-              # REJECTED_PAGES is tab-separated tuples of "path|reason".
-              # Split on TAB, then on the first | per tuple.
-              IFS=$'\t' read -ra tuples <<< "$REJECTED_PAGES"
-              for tup in "${tuples[@]}"; do
-                page="${tup%%|*}"
-                reason="${tup#*|}"
-                echo "- \`${page}\` — ${reason}"
-              done
-            fi
 
             # Splice in the source-provenance markdown table the script wrote.
             # Lets a reviewer click straight from each doc page to the source

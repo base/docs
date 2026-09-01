@@ -188,7 +188,7 @@ function uniqueSourcePrefixes(routeTable) {
 
 test("loadDocumentationGuidelines reads the canonical content and IA guidelines", async () => {
   const contentGuidelines = (
-    await fs.readFile(path.join(REPO_ROOT, "content-guidelines.md"), "utf8")
+    await fs.readFile(path.join(REPO_ROOT, "docs/content-guidelines.md"), "utf8")
   ).trim();
   const iaGuidelines = (
     await fs.readFile(path.join(REPO_ROOT, "docs/ia-guidelines.md"), "utf8")
@@ -197,7 +197,7 @@ test("loadDocumentationGuidelines reads the canonical content and IA guidelines"
 
   assert.ok(contentGuidelines.length > 0);
   assert.ok(iaGuidelines.length > 0);
-  assert.match(loaded, /Source: content-guidelines\.md/);
+  assert.match(loaded, /Source: docs\/content-guidelines\.md/);
   assert.match(loaded, /Source: docs\/ia-guidelines\.md/);
   assert.ok(loaded.includes(contentGuidelines));
   assert.ok(loaded.includes(iaGuidelines));

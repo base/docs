@@ -19,7 +19,7 @@ description: Reviews documentation for quality, consistency, and style guide adh
    node scripts/lint-mdx.js $ARGUMENTS
    ```
 
-3. **Review against style guide** — See [content-guidelines.md](../../content-guidelines.md)
+3. **Review against style guide** — See [content-guidelines.md](../../docs/content-guidelines.md)
 
 4. **Provide feedback** per file:
    - What's working well
