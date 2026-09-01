@@ -135,7 +135,7 @@ const SHARED_RULES = `Hard requirements for your output:
 
    Return the page UNCHANGED only when step 2 found ZERO intersections — i.e., the page genuinely documents APIs that the diff does not touch. If step 2 found ANY intersection, you MUST output the modified page with the step-3 edits applied. Returning the page byte-equal to current after step 2 surfaced intersections is the failure mode this rule exists to prevent.
 7. Keep prose terse. Do not add filler.
-8. Internal links MUST use a full route that already exists under \`docs/\`. Correct: \`/base-chain/specs/upgrades/beryl/b20/specification/reference/interfaces/IB20/transfer\`. Never invent a route for a newly added Solidity symbol; this workflow edits existing pages only.
+8. Internal links MUST use a full route that already exists under \`docs/\`. Correct: \`/specifications/b20/reference/interfaces/ib20/transfer\`. Never invent a route for a newly added Solidity symbol; this workflow edits existing pages only.
 9. CRITICAL — source-grounded claims. Every concrete identifier you write — interface and function names, selectors, parameter and return types, errors, events, roles, policies, addresses, versions, and file paths — MUST appear verbatim in the verified source diff, release notes, listed source files, or current page. Omit information that is not grounded rather than guessing.`;
 
 /**
