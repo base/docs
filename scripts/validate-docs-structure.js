@@ -225,10 +225,62 @@ for (const file of checkedRoots.flatMap(filesUnder)) {
   }
 }
 
+// --- Base Std sync route table ---
+// Every page the sync can route to must exist on disk AND be listed in the
+// docs.json navigation, otherwise a docs move silently turns the sync into a
+// no-op (stale paths) or lets it edit pages readers can't reach (orphans).
+// A page_glob that expands to nothing is the same bug in disguise.
+const routeTablePath = path.join(root, 'scripts/sync-from-base-std/route-table.json');
+if (fs.existsSync(routeTablePath)) {
+  const routeTable = JSON.parse(fs.readFileSync(routeTablePath, 'utf8'));
+  const navSet = new Set(navPages);
+  const allDocs = allMdx(docs).map((rel) => `docs/${rel.split(path.sep).join('/')}.mdx`);
+
+  function globToRegExp(glob) {
+    const escaped = glob
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*\//g, '(?:.*/)?')
+      .replace(/\*/g, '[^/]*');
+    return new RegExp(`^${escaped}$`);
+  }
+  function routeOf(page) {
+    return page.replace(/^docs\//, '').replace(/\.mdx?$/, '').replace(/\/index$/, '');
+  }
+  function checkRoutedPage(page, where) {
+    if (!fs.existsSync(path.join(root, page))) {
+      errors.push(`route-table ${where}: page does not exist: ${page}`);
+      return;
+    }
+    // Interface member pages are deliberately absent from the sidebar (see
+    // isExemptFromOrphan); they count as reachable when their interface
+    // landing page is in the nav.
+    const route = routeOf(page);
+    const parent = route.split('/').slice(0, -1).join('/');
+    const reachable = navSet.has(route) || (isExemptFromOrphan(route) && navSet.has(parent));
+    if (!reachable) {
+      errors.push(`route-table ${where}: page is not reachable from docs.json navigation: ${page}`);
+    }
+  }
+
+  for (const rule of routeTable.code_changes || []) {
+    const where = `code_changes[${rule.source_prefix}]`;
+    for (const page of rule.pages || []) checkRoutedPage(page, where);
+    for (const glob of rule.page_globs || []) {
+      const matcher = globToRegExp(glob);
+      const matches = allDocs.filter((file) => matcher.test(file));
+      if (matches.length === 0) errors.push(`route-table ${where}: page_glob matches no files: ${glob}`);
+      for (const page of matches) checkRoutedPage(page, `${where} via ${glob}`);
+    }
+  }
+  for (const page of routeTable.manual_update?.allowed_pages || []) {
+    checkRoutedPage(page, 'manual_update.allowed_pages');
+  }
+}
+
 if (errors.length) {
   console.error(`Documentation structure validation failed (${errors.length}):`);
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
 
-console.log('Navigation, orphans, redirects, and scoped internal links are valid.');
+console.log('Navigation, orphans, redirects, scoped internal links, and the Base Std route table are valid.');
