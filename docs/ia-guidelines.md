@@ -78,7 +78,7 @@ Content is organized by topic, not by abstraction level. Each topic group flows 
 
 **Changelog pattern**: Each topic group should include a changelog summary page that lists what changed per hardfork and links out to the detail entries in the Upgrades tab. The summary page lives here; the detail pages live in Upgrades under the hardfork that introduced them.
 
-**Content structure**: See the [Specification Pages](content-guidelines.md#specification-pages) section of the content guidelines for page types, page structure, and writing rules.
+**Content structure**: See the [Specification Pages](../content-guidelines.md#specification-pages) section of the content guidelines for page types, page structure, and writing rules.
 
 ### Specifications (Landing)
 
@@ -160,7 +160,7 @@ A dropdown group containing the protocol overview, component specs, and design g
 
 **Audience**: Developers and node operators tracking what changed across Base hardforks and releases.
 
-**Entry structure**: Every changelog entry follows a standardized section format modeled after TIPs (Token Improvement Proposals). See the [Changelog Entries](content-guidelines.md#changelog-entries) section of the content guidelines for the full template, numbering scheme, and naming convention.
+**Entry structure**: Every changelog entry follows a standardized section format modeled after TIPs (Token Improvement Proposals). See the [Changelog Entries](../content-guidelines.md#changelog-entries) section of the content guidelines for the full template, numbering scheme, and naming convention.
 
 ### Overview
 
