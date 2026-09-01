@@ -1,0 +1,75 @@
+---
+title: "Mint Supply"
+keywords: ["mint stablecoin", "B20 mint role", "issue new supply Base", "supply cap stablecoin"]
+description: "Issue new stablecoin supply on Base as reserves grow, gated by a minter role and an optional supply cap."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+When fiat lands in reserves, mint matching supply. Minting is gated by `MINT_ROLE`, and an optional supply cap keeps circulation from exceeding your reserves.
+
+## Demo
+
+<StablecoinDemo flow="mint" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Mint and Verify Supply
+
+<CodeGroup>
+{/* sample: stablecoin-mint-ts */}
+```typescript TypeScript lines wrap expandable highlight={8}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function mintAndVerify(token: Address, holder: Address) {
+  const amount = parseUnits("1000", 6);
+  await sendContract({ address: token, abi: b20Abi, functionName: "mint", args: [holder, amount] });
+  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [holder] });
+  if (balance < amount) throw new Error("Minted balance was not recorded");
+  return balance;
+}
+```
+{/* sample: stablecoin-mint-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function mintStablecoin(address token, address holder) public {
+        IB20(token).mint(holder, 1_000e6);
+        require(IB20(token).balanceOf(holder) >= 1_000e6, "mint not recorded");
+    }
+```
+{/* sample: stablecoin-mint-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "mint(address,uint256)" "$HOLDER" 1000000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$HOLDER" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+The holder balance increases by `1,000,000,000` base units, or 1,000 MUSD.
+</Check>
+
+<Warning>
+The caller needs `MINT_ROLE`, the recipient must pass `MINT_RECEIVER_POLICY`, and the mint must remain under the supply cap.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Burn Supply" icon="fire" href="/build-on-base/issue-stablecoins/burn-supply">
+    Remove tokens from supply.
+  </Card>
+  <Card title="Supply Cap (B20 Standard)" icon="book" href="/specifications/b20/specification-overview#supply-cap">
+    Supply cap in the B20 standard.
+  </Card>
+</CardGroup>

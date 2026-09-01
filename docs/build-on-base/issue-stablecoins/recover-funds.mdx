@@ -1,0 +1,78 @@
+---
+title: "Recover Funds"
+keywords: ["recover stablecoin funds", "B20 burnBlocked", "reissue stablecoin", "reclaim tokens Base"]
+description: "Reclaim and reissue stablecoin from a blocked account on Base, for lost keys or a legal hold."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Occasionally you need to move a balance out of a blocked account: a holder who lost their keys, or a balance you must reissue. Reclaim it with `burnBlocked`, then mint the same amount to the correct address. It's gated by its own `BURN_BLOCKED_ROLE` and only works on an account that is already blocked.
+
+## Demo
+
+<StablecoinDemo flow="recover" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Burn and Reissue the Blocked Balance
+
+<CodeGroup>
+{/* sample: stablecoin-recover-ts */}
+```typescript TypeScript lines wrap expandable highlight={8,9}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function recoverBlockedFunds(token: Address, blocked: Address, replacement: Address) {
+  const amount = parseUnits("50", 6);
+  await sendContract({ address: token, abi: b20Abi, functionName: "burnBlocked", args: [blocked, amount] });
+  await sendContract({ address: token, abi: b20Abi, functionName: "mint", args: [replacement, amount] });
+  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [replacement] });
+  if (balance < amount) throw new Error("Replacement balance was not issued");
+}
+```
+{/* sample: stablecoin-recover-solidity */}
+```solidity Solidity lines wrap expandable highlight={1}
+    function recoverStablecoin(address token, address blocked, address replacement) public {
+        IB20(token).burnBlocked(blocked, 50e6);
+        IB20(token).mint(replacement, 50e6);
+        require(IB20(token).balanceOf(replacement) >= 50e6, "replacement not funded");
+    }
+```
+{/* sample: stablecoin-recover-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "burnBlocked(address,uint256)" "$BLOCKED" 50000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast send "$TOKEN_ADDRESS" "mint(address,uint256)" "$REPLACEMENT" 50000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$REPLACEMENT" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+The blocked balance falls and the replacement address receives the same amount, leaving circulating supply unchanged.
+</Check>
+
+<Warning>
+`burnBlocked` requires `BURN_BLOCKED_ROLE` and only succeeds while the source is denied by `TRANSFER_SENDER_POLICY`.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Block an Account" icon="user-lock" href="/build-on-base/issue-stablecoins/block-an-account">
+    Deny a specific address.
+  </Card>
+  <Card title="Reconcile with Memos" icon="receipt" href="/build-on-base/issue-stablecoins/reconcile-with-memos">
+    Match payments using onchain memos.
+  </Card>
+</CardGroup>

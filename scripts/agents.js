@@ -2,19 +2,14 @@
 
 /**
  * Generates docs/AGENTS.md — a human-readable LLM entry point followed by a
- * compact, minified directory index of all documentation files.
+ * compact, minified index aligned with the public documentation sidebar.
  *
  * Pipeline:
- *   1. loadMintIgnore — reads docs/.mintignore (gitignore-style) to skip files.
- *   2. discoverTopLevelSections — scans top-level dirs in docs/, humanizes names
- *      (with acronym handling), pulls each section's description from its
- *      index.{md,mdx} or overview.{md,mdx} frontmatter.
- *   3. discoverFeaturedPages — walks all .md/.mdx files, collects pages whose
- *      frontmatter has `featured: true`. Used to build the "Recommended
- *      starting points" section. Section is omitted if no flagged pages exist.
- *   4. scanDocs — recursively groups .md/.mdx files by parent directory for
- *      the compact pipe-delimited index at the bottom of the file.
- *   5. generateAgentsMd — assembles frontmatter + LLM entry point + tools +
+ *   1. discoverNavigationTabs — reads docs.json and uses its tab/group/page
+ *      hierarchy as the source of truth for public documentation organization.
+ *   2. discoverFeaturedPages — walks all .md/.mdx files, collecting pages
+ *      whose frontmatter has `featured: true`.
+ *   3. generateAgentsMd — assembles frontmatter + LLM entry point + tools +
  *      featured pages + compact index, writes to docs/AGENTS.md.
  *
  * Hardcoded values (per spec): docs URL, MCP URL, skills repo URL/install cmd.
@@ -30,12 +25,12 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  CONSTANTS,
   humanize,
   stripNumericPrefixes,
   parseFrontmatter,
-  loadMintIgnore,
-  discoverTopLevelSections,
+  loadNavigation,
+  collectNavigationPages,
+  resolvePageFile,
   walkDocFiles,
 } = require('./lib/docs-utils');
 
@@ -70,60 +65,72 @@ function discoverFeaturedPages() {
   return featured.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 }
 
-function scanDocs(dir, basePath = '', ignored) {
-  const index = {};
-  if (!fs.existsSync(dir)) return index;
-
-  const files = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (CONSTANTS.skipFiles.includes(entry.name) || entry.name.startsWith('.')) continue;
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      if (CONSTANTS.skipDirs.includes(entry.name)) continue;
-      Object.assign(index, scanDocs(fullPath, basePath ? `${basePath}/${entry.name}` : entry.name, ignored));
-    } else {
-      const ext = path.extname(entry.name).toLowerCase();
-      if (!CONSTANTS.extensions.includes(ext)) continue;
-      const baseName = entry.name.replace(/\.mdx?$/, '');
-      if (CONSTANTS.skipFilePatterns.some(p => p.test(baseName))) continue;
-      if (ignored.bareFiles.has(baseName)) continue;
-      if (ignored.files.has(basePath ? `${basePath}/${baseName}` : baseName)) continue;
-      files.push(baseName);
-    }
-  }
-
-  if (files.length > 0 && !ignored.dirs.has(basePath)) {
-    const key = (basePath || 'root').replace(/\/?\d+-/g, '/').replace(/^\//, '');
-    index[key] = files;
-  }
-  return index;
+function discoverNavigationTabs() {
+  const navigation = loadNavigation(CONFIG.docsDir);
+  return (navigation.tabs || []).map((tab) => ({
+    title: tab.tab,
+    nodes: [...(tab.groups || []), ...(tab.pages || [])],
+  }));
 }
 
-function buildEntryPointSection(sections) {
-  const bullets = sections.map(s => {
-    const desc = s.description ? ` — ${s.description}` : '';
-    const llmsPath = `./${s.slug}/llms.txt`;
-    return `- [${s.title}](${llmsPath})${desc}`;
+function pageMetadata(page) {
+  const file = resolvePageFile(CONFIG.docsDir, page);
+  if (!file) throw new Error(`Navigation references a missing page: ${page}`);
+  const { frontmatter } = parseFrontmatter(fs.readFileSync(file, 'utf8'));
+  return {
+    url: `${CONFIG.docsUrl}/${page}`,
+    description: frontmatter.description ? String(frontmatter.description).trim() : '',
+  };
+}
+
+function buildEntryPointSection(tabs) {
+  const bullets = tabs.map((tab) => {
+    const firstPage = collectNavigationPages(tab.nodes)[0];
+    if (!firstPage) throw new Error(`Navigation tab has no pages: ${tab.title}`);
+    const { url, description } = pageMetadata(firstPage);
+    const desc = description ? ` — ${description}` : '';
+    return `- [${tab.title}](${url})${desc}`;
   }).join('\n');
 
   return `## Base Documentation — LLM Entry Point
 
-> High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
+> High-signal index of the public documentation tabs. Jump to each tab's primary page for concise intros, curated links, and fast navigation.
 
 ${bullets}`;
 }
 
+function collectNavigationIndexEntries(nodes, trail, entries) {
+  const directPages = nodes.filter((node) => typeof node === 'string');
+  if (directPages.length) entries.push(`|${trail.join('/')}:${directPages.join(',')}`);
+
+  for (const node of nodes) {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) continue;
+    const label = node.group || node.anchor;
+    if (!label) continue;
+    collectNavigationIndexEntries(
+      [...(node.pages || []), ...(node.groups || [])],
+      [...trail, label],
+      entries,
+    );
+  }
+}
+
+function buildNavigationIndex(tabs) {
+  const entries = [];
+  for (const tab of tabs) collectNavigationIndexEntries(tab.nodes, [tab.title], entries);
+  return `[Docs Navigation]\n${entries.join('\n')}`;
+}
+
 function buildToolsSection() {
-  return `## Tools available for AI assistants
+  return `## Tools Available for AI Assistants
 
 These resources give AI assistants direct access to Base documentation and reusable workflows.
 
-### Base MCP server
+### Base MCP Server
 
 \`${CONFIG.mcpUrl}\`
 
-### Base skills
+### Base Skills
 
 AI agents can use Base skills to perform onchain actions directly from their tool loop — no custom integration required. Available skills include:
 
@@ -147,31 +154,25 @@ ${bullets}`;
 }
 
 function generateAgentsMd() {
-  const ignored = loadMintIgnore(`${CONFIG.docsDir}/.mintignore`);
-  const index = scanDocs(CONFIG.docsDir, '', ignored);
-
-  const indexLines = Object.entries(index)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dir, files]) => `|${dir}:${files.join(',')}`);
+  const tabs = discoverNavigationTabs();
 
   // Frontmatter description rules: ≤200 chars, action-oriented, complete
   // sentences, no "you can"/"users can"/"this page explains", includes
   // "with [tool]" scoping, no colons in value, plain text, no versions,
   // avoid "teaching"/"enable"/"disable".
-  const description = 'Look up Base documentation with a compact directory-grouped index built for AI coding agents. Lists every markdown page by parent directory so agents find context before generating code.';
+  const description = 'Look up Base documentation with a compact sidebar-aligned index built for AI coding agents. Lists every navigation page in its public documentation hierarchy.';
   if (description.length > 200) {
     throw new Error(`agents.md description exceeds 200 chars (${description.length})`);
   }
 
-  const sections = discoverTopLevelSections(CONFIG.docsDir);
   const featured = discoverFeaturedPages();
 
   const blocks = [
     `# ${CONFIG.docsUrl}/llms.txt`,
-    buildEntryPointSection(sections),
+    buildEntryPointSection(tabs),
     buildToolsSection(),
     buildFeaturedSection(featured),
-    `## Compact docs index\n\n[Docs]|root:./docs\n${indexLines.join('\n')}`,
+    `## Compact Docs Index\n\n${buildNavigationIndex(tabs)}`,
   ].filter(Boolean);
 
   const content = `---
@@ -186,9 +187,9 @@ ${blocks.join('\n\n')}
   const size = Buffer.byteLength(content, 'utf8');
   console.log(`Generated: ${CONFIG.outputFile}`);
   console.log(`Size: ${(size / 1024).toFixed(2)} KB`);
-  console.log(`Sections: ${sections.length}`);
+  console.log(`Tabs: ${tabs.length}`);
   console.log(`Featured pages: ${featured.length}`);
-  console.log(`Index entries: ${indexLines.length} directories`);
+  console.log(`Index entries: ${buildNavigationIndex(tabs).split('\n').length - 1} navigation groups`);
   console.log('');
   console.log(`A new ${CONFIG.outputFile} has been generated. Review changes with: git diff ${CONFIG.outputFile}`);
 }

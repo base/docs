@@ -31,7 +31,7 @@ OpenSea is an NFT marketplace and token trading platform. This plugin covers thr
 
 All OpenSea API endpoints require an `x-api-key` header. **This is the first step before using any tool.**
 
-### Instant API key for agents
+### Instant API Key for Agents
 
 Create a free-tier API key instantly with a single call — no signup, no wallet, no human needed:
 
@@ -100,7 +100,7 @@ All endpoints use base URL `https://api.opensea.io/api/v2`. All require the `x-a
 | GET | `/tokens/trending` | Trending tokens |
 | GET | `/tokens/top` | Top tokens by volume |
 
-### TOON encoding (token-efficient responses)
+### TOON Encoding (Token-Efficient Responses)
 
 All GET endpoints support TOON (Token-Optimized Object Notation) — ~40% fewer tokens than JSON. Opt in with `Accept: text/markdown`:
 
@@ -207,7 +207,7 @@ opensea drops mint <slug> --minter <wallet_address> --quantity <n>
 
 The mint endpoint returns `to`, `data`, `value` (hex string), and `chain` — ready to map directly to `send_calls`.
 
-### NFT Marketplace (read)
+### NFT Marketplace (Read)
 
 ```bash
 # Search collections
@@ -229,7 +229,7 @@ opensea offers best-for-nft <collection_slug> <token_id>
 opensea listings all <collection_slug> --limit 20
 ```
 
-### NFT Marketplace (buy / fulfill)
+### NFT Marketplace (Buy / Fulfill)
 
 > [!IMPORTANT]
 > **Use the cross-chain fulfillment endpoint for all purchases** — it returns ready-to-use hex calldata and works for both same-chain and cross-chain buys. The same-chain endpoint (`/listings/fulfillment_data`) returns decoded Seaport structs requiring ABI encoding.
@@ -307,7 +307,7 @@ curl -s -X POST "https://api.opensea.io/api/v2/offers/fulfillment_data" \
    - If both are missing, null, or empty, use `"0x0"`.
 3. Map each transaction to `send_calls` using `to`, `data`, and the hex value.
 
-### Fallback conversion methods
+### Fallback Conversion Methods
 
 Only needed if `value_hex` is null or missing:
 
@@ -371,7 +371,7 @@ In Python: `hex(20000000000000000)` outputs `"0x470de4df820000"`
 9. User approves → get_request_status(requestId)
 ```
 
-### Sell NFT (accept offer — shell only)
+### Sell NFT (Accept Offer — Shell Only)
 
 ```
 1. get_wallets → address
@@ -484,7 +484,7 @@ Buy an NFT on Ethereum using USDC from Base
 
 ## Notes
 
-### Chain identifiers
+### Chain Identifiers
 
 | Chain | Base MCP string | chainId |
 |-------|----------------|---------|

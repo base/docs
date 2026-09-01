@@ -1,0 +1,87 @@
+---
+title: "Refund a Payment"
+keywords: ["refund USDC payment", "B20 refund memo", "partial crypto refund", "refund payer address"]
+description: "Return tokens to the verified payer and keep partial or repeated refunds within the captured balance."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Refund the address that actually paid, derived from the verified `Transfer` log. Track `captured - refunded` in your ledger because ERC-20 tokens do not maintain an order-level refundable balance.
+
+## Demo
+
+<PaymentsDemo flow="refund" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Return a B20 Payment with Its Order Reference
+
+{/* sample: refund-payment-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={8,16,24}
+export async function refundPayment(args: {
+  token: Address;
+  captureHash: Hash;
+  orderId: string;
+  refundId: string;
+  amount: bigint;
+  ledger: RefundLedger;
+}) {
+  if ((await args.ledger.captureHash(args.orderId)) !== args.captureHash) {
+    throw new Error("Capture hash does not belong to this order");
+  }
+  const capture = await publicClient.waitForTransactionReceipt({ hash: args.captureHash, confirmations: 2 });
+  if (capture.status !== "success") throw new Error("Original payment reverted");
+  const transfers = parseEventLogs({
+    abi: refundableTokenAbi,
+    eventName: "Transfer",
+    logs: capture.logs,
+    strict: true,
+  });
+  const payment = transfers.find(
+    (log) =>
+      log.address.toLowerCase() === args.token.toLowerCase() &&
+      log.args.to.toLowerCase() === account.address.toLowerCase(),
+  );
+  if (!payment) throw new Error("Original payment to this merchant was not found");
+  if (!(await args.ledger.reserveOnce(args.orderId, args.refundId, args.amount))) {
+    throw new Error("Refund is duplicated or exceeds the refundable balance");
+  }
+
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: args.token,
+    abi: refundableTokenAbi,
+    functionName: "transferWithMemo",
+    args: [payment.args.from, args.amount, stringToHex(args.orderId, { size: 32 })],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  await args.ledger.complete(args.refundId, hash);
+  return hash;
+}
+```
+
+For plain USDC, call `transfer` instead and record the original order ID, capture hash, refund hash, and amount offchain. B20 can carry the original order ID in the refund transaction with `transferWithMemo`.
+
+`reserveOnce` must atomically create a pending refund and reduce the available refundable balance before broadcasting. If the worker loses the receipt, reconcile that pending record from chain data instead of releasing it and risking a duplicate transfer.
+
+<Check>
+The refund transfer goes to the payer from the original receipt, and the durable refund ledger reduces the remaining refundable amount.
+</Check>
+
+<Warning>
+Never refund a client-supplied address without comparing it to the canonical payment event. Also enforce a database transaction or uniqueness rule so concurrent refund requests cannot exceed the captured amount.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Extract the canonical payer and captured amount.
+  </Card>
+  <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
+    Match refunds back to captures and orders.
+  </Card>
+</CardGroup>

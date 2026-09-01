@@ -1,0 +1,85 @@
+---
+title: "Verify a Payment"
+keywords: ["verify USDC payment", "getPaymentStatus", "verify ERC-20 transfer", "prevent replay payment"]
+description: "Verify USDC or B20 settlement on your backend and claim each transaction exactly once before fulfillment."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Never fulfill from client state. Validate confirmed transaction data and atomically claim its hash in persistent storage before you reserve inventory, issue credentials, or return a paid resource.
+
+## Demo
+
+<PaymentsDemo flow="verify" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Verify a Raw Token Transfer
+
+{/* sample: verify-token-payment-ts */}
+```typescript Backend lines wrap expandable highlight={20}
+export async function verifyTokenPayment(args: {
+  hash: Hash;
+  token: Address;
+  payer: Address;
+  merchant: Address;
+  amount: string;
+  memo?: `0x${string}`;
+  orderId: string;
+  store: PaymentStore;
+}) {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: args.hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Transaction reverted");
+  const expectedAmount = parseUnits(args.amount, 6);
+  const transfers = parseEventLogs({ abi: tokenEvents, eventName: "Transfer", logs: receipt.logs, strict: true });
+  const transfer = transfers.find(
+    (log) =>
+      log.address.toLowerCase() === args.token.toLowerCase() &&
+      log.args.from.toLowerCase() === args.payer.toLowerCase() &&
+      log.args.to.toLowerCase() === args.merchant.toLowerCase() &&
+      log.args.amount === expectedAmount,
+  );
+  if (!transfer) throw new Error("Expected payment transfer not found");
+  const memos = parseEventLogs({ abi: tokenEvents, eventName: "Memo", logs: receipt.logs, strict: true });
+  if (args.memo && !memos.some((log) =>
+    log.address.toLowerCase() === args.token.toLowerCase() &&
+    log.logIndex === transfer.logIndex + 1 &&
+    log.args.memo === args.memo
+  )) throw new Error("Expected adjacent memo not found");
+  if (!(await args.store.claimOnce(args.hash, args.orderId))) throw new Error("Payment already used");
+}
+```
+
+<Warning>
+`claimOnce` must use a database uniqueness constraint and participate in the same durable workflow as fulfillment. A process-local `Set` cannot prevent replay across restarts or multiple workers.
+</Warning>
+
+<Check>
+Only the first request with the expected chain, token, sender, recipient, amount, and optional memo reaches fulfillment.
+</Check>
+
+## Verify Every Settlement Shape
+
+Direct `transfer`, EIP-3009 capture, and `transferFrom` after a permit all emit the same ERC-20 `Transfer` event. That makes the settlement check rail-agnostic, but the order binding differs:
+
+| Rail | Bind the order with |
+|---|---|
+| Direct USDC | Stored transaction hash and expected checkout fields |
+| EIP-3009 capture | Stored authorization nonce plus the capture hash |
+| Permit checkout | Checkout contract's order event plus the token transfer |
+| B20 | Adjacent `Memo` event containing the order reference |
+
+Choose a confirmation depth that matches the value and reversibility of fulfillment. See [transaction finality](/specifications/transactions/transaction-finality) for Base's confirmation stages.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Request a Payment" icon="credit-card" href="/build-on-base/accept-payments/request-a-payment">
+    Accept an immediately settled USDC or B20 checkout.
+  </Card>
+  <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
+    Backfill and process confirmed token events.
+  </Card>
+</CardGroup>

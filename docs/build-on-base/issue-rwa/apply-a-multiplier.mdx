@@ -1,0 +1,79 @@
+---
+title: "Apply a Multiplier"
+description: "Apply a B20 Asset multiplier to update displayed unit balances without migrating holders. A stock split is one example."
+keywords: ["asset token multiplier", "B20 multiplier", "scaled token balance", "stock split"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Run a 2-for-1 stock split by setting the B20 Asset multiplier to `2e18`. Raw balances stay unchanged, while `scaledBalanceOf` and conversion helpers expose the post-split share amounts.
+
+<RwaDisclaimer />
+
+## Demo
+
+<AssetDemo flow="split" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Apply and Verify the Split Multiplier
+
+<CodeGroup>
+{/* sample: stock-split-ts */}
+```typescript TypeScript lines wrap expandable highlight={7}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { assetAbi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function runTwoForOneSplit(token: Address, holder: Address) {
+  await sendContract({ address: token, abi: assetAbi, functionName: "updateMultiplier", args: [2n * 10n ** 18n] });
+  const multiplier = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "multiplier" });
+  const scaled = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "scaledBalanceOf", args: [holder] });
+  if (multiplier !== 2n * 10n ** 18n) throw new Error("Multiplier was not updated");
+  return scaled;
+}
+```
+{/* sample: stock-split-solidity */}
+```solidity Solidity lines wrap expandable highlight={2}
+    function splitStock(address token, address holder) public returns (uint256 scaledBalance) {
+        IB20Asset(token).updateMultiplier(2e18);
+        require(IB20Asset(token).multiplier() == 2e18, "multiplier not updated");
+        scaledBalance = IB20Asset(token).scaledBalanceOf(holder);
+    }
+```
+{/* sample: stock-split-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "updateMultiplier(uint256)" 2000000000000000000 \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "scaledBalanceOf(address)(uint256)" "$HOLDER" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+`multiplier()` returns `2e18`; raw balances remain unchanged while scaled balances double.
+</Check>
+
+<Warning>
+This guide targets Beryl `base-std@v1.0.0`. Integrations must distinguish raw ERC-20 units from scaled display balances.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Announce a Stock Dividend" icon="bullhorn" href="/build-on-base/issue-rwa/announce-a-distribution">
+    Record an onchain distribution announcement.
+  </Card>
+  <Card title="Pause Transfers" icon="circle-pause" href="/build-on-base/issue-rwa/pause-transfers">
+    Halt transfers in an emergency.
+  </Card>
+</CardGroup>

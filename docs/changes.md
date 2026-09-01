@@ -1,4 +1,4 @@
-# Changes: Mini Apps → Apps (docs)
+# Changes: Mini Apps → Apps (Docs)
 
 ## Summary
 
@@ -15,7 +15,7 @@
 - **Copy (non-hidden pages only)**: Pages **without** `hidden: true` keep refreshed wording and links. **`hidden: true` MDX** was **restored from `HEAD`** (`docs/mini-apps/...` at last commit) so we do not maintain editorial or link updates there; [`docs.json`](docs.json) redirects still map `/mini-apps/...` → `/apps/...` for visitors.
 - **Preserved in non-hidden edits where applicable**: `fc:miniapp`, `miniapps.farcaster.xyz`, `addMiniApp`, `useMiniKit`, API values like `open_miniapp`, and **GitHub** paths under `base/demos` that still use a `mini-apps/` directory segment.
 
-## Follow-up fixes (redirects & public pages)
+## Follow-Up Fixes (Redirects & Public Pages)
 
 These are **config and visible docs only** (not hidden MDX):
 
@@ -27,9 +27,9 @@ These are **config and visible docs only** (not hidden MDX):
 | **`/apps/features/manifest`** (base-app minikit redirects) | **`/apps/core-concepts/manifest`**. |
 | **`/mini-apps/quickstart/new-apps/features`** → missing `features/overview` | **`/apps/featured-guidelines/overview`**. |
 
-Cross-links updated in **non-hidden** docs only, e.g. [`get-started/learning-resources.mdx`](get-started/learning-resources.mdx), [`base-account/guides/verify-social-accounts.mdx`](base-account/guides/verify-social-accounts.mdx), [`apps/builder-codes/app-developers.mdx`](apps/builder-codes/app-developers.mdx), [`base-account/improve-ux/spend-permissions.mdx`](base-account/improve-ux/spend-permissions.mdx).
+Cross-links updated in **non-hidden** docs only, e.g. [`get-started/resources-for-ai-agents.mdx`](get-started/resources-for-ai-agents.mdx), [`sdks/base-verify/verify-social-accounts.mdx`](sdks/base-verify/verify-social-accounts.mdx), [`specifications/builder-codes/for-app-developers.mdx`](specifications/builder-codes/for-app-developers.mdx), [`sdks/base-account/improve-ux/spend-permissions.mdx`](sdks/base-account/improve-ux/spend-permissions.mdx).
 
-## Files touched
+## Files Touched
 
 - [`docs/docs.json`](docs.json) — navigation, redirects, wildcard.
 - [`docs/.mintignore`](.mintignore) — paths under `/apps/...`.

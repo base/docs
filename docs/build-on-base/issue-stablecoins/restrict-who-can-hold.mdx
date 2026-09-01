@@ -1,0 +1,95 @@
+---
+title: "Restrict Who Can Hold It"
+keywords: ["stablecoin allowlist", "KYC gated stablecoin", "B20 transfer policy", "restrict transfers Base"]
+description: "Limit transfers of your stablecoin to accounts your KYC program has approved, using B20 transfer policies."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Keep your stablecoin within a known set of holders with an **allowlist**: transfers only settle between accounts your KYC program has approved. You manage the list in the [Policy Registry](/specifications/b20/specification-overview#policy-registry) and bind it to the token's transfer scopes.
+
+## Demo
+
+<StablecoinDemo flow="restrict" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Create and Bind a Holder Allowlist
+
+<CodeGroup>
+{/* sample: stablecoin-restrict-ts */}
+```typescript TypeScript lines wrap expandable highlight={7,10,16}
+import { parseEventLogs, type Address } from "viem";
+import { account, publicClient } from "../../shared/clients.js";
+import { POLICY_REGISTRY, b20Abi, policyRegistryAbi, scope } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function createHolderAllowlist(token: Address, holders: Address[]) {
+  const receipt = await sendContract({
+    address: POLICY_REGISTRY,
+    abi: policyRegistryAbi,
+    functionName: "createPolicyWithAccounts",
+    args: [account.address, 1, holders],
+  });
+  const [created] = parseEventLogs({ abi: policyRegistryAbi, logs: receipt.logs, eventName: "PolicyCreated" });
+  const policyId = created.args.policyId;
+  for (const policyScope of [scope("TRANSFER_SENDER_POLICY"), scope("TRANSFER_RECEIVER_POLICY")]) {
+    await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [policyScope, policyId] });
+  }
+  const saved = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "policyId", args: [scope("TRANSFER_RECEIVER_POLICY")] });
+  if (saved !== policyId) throw new Error("Policy was not bound");
+  return policyId;
+}
+```
+{/* sample: stablecoin-restrict-solidity */}
+```solidity Solidity lines wrap expandable highlight={2,5,6}
+    function restrictStablecoin(address token, address admin, address[] memory holders) public returns (uint64 id) {
+        id = StdPrecompiles.POLICY_REGISTRY.createPolicyWithAccounts(
+            admin, IPolicyRegistry.PolicyType.ALLOWLIST, holders
+        );
+        IB20(token).updatePolicy(B20Constants.TRANSFER_SENDER_POLICY, id);
+        IB20(token).updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, id);
+        require(IB20(token).policyId(B20Constants.TRANSFER_RECEIVER_POLICY) == id, "policy not bound");
+    }
+```
+{/* sample: stablecoin-restrict-cli */}
+```bash CLI lines wrap expandable highlight={2,8}
+CREATE_TX=$(base-cast send "$POLICY_REGISTRY" \
+  "createPolicyWithAccounts(address,uint8,address[])" "$ADMIN" 1 "[$ALICE,$BOB]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json | jq -r .transactionHash)
+POLICY_TOPIC=$(base-cast receipt "$CREATE_TX" --rpc-url "$RPC_URL" --json | \
+  jq -r '.logs[] | select(.address | ascii_downcase == "0x8453000000000000000000000000000000000002") | .topics[1]' | head -1)
+POLICY_ID=$(base-cast to-dec "$POLICY_TOPIC")
+for SCOPE in TRANSFER_SENDER_POLICY TRANSFER_RECEIVER_POLICY; do
+  base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak "$SCOPE")" "$POLICY_ID" \
+    --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+done
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+The token returns the new policy ID for both transfer policy scopes.
+</Check>
+
+<Warning>
+An allowlist denies every account not in the policy. Seed intended holders before binding it, and retain the `PolicyCreated` ID.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Block an Account" icon="user-lock" href="/build-on-base/issue-stablecoins/block-an-account">
+    Deny a specific address.
+  </Card>
+  <Card title="Policy Integration (B20 Standard)" icon="book" href="/specifications/b20/specification-overview#policy-integration">
+    Policy hooks in the B20 standard.
+  </Card>
+</CardGroup>

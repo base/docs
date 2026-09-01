@@ -9,7 +9,7 @@ Base MCP exposes a batched-calls tool (typically `send_calls`) that submits mult
 
 > **Batching is preferred whenever a flow involves a token approval followed by a protocol action** (approve + deposit, approve + supply, approve + swap, etc.). Also batch whenever a plugin or protocol endpoint returns multiple transactions in a single response. Don't split these into sequential single-`send` calls when one batched approval can execute them atomically.
 
-## When to use
+## When to Use
 
 - Protocol interactions not covered by `send` or `swap` (DeFi, NFT mints, approvals, governance actions).
 - Combining multiple operations into one user approval.
@@ -25,11 +25,11 @@ The MCP advertises the exact parameter names and types — defer to its tool des
   - `value` — hex ETH in wei (e.g. `0x0`), optional
   - `data` — calldata hex, optional
 
-## Approval flow
+## Approval Flow
 
-Same as any write tool: the response returns an approval URL and request ID. See [approval-mode.md](approval-mode.md).
+Same as any write tool: the response returns an approval URL and request ID. See [approval-mode.md](./approval-mode.md).
 
-## Generic orchestration
+## Generic Orchestration
 
 ```
 plugin or protocol API → { transactions: [...] } (or equivalent)

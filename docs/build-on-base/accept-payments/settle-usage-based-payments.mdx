@@ -1,0 +1,78 @@
+---
+title: "Settle Usage-Based Payments"
+keywords: ["x402 upto", "usage based API payments", "metered USDC API", "x402 settlement override"]
+description: "Authorize a maximum x402 payment and settle the actual API usage after the handler succeeds."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Use x402 `upto` when you know the maximum price before work but calculate the final charge afterward. It is the agentic counterpart to a capped variable checkout.
+
+## Demo
+
+<PaymentsDemo flow="x402Upto" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Advertise the Maximum and Set the Actual Charge
+
+<CodeGroup>
+{/* sample: x402-upto-ts */}
+```typescript TypeScript · Express lines wrap expandable highlight={1,3,9}
+app.use(paymentMiddleware({
+  "GET /metered": {
+    accepts: [{ scheme: "upto", price: "$0.10", network, payTo }],
+    description: "Usage-priced inference",
+    mimeType: "application/json",
+  },
+}, resourceServer));
+app.get("/metered", (_request, response) => {
+  setSettlementOverrides(response, { amount: "$0.04" });
+  response.json({ tokens: 812, result: "Generated response" });
+});
+```
+{/* sample: x402-upto-go */}
+```go Go · net/http lines wrap expandable highlight={2,6}
+routes["GET /metered"] = x402http.RouteConfig{
+	Accepts: x402http.PaymentOptions{{Scheme: "upto", Price: "$0.10", Network: network, PayTo: payTo}},
+	Description: "Usage-priced inference", MimeType: "application/json",
+}
+mux.HandleFunc("GET /metered", func(w http.ResponseWriter, _ *http.Request) {
+	nethttpmw.SetSettlementOverrides(w, &x402.SettlementOverrides{Amount: "40000"})
+	_ = json.NewEncoder(w).Encode(map[string]any{"tokens": 812, "result": "Generated response"})
+})
+```
+{/* sample: x402-upto-python */}
+```python Python · FastAPI lines wrap expandable highlight={2,10}
+routes["GET /metered"] = RouteConfig(
+    accepts=[PaymentOption(scheme="upto", price="$0.10", network=network, pay_to=pay_to)],
+    description="Usage-priced inference",
+    mime_type="application/json",
+)
+
+
+@app.get("/metered")
+async def metered(response: Response) -> dict[str, object]:
+    set_settlement_overrides(response, {"amount": "$0.04"})
+    return {"tokens": 812, "result": "Generated response"}
+```
+</CodeGroup>
+
+Set the settlement override only after you have computed successful usage. Keep the charged amount at or below the maximum advertised in the 402 requirements.
+
+<Check>
+The buyer authorizes up to $0.10, the successful response records $0.04 of actual usage, and settlement charges $0.04.
+</Check>
+
+<Warning>
+Do not return billable output before middleware has verified the authorization. Define how failures, timeouts, and partial work map to a charge before you expose the endpoint.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Charge for an API" icon="server" href="/build-on-base/accept-payments/charge-for-an-api">Use `exact` when price is known before work.</Card>
+  <Card title="Capture a Partial Amount" icon="receipt" href="/build-on-base/accept-payments/capture-a-partial-amount">Build the wallet-checkout version with a constrained permit.</Card>
+</CardGroup>

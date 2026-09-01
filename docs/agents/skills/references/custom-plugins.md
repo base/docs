@@ -15,24 +15,24 @@ Plugins differ in how they reach their backend, and each plugin's own file (`../
 
 Custom or user-supplied plugins are almost certainly **not** in the allowlist and will be rejected by `web_request`.
 
-## Priority order for HTTP calls
+## Priority Order for HTTP Calls
 
 Use this order **for every HTTP-based plugin call — native or not**. CLI-only plugins follow their plugin file and require shell access. Hybrid plugins follow the CLI/HTTP routing in their own plugin file.
 
-### 1. Harness HTTP tool (preferred whenever available)
+### 1. Harness HTTP Tool (Preferred Whenever Available)
 
 If the current environment lets you call HTTP APIs directly — e.g. Claude Code, Codex, Cursor, or any harness where you have a fetch / curl / shell tool — **use that tool first** for HTTP-based plugins, even for native plugins. It supports any HTTP method (GET, POST, etc.), avoids the allowlist entirely, and gives you the full response without round-tripping through the MCP.
 
 Only fall back to `web_request` if you don't have a usable HTTP tool in the current harness.
 
-### 2. `web_request` (when no harness HTTP tool exists)
+### 2. `web_request` (When No Harness HTTP Tool Exists)
 
 If the harness has no direct HTTP capability, first check whether the plugin is CLI-only. If it is, stop and tell the user it requires a CLI harness. Otherwise, route the call through Base MCP's `web_request`:
 
 - **Native HTTP plugin host** — works if the host is allowlisted.
 - **Non-native plugin host** — will be rejected. Do not silently retry. Move to path 3.
 
-### 3. User-paste fallback (Claude / ChatGPT consumer surfaces, non-native hosts)
+### 3. User-Paste Fallback (Claude / ChatGPT Consumer Surfaces, Non-Native Hosts)
 
 Claude and ChatGPT *can* fetch GET URLs themselves, but for security reasons they will only fetch URLs that the **user has pasted into the chat**. The agent cannot freely construct and fetch arbitrary URLs on its own.
 
@@ -44,9 +44,9 @@ So for non-native plugins on Claude / ChatGPT consumer surfaces:
 - For GET endpoints:
   1. Construct the full URL with every query parameter encoded inline (address, amount, slippage, chain, etc.).
   2. Show the URL to the user and ask them to paste it back into the chat. Once pasted, you can fetch it yourself — that's the security model these surfaces enforce.
-  3. Parse the response and continue the flow (e.g. map returned calldata into the batched-calls tool, then walk through the approval flow — see [approval-mode.md](approval-mode.md) and [batch-calls.md](batch-calls.md)).
+  3. Parse the response and continue the flow (e.g. map returned calldata into the batched-calls tool, then walk through the approval flow — see [approval-mode.md](./approval-mode.md) and [batch-calls.md](./batch-calls.md)).
 
-## Decision summary
+## Decision Summary
 
 | Situation | What to do |
 |-----------|------------|

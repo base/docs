@@ -1,0 +1,89 @@
+---
+title: "Restrict Eligible Holders"
+description: "Keep units within an approved set of holders by binding a B20 allowlist to issuance and transfers."
+keywords: ["asset token allowlist", "B20 Policy Registry", "eligible holders", "KYC token"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Create an allowlist in the [Policy Registry](/specifications/b20/specification-overview#policy-registry), then apply it when shares are issued, sent, or received. Accounts remain ineligible until the policy admin adds them.
+
+<RwaDisclaimer />
+
+## Demo
+
+<AssetDemo flow="restrict" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Create and Bind the Eligibility Policy
+
+<CodeGroup>
+{/* sample: stock-restrict-ts */}
+```typescript TypeScript lines wrap expandable highlight={7,10}
+import { parseEventLogs, type Address } from "viem";
+import { account } from "../../shared/clients.js";
+import { POLICY_REGISTRY, b20Abi, policyRegistryAbi, scope } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function restrictStockHolders(token: Address, holders: Address[]) {
+  const receipt = await sendContract({ address: POLICY_REGISTRY, abi: policyRegistryAbi, functionName: "createPolicyWithAccounts", args: [account.address, 1, holders] });
+  const [created] = parseEventLogs({ abi: policyRegistryAbi, logs: receipt.logs, eventName: "PolicyCreated" });
+  for (const policyScope of [scope("MINT_RECEIVER_POLICY"), scope("TRANSFER_SENDER_POLICY"), scope("TRANSFER_RECEIVER_POLICY")]) {
+    await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [policyScope, created.args.policyId] });
+  }
+  return created.args.policyId;
+}
+```
+{/* sample: stock-restrict-solidity */}
+```solidity Solidity lines wrap expandable highlight={2,5,6,7}
+    function restrictStock(address token, address admin, address[] memory holders) public returns (uint64 id) {
+        id = StdPrecompiles.POLICY_REGISTRY.createPolicyWithAccounts(
+            admin, IPolicyRegistry.PolicyType.ALLOWLIST, holders
+        );
+        IB20(token).updatePolicy(B20Constants.MINT_RECEIVER_POLICY, id);
+        IB20(token).updatePolicy(B20Constants.TRANSFER_SENDER_POLICY, id);
+        IB20(token).updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, id);
+    }
+```
+{/* sample: stock-restrict-cli */}
+```bash CLI lines wrap expandable highlight={2,7}
+CREATE_TX=$(base-cast send "$POLICY_REGISTRY" \
+  "createPolicyWithAccounts(address,uint8,address[])" "$ADMIN" 1 "[$ALICE,$BOB]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json | jq -r .transactionHash)
+POLICY_TOPIC=$(base-cast receipt "$CREATE_TX" --rpc-url "$RPC_URL" --json | jq -r '.logs[0].topics[1]')
+POLICY_ID=$(base-cast to-dec "$POLICY_TOPIC")
+for SCOPE in MINT_RECEIVER_POLICY TRANSFER_SENDER_POLICY TRANSFER_RECEIVER_POLICY; do
+  base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak "$SCOPE")" "$POLICY_ID" \
+    --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+done
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+The same allowlist policy gates mint recipients, transfer senders, and transfer recipients.
+</Check>
+
+<Warning>
+Seed all intended holders before binding an allowlist. An unlisted account becomes ineligible immediately.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Cancel Blocked Shares" icon="ban" href="/build-on-base/issue-rwa/cancel-blocked-units">
+    Burn units from a blocked account.
+  </Card>
+  <Card title="Pause Transfers" icon="circle-pause" href="/build-on-base/issue-rwa/pause-transfers">
+    Halt transfers in an emergency.
+  </Card>
+</CardGroup>

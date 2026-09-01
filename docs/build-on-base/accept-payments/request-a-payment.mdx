@@ -1,0 +1,127 @@
+---
+title: "Request a Payment"
+keywords: ["request USDC payment", "wallet USDC checkout", "B20 payment memo", "onchain checkout Base"]
+description: "Request an immediately settled USDC or memo-enabled B20 payment from a wallet on Base."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Request and settle a payment in one wallet interaction. A direct USDC transfer works with any EIP-1193 wallet, while B20 adds issuer-defined policy controls and an onchain order memo.
+
+This is the auto-settle path: the wallet approval and token transfer happen in one flow. If you need to approve now and settle later, [authorize a payment](/build-on-base/accept-payments/authorize-a-payment) instead.
+
+## Demo
+
+<PaymentsDemo flow="accept" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+| Rail | Best for | Integration |
+|---|---|---|
+| Direct USDC | Wallet-agnostic ERC-20 checkout | viem |
+| B20 with memo | Issuer tokens and onchain reconciliation | viem or Solidity |
+
+<Tabs>
+  <Tab title="Direct USDC">
+    ## Accept a Wallet-Native USDC Transfer
+
+    Base Sepolia USDC is `0x036CbD53842c5426634e7929541eC2318f3dCF7c`; Base mainnet USDC is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+
+    <Warning>
+    Testnet deployments can be reset. Confirm `eth_getCode` returns contract bytecode at the configured USDC address and that your faucet issued the same asset before asking a user to sign.
+    </Warning>
+
+    {/* sample: usdc-accept-ts */}
+    ```typescript TypeScript lines wrap expandable highlight={3,10}
+export async function sendUsdc(merchant: Address) {
+  const { account, publicClient, walletClient } = await browserClients();
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: USDC,
+    abi: erc20Abi,
+    functionName: "transfer",
+    args: [merchant, parseUnits("5", 6)],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("USDC transfer reverted");
+  return hash;
+}
+    ```
+
+    <Check>
+    The receipt succeeds and the standard USDC `Transfer` event records the merchant and amount.
+    </Check>
+  </Tab>
+  <Tab title="B20 with Memo">
+    ## Accept B20 with a Memo
+
+    A direct wallet can call `transferWithMemo`. A checkout contract can instead pull an approved amount with `transferFromWithMemo` and reject duplicate order IDs.
+
+    <PaymentsDemo flow="b20" />
+
+    <Tip>
+    The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+    </Tip>
+
+    <CodeGroup>
+      {/* sample: b20-accept-ts */}
+      ```typescript TypeScript lines wrap expandable highlight={4,8,11}
+export async function sendB20WithMemo(token: Address, merchant: Address) {
+  const { account, publicClient, walletClient } = await browserClients();
+  const memo = stringToHex("order-8842", { size: 32 });
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: token,
+    abi: b20PaymentAbi,
+    functionName: "transferWithMemo",
+    args: [merchant, parseUnits("25", 6), memo],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const events = parseEventLogs({ abi: b20PaymentAbi, logs: receipt.logs, strict: true });
+  if (events[0]?.eventName !== "Transfer" || events[1]?.eventName !== "Memo") {
+    throw new Error("Expected adjacent Transfer and Memo events");
+  }
+  return hash;
+}
+      ```
+      {/* sample: b20-accept-solidity */}
+      ```solidity Solidity lines wrap expandable highlight={4}
+function pay(bytes32 orderId, uint256 amount) external {
+    if (paid[orderId]) revert OrderAlreadyPaid(orderId);
+    paid[orderId] = true;
+    bool transferred = token.transferFromWithMemo(msg.sender, merchant, amount, orderId);
+    require(transferred, "B20 transfer failed");
+}
+      ```
+    </CodeGroup>
+
+    <Warning>
+    If the Solidity checkout calls `transferFromWithMemo`, the payer must approve it and any `TRANSFER_EXECUTOR_POLICY` must authorize the checkout contract. The merchant must still verify the expected amount before fulfillment.
+    </Warning>
+  </Tab>
+</Tabs>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete B20 interface and memo details.
+
+## Verify Before Fulfillment
+
+A successful wallet prompt is not a fulfillment signal. Verify the recipient, token, sender, amount, memo when present, and replay state on your backend.
+
+<Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+Validate settlement and claim each transaction hash exactly once.
+</Card>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
+    Separate wallet approval from merchant-controlled capture.
+  </Card>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Confirm settlement server-side before you ship.
+  </Card>
+</CardGroup>

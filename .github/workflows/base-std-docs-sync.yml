@@ -1,0 +1,1268 @@
+name: Apply Base Std Update
+
+on:
+  repository_dispatch:
+    types:
+      - base-code-changed
+      - base-release-published
+  workflow_dispatch:
+    inputs:
+      payload_json:
+        description: "Raw client_payload JSON (for manual runs)"
+        required: false
+        default: "{}"
+
+# Default minimum; the privileged job below raises only what it needs.
+permissions:
+  contents: read
+
+concurrency:
+  # Key by source_repo + sha (not sha alone) so two different source repos
+  # dispatching the same SHA can't starve each other's queue. On
+  # workflow_dispatch both client_payload fields are empty and we fall
+  # back to run_id, which is always unique per run.
+  group: ${{ github.workflow }}-${{ github.event.client_payload.source_repo || 'manual' }}-${{ github.event.client_payload.sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1) authorize: fork guard + write-permission check on the actor.
+  #    Runs with read-only token. If this job fails, `apply` never starts.
+  # --------------------------------------------------------------------------
+  authorize:
+    name: Authorize trigger
+    if: github.event.repository.fork == false
+    # Keep every job in this workflow on BaseRunnerGroup. Besides providing a
+    # consistent trusted execution environment, the downstream apply job uses
+    # Base's internal LLM Gateway.
+    runs-on:
+      group: BaseRunnerGroup
+    permissions:
+      contents: read
+    steps:
+      - name: Validate actor and event
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          # github.event.sender.login is the ONLY server-attested identity
+          # on a repository_dispatch — it's the user whose PAT/App token
+          # called the dispatches API. We capture it explicitly here even
+          # though it equals github.actor for these event types, so the
+          # downstream audit log (and ALLOWED_SENDER_BINDINGS check in the
+          # apply job) has a stable, documented field to key on.
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # Both event types we accept (repository_dispatch from the source
+          # repo's dispatcher, and workflow_dispatch from a maintainer) are
+          # authorized the same way: the actor must have write-equivalent
+          # permission on THIS repo, queried live from the GitHub
+          # collaborators API.
+          #
+          # github.actor on a repository_dispatch is the user whose PAT was
+          # used to call the dispatches API (e.g. the dispatcher's
+          # DOCS_REPO_TOKEN owner). So this check answers: "does the PAT
+          # owner who fired this dispatch have write access to this docs
+          # repo?" — exactly the policy we want.
+          case "$EVENT" in
+            repository_dispatch|workflow_dispatch) ;;
+            *)
+              echo "::error title=Unsupported event::event '$EVENT' is not in the allowlist (repository_dispatch|workflow_dispatch)" >&2
+              exit 1
+              ;;
+          esac
+          # Defense-in-depth invariant: for repository_dispatch and
+          # workflow_dispatch, github.actor and github.event.sender.login
+          # are documented to be the same value. If they ever diverge
+          # (event-shape regression, or a future event type slipping
+          # through the case above), fail closed rather than guess which
+          # one to trust.
+          if [[ -n "${SENDER_LOGIN:-}" && "$SENDER_LOGIN" != "$ACTOR" ]]; then
+            echo "::error title=Sender identity mismatch::github.actor='${ACTOR}' but github.event.sender.login='${SENDER_LOGIN}' — refusing to run" >&2
+            exit 1
+          fi
+          perm=$(curl -sS --fail-with-body \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPO}/collaborators/${ACTOR}/permission" \
+            | jq -r '.permission // "none"')
+          case "$perm" in
+            admin|maintain|write)
+              echo "Actor '$ACTOR' (sender='${SENDER_LOGIN:-unknown}') has '$perm' permission on $REPO (event: $EVENT)."
+              echo "::notice title=Authorization passed::actor=${ACTOR} sender=${SENDER_LOGIN:-unknown} permission=${perm} event=${EVENT}"
+              ;;
+            *)
+              echo "::error title=Actor not authorized::actor='${ACTOR}' sender='${SENDER_LOGIN:-unknown}' has '${perm}' permission on ${REPO} (event=${EVENT}) — refusing to run" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Emit kill-switch notice (if set)
+        # Repo variable: vars.DISABLE_BASE_SYNC. When set to "true", the
+        # `apply` job is skipped via its job-level `if:` and we surface a
+        # banner here so the run summary explains why nothing happened.
+        # Lets a maintainer pause docs syncs during an incident without
+        # revoking the dispatcher PAT or deleting the workflow.
+        if: vars.DISABLE_BASE_SYNC == 'true'
+        run: |
+          echo "::notice title=Base sync disabled::vars.DISABLE_BASE_SYNC is 'true' — authorization passed but the apply job is skipped."
+
+  # --------------------------------------------------------------------------
+  # 2) apply: privileged job. Delegates the actual content transformation to
+  #    scripts/sync-from-base-std, then commits the result and opens a PR.
+  # --------------------------------------------------------------------------
+  apply:
+    name: Open docs PR from base-std dispatch
+    needs: authorize
+    # Kill switch: see "Emit kill-switch notice" step in the authorize job
+    # above. Flipping vars.DISABLE_BASE_SYNC to 'true' skips this job
+    # without affecting authorize (so the banner still fires).
+    if: github.event.repository.fork == false && vars.DISABLE_BASE_SYNC != 'true'
+    # Run where Base's internal LLM Gateway is available. The corresponding
+    # Base gateway integration documents BaseRunnerGroup as a requirement.
+    runs-on:
+      group: BaseRunnerGroup
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Harden the runner
+        # Audit mode logs every outbound connection without blocking. After a
+        # few real runs, review the egress report on the run summary and
+        # switch to:
+        #   egress-policy: block
+        #   allowed-endpoints: >
+        #     api.github.com:443
+        #     llm-gateway.coinbase-corp.com:443
+        #     registry.npmjs.org:443
+        #     objects.githubusercontent.com:443
+        # plus anything else the audit log surfaces (e.g. npm CDN hosts).
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix scripts --no-audit --no-fund
+
+      - name: Materialize dispatch payload
+        id: payload_file
+        env:
+          # Routed through env — never inlined into the shell, so a hostile
+          # PR title/body in the payload cannot escape into a command.
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          MANUAL_PAYLOAD: ${{ github.event.inputs.payload_json }}
+          EVENT_NAME: ${{ github.event_name }}
+          # Captured once here and re-exported to $GITHUB_ENV below so
+          # every downstream step (including the shared workflow_fail
+          # helper) sees the same sender identity under one name.
+          # github.event.sender.login is the only server-attested identity
+          # on a repository_dispatch — it's the user/bot whose token
+          # called the API.
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+        run: |
+          set -euo pipefail
+          raw_path="$RUNNER_TEMP/payload.raw"
+          payload_path="$RUNNER_TEMP/payload.json"
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            printf '%s' "$MANUAL_PAYLOAD" > "$raw_path"
+          else
+            printf '%s' "$PAYLOAD" > "$raw_path"
+          fi
+
+          # Normalize: a workflow_dispatch textarea sometimes ends up containing
+          # the default '{}' alongside the user's paste, which produces a file
+          # with two stacked JSON values. jq -s slurps them all into an array
+          # and we keep the last non-empty object. Single-value inputs pass
+          # through unchanged.
+          jq -s '
+            map(select(type == "object" and (. != {} or length == 0))) as $objs
+            | if ($objs | length) == 0 then
+                (.[-1] // {})
+              else
+                ($objs | .[-1])
+              end
+          ' "$raw_path" > "$payload_path"
+
+          # Final invariant: must be a single JSON object.
+          jq -e 'type == "object"' "$payload_path" > /dev/null
+
+          # Export payload fields into $GITHUB_ENV so downstream steps work
+          # the same way on `repository_dispatch` and `workflow_dispatch`.
+          # On workflow_dispatch, `github.event.client_payload` is null and
+          # all the field expressions return empty strings — so without this,
+          # the PR title/commit/PR-body construction sees blanks and
+          # produces titles with no source SHA.
+          #
+          # Multi-line values (intent, pr_body, etc.) use the heredoc form
+          # GitHub Actions requires for $GITHUB_ENV.
+          set_env_multiline() {
+            local key="$1"; local value="$2"
+            {
+              printf '%s<<EOF_PAYLOAD_VAL\n' "$key"
+              printf '%s' "$value"
+              printf '\nEOF_PAYLOAD_VAL\n'
+            } >> "$GITHUB_ENV"
+          }
+          set_env_single() {
+            local key="$1"; local value="$2"
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          }
+
+          set_env_single PAYLOAD_KIND      "$(jq -r '.kind // ""'      "$payload_path")"
+          # Required field. If absent, the allowlist step below will reject
+          # the dispatch with a clear error.
+          set_env_single PAYLOAD_SOURCE_REPO "$(jq -r '.source_repo // ""' "$payload_path")"
+          set_env_single PAYLOAD_SHA       "$(jq -r '.sha // ""'       "$payload_path")"
+          # Do not export tag before schema validation. Unlike SHA, it is a
+          # newly introduced free-form payload field and a newline here would
+          # create an attacker-controlled second GITHUB_ENV assignment.
+          set_env_single PAYLOAD_PR_NUMBER "$(jq -r '.pr_number // ""' "$payload_path")"
+          set_env_multiline PAYLOAD_PR_TITLE "$(jq -r '.pr_title // ""' "$payload_path")"
+          set_env_multiline PAYLOAD_INTENT  "$(jq -r '.intent // ""'   "$payload_path")"
+          # source_refs is an array; flatten to space-separated for shell use.
+          set_env_single PAYLOAD_SOURCE_REFS "$(jq -r '(.source_refs // []) | join(" ")' "$payload_path")"
+          # For large diffs the dispatcher uploads the diff as an artifact
+          # on the SOURCE repo and the payload only carries a reference.
+          # We pick the two fields up here; the next step does the fetch.
+          set_env_single PAYLOAD_DIFF_ARTIFACT_RUN_ID "$(jq -r '.diff_artifact_run_id // ""' "$payload_path")"
+          set_env_single PAYLOAD_DIFF_ARTIFACT_NAME   "$(jq -r '.diff_artifact_name // ""'   "$payload_path")"
+
+          # Propagate the sender identity to every downstream step so
+          # rejection messages and the workflow_fail helper see the same
+          # field. The value originates in the step `env:` block above.
+          set_env_single SENDER_LOGIN "${SENDER_LOGIN:-}"
+
+          # OIDC attestation token — Phase 1 is verify-when-present (Phase 2
+          # will make it required). Write the JWT to a private file at
+          # $RUNNER_TEMP and pass only the PATH downstream so the token
+          # itself never sits in $GITHUB_ENV. We mask the value too as
+          # belt-and-suspenders against accidental log echo. PAYLOAD_OIDC_PRESENT
+          # ("true"/"false") lets downstream steps decide between fail-closed
+          # verification and a soft warning.
+          oidc_token_value=$(jq -r '.oidc_token // ""' "$payload_path")
+          if [[ -n "$oidc_token_value" ]]; then
+            echo "::add-mask::$oidc_token_value"
+            oidc_token_path="$RUNNER_TEMP/oidc-token.jwt"
+            printf '%s' "$oidc_token_value" > "$oidc_token_path"
+            chmod 600 "$oidc_token_path"
+            set_env_single PAYLOAD_OIDC_TOKEN_PATH "$oidc_token_path"
+            set_env_single PAYLOAD_OIDC_PRESENT "true"
+          else
+            set_env_single PAYLOAD_OIDC_TOKEN_PATH ""
+            set_env_single PAYLOAD_OIDC_PRESENT "false"
+          fi
+
+          echo "path=$payload_path" >> "$GITHUB_OUTPUT"
+          echo "Payload size: $(wc -c < "$payload_path") bytes"
+          echo "First 200 bytes:"
+          head -c 200 "$payload_path"
+          echo
+
+      - name: Validate payload schema
+        # Defense in depth — even with a valid DOCS_REPO_TOKEN, a holder of
+        # that PAT could craft a payload with a malformed `sha`, a
+        # gigantic `changed_paths` array, or a multi-megabyte `pr_body`.
+        # We validate field shapes and apply hard caps BEFORE any
+        # privileged action (artifact fetch, LLM call, git push). Caps
+        # are declared here in one block so they're easy to tune.
+        env:
+          PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
+          MAX_PR_TITLE_BYTES: 1024
+          MAX_PR_BODY_BYTES: 16384
+          MAX_INTENT_BYTES: 4096
+          MAX_RELEASE_NOTES_BYTES: 16384
+          # code-change dispatches touch a handful of watched files; release
+          # dispatches diff a whole tag-to-tag tree and can legitimately list
+          # many more. Both stay bounded (each entry is also capped at
+          # MAX_CHANGED_PATH_BYTES) so the payload array can't grow without
+          # limit. The release cap matches the dispatcher's MAX_CHANGED_PATHS.
+          MAX_CHANGED_PATHS: 200
+          MAX_CHANGED_PATHS_RELEASE: 2000
+          MAX_CHANGED_PATH_BYTES: 512
+          # Inline diffs only — the dispatcher already enforces a 60000
+          # byte ceiling on this side. Artifact-delivered diffs are capped
+          # separately in the artifact-fetch step.
+          MAX_INLINE_DIFF_BYTES: 65536
+          STEP_NAME: "Validate payload schema"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+
+          kind=$(jq -r '.kind // ""' "$PAYLOAD_PATH")
+          case "$kind" in
+            code-change|release|manual-update) ;;
+            *) workflow_fail "$STEP_NAME" "kind '${kind}' is not in the allowlist (code-change|release|manual-update)" ;;
+          esac
+
+          sha=$(jq -r '.sha // ""' "$PAYLOAD_PATH")
+          if [[ -n "$sha" && ! "$sha" =~ ^[0-9a-f]{7,40}$ ]]; then
+            workflow_fail "$STEP_NAME" "sha '${sha}' is not a 7-40 char lowercase hex string"
+          fi
+
+          # Release provenance is meaningful only with BOTH fields. Keep tags
+          # deliberately narrow so they are safe in GitHub API paths and can
+          # never inject a line into GITHUB_ENV.
+          tag=$(jq -r '.tag // ""' "$PAYLOAD_PATH")
+          previous_tag=$(jq -r '.previous_tag // ""' "$PAYLOAD_PATH")
+          if [[ "$kind" == "release" ]]; then
+            if [[ -z "$sha" || ! "$sha" =~ ^[0-9a-f]{7,40}$ ]]; then
+              workflow_fail "$STEP_NAME" "release payload requires a lowercase 7-40 character sha"
+            fi
+            if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              workflow_fail "$STEP_NAME" "release payload requires a final tag in vX.Y.Z form"
+            fi
+            if [[ -n "$previous_tag" && ! "$previous_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              workflow_fail "$STEP_NAME" "previous_tag must be empty or a final vX.Y.Z tag"
+            fi
+            if ! jq -e '(.release_notes // "") | type == "string"' "$PAYLOAD_PATH" >/dev/null; then
+              workflow_fail "$STEP_NAME" "release_notes is not a string"
+            fi
+          fi
+
+          pr_number=$(jq -r '.pr_number // ""' "$PAYLOAD_PATH")
+          if [[ -n "$pr_number" && ! "$pr_number" =~ ^[0-9]+$ ]]; then
+            workflow_fail "$STEP_NAME" "pr_number '${pr_number}' is not numeric"
+          fi
+
+          # changed_paths: when present, must be an array of strings, each
+          # within size cap. Empty/absent is fine for release + manual-update.
+          # The count cap is kind-aware: release diffs span the whole tree.
+          changed_paths_cap="$MAX_CHANGED_PATHS"
+          if [[ "$kind" == "release" ]]; then
+            changed_paths_cap="$MAX_CHANGED_PATHS_RELEASE"
+          fi
+          if jq -e '.changed_paths != null' "$PAYLOAD_PATH" >/dev/null; then
+            if ! jq -e '.changed_paths | type == "array"' "$PAYLOAD_PATH" >/dev/null; then
+              workflow_fail "$STEP_NAME" "changed_paths is not an array"
+            fi
+            count=$(jq '.changed_paths | length' "$PAYLOAD_PATH")
+            if (( count > changed_paths_cap )); then
+              workflow_fail "$STEP_NAME" "changed_paths has $count entries (cap: $changed_paths_cap for kind '$kind')"
+            fi
+            bad=$(jq -r --argjson cap "$MAX_CHANGED_PATH_BYTES" '
+              .changed_paths
+              | map(select(type != "string" or (length > $cap)))
+              | length
+            ' "$PAYLOAD_PATH")
+            if (( bad > 0 )); then
+              workflow_fail "$STEP_NAME" "$bad changed_paths entr(y/ies) are not strings or exceed $MAX_CHANGED_PATH_BYTES bytes"
+            fi
+          fi
+
+          diff_bytes=$(jq -r '.diff // "" | length' "$PAYLOAD_PATH")
+          if (( diff_bytes > MAX_INLINE_DIFF_BYTES )); then
+            workflow_fail "$STEP_NAME" "inline diff is $diff_bytes bytes (cap: $MAX_INLINE_DIFF_BYTES)"
+          fi
+
+          # Truncate large freeform strings in-place. Rejecting would take
+          # the whole sync down for a cosmetic overrun; truncating fails
+          # safe and emits a warning the reviewer can act on. PR_TITLE and
+          # INTENT also flow through $GITHUB_ENV (set in the previous
+          # step), so we refresh those when we shorten them. PR_BODY only
+          # flows through the payload file (sync script reads it from
+          # there), so no env refresh needed.
+          truncate_field() {
+            local field="$1"; local cap="$2"; local env_key="${3:-}"
+            local current
+            current=$(jq -r --arg f "$field" '.[$f] // ""' "$PAYLOAD_PATH")
+            local len=${#current}
+            if (( len > cap )); then
+              echo "::warning title=Payload field truncated::${field} was ${len} bytes; truncated to ${cap}"
+              local truncated="${current:0:$cap}"
+              jq --arg f "$field" --arg v "$truncated" \
+                '.[$f] = $v' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+              mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
+              if [[ -n "$env_key" ]]; then
+                {
+                  printf '%s<<EOF_PAYLOAD_VAL\n' "$env_key"
+                  printf '%s' "$truncated"
+                  printf '\nEOF_PAYLOAD_VAL\n'
+                } >> "$GITHUB_ENV"
+              fi
+            fi
+          }
+          truncate_field pr_title "$MAX_PR_TITLE_BYTES" PAYLOAD_PR_TITLE
+          truncate_field pr_body  "$MAX_PR_BODY_BYTES"
+          truncate_field intent   "$MAX_INTENT_BYTES"   PAYLOAD_INTENT
+          if [[ "$kind" == "release" ]]; then
+            truncate_field release_notes "$MAX_RELEASE_NOTES_BYTES"
+            # Safe only after strict vX.Y.Z validation above.
+            printf 'PAYLOAD_TAG=%s\n' "$tag" >> "$GITHUB_ENV"
+          fi
+
+          echo "::notice title=Payload schema validated::kind=${kind} sha=${sha:0:7} pr_number=${pr_number:-none} changed_paths=$(jq -r '.changed_paths // [] | length' "$PAYLOAD_PATH") inline_diff_bytes=${diff_bytes}"
+
+      - name: Validate source_repo against allowlist
+        # The dispatcher's PAT (DOCS_REPO_TOKEN) authenticates *which dispatcher*
+        # can call this receiver, but it does NOT bind the dispatcher to any
+        # particular source_repo value — a holder of the PAT could spoof the
+        # field. So we validate the claimed source_repo against an explicit
+        # allowlist before using it to fetch artifacts or build PR URLs.
+        #
+        # Required repo variable: ALLOWED_SOURCE_REPOS, space-separated list
+        # of "<owner>/<repo>" entries. No default — an unset or empty value
+        # rejects every dispatch with a clear error.
+        #
+        # This is the COARSE check (is the claimed source repo in the
+        # allowlist at all?). The FINE check that source_repo is the same
+        # repo the dispatch credential is actually bound to lives in the
+        # next step (Verify OIDC source-repo attestation).
+        env:
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          ALLOWED: ${{ vars.ALLOWED_SOURCE_REPOS }}
+          STEP_NAME: "Validate source_repo against allowlist"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+          if [[ -z "${ALLOWED:-}" ]]; then
+            workflow_fail "$STEP_NAME" "ALLOWED_SOURCE_REPOS repo variable is not configured. Set it under Settings -> Secrets and variables -> Actions -> Variables to a space-separated list of '<owner>/<repo>' entries."
+          fi
+          if [[ -z "${SOURCE_REPO:-}" ]]; then
+            workflow_fail "$STEP_NAME" "Payload is missing required 'source_repo' field — dispatcher is likely on an older payload shape."
+          fi
+          for allowed in $ALLOWED; do
+            if [[ "$SOURCE_REPO" == "$allowed" ]]; then
+              echo "source_repo '$SOURCE_REPO' is in the allowlist."
+              echo "::notice title=Allowlist passed::source_repo=${SOURCE_REPO} sender=${SENDER_LOGIN:-unknown}"
+              exit 0
+            fi
+          done
+          workflow_fail "$STEP_NAME" "source_repo '${SOURCE_REPO}' is NOT in the allowlist '${ALLOWED}'. If this is a legitimate new source repo, add it to the ALLOWED_SOURCE_REPOS repo variable."
+
+      - name: Verify OIDC source-repo attestation
+        # Archon security finding closure: source_repo in client_payload is
+        # attacker-controllable JSON. A GitHub-signed OIDC token with
+        # payload.repository == source_repo is the only way to *prove*
+        # which repo the dispatch actually came from, without trusting
+        # the JSON.
+        #
+        # Phase 1 behavior (this file): verify-when-present, fail closed
+        # on signature/claim mismatch, soft-warn when absent so existing
+        # dispatchers continue to work during migration.
+        #
+        # Phase 2 (when REQUIRE_OIDC = "true" in repo vars): missing
+        # token is a hard reject too. Flip the variable once every
+        # source repo's dispatcher has been updated.
+        #
+        # Required scopes: none beyond GITHUB_TOKEN read — verification
+        # only needs the public JWKS at token.actions.githubusercontent.com.
+        env:
+          PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
+          REQUIRE_OIDC: ${{ vars.REQUIRE_OIDC }}
+          OIDC_REQUIRE_MAIN_WORKFLOW: ${{ vars.OIDC_REQUIRE_MAIN_WORKFLOW }}
+          STEP_NAME: "Verify OIDC source-repo attestation"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+
+          # Phase 1 default is opt-in; Phase 2 will document flipping
+          # vars.REQUIRE_OIDC = "true" as the breaking cutover.
+          require_oidc="${REQUIRE_OIDC:-false}"
+
+          if [[ "${PAYLOAD_OIDC_PRESENT:-false}" != "true" ]]; then
+            if [[ "$require_oidc" == "true" ]]; then
+              workflow_fail "$STEP_NAME" "OIDC token is missing from client_payload and vars.REQUIRE_OIDC='true'. The dispatcher must be updated to mint an OIDC token before dispatching."
+            fi
+            echo "::warning title=OIDC attestation missing::client_payload.oidc_token is empty. Phase 1 backward-compat: dispatch proceeds, but provenance is not cryptographically bound. Migrate the dispatcher (see README 'OIDC source-repo attestation') before flipping vars.REQUIRE_OIDC to 'true'."
+            exit 0
+          fi
+
+          if [[ ! -s "${PAYLOAD_OIDC_TOKEN_PATH:-}" ]]; then
+            workflow_fail "$STEP_NAME" "PAYLOAD_OIDC_PRESENT='true' but the token file at '${PAYLOAD_OIDC_TOKEN_PATH:-}' is missing or empty — internal materialize step regression."
+          fi
+
+          # The verify script reads OIDC_TOKEN from a file path via shell
+          # substitution rather than process env so the JWT never appears
+          # in any logged env dump.
+          claims_path="$RUNNER_TEMP/oidc-claims.json"
+          if ! OIDC_TOKEN="$(cat "${PAYLOAD_OIDC_TOKEN_PATH}")" \
+               OIDC_EXPECTED_AUDIENCE="docs-sync:${GITHUB_REPOSITORY}" \
+               OIDC_EXPECTED_REPOSITORY="${PAYLOAD_SOURCE_REPO}" \
+               OIDC_REQUIRE_MAIN_WORKFLOW="${OIDC_REQUIRE_MAIN_WORKFLOW:-false}" \
+               node "${GITHUB_WORKSPACE}/scripts/verify-oidc.mjs" > "$claims_path"; then
+            workflow_fail "$STEP_NAME" "OIDC verification failed for source_repo='${PAYLOAD_SOURCE_REPO}'. See the preceding structured stderr line (verification_code) for the precise reason."
+          fi
+
+          # Cache claims for downstream steps + audit log. The file is
+          # not sensitive (claims are public metadata once verified).
+          attested_repo=$(jq -r '.repository // ""' "$claims_path")
+          attested_workflow_ref=$(jq -r '.workflow_ref // ""' "$claims_path")
+          attested_sha=$(jq -r '.sha // ""' "$claims_path")
+          attested_actor=$(jq -r '.actor // ""' "$claims_path")
+          echo "OIDC verified: repository=${attested_repo} workflow_ref=${attested_workflow_ref} sha=${attested_sha:0:7} actor=${attested_actor}"
+          echo "::notice title=OIDC attestation verified::source_repo=${attested_repo} workflow_ref=${attested_workflow_ref} sender=${SENDER_LOGIN:-unknown}"
+
+      - name: Enforce ALLOWED_SENDER_BINDINGS
+        # Optional defense-in-depth: a space-separated map of
+        # "<sender_login>=<owner>/<repo>" pairs. When set, the dispatch
+        # is rejected unless github.event.sender.login is listed AND
+        # maps to the claimed source_repo. Useful for deployments that
+        # issue a distinct PAT (or App installation) per source repo.
+        # No-op when unset — the OIDC step is the primary binding.
+        env:
+          BINDINGS: ${{ vars.ALLOWED_SENDER_BINDINGS }}
+          STEP_NAME: "Enforce ALLOWED_SENDER_BINDINGS"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+          if [[ -z "${BINDINGS:-}" ]]; then
+            echo "ALLOWED_SENDER_BINDINGS not set — skipping per-sender enforcement (OIDC step is the primary binding)."
+            exit 0
+          fi
+          if [[ -z "${SENDER_LOGIN:-}" ]]; then
+            workflow_fail "$STEP_NAME" "ALLOWED_SENDER_BINDINGS is set but github.event.sender.login is empty — cannot enforce binding."
+          fi
+          if [[ -z "${PAYLOAD_SOURCE_REPO:-}" ]]; then
+            workflow_fail "$STEP_NAME" "ALLOWED_SENDER_BINDINGS is set but client_payload.source_repo is empty — cannot enforce binding."
+          fi
+          matched_repo=""
+          for entry in $BINDINGS; do
+            entry_login="${entry%%=*}"
+            entry_repo="${entry#*=}"
+            if [[ -z "$entry_login" || -z "$entry_repo" || "$entry_login" == "$entry" ]]; then
+              workflow_fail "$STEP_NAME" "ALLOWED_SENDER_BINDINGS entry '${entry}' is malformed — expected '<sender_login>=<owner>/<repo>'."
+            fi
+            if [[ "$entry_login" == "$SENDER_LOGIN" ]]; then
+              matched_repo="$entry_repo"
+              break
+            fi
+          done
+          if [[ -z "$matched_repo" ]]; then
+            workflow_fail "$STEP_NAME" "Sender '${SENDER_LOGIN}' is not present in ALLOWED_SENDER_BINDINGS. If this sender is legitimate, add '${SENDER_LOGIN}=<owner>/<repo>' to the variable."
+          fi
+          if [[ "$matched_repo" != "$PAYLOAD_SOURCE_REPO" ]]; then
+            workflow_fail "$STEP_NAME" "Sender '${SENDER_LOGIN}' is bound to '${matched_repo}' but client_payload.source_repo is '${PAYLOAD_SOURCE_REPO}'. Spoofing attempt or stale binding."
+          fi
+          echo "Sender binding satisfied: ${SENDER_LOGIN} -> ${matched_repo}"
+          echo "::notice title=Sender binding verified::sender=${SENDER_LOGIN} source_repo=${matched_repo}"
+
+      - name: Verify payload provenance against source_repo
+        # Archon security finding: source_repo is allowlisted, but every other
+        # client_payload field (sha, tag, pr_number, diff_artifact_run_id) is
+        # attacker-controllable. A holder of DOCS_REPO_TOKEN — or a compromised
+        # contributor on an allowlisted source repo — could forge those fields
+        # to point at unmerged branches, malicious forks, or attacker-uploaded
+        # artifacts. The allowlist authenticates the sender repo, not the
+        # claimed content.
+        #
+        # For each non-empty provenance field we independently re-verify it
+        # against the source repo via the GitHub API. ANY failed check rejects
+        # the dispatch outright — we never fall back to the client_payload
+        # value, per the Archon recommendation.
+        #
+        # The sha anchor depends on the dispatch kind:
+        #   * code-change / manual-update — anchor to the source repo's `main`
+        #     branch (sha must be identical to, or an ancestor of, main HEAD).
+        #     This is base/base's default branch, so a merged change is on it.
+        #   * release — anchor to the published release TAG instead. Release
+        #     commits are cut on releases/* branches and tagged; they are NOT
+        #     on main, so a main-anchored check would wrongly reject every
+        #     release. We require compare {tag}...{sha} == `identical`, which
+        #     proves (a) the tag actually exists on the source repo and (b) the
+        #     dispatched sha is exactly that tag's commit. This is an
+        #     equivalent-or-stronger binding than the main-ancestry check (an
+        #     exact ref+commit match rather than mere reachability), not a
+        #     downgrade — a forger without push access to the source repo
+        #     cannot make an arbitrary commit resolve to a real release tag.
+        #
+        # The artifact-run check stays anchored to `main`: this dispatcher is
+        # invoked via workflow_run and therefore always executes from the
+        # source repo's default branch (main), so its uploaded artifact run's
+        # head_branch is main for both code-change and release dispatches.
+        #
+        # Required DOCS_REPO_TOKEN scopes on every ALLOWED_SOURCE_REPOS entry:
+        #   - Contents: read      (compare endpoint)
+        #   - Pull requests: read (pulls endpoint)
+        #   - Actions: read       (workflow-runs endpoint; already needed for artifact fetch)
+        env:
+          KIND: ${{ env.PAYLOAD_KIND }}
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          SHA: ${{ env.PAYLOAD_SHA }}
+          TAG: ${{ env.PAYLOAD_TAG }}
+          PR_NUMBER: ${{ env.PAYLOAD_PR_NUMBER }}
+          ARTIFACT_RUN_ID: ${{ env.PAYLOAD_DIFF_ARTIFACT_RUN_ID }}
+          SOURCE_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+          STEP_NAME: "Verify payload provenance against source_repo"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+
+          if [[ -z "${SOURCE_TOKEN:-}" ]]; then
+            workflow_fail "$STEP_NAME" "DOCS_REPO_TOKEN secret is not configured — required for cross-repo provenance verification"
+          fi
+
+          # Thin wrapper: writes body to $2, echoes status code on stdout.
+          # Keeps the per-check blocks short and uniform.
+          api_get() {
+            local path="$1"; local out="$2"
+            local code
+            code=$(curl -sS -o "$out" -w '%{http_code}' \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $SOURCE_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com${path}") || code="000"
+            echo "$code"
+          }
+
+          # 1) sha provenance — anchored to the release tag for release
+          #    dispatches, otherwise to main (see step header).
+          if [[ -n "${SHA:-}" ]]; then
+            cmp_path="$RUNNER_TEMP/provenance_compare.json"
+            if [[ "$KIND" == "release" ]]; then
+              if [[ -z "${TAG:-}" ]]; then
+                workflow_fail "$STEP_NAME" "release payload is missing required 'tag' field — cannot anchor sha provenance"
+              fi
+              #    GET /repos/{source_repo}/compare/{tag}...{sha}
+              #    Require status `identical`: sha must be exactly the commit
+              #    the release tag points to.
+              code=$(api_get "/repos/${SOURCE_REPO}/compare/${TAG}...${SHA}" "$cmp_path")
+              case "$code" in
+                403|404)
+                  echo "Response body:" >&2
+                  cat "$cmp_path" >&2 || true
+                  workflow_fail "$STEP_NAME" "compare ${TAG}...${SHA} on ${SOURCE_REPO} returned HTTP ${code} — DOCS_REPO_TOKEN likely missing 'Contents: read' on ${SOURCE_REPO}, or the tag/sha does not exist"
+                  ;;
+                200) ;;
+                *)
+                  cat "$cmp_path" >&2 || true
+                  workflow_fail "$STEP_NAME" "compare ${TAG}...${SHA} on ${SOURCE_REPO} failed (HTTP ${code})"
+                  ;;
+              esac
+              status=$(jq -r '.status // ""' "$cmp_path")
+              if [[ "$status" != "identical" ]]; then
+                workflow_fail "$STEP_NAME" "release sha ${SHA} does not match tag ${TAG} on ${SOURCE_REPO} (compare status='${status}', expected 'identical')"
+              fi
+              echo "release sha ${SHA:0:7} matches tag ${TAG} of ${SOURCE_REPO} (compare status=identical)"
+            else
+              #    GET /repos/{source_repo}/compare/main...{sha}
+              #    Accept when status is `identical` (sha == main HEAD) or
+              #    `behind` (sha is an ancestor of main HEAD). `ahead` or
+              #    `diverged` means sha is not on main's history → reject.
+              code=$(api_get "/repos/${SOURCE_REPO}/compare/main...${SHA}" "$cmp_path")
+              case "$code" in
+                403|404)
+                  echo "Response body:" >&2
+                  cat "$cmp_path" >&2 || true
+                  workflow_fail "$STEP_NAME" "compare main...${SHA} on ${SOURCE_REPO} returned HTTP ${code} — DOCS_REPO_TOKEN likely missing 'Contents: read' on ${SOURCE_REPO}, or sha does not exist"
+                  ;;
+                200) ;;
+                *)
+                  cat "$cmp_path" >&2 || true
+                  workflow_fail "$STEP_NAME" "compare main...${SHA} on ${SOURCE_REPO} failed (HTTP ${code})"
+                  ;;
+              esac
+              status=$(jq -r '.status // ""' "$cmp_path")
+              case "$status" in
+                identical|behind)
+                  echo "sha ${SHA:0:7} reachable from main of ${SOURCE_REPO} (compare status=${status})"
+                  ;;
+                *)
+                  workflow_fail "$STEP_NAME" "sha ${SHA} is not reachable from main of ${SOURCE_REPO} (compare status='${status}')"
+                  ;;
+              esac
+            fi
+          fi
+
+          # 2) pr_number (if present) merged into main
+          #    GET /repos/{source_repo}/pulls/{pr_number}
+          #    Require merged === true AND base.ref === "main".
+          if [[ -n "${PR_NUMBER:-}" ]]; then
+            pr_path="$RUNNER_TEMP/provenance_pr.json"
+            code=$(api_get "/repos/${SOURCE_REPO}/pulls/${PR_NUMBER}" "$pr_path")
+            case "$code" in
+              403|404)
+                echo "Response body:" >&2
+                cat "$pr_path" >&2 || true
+                workflow_fail "$STEP_NAME" "pulls/${PR_NUMBER} on ${SOURCE_REPO} returned HTTP ${code} — DOCS_REPO_TOKEN likely missing 'Pull requests: read' on ${SOURCE_REPO}, or PR does not exist"
+                ;;
+              200) ;;
+              *)
+                cat "$pr_path" >&2 || true
+                workflow_fail "$STEP_NAME" "pulls/${PR_NUMBER} on ${SOURCE_REPO} failed (HTTP ${code})"
+                ;;
+            esac
+            merged=$(jq -r '.merged // false' "$pr_path")
+            base_ref=$(jq -r '.base.ref // ""' "$pr_path")
+            if [[ "$merged" != "true" ]]; then
+              workflow_fail "$STEP_NAME" "pr #${PR_NUMBER} on ${SOURCE_REPO} is not merged"
+            fi
+            if [[ "$base_ref" != "main" ]]; then
+              workflow_fail "$STEP_NAME" "pr #${PR_NUMBER} on ${SOURCE_REPO} base.ref is '${base_ref}', not 'main'"
+            fi
+            echo "pr #${PR_NUMBER} on ${SOURCE_REPO} is merged into main"
+          fi
+
+          # 3) artifact run_id belongs to a workflow run on main
+          #    GET /repos/{source_repo}/actions/runs/{run_id}
+          #    Require head_branch === "main".
+          if [[ -n "${ARTIFACT_RUN_ID:-}" ]]; then
+            run_path="$RUNNER_TEMP/provenance_run.json"
+            code=$(api_get "/repos/${SOURCE_REPO}/actions/runs/${ARTIFACT_RUN_ID}" "$run_path")
+            case "$code" in
+              403|404)
+                echo "Response body:" >&2
+                cat "$run_path" >&2 || true
+                workflow_fail "$STEP_NAME" "actions/runs/${ARTIFACT_RUN_ID} on ${SOURCE_REPO} returned HTTP ${code} — DOCS_REPO_TOKEN likely missing 'Actions: read' on ${SOURCE_REPO}, or run does not exist"
+                ;;
+              200) ;;
+              *)
+                cat "$run_path" >&2 || true
+                workflow_fail "$STEP_NAME" "actions/runs/${ARTIFACT_RUN_ID} on ${SOURCE_REPO} failed (HTTP ${code})"
+                ;;
+            esac
+            head_branch=$(jq -r '.head_branch // ""' "$run_path")
+            if [[ "$head_branch" != "main" ]]; then
+              workflow_fail "$STEP_NAME" "artifact run ${ARTIFACT_RUN_ID} on ${SOURCE_REPO} head_branch is '${head_branch}', not 'main'"
+            fi
+            echo "artifact run ${ARTIFACT_RUN_ID} on ${SOURCE_REPO} was on main"
+          fi
+
+          echo "::notice title=Payload provenance verified::kind=${KIND:-code-change} sha=${SHA:0:7} tag=${TAG:-none} pr_number=${PR_NUMBER:-none} artifact_run_id=${ARTIFACT_RUN_ID:-none} (all checks passed against ${SOURCE_REPO})"
+
+      - name: Derive trusted release routing inputs
+        # client_payload.changed_paths is attacker-controlled JSON. For a
+        # release, replace it with the paths returned by GitHub for the
+        # independently verified tag range before it can influence LLM page
+        # discovery. previous_tag is also recomputed rather than trusted.
+        if: env.PAYLOAD_KIND == 'release'
+        env:
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          SHA: ${{ env.PAYLOAD_SHA }}
+          TAG: ${{ env.PAYLOAD_TAG }}
+          SOURCE_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+          PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
+          STEP_NAME: "Derive trusted release routing inputs"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+
+          api_get() {
+            local path="$1" out="$2" code
+            code=$(curl -sS -o "$out" -w '%{http_code}' \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $SOURCE_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com${path}") || code="000"
+            echo "$code"
+          }
+
+          refs="$RUNNER_TEMP/release-tag-refs.json"
+          code=$(api_get "/repos/${SOURCE_REPO}/git/matching-refs/tags/" "$refs")
+          if [[ "$code" != "200" ]]; then
+            workflow_fail "$STEP_NAME" "listing release tags on ${SOURCE_REPO} failed (HTTP ${code})"
+          fi
+          mapfile -t finals < <(
+            jq -r '.[].ref | select(test("^refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+$")) | sub("^refs/tags/"; "")' "$refs" \
+              | sort -Vr
+          )
+          previous=""
+          found=false
+          for candidate in "${finals[@]}"; do
+            if [[ "$found" == true ]]; then previous="$candidate"; break; fi
+            if [[ "$candidate" == "$TAG" ]]; then found=true; fi
+          done
+          if [[ "$found" != true ]]; then
+            workflow_fail "$STEP_NAME" "verified tag ${TAG} is not a final release ref on ${SOURCE_REPO}"
+          fi
+
+          if [[ -n "$previous" ]]; then
+            base="$previous"
+          else
+            commit="$RUNNER_TEMP/release-commit.json"
+            code=$(api_get "/repos/${SOURCE_REPO}/commits/${SHA}" "$commit")
+            if [[ "$code" != "200" ]]; then
+              workflow_fail "$STEP_NAME" "reading tagged commit ${SHA} failed (HTTP ${code})"
+            fi
+            base=$(jq -r '.parents[0].sha // ""' "$commit")
+            if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]]; then
+              workflow_fail "$STEP_NAME" "tagged commit ${SHA} has no first parent for initial-release comparison"
+            fi
+          fi
+
+          comparison="$RUNNER_TEMP/release-compare.json"
+          code=$(api_get "/repos/${SOURCE_REPO}/compare/${base}...${TAG}" "$comparison")
+          if [[ "$code" != "200" ]]; then
+            workflow_fail "$STEP_NAME" "comparing trusted release range ${base}...${TAG} failed (HTTP ${code})"
+          fi
+          jq -e '(.files // []) | all(.[]; (.filename | type == "string") and (length <= 512))' "$comparison" >/dev/null \
+            || workflow_fail "$STEP_NAME" "GitHub comparison returned malformed changed-file metadata"
+          jq '[.files[]?.filename] | .[0:2000]' "$comparison" > "$RUNNER_TEMP/trusted-changed-paths.json"
+          jq --arg previous_tag "$previous" --slurpfile paths "$RUNNER_TEMP/trusted-changed-paths.json" \
+            '.previous_tag = $previous_tag | .changed_paths = $paths[0]' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+          mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
+          echo "::notice title=Trusted release routing inputs derived::tag=${TAG} previous=${previous:-<initial>} changed_paths=$(jq length "$RUNNER_TEMP/trusted-changed-paths.json")"
+
+      - name: Fetch diff artifact from source repo (if payload references one)
+        # Dispatcher uploads oversized diffs as a workflow artifact on the
+        # source repo (env.PAYLOAD_SOURCE_REPO, validated against the
+        # allowlist in the previous step) and the payload only carries
+        # `diff_artifact_run_id` + `diff_artifact_name`. We resolve those
+        # here, download the zip via the GitHub Actions API, unpack it, and
+        # splice the diff content back into the payload file so the script
+        # sees it like any inline diff.
+        #
+        # Requires the DOCS_REPO_TOKEN secret on this repo to have
+        # `actions:read` on every allowlisted source repo. Inline-diff
+        # dispatches skip this step entirely (both env vars are empty).
+        env:
+          ARTIFACT_RUN_ID: ${{ env.PAYLOAD_DIFF_ARTIFACT_RUN_ID }}
+          ARTIFACT_NAME: ${{ env.PAYLOAD_DIFF_ARTIFACT_NAME }}
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          SOURCE_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+          PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
+          # Hard caps — tune here, document in README. Sized for release
+          # dispatches: the dispatcher caps the raw diff at 12 MiB
+          # (MAX_RELEASE_DIFF_BYTES), which zips far smaller, so MAX_DIFF_BYTES
+          # matches that ceiling and the zip cap leaves headroom. Both stay
+          # bounded so a tampered artifact can't exhaust the runner.
+          MAX_ARTIFACT_ZIP_BYTES: 16777216   # 16 MiB zip on the wire
+          MAX_DIFF_BYTES: 12582912           # 12 MiB unpacked diff (matches dispatcher cap)
+          STEP_NAME: "Fetch diff artifact from source repo"
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/lib/workflow-fail.sh"
+
+          # Both-or-none. An asymmetric pair is malformed (or tampered) —
+          # fail closed rather than silently fall back to "no artifact".
+          if [[ -z "${ARTIFACT_RUN_ID:-}" && -z "${ARTIFACT_NAME:-}" ]]; then
+            echo "No diff artifact reference — diff is inline (or empty)."
+            exit 0
+          fi
+          if [[ -z "${ARTIFACT_RUN_ID:-}" || -z "${ARTIFACT_NAME:-}" ]]; then
+            workflow_fail "$STEP_NAME" "diff_artifact_run_id and diff_artifact_name must be both set or both empty"
+          fi
+
+          # Validate artifact-reference shape before we let either value
+          # flow into a URL or a filename. run_id is a uint64; name is
+          # the exact pattern the dispatcher uses (sync-diff-<run_id>).
+          if [[ ! "$ARTIFACT_RUN_ID" =~ ^[0-9]+$ ]]; then
+            workflow_fail "$STEP_NAME" "diff_artifact_run_id '$ARTIFACT_RUN_ID' is not numeric"
+          fi
+          if [[ ! "$ARTIFACT_NAME" =~ ^sync-diff-[0-9]+$ ]]; then
+            workflow_fail "$STEP_NAME" "diff_artifact_name '$ARTIFACT_NAME' does not match sync-diff-<run_id>"
+          fi
+
+          if [[ -z "${SOURCE_TOKEN:-}" ]]; then
+            workflow_fail "$STEP_NAME" "DOCS_REPO_TOKEN secret is not configured but the dispatch references a diff artifact. Add a PAT with 'actions:read' on ${SOURCE_REPO} as the DOCS_REPO_TOKEN secret."
+          fi
+
+          echo "Fetching diff artifact '${ARTIFACT_NAME}' from ${SOURCE_REPO} run ${ARTIFACT_RUN_ID}"
+
+          # 1. List artifacts and pick ours by EXACT name. Require
+          #    exactly one match — multiple matches means the dispatcher
+          #    uploaded a name collision and we shouldn't guess.
+          listing="$RUNNER_TEMP/artifacts.json"
+          status=$(curl -sS -o "$listing" -w '%{http_code}' \
+            -H "Authorization: Bearer $SOURCE_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${SOURCE_REPO}/actions/runs/${ARTIFACT_RUN_ID}/artifacts?per_page=100")
+          if [[ "$status" != "200" ]]; then
+            cat "$listing" >&2 || true
+            workflow_fail "$STEP_NAME" "Listing artifacts failed (HTTP ${status})"
+          fi
+          matches=$(jq --arg name "$ARTIFACT_NAME" \
+            '[.artifacts[] | select(.name == $name)] | length' "$listing")
+          if [[ "$matches" -ne 1 ]]; then
+            echo "Available artifacts:" >&2
+            jq -r '.artifacts[].name' "$listing" >&2 || true
+            workflow_fail "$STEP_NAME" "expected exactly 1 artifact named '$ARTIFACT_NAME' on run ${ARTIFACT_RUN_ID}, found $matches"
+          fi
+          archive_url=$(jq -r --arg name "$ARTIFACT_NAME" \
+            '.artifacts[] | select(.name == $name) | .archive_download_url' "$listing")
+          declared_size=$(jq -r --arg name "$ARTIFACT_NAME" \
+            '.artifacts[] | select(.name == $name) | .size_in_bytes' "$listing")
+          if [[ -z "$declared_size" || "$declared_size" == "null" ]]; then
+            workflow_fail "$STEP_NAME" "artifact listing did not include size_in_bytes"
+          fi
+          if (( declared_size > MAX_ARTIFACT_ZIP_BYTES )); then
+            workflow_fail "$STEP_NAME" "artifact declared size $declared_size exceeds cap $MAX_ARTIFACT_ZIP_BYTES"
+          fi
+
+          # 2. Download the zip.
+          #    --fail-with-body  → non-zero exit on any 4xx/5xx
+          #    --max-filesize    → abort mid-stream if the server lies
+          #                        about size and tries to feed us more
+          #    -L                → follow the archive endpoint's 302 to
+          #                        the actual blob
+          zip_path="$RUNNER_TEMP/diff-artifact.zip"
+          if ! curl -sSL --fail-with-body \
+              --max-filesize "$MAX_ARTIFACT_ZIP_BYTES" \
+              -o "$zip_path" \
+              -H "Authorization: Bearer $SOURCE_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$archive_url"; then
+            workflow_fail "$STEP_NAME" "artifact download failed (curl non-zero — see step log for HTTP body)"
+          fi
+          actual_size=$(wc -c < "$zip_path" | tr -d ' ')
+          if (( actual_size > MAX_ARTIFACT_ZIP_BYTES )); then
+            workflow_fail "$STEP_NAME" "downloaded zip is $actual_size bytes (cap: $MAX_ARTIFACT_ZIP_BYTES)"
+          fi
+
+          # 3. Unzip into a FRESH directory (rm -rf in case of retry on
+          #    the same runner) and enforce zip-slip protection: every
+          #    extracted file's resolved path must stay inside the
+          #    unpack dir. realpath + prefix compare with a trailing
+          #    '/' on the boundary avoids the
+          #    /tmp/diff-unpack-evil/  -> /tmp/diff-unpack/  false-pass.
+          unpack_dir="$RUNNER_TEMP/diff-unpack"
+          rm -rf "$unpack_dir"
+          mkdir -p "$unpack_dir"
+          unzip -q "$zip_path" -d "$unpack_dir"
+          unpack_abs="$(cd "$unpack_dir" && pwd -P)"
+          while IFS= read -r -d '' f; do
+            resolved="$(realpath "$f")"
+            case "$resolved" in
+              "$unpack_abs"/*) ;;
+              *) workflow_fail "$STEP_NAME" "zip-slip detected: '$f' resolves to '$resolved' which escapes '$unpack_abs'" ;;
+            esac
+          done < <(find "$unpack_dir" -mindepth 1 -print0)
+
+          # 4. Require EXACTLY one *.diff file. The dispatcher uploads
+          #    one *.diff file and nothing else; anything else here is
+          #    either a misconfigured dispatcher or a tampered artifact.
+          mapfile -d '' diff_candidates < <(find "$unpack_dir" -type f -name '*.diff' -print0)
+          if (( ${#diff_candidates[@]} != 1 )); then
+            echo "Unpack contents:" >&2
+            find "$unpack_dir" -type f >&2 || true
+            workflow_fail "$STEP_NAME" "expected exactly 1 *.diff file in artifact, found ${#diff_candidates[@]}"
+          fi
+          diff_path="${diff_candidates[0]}"
+          diff_size=$(wc -c < "$diff_path" | tr -d ' ')
+          if (( diff_size > MAX_DIFF_BYTES )); then
+            workflow_fail "$STEP_NAME" "unpacked diff is $diff_size bytes (cap: $MAX_DIFF_BYTES)"
+          fi
+          echo "Downloaded diff: $diff_size bytes at $diff_path"
+
+          # 5. Splice the diff back into the payload JSON in-place. The
+          #    sync-from-base script reads payload.diff as a string — once
+          #    we inject the content here, the script can't tell the
+          #    difference between an inline and an artifact-delivered diff.
+          jq --rawfile diff "$diff_path" '.diff = $diff' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.new"
+          mv "$PAYLOAD_PATH.new" "$PAYLOAD_PATH"
+          echo "Diff injected into payload. New payload size: $(wc -c < "$PAYLOAD_PATH") bytes."
+          echo "::notice title=Artifact accepted::${ARTIFACT_NAME} from ${SOURCE_REPO} run ${ARTIFACT_RUN_ID} (zip=${actual_size}B diff=${diff_size}B)"
+
+      - name: Run sync-from-base-std
+        id: sync
+        env:
+          LLM_GATEWAY_API_KEY: ${{ secrets.LLM_GATEWAY_API_KEY }}
+          PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
+          CODE_CHANGE_PAGE_CONCURRENCY: ${{ vars.CODE_CHANGE_PAGE_CONCURRENCY }}
+          RELEASE_PAGE_CONCURRENCY: ${{ vars.RELEASE_PAGE_CONCURRENCY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          CLAUDE_MAX_TOKENS: ${{ vars.CLAUDE_MAX_TOKENS }}
+        run: |
+          node scripts/sync-from-base-std/index.mjs --payload "$PAYLOAD_PATH"
+
+      - name: Upload sync benchmark log
+        # `if: always()` so we still capture the partial bench file even when
+        # sync-from-base failed (e.g. on a non-retryable error mid-batch).
+        if: always() && hashFiles('.sync-bench/*.jsonl') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sync-bench-${{ github.run_id }}
+          path: .sync-bench/*.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
+          # The bench dir starts with a dot. upload-artifact filters hidden
+          # files by default, so without this the artifact silently uploads
+          # zero files (the `if:` above sees the file via hashFiles, but the
+          # action's own glob excludes it).
+          include-hidden-files: true
+
+      - name: Commit branch
+        id: commit
+        env:
+          BRANCH: ${{ steps.sync.outputs.branch }}
+          TOUCHED_PATHS: ${{ steps.sync.outputs.touched_paths }}
+          TOUCHED_COUNT: ${{ steps.sync.outputs.touched_count }}
+          # Use the env vars populated by Materialize dispatch payload — they
+          # work for both repository_dispatch (where client_payload is set)
+          # and workflow_dispatch (where it isn't).
+          SHA: ${{ env.PAYLOAD_SHA }}
+          TAG: ${{ env.PAYLOAD_TAG }}
+          KIND: ${{ env.PAYLOAD_KIND }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BRANCH:-}" ]] || [[ "${TOUCHED_COUNT:-0}" == "0" ]]; then
+            echo "no_changes=true" >> "$GITHUB_OUTPUT"
+            echo "No pages touched by sync; skipping PR."
+            # Surface this as a banner too — otherwise a run that legitimately
+            # "did nothing" (e.g. Claude returned every page unchanged) produces
+            # zero annotations and the summary page looks empty.
+            echo "::notice title=No changes::Pages already match the requested intent — nothing to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B "$BRANCH"
+          # Structural guard. The route-table is the routing decision;
+          # this is the last-mile check that fails closed if the script
+          # (or a future LLM regression) ever emits a path outside the
+          # docs tree. No denylist needed — anything not matching the
+          # allowlist regex is rejected.
+          #
+          # Allowed: docs/<anything>/<file>.{md,mdx,txt}
+          # Rejected: absolute paths, embedded newlines, '..' traversal,
+          # anything outside docs/, any non-doc extension.
+          allow_re='^docs/[A-Za-z0-9._/-]+\.(md|mdx|txt)$'
+          for p in $TOUCHED_PATHS; do
+            case "$p" in
+              /*|*..*|*$'\n'*)
+                echo "::error title=Touched path rejected::'$p' contains an unsafe component (absolute path, '..' traversal, or newline)" >&2
+                exit 1
+                ;;
+            esac
+            if [[ ! "$p" =~ $allow_re ]]; then
+              echo "::error title=Touched path rejected::'$p' is outside the docs allowlist (${allow_re})" >&2
+              exit 1
+            fi
+            git add -- "$p"
+          done
+
+          if git diff --staged --quiet; then
+            echo "no_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Staged diff is empty — script returned paths but git sees no change."
+            echo "::notice title=No changes::Script staged paths but git sees no diff"
+            exit 0
+          fi
+
+          short_sha="${SHA:0:7}"
+          case "$KIND" in
+            release)
+              commit_msg="docs: sync ${TAG:-release} from base-std"
+              ;;
+            manual-update)
+              commit_msg="docs: manual sync from maintainer"
+              ;;
+            *)
+              commit_msg="docs: sync from base-std@${short_sha:-unknown}"
+              ;;
+          esac
+          git commit -m "$commit_msg"
+          git push -f origin "$BRANCH"
+          echo "no_changes=false" >> "$GITHUB_OUTPUT"
+          # Annotation surfaces in the run summary — same primitive Mintlify
+          # uses (core.notice). Keep it terse, the next step's notice covers
+          # the PR URL.
+          echo "::notice title=Pages synced::${TOUCHED_COUNT} page(s) committed to ${BRANCH}"
+
+      - name: Open or update PR via REST
+        if: steps.commit.outputs.no_changes != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          # Server-attested target branch. base/docs currently uses `master`;
+          # deriving it avoids another hardcoded main/master mismatch.
+          DOCS_BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          BRANCH: ${{ steps.sync.outputs.branch }}
+          TOUCHED_PATHS: ${{ steps.sync.outputs.touched_paths }}
+          REJECTED_PAGES: ${{ steps.sync.outputs.rejected_pages }}
+          REJECTED_COUNT: ${{ steps.sync.outputs.rejected_count }}
+          PROVENANCE_MD_PATH: ${{ steps.sync.outputs.provenance_md_path }}
+          REVIEW_MD_PATH: ${{ steps.sync.outputs.review_md_path }}
+          # All payload fields come from $PAYLOAD_* env vars set by Materialize
+          # dispatch payload — works for both repository_dispatch and
+          # workflow_dispatch trigger types.
+          KIND: ${{ env.PAYLOAD_KIND }}
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          SHA: ${{ env.PAYLOAD_SHA }}
+          TAG: ${{ env.PAYLOAD_TAG }}
+          PR_NUMBER: ${{ env.PAYLOAD_PR_NUMBER }}
+          PR_TITLE: ${{ env.PAYLOAD_PR_TITLE }}
+          INTENT: ${{ env.PAYLOAD_INTENT }}
+          SOURCE_REFS: ${{ env.PAYLOAD_SOURCE_REFS }}
+        run: |
+          set -euo pipefail
+
+          short_sha="${SHA:0:7}"
+          case "$KIND" in
+            release)
+              title="docs: sync ${TAG:-release} from base-std"
+              ;;
+            manual-update)
+              # Use the first 80 chars of the intent as the title hint.
+              intent_preview="${INTENT:0:80}"
+              title="docs: ${intent_preview:-manual sync from maintainer}"
+              ;;
+            *)
+              if [[ -n "$PR_TITLE" ]]; then
+                # Source PRs often already start with 'docs(...)' or 'docs:'.
+                # Prepending 'docs:' unconditionally would produce a
+                # a duplicated 'docs: docs(...): …' prefix. Strip the prefix
+                # off the upstream title first so we always end up with exactly one.
+                clean_pr_title="${PR_TITLE#docs: }"
+                clean_pr_title="${clean_pr_title#docs\(*\): }"
+                title="docs: ${clean_pr_title} (base-std@${short_sha})"
+              else
+                title="docs: sync from base-std@${short_sha}"
+              fi
+              ;;
+          esac
+
+          body_file="$RUNNER_TEMP/pr_body.md"
+          {
+            if [[ "$KIND" == "manual-update" ]]; then
+              echo "Maintainer-curated update."
+              echo
+              echo "**Intent**: ${INTENT}"
+              if [[ -n "${SOURCE_REFS:-}" ]]; then
+                echo
+                echo "**Source references**:"
+                # SOURCE_REFS is space-separated; render as a bullet list.
+                for r in ${SOURCE_REFS}; do
+                  echo "- ${r}"
+                done
+              fi
+            else
+              # Source PR comes first — reviewers want to click straight to
+              # the upstream PR (with full source diff + discussion) before
+              # looking at anything else. Bold + link + title where available.
+              if [[ -n "${PR_NUMBER:-}" ]]; then
+                if [[ -n "${PR_TITLE:-}" ]]; then
+                  echo "> **Source PR**: [${SOURCE_REPO}#${PR_NUMBER}](https://github.com/${SOURCE_REPO}/pull/${PR_NUMBER}) — _${PR_TITLE}_"
+                else
+                  echo "> **Source PR**: [${SOURCE_REPO}#${PR_NUMBER}](https://github.com/${SOURCE_REPO}/pull/${PR_NUMBER})"
+                fi
+                echo ">"
+                if [[ -n "${SHA:-}" ]]; then
+                  echo "> **Merge commit**: [\`${SHA:0:7}\`](https://github.com/${SOURCE_REPO}/commit/${SHA})"
+                fi
+                echo
+                echo "Auto-generated from the source PR above."
+              else
+                echo "Auto-generated from \`${SOURCE_REPO}\`."
+                if [[ -n "${SHA:-}" ]]; then
+                  echo
+                  echo "**Commit**: [\`${SHA:0:7}\`](https://github.com/${SOURCE_REPO}/commit/${SHA})"
+                fi
+              fi
+              if [[ -n "${TAG:-}" ]]; then
+                echo
+                echo "**Tag**: \`${TAG}\`"
+              fi
+            fi
+
+            # Reviewer checklist + newly-introduced external URLs. Placed
+            # ahead of the file-touched / provenance sections so the
+            # action-required items are the first thing a reviewer reads
+            # after the source-PR link. Sync script writes the file at
+            # $REVIEW_MD_PATH; we splice it in verbatim.
+            if [[ -n "${REVIEW_MD_PATH:-}" ]] && [[ -f "${REVIEW_MD_PATH}" ]]; then
+              cat "${REVIEW_MD_PATH}"
+            fi
+
+            echo
+            echo "## Files touched"
+            for p in ${TOUCHED_PATHS:-}; do
+              echo "- \`${p}\`"
+            done
+
+            # Surface pages that Claude tried to write but the validator
+            # rejected. Reviewer should expect those pages to be missing from
+            # the diff and act accordingly (manual edit, retry, or accept the
+            # gap).
+            if [[ -n "${REJECTED_PAGES:-}" ]]; then
+              echo
+              echo "## Skipped pages (validator rejected the model output)"
+              # REJECTED_PAGES is tab-separated tuples of "path|reason".
+              # Split on TAB, then on the first | per tuple.
+              IFS=$'\t' read -ra tuples <<< "$REJECTED_PAGES"
+              for tup in "${tuples[@]}"; do
+                page="${tup%%|*}"
+                reason="${tup#*|}"
+                echo "- \`${page}\` — ${reason}"
+              done
+            fi
+
+            # Splice in the source-provenance markdown table the script wrote.
+            # Lets a reviewer click straight from each doc page to the source
+            # file(s) in base that drove its edit.
+            if [[ -n "${PROVENANCE_MD_PATH:-}" ]] && [[ -f "${PROVENANCE_MD_PATH}" ]]; then
+              cat "${PROVENANCE_MD_PATH}"
+            fi
+
+            echo
+            echo "_Opened by \`Apply Base Std Update\` workflow._"
+          } > "$body_file"
+
+          owner="${REPO%%/*}"
+          existing=$(curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPO}/pulls?state=open&head=${owner}:${BRANCH}" \
+            | jq -r '.[0].number // ""')
+
+          payload_file="$RUNNER_TEMP/pr.json"
+          if [[ -n "$existing" ]]; then
+            echo "Updating existing PR #$existing"
+            jq -n \
+              --arg title "$title" \
+              --rawfile body "$body_file" \
+              '{title: $title, body: $body}' > "$payload_file"
+
+            status=$(curl -sS -o "$RUNNER_TEMP/resp.json" -w "%{http_code}" \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPO}/pulls/${existing}" \
+              --data-binary @"$payload_file")
+            expected="200"
+          else
+            echo "Creating PR for $BRANCH"
+            jq -n \
+              --arg title "$title" \
+              --arg head "$BRANCH" \
+              --arg base "$DOCS_BASE_BRANCH" \
+              --rawfile body "$body_file" \
+              '{title: $title, head: $head, base: $base, body: $body, maintainer_can_modify: true}' > "$payload_file"
+
+            status=$(curl -sS -o "$RUNNER_TEMP/resp.json" -w "%{http_code}" \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPO}/pulls" \
+              --data-binary @"$payload_file")
+            expected="201"
+          fi
+
+          if [[ "$status" != "$expected" ]]; then
+            echo "PR API call failed: expected $expected, got $status" >&2
+            cat "$RUNNER_TEMP/resp.json" >&2 || true
+            exit 1
+          fi
+
+          pr_url=$(jq -r '.html_url // empty' "$RUNNER_TEMP/resp.json")
+          # `::notice::` is GitHub Actions' annotation primitive — surfaces a
+          # green banner in the run summary + the Annotations panel, vs
+          # being buried in the step log. Same thing Mintlify's example
+          # workflow uses via core.notice(). Pure visibility, no behavior.
+          if [[ -n "${pr_url:-}" ]]; then
+            echo "::notice title=Docs PR opened::${pr_url}"
+          else
+            echo "::warning title=Docs PR step::Step succeeded but no PR URL was returned"
+          fi
+          echo "PR: ${pr_url:-(no url returned)}"

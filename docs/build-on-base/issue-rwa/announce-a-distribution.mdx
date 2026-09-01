@@ -1,0 +1,88 @@
+---
+title: "Announce a Distribution"
+description: "Publish a B20 Asset announcement and distribute additional units to holders in the same transaction."
+keywords: ["announce distribution", "B20 announcement", "asset distribution", "batchMint distribution"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Bracket a holder-impacting action with an onchain description and supporting URI. This example announces a five-percent stock dividend and issues additional shares with `batchMint` in the same transaction.
+
+<RwaDisclaimer />
+
+## Demo
+
+<AssetDemo flow="dividend" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Announce and Distribute the Stock Dividend
+
+<CodeGroup>
+{/* sample: stock-dividend-ts */}
+```typescript TypeScript lines wrap expandable highlight={9,13}
+import { encodeFunctionData, parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { assetAbi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function announceStockDividend(token: Address, holders: Address[]) {
+  const mint = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "batchMint",
+    args: [holders, [parseUnits("30", 6), parseUnits("20", 6)]],
+  });
+  const id = `dividend-${Date.now()}`;
+  await sendContract({
+    address: token,
+    abi: assetAbi,
+    functionName: "announce",
+    args: [[mint], id, "Five-percent stock dividend", "https://example.com/actions/dividend"],
+  });
+  const used = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "isAnnouncementIdUsed", args: [id] });
+  if (!used) throw new Error("Announcement was not recorded");
+}
+```
+{/* sample: stock-dividend-solidity */}
+```solidity Solidity lines wrap expandable highlight={3,4}
+    function announceDividend(address token, address[] memory recipients, uint256[] memory amounts) public {
+        bytes[] memory calls = new bytes[](1);
+        calls[0] = abi.encodeCall(IB20Asset.batchMint, (recipients, amounts));
+        IB20Asset(token).announce(
+            calls,
+            "2026-stock-dividend-01",
+            "Five-percent stock dividend",
+            "https://example.com/corporate-actions/2026-01"
+        );
+        require(IB20Asset(token).isAnnouncementIdUsed("2026-stock-dividend-01"), "announcement missing");
+    }
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+The unique announcement ID is marked used and the batch mint executes between `Announcement` and `EndAnnouncement`.
+</Check>
+
+<Note>
+This example issues additional shares. It does not distribute a cash dividend.
+</Note>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Issue Shares" icon="coins" href="/build-on-base/issue-rwa/issue-units">
+    Mint asset units to holders.
+  </Card>
+  <Card title="Run a Stock Split" icon="divide" href="/build-on-base/issue-rwa/apply-a-multiplier">
+    Apply a UI multiplier for stock splits.
+  </Card>
+</CardGroup>

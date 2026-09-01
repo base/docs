@@ -1,0 +1,86 @@
+---
+title: "Block an Account"
+keywords: ["block address stablecoin", "B20 blocklist", "compliance hold stablecoin", "stop transfers account Base"]
+description: "Stop a specific address from moving your stablecoin when a compliance hold requires it, without affecting other holders."
+---
+
+import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
+
+Sometimes you need to stop one address from moving your stablecoin: a compliance hold or a support request. A **blocklist** denies only the addresses you list and leaves every other holder untouched. Bind it to the sender scope so a blocked account can't send.
+
+## Demo
+
+<StablecoinDemo flow="block" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Block and Verify an Account
+
+<CodeGroup>
+{/* sample: stablecoin-block-ts */}
+```typescript TypeScript lines wrap expandable highlight={7,10}
+import { type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { POLICY_REGISTRY, policyRegistryAbi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function setBlocked(policyId: bigint, holder: Address, blocked: boolean) {
+  await sendContract({
+    address: POLICY_REGISTRY,
+    abi: policyRegistryAbi,
+    functionName: "updateBlocklist",
+    args: [policyId, blocked, [holder]],
+  });
+  const authorized = await publicClient.readContract({
+    address: POLICY_REGISTRY,
+    abi: policyRegistryAbi,
+    functionName: "isAuthorized",
+    args: [policyId, holder],
+  });
+  if (authorized === blocked) throw new Error("Unexpected blocklist state");
+}
+```
+{/* sample: stablecoin-block-solidity */}
+```solidity Solidity lines wrap expandable highlight={4}
+    function setBlocked(uint64 policyId, address holder, bool blocked) public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = holder;
+        StdPrecompiles.POLICY_REGISTRY.updateBlocklist(policyId, blocked, accounts);
+        require(StdPrecompiles.POLICY_REGISTRY.isAuthorized(policyId, holder) != blocked, "wrong policy state");
+    }
+```
+{/* sample: stablecoin-block-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$POLICY_REGISTRY" "updateBlocklist(uint64,bool,address[])" \
+  "$BLOCKLIST_ID" true "[$ACCOUNT]" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$POLICY_REGISTRY" "isAuthorized(uint64,address)(bool)" \
+  "$BLOCKLIST_ID" "$ACCOUNT" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+`isAuthorized(policyId, account)` returns `false` while the account is blocked.
+</Check>
+
+<Warning>
+This only stops outgoing transfers when the blocklist is bound to `TRANSFER_SENDER_POLICY`. Unblock with the same call and `false`.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Recover Funds" icon="rotate-left" href="/build-on-base/issue-stablecoins/recover-funds">
+    Reissue a blocked balance.
+  </Card>
+  <Card title="Pause Activity" icon="circle-pause" href="/build-on-base/issue-stablecoins/pause-activity">
+    Freeze all token activity.
+  </Card>
+</CardGroup>

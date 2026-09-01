@@ -1,0 +1,83 @@
+---
+title: "Watch for Payments"
+keywords: ["watch ERC-20 transfers", "eth_subscribe payment webhook", "Base payment listener", "backfill token events"]
+description: "Watch token Transfer logs, backfill missed blocks, and process confirmed payments idempotently."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Turn token logs into a durable payment feed. A WebSocket subscription provides low-latency wakeups, while `eth_getLogs` over an overlap window supplies the source of truth after disconnects or reorgs.
+
+## Demo
+
+<PaymentsDemo flow="watch" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Subscribe and Backfill
+
+{/* sample: watch-payments-ts */}
+```typescript TypeScript worker lines wrap expandable highlight={2,7,15-18}
+export async function watchPayments(
+  token: Address,
+  merchant: Address,
+  startBlock: bigint,
+  store: PaymentEventStore,
+) {
+  async function backfillConfirmed() {
+    const head = await client.getBlockNumber();
+    if (head <= confirmations) return;
+    const toBlock = head - confirmations;
+    const cursor = await store.lastScannedBlock();
+    const fromBlock = cursor && cursor > startBlock + confirmations
+      ? cursor - confirmations
+      : startBlock;
+    const logs = await client.getLogs({
+      address: token,
+      event: transferEvent,
+      args: { to: merchant },
+      fromBlock,
+      toBlock,
+      strict: true,
+    });
+
+    // In one database transaction, replace this overlap window and advance the cursor.
+    // Key each row by (blockHash, transactionHash, logIndex) so retries stay idempotent.
+    await store.replaceRange(fromBlock, toBlock, logs);
+  }
+
+  await backfillConfirmed();
+  return client.watchEvent({
+    address: token,
+    event: transferEvent,
+    args: { to: merchant },
+    onLogs: backfillConfirmed,
+    onError: (error) => console.error("Payment watcher failed", error),
+  });
+}
+```
+
+Implement `replaceRange` as one database transaction: delete previously indexed rows in the overlap, insert the canonical logs returned now, and advance the cursor only after both operations succeed.
+
+<Check>
+After a reconnect or short reorg, the overlap scan converges on the canonical confirmed logs without fulfilling the same log twice.
+</Check>
+
+<Warning>
+Do not fulfill directly from an unconfirmed subscription callback. Wait for your chosen confirmation depth, and identify each event by `(blockHash, transactionHash, logIndex)` rather than transaction hash alone.
+</Warning>
+
+Choose a confirmation policy that matches your risk tolerance. See [transaction finality](/specifications/transactions/transaction-finality) for Base's confirmation stages.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Validate each candidate transfer against its order.
+  </Card>
+  <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
+    Produce settlement rows over a block range.
+  </Card>
+</CardGroup>

@@ -1,0 +1,82 @@
+---
+title: "Issue Units to Holders"
+description: "Distribute B20 Asset units to multiple approved holders in one batch."
+keywords: ["issue tokenized units", "B20 batchMint", "asset token distribution", "cap table Base"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Distribute shares to multiple holders in one all-or-nothing transaction with B20 Asset's `batchMint`. Every recipient must pass the token's mint-receiver policy, and the combined issuance must stay below its supply cap.
+
+<RwaDisclaimer />
+
+## Demo
+
+<AssetDemo flow="issue" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/specifications/b20/launch-a-b20-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+## Issue and Verify the Shares
+
+<CodeGroup>
+{/* sample: stock-issue-ts */}
+```typescript TypeScript lines wrap expandable highlight={8}
+import { parseUnits, type Address } from "viem";
+import { publicClient } from "../../shared/clients.js";
+import { assetAbi, b20Abi } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function issueShares(token: Address, holders: [Address, Address]) {
+  const amounts = [parseUnits("600", 6), parseUnits("400", 6)] as const;
+  await sendContract({ address: token, abi: assetAbi, functionName: "batchMint", args: [holders, amounts] });
+  const balances = await Promise.all(holders.map((holder) => publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [holder] })));
+  if (balances[0] !== amounts[0] || balances[1] !== amounts[1]) throw new Error("Unexpected issuance balances");
+}
+```
+{/* sample: stock-issue-solidity */}
+```solidity Solidity lines wrap expandable highlight={8}
+    function issueShares(address token, address alice, address bob) public {
+        address[] memory recipients = new address[](2);
+        recipients[0] = alice;
+        recipients[1] = bob;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 600e6;
+        amounts[1] = 400e6;
+        IB20Asset(token).batchMint(recipients, amounts);
+    }
+```
+{/* sample: stock-issue-cli */}
+```bash CLI lines wrap expandable highlight={1}
+base-cast send "$TOKEN_ADDRESS" "batchMint(address[],uint256[])" \
+  "[$ALICE,$BOB]" "[600000000,400000000]" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$ALICE" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+See the [B20 token standard](/specifications/b20/launch-a-b20-token) for the complete interface, roles, and policies.
+
+<Check>
+Alice holds 600 EXM and Bob holds 400 EXM after the all-or-nothing batch.
+</Check>
+
+<Warning>
+The entire batch reverts if lengths differ, a recipient fails policy, or total supply would exceed the cap.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Restrict Eligible Holders" icon="user-check" href="/build-on-base/issue-rwa/restrict-eligible-holders">
+    Gate who can hold with policies.
+  </Card>
+  <Card title="Announce a Stock Dividend" icon="bullhorn" href="/build-on-base/issue-rwa/announce-a-distribution">
+    Record an onchain distribution announcement.
+  </Card>
+</CardGroup>

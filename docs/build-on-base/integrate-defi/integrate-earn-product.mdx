@@ -1,0 +1,77 @@
+---
+title: "Integrate an Earn Product"
+description: "Give users a one-deposit USDC earn experience with Morpho vaults on Base."
+keywords: ["integrate earn product Base", "Morpho vault Base", "ERC-4626 yield vault", "USDC yield app"]
+---
+
+import { DeFiDemo } from "/snippets/DeFiDemo.jsx"
+
+Embed a vault-based earn product through third-party protocols on Base. The user deposits once and receives vault shares; the vault abstracts its underlying market allocations while your app shows current redeemable value and risk.
+
+## Demo
+
+<DeFiDemo flow="earn" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Deposit Into a USDC Vault
+
+This example uses `viem@2.55.11` and `@morpho-org/morpho-sdk@5.4.1`.
+
+<Info>
+This snippet is illustrative. It shows the shape of a vault integration on Base, not production-ready code. Follow [Morpho's documentation](https://docs.morpho.org) for current addresses, SDK details, and risk parameters.
+</Info>
+
+Deposit into Steakhouse Prime USDC, a Morpho Vault V2 on Base. Treat the address as pinned configuration and review it whenever you upgrade the integration.
+
+{/* sample: defi-deposit-morpho-vault */}
+```typescript deposit-morpho-vault.ts lines wrap expandable highlight={3}
+import { publicClient, walletClient } from './clients.js';
+import {
+  isRequirementSignature,
+  morphoViemExtension,
+} from '@morpho-org/morpho-sdk';
+import { parseUnits } from 'viem';
+import { base } from 'viem/chains';
+
+const vaultAddress = '0xBEeF0e0834849Acc03F0089F01F4F1EeB06873c9';
+const user = walletClient.account.address;
+const client = publicClient.extend(morphoViemExtension());
+const vault = client.morpho.vaultV2(vaultAddress, base.id);
+const action = await vault.deposit({
+  amount: parseUnits('1000', 6),
+  userAddress: user,
+  vaultData: await vault.getData(),
+});
+
+const signatures = [];
+for (const requirement of await action.getRequirements()) {
+  if (isRequirementSignature(requirement)) {
+    signatures.push(await requirement.sign(walletClient, user));
+  } else {
+    const hash = await walletClient.sendTransaction(requirement);
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+}
+const request = action.buildTx(signatures);
+await publicClient.call({ account: user, ...request });
+const hash = await walletClient.sendTransaction(request);
+await publicClient.waitForTransactionReceipt({ hash });
+```
+
+<Warning>
+Vault yield is variable and not guaranteed. Review the curator, allocation strategy, fees, withdrawal liquidity, and smart-contract risk before listing a vault, and show users the current share-to-asset value rather than a fixed return.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Integrate Lending" icon="landmark" href="/build-on-base/integrate-defi/integrate-lending">
+    Let users supply USDC to a money market.
+  </Card>
+  <Card title="Integrate Borrowing" icon="hand-holding-dollar" href="/build-on-base/integrate-defi/integrate-borrowing">
+    Open a collateralized loan against WETH.
+  </Card>
+</CardGroup>

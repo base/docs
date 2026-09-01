@@ -6,28 +6,28 @@ keywords: ["custom Base MCP plugin", "AI agent plugin Base", "send_calls custom 
 
 A plugin is a markdown spec that teaches your assistant how to call an external API, run a CLI, or call another MCP server, translate the response into a Base MCP action, and execute it through tools like `send_calls`, `swap`, or `sign`. The calldata-based [native plugins](/agents/plugins/native) follow the same shape. This page shows how to write your own `send_calls`-based plugin.
 
-## When you need one
+## When You Need One
 
 Write a plugin when your protocol has an HTTP tx-builder, a CLI/SDK that can produce unsigned transactions, or its own MCP server. CLI/SDK-only plugins require a harness with shell access; hybrid plugins can prefer a CLI in coding harnesses and fall back to an MCP server in chat-only Claude or ChatGPT consumer apps.
 
-## Anatomy of a plugin
+## Anatomy of a Plugin
 
 A `send_calls`-based plugin file contains four sections:
 
 <Steps>
-  <Step title="Onboarding gate">
+  <Step title="Onboarding Gate">
     A `STOP` notice that forces the assistant to complete Base MCP onboarding (`get_wallets`, disclaimer) before doing anything else. The user's wallet address — needed for every prepare call — is only confirmed during detection.
   </Step>
-  <Step title="Read endpoints">
+  <Step title="Read Endpoints">
     Document the GET endpoints or CLI commands that return state — balances, positions, market data — and the units they use.
     <Note>
     POST endpoints are not supported in Claude and ChatGPT consumer apps.
     </Note>
   </Step>
-  <Step title="Prepare endpoints">
+  <Step title="Prepare Endpoints">
     Document the endpoints, CLI commands, or MCP tools that return unsigned calldata. State the exact response shape so the assistant knows which fields map to `to`, `value`, and `data`.
   </Step>
-  <Step title="send_calls mapping">
+  <Step title="send_calls Mapping">
     Show the assistant how to convert the prepare response into the `calls` array passed to `send_calls`.
   </Step>
 </Steps>
@@ -36,9 +36,9 @@ A `send_calls`-based plugin file contains four sections:
 Base MCP's `web_request` tool can make GET and POST requests only to allowlisted partner APIs. Native plugins that rely on HTTP hosts may be allowlisted for the hosted MCP, while CLI-only plugins require shell access unless they document an MCP fallback. Custom plugin hosts usually are not allowlisted, so custom plugins should expose GET endpoints only if they need to remain usable in Claude and ChatGPT consumer apps.
 </Note>
 
-## How it works
+## How It Works
 
-```mermaid
+```mermaid Custom Plugin Flow lines wrap expandable
 sequenceDiagram
     participant User
     participant AI as AI Assistant
@@ -58,15 +58,15 @@ sequenceDiagram
     BA-->>AI: confirmed
 ```
 
-## Build it
+## Build It
 
-### 1. Pick a response shape
+### 1. Pick a Response Shape
 
 Your prepare endpoint should return a single object with the fields `send_calls` needs. Two common shapes:
 
 **Envelope** (Avantis-style):
 
-```json
+```json Envelope Response lines wrap expandable
 {
   "ok": true,
   "data": {
@@ -80,7 +80,7 @@ Your prepare endpoint should return a single object with the fields `send_calls`
 
 **Ordered batch** (Moonwell-style) — for when approval, enter-market, and the action are separate calls:
 
-```json
+```json Ordered Batch Response
 {
   "transactions": [
     { "step": "approve", "to": "0x...", "data": "0x...", "value": "0x0", "chainId": 8453 },
@@ -91,11 +91,11 @@ Your prepare endpoint should return a single object with the fields `send_calls`
 
 Either works. The batch shape is preferable when allowance or registration steps must run before the action — `send_calls` executes them atomically in one approval.
 
-### 2. Write the plugin spec
+### 2. Write the Plugin Spec
 
 Use this template as `plugins/my-protocol.md` in your skill, or as an `.mdx` page if you're publishing docs.
 
-````markdown
+````markdown plugins/my-protocol.md lines wrap expandable
 # My Protocol Plugin
 
 > [!IMPORTANT]
@@ -163,11 +163,11 @@ Pass every `transactions[*]` to `send_calls`:
 ```
 ````
 
-### 3. Wire it into `send_calls`
+### 3. Wire It Into `send_calls`
 
 The contract between your prepare endpoint and Base MCP is exactly this object:
 
-```json
+```json send_calls Payload
 {
   "chain": "base",
   "calls": [
@@ -178,7 +178,7 @@ The contract between your prepare endpoint and Base MCP is exactly this object:
 
 Use Base MCP's chain names (`base`, `base-sepolia`, `ethereum`, `optimism`, `polygon`, `arbitrum`, `bsc`, or `avalanche`) when calling `send_calls`. If a prepare endpoint returns a numeric or hex `chainId`, map it to the corresponding chain name before calling Base MCP. `value` defaults to `0x0` if omitted. The assistant calls `send_calls` once with the full batch — the user approves once, and all calls execute atomically.
 
-## Patterns to copy
+## Patterns to Copy
 
 | Pattern | When to use | Example |
 |---------|-------------|---------|
@@ -192,10 +192,10 @@ Use Base MCP's chain names (`base`, `base-sepolia`, `ethereum`, `optimism`, `pol
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Execute contract calls" icon="code" href="/agents/guides/batch-calls">
+  <Card title="Execute Contract Calls" icon="code" href="/agents/guides/batch-calls">
     Full guide to `send_calls` and batching.
   </Card>
-  <Card title="Native plugins" icon="puzzle-piece" href="/agents/plugins/native">
+  <Card title="Native Plugins" icon="puzzle-piece" href="/agents/plugins/native">
     Reference implementations for ordered-batch, CLI/MCP-prepared, and multi-endpoint patterns.
   </Card>
 </CardGroup>

@@ -1,0 +1,80 @@
+# Language and style conformance for documentation pages.
+#
+# Unlike ia-approval-gates.yml this workflow reads pull request content, so it is
+# deliberately unprivileged: plain `pull_request`, read-only token, no API writes. The
+# job's own check run is what branch protection requires -- the same arrangement as
+# verified-doc-samples.yml.
+#
+# Rules come from docs/content-guidelines.md and the Naming Conventions section of
+# docs/ia-guidelines.md, and are implemented in scripts/lint-mdx.js.
+
+name: Docs style conformance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# No `paths:` filter: a required check skipped by path filtering stays pending forever.
+# The linter itself no-ops cheaply when a pull request touches no documentation pages.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-style-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    name: Docs Style / Conformance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Need the base commit too so the changed-file set can be computed locally.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: "22"
+
+      # The gate engine and the linter both decide whether a pull request can merge, so their
+      # own unit tests run on every pull request. Pure logic, no network.
+      - name: Run tooling unit tests
+        run: npm test
+
+      - name: Collect changed documentation pages
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Three-dot diff against the merge base, so unrelated commits landing on the
+          # base branch are not attributed to this pull request.
+          git diff --name-only --diff-filter=d "$BASE_SHA...$HEAD_SHA" \
+            | { grep -E '^docs/.*\.mdx$' || true; } > changed-docs.txt
+          count=$(wc -l < changed-docs.txt | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Changed documentation pages: $count"
+          cat changed-docs.txt
+
+      - name: Check style conformance
+        env:
+          # docs.json nav titles are checked whenever navigation itself changed.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          args=(--files-from=changed-docs.txt --format=github)
+          if ! git diff --quiet "$BASE_SHA...$HEAD_SHA" -- docs/docs.json; then
+            echo "docs/docs.json changed; including navigation titles."
+            args+=(--check-nav)
+          fi
+          node scripts/lint-mdx.js "${args[@]}"

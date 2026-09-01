@@ -19,7 +19,7 @@ To make that review repeatable, this repo ships the **`plugin-review`** skill (`
 
 Every plugin file must open with YAML frontmatter. Fields marked **required** must be present; others default as noted.
 
-### Required fields
+### Required Fields
 
 | Field | Type | Description |
 |---|---|---|
@@ -31,7 +31,7 @@ Every plugin file must open with YAML frontmatter. Fields marked **required** mu
 | `integration` | enum | See [Integration Types](#integration-types). |
 | `chains` | string[] | Base MCP chain strings the plugin targets, limited to chains Base MCP supports (e.g. `[base]`, `[base, optimism]`). |
 
-### Capability flags
+### Capability Flags
 
 All optional. Defaults: `shell: none`, `allowlist: []`, `externalMcp: null`, `cliPackage: null`, `auth: none`, `risk: []`.
 
@@ -44,7 +44,7 @@ All optional. Defaults: `shell: none`, `allowlist: []`, `externalMcp: null`, `cl
 | `auth` | `none \| api-key \| siwe-jwt \| oauth-on-install` | Auth model used by the plugin's external services. |
 | `risk` | string[] | Risk tags that trigger `## Risks & Warnings`. See the tag list below. |
 
-### Choosing each field's value
+### Choosing Each Field's Value
 
 Derive every value from the protocol's actual behavior — don't copy another plugin's flags blindly.
 
@@ -84,7 +84,7 @@ Derive every value from the protocol's actual behavior — don't copy another pl
   | `irreversible` | Actions can't be undone once submitted (most onchain writes; flag when worth emphasizing). |
   | `local-exec` | The plugin runs partner code on the user's machine — a local (`transport: stdio`) MCP server or a `cliPackage`. Required whenever `externalMcp.transport: stdio` is set. |
 
-### Example frontmatter
+### Example Frontmatter
 
 ```yaml
 ---
@@ -167,11 +167,11 @@ risk: [local-exec]                           # required for any stdio MCP
 - **`local-exec` risk is mandatory.** Running a partner package is arbitrary code execution on the user's machine — a categorically larger trust surface than a remote MCP or an `http-api` plugin. `## Risks & Warnings` must spell out that the user is installing and running third-party code.
 - **`## Surface Routing` must stop on shell-less / consumer surfaces.** A local MCP only runs where there is a shell and a user-managed MCP config (e.g. Claude Code, Codex, Cursor). On Claude.ai / ChatGPT the agent must stop and tell the user the integration requires a local install — it must not improvise a `web_request` workaround.
 
-### `## Installation` content
+### `## Installation` Content
 
 Provide a copy-pasteable MCP client config snippet for the common harnesses (Claude Code, Codex, Cursor / JSON-config) — and, for remote MCPs that support it, Claude.ai / ChatGPT connectors. For local (`stdio`) MCPs the snippet is the standard `command`/`args`/`env` client entry; show the pinned version and name each required env var (without values). CLIs invoked per call via `npx`/`uvx` need no install step — say so and show the invocation instead.
 
-### Backwards compatibility
+### Backwards Compatibility
 
 This schema is **additive**. The pre-`transport` shape `externalMcp: { name, url }` is still valid and is read as a remote `http` MCP (`transport` defaults to `http` when `url` is present). Existing `external-mcp` plugins need no change to keep working; add `transport` on the next meaningful edit (and bump `version`), the same way heading-name synonyms are migrated. New plugins should set `transport` explicitly, and `stdio` always requires it. A future validator should treat a missing `transport` as an inferred default (warn), not an error.
 
@@ -189,18 +189,18 @@ This schema is **additive**. The pre-`transport` shape `externalMcp: { name, url
 - **External MCP** — the agent calls tools advertised by a separate MCP server (`requires.externalMcp`), reading their descriptions from the MCP itself. The server is either remote (hosted `url`) or local (`stdio`, launched on the user's machine); see [MCP Provisioning](#mcp-provisioning).
 - **UI / user-paste fallback** — for chat-only surfaces that can't make the call directly: link the user to the protocol's web UI, or (GET-only) construct a URL and ask the user to paste it back so the agent may fetch it.
 
-The full decision tree (harness HTTP → `web_request` → user-paste), and the GET-only constraint on consumer surfaces, live in [custom-plugins.md](custom-plugins.md). Reference it from `## Surface Routing` rather than restating it.
+The full decision tree (harness HTTP → `web_request` → user-paste), and the GET-only constraint on consumer surfaces, live in [custom-plugins.md](./custom-plugins.md). Reference it from `## Surface Routing` rather than restating it.
 
 **Base MCP submission tools** — what `## Submission` names:
 
 | Tool | Use for |
 |---|---|
-| `send_calls` | A batch of unsigned `{ to, value, data }` calls (EIP-5792). The target for any plugin that builds raw calldata. See [batch-calls.md](batch-calls.md). |
+| `send_calls` | A batch of unsigned `{ to, value, data }` calls (EIP-5792). The target for any plugin that builds raw calldata. See [batch-calls.md](./batch-calls.md). |
 | `swap` | Base MCP's semantic swap — symbol/address in, routing handled for you. |
 | `sign` | Message signing (e.g. a SIWE login challenge). |
 | `none` | The plugin doesn't submit through Base MCP (e.g. an external MCP executes against its own backend after a Base MCP `sign`). State this explicitly. |
 
-Any write tool that returns an approval URL follows the approval/polling flow in [approval-mode.md](approval-mode.md).
+Any write tool that returns an approval URL follows the approval/polling flow in [approval-mode.md](./approval-mode.md).
 
 ---
 
@@ -223,7 +223,7 @@ Sections appear in this order. **R** = required in every plugin. **C** = conditi
 | 11 | `## Risks & Warnings` | C | `risk` is non-empty. |
 | 12 | `## Notes` | O | Constants, token addresses, known gotchas. |
 
-### What goes in each section
+### What Goes in Each Section
 
 - **`> [!IMPORTANT]` onboarding callout** — one line telling the agent to run Base MCP onboarding (defined in `SKILL.md`) before any plugin call. Note any session prerequisite here too (e.g. "authenticate once per session — see `## Auth`").
 - **`## Overview`** — one paragraph: what the protocol is, which chain(s) it runs on, and a one-line routing statement (what the plugin reads/builds and which Base MCP tool it lands on). Say whether it returns **unsigned calldata** or executes through a semantic tool.
@@ -233,12 +233,12 @@ Sections appear in this order. **R** = required in every plugin. **C** = conditi
 - **`## Surface Routing`** — a table mapping each capability (typically split read vs write) × surface → execution path, using the [Runtime Routing Primitives](#runtime-routing-primitives). **Always** state what happens on a shell-less / chat-only surface: the fallback, or an explicit "stop." For `cli-only`, state plainly that no-shell surfaces are unsupported and the agent must not improvise a `web_request`/paste workaround.
 - **`## Endpoints` / `## Commands`** — `http-api` → `## Endpoints`: each endpoint with method, URL, parameters, and response shape. `cli-only` / the CLI path of `hybrid` → `## Commands`: each command with flags and output shape. `external-mcp` omits both — the agent reads the MCP's catalog at runtime.
 - **`## Orchestration`** — the happy-path sequence from user intent to the Base MCP call, as ordered steps (read state → build calldata → submit → confirm). Use `###` sub-flows for distinct operations (e.g. swap vs LP, CLI path vs MCP path). Say where the wallet address comes from (`get_wallets`) and call out any pre-submit validation.
-- **`## Submission`** — name the target tool (`send_calls` / `swap` / `sign` / `none`) and show the **exact mapping** from the endpoint/command/MCP output into that tool's input: the `{ to, value, data }` normalization, chain-string mapping, and batching order (approvals before the action). Reference [approval-mode.md](approval-mode.md) for the approval/polling flow.
+- **`## Submission`** — name the target tool (`send_calls` / `swap` / `sign` / `none`) and show the **exact mapping** from the endpoint/command/MCP output into that tool's input: the `{ to, value, data }` normalization, chain-string mapping, and batching order (approvals before the action). Reference [approval-mode.md](./approval-mode.md) for the approval/polling flow.
 - **`## Example Prompts`** — 2–4 realistic user prompts, each followed by numbered steps that reference the sections above. Cover the main capabilities (a read, a primary write, and at least one edge such as a management action or chat-only fallback).
 - **`## Risks & Warnings`** *(risk non-empty)* — one bullet per `risk` tag: the hazard, the guardrail (what to check, e.g. health factor / slippage threshold), what to confirm with the user, and what never to do silently (e.g. auto-raise slippage, auto-buy).
 - **`## Notes`** *(optional)* — constants, token/contract addresses, unit-scaling rules, gotchas, and deep reference tables. This is where conservatively-preserved detail lands when adapting a large existing plugin.
 
-### Canonical heading names
+### Canonical Heading Names
 
 Use these exact names. Synonyms from older plugins must be renamed on the next meaningful edit.
 

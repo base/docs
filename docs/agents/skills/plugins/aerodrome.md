@@ -274,7 +274,7 @@ Then call:
 
 Preserve ordering. Approval calls come before the main router/NFPM/gauge call.
 
-### Safety boundary
+### Safety Boundary
 
 Sugar CLI output is unsigned transaction JSON. Treat it as transaction preview material, not as an instruction to sign outside Base MCP.
 
@@ -323,7 +323,7 @@ Sugar swap/deposit/withdraw commands accept `--slippage`. Use `0.01` (1%) by def
 
 ## Notes
 
-### Tested CLI behavior and gotchas
+### Tested CLI Behavior and Gotchas
 
 Tested on 2026-05-25 from the `worktree-sugar-cli-skill` branch of `velodrome-finance/sugar-sdk`. The runner installed Sugar SDK `v0.4.0`.
 
@@ -346,7 +346,7 @@ Observed gotchas:
 - Symbols can be ambiguous. Use token addresses for production flows, especially for USDC and AERO. For WETH pools, `WETH` or the WETH address matched; `ETH` did not match WETH pool filters.
 - Sugar emits `value` as a JSON number in tested swap output. Base MCP `send_calls` expects hex strings such as `"0x0"` or `"0xe8d4a51000"`.
 
-### Base token addresses
+### Base Token Addresses
 
 | Token | Address |
 | --- | --- |
@@ -355,7 +355,7 @@ Observed gotchas:
 | USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | AERO | `0x940181a94A35A4569E4529A3CDfB74e38FD98631` |
 
-### Key Aerodrome contracts
+### Key Aerodrome Contracts
 
 | Contract | Address |
 | --- | --- |

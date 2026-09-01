@@ -1,0 +1,95 @@
+---
+title: "Capture an Authorization"
+keywords: ["capture EIP-3009 authorization", "receiveWithAuthorization", "deferred USDC settlement", "USDC capture Base"]
+description: "Settle a stored USDC authorization from the merchant account with receiveWithAuthorization."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Capture an exact USDC authorization when you are ready to fulfill the order. Use `receiveWithAuthorization` so the token requires the transaction sender to be the authorized recipient.
+
+## Demo
+
+<PaymentsDemo flow="capture" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Check and Capture
+
+{/* sample: usdc-capture-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={4,9,25}
+export async function captureAuthorization(stored: StoredAuthorization) {
+  const { authorization, signature } = stored;
+  if (authorization.to.toLowerCase() !== account.address.toLowerCase()) {
+    throw new Error("The connected merchant is not the authorized recipient");
+  }
+  const [used, balance] = await Promise.all([
+    publicClient.readContract({
+      address: USDC,
+      abi: usdcAbi,
+      functionName: "authorizationState",
+      args: [authorization.from, authorization.nonce],
+    }),
+    publicClient.readContract({
+      address: USDC,
+      abi: usdcAbi,
+      functionName: "balanceOf",
+      args: [authorization.from],
+    }),
+  ]);
+  if (used) throw new Error("Authorization was already used or canceled");
+  if (balance < authorization.value) throw new Error("Payer balance is too low");
+
+  const { v, r, s } = parseSignature(signature);
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: USDC,
+    abi: usdcAbi,
+    functionName: "receiveWithAuthorization",
+    args: [
+      authorization.from,
+      authorization.to,
+      authorization.value,
+      authorization.validAfter,
+      authorization.validBefore,
+      authorization.nonce,
+      Number(v),
+      r,
+      s,
+    ],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
+```
+
+`receiveWithAuthorization` prevents an unrelated account from front-running capture because `msg.sender` must equal `to`. Capture immediately for an auto-settle checkout, or retain the signature until inventory, shipping, or service delivery is ready.
+
+<Check>
+The receipt succeeds, USDC emits `Transfer(payer, merchant, value)`, and `authorizationState(payer, nonce)` becomes `true`.
+</Check>
+
+<Warning>
+The balance read and transaction simulation reduce avoidable failures, but neither reserves funds. Treat only the successful receipt as settlement and make fulfillment idempotent.
+</Warning>
+
+## After Capture
+
+Verify the token, payer, recipient, amount, confirmation depth, and replay state before fulfillment.
+
+<Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+  Validate the canonical `Transfer` log and claim the order once.
+</Card>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
+    Collect and store the buyer's EIP-3009 signature.
+  </Card>
+  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
+    Close an authorization that you will not capture.
+  </Card>
+</CardGroup>

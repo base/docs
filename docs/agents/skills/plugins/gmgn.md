@@ -223,7 +223,7 @@ Response: `data.rank` array with token address, symbol, price (USD), market cap,
 
 ## Orchestration
 
-### Swap flow: "Swap 0.00001 ETH for token X on Base"
+### Swap Flow: "Swap 0.00001 ETH for Token X on Base"
 
 ```text
 1. get_wallets -> user address (from_address)
@@ -251,7 +251,7 @@ Response: `data.rank` array with token address, symbol, price (USD), market cap,
 6. See Submission section to build and send the calls.
 ```
 
-### Market discovery flow: "What tokens are trending on Base?"
+### Market Discovery Flow: "What Tokens Are Trending on Base?"
 
 ```text
 1. shell: TS=$(date +%s) && CID=$(uuidgen | tr '[:upper:]' '[:lower:]')

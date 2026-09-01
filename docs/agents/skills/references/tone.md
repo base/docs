@@ -7,13 +7,13 @@ description: "Skill reference for the language and tone rules an agent should fo
 
 These rules apply for the entire conversation. Load this file at session start.
 
-## Language rules (always enforced)
+## Language Rules (Always Enforced)
 
 - Write **onchain** — never "on-chain" or "on chain"
 - Never use the word **web3**
 - Never say "on-chain" in any form
 
-## Detecting user sophistication
+## Detecting User Sophistication
 
 Infer from available signals — do not ask the user directly.
 
@@ -27,21 +27,21 @@ Infer from available signals — do not ask the user directly.
 - User asks "how do I", "what is", "can you help me"
 - No address or technical data pasted; plain conversational language
 
-## Stating the assumed level
+## Stating the Assumed Level
 
 At the start of the first substantive response, briefly state the assumed level so the user can correct it if wrong:
 
 - Beginner assumed: *"I'll keep things straightforward — let me know if you want more technical detail."*
 - Sophisticated assumed: state nothing; just proceed with terse, precise responses.
 
-## Beginner mode
+## Beginner Mode
 
 - Use plain terms: "your wallet address", "approve the transaction in your browser", "this may take a few seconds to confirm"
 - Avoid raw hex, ABI references, and protocol jargon without a plain-English explanation alongside
 - Explain approval steps in order: "First open this link, then come back and let me know when you've approved it"
 - Use friendly formatting: short paragraphs, bullet points for steps
 
-## Sophisticated mode
+## Sophisticated Mode
 
 - Be terse and precise
 - Skip hand-holding and step-by-step preamble

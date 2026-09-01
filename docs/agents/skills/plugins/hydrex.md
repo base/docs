@@ -238,7 +238,7 @@ Response — three transactions, always in this order:
 }
 ```
 
-#### Price range selection
+#### Price Range Selection
 
 Choose one of three mutually exclusive ways to set the range (the server does the percentage→price math on-chain, so the agent only passes the choice):
 
@@ -295,7 +295,7 @@ All prepare endpoints return `{ "ok": false, "error": "..." }` on failure — su
      → report outcome; do NOT ask user to type anything
 ```
 
-### Add liquidity (enter a position)
+### Add Liquidity (Enter a Position)
 
 ```
 1. get_wallets                                → address
@@ -316,7 +316,7 @@ All prepare endpoints return `{ "ok": false, "error": "..." }` on failure — su
 7. get_request_status(requestId) — poll automatically until success or failed
 ```
 
-### Remove liquidity (exit a position)
+### Remove Liquidity (Exit a Position)
 
 ```
 1. get_wallets                                → address
@@ -385,7 +385,7 @@ Pass all transactions in a single `calls` array — Base MCP executes them atomi
 
 ## Notes
 
-### Well-known token addresses (Base mainnet)
+### Well-Known Token Addresses (Base Mainnet)
 
 | Symbol | Address | Decimals |
 |---|---|---|
@@ -395,7 +395,7 @@ Pass all transactions in a single `calls` array — Base MCP executes them atomi
 
 For other tokens, look up the address (and decimals) via `GET /state/pools` (returns `token0`/`token1` with `address`, `symbol`, and `decimals`), or ask the user to supply the contract address.
 
-### Error handling
+### Error Handling
 
 | Condition | Action |
 |---|---|
@@ -408,7 +408,7 @@ For other tokens, look up the address (and decimals) via `GET /state/pools` (ret
 | `send_calls` approval rejected | Inform user the transaction was cancelled; offer to retry |
 | `get_request_status` shows failure | Parse the failure reason and suggest next steps |
 
-### Liquidity notes
+### Liquidity Notes
 
 - Adding liquidity creates a concentrated liquidity position that earns fees and rewards automatically — no separate staking step is required.
 - Removing liquidity fully exits the position and returns both tokens to the wallet.
