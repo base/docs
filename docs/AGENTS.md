@@ -12,7 +12,7 @@ description: Look up Base documentation with a compact sidebar-aligned index bui
 - [Build on Base](https://docs.base.org/build-on-base/overview) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Specifications](https://docs.base.org/specifications/overview) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
 - [SDKs & APIs](https://docs.base.org/sdks/overview) — SDKs and APIs for accounts, identity verification, attribution, AI assistants, and direct Base chain access.
-- [Upgrades](https://docs.base.org/upgrades/overview) — Base evolves through named hardforks. Each hardfork introduces protocol changes, new features, or parameter updates that take effect at a specific activation block. This tab tracks what changed, when, and how to migrate.
+- [Upgrades](https://docs.base.org/upgrades/overview) — Track Base network upgrades, activation dates, and the protocol changes included in each release.
 
 ## Tools Available for AI Assistants
 
@@ -92,7 +92,7 @@ npx skills add base/base-skills
 |SDKs & APIs/Base MCP/Skill & Plugins:agents/plugins/index,agents/plugins/custom-plugins
 |SDKs & APIs/Base MCP/Skill & Plugins/Native Plugins:agents/plugins/native/index,agents/plugins/native/aerodrome,agents/plugins/native/avantis,agents/plugins/native/balancer,agents/plugins/native/bankr,agents/plugins/native/bitrefill,agents/plugins/native/brickken,agents/plugins/native/clawnch,agents/plugins/native/flaunch,agents/plugins/native/gmgn,agents/plugins/native/hydrex,agents/plugins/native/kyberswap,agents/plugins/native/moonwell,agents/plugins/native/morpho,agents/plugins/native/o1-exchange,agents/plugins/native/opensea,agents/plugins/native/printr,agents/plugins/native/uniswap,agents/plugins/native/venice,agents/plugins/native/virtuals,agents/plugins/native/yo
 |Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
-|Upgrades/Denim:upgrades/denim/200ms-blocks
+|Upgrades/Denim:upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks
 |Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/eip-8130,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy
 |Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
 |Upgrades/Azul:upgrades/azul/overview,upgrades/azul/node-upgrade,upgrades/azul/exec-engine,upgrades/azul/proofs
