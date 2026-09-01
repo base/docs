@@ -9,11 +9,12 @@ description: Look up Base documentation with a compact directory-grouped index b
 > High-signal index of section guides. Jump to a section's llms.txt for concise intros, curated links, and fast navigation.
 
 - [Agents](./agents/llms.txt) — Give your AI assistant a wallet. Base MCP connects any AI to your Base Account. Check balances, send funds, swap tokens, sign messages, and pay with x402.
-- [Base Chain](./base-chain/llms.txt) — Base protocol specifications, core primitives, and network systems.
+- [Base Chain](./base-chain/llms.txt) — Network details and wallet setup for Base Mainnet, Base Testnet (Sepolia), and Base Vibenet.
 - [Build On Base](./build-on-base/llms.txt) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
 - [Fonts](./fonts/llms.txt)
 - [Get Started](./get-started/llms.txt)
 - [Sdks](./sdks/llms.txt) — SDKs and APIs for accounts, identity verification, attribution, AI assistants, and direct Base chain access.
+- [Specifications](./specifications/llms.txt) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
 - [Static](./static/llms.txt)
 
 ## Tools Available for AI Assistants
@@ -46,34 +47,14 @@ npx skills add base/base-skills
 |agents/skills:SKILL
 |agents/skills/plugins:aerodrome,avantis,balancer,bankr,bitrefill,brickken,clawnch,flaunch,gmgn,hydrex,kyberswap,moonwell,morpho,o1-exchange,opensea,printr,uniswap,venice,virtuals,yo
 |agents/skills/references:approval-mode,batch-calls,custom-plugins,install,plugin-spec,tone
-|base-chain:overview
 |base-chain/api-reference:rpc-overview
 |base-chain/api-reference/debug-api:debug_traceBlockByHash,debug_traceBlockByNumber,debug_traceTransaction
 |base-chain/api-reference/ethereum-json-rpc-api:eth_blockNumber,eth_call,eth_chainId,eth_estimateGas,eth_feeHistory,eth_gasPrice,eth_getBalance,eth_getBlockByHash,eth_getBlockByNumber,eth_getBlockReceipts,eth_getBlockTransactionCountByHash,eth_getBlockTransactionCountByNumber,eth_getCode,eth_getLogs,eth_getStorageAt,eth_getTransactionByBlockHashAndIndex,eth_getTransactionByBlockNumberAndIndex,eth_getTransactionByHash,eth_getTransactionCount,eth_getTransactionReceipt,eth_maxPriorityFeePerGas,eth_sendRawTransaction,eth_subscribe,eth_syncing,eth_unsubscribe,net_version,web3_clientVersion
 |base-chain/api-reference/flashblocks-api:base_transactionStatus,eth_simulateV1,flashblocks-api-overview,newFlashblockTransactions,newFlashblocks,pendingLogs
-|base-chain/flashblocks:faq
-|base-chain/network-information:b20-token-standard,base-contracts,base-solana-bridge,bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets,network-fees,smart-contracts,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions
-|base-chain/node-operators:performance-tuning,run-a-base-node,snapshots,troubleshooting
+|base-chain/network-information:bridging-and-withdrawals,configuration-changelog,ecosystem-bridges,network-faucets
 |base-chain/quickstart:connecting-to-base
-|base-chain/security:avoid-malicious-flags,report-vulnerability,security-council
-|base-chain/specs:native-account-abstraction,overview
-|base-chain/specs/protocol:batcher,overview
-|base-chain/specs/protocol/bridging:bridges,deposits,messengers,withdrawals
-|base-chain/specs/protocol/consensus:derivation,index,p2p,rpc
-|base-chain/specs/protocol/execution:index
-|base-chain/specs/protocol/execution/evm:precompiles,predeploys,preinstalls
-|base-chain/specs/protocol/proofs:challenger,contracts,index,proposer,registrar,tee-prover,zk-prover
-|base-chain/specs/reference:configurability,glossary
-|base-chain/specs/reference/b20:changelog,constants-and-addresses,errors-and-events,index,invariants-and-tests,tokenized-stocks-on-base
+|base-chain/specs/protocol:overview
 |base-chain/specs/reference/b20/changelog:02-cobalt-b20-seize,02-cobalt-b20asset-multiplier,02-cobalt-policyregistry-composite-policy
-|base-chain/specs/reference/b20/interfaces:IActivationRegistry,IB20,IB20Asset,IB20Factory,IB20Stablecoin,IPolicyRegistry
-|base-chain/specs/reference/b20/interfaces/IActivationRegistry:activate,admin,checkActivated,deactivate,isActivated
-|base-chain/specs/reference/b20/interfaces/IB20:BURN_BLOCKED_ROLE,BURN_ROLE,DEFAULT_ADMIN_ROLE,DOMAIN_SEPARATOR,METADATA_ROLE,MINT_RECEIVER_POLICY,MINT_ROLE,PAUSE_ROLE,SEIZE_HOLDER_POLICY,SEIZE_RECEIVER_POLICY,SEIZE_ROLE,TRANSFER_EXECUTOR_POLICY,TRANSFER_RECEIVER_POLICY,TRANSFER_SENDER_POLICY,UNPAUSE_ROLE,allowance,approve,balanceOf,burn,burnBlocked,burnWithMemo,contractURI,decimals,eip712Domain,getRoleAdmin,grantRole,hasRole,isPaused,mint,mintWithMemo,name,nonces,pause,pausedFeatures,permit,policyId,renounceLastAdmin,renounceRole,revokeRole,seizeWithMemo,setRoleAdmin,supplyCap,symbol,totalSupply,transfer,transferFrom,transferFromWithMemo,transferWithMemo,unpause,updateContractURI,updateName,updatePolicy,updateSupplyCap,updateSymbol
-|base-chain/specs/reference/b20/interfaces/IB20Asset:MAX_UI_MULTIPLIER,OPERATOR_ROLE,WAD_PRECISION,announce,balanceOfUI,batchMint,cancelUIMultiplierUpdate,effectiveAt,extraMetadata,fromUIAmount,isAnnouncementIdUsed,multiplier,newUIMultiplier,scaledBalanceOf,toRawBalance,toScaledBalance,toUIAmount,totalSupplyUI,uiMultiplier,updateExtraMetadata,updateMultiplier,updateUIMultiplier
-|base-chain/specs/reference/b20/interfaces/IB20Factory:createB20,getB20Address,isB20,isB20Initialized
-|base-chain/specs/reference/b20/interfaces/IB20Stablecoin:currency
-|base-chain/specs/reference/b20/interfaces/IPolicyRegistry:MAX_COMPOSITE_CHILD_POLICIES,MIN_COMPOSITE_CHILD_POLICIES,compositePolicyChildIds,createCompositePolicy,createPolicy,createPolicyWithAccounts,finalizeUpdateAdmin,isAuthorized,pendingPolicyAdmin,policyAdmin,policyExists,renounceAdmin,stageUpdateAdmin,updateAllowlist,updateBlocklist,updateComposite
-|base-chain/specs/reference/builder-codes:agent-developers,app-developers,overview,wallet-developers
 |base-chain/specs/upgrades:overview
 |base-chain/specs/upgrades/azul:exec-engine,node-upgrade,overview,proofs
 |base-chain/specs/upgrades/beryl:b20,overview,reducing-canonical-withdrawal-delay,reth-v2
@@ -93,7 +74,7 @@ npx skills add base/base-skills
 |build-on-base/issue-rwa:announce-a-distribution,apply-a-multiplier,cancel-blocked-units,create-an-asset-token,issue-units,pause-transfers,restrict-eligible-holders
 |build-on-base/issue-stablecoins:block-an-account,burn-supply,issue-your-stablecoin,mint-supply,pause-activity,reconcile-with-memos,recover-funds,restrict-who-can-hold
 |get-started:accept-payments,base-batches,base-chain,base-ecosystem-fund,base-services-hub,base,connect-to-base,docs-llms,docs-mcp,get-funds,integrate-defi,issue-rwa,issue-stablecoins,make-a-transaction,resources-for-ai-agents,sdks-and-apis
-|root:changes,cookie-policy,ia-guidelines,privacy-policy,terms-of-service
+|root:changes,content-guidelines,contribution-guidelines,cookie-policy,ia-guidelines,mintlify-reference,privacy-policy,terms-of-service
 |sdks:base-anvil,overview
 |sdks/base-account:overview
 |sdks/base-account/basenames:basename-transfer,basenames-faq
@@ -117,3 +98,22 @@ npx skills add base/base-skills
 |sdks/base-account/reference/spend-permission-utilities:fetchPermission,fetchPermissions,getPermissionStatus,prepareRevokeCallData,prepareSpendCallData,requestRevoke,requestSpendPermission
 |sdks/base-account/reference/ui-elements:base-pay-button,brand-guidelines,sign-in-with-base-button
 |sdks/base-verify:overview,verify-social-accounts,verify-users-onchain
+|specifications:flashblocks,native-account-abstraction,overview
+|specifications/b20:changelog,launch-a-b20-token,specification-overview,tokenized-stocks-on-base
+|specifications/b20/reference:constants-addresses,errors-events,invariants-tests
+|specifications/b20/reference/interfaces/i-activation-registry:activate,admin,check-activated,deactivate,index,is-activated
+|specifications/b20/reference/interfaces/i-policy-registry:composite-policy-child-ids,create-composite-policy,create-policy-with-accounts,create-policy,finalize-update-admin,index,is-authorized,max-composite-child-policies,min-composite-child-policies,pending-policy-admin,policy-admin,policy-exists,renounce-admin,stage-update-admin,update-allowlist,update-blocklist,update-composite
+|specifications/b20/reference/interfaces/ib20:allowance,approve,balance-of,burn-blocked-role,burn-blocked,burn-role,burn-with-memo,burn,contract-uri,decimals,default-admin-role,domain-separator,eip712-domain,get-role-admin,grant-role,has-role,index,is-paused,metadata-role,mint-receiver-policy,mint-role,mint-with-memo,mint,name,nonces,pause-role,pause,paused-features,permit,policy-id,renounce-last-admin,renounce-role,revoke-role,seize-holder-policy,seize-receiver-policy,seize-role,seize-with-memo,set-role-admin,supply-cap,symbol,total-supply,transfer-executor-policy,transfer-from-with-memo,transfer-from,transfer-receiver-policy,transfer-sender-policy,transfer-with-memo,transfer,unpause-role,unpause,update-contract-uri,update-name,update-policy,update-supply-cap,update-symbol
+|specifications/b20/reference/interfaces/ib20-asset:announce,balance-of-ui,batch-mint,cancel-ui-multiplier-update,effective-at,extra-metadata,from-ui-amount,index,is-announcement-id-used,max-ui-multiplier,multiplier,new-ui-multiplier,operator-role,scaled-balance-of,to-raw-balance,to-scaled-balance,to-ui-amount,total-supply-ui,ui-multiplier,update-extra-metadata,update-multiplier,update-ui-multiplier,wad-precision
+|specifications/b20/reference/interfaces/ib20-factory:create-b20,get-b20-address,index,is-b20-initialized,is-b20
+|specifications/b20/reference/interfaces/ib20-stablecoin:currency,index
+|specifications/base-protocol:batcher,design-goals,overview
+|specifications/base-protocol/bridging:base-solana-bridge,cross-domain-messengers,deposits,standard-bridges,withdrawals
+|specifications/base-protocol/consensus:derivation,p2p,rpc,specification
+|specifications/base-protocol/execution:l2-execution-engine,precompiles,predeploys,preinstalls
+|specifications/base-protocol/proofs:challenger,overview,proof-contracts,proposer,registrar,tee-prover,zk-prover
+|specifications/builder-codes:for-agent-developers,for-app-developers,for-wallet-developers,overview
+|specifications/node-operators:performance-tuning,run-a-node,snapshots,troubleshooting
+|specifications/reference:base-contracts,configuration,glossary,smart-contracts
+|specifications/security:avoid-malicious-flags,report-a-vulnerability,security-council-for-base
+|specifications/transactions:network-fees,throughput-and-limits,transaction-finality,transaction-ordering,troubleshooting-transactions

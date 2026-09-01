@@ -1,0 +1,60 @@
+---
+title: "IB20Asset Reference"
+description: "Generated B20 reference for IB20Asset functions, events, and errors."
+---
+
+
+## Functions
+
+| Function | Selector | Summary |
+|---|---|---|
+| [`OPERATOR_ROLE`](/specifications/b20/reference/interfaces/ib20-asset/operator-role) | `0xf5b541a6` | Required to call `announce`, `updateUIMultiplier`, `cancelUIMultiplierUpdate`, and |
+| [`WAD_PRECISION`](/specifications/b20/reference/interfaces/ib20-asset/wad-precision) | `0x664808a8` | Fixed-point precision used to scale `multiplier`. Equal to `1e18`. |
+| [`MAX_UI_MULTIPLIER`](/specifications/b20/reference/interfaces/ib20-asset/max-ui-multiplier) | `0x785c0cf0` | Maximum multiplier accepted by the setter functions. |
+| [`announce`](/specifications/b20/reference/interfaces/ib20-asset/announce) | `0x595135dd` | Posts a holder-impacting announcement and atomically dispatches each entry in |
+| [`isAnnouncementIdUsed`](/specifications/b20/reference/interfaces/ib20-asset/is-announcement-id-used) | `0xc0da474e` | Whether `id` has previously been consumed by `announce`. |
+| [`multiplier`](/specifications/b20/reference/interfaces/ib20-asset/multiplier) | `0x1b3ed722` | The current multiplier, scaled to `WAD_PRECISION`. Holder balances are stored |
+| [`toScaledBalance`](/specifications/b20/reference/interfaces/ib20-asset/to-scaled-balance) | `0x04f04c99` | Converts a raw balance to its scaled view: `rawBalance * multiplier / WAD_PRECISION`. |
+| [`toRawBalance`](/specifications/b20/reference/interfaces/ib20-asset/to-raw-balance) | `0x0ca06c44` | Converts a scaled balance back to its raw representation: |
+| [`scaledBalanceOf`](/specifications/b20/reference/interfaces/ib20-asset/scaled-balance-of) | `0x1da24f3e` | Convenience for `toUIAmount(balanceOf(account))`. |
+| [`updateUIMultiplier`](/specifications/b20/reference/interfaces/ib20-asset/update-ui-multiplier) | `0x628e600f` | Schedules a UI-multiplier update to take effect at `effectiveAt`. |
+| [`cancelUIMultiplierUpdate`](/specifications/b20/reference/interfaces/ib20-asset/cancel-ui-multiplier-update) | `0x2c97a0f0` | Cancels the single live pending update, restoring the no-pending state. |
+| [`updateMultiplier`](/specifications/b20/reference/interfaces/ib20-asset/update-multiplier) | `0x5ffe6146` | Instant failsafe / emergency override — sets the current multiplier immediately and |
+| [`batchMint`](/specifications/b20/reference/interfaces/ib20-asset/batch-mint) | `0x68573107` | Mints `amounts[i]` to `recipients[i]` in one call. All-or-nothing: any element |
+| [`extraMetadata`](/specifications/b20/reference/interfaces/ib20-asset/extra-metadata) | `0x4ddf9da0` | The value of the named metadata entry, or the empty string if not set. A |
+| [`updateExtraMetadata`](/specifications/b20/reference/interfaces/ib20-asset/update-extra-metadata) | `0xb2851ef5` | Sets, updates, or removes an extra-metadata entry. An empty `value` removes the |
+| [`uiMultiplier`](/specifications/b20/reference/interfaces/ib20-asset/ui-multiplier) | `0xa60bf13d` | Returns the current ERC-8056 UI multiplier. |
+| [`newUIMultiplier`](/specifications/b20/reference/interfaces/ib20-asset/new-ui-multiplier) | `0xdc767007` | Returns the pending UI multiplier. |
+| [`effectiveAt`](/specifications/b20/reference/interfaces/ib20-asset/effective-at) | `0x97a4064f` | Returns the effective-at timestamp for the pending multiplier. |
+| [`balanceOfUI`](/specifications/b20/reference/interfaces/ib20-asset/balance-of-ui) | `0x437a9958` | Returns an account's UI-adjusted balance. |
+| [`totalSupplyUI`](/specifications/b20/reference/interfaces/ib20-asset/total-supply-ui) | `0x9bea6429` | Returns the UI-adjusted total supply. |
+| [`toUIAmount`](/specifications/b20/reference/interfaces/ib20-asset/to-ui-amount) | `0x3248d4ff` | Converts a raw amount to its UI representation. |
+| [`fromUIAmount`](/specifications/b20/reference/interfaces/ib20-asset/from-ui-amount) | `0x65cd9b3c` | Converts a UI amount to its raw representation. |
+
+## Events
+
+| Event | Topic0 | Summary |
+|---|---|---|
+| `UIMultiplierUpdated` | `0x2205df4534432b2f60654a3fdb48737ffdaf3e9edb1a498bd985bc026b15b055` | Emitted when the UI multiplier is updated. |
+| `MultiplierUpdated` | `0x4dbe4840d7465bd162f67814cea0b519567a2e0e578bcde61e7f4ced361e5a3d` | Deprecated multiplier-change event emitted by `updateMultiplier`. |
+| `UIMultiplierUpdateCancelled` | `0x883856335ba5f60c18b9817c4505d3c7d3f6223dcf39516b30c508c46a5e1cad` | A scheduled multiplier update was cancelled. |
+| `ExtraMetadataUpdated` | `0xd7bb345be29e78d635203d40fe0567e7ef19d5cd5cc5fcd25f768b8063e82aa1` | Emitted by `updateExtraMetadata`. An empty `value` indicates removal. |
+| `Announcement` | `0xccebf8218a62875909564adef86a6f4df81503cb617221e793357d62f8e813f7` | Emitted by `announce` to open an announcement bracket. |
+| `EndAnnouncement` | `0x96d64dafe2c790596430196b982ad1da3221cb3b0f4e6e2df77f2e4f71a90037` | Emitted by `announce` to close the bracket opened by the paired `Announcement` with the same `id`. |
+
+## Errors
+
+| Error | Selector | Summary |
+|---|---|---|
+| `AnnouncementIdAlreadyUsed` | `0xd10b3c9e` | `announce` was called with an `id` that has already been consumed. |
+| `InvalidMetadataKey` | `0x86ea3abb` | `updateExtraMetadata` was called with an empty `key`. |
+| `InvalidMultiplier` | `0x6f12f3dc` | A multiplier setter (`updateUIMultiplier` or `updateMultiplier`) was called with a |
+| `EffectiveAtInPast` | `0x14119cf6` | `updateUIMultiplier` was called with an `effectiveAt` that is not in the future |
+| `EffectiveAtTooFar` | `0x1ce214fa` | `updateUIMultiplier` was called with an `effectiveAt` above `type(uint64).max`, the |
+| `UIMultiplierUpdateExists` | `0x4481a68e` | `updateUIMultiplier` was called while a live pending update already exists |
+| `UIMultiplierUpdateDoesNotExist` | `0xa7d6a5ca` | `cancelUIMultiplierUpdate` was called when there is no live pending update |
+| `LengthMismatch` | `0xab8b67c6` | A batched function was called with parallel arrays of differing lengths. |
+| `EmptyBatch` | `0xc2e5347d` | A batched function was called with empty arrays. |
+| `AnnouncementInProgress` | `0x5c5f0829` | An inner call dispatched by `announce` tried to re-invoke `announce`. |
+| `InternalCallMalformed` | `0x4e2f143e` | An inner call dispatched by `announce` was shorter than four bytes. |
+| `InternalCallFailed` | `0xb288a127` | An inner call dispatched by `announce` reverted with an ordinary revert; its reason is |
