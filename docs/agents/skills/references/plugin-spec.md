@@ -5,7 +5,7 @@ description: "Authoring spec for native Base MCP plugins — frontmatter schema,
 
 # Base MCP Plugin Specification
 
-This file is the source of truth for authoring native Base MCP plugins. It applies to both internally maintained plugins and partner-authored plugins submitted via PR.
+This file is the source of truth for authoring native Base MCP plugins. It applies to both internally maintained plugins and third-party-authored plugins submitted via PR.
 
 It is written to be **self-contained**: if you are an agent and someone hands you only this file plus a protocol's docs (or an existing, non-conforming plugin file), this spec alone should tell you how to produce — or fix — a conforming plugin. Work top to bottom: decide the frontmatter, then write the body sections in canonical order. To bring an existing file into line, jump to [How to Adapt an Existing Plugin](#how-to-adapt-an-existing-plugin).
 
@@ -66,7 +66,7 @@ Derive every value from the protocol's actual behavior — don't copy another pl
   - `none` — the plugin never needs a shell (pure HTTP API or external MCP).
 - **`requires.allowlist`** — every external host the plugin fetches over HTTP. These must be on the Base MCP `web_request` allowlist for chat-only surfaces to reach them. Leave `[]` for `cli-only` and `external-mcp` plugins that make no direct HTTP calls.
 - **`requires.externalMcp`** — set when the plugin depends on a separate MCP server; otherwise `null`. Pick the `transport` first, then fill the matching fields (full schema and guardrails in [MCP Provisioning](#mcp-provisioning)):
-  - **Remote MCP** (`transport: http` or `sse`) — a hosted server the agent connects to over the network. Provide `url` (e.g. `https://mcp.<protocol>.example/mcp`). This is the lower-trust case: the server runs on the partner's infra, not the user's machine. `transport` is optional here and **defaults to `http` when `url` is present**, so the legacy `{ name, url }` shape remains valid; set `transport: sse` explicitly when needed.
+  - **Remote MCP** (`transport: http` or `sse`) — a hosted server the agent connects to over the network. Provide `url` (e.g. `https://mcp.<protocol>.example/mcp`). This is the lower-trust case: the server runs on the third party's infra, not the user's machine. `transport` is optional here and **defaults to `http` when `url` is present**, so the legacy `{ name, url }` shape remains valid; set `transport: sse` explicitly when needed.
   - **Local MCP** (`transport: stdio`) — a server **launched on the user's machine** (typically via `npx`/`uvx`). Provide `command`, `args` (with a **pinned** version, never `@latest`), and `env` (required env-var **names only**, never values). A local MCP is **arbitrary code execution on the user's machine**, so it also requires the `local-exec` risk tag and a `## Surface Routing` stop on shell-less surfaces.
 - **`requires.cliPackage`** — the exact invocation string for a CLI the agent **shells out to per call** (e.g. `npx @morpho-org/cli@latest`, or a full `uvx --from <spec> <cmd>` command); otherwise `null`. If the package is an **MCP server** (registered once and then queried as tools, not invoked per call), leave `cliPackage: null` and use `requires.externalMcp` with `transport: stdio` instead.
 - **`auth`**:
@@ -82,7 +82,7 @@ Derive every value from the protocol's actual behavior — don't copy another pl
   | `low-liquidity` | Thin markets — price impact, failed fills, rug risk (e.g. fresh token launches). |
   | `pii` | The plugin handles personal/sensitive data (emails, card numbers, OTPs, 3DS codes). |
   | `irreversible` | Actions can't be undone once submitted (most onchain writes; flag when worth emphasizing). |
-  | `local-exec` | The plugin runs partner code on the user's machine — a local (`transport: stdio`) MCP server or a `cliPackage`. Required whenever `externalMcp.transport: stdio` is set. |
+  | `local-exec` | The plugin runs third-party code on the user's machine — a local (`transport: stdio`) MCP server or a `cliPackage`. Required whenever `externalMcp.transport: stdio` is set. |
 
 ### Example Frontmatter
 
@@ -129,7 +129,7 @@ The **Examples** column is illustrative and maintainer-managed — don't add you
 
 ### Remote MCP (`transport: http | sse`)
 
-A hosted server the agent connects to over the network. The partner runs it on their own infrastructure.
+A hosted server the agent connects to over the network. The third party runs it on their own infrastructure.
 
 ```yaml
 requires:
@@ -162,9 +162,9 @@ risk: [local-exec]                           # required for any stdio MCP
 ```
 
 - `command` + `args` are required; `url` is omitted.
-- **Pin the version.** A floating `@latest` lets the partner ship new code to every user with no review — pin an exact version and bump it in a tracked PR (same discipline as `version`).
+- **Pin the version.** A floating `@latest` lets the third party ship new code to every user with no review — pin an exact version and bump it in a tracked PR (same discipline as `version`).
 - **`env` lists names only.** Never put secret values in the plugin file; the user provisions them. Document what each is and how to obtain it in `## Auth`.
-- **`local-exec` risk is mandatory.** Running a partner package is arbitrary code execution on the user's machine — a categorically larger trust surface than a remote MCP or an `http-api` plugin. `## Risks & Warnings` must spell out that the user is installing and running third-party code.
+- **`local-exec` risk is mandatory.** Running a third-party package is arbitrary code execution on the user's machine — a categorically larger trust surface than a remote MCP or an `http-api` plugin. `## Risks & Warnings` must spell out that the user is installing and running third-party code.
 - **`## Surface Routing` must stop on shell-less / consumer surfaces.** A local MCP only runs where there is a shell and a user-managed MCP config (e.g. Claude Code, Codex, Cursor). On Claude.ai / ChatGPT the agent must stop and tell the user the integration requires a local install — it must not improvise a `web_request` workaround.
 
 ### `## Installation` Content
@@ -258,7 +258,7 @@ Use these exact names. Synonyms from older plugins must be renamed on the next m
 
 ## How to Author a New Plugin
 
-Follow these steps to write a new plugin file (`skills/base-mcp/plugins/<slug>.md`). The goal is a file an agent can route from at runtime and a partner can reproduce mechanically.
+Follow these steps to write a new plugin file (`skills/base-mcp/plugins/<slug>.md`). The goal is a file an agent can route from at runtime and a third party can reproduce mechanically.
 
 1. **Classify the integration.** Pick the single most specific `integration` value using the ordered questions in [Choosing each field's value](#choosing-each-fields-value). This choice drives which body sections are required (see the [Integration Types](#integration-types) table).
 2. **Fill the frontmatter** using the schema and the per-field guidance above. Every required field must be present; capability flags default as noted. Be honest about `risk` — it's what triggers `## Risks & Warnings` and shapes the agent's caution.

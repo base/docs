@@ -22,7 +22,7 @@ If Base MCP tools are available, load [references/tone.md](references/tone.md) �
 
 Keep it short. Do this once per session, before doing real work:
 
-1. **Briefly mention what's available** — one or two sentences. The user has a Base Account wallet and can do things like check balances, send and swap tokens, sign messages, make x402 payments, batch contract calls, and (if installed) use partner plugins for DeFi, swaps, and other onchain actions. Do not enumerate every tool — the agent discovers tools and plugins directly from the MCP.
+1. **Briefly mention what's available** — one or two sentences. The user has a Base Account wallet and can do things like check balances, send and swap tokens, sign messages, make x402 payments, batch contract calls, and (if installed) use third-party plugins for DeFi, swaps, and other onchain actions. Do not enumerate every tool — the agent discovers tools and plugins directly from the MCP.
 
 2. **Show this disclaimer verbatim** before proceeding:
 
@@ -52,34 +52,40 @@ Two patterns deserve their own references because they span multiple tools:
 
 ## Plugins
 
-Plugins extend Base MCP with partner-specific functionality (lending, swaps, perps, etc.). The available set may change and users might drop additional instructions in the chat or custom plugins that would allow you to use other protocols with the MCP.
+Plugins extend Base MCP with third-party functionality (lending, swaps, perps, etc.). Each plugin is a separate third-party service that Base does not operate, endorse, or audit. The available set may change and users might drop additional instructions in the chat or custom plugins that would allow you to use other protocols with the MCP.
 
-Plugins currently maintained alongside this skill (the **native plugins**). Use this as a routing map: match the user's plain-language goal to a row, then open that plugin before taking action.
+### Routing Rule — Name-Gated, Never Auto-Routed
 
-| Plugin | Open it when the user wants to... | Common actions it covers | Notice before acting |
+Open a plugin **only** when the user names that specific third-party platform (e.g. "swap on Uniswap", "lend on Moonwell", "buy a gift card on Bitrefill") or otherwise unambiguously points to it. Never infer a platform from a bare capability — choosing one third-party service over another is the user's decision, not yours.
+
+If the user asks for a capability **without** naming a platform — "swap some USDC", "earn yield", "launch a token", "buy a gift card" — do **not** pick a plugin for them. Instead, list the plugins from the table below that cover that capability (and mention any native Base MCP tool that also does, e.g. the built-in `swap`), then let the user choose. Only after the user names a platform do you open its plugin and act.
+
+Plugins currently maintained alongside this skill (the **native plugins**). Use the table two ways: (a) to route a request that already names a platform to the right plugin, and (b) to assemble the option list when the user asks for a capability without naming one. The "Open it when…" column intentionally anchors each trigger to the platform's own name — that name is the trigger.
+
+| Plugin | Open it when the user names this platform and wants to... | Common actions it covers | Notice before acting |
 |--------|----------------------------------|--------------------------|----------------------|
 | [Aerodrome](plugins/aerodrome.md) | Swap, provide liquidity, stake, or claim rewards on Aerodrome. | Pool discovery, swaps, LP add/remove, staking, unstaking, reward claims. | Base only. Requires a shell-capable harness for the Sugar CLI; stop on chat-only surfaces. |
 | [Avantis](plugins/avantis.md) | Trade leveraged perpetual futures or inspect Avantis trading activity. | Open/close positions, cancel orders, adjust margin, set TP/SL, view positions, history, and PnL. | Base only. Leverage can liquidate the position; chat-only surfaces can read data but use the Avantis UI for trade actions. |
 | [Balancer](plugins/balancer.md) | Swap tokens or provide liquidity on Balancer. | Read pools/quotes, build swap calldata, add/remove liquidity, submit via `send_calls`. | CLI-only — requires shell access; stop on chat-only surfaces. Multi-chain (Base, Ethereum, Arbitrum, Optimism, Avalanche); confirm slippage and low-liquidity risk. |
-| [Bankr](plugins/bankr.md) | Discover fresh token launches or buy a newly launched token. | Read launch feeds, inspect token metadata, buy a selected token. | Base only. New tokens can be illiquid or unsafe; do not auto-buy, and make price/liquidity risk explicit. |
-| [Bitrefill](plugins/bitrefill.md) | Buy gift cards, mobile top-ups, or travel eSIMs paid with USDC. | Search 1,500+ brands, check out, deliver gift-card codes and eSIM details in chat. | Base only. Requires SIWE login; purchases are irreversible and handle personal data — confirm order details before paying. |
+| [Bankr](plugins/bankr.md) | Discover fresh token launches or buy a newly launched token on Bankr. | Read launch feeds, inspect token metadata, buy a selected token. | Base only. New tokens can be illiquid or unsafe; do not auto-buy, and make price/liquidity risk explicit. |
+| [Bitrefill](plugins/bitrefill.md) | Buy gift cards, mobile top-ups, or travel eSIMs on Bitrefill, paid with USDC. | Search 1,500+ brands, check out, deliver gift-card codes and eSIM details in chat. | Base only. Requires SIWE login; purchases are irreversible and handle personal data — confirm order details before paying. |
 | [Brickken](plugins/brickken.md) | Manage ERC-8004 agent identity, reputation, or agent-token operations on Brickken. | Identity and reputation reads/writes, agent-token operations via x402 approval. | Base and Base Sepolia. Writes are irreversible and may involve personal data; review before approving. |
 | [Clawnch](plugins/clawnch.md) | Discover recent/top token launches or launch a token on Clawnch. | Browse launch feeds, inspect tokens, non-custodial launch, swap via `send_calls`. | Base only. New tokens can be illiquid or unsafe and launches are irreversible; make risk explicit. |
 | [Flaunch](plugins/flaunch.md) | Launch a token on Flaunch or discover/swap deployed Flaunch tokens. | Prepare launches via `mcp.flaunch.gg`, discover tokens, swap, submit via `send_calls`. | Base only. New tokens can be illiquid; launches and swaps are irreversible — confirm details first. |
 | [GMGN](plugins/gmgn.md) | Get token swap quotes, gas prices, or trending-token market intelligence on Base via GMGN. | Swap quotes (unsigned calldata via `send_calls`), gas-price tiers, trending tokens. | Base only. CLI-only — requires shell to generate auth params; API key auth. Confirm slippage and watch low-liquidity tokens. |
 | [Hydrex](plugins/hydrex.md) | Swap tokens or manage concentrated-liquidity positions on Hydrex. | Quotes, swaps, concentrated-liquidity add/remove, submit via `send_calls`. | Base only. Quotes can move; confirm slippage before writes. |
-| [KyberSwap](plugins/kyberswap.md) | Swap tokens at best aggregated rates across chains. | Best-rate routing through 50+ liquidity sources, quotes, swaps via `send_calls`. | Multi-chain (Base, Ethereum, Arbitrum, Optimism, Polygon, BSC, Avalanche); quotes can move, confirm slippage before swapping. |
+| [KyberSwap](plugins/kyberswap.md) | Swap tokens on KyberSwap (aggregated best-rate routing across chains). | Best-rate routing through 50+ liquidity sources, quotes, swaps via `send_calls`. | Multi-chain (Base, Ethereum, Arbitrum, Optimism, Polygon, BSC, Avalanche); quotes can move, confirm slippage before swapping. |
 | [Moonwell](plugins/moonwell.md) | Lend, borrow, repay, withdraw, or check Moonwell positions/rewards. | Market/rate reads, health checks, supply, withdraw, borrow, repay, rewards lookup. | Works on Base and Optimism. Borrowing can be liquidated; surface health factor before risky actions. |
 | [Morpho](plugins/morpho.md) | Earn yield, use Morpho vaults, or borrow/lend in Morpho markets. | Compare vaults, deposit or withdraw, supply collateral, borrow, repay, check positions. | Base only. Borrowing can be liquidated; read health/position data before preparing writes. |
 | [o1.exchange](plugins/o1-exchange.md) | Swap tokens on o1.exchange, optionally with Permit2 gasless approvals and MEV-protected routing. | Quotes, standard swaps via `send_calls`, Permit2 swaps via private relay. | Multi-chain (Base, BSC). Quotes can move and swaps are irreversible; confirm slippage and watch for low-liquidity tokens. |
 | [OpenSea](plugins/opensea.md) | Trade NFTs, swap tokens, or mint drops on OpenSea. | NFT buy/sell/list, token swaps, drops/minting, submit via `send_calls`. | Multi-chain (Ethereum, Base, Polygon, Arbitrum, Optimism, Avalanche). Requires an API key; trades are irreversible — confirm token, price, and slippage first. |
 | [Printr](plugins/printr.md) | Launch a cross-chain token on Printr. | Prepare token-creation calldata via HTTP API, submit via `send_calls`. | Multi-chain (Base, Arbitrum, Optimism, Polygon, BSC, Avalanche, Ethereum). New tokens can be illiquid; launches are irreversible. |
 | [Uniswap](plugins/uniswap.md) | Swap tokens or manage Uniswap liquidity positions. | Token swaps, approval checks, V2/V3/V4 LP create/increase/decrease/collect flows. | Base only. Quotes can move; confirm slippage and token/position details before writes. |
-| [Venice](plugins/venice.md) | Run private AI inference or media generation, optionally funded with x402. | Text and media inference via the Venice API, optional Base x402 wallet funding. | Base only. Requires SIWE login; inference handles personal data and paid calls are irreversible. |
+| [Venice](plugins/venice.md) | Run private AI inference or media generation on Venice, optionally funded with x402. | Text and media inference via the Venice API, optional Base x402 wallet funding. | Base only. Requires SIWE login; inference handles personal data and paid calls are irreversible. |
 | [Virtuals](plugins/virtuals.md) | Create or operate Virtuals AI agents, payment cards, or agent email. | Agent management, card setup and limits, email inbox/thread actions, SIWE login. | Requires the Virtuals MCP and a signed login. Handles personal data; avoid exposing tokens, OTPs, card details, or email contents unnecessarily. |
 | [YO](plugins/yo.md) | View YO vaults, check positions, deposit, or request redeem on YO yield vaults. | ERC-4626 vault reads via `chain_rpc_request`, deposit, request redeem via `send_calls`. | Multi-chain (Base, Ethereum, Arbitrum). Deposits and redeems are irreversible; confirm amounts and vault before writes. |
 
-Load a plugin reference only when the user's request matches it, following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own external tools, defer to the plugin file first, then to any CLI help, API schema, or MCP tool descriptions it explicitly tells you to use.
+Load a plugin reference only once the user has named the platform it covers (per the routing rule above), following the same local-first, web-fallback rule as references (see [Loading referenced files](#loading-referenced-files) above). For a plugin's own external tools, defer to the plugin file first, then to any CLI help, API schema, or MCP tool descriptions it explicitly tells you to use.
 
 ### Native Plugins vs. Custom / User-Supplied Plugins
 
