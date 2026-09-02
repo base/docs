@@ -102,7 +102,7 @@ const SHARED_RULES = `Hard requirements for your output:
 4. CRITICAL — escape angle brackets in prose. MDX parses bare \`<Foo>\` as a JSX element. When mentioning Solidity types or HTML-like tokens (for example \`mapping(address => uint256)\` or \`<address>\`), ALWAYS wrap the whole token in backticks. Never write a bare \`<Capitalized>\` outside of an allowlisted MDX component tag — the validator rejects such output and the page is skipped.
 5. Respect page shape. Base Std documentation has four managed page roles:
    • FUNCTION REFERENCE pages under \`.../reference/interfaces/<Interface>/<symbol>.mdx\` own the Solidity signature, selector, parameters, returns, revert conditions, and behavior for exactly one callable surface. Update only claims grounded in the current page or verified Base Std inputs.
-   • INTERFACE INDEX pages such as \`IB20.mdx\` own the function/event/error inventory and links to function pages. Keep selector and topic tables consistent with the verified source diff.
+   • INTERFACE INDEX pages such as \`.../reference/interfaces/ib20/index.mdx\` own the function/event/error inventory and links to function pages. Keep selector and topic tables consistent with the verified source diff.
    • SPECIFICATION / SHARED REFERENCE pages own cross-interface concepts such as roles, policies, addresses, common errors, and events. Do not duplicate those full explanations on every function page.
    • GUIDES / PLAYGROUND / DEMO pages explain user workflows. Update them only when the source change alters a command, call sequence, supported behavior, or developer-facing recommendation. Do not copy full ABI tables into guides.
    • The sync updates existing files only. Never invent or link to a new page that is not present in the candidate route set.
@@ -149,7 +149,7 @@ function documentationGuidelinesSection(documentationGuidelines) {
   }
   return `
 
-Follow every rule described inside <documentation_guidelines>...</documentation_guidelines> below. The content guidelines control writing, page structure, specification structure, and changelog format. The IA guidelines control audience, page ownership, navigation placement, naming, and what must not be added to each section. Follow both files exactly and do not introduce a new page, section, solution, or information architecture. Security, source-grounding, and required-output constraints above still apply.
+Follow every rule described inside <documentation_guidelines>...</documentation_guidelines> below. The content guidelines (docs/content-guidelines.md) are the single source for how to write: tone of voice, language, prose style, page structure, specification structure, and changelog format. The IA guidelines control audience, page ownership, navigation placement, naming, and what must not be added to each section. Follow both files exactly and do not introduce a new page, section, solution, or information architecture. Security, source-grounding, and required-output constraints above still apply.
 
 <documentation_guidelines>
 ${documentationGuidelines}
@@ -205,7 +205,7 @@ ${lines.join("\n")}
  *                                       before, after, summary}. Empty/missing → section is
  *                                       omitted and the model falls back to scanning the diff.
  * @param {string} ctx.current         — the current content of the page being edited
- * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
+ * @param {string=} ctx.documentationGuidelines — combined docs/content-guidelines.md and docs/ia-guidelines.md
  * @returns {string} prompt as a single string
  */
 export function codeChangePrompt(ctx) {
@@ -281,7 +281,7 @@ ${lines}${more}
  * @param {boolean=} ctx.diff_truncated — true if the upstream diff was capped before manifest extraction
  * @param {string} ctx.current         — current page content (already version-bumped)
  * @param {number} ctx.bumpCount       — how many version tokens the regex pass replaced
- * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
+ * @param {string=} ctx.documentationGuidelines — combined docs/content-guidelines.md and docs/ia-guidelines.md
  * @returns {string}
  */
 export function releasePrompt(ctx) {
@@ -332,7 +332,7 @@ ${ctx.current}
  * @param {string=} ctx.manifest_summary   — compact, newline-joined manifest subjects
  * @param {string[]=} ctx.changed_paths    — sample of changed source paths (already truncated by caller)
  * @param {Array<{path:string,title?:string,description?:string}>} ctx.candidates
- * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
+ * @param {string=} ctx.documentationGuidelines — combined docs/content-guidelines.md and docs/ia-guidelines.md
  * @returns {string}
  */
 export function releaseSelectionPrompt(ctx) {
@@ -384,7 +384,7 @@ Output ONLY a JSON array of page path strings, each drawn EXACTLY from the candi
  * @param {string} ctx.intent          — maintainer's intent text (free-form)
  * @param {string[]=} ctx.source_refs   — optional list of source-of-truth URLs
  * @param {string} ctx.current         — current page content
- * @param {string=} ctx.documentationGuidelines — combined content-guidelines.md and docs/ia-guidelines.md
+ * @param {string=} ctx.documentationGuidelines — combined docs/content-guidelines.md and docs/ia-guidelines.md
  * @returns {string}
  */
 export function manualUpdatePrompt(ctx) {
