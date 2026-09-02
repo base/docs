@@ -105,6 +105,12 @@ const ROUTING_SYMBOL_MIN_LENGTH = NUM("ROUTING_SYMBOL_MIN_LENGTH", 6);
  * timeout (~100 s) and returns 504.
  */
 const PAGE_SIZE_WARN_CHARS = NUM("PAGE_SIZE_WARN_CHARS", 12000);
+/**
+ * When the manifest is non-empty, a function-reference page (one callable)
+ * with no manifest intersection and no symbol-mention reason is skipped
+ * without a model call. Set to 0 to send every routed page to Sonnet.
+ */
+const SKIP_UNAFFECTED_FUNCTION_PAGES = NUM("SKIP_UNAFFECTED_FUNCTION_PAGES", 1);
 // Diff manifest pre-pass: split a large release diff into chunks at file
 // boundaries and extract each chunk's manifest concurrently, then merge.
 const MANIFEST_CHUNK_BYTES = NUM("MANIFEST_CHUNK_BYTES", 100000);
@@ -1161,6 +1167,10 @@ async function processPage(item, shared, useGroups) {
   const diffByFile = shared.diffByFile || new Map();
   const layout = shared.layout || { entryDir: "", summaryPage: "", entryRule: null };
   const pageRole = pageRoleFor(item.page, layout);
+  if (item.skipUnaffected) {
+    console.log(`[skip-unaffected] ${item.page} — no manifest intersection and no symbol mention`);
+    return { page: item.page, status: "noop" };
+  }
   if (useGroups) console.log(`::group::${item.page}`);
   else console.log(`[page] ${item.page}`);
   try {
@@ -1242,11 +1252,22 @@ async function processPage(item, shared, useGroups) {
         const pageManifest = manifestForPage(manifest, {
           sourceFiles: item.sourceFiles,
           pageContent: current,
+          requireSymbolMatch: pageRole === "function-reference",
         });
         if (pageManifest.length > 0) {
           console.log(
             `[manifest] ${item.page}: ${pageManifest.length} relevant change(s) from manifest`,
           );
+        } else if (
+          SKIP_UNAFFECTED_FUNCTION_PAGES &&
+          pageRole === "function-reference" &&
+          manifest.length > 0 &&
+          !(item.reasons || []).some((r) => r.startsWith("symbol:"))
+        ) {
+          console.log(
+            `[skip-unaffected] ${item.page} — manifest has ${manifest.length} change(s), none about this page`,
+          );
+          return { page: item.page, status: "noop" };
         }
         // Input slicing: only the hunks from files that routed this page.
         // Fall back to the whole diff when no per-file section matched
@@ -1455,13 +1476,29 @@ async function main() {
       if (!w.reasons) w.reasons = (w.sourceFiles || []).map((sf) => `path:${sf}`);
     }
 
-    if (work.length > CODE_CHANGE_MAX_PAGES) {
+    // Decide up front which routed pages will actually reach the model, so
+    // the cap and the selection pass count real calls, not routed paths.
+    const layout = changelogLayout(route);
+    for (const w of work) {
+      const role = pageRoleFor(w.page, layout);
+      if (!SKIP_UNAFFECTED_FUNCTION_PAGES || role !== "function-reference" || manifest.length === 0) continue;
+      if ((w.reasons || []).some((r) => r.startsWith("symbol:"))) continue;
+      const content = await safeReadFile(path.join(REPO_ROOT, w.page));
+      if (content == null) continue;
+      const rel = manifestForPage(manifest, { sourceFiles: w.sourceFiles, pageContent: content, requireSymbolMatch: true });
+      if (rel.length === 0) w.skipUnaffected = true;
+    }
+    const modelBound = work.filter((w) => !w.skipUnaffected);
+    const skippedCount = work.length - modelBound.length;
+    if (skippedCount > 0) console.log(`[route] ${skippedCount} function page(s) have no intersection with the manifest; skipped without a model call`);
+
+    if (modelBound.length > CODE_CHANGE_MAX_PAGES) {
       console.warn(
-        `[route] ${work.length} pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; running selection pass`,
+        `[route] ${modelBound.length} model-bound pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; running selection pass`,
       );
       const picked = await selectReleasePages(
         route,
-        work.map((w) => w.page),
+        modelBound.map((w) => w.page),
         {
           tag: `base-std@${shortSha(sha)}`,
           previous_tag: "",
@@ -1472,10 +1509,22 @@ async function main() {
         },
         { eventDescription: `A code change landed on ${sourceRepo(payload)}@${shortSha(sha)}${payload.pr_title ? `: ${payload.pr_title}` : ""}.` },
       );
-      const keep = new Set(picked.map((p) => p.page));
-      const dropped = work.filter((w) => !keep.has(w.page)).map((w) => w.page);
-      work = work.filter((w) => keep.has(w.page)).slice(0, CODE_CHANGE_MAX_PAGES);
-      console.log(`[route] selection kept ${work.length}; dropped ${dropped.length}`);
+      if (picked.length === 0) {
+        // Selection unavailable (gateway down, parse failure): never fall to
+        // zero. Keep path-routed pages up to the cap and say so loudly.
+        const fallback = modelBound
+          .filter((w) => (w.reasons || []).some((r) => r.startsWith("path:")))
+          .slice(0, CODE_CHANGE_MAX_PAGES);
+        console.warn(
+          `::warning title=Selection pass returned nothing::keeping ${fallback.length} path-routed page(s) (cap ${CODE_CHANGE_MAX_PAGES}); symbol-only pages dropped for this run`,
+        );
+        work = [...fallback, ...work.filter((w) => w.skipUnaffected)];
+      } else {
+        const keep = new Set(picked.map((p) => p.page));
+        const kept = modelBound.filter((w) => keep.has(w.page)).slice(0, CODE_CHANGE_MAX_PAGES);
+        console.log(`[route] selection kept ${kept.length}; dropped ${modelBound.length - kept.length}`);
+        work = [...kept, ...work.filter((w) => w.skipUnaffected)];
+      }
     }
   } else if (kind === "release") {
     console.log(

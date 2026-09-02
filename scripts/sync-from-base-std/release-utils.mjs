@@ -214,7 +214,7 @@ const MANIFEST_SYMBOL_IGNORE = new Set([
 
 /**
  * Extract the identifier tokens a manifest entry is about: the qualified
- * subject (e.g. `IB20.seizeWithMemo`), each of its parts, and any identifier
+ * subject (e.g. `IB20.seizeWithMemo`), its member part(s), and any identifier
  * in `before` / `after` (so a rename matches pages still using the old name).
  * Tokens shorter than 4 characters or on the ignore list are dropped.
  *
@@ -238,12 +238,18 @@ export function manifestEntrySymbols(entry) {
   const subject = typeof entry.subject === "string" ? entry.subject.trim() : "";
   if (subject) {
     push(subject);
-    for (const part of subject.split(/[^A-Za-z0-9_]+/)) push(part);
+    // For a qualified subject (`IB20.seizeWithMemo`) only the member is
+    // evidence: the qualifier appears on every page of that interface.
+    const parts = subject.split(/[^A-Za-z0-9_]+/).filter(Boolean);
+    for (const part of parts.length > 1 ? parts.slice(1) : parts) push(part);
   }
-  for (const field of ["before", "after"]) {
-    const text = typeof entry[field] === "string" ? entry[field] : "";
-    for (const tok of text.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []) push(tok);
-  }
+  // From before/after, only identifiers that appear on ONE side are evidence:
+  // `keccak256("OLD")` → `keccak256("NEW")` renames OLD, not keccak256.
+  const ids = (text) => new Set((typeof text === "string" ? text : "").match(/[A-Za-z_][A-Za-z0-9_]*/g) || []);
+  const before = ids(entry.before);
+  const after = ids(entry.after);
+  for (const tok of before) if (!after.has(tok)) push(tok);
+  for (const tok of after) if (!before.has(tok)) push(tok);
   return out;
 }
 
@@ -254,7 +260,7 @@ const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  *
  * An entry is relevant when EITHER:
  *   - its `file` is one of the page's routed source files (exact or
- *     path-suffix match), OR
+ *     path-suffix match) — unless `requireSymbolMatch` is set, OR
  *   - one of its symbols (see manifestEntrySymbols) appears on the page as a
  *     whole identifier.
  *
@@ -267,13 +273,19 @@ const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * @param {{sourceFiles?: string[], pageContent?: string}} page
  * @returns {Array<object>}
  */
-export function manifestForPage(manifest, { sourceFiles = [], pageContent = "" } = {}) {
+export function manifestForPage(
+  manifest,
+  { sourceFiles = [], pageContent = "", requireSymbolMatch = false } = {},
+) {
   if (!Array.isArray(manifest) || manifest.length === 0) return [];
   const sources = Array.isArray(sourceFiles) ? sourceFiles : [];
   const content = typeof pageContent === "string" ? pageContent : "";
   return manifest.filter((entry) => {
     if (!entry || typeof entry !== "object") return false;
-    if (typeof entry.file === "string") {
+    // Pages that document exactly one callable (function-reference) must
+    // mention the entry's symbol: sharing a source file with fifty sibling
+    // pages is not evidence the change is about THIS page.
+    if (!requireSymbolMatch && typeof entry.file === "string") {
       for (const sf of sources) {
         if (entry.file === sf || entry.file.endsWith(sf) || sf.endsWith(entry.file)) return true;
       }
@@ -301,7 +313,7 @@ export function routingSymbols(manifest, { minLength = 6 } = {}) {
   if (!Array.isArray(manifest)) return [];
   const out = new Set();
   for (const entry of manifest) {
-    for (const sym of manifestEntrySymbols({ subject: entry?.subject, before: entry?.before })) {
+    for (const sym of manifestEntrySymbols({ subject: entry?.subject, before: entry?.before, after: entry?.after })) {
       const bare = sym.includes(".") ? sym.split(".").pop() : sym;
       if (bare.length >= minLength) out.add(bare);
       if (sym.includes(".")) out.add(sym);

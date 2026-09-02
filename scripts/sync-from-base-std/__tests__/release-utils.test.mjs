@@ -207,7 +207,7 @@ test("manifestEntrySymbols: qualified subject, its parts, and rename before/afte
     after: "seizeWithMemo(address from, address to)",
   });
   assert.equal(syms[0], "IB20.seizeWithMemo");
-  assert.ok(syms.includes("IB20"));
+  assert.ok(!syms.includes("IB20"), "the qualifier is on every page of the interface — not evidence");
   assert.ok(syms.includes("seizeWithMemo"));
   assert.ok(syms.includes("transferFromBlockedWithMemo"));
   // generic tokens never count as evidence
@@ -431,4 +431,27 @@ test("insertNavPage: appends into the named group once; false when group missing
 test("firstHeading: first H1 or empty", () => {
   assert.equal(firstHeading("intro\n# Seize surface + burnBlocked deprecation\n## Summary"), "Seize surface + burnBlocked deprecation");
   assert.equal(firstHeading("no heading"), "");
+});
+
+test("manifestForPage: requireSymbolMatch ignores the shared-file rule (one-callable pages)", () => {
+  const manifest = [
+    { file: "src/interfaces/IB20.sol", kind: "other", subject: "IB20.seizeWithMemo", summary: "a" },
+    { file: "src/interfaces/IB20.sol", kind: "other", subject: "IB20.SEIZE_HOLDER_POLICY", summary: "b" },
+  ];
+  const transferPage = "## Signature\n`function transfer(address to, uint256 amount)`";
+  const seizePage = "## Policy Interaction\nChecks `SEIZE_HOLDER_POLICY` before `seizeWithMemo` proceeds.";
+  const src = ["src/interfaces/IB20.sol"];
+  assert.equal(manifestForPage(manifest, { sourceFiles: src, pageContent: transferPage }).length, 2, "file rule alone attaches everything");
+  assert.equal(manifestForPage(manifest, { sourceFiles: src, pageContent: transferPage, requireSymbolMatch: true }).length, 0);
+  assert.equal(manifestForPage(manifest, { sourceFiles: src, pageContent: seizePage, requireSymbolMatch: true }).length, 2);
+});
+
+test("routingSymbols: before/after contribute only the identifiers that changed", () => {
+  const syms = routingSymbols([
+    { file: "src/lib/B20Constants.sol", kind: "field_renamed", subject: "B20Constants.SEIZE_EXEMPT_POLICY",
+      before: 'keccak256("SEIZE_HOLDER_POLICY")', after: 'keccak256("SEIZE_EXEMPT_POLICY")', summary: "" },
+  ]);
+  assert.ok(syms.includes("SEIZE_HOLDER_POLICY"), "old name routes stale pages");
+  assert.ok(syms.includes("SEIZE_EXEMPT_POLICY"));
+  assert.ok(!syms.includes("keccak256"), "shared context is not a routing symbol");
 });
