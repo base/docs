@@ -66,7 +66,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const ROUTE_TABLE_PATH = path.join(__dirname, "route-table.json");
-const GUIDELINE_FILES = ["content-guidelines.md", "docs/ia-guidelines.md"];
+const GUIDELINE_FILES = ["docs/content-guidelines.md", "docs/ia-guidelines.md"];
 const DRY_RUN = process.env.DRY_RUN === "1";
 const DOCS_ROOT = process.env.DOCS_CONTENT_ROOT || "docs";
 
