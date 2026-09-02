@@ -455,3 +455,23 @@ test("routingSymbols: before/after contribute only the identifiers that changed"
   assert.ok(syms.includes("SEIZE_EXEMPT_POLICY"));
   assert.ok(!syms.includes("keccak256"), "shared context is not a routing symbol");
 });
+
+test("manifestEntrySymbols: subject prose and () are ignored; only the identifier path counts", () => {
+  const syms = manifestEntrySymbols({ subject: "IB20.AccountNotSeizable error documentation" });
+  assert.deepEqual(syms, ["IB20.AccountNotSeizable", "AccountNotSeizable"]);
+  const syms2 = manifestEntrySymbols({ subject: "IB20.SEIZE_HOLDER_POLICY()" });
+  assert.deepEqual(syms2, ["IB20.SEIZE_HOLDER_POLICY", "SEIZE_HOLDER_POLICY"]);
+});
+
+test("routingSymbols: prose words in before/after never route; mock/test entries are ignored", () => {
+  const syms = routingSymbols([
+    { file: "src/lib/B20Constants.sol", kind: "field_renamed", subject: "B20Constants.SEIZE_HOLDER_POLICY",
+      before: "internal constant SEIZE_HOLDER_POLICY documented against the member", after: "internal constant SEIZE_EXEMPT_POLICY", summary: "" },
+    { file: "test/lib/mocks/MockB20.sol", kind: "other", subject: "MockB20.policyId() implementation", before: "TRANSFER_SENDER_POLICY", summary: "" },
+  ]);
+  assert.ok(syms.includes("SEIZE_HOLDER_POLICY"));
+  assert.ok(syms.includes("SEIZE_EXEMPT_POLICY"));
+  for (const junk of ["internal", "constant", "documented", "against", "member", "policyId", "TRANSFER_SENDER_POLICY"]) {
+    assert.ok(!syms.includes(junk), `${junk} must not be a routing symbol`);
+  }
+});

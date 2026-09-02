@@ -1014,7 +1014,29 @@ function extractInternalLinks(content) {
   return [...cleaned];
 }
 
-function validateMdx(content, pagePath, knownRoutes) {
+/**
+ * Components defined as snippets (docs/snippets/<Name>.jsx) render in Base
+ * Docs even though they are not in the fixed allowlist. Read once per run.
+ */
+async function listSnippetComponents() {
+  const dir = path.join(REPO_ROOT, DOCS_ROOT, "snippets");
+  if (!existsSync(dir)) return new Set();
+  const names = new Set();
+  for (const entry of await fs.readdir(dir)) {
+    const m = entry.match(/^([A-Z][A-Za-z0-9]*)\.(jsx|tsx|mdx)$/);
+    if (m) names.add(m[1]);
+  }
+  return names;
+}
+
+/** Capitalized JSX tags used in a page body. */
+function componentsIn(content) {
+  const out = new Set();
+  for (const m of String(content || "").matchAll(/<([A-Z][A-Za-z0-9]*)\b/g)) out.add(m[1]);
+  return out;
+}
+
+export function validateMdx(content, pagePath, knownRoutes, { current = "", snippetComponents } = {}) {
   if (pagePath.endsWith(".mdx")) {
     if (!/^---\n[\s\S]+?\n---/m.test(content)) {
       return "missing or malformed frontmatter block";
@@ -1036,14 +1058,16 @@ function validateMdx(content, pagePath, knownRoutes) {
   // Reject any capitalized JSX component that Base Docs won't render.
   // Pattern matches '<Capitalized…' but skips closing tags and components
   // already in the allowlist.
-  const componentRe = /<([A-Z][A-Za-z0-9]*)\b/g;
+  // A component is acceptable when it is in the fixed allowlist, already
+  // used by the page being edited (the sync must be able to preserve what a
+  // writer put there), or defined as a snippet under docs/snippets.
+  const existing = componentsIn(current);
   const seen = new Set();
-  let m;
-  while ((m = componentRe.exec(content)) !== null) {
-    const name = m[1];
-    if (!ALLOWED_MDX_COMPONENTS.has(name)) {
-      seen.add(name);
-    }
+  for (const name of componentsIn(content)) {
+    if (ALLOWED_MDX_COMPONENTS.has(name)) continue;
+    if (existing.has(name)) continue;
+    if (snippetComponents && snippetComponents.has(name)) continue;
+    seen.add(name);
   }
   if (seen.size > 0) {
     return `output uses MDX component(s) not registered in Base Docs: ${[...seen].join(", ")}`;
@@ -1307,7 +1331,10 @@ async function processPage(item, shared, useGroups) {
       );
       console.log(`[timing] ${item.page} — ${((Date.now() - tCall) / 1000).toFixed(1)}s`);
 
-      const err = validateMdx(out, item.page, knownRoutes);
+      const err = validateMdx(out, item.page, knownRoutes, {
+        current,
+        snippetComponents: shared.snippetComponents,
+      });
       if (err) {
         console.error(`[reject] ${item.page}: ${err}`);
         return { page: item.page, status: "rejected", reason: err };
@@ -1593,6 +1620,7 @@ async function main() {
     // Per-file diff sections so each page only sees the hunks that routed it.
     diffByFile: splitDiffByFile(typeof payload.diff === "string" ? payload.diff : ""),
     layout: changelogLayout(route),
+    snippetComponents: await listSnippetComponents(),
   };
   if (concurrency > 1) {
     console.log(`[sync] processing ${work.length} page(s) with concurrency ${concurrency}`);

@@ -280,3 +280,18 @@ test("buildProvenanceComment cannot inject a second HTML comment boundary", () =
   assert.match(comment, /\n-->$/);
   assert.doesNotMatch(body, /[<>]/);
 });
+
+import { validateMdx } from "../index.mjs";
+
+test("validateMdx: components already on the page or defined as snippets are allowed", () => {
+  const page = "---\ntitle: x\n---\n\n<StablecoinDemo scenario=\"block\" />\n\nBody.\n";
+  const routes = new Set();
+  // unknown component, not on the page, not a snippet → rejected
+  assert.match(validateMdx(page, "docs/a.mdx", routes) || "", /not registered.*StablecoinDemo/);
+  // same component already used by the page being edited → allowed
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
+  // defined as a snippet → allowed even on a page that did not use it before
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: "---\ntitle: x\n---\n", snippetComponents: new Set(["StablecoinDemo"]) }), null);
+  // a genuinely unknown component is still rejected
+  assert.match(validateMdx(page.replace("StablecoinDemo", "Nope"), "docs/a.mdx", routes, { current: page }) || "", /Nope/);
+});

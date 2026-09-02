@@ -235,17 +235,25 @@ export function manifestEntrySymbols(entry) {
       out.push(tok);
     }
   };
-  const subject = typeof entry.subject === "string" ? entry.subject.trim() : "";
+  // Haiku sometimes appends prose to a subject ("IB20.foo() NatSpec",
+  // "MockB20.bar() implementation"). Only the leading identifier path counts.
+  const rawSubject = typeof entry.subject === "string" ? entry.subject.trim() : "";
+  const subject = (rawSubject.match(/^[A-Za-z_][A-Za-z0-9_.]*/) || [""])[0].replace(/\.$/, "");
   if (subject) {
     push(subject);
     // For a qualified subject (`IB20.seizeWithMemo`) only the member is
     // evidence: the qualifier appears on every page of that interface.
-    const parts = subject.split(/[^A-Za-z0-9_]+/).filter(Boolean);
+    const parts = subject.split(".").filter(Boolean);
     for (const part of parts.length > 1 ? parts.slice(1) : parts) push(part);
   }
   // From before/after, only identifiers that appear on ONE side are evidence:
   // `keccak256("OLD")` → `keccak256("NEW")` renames OLD, not keccak256.
-  const ids = (text) => new Set((typeof text === "string" ? text : "").match(/[A-Za-z_][A-Za-z0-9_]*/g) || []);
+  // Before/after are free text; only identifier-shaped tokens (an uppercase
+  // letter, underscore, or digit) count, so words like "internal" or
+  // "against" never become evidence.
+  const looksLikeIdentifier = (t) => /[A-Z_0-9]/.test(t);
+  const ids = (text) =>
+    new Set(((typeof text === "string" ? text : "").match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter(looksLikeIdentifier));
   const before = ids(entry.before);
   const after = ids(entry.after);
   for (const tok of before) if (!after.has(tok)) push(tok);
@@ -313,6 +321,10 @@ export function routingSymbols(manifest, { minLength = 6 } = {}) {
   if (!Array.isArray(manifest)) return [];
   const out = new Set();
   for (const entry of manifest) {
+    // Mocks and tests document the reference implementation, not the public
+    // surface; their internals (`_requireSeizable`, `policyId() implementation`)
+    // must not route docs pages.
+    if (typeof entry?.file === "string" && /^test\//.test(entry.file)) continue;
     for (const sym of manifestEntrySymbols({ subject: entry?.subject, before: entry?.before, after: entry?.after })) {
       const bare = sym.includes(".") ? sym.split(".").pop() : sym;
       if (bare.length >= minLength) out.add(bare);

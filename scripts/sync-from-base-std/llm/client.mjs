@@ -9,8 +9,8 @@
  *
  * Owns three responsibilities:
  *
- *   1. `callClaude(prompt, page)` — wraps `client.messages.create` and
- *      records a bench row. Retries on 5xx / 429 / network errors are
+ *   1. `callClaude(prompt, page)` — wraps `client.messages.stream` (or
+ *      `create` when LLM_STREAMING=0) and records a bench row. Retries on 5xx / 429 / network errors are
  *      handled inside the SDK (`maxRetries`), so this file no longer
  *      carries its own retry loop.
  *
@@ -109,12 +109,22 @@ export async function callClaude(prompt, page = "", opts = {}) {
   const system = opts.system;
 
   const tStart = Date.now();
-  const message = await client.messages.create({
+  const params = {
     model,
     max_tokens: maxTokens,
     ...(system ? { system } : {}),
     messages: [{ role: "user", content: prompt }],
-  });
+  };
+  // Stream by default. A full-page regeneration of a ~15 KB page takes longer
+  // than the Gateway edge's origin timeout (~100 s) when the response is
+  // buffered, which surfaces as a Cloudflare 504 after every retry. With a
+  // stream, bytes flow from the first token, so the edge never sees a silent
+  // origin. finalMessage() yields the same Message shape as create().
+  // LLM_STREAMING=0 restores the buffered call.
+  const message =
+    process.env.LLM_STREAMING === "0"
+      ? await client.messages.create(params)
+      : await client.messages.stream(params).finalMessage();
 
   const text = (message.content || [])
     .filter((b) => b.type === "text")
