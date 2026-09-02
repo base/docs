@@ -9,6 +9,7 @@ Technical documentation for Base (Ethereum L2). Built with Mintlify.
 | `mintlify dev` | Local dev server |
 | `/lint` | Lint MDX files and fix issues |
 | `/doc-feedback` | Review content quality |
+| `/screenshot` | Capture affected docs pages for the PR body |
 | `/agents` | Generate AGENTS.md index for AI agents (also runs via `githooks/post-commit` when commit message contains `agents.md`) |
 | `/llms` | Regenerate `docs/llms.txt` and `docs/llms-full.txt` (also runs via `githooks/post-commit` when commit message contains `llms.txt`) |
 
@@ -80,6 +81,19 @@ sidebar label is `sidebarTitle` if present, otherwise `title`.
 3. Run `node scripts/validate-docs-structure.js` if `docs.json` or page frontmatter changed (nav, orphans, redirects, redundant sidebar labels)
 4. Add redirects for removed pages
 5. Verify links work
+
+## Opening PRs
+
+Every PR that changes rendered pages must include screenshots:
+
+1. Run `/screenshot` to capture the affected pages and upload them as draft
+   release assets (`gh release create screenshots-pr-<N> --draft`).
+2. Fill in the **Screenshots** section of the PR template with the embedded
+   images. For backend-only changes (`scripts/`, `.github/`, repo-root
+   markdown), write "N/A (no user-facing changes)".
+3. Screenshots live in `screenshots/` locally (gitignored) — never commit them.
+4. After the PR merges, delete its draft release:
+   `gh release delete screenshots-pr-<N> --yes`.
 
 ## CI Approval Gates
 
