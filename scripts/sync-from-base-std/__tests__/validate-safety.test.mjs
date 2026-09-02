@@ -21,7 +21,23 @@ import assert from "node:assert/strict";
 import {
   validateSafety,
   extractExternalUrls,
+  stripAuthorAttribution,
 } from "../safety.mjs";
+
+// ------------------------------------------------------ stripAuthorAttribution
+
+test("stripAuthorAttribution: removes standalone author and contributor fields", () => {
+  const out = stripAuthorAttribution(
+    "---\\ntitle: Example\\n---\\n\\nAuthors: Alice Example, Bob Example\\nContributor: Casey Example\\n\\nBody text.\\n",
+  );
+  assert.doesNotMatch(out, /^(Authors?|Contributors?):/im);
+  assert.match(out, /Body text\./);
+});
+
+test("stripAuthorAttribution: preserves prose that mentions authors", () => {
+  const input = "The author of this proposal describes the change.\\n";
+  assert.equal(stripAuthorAttribution(input), input);
+});
 
 // ---------------------------------------------------------------- validateSafety
 

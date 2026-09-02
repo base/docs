@@ -22,7 +22,7 @@ const REPO_ROOT = path.resolve(
 const B20_REFERENCE_ROOT = "docs/specifications/b20";
 const B20_MANUAL_UPDATE_PAGES = [
   "docs/specifications/b20/specification-overview.mdx",
-  "docs/specifications/b20/launch-a-b20-token.mdx",
+  "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
   "docs/build-on-base/accept-payments/request-a-payment.mdx",
 ];
 

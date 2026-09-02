@@ -51,7 +51,7 @@ import {
 // extraction). Lives in ./safety.mjs as zero-dep pure functions so the
 // test suite under __tests__/ can import without dragging in
 // the internal LLM Gateway protocol client.
-import { validateSafety, extractExternalUrls } from "./safety.mjs";
+import { validateSafety, extractExternalUrls, stripAuthorAttribution } from "./safety.mjs";
 // Zero-dep release helpers live in their own module so the unit tests can
 // import them without pulling in the Gateway client dependency (same pattern as safety.mjs).
 import {
@@ -1072,7 +1072,9 @@ async function processPage(item, shared, useGroups) {
       }
       const prompt = buildClaudePrompt(kind, ctx);
       console.log(`[claude] ${item.page} — ${prompt.length} prompt chars`);
-      const out = await callClaude(prompt, item.page, { system: SYSTEM_PROMPT });
+      const out = stripAuthorAttribution(
+        await callClaude(prompt, item.page, { system: SYSTEM_PROMPT }),
+      );
 
       const err = validateMdx(out, item.page, knownRoutes);
       if (err) {
