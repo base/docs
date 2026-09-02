@@ -61,6 +61,16 @@ import {
   globToRegExp,
   summarizeManifest,
   sanitizeManifestRecords,
+  manifestForPage,
+  routingSymbols,
+  findSymbolMentions,
+  mergeSymbolRoutes,
+  splitDiffByFile,
+  pageRoleFor,
+  parseChangelogIndexRows,
+  upsertSummaryRow,
+  insertNavPage,
+  firstHeading,
 } from "./release-utils.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -81,6 +91,20 @@ const NUM = (name, dflt) => {
 // Per-page transform concurrency. code-change and release use bounded concurrency; manual updates stay serial.
 const RELEASE_PAGE_CONCURRENCY = NUM("RELEASE_PAGE_CONCURRENCY", 4);
 const CODE_CHANGE_PAGE_CONCURRENCY = NUM("CODE_CHANGE_PAGE_CONCURRENCY", 4);
+/**
+ * Hard cap on pages a single code-change dispatch may send to Sonnet. Path
+ * routing + symbol-mention routing are unioned first; only when the union
+ * exceeds this cap does a Haiku selection pass pick which pages proceed.
+ */
+const CODE_CHANGE_MAX_PAGES = NUM("CODE_CHANGE_MAX_PAGES", 60);
+/** Minimum identifier length for symbol-mention routing (shorter = too generic). */
+const ROUTING_SYMBOL_MIN_LENGTH = NUM("ROUTING_SYMBOL_MIN_LENGTH", 6);
+/**
+ * Pages above this size (chars) are flagged before the gateway call: a full
+ * regeneration of a page this large is what exceeds the gateway's edge
+ * timeout (~100 s) and returns 504.
+ */
+const PAGE_SIZE_WARN_CHARS = NUM("PAGE_SIZE_WARN_CHARS", 12000);
 // Diff manifest pre-pass: split a large release diff into chunks at file
 // boundaries and extract each chunk's manifest concurrently, then merge.
 const MANIFEST_CHUNK_BYTES = NUM("MANIFEST_CHUNK_BYTES", 100000);
@@ -171,24 +195,116 @@ function uniq(xs) {
  * For each changed_path in the payload, find every route-table entry whose
  * source_prefix matches and collect the target pages. Deduplicate.
  */
+/**
+ * A rule matches a changed path by `source_prefix` (string prefix). When the
+ * rule also carries `source_pattern` (a regex source), the path must match
+ * that too — this lets one directory hold files of different kinds (e.g.
+ * changelog/README.md is the index, changelog/NN_*.md are entries).
+ */
+function ruleMatches(rule, filePath) {
+  if (!filePath.startsWith(rule.source_prefix)) return false;
+  if (!rule.source_pattern) return true;
+  return new RegExp(rule.source_pattern).test(filePath);
+}
+
+/**
+ * Derive a docs page path from a changed source path using the rule's
+ * `page_template`. Placeholders are the named groups of `source_pattern`;
+ * each value is lowercased with `_` → `-` (docs slug convention). Returns
+ * null when the rule has no template or the path yields no groups.
+ *
+ *   changelog/02_Cobalt_B20Asset_multiplier.md
+ *     → docs/upgrades/cobalt/02-cobalt-b20asset-multiplier.mdx
+ */
+export function derivePageFromTemplate(rule, filePath) {
+  if (!rule.page_template || !rule.source_pattern) return null;
+  const m = new RegExp(rule.source_pattern).exec(filePath);
+  if (!m || !m.groups) return null;
+  const slug = (v) => String(v).toLowerCase().replace(/_/g, "-");
+  let missing = false;
+  const page = rule.page_template.replace(/\{(\w+)\}/g, (_, name) => {
+    if (m.groups[name] == null) {
+      missing = true;
+      return "";
+    }
+    return slug(m.groups[name]);
+  });
+  return missing ? null : page;
+}
+
+/**
+ * Where changelog pages live, read from the route table so the script never
+ * hard-codes a docs path: the entry directory is the template's directory,
+ * the summary page is the first page of a `changelog-index` rule.
+ */
+export function changelogLayout(routeTable) {
+  const rules = routeTable?.code_changes || [];
+  const entryRule = rules.find((r) => r.kind === "changelog-entry" && r.page_template) || null;
+  const indexRule = rules.find((r) => r.kind === "changelog-index" && r.pages?.length) || null;
+  return {
+    entryRule,
+    entryDir: entryRule ? path.posix.dirname(entryRule.page_template) : "",
+    summaryPage: indexRule ? indexRule.pages[0] : "",
+  };
+}
+
+/** `docs/a/b.mdx` → `/a/b` (site route; index pages collapse to the directory). */
+function routeForPage(page) {
+  return "/" + String(page).replace(/^docs\//, "").replace(/\.mdx?$/, "").replace(/\/index$/, "");
+}
+
+/**
+ * Fetch one file from the source repo at the dispatched sha. Used for
+ * changelog entry pages, which are reconciled against the whole entry rather
+ * than the diff. Returns null (and logs) on any failure so the caller can
+ * fall back to the diff slice. Auth: SOURCE_REPO_TOKEN (the workflow passes
+ * the same read-only PAT it already uses for provenance checks).
+ */
+async function fetchSourceFile(sourceRepo, sha, filePath) {
+  const token = process.env.SOURCE_REPO_TOKEN;
+  if (!token || !sourceRepo || !sha || !filePath) return null;
+  const url = `https://api.github.com/repos/${sourceRepo}/contents/${filePath}?ref=${encodeURIComponent(sha)}`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    if (!res.ok) {
+      console.warn(`[source] ${filePath}@${sha.slice(0, 7)}: HTTP ${res.status}; falling back to diff slice`);
+      return null;
+    }
+    const text = await res.text();
+    console.log(`[source] fetched ${filePath}@${sha.slice(0, 7)} (${text.length} chars)`);
+    return text;
+  } catch (err) {
+    console.warn(`[source] ${filePath}@${sha.slice(0, 7)}: ${err.message}; falling back to diff slice`);
+    return null;
+  }
+}
+
 export async function routeCodeChange(routeTable, changedPaths, options = {}) {
   const allPages = await listDocPages(options);
-  const work = new Map(); // page → {transformer, sourceFiles[]}
+  const work = new Map(); // page → {transformer, sourceFiles[], kinds[]}
   for (const filePath of changedPaths || []) {
     for (const rule of routeTable.code_changes) {
-      if (filePath.startsWith(rule.source_prefix)) {
-        const globMatches = (rule.page_globs || []).flatMap((glob) => {
-          const matcher = globToRegExp(glob);
-          return allPages.filter((page) => matcher.test(page));
-        });
-        for (const page of uniq([...(rule.pages || []), ...globMatches])) {
-          const entry = work.get(page) || {
-            transformer: rule.transformer,
-            sourceFiles: [],
-          };
-          entry.sourceFiles.push(filePath);
-          work.set(page, entry);
-        }
+      if (!ruleMatches(rule, filePath)) continue;
+      const globMatches = (rule.page_globs || []).flatMap((glob) => {
+        const matcher = globToRegExp(glob);
+        return allPages.filter((page) => matcher.test(page));
+      });
+      const derived = derivePageFromTemplate(rule, filePath);
+      for (const page of uniq([...(rule.pages || []), ...globMatches, ...(derived ? [derived] : [])])) {
+        const entry = work.get(page) || {
+          transformer: rule.transformer,
+          sourceFiles: [],
+          kinds: [],
+        };
+        entry.sourceFiles.push(filePath);
+        if (rule.kind) entry.kinds.push(rule.kind);
+        work.set(page, entry);
       }
     }
   }
@@ -196,6 +312,7 @@ export async function routeCodeChange(routeTable, changedPaths, options = {}) {
     page,
     transformer: info.transformer,
     sourceFiles: uniq(info.sourceFiles),
+    kinds: uniq(info.kinds),
   }));
 }
 
@@ -345,7 +462,7 @@ async function extractDiffManifestChunked(diff) {
  *
  * @returns {Promise<Array<{page: string, transformer: string}>>}
  */
-async function selectReleasePages(routeTable, candidates, signals) {
+async function selectReleasePages(routeTable, candidates, signals, opts = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
   const candidateSet = new Set(candidates);
   // Cheap metadata for the prompt (title/description), bounded concurrency.
@@ -374,6 +491,7 @@ async function selectReleasePages(routeTable, candidates, signals) {
     RELEASE_SELECTION_CONCURRENCY,
     async (batch, idx) => {
       const prompt = releaseSelectionPrompt({
+        event_description: opts.eventDescription,
         tag: signals.tag,
         previous_tag: signals.previous_tag,
         release_notes: releaseNotes,
@@ -586,27 +704,6 @@ export function parseManifestResponse(raw) {
     // No usable brackets at all — surface the original direct-parse error.
     throw directErr;
   }
-}
-
-/**
- * Filter the dispatch-level manifest down to the entries relevant to one page.
- * Entry is relevant when its `file` is in the page's `sourceFiles` list.
- * Tolerates trailing-slash and path-suffix matches.
- */
-function manifestForPage(manifest, sourceFiles) {
-  if (!Array.isArray(manifest) || manifest.length === 0) return [];
-  if (!Array.isArray(sourceFiles) || sourceFiles.length === 0) return [];
-  const set = new Set(sourceFiles);
-  return manifest.filter((entry) => {
-    if (!entry || typeof entry.file !== "string") return false;
-    if (set.has(entry.file)) return true;
-    // Tolerate manifest entries with paths that include the watched-prefix
-    // version of the file (rare but seen on some diffs).
-    for (const sf of sourceFiles) {
-      if (entry.file.endsWith(sf) || sf.endsWith(entry.file)) return true;
-    }
-    return false;
-  });
 }
 
 // ------------------------------------------------------- rule transformers
@@ -994,16 +1091,107 @@ const ASSET_PREFIXES = /^\/(images|static|public|_next|assets|fonts|favicon|api)
  * @returns {Promise<{page: string, status: "written"|"noop"|"skip"|"rejected",
  *          reason?: string, sourceFiles?: string[], newExternalUrls?: string[]}>}
  */
+/**
+ * Deterministic transformer for the changelog summary page. Reads the rows
+ * the README diff added or rewrote and upserts each into the matching
+ * hardfork table. Returns a processPage-shaped result.
+ */
+async function syncSummaryRows(item, current, abs, diffByFile, layout) {
+  const readmeDiff = diffByFile.get("changelog/README.md") || "";
+  const rows = parseChangelogIndexRows(readmeDiff);
+  if (rows.length === 0 || !layout.entryRule) {
+    console.log(`[noop] ${item.page} — no index rows in the README diff; summary untouched`);
+    return { page: item.page, status: "noop" };
+  }
+  let next = current;
+  const applied = [];
+  for (const row of rows) {
+    const m = new RegExp(layout.entryRule.source_pattern).exec(row.entryFile);
+    const page = derivePageFromTemplate(layout.entryRule, row.entryFile);
+    if (!m?.groups?.hardfork || !page) {
+      console.warn(`[rows] ${row.entryFile} does not match the entry pattern; row skipped`);
+      continue;
+    }
+    const hardfork = m.groups.hardfork;
+    const r = upsertSummaryRow(next, hardfork, { ...row, route: routeForPage(page) });
+    console.log(`[rows] ${hardfork}: ${row.change} — ${r.action}`);
+    if (r.changed) {
+      next = r.content;
+      applied.push(row.change);
+    }
+  }
+  if (applied.length === 0) return { page: item.page, status: "noop" };
+  if (DRY_RUN) console.log(`[dry-run] would write ${item.page} (${applied.length} row(s))`);
+  else {
+    await fs.writeFile(abs, next, "utf8");
+    console.log(`[write] ${item.page} (${applied.length} row(s))`);
+  }
+  return { page: item.page, status: "written", sourceFiles: item.sourceFiles || [], newExternalUrls: [] };
+}
+
+/**
+ * Insert a newly created entry page into its hardfork's nav group in
+ * docs.json. Returns the docs.json path when it was modified, else null.
+ */
+async function addPageToNav(page, entrySource, layout) {
+  const m = new RegExp(layout.entryRule.source_pattern).exec(entrySource);
+  const hardfork = m?.groups?.hardfork;
+  if (!hardfork) return null;
+  const groupName = hardfork.charAt(0).toUpperCase() + hardfork.slice(1);
+  const docsJsonRel = path.posix.join(DOCS_ROOT, "docs.json");
+  const docsJsonAbs = path.join(REPO_ROOT, docsJsonRel);
+  const raw = await safeReadFile(docsJsonAbs);
+  if (raw == null) return null;
+  const config = JSON.parse(raw);
+  const route = routeForPage(page).slice(1);
+  if (!insertNavPage(config.navigation, groupName, route)) {
+    console.warn(`::warning title=Nav group missing::no "${groupName}" group in docs.json; ${page} was created but not added to the sidebar`);
+    return null;
+  }
+  if (DRY_RUN) console.log(`[dry-run] would add ${route} to nav group "${groupName}"`);
+  else {
+    await fs.writeFile(docsJsonAbs, JSON.stringify(config, null, 2) + "\n", "utf8");
+    console.log(`[nav] added ${route} to "${groupName}" in ${docsJsonRel}`);
+  }
+  return docsJsonRel;
+}
+
 async function processPage(item, shared, useGroups) {
   const { kind, payload, sha, manifest, documentationGuidelines, knownRoutes, route } = shared;
+  const diffByFile = shared.diffByFile || new Map();
+  const layout = shared.layout || { entryDir: "", summaryPage: "", entryRule: null };
+  const pageRole = pageRoleFor(item.page, layout);
   if (useGroups) console.log(`::group::${item.page}`);
   else console.log(`[page] ${item.page}`);
   try {
     const abs = path.join(REPO_ROOT, item.page);
-    const current = await safeReadFile(abs);
+    let current = await safeReadFile(abs);
+    let create = false;
+    let sourceEntry = null;
+    const entrySource = (item.sourceFiles || []).find(
+      (sf) => layout.entryRule && ruleMatches(layout.entryRule, sf),
+    );
+
+    // Changelog entry pages are reconciled against the whole source entry,
+    // not the diff, and may be created when the derived page is missing.
+    if (kind === "code-change" && pageRole === "changelog-entry" && entrySource) {
+      sourceEntry = await fetchSourceFile(sourceRepo(payload), sha, entrySource);
+      if (current == null && sourceEntry) {
+        create = true;
+        const title = firstHeading(sourceEntry) || path.basename(item.page, ".mdx");
+        current = `---\ntitle: ${JSON.stringify(title)}\ndescription: ""\n---\n`;
+        console.log(`[create] ${item.page} — derived page does not exist; writing it from ${entrySource}`);
+      }
+    }
     if (current == null) {
       console.warn(`[skip] ${item.page} — file not found, skipping`);
       return { page: item.page, status: "skip" };
+    }
+
+    // Changelog summary: one row per feature, copied from the README index
+    // table. Deterministic — no model call for this page.
+    if (kind === "code-change" && pageRole === "changelog-index") {
+      return await syncSummaryRows(item, current, abs, diffByFile, layout);
     }
 
     let next = current;
@@ -1051,30 +1239,52 @@ async function processPage(item, shared, useGroups) {
         };
       } else {
         // code-change
-        const pageManifest = manifestForPage(manifest, item.sourceFiles);
+        const pageManifest = manifestForPage(manifest, {
+          sourceFiles: item.sourceFiles,
+          pageContent: current,
+        });
         if (pageManifest.length > 0) {
           console.log(
             `[manifest] ${item.page}: ${pageManifest.length} relevant change(s) from manifest`,
           );
+        }
+        // Input slicing: only the hunks from files that routed this page.
+        // Fall back to the whole diff when no per-file section matched
+        // (diff omitted upstream, or an unparseable header).
+        const slices = (item.sourceFiles || []).map((sf) => diffByFile.get(sf)).filter(Boolean);
+        const diff = slices.length > 0 ? slices.join("\n") : payload.diff;
+        if (slices.length > 0 && typeof payload.diff === "string" && diff.length < payload.diff.length) {
+          console.log(`[slice] ${item.page}: ${diff.length} of ${payload.diff.length} diff chars (${slices.length} file section(s))`);
         }
         ctx = {
           source_repo: sourceRepo(payload),
           sha,
           pr_title: payload.pr_title,
           pr_body: payload.pr_body,
-          diff: payload.diff,
+          diff,
           diff_truncated: payload.diff_truncated,
           sourceFiles: item.sourceFiles,
           manifest: pageManifest,
           current,
           documentationGuidelines,
+          pageRole,
+          source_entry: sourceEntry,
+          source_entry_path: sourceEntry ? entrySource : undefined,
+          create,
         };
       }
       const prompt = buildClaudePrompt(kind, ctx);
-      console.log(`[claude] ${item.page} — ${prompt.length} prompt chars`);
+      if (current.length > PAGE_SIZE_WARN_CHARS) {
+        console.warn(
+          `::warning title=Large page::${item.page} is ${current.length} chars; a full regeneration may exceed the gateway edge timeout`,
+        );
+      }
+      console.log(`[claude] ${item.page} — ${prompt.length} prompt chars (role=${pageRole})`);
+      const tCall = Date.now();
       const out = stripAuthorAttribution(
         await callClaude(prompt, item.page, { system: SYSTEM_PROMPT }),
       );
+      console.log(`[timing] ${item.page} — ${((Date.now() - tCall) / 1000).toFixed(1)}s`);
 
       const err = validateMdx(out, item.page, knownRoutes);
       if (err) {
@@ -1130,17 +1340,26 @@ async function processPage(item, shared, useGroups) {
       );
     }
 
+    const extraTouched = [];
     if (DRY_RUN) {
-      console.log(`[dry-run] would write ${item.page} (${next.length} bytes)`);
+      console.log(`[dry-run] would ${create ? "create" : "write"} ${item.page} (${next.length} bytes)`);
     } else {
+      await fs.mkdir(path.dirname(abs), { recursive: true });
       await fs.writeFile(abs, next, "utf8");
-      console.log(`[write] ${item.page}`);
+      console.log(`[${create ? "create" : "write"}] ${item.page}`);
+    }
+    if (create) {
+      // A new page must be reachable: add it to the hardfork's nav group so the
+      // structure validator doesn't flag it as an orphan.
+      const navTouched = await addPageToNav(item.page, entrySource, layout);
+      if (navTouched) extraTouched.push(navTouched);
     }
     return {
       page: item.page,
       status: "written",
       sourceFiles: item.sourceFiles || [],
       newExternalUrls,
+      extraTouched,
     };
   } finally {
     if (useGroups) console.log("::endgroup::");
@@ -1195,12 +1414,69 @@ async function main() {
     // chunked + merged rather than a single Haiku call.
     manifest = await extractDiffManifestChunked(payload.diff);
   }
+  if (manifest.length > 0) {
+    // Surface what the pre-pass found so a run's per-page routing can be
+    // read straight from the log (which symbols, which files).
+    const subjects = [...new Set(manifest.map((m) => m.subject))];
+    const shown = subjects.slice(0, 40).join(", ");
+    console.log(
+      `[manifest] subjects (${subjects.length}): ${shown}${subjects.length > 40 ? ", …" : ""}`,
+    );
+  }
 
   let work = [];
   if (kind === "code-change") {
     const changed = payload.changed_paths || [];
     console.log(`[sync] changed_paths: ${changed.length}`);
     work = await routeCodeChange(route, changed);
+
+    // Symbol-mention routing: pages that reference a changed identifier in a
+    // code span need the edit even when no path rule names them (a renamed
+    // function still used by a quickstart, for example). Deterministic grep,
+    // no model call. Depends on the manifest, so a dispatch without a diff
+    // (artifact fetch failed) is path-routed only — say so in the log.
+    if (manifest.length === 0) {
+      console.log("[symbols] no manifest (empty diff or extraction skipped); path routing only");
+    } else {
+      const symbols = routingSymbols(manifest, { minLength: ROUTING_SYMBOL_MIN_LENGTH });
+      console.log(`[symbols] ${symbols.length} routing symbol(s): ${symbols.slice(0, 30).join(", ")}${symbols.length > 30 ? ", …" : ""}`);
+      const docPages = await listDocPages();
+      const pages = [];
+      for (const rel of docPages) {
+        const content = await safeReadFile(path.join(REPO_ROOT, rel));
+        if (content != null) pages.push({ path: rel, content });
+      }
+      const mentions = findSymbolMentions(pages, symbols);
+      const before = work.length;
+      work = mergeSymbolRoutes(work, mentions, manifest);
+      console.log(`[symbols] ${mentions.size} page(s) mention a routing symbol; ${work.length - before} added beyond path routing`);
+    }
+    for (const w of work) {
+      if (!w.reasons) w.reasons = (w.sourceFiles || []).map((sf) => `path:${sf}`);
+    }
+
+    if (work.length > CODE_CHANGE_MAX_PAGES) {
+      console.warn(
+        `[route] ${work.length} pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; running selection pass`,
+      );
+      const picked = await selectReleasePages(
+        route,
+        work.map((w) => w.page),
+        {
+          tag: `base-std@${shortSha(sha)}`,
+          previous_tag: "",
+          releaseNotes: [payload.pr_title, payload.pr_body].filter(Boolean).join("\n\n"),
+          manifest,
+          changedPaths: changed,
+          documentationGuidelines,
+        },
+        { eventDescription: `A code change landed on ${sourceRepo(payload)}@${shortSha(sha)}${payload.pr_title ? `: ${payload.pr_title}` : ""}.` },
+      );
+      const keep = new Set(picked.map((p) => p.page));
+      const dropped = work.filter((w) => !keep.has(w.page)).map((w) => w.page);
+      work = work.filter((w) => keep.has(w.page)).slice(0, CODE_CHANGE_MAX_PAGES);
+      console.log(`[route] selection kept ${work.length}; dropped ${dropped.length}`);
+    }
   } else if (kind === "release") {
     console.log(
       `[sync] tag=${payload.tag} previous=${payload.previous_tag || "?"} changed_paths=${(payload.changed_paths || []).length} diff_truncated=${!!payload.diff_truncated}`,
@@ -1239,7 +1515,10 @@ async function main() {
   }
 
   console.log(`[sync] routing to ${work.length} page(s):`);
-  for (const w of work) console.log(`  - ${w.page} (${w.transformer})`);
+  for (const w of work) {
+    const why = w.reasons?.length ? ` ← ${w.reasons.join(", ")}` : "";
+    console.log(`  - ${w.page} (${w.transformer}${w.kinds?.length ? `, ${w.kinds.join("+")}` : ""})${why}`);
+  }
 
   // Per-page transform. code-change and manual-update run at concurrency 1 so
   // their behavior and log ordering are unchanged; release fans out across
@@ -1262,6 +1541,9 @@ async function main() {
     documentationGuidelines,
     knownRoutes,
     route,
+    // Per-file diff sections so each page only sees the hunks that routed it.
+    diffByFile: splitDiffByFile(typeof payload.diff === "string" ? payload.diff : ""),
+    layout: changelogLayout(route),
   };
   if (concurrency > 1) {
     console.log(`[sync] processing ${work.length} page(s) with concurrency ${concurrency}`);
@@ -1285,6 +1567,7 @@ async function main() {
       rejected.push({ page: r.page, reason: r.reason });
     } else if (r.status === "written") {
       touched.push(r.page);
+      for (const extra of r.extraTouched || []) if (!touched.includes(extra)) touched.push(extra);
       provenance.push({
         page: r.page,
         sourceFiles: r.sourceFiles || [],
