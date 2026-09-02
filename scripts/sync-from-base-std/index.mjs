@@ -1520,38 +1520,24 @@ async function main() {
     if (skippedCount > 0) console.log(`[route] ${skippedCount} function page(s) have no intersection with the manifest; skipped without a model call`);
 
     if (modelBound.length > CODE_CHANGE_MAX_PAGES) {
+      // Deterministic cap — no model decides routing. Path-routed pages come
+      // first (a rule named them), then symbol-routed pages ordered by how
+      // many changed symbols they mention. Everything past the cap is dropped
+      // and named in a workflow warning so a reviewer can re-dispatch or
+      // widen the cap deliberately.
+      const score = (w) => {
+        const reasons = w.reasons || [];
+        const pathHits = reasons.filter((r) => r.startsWith("path:")).length;
+        const symHits = reasons.filter((r) => r.startsWith("symbol:")).length;
+        return pathHits * 1000 + symHits;
+      };
+      const ordered = [...modelBound].sort((a, b) => score(b) - score(a) || a.page.localeCompare(b.page));
+      const kept = ordered.slice(0, CODE_CHANGE_MAX_PAGES);
+      const dropped = ordered.slice(CODE_CHANGE_MAX_PAGES);
       console.warn(
-        `[route] ${modelBound.length} model-bound pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; running selection pass`,
+        `::warning title=Routing cap reached::${modelBound.length} model-bound pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; kept ${kept.length}, dropped ${dropped.length}. Dropped: ${dropped.map((w) => w.page).join(", ")}`,
       );
-      const picked = await selectReleasePages(
-        route,
-        modelBound.map((w) => w.page),
-        {
-          tag: `base-std@${shortSha(sha)}`,
-          previous_tag: "",
-          releaseNotes: [payload.pr_title, payload.pr_body].filter(Boolean).join("\n\n"),
-          manifest,
-          changedPaths: changed,
-          documentationGuidelines,
-        },
-        { eventDescription: `A code change landed on ${sourceRepo(payload)}@${shortSha(sha)}${payload.pr_title ? `: ${payload.pr_title}` : ""}.` },
-      );
-      if (picked.length === 0) {
-        // Selection unavailable (gateway down, parse failure): never fall to
-        // zero. Keep path-routed pages up to the cap and say so loudly.
-        const fallback = modelBound
-          .filter((w) => (w.reasons || []).some((r) => r.startsWith("path:")))
-          .slice(0, CODE_CHANGE_MAX_PAGES);
-        console.warn(
-          `::warning title=Selection pass returned nothing::keeping ${fallback.length} path-routed page(s) (cap ${CODE_CHANGE_MAX_PAGES}); symbol-only pages dropped for this run`,
-        );
-        work = [...fallback, ...work.filter((w) => w.skipUnaffected)];
-      } else {
-        const keep = new Set(picked.map((p) => p.page));
-        const kept = modelBound.filter((w) => keep.has(w.page)).slice(0, CODE_CHANGE_MAX_PAGES);
-        console.log(`[route] selection kept ${kept.length}; dropped ${modelBound.length - kept.length}`);
-        work = [...kept, ...work.filter((w) => w.skipUnaffected)];
-      }
+      work = [...kept, ...work.filter((w) => w.skipUnaffected)];
     }
   } else if (kind === "release") {
     console.log(
