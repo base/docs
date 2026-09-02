@@ -964,6 +964,9 @@ jobs:
         id: sync
         env:
           LLM_GATEWAY_API_KEY: ${{ secrets.LLM_GATEWAY_API_KEY }}
+          # Read-only PAT already used for provenance checks; lets the sync
+          # fetch a changelog entry's full source file at the dispatched sha.
+          SOURCE_REPO_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
           PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
           CODE_CHANGE_PAGE_CONCURRENCY: ${{ vars.CODE_CHANGE_PAGE_CONCURRENCY }}
           RELEASE_PAGE_CONCURRENCY: ${{ vars.RELEASE_PAGE_CONCURRENCY }}
@@ -1025,7 +1028,9 @@ jobs:
           # Allowed: docs/<anything>/<file>.{md,mdx,txt}
           # Rejected: absolute paths, embedded newlines, '..' traversal,
           # anything outside docs/, any non-doc extension.
-          allow_re='^docs/[A-Za-z0-9._/-]+\.(md|mdx|txt)$'
+          # docs/docs.json is allowed only because creating a changelog entry
+          # page must also add it to the sidebar; no other config is writable.
+          allow_re='^(docs/[A-Za-z0-9._/-]+\.(md|mdx|txt)|docs/docs\.json)$'
           for p in $TOUCHED_PATHS; do
             case "$p" in
               /*|*..*|*$'\n'*)

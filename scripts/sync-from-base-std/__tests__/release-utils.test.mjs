@@ -16,6 +16,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  manifestForPage,
+  manifestEntrySymbols,
+  routingSymbols,
+  extractCodeSpans,
+  findSymbolMentions,
+  mergeSymbolRoutes,
+  splitDiffByFile,
+  pageRoleFor,
+  parseChangelogIndexRows,
+  upsertSummaryRow,
+  insertNavPage,
+  firstHeading,
   mapWithConcurrency,
   chunkDiffBySize,
   mergeManifests,
@@ -184,4 +196,239 @@ test("mapWithConcurrency: a rejection propagates", async () => {
     }),
     /boom/,
   );
+});
+
+// ---------------------------------------------------------- manifestForPage
+
+test("manifestEntrySymbols: qualified subject, its parts, and rename before/after names", () => {
+  const syms = manifestEntrySymbols({
+    subject: "IB20.seizeWithMemo",
+    before: "transferFromBlockedWithMemo(address from, address to)",
+    after: "seizeWithMemo(address from, address to)",
+  });
+  assert.equal(syms[0], "IB20.seizeWithMemo");
+  assert.ok(syms.includes("IB20"));
+  assert.ok(syms.includes("seizeWithMemo"));
+  assert.ok(syms.includes("transferFromBlockedWithMemo"));
+  // generic tokens never count as evidence
+  assert.ok(!syms.includes("address"));
+  assert.ok(!syms.includes("from"));
+});
+
+test("manifestForPage: matches by routed source file (existing behaviour)", () => {
+  const manifest = [
+    { file: "src/interfaces/IB20.sol", kind: "other", subject: "IB20.policyId", summary: "x" },
+    { file: "src/lib/B20Constants.sol", kind: "other", subject: "MAX_UI", summary: "y" },
+  ];
+  const hits = manifestForPage(manifest, { sourceFiles: ["src/interfaces/IB20.sol"] });
+  assert.deepEqual(hits.map((h) => h.subject), ["IB20.policyId"]);
+});
+
+test("manifestForPage: matches by symbol on the page when the file does not match", () => {
+  // Haiku names the Solidity file; the page was routed from a changelog path.
+  const manifest = [
+    { file: "src/interfaces/IPolicyRegistry.sol", kind: "signature_change", subject: "IPolicyRegistry.createCompositePolicy", summary: "a" },
+    { file: "src/interfaces/IPolicyRegistry.sol", kind: "field_added", subject: "MIN_COMPOSITE_CHILD_POLICIES", summary: "b" },
+    { file: "src/interfaces/IB20Asset.sol", kind: "field_added", subject: "IB20Asset.updateUIMultiplier", summary: "c" },
+  ];
+  const page = "Call `createCompositePolicy(admin, UNION, ids)` — see MIN_COMPOSITE_CHILD_POLICIES.";
+  const hits = manifestForPage(manifest, {
+    sourceFiles: ["changelog/02_Cobalt_PolicyRegistry_composite_policy.md"],
+    pageContent: page,
+  });
+  assert.deepEqual(hits.map((h) => h.subject), [
+    "IPolicyRegistry.createCompositePolicy",
+    "MIN_COMPOSITE_CHILD_POLICIES",
+  ]);
+});
+
+test("manifestForPage: symbol match is whole-identifier only", () => {
+  const manifest = [
+    { file: "src/interfaces/IB20.sol", kind: "other", subject: "IB20.burn", summary: "a" },
+  ];
+  // "burnBlocked" contains "burn" but is a different identifier.
+  assert.deepEqual(
+    manifestForPage(manifest, { sourceFiles: ["changelog/x.md"], pageContent: "use `burnBlocked`" }),
+    [],
+  );
+  assert.equal(
+    manifestForPage(manifest, { sourceFiles: ["changelog/x.md"], pageContent: "use `burn`" }).length,
+    1,
+  );
+});
+
+test("manifestForPage: rename matches pages still using the old name", () => {
+  const manifest = [
+    { file: "src/interfaces/IB20.sol", kind: "field_renamed", subject: "IB20.seizeWithMemo", before: "transferFromBlockedWithMemo", after: "seizeWithMemo", summary: "renamed" },
+  ];
+  const stale = "Quickstart: call `transferFromBlockedWithMemo(from, to, amount)`.";
+  assert.equal(manifestForPage(manifest, { sourceFiles: ["docs/guide.md"], pageContent: stale }).length, 1);
+});
+
+test("manifestForPage: empty manifest, missing content, or no evidence yields []", () => {
+  assert.deepEqual(manifestForPage([], { sourceFiles: ["a"], pageContent: "x" }), []);
+  assert.deepEqual(manifestForPage(null, {}), []);
+  const manifest = [{ file: "src/a.sol", kind: "other", subject: "Foo.bar", summary: "s" }];
+  assert.deepEqual(manifestForPage(manifest, { sourceFiles: ["changelog/x.md"] }), []);
+  assert.deepEqual(manifestForPage(manifest, { sourceFiles: ["changelog/x.md"], pageContent: "nothing here" }), []);
+});
+
+// ---------------------------------------------------- symbol-mention routing
+
+const MANIFEST = [
+  { file: "src/interfaces/IB20.sol", kind: "field_renamed", subject: "IB20.seizeWithMemo", before: "transferFromBlockedWithMemo", after: "seizeWithMemo", summary: "r" },
+  { file: "src/interfaces/IB20.sol", kind: "other", subject: "IB20.burn", summary: "short" },
+  { file: "src/lib/B20Constants.sol", kind: "field_added", subject: "SEIZE_RECEIVER_POLICY", summary: "c" },
+];
+
+test("routingSymbols: bare + qualified subjects and before-names, min length 6", () => {
+  const syms = routingSymbols(MANIFEST);
+  assert.ok(syms.includes("seizeWithMemo"));
+  assert.ok(syms.includes("IB20.seizeWithMemo"));
+  assert.ok(syms.includes("transferFromBlockedWithMemo"));
+  assert.ok(syms.includes("SEIZE_RECEIVER_POLICY"));
+  assert.ok(!syms.includes("burn"), "4-char symbol must not route pages");
+  assert.deepEqual(routingSymbols(null), []);
+});
+
+test("extractCodeSpans: fenced blocks and inline spans only", () => {
+  const md = "Call `seizeWithMemo()` today.\n```solidity\nfunction burnBlocked()\n```\nProse seizeWithMemo here.";
+  const code = extractCodeSpans(md);
+  assert.ok(code.includes("burnBlocked"));
+  assert.equal((code.match(/seizeWithMemo/g) || []).length, 1, "prose mention is not code");
+});
+
+test("findSymbolMentions: matches in code spans, not prose; whole identifiers only", () => {
+  const pages = [
+    { path: "docs/quickstart.mdx", content: "Run `token.transferFromBlockedWithMemo(a, b, 1)`" },
+    { path: "docs/prose.mdx", content: "The transferFromBlockedWithMemo flow is described here." },
+    { path: "docs/other.mdx", content: "`seizeWithMemoV2()`" },
+  ];
+  const hits = findSymbolMentions(pages, ["transferFromBlockedWithMemo", "seizeWithMemo"]);
+  assert.deepEqual([...hits.entries()], [["docs/quickstart.mdx", ["transferFromBlockedWithMemo"]]]);
+});
+
+test("mergeSymbolRoutes: path-routed pages gain reasons; symbol-only pages are appended with source files", () => {
+  const work = [{ page: "docs/a.mdx", transformer: "claude", sourceFiles: ["src/interfaces/IB20.sol"], kinds: ["interface"] }];
+  const mentions = new Map([
+    ["docs/a.mdx", ["seizeWithMemo"]],
+    ["docs/quickstart.mdx", ["transferFromBlockedWithMemo", "SEIZE_RECEIVER_POLICY"]],
+  ]);
+  const merged = mergeSymbolRoutes(work, mentions, MANIFEST);
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged[0].reasons, ["path:src/interfaces/IB20.sol", "symbol:seizeWithMemo"]);
+  assert.deepEqual(merged[0].kinds, ["interface"]);
+  const q = merged[1];
+  assert.equal(q.page, "docs/quickstart.mdx");
+  assert.deepEqual(q.sourceFiles.sort(), ["src/interfaces/IB20.sol", "src/lib/B20Constants.sol"]);
+  assert.deepEqual(q.reasons, ["symbol:transferFromBlockedWithMemo", "symbol:SEIZE_RECEIVER_POLICY"]);
+});
+
+test("splitDiffByFile: one section per file, keyed by post-image path", () => {
+  const diff = [
+    "diff --git a/changelog/README.md b/changelog/README.md",
+    "--- a/changelog/README.md", "+++ b/changelog/README.md", "@@ -1 +1 @@", "+| x |",
+    "diff --git a/src/interfaces/IB20.sol b/src/interfaces/IB20.sol",
+    "@@ -1 +1 @@", "+// natspec",
+  ].join("\n");
+  const by = splitDiffByFile(diff);
+  assert.deepEqual([...by.keys()], ["changelog/README.md", "src/interfaces/IB20.sol"]);
+  assert.ok(by.get("src/interfaces/IB20.sol").includes("+// natspec"));
+  assert.ok(!by.get("src/interfaces/IB20.sol").includes("+| x |"));
+  assert.equal(splitDiffByFile("").size, 0);
+});
+
+test("pageRoleFor: classifies by path", () => {
+  const layout = {
+    entryDir: "docs/base-chain/specs/reference/b20/changelog",
+    summaryPage: "docs/specifications/b20/changelog.mdx",
+  };
+  assert.equal(pageRoleFor("docs/specifications/b20/changelog.mdx", layout), "changelog-index");
+  assert.equal(pageRoleFor("docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx", layout), "changelog-entry");
+  assert.equal(pageRoleFor("docs/specifications/b20/reference/interfaces/ib20/seize-with-memo.mdx", layout), "function-reference");
+  assert.equal(pageRoleFor("docs/specifications/b20/reference/interfaces/ib20/index.mdx", layout), "interface-index");
+  assert.equal(pageRoleFor("docs/specifications/b20/reference/errors-events.mdx", layout), "shared-reference");
+  assert.equal(pageRoleFor("docs/specifications/b20/launch-a-b20-token.mdx", layout), "guide");
+});
+
+// ------------------------------------------------------ summary rows / nav
+
+const README_DIFF = [
+  "diff --git a/changelog/README.md b/changelog/README.md",
+  "@@ -20,3 +20,4 @@",
+  " | Product(s) | Change | Affected interfaces | Entry |",
+  " | --- | --- | --- | --- |",
+  "+| B20 Asset | Schedule Multiplier Updates (ERC-8056) | `src/interfaces/IB20Asset.sol` | [02_Cobalt_B20Asset_multiplier](02_Cobalt_B20Asset_multiplier.md) |",
+  "+| B20 Stablecoin | Pause v2 | `src/interfaces/IB20.sol` (shared surface) | [03_Denim_B20_pause_v2](03_Denim_B20_pause_v2.md) |",
+  "+| --- | --- | --- | --- |",
+].join("\n");
+
+test("parseChangelogIndexRows: reads added table rows, skips header/separator", () => {
+  const rows = parseChangelogIndexRows(README_DIFF);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0], {
+    products: "B20 Asset",
+    change: "Schedule Multiplier Updates (ERC-8056)",
+    interfaces: "`src/interfaces/IB20Asset.sol`",
+    entryFile: "changelog/02_Cobalt_B20Asset_multiplier.md",
+  });
+  assert.equal(rows[1].entryFile, "changelog/03_Denim_B20_pause_v2.md");
+});
+
+const SUMMARY = [
+  "---", "title: x", "---",
+  "## [Cobalt](/upgrades/cobalt/overview) (Upcoming) — Ordinal 02",
+  "",
+  "| Product(s) | Change | Affected interfaces | Entry |",
+  "|---|---|---|---|",
+  "| B20 Asset | Old change text | `IB20Asset` | [Multiplier / ERC-8056](/x/02-cobalt-b20asset-multiplier) |",
+  "",
+  "## [Beryl](/upgrades/beryl/overview) — Initial Release",
+  "",
+  "| Network | Activated |",
+  "|---|---|",
+].join("\n");
+
+test("upsertSummaryRow: updates an existing row in place and keeps its link label", () => {
+  const r = upsertSummaryRow(SUMMARY, "Cobalt", {
+    products: "B20 Asset", change: "Schedule Multiplier Updates (ERC-8056)",
+    interfaces: "`src/interfaces/IB20Asset.sol`", route: "/x/02-cobalt-b20asset-multiplier",
+  });
+  assert.equal(r.action, "updated");
+  assert.ok(r.content.includes("| B20 Asset | Schedule Multiplier Updates (ERC-8056) | `IB20Asset` | [Multiplier / ERC-8056](/x/02-cobalt-b20asset-multiplier) |"));
+  assert.ok(!r.content.includes("Old change text"));
+  // idempotent
+  assert.equal(upsertSummaryRow(r.content, "Cobalt", { products: "B20 Asset", change: "Schedule Multiplier Updates (ERC-8056)", interfaces: "`src/interfaces/IB20Asset.sol`", route: "/x/02-cobalt-b20asset-multiplier" }).action, "unchanged");
+});
+
+test("upsertSummaryRow: appends a new row at the end of the hardfork table, never touching other sections", () => {
+  const r = upsertSummaryRow(SUMMARY, "Cobalt", {
+    products: "PolicyRegistry", change: "Composite Policies", interfaces: "`src/interfaces/IPolicyRegistry.sol`", route: "/x/02-cobalt-policyregistry-composite-policy",
+  });
+  assert.equal(r.action, "added");
+  const lines = r.content.split("\n");
+  const idx = lines.findIndex((l) => l.includes("02-cobalt-policyregistry-composite-policy"));
+  assert.equal(lines[idx - 1].includes("02-cobalt-b20asset-multiplier"), true);
+  assert.equal(lines[idx + 1], "");
+  assert.ok(r.content.includes("| Network | Activated |"));
+  assert.equal(r.content.split("| Network | Activated |").length, 2);
+});
+
+test("upsertSummaryRow: a hardfork with no section is left alone", () => {
+  const r = upsertSummaryRow(SUMMARY, "Denim", { products: "x", change: "y", interfaces: "z", route: "/r" });
+  assert.equal(r.action, "no-section");
+  assert.equal(r.content, SUMMARY);
+});
+
+test("insertNavPage: appends into the named group once; false when group missing", () => {
+  const nav = { tabs: [{ tab: "Upgrades", groups: [{ group: "Cobalt", pages: ["upgrades/cobalt/overview"] }] }] };
+  assert.equal(insertNavPage(nav, "Cobalt", "x/new-page"), true);
+  assert.equal(insertNavPage(nav, "Cobalt", "x/new-page"), true);
+  assert.deepEqual(nav.tabs[0].groups[0].pages, ["upgrades/cobalt/overview", "x/new-page"]);
+  assert.equal(insertNavPage(nav, "Denim", "x/other"), false);
+});
+
+test("firstHeading: first H1 or empty", () => {
+  assert.equal(firstHeading("intro\n# Seize surface + burnBlocked deprecation\n## Summary"), "Seize surface + burnBlocked deprecation");
+  assert.equal(firstHeading("no heading"), "");
 });
