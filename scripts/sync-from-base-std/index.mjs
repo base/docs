@@ -42,6 +42,7 @@ import {
 } from "./llm/prompts.mjs";
 import {
   callClaude,
+  callClaudeDetailed,
   BENCH_LOG,
   DEFAULT_MODEL,
   DEFAULT_MAX_TOKENS,
@@ -925,7 +926,7 @@ const REASONING_LEAK_PATTERNS = [
  * Used by `validateMdx` to reject pages whose internal Markdown links
  * point at a route that doesn't exist.
  */
-async function loadKnownRoutes() {
+export async function loadKnownRoutes() {
   const contentRoot = path.join(REPO_ROOT, DOCS_ROOT);
   const out = new Set();
   async function walk(dir) {
@@ -942,6 +943,9 @@ async function loadKnownRoutes() {
         const rel = path.relative(contentRoot, abs);
         const noSuffix = rel.replace(/\.(mdx|md|txt)$/i, "");
         out.add("/" + noSuffix);
+        // Mintlify serves index.mdx at its directory URL, and the nav links
+        // interface landing pages that way (…/interfaces/ib20). Register it.
+        if (/\/index$/.test(noSuffix)) out.add("/" + noSuffix.replace(/\/index$/, ""));
       }
     }
   }
@@ -1326,10 +1330,18 @@ async function processPage(item, shared, useGroups) {
       }
       console.log(`[claude] ${item.page} — ${prompt.length} prompt chars (role=${pageRole})`);
       const tCall = Date.now();
-      const out = stripAuthorAttribution(
-        await callClaude(prompt, item.page, { system: SYSTEM_PROMPT }),
+      const completion = await callClaudeDetailed(prompt, item.page, { system: SYSTEM_PROMPT });
+      console.log(
+        `[timing] ${item.page} — ${((Date.now() - tCall) / 1000).toFixed(1)}s, ${completion.outputTokens ?? "?"} output tokens, stop=${completion.stopReason ?? "?"}`,
       );
-      console.log(`[timing] ${item.page} — ${((Date.now() - tCall) / 1000).toFixed(1)}s`);
+      if (completion.stopReason === "max_tokens") {
+        // The model ran out of output budget mid-file. Writing this would
+        // silently delete everything after the cut, so refuse it outright.
+        const reason = `output truncated at the ${DEFAULT_MAX_TOKENS}-token output cap (stop_reason=max_tokens); a full regeneration of this ${current.length}-char page does not fit`;
+        console.error(`[reject] ${item.page}: ${reason}`);
+        return { page: item.page, status: "rejected", reason };
+      }
+      const out = stripAuthorAttribution(completion.text);
 
       const err = validateMdx(out, item.page, knownRoutes, {
         current,

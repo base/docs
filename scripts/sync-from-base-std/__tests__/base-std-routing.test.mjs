@@ -295,3 +295,14 @@ test("validateMdx: components already on the page or defined as snippets are all
   // a genuinely unknown component is still rejected
   assert.match(validateMdx(page.replace("StablecoinDemo", "Nope"), "docs/a.mdx", routes, { current: page }) || "", /Nope/);
 });
+
+import { loadKnownRoutes } from "../index.mjs";
+
+test("loadKnownRoutes: index pages are reachable at their directory route", async () => {
+  const routes = await loadKnownRoutes();
+  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20/index"));
+  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20"), "directory route for index.mdx");
+  // and the validator accepts a link to it
+  const page = "---\ntitle: x\n---\n\nSee [IB20](/specifications/b20/reference/interfaces/ib20).\n";
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
+});

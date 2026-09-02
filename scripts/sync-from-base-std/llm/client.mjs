@@ -148,3 +148,21 @@ export async function callClaude(prompt, page = "", opts = {}) {
 
   return text;
 }
+
+/**
+ * Same as callClaude, but returns the stop reason and usage alongside the
+ * text so callers can refuse a truncated completion (`stop_reason ===
+ * "max_tokens"`) instead of writing a page that was cut off mid-file.
+ *
+ * @returns {Promise<{text: string, stopReason: string|null, outputTokens: number|null}>}
+ */
+export async function callClaudeDetailed(prompt, page = "", opts = {}) {
+  const text = await callClaude(prompt, page, opts);
+  const row = BENCH_LOG[BENCH_LOG.length - 1];
+  const mine = row && row.page === page ? row : null;
+  return {
+    text,
+    stopReason: mine ? mine.stop_reason : null,
+    outputTokens: mine ? mine.output_tokens : null,
+  };
+}
