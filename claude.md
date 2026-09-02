@@ -86,14 +86,16 @@ sidebar label is `sidebarTitle` if present, otherwise `title`.
 
 Every PR that changes rendered pages must include screenshots:
 
-1. Run `/screenshot` to capture the affected pages and upload them as draft
-   release assets (`gh release create screenshots-pr-<N> --draft`).
+1. Run `/screenshot` to capture the affected pages and upload them as
+   prerelease assets (`gh release create screenshots-pr-<N> --prerelease` —
+   draft releases don't work: their assets aren't publicly fetchable, so the
+   images render broken in PR bodies).
 2. Fill in the **Screenshots** section of the PR template with the embedded
    images. For backend-only changes (`scripts/`, `.github/`, repo-root
    markdown), write "N/A (no user-facing changes)".
 3. Screenshots live in `screenshots/` locally (gitignored) — never commit them.
-4. After the PR merges, delete its draft release:
-   `gh release delete screenshots-pr-<N> --yes`.
+4. After the PR merges, delete its release and tag:
+   `gh release delete screenshots-pr-<N> --cleanup-tag --yes`.
 
 ## CI Approval Gates
 

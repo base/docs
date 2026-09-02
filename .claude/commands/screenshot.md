@@ -55,10 +55,10 @@ Take screenshots of docs pages affected by the current PR's changes using `agent
 
 5. **Review screenshots**: Read each screenshot file to visually inspect the pages. Check for broken components, un-rendered MDX (raw `<Card>` tags, missing frontmatter titles), broken images, and sidebar issues. Describe what you see and confirm the changes render correctly.
 
-6. **Upload screenshots** to GitHub as draft release assets so they can be embedded in the PR:
+6. **Upload screenshots** to GitHub as prerelease assets so they can be embedded in the PR. Use a prerelease, not a draft — draft-release assets aren't anonymously fetchable on public repos, so GitHub's image proxy renders them as broken images in PR bodies:
 
    ```bash
-   gh release create screenshots-pr-<N> --draft --title "PR #<N> Screenshots" --notes "Screenshots for PR review" screenshots/*.png
+   gh release create screenshots-pr-<N> --prerelease --title "PR #<N> Screenshots" --notes "Screenshots for PR review" screenshots/*.png
    gh release view screenshots-pr-<N> --json assets --jq '.assets[] | "\(.name): \(.url)"'
    ```
 
@@ -66,7 +66,7 @@ Take screenshots of docs pages affected by the current PR's changes using `agent
 
 ## Notes
 
-- Screenshots are saved locally to `screenshots/` (gitignored) — do NOT commit them. They are shared via draft GitHub releases instead.
+- Screenshots are saved locally to `screenshots/` (gitignored) — do NOT commit them. They are shared via GitHub prereleases instead.
 - If the dev server is already running, reuse it — don't start a second one.
 - If a page fails to render (Mintlify build error), report the error output instead of a blank screenshot.
-- After a PR is merged, clean up its draft release: `gh release delete screenshots-pr-<N> --yes`
+- After a PR is merged, clean up its release and tag: `gh release delete screenshots-pr-<N> --cleanup-tag --yes`
