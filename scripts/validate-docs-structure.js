@@ -262,8 +262,33 @@ if (fs.existsSync(routeTablePath)) {
     }
   }
 
+  const ROUTE_KINDS = new Set(['interface', 'product-doc', 'changelog-entry', 'changelog-index']);
   for (const rule of routeTable.code_changes || []) {
     const where = `code_changes[${rule.source_prefix}]`;
+    if (!ROUTE_KINDS.has(rule.kind)) {
+      errors.push(`route-table ${where}: kind '${rule.kind}' is not one of ${[...ROUTE_KINDS].join(' | ')}`);
+    }
+    if (rule.source_pattern) {
+      try {
+        new RegExp(rule.source_pattern);
+      } catch (err) {
+        errors.push(`route-table ${where}: source_pattern is not a valid regex (${err.message})`);
+      }
+    }
+    if (rule.page_template) {
+      if (!rule.source_pattern) {
+        errors.push(`route-table ${where}: page_template requires a source_pattern with named groups`);
+      } else {
+        const groups = new Set([...rule.source_pattern.matchAll(/\(\?<(\w+)>/g)].map((m) => m[1]));
+        for (const [, name] of rule.page_template.matchAll(/\{(\w+)\}/g)) {
+          if (!groups.has(name)) errors.push(`route-table ${where}: page_template placeholder {${name}} is not a named group of source_pattern`);
+        }
+        const dir = path.dirname(rule.page_template.replace(/\{(\w+)\}/g, 'x'));
+        if (!fs.existsSync(path.join(root, dir.replace(/\/x$/, '')))) {
+          errors.push(`route-table ${where}: page_template directory does not exist: ${dir}`);
+        }
+      }
+    }
     for (const page of rule.pages || []) checkRoutedPage(page, where);
     for (const glob of rule.page_globs || []) {
       const matcher = globToRegExp(glob);

@@ -93,7 +93,7 @@ test("route table maps each source file to its own interface subtree, never the 
         `rule ${rule.source_prefix} fans out to the whole B20 reference tree`,
       );
     }
-    for (const page of rule.pages) {
+    for (const page of rule.pages || []) {
       assert.ok(
         existsSync(path.join(REPO_ROOT, page)),
         `rule ${rule.source_prefix} names a page that does not exist: ${page}`,
@@ -132,10 +132,76 @@ test("route table maps each source file to its own interface subtree, never the 
     ["changelog/02_Cobalt_B20_seize.md"],
     { repoRoot: REPO_ROOT },
   );
-  assert.deepEqual(
-    changelogWork.map((item) => item.page),
-    [`${B20_REFERENCE_ROOT}/changelog.mdx`],
+  assert.ok(
+    !changelogWork.some((item) => item.page === `${B20_REFERENCE_ROOT}/changelog.mdx`),
+    "entry edit must not route to the summary page",
   );
+  assert.ok(
+    !changelogWork.some((item) => item.page.includes("/reference/interfaces/")),
+    "entry edit must not route into interface subtrees",
+  );
+});
+
+test("route rules carry a kind, and changelog index vs entry are routed differently", async () => {
+  const routeTable = JSON.parse(
+    await fs.readFile(
+      path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"),
+      "utf8",
+    ),
+  );
+  const KINDS = new Set(["interface", "product-doc", "changelog-entry", "changelog-index"]);
+  for (const rule of routeTable.code_changes) {
+    assert.ok(KINDS.has(rule.kind), `rule ${rule.source_prefix} has kind '${rule.kind}'`);
+  }
+  const summary = `${B20_REFERENCE_ROOT}/changelog.mdx`;
+
+  // The index (README.md / CHANGELOG.md) is the only thing that reaches the summary page.
+  for (const src of ["changelog/README.md", "CHANGELOG.md"]) {
+    const work = await routeCodeChange(routeTable, [src], { repoRoot: REPO_ROOT });
+    assert.deepEqual(work.map((w) => [w.page, w.kinds]), [[summary, ["changelog-index"]]], src);
+  }
+  // A per-feature entry is classified as changelog-entry and never touches the summary.
+  const entry = await routeCodeChange(
+    routeTable,
+    ["changelog/02_Cobalt_B20_seize.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  assert.ok(!entry.some((w) => w.page === summary), "entry edit must not route to the summary");
+  assert.deepEqual(
+    entry.map((w) => [w.page, w.kinds]),
+    [["docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx", ["changelog-entry"]]],
+  );
+  // Derivation follows the naming convention in content-guidelines.md.
+  const multiplier = await routeCodeChange(
+    routeTable,
+    ["changelog/02_Cobalt_B20Asset_multiplier.md", "changelog/02_Cobalt_PolicyRegistry_composite_policy.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  assert.deepEqual(multiplier.map((w) => w.page).sort(), [
+    "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier.mdx",
+    "docs/base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy.mdx",
+  ]);
+  // A future hardfork/feature derives a path even before the page exists
+  // (processPage skips missing pages until creation lands).
+  const future = await routeCodeChange(routeTable, ["changelog/03_Denim_B20_pause_v2.md"], { repoRoot: REPO_ROOT });
+  assert.deepEqual(future.map((w) => w.page), ["docs/base-chain/specs/reference/b20/changelog/03-denim-b20-pause-v2.mdx"]);
+  // Authoring helpers in the same directory route nowhere.
+  for (const src of ["changelog/AGENTS.md", "changelog/TEMPLATE_POINT_FORM.md"]) {
+    assert.deepEqual(await routeCodeChange(routeTable, [src], { repoRoot: REPO_ROOT }), [], src);
+  }
+  // Interface sources are classified as interface.
+  const iface = await routeCodeChange(routeTable, ["src/interfaces/IB20.sol"], { repoRoot: REPO_ROOT });
+  assert.ok(iface.length > 0);
+  for (const w of iface) assert.deepEqual(w.kinds, ["interface"]);
+  // A mixed PR keeps both kinds on a page routed by both.
+  const mixed = await routeCodeChange(
+    routeTable,
+    ["src/interfaces/IB20.sol", "changelog/README.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  const overview = mixed.find((w) => w.page === `${B20_REFERENCE_ROOT}/specification-overview.mdx`);
+  assert.deepEqual(overview.kinds, ["interface"]);
+  assert.deepEqual(mixed.find((w) => w.page === summary).kinds, ["changelog-index"]);
 });
 
 test("every route-table page exists and is listed in docs.json navigation", async () => {
@@ -176,7 +242,7 @@ test("every route-table page exists and is listed in docs.json navigation", asyn
     if (!rule.page_globs?.length) continue;
     const ruleWork = await routeCodeChange(routeTable, [rule.source_prefix], { repoRoot: REPO_ROOT });
     assert.ok(
-      ruleWork.length > rule.pages.length,
+      ruleWork.length > (rule.pages || []).length,
       `page_globs for ${rule.source_prefix} expand to no pages`,
     );
   }

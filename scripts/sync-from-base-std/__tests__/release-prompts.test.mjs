@@ -110,3 +110,33 @@ test("releaseSelectionPrompt: tolerates empty candidate + signal inputs", () => 
   assert.match(out, /\(no API-surface manifest extracted\)/);
   assert.doesNotMatch(out, /undefined/);
 });
+
+// ------------------------------------------------ code-change page roles
+
+import { codeChangePrompt as _ccp, releaseSelectionPrompt as _rsp } from "../llm/prompts.mjs";
+
+test("codeChangePrompt: entry pages get the full source entry, not the diff, and a role line", () => {
+  const p = _ccp({
+    sha: "abc1234", sourceFiles: ["changelog/02_Cobalt_B20_seize.md"], pageRole: "changelog-entry",
+    source_entry: "# Seize\n## Summary\ntext", source_entry_path: "changelog/02_Cobalt_B20_seize.md",
+    diff: "SHOULD-NOT-APPEAR", current: "---\ntitle: x\n---\nbody",
+  });
+  assert.match(p, /This page's role: changelog-entry/);
+  assert.match(p, /<source_entry>\n# Seize/);
+  assert.doesNotMatch(p, /SHOULD-NOT-APPEAR/);
+  assert.doesNotMatch(p, /DOES NOT EXIST YET/);
+});
+
+test("codeChangePrompt: create=true adds the new-page instruction; diff path unchanged for reference pages", () => {
+  const created = _ccp({ sha: "a", sourceFiles: [], pageRole: "changelog-entry", create: true, source_entry: "# T", current: "---\ntitle: \"T\"\ndescription: \"\"\n---\n" });
+  assert.match(created, /THIS PAGE DOES NOT EXIST YET/);
+  const ref = _ccp({ sha: "a", sourceFiles: ["src/interfaces/IB20.sol"], pageRole: "function-reference", diff: "+natspec", current: "---\ntitle: x\n---\n" });
+  assert.match(ref, /<source_diff>\n\+natspec/);
+  assert.match(ref, /role: function-reference/);
+});
+
+test("releaseSelectionPrompt: event_description replaces the release header for code-change selection", () => {
+  const p = _rsp({ event_description: "A code change landed on base/base-std@abc1234: fix seize.", candidates: [{ path: "docs/a.mdx" }] });
+  assert.match(p, /A code change landed on base\/base-std@abc1234/);
+  assert.doesNotMatch(p, /New tag:/);
+});
