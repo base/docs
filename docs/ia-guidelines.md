@@ -95,46 +95,28 @@ Content is organized by topic, not by abstraction level. Each topic group flows 
 - **Belongs**: Native account abstraction specification for Base. Listed as a top-level page, not a dropdown group (single-page groups should be promoted to top-level pages).
 - **Does not belong**: SDK integration guides for smart wallets (SDKs & APIs → Base Account SDK).
 
-### Bridging
+### Base Protocol
 
-- **Belongs**: Standard bridges contract spec, deposits spec, withdrawals spec, cross-domain messengers spec, Base-Solana bridge. Include a changelog summary page linking to hardfork entries that changed bridging.
-- **Does not belong**: User-facing bridge route picker (that's Get Started → Quickstart). How-to guides for building bridge integrations (Build on Base). Per-hardfork changelog detail pages (Upgrades).
-- **Ordering**: Standard bridges → deposits → withdrawals → cross-domain messengers → Base-Solana bridge. Protocol specs first (general to specific), then the first-party ecosystem bridge.
+A dropdown group containing the protocol overview, component specs, and design goals. Ordering: Overview → Consensus → Execution → Bridging → Batcher → Proofs → Design Goals.
+
+- **Overview**: Network participants, high-level system diagram, protocol component summaries with diagrams, and core user flows (deposits, transactions, withdrawals).
+- **Consensus**: Derivation pipeline, P2P networking, RPC methods for consensus.
+- **Execution**: EVM precompiles, predeploys, preinstalls.
+- **Bridging**: Standard bridges contract spec, deposits spec, withdrawals spec, cross-domain messengers spec, Base-Solana bridge. Ordering: standard bridges → deposits → withdrawals → cross-domain messengers → Base-Solana bridge.
+- **Batcher**: How transaction batches are compressed and posted to Ethereum for data availability. Listed as a top-level page (single-page groups should be promoted).
+- **Proofs**: Challenger, proposer, registrar, TEE prover, ZK prover, proof contracts.
+- **Design Goals**: Design philosophy and lineage. Listed as last item in the group.
+- **Does not belong**: User-facing bridge route picker (Get Started → Quickstart). SDK integration guides (SDKs & APIs). Hardfork-specific changes (Upgrades).
 
 ### Transactions
 
 - **Belongs**: Transaction ordering, transaction finality, network fees, throughput and limits, troubleshooting transactions. Everything about how transactions work on Base, from user experience to network parameters.
-- **Does not belong**: Derivation pipeline or consensus specs (Consensus). Per-hardfork changelog detail pages (Upgrades).
+- **Does not belong**: Derivation pipeline or consensus specs (Base Protocol → Consensus). Per-hardfork changelog detail pages (Upgrades).
 
 ### Flashblocks
 
-- **Belongs**: Flashblocks reference — key concepts, architecture, and FAQ about block building, WebSocket data, RPC usage, and node setup.
+- **Belongs**: Flashblocks reference — key concepts, architecture, and FAQ about block building, WebSocket data, RPC usage, and node setup. Listed as a top-level page, not a dropdown group.
 - **Does not belong**: Flashblocks API methods (SDKs & APIs → Base Chain API). Transaction ordering details (Transactions).
-
-### Protocol Overview
-
-- **Belongs**: Design philosophy and lineage (specs/overview), and the detailed protocol architecture with component diagrams and user flow walkthroughs (specs/protocol/overview).
-- **Does not belong**: Per-component specs (those go in their respective topic groups: Consensus, Execution, Proofs, etc.).
-
-### Batcher
-
-- **Belongs**: Batcher specification — how transaction batches are compressed and posted to Ethereum for data availability.
-- **Does not belong**: Derivation details (Consensus). Hardfork-specific batcher changes (Upgrades).
-
-### Consensus
-
-- **Belongs**: Consensus specifications: derivation pipeline, P2P networking, RPC methods for consensus.
-- **Does not belong**: Batcher (separate group). Execution engine details (Execution). Hardfork-specific changes (Upgrades).
-
-### Execution
-
-- **Belongs**: Execution specifications: EVM precompiles, predeploys, preinstalls.
-- **Does not belong**: Consensus or derivation details (Consensus). Hardfork-specific changes (Upgrades).
-
-### Proofs
-
-- **Belongs**: Proof system specifications: challenger, proposer, registrar, TEE prover, ZK prover, proof contracts.
-- **Does not belong**: Consensus or derivation details (Consensus). Hardfork-specific changes (Upgrades).
 
 ### Reference
 
@@ -216,6 +198,8 @@ Key IA decisions from past reorganizations, for context:
 | No per-feature upgrade groups | Feature changes (e.g., B20) go under the hardfork that introduced them (Cobalt, Beryl), not a standalone section |
 | Changelog summary pages in Specifications | Each topic group gets a changelog summary page that links out to detail entries in the Upgrades tab — Specifications owns the spec and the summary, Upgrades owns the migration details |
 | Node operators stay in Specifications | Node ops are protocol-adjacent, not SDK/API work |
+| Consensus, Execution, Bridging, Batcher, Proofs nested under Base Protocol | These are all protocol-level component specs — grouping them under Base Protocol reduces top-level clutter and mirrors the protocol overview page structure |
+| Base Protocol overview + design goals split into two pages | The overview covers architecture and user flows (reference material); design goals covers philosophy and lineage (background reading) — different audiences and frequencies of access |
 | Get Started → Solutions are entry ramps only | They link to Build on Base guides, they don't duplicate them |
 | Mini Apps renamed to Apps | Broader scope, `/mini-apps/` paths redirect to `/apps/` |
 | Tokenize Stocks renamed to Tokenize Assets | Broader scope for asset tokenization beyond equities |

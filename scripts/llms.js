@@ -4,17 +4,17 @@
  * Generates docs/llms.txt and docs/llms-full.txt — the LLM-facing site indexes
  * defined by https://llmstxt.org.
  *
- * llms.txt        Strict-spec index. H1 = project name, blockquote summary,
- *                 H2 per top-level section with `- [title](url): description`
- *                 bullets, and a single `## Optional` for skippable extras
+ * llms.txt        Navigation-aligned index. H1 = project name, blockquote
+ *                 summary, H2 per top-level navigation tab, nested sidebar
+ *                 groups, and a single `## Optional` for skippable extras
  *                 (MCP server, skills, full-context pointer).
  *
  * llms-full.txt   Spec-aligned but with two regions:
  *                   - LLMS_EXTRAS markers wrap hand-written cross-cutting
  *                     guides (auth, networks, errors, etc.). The script reads
  *                     and re-emits this region verbatim.
- *                   - LLMS_AUTOGEN markers wrap the per-page index. Always
- *                     regenerated from the current docs/ tree.
+ *                   - LLMS_AUTOGEN markers wrap the navigation page index.
+ *                     Always regenerated from docs/docs.json.
  *                 First-run migration: if no markers are found in the existing
  *                 file, everything after the first blockquote is captured as
  *                 extras so hand-written content survives.
@@ -25,12 +25,11 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  CONSTANTS,
   humanize,
-  stripNumericPrefixes,
   parseFrontmatter,
-  loadMintIgnore,
-  walkDocFiles,
+  loadNavigation,
+  resolvePageFile,
+  collectNavigationPages,
 } = require('./lib/docs-utils');
 
 const CONFIG = {
@@ -48,14 +47,7 @@ const CONFIG = {
 
   summary: "Build on Base — Coinbase's Ethereum L2. Smart Wallet, OnchainKit, MiniKit, Base Chain RPCs, and AI Agents. This index points AI assistants at the canonical page for each topic; follow the links for full context.",
 
-  fullSummary: "Full context for AI agents working with Base. Cross-cutting concept guides (networks, auth, errors, rate limits) sit above an exhaustive per-page index of every documentation file. Follow page URLs for source content.",
-
-  // Canonical display order for top-level sections. Unknown sections appear
-  // after these in alphabetical order.
-  sectionOrder: ['get-started', 'base-chain', 'base-account', 'ai-agents', 'apps'],
-
-  // Frontmatter keys whose truthy value excludes a page from llms output.
-  hiddenFrontmatterKeys: ['hidden', 'draft'],
+  fullSummary: "Full context for AI agents working with Base. Cross-cutting concept guides (networks, auth, errors, rate limits) sit above an index of every page in the public documentation navigation. Follow page URLs for source content.",
 
   extrasStartMarker: '<!-- LLMS_EXTRAS_START -->',
   extrasEndMarker: '<!-- LLMS_EXTRAS_END -->',
@@ -63,25 +55,14 @@ const CONFIG = {
   autogenEndMarker: '<!-- LLMS_AUTOGEN_END -->',
 };
 
-// ---------- Page discovery ----------
+// ---------- Navigation discovery ----------
 
-function isHidden(frontmatter) {
-  return CONFIG.hiddenFrontmatterKeys.some(k => frontmatter[k] === true);
-}
+function pageRecord(page) {
+  const file = resolvePageFile(CONFIG.docsDir, page);
+  if (!file) throw new Error(`Navigation references a missing page: ${page}`);
 
-function pageRecord(absPath) {
-  const rel = path.relative(CONFIG.docsDir, absPath).replace(/\\/g, '/');
-  const baseName = path.basename(rel).replace(/\.mdx?$/, '');
-  if (CONSTANTS.skipFilePatterns.some(p => p.test(baseName))) return null;
-
-  const { frontmatter } = parseFrontmatter(fs.readFileSync(absPath, 'utf8'));
-  if (isHidden(frontmatter)) return null;
-
-  const cleanRel = stripNumericPrefixes(rel.replace(/\.mdx?$/, ''));
-  const segments = cleanRel.split('/');
-  const section = segments[0];
-  const subPath = segments.slice(1).join('/');
-
+  const baseName = path.basename(file).replace(/\.mdx?$/, '');
+  const { frontmatter } = parseFrontmatter(fs.readFileSync(file, 'utf8'));
   const title = frontmatter.title
     ? String(frontmatter.title)
     : humanize(baseName);
@@ -90,61 +71,19 @@ function pageRecord(absPath) {
     : '';
 
   return {
-    section,
-    subPath,
-    cleanRel,
+    page,
     title,
     description,
-    url: `${CONFIG.docsUrl}/${cleanRel}`,
-    isIndex: /^(index|overview)$/i.test(baseName),
+    url: `${CONFIG.docsUrl}/${page}`,
   };
 }
 
-function discoverPages(ignored) {
-  const pages = [];
-  for (const file of walkDocFiles(CONFIG.docsDir)) {
-    const rel = path.relative(CONFIG.docsDir, file).replace(/\\/g, '/');
-    const baseName = path.basename(rel).replace(/\.mdx?$/, '');
-    const dirPath = path.dirname(rel);
-    const dirSegments = dirPath === '.' ? [] : dirPath.split('/');
-    if (ignored.bareFiles.has(baseName)) continue;
-    if (ignored.files.has(rel.replace(/\.mdx?$/, ''))) continue;
-    if (dirSegments.some(seg => ignored.dirs.has(seg))) continue;
-
-    // Top-level files (no parent section) are skipped — llms*.txt indexes
-    // describe sectioned docs, not root-level meta files like agents.md.
-    if (dirSegments.length === 0) continue;
-
-    const record = pageRecord(file);
-    if (record) pages.push(record);
-  }
-  return pages;
-}
-
-function groupBySection(pages) {
-  const groups = new Map();
-  for (const page of pages) {
-    if (!groups.has(page.section)) groups.set(page.section, []);
-    groups.get(page.section).push(page);
-  }
-  for (const list of groups.values()) {
-    list.sort((a, b) => {
-      // Section index/overview first, then alphabetical by subPath.
-      if (a.isIndex !== b.isIndex) return a.isIndex ? -1 : 1;
-      return a.subPath.localeCompare(b.subPath);
-    });
-  }
-  return groups;
-}
-
-function orderedSectionEntries(groups) {
-  const order = new Map(CONFIG.sectionOrder.map((s, i) => [s, i]));
-  return [...groups.entries()].sort(([a], [b]) => {
-    const ai = order.has(a) ? order.get(a) : 1000;
-    const bi = order.has(b) ? order.get(b) : 1000;
-    if (ai !== bi) return ai - bi;
-    return a.localeCompare(b);
-  });
+function discoverNavigationTabs() {
+  const navigation = loadNavigation(CONFIG.docsDir);
+  return (navigation.tabs || []).map((tab) => ({
+    title: tab.tab,
+    nodes: [...(tab.groups || []), ...(tab.pages || [])],
+  }));
 }
 
 // ---------- Rendering ----------
@@ -155,10 +94,22 @@ function bulletFor(page) {
     : `- [${page.title}](${page.url})`;
 }
 
-function renderSection(sectionSlug, pages) {
-  const heading = humanize(sectionSlug);
-  const lines = [`## ${heading}`, ...pages.map(bulletFor)];
-  return lines.join('\n');
+function renderNavigationNode(node, level = 3) {
+  if (typeof node === 'string') return bulletFor(pageRecord(node));
+  if (!node || typeof node !== 'object') return '';
+
+  const heading = `${'#'.repeat(level)} ${node.group || node.anchor}`;
+  const children = [...(node.pages || []), ...(node.groups || [])]
+    .map((child) => renderNavigationNode(child, level + 1))
+    .filter(Boolean);
+  return [heading, ...children].join('\n\n');
+}
+
+function renderNavigationTab(tab) {
+  const children = tab.nodes
+    .map((node) => renderNavigationNode(node))
+    .filter(Boolean);
+  return [`## ${tab.title}`, ...children].join('\n\n');
 }
 
 function renderOptionalSection(includeFullPointer) {
@@ -169,14 +120,13 @@ function renderOptionalSection(includeFullPointer) {
   if (includeFullPointer) {
     bullets.push(`- [Full context (llms-full.txt)](${CONFIG.docsUrl}/llms-full.txt): Same index plus cross-cutting concept guides`);
   } else {
-    bullets.push(`- [Index (llms.txt)](${CONFIG.docsUrl}/llms.txt): Strict-spec section index without the full-context extras`);
+    bullets.push(`- [Index (llms.txt)](${CONFIG.docsUrl}/llms.txt): Navigation index without the full-context extras`);
   }
   return [`## Optional`, ...bullets].join('\n');
 }
 
-function renderLlmsTxt(groups) {
-  const sectionBlocks = orderedSectionEntries(groups)
-    .map(([slug, pages]) => renderSection(slug, pages));
+function renderLlmsTxt(tabs) {
+  const sectionBlocks = tabs.map(renderNavigationTab);
 
   return [
     `# ${CONFIG.projectTitle}`,
@@ -186,9 +136,8 @@ function renderLlmsTxt(groups) {
   ].join('\n\n') + '\n';
 }
 
-function renderAutogenBody(groups) {
-  const sectionBlocks = orderedSectionEntries(groups)
-    .map(([slug, pages]) => renderSection(slug, pages));
+function renderAutogenBody(tabs) {
+  const sectionBlocks = tabs.map(renderNavigationTab);
   return [...sectionBlocks, renderOptionalSection(false)].join('\n\n');
 }
 
@@ -220,9 +169,9 @@ function extractExtras(existing) {
   return sliced.trim();
 }
 
-function renderLlmsFullTxt(existing, groups) {
+function renderLlmsFullTxt(existing, tabs) {
   const extras = extractExtras(existing);
-  const autogenBody = renderAutogenBody(groups);
+  const autogenBody = renderAutogenBody(tabs);
 
   const extrasBlock = [
     CONFIG.extrasStartMarker,
@@ -247,25 +196,23 @@ function renderLlmsFullTxt(existing, groups) {
 // ---------- Entry point ----------
 
 function generate() {
-  const ignored = loadMintIgnore(`${CONFIG.docsDir}/.mintignore`);
-  const pages = discoverPages(ignored);
-  const groups = groupBySection(pages);
+  const tabs = discoverNavigationTabs();
+  const pageCount = collectNavigationPages(tabs.flatMap((tab) => tab.nodes)).length;
 
-  const llms = renderLlmsTxt(groups);
+  const llms = renderLlmsTxt(tabs);
   fs.writeFileSync(CONFIG.llmsFile, llms);
 
   const existingFull = fs.existsSync(CONFIG.llmsFullFile)
     ? fs.readFileSync(CONFIG.llmsFullFile, 'utf8')
     : '';
-  const llmsFull = renderLlmsFullTxt(existingFull, groups);
+  const llmsFull = renderLlmsFullTxt(existingFull, tabs);
   fs.writeFileSync(CONFIG.llmsFullFile, llmsFull);
 
-  const sectionCount = groups.size;
   const sizeKb = (n) => (Buffer.byteLength(n, 'utf8') / 1024).toFixed(2);
 
   console.log(`Generated: ${CONFIG.llmsFile} (${sizeKb(llms)} KB)`);
   console.log(`Generated: ${CONFIG.llmsFullFile} (${sizeKb(llmsFull)} KB)`);
-  console.log(`Sections: ${sectionCount}, pages: ${pages.length}`);
+  console.log(`Tabs: ${tabs.length}, pages: ${pageCount}`);
   console.log('');
   console.log(`Review changes with: git diff ${CONFIG.llmsFile} ${CONFIG.llmsFullFile}`);
 }
