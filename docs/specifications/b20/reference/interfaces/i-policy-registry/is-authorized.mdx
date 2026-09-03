@@ -3,8 +3,6 @@ title: "IPolicyRegistry.isAuthorized"
 description: "Generated B20 reference for isAuthorized(uint64,address)."
 ---
 
-
-
 ## Signature
 
 ```solidity IPolicyRegistry.sol
@@ -18,21 +16,30 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 
 ## Description
 
-Returns whether `account` is authorized under `policyId`. Never reverts; unknown
-or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -&gt; false,
-BLOCKLIST -&gt; true).
-Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
-Param: policyId Policy to query.
-Param: account  Account to check.
-Return: Whether `account` is authorized.
+Returns whether `account` is authorized under `policyId`. Never reverts; unknown or malformed IDs collapse to empty-member-set semantics (`ALLOWLIST` → `false`, `BLOCKLIST` → `true`).
+
+Callers that store policy IDs **must** validate `policyExists(policyId)` at write time. A typo'd `BLOCKLIST` ID silently behaves as `ALWAYS_ALLOW` because an unknown ID collapses to an empty member set.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. |
+| `account` | `address` | Account to check. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `bool` | `true` if `account` is authorized under `policyId`, `false` otherwise. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Always callable. This function is never gated by the `ActivationRegistry`, regardless of whether the PolicyRegistry feature is active.
 
 ## Policy Interaction
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+Part of the singleton `PolicyRegistry` surface used by B20 policy scopes. For composite policies (`UNION`/`INTERSECT`), this function reads current child-policy membership on every call, so updating a child's membership immediately affects what the composite authorizes.
 
 ## Example
 

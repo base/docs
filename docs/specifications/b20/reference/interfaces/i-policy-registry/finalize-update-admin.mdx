@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.finalizeUpdateAdmin"
-description: "Generated B20 reference for finalizeUpdateAdmin(uint64)."
+description: "Completes a two-step admin transfer on a PolicyRegistry policy."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,31 @@ function finalizeUpdateAdmin(uint64 policyId) external;
 
 ## Description
 
-Completes a two-step admin transfer. Promotes the caller to active admin and clears the pending slot.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `NoPendingAdmin` when no transfer is in flight.
-Dev: Reverts with `Unauthorized` when the caller is not the staged pending admin.
-Param: policyId Policy whose admin transfer is being finalized.
+Completes a two-step admin transfer. The caller must be the staged pending admin. On success, the caller becomes the active admin and the pending slot is cleared.
+
+This function is gated by the `ActivationRegistry`; it reverts with `FeatureNotActivated` while the feature is inactive.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | ID of the policy whose pending admin transfer is being finalized. |
 
 ## Access Control
 
-Callable only by the staged pending admin for the target policy; finalization promotes the caller to active admin.
+Callable only by the staged pending admin for the target policy.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+| Error | Condition |
+|---|---|
+| `FeatureNotActivated` | The PolicyRegistry feature is not yet active. |
+| `PolicyNotFound` | `policyId` does not exist. |
+| `NoPendingAdmin` | No transfer is in flight for this policy. |
+| `Unauthorized` | Caller is not the staged pending admin. |
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).finalizeUpdateAdmin(arg0);
+IPolicyRegistry(target).finalizeUpdateAdmin(policyId);
 ```

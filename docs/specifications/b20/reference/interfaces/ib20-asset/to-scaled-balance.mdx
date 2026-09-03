@@ -1,9 +1,11 @@
 ---
 title: "IB20Asset.toScaledBalance"
-description: "Generated B20 reference for toScaledBalance(uint256)."
+description: "Deprecated alias for scaledBalanceOf. Converts a raw balance to its scaled view using the current multiplier."
 ---
 
-
+<Warning>
+`toScaledBalance` is a deprecated alias retained in `IB20Asset` for backward compatibility. Prefer `scaledBalanceOf(account)` for new integrations.
+</Warning>
 
 ## Signature
 
@@ -18,13 +20,25 @@ function toScaledBalance(uint256 rawBalance) external view returns (uint256);
 
 ## Description
 
-Converts a raw balance to its scaled view: `rawBalance * multiplier / WAD_PRECISION`.
-Param: rawBalance Raw token amount to scale.
-Return: Scaled balance at the current multiplier.
+Converts a raw token amount to its scaled (UI) view: `rawBalance * multiplier / WAD_PRECISION`.
+
+This function is a deprecated alias for the conversion logic exposed by `toUIAmount(rawAmount)` and the convenience read `scaledBalanceOf(account)`. It applies the effective multiplier at the time of the call.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `rawBalance` | `uint256` | Raw token amount to convert. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `uint256` | Scaled balance at the current multiplier, rounded down. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 
@@ -33,5 +47,6 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).toScaledBalance(arg0);
+// Deprecated — prefer toUIAmount or scaledBalanceOf
+uint256 scaled = IB20Asset(token).toScaledBalance(rawAmount);
 ```

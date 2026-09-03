@@ -1,9 +1,7 @@
 ---
 title: "IB20Asset.multiplier"
-description: "Generated B20 reference for multiplier()."
+description: "Returns the current raw-balance multiplier for a B20 Asset token."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,35 @@ function multiplier() external view returns (uint256);
 
 ## Description
 
-The current multiplier, scaled to `WAD_PRECISION`. Holder balances are stored
-as raw units; the multiplier scales them into a derived "scaled" view, similar
-in shape to wstETH wrapping stETH.
-Dev: Alias of the ERC-8056 `uiMultiplier()`.
-Return: Current (effective) multiplier.
+Returns the current effective multiplier in WAD precision (`1e18`, exposed as `WAD_PRECISION()`). Each account's balance is stored as a **raw** value; the multiplier scales that raw balance into a derived **scaled** view for display. The multiplier applies uniformly to all accounts, so an issuer can rebase every displayed balance at once without rewriting individual storage entries.
+
+This function is an alias of the ERC-8056 `uiMultiplier()`.
+
+`balanceOf`, `transfer`, and `totalSupply` operate on raw values and are mechanically unaffected by multiplier changes.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View — no role required.
 
 ## Policy Interaction
 
 No direct policy interaction.
 
+## Related Functions
+
+| Function | Purpose |
+|---|---|
+| `uiMultiplier()` | ERC-8056 alias of `multiplier()` |
+| `newUIMultiplier()` | Pending scheduled multiplier target |
+| `effectiveAt()` | Timestamp when the pending multiplier becomes active |
+| `toUIAmount(uint256)` | Convert a raw amount to its scaled view |
+| `fromUIAmount(uint256)` | Convert a scaled amount to raw (integer-floored) |
+| `scaledBalanceOf(address)` | `balanceOf` result expressed in scaled units |
+| `updateUIMultiplier(uint256, uint256)` | Schedule a future multiplier change |
+| `cancelUIMultiplierUpdate()` | Cancel a pending scheduled update |
+
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).multiplier();
+uint256 current = IB20Asset(target).multiplier(); // e.g. 2e18 after a 2:1 split
 ```

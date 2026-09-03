@@ -21,6 +21,11 @@ function batchMint(address[] calldata recipients, uint256[] calldata amounts) ex
 Mints `amounts[i]` to `recipients[i]` in one call. All-or-nothing: any element
 revert unwinds the whole transaction. Emits `Transfer(address(0), recipients[i], amounts[i])`
 per element.
+
+<Warning>
+This function is deleted upstream. The source file `docs/B20/Asset.md` has been removed. The content below reflects the last known state; verify against the current `IB20Asset` interface before use.
+</Warning>
+
 Dev: Reverts with `ContractPaused(MINT)` when `MINT` is paused.
 Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `MINT_ROLE`.
 Dev: Reverts with `LengthMismatch` when `recipients.length != amounts.length`.
@@ -33,11 +38,11 @@ Param: amounts    Per-recipient amounts, parallel to `recipients`.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Gated by `MINT_ROLE`. Should be wrapped in `announce()`, which additionally requires `OPERATOR_ROLE`.
 
 ## Policy Interaction
 
-No direct policy interaction.
+Checks `MINT_RECEIVER_POLICY` for each recipient. Any recipient that is not authorized causes the whole batch to revert.
 
 ## Example
 

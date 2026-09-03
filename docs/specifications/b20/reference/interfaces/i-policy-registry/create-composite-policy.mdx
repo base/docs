@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.createCompositePolicy"
-description: "Generated B20 reference for createCompositePolicy(address,uint8,uint64[])."
+description: "Creates a new composite policy combining existing simple policies under a logic gate."
 ---
-
-
 
 ## Signature
 
@@ -18,33 +16,49 @@ function createCompositePolicy(address admin, PolicyType policyType, uint64[] ca
 
 ## Description
 
-Creates a new composite policy that combines existing simple policies under a logic
-gate.
-Dev: Child policies must be simple policies (ALLOWLIST or BLOCKLIST), never another composite.
-The child-policy set is capped at 4.
-Dev: Reverts with `IncompatiblePolicyType` when `policyType` is not UNION or INTERSECT.
-Dev: Reverts with `ZeroAddress` when `admin` is `address(0)`.
-Dev: Reverts with `ChildPoliciesOutsideOfRange` when `childPolicyIds.length` is not in
-`[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]`.
-Dev: Reverts with `PolicyNotFound` when any child policy does not exist.
-Dev: Reverts with `InvalidChildPolicy` when any child policy is not a simple policy or a built-in policy.
-Dev: Panics with arithmetic overflow (Panic 0x11) when the policy counter has reached its maximum value.
-Param: admin          Initial admin authorized to update child policies and transfer or renounce
-administration.
-Param: policyType     UNION or INTERSECT.
-Param: childPolicyIds Existing simple policy IDs to combine.
-Return: newPolicyId The newly assigned composite policy ID.
+Creates a new composite policy that combines 2–4 existing simple (`ALLOWLIST` or `BLOCKLIST`) policies under a `UNION` (OR) or `INTERSECT` (AND) logic gate. The composite references its children live: `isAuthorized` reads current child membership on every call, so updating a child's membership immediately affects what the composite authorizes.
+
+The new policy is assigned a `uint64` ID whose top byte encodes `PolicyType`; the low 56 bits come from a global counter.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `admin` | `address` | Initial admin authorized to update child policies and transfer or renounce administration. Must not be `address(0)`. |
+| `policyType` | `PolicyType` (`uint8`) | Must be `UNION` or `INTERSECT`. |
+| `childPolicyIds` | `uint64[]` | Existing simple policy IDs to combine. Must contain 2–4 entries (`MIN_COMPOSITE_CHILD_POLICIES` to `MAX_COMPOSITE_CHILD_POLICIES`). No composites and no built-in sentinels (`ALWAYS_ALLOW` / `ALWAYS_BLOCK`). |
+
+## Returns
+
+| Name | Type | Description |
+|---|---|---|
+| `newPolicyId` | `uint64` | The newly assigned composite policy ID. |
+
+## Revert Conditions
+
+| Error | Condition |
+|---|---|
+| `ZeroAddress` | `admin` is `address(0)`. |
+| `IncompatiblePolicyType` | `policyType` is not `UNION` or `INTERSECT`. |
+| `ChildPoliciesOutsideOfRange` | `childPolicyIds.length` is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4 inclusive). |
+| `PolicyNotFound` | Any child policy ID does not exist. |
+| `InvalidChildPolicy` | Any child is a composite policy or a built-in sentinel. |
+| `Panic(0x11)` | The global policy counter has reached its maximum value (arithmetic overflow). |
 
 ## Access Control
 
-Permissionless creation, but state-changing registry calls require the feature to be active.
+Permissionless creation, but this call reverts with `FeatureNotActivated` while the PolicyRegistry feature is inactive.
 
-## Policy Interaction
+## Events Emitted
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+On success, three events are emitted:
+
+- `PolicyCreated(newPolicyId, creator, policyType)`
+- `PolicyAdminUpdated(newPolicyId, address(0), admin)`
+- `CompositePolicyUpdated(newPolicyId, creator, childPolicyIds)`
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).createCompositePolicy(arg0, arg1, arg2);
+IPolicyRegistry(target).createCompositePolicy(admin, PolicyType.UNION, childPolicyIds);
 ```

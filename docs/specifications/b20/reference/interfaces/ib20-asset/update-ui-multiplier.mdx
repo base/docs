@@ -3,7 +3,9 @@ title: "IB20Asset.updateUIMultiplier"
 description: "Generated B20 reference for updateUIMultiplier(uint256,uint256)."
 ---
 
-
+<Warning>
+The source file `docs/B20/Asset.md` that previously documented this function has been deleted as part of a documentation restructure. The content below is preserved from the last verified state of this reference page.
+</Warning>
 
 ## Signature
 
@@ -18,19 +20,32 @@ function updateUIMultiplier(uint256 newMultiplier, uint256 effectiveAt) external
 
 ## Description
 
-Schedules a multiplier update to take effect at `effectiveAt` — the standard path
-for corporate actions (splits, reinvested dividends).
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
-Dev: Reverts with `InvalidMultiplier` when `newMultiplier` is zero or above `type(uint128).max`.
-Dev: Reverts with `EffectiveAtInPast` when `effectiveAt` is not in the future.
-Dev: Reverts with `EffectiveAtTooFar` when `effectiveAt` exceeds `type(uint64).max`.
-Dev: Reverts with `UIMultiplierUpdateExists` when a live pending update already exists.
-Param: newMultiplier New multiplier scaled to `WAD_PRECISION`.
-Param: effectiveAt   Timestamp at which `newMultiplier` becomes effective; must be in the future.
+Schedules a multiplier update to take effect at `effectiveAt` — the standard path for corporate actions such as stock splits and reinvested dividends. Evaluation is lazy: `multiplier()` / `uiMultiplier()` flip on their own once `block.timestamp` reaches `effectiveAt`.
+
+Only one pending update is live at a time. To replace an existing pending update, explicitly cancel it with `cancelUIMultiplierUpdate()` and re-schedule in a single `announce()` bracket.
+
+Emits `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)` when the scheduled update takes effect.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `newMultiplier` | `uint256` | New multiplier scaled to `WAD_PRECISION` (`1e18`). Must be non-zero and at most `type(uint128).max`. |
+| `effectiveAt` | `uint256` | Unix timestamp at which `newMultiplier` becomes effective. Must be in the future and must not exceed `type(uint64).max`. |
+
+## Revert Conditions
+
+| Error | Condition |
+|---|---|
+| `AccessControlUnauthorizedAccount` | Caller does not hold `OPERATOR_ROLE`. |
+| `InvalidMultiplier` | `newMultiplier` is zero or exceeds `type(uint128).max` (exposed as `MAX_UI_MULTIPLIER()`). |
+| `EffectiveAtInPast` | `effectiveAt` is not strictly in the future. |
+| `EffectiveAtTooFar` | `effectiveAt` exceeds `type(uint64).max`. |
+| `UIMultiplierUpdateExists` | A live pending update already exists. |
 
 ## Access Control
 
-`OPERATOR_ROLE` gates this Asset call.
+Gated by `OPERATOR_ROLE`.
 
 ## Policy Interaction
 
@@ -38,6 +53,14 @@ No direct policy interaction.
 
 ## Example
 
-```solidity Usage Example
-IB20Asset(target).updateUIMultiplier(arg0, arg1);
+```solidity Title Schedule a 2:1 forward split
+bytes[] memory internalCalls = new bytes[](1);
+internalCalls[0] = abi.encodeCall(IB20Asset.updateUIMultiplier, (2e18, exDateTimestamp));
+
+IB20Asset(token).announce({
+    internalCalls: internalCalls,
+    id: "2026-Q3-split",
+    description: "2:1 forward split, effective at ex-date",
+    uri: "https://disclosures.example.com/..."
+});
 ```
