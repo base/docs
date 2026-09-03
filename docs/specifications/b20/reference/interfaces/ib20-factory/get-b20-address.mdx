@@ -19,14 +19,26 @@ function getB20Address(B20Variant variant, address sender, bytes32 salt) externa
 ## Description
 
 Returns the deterministic address `createB20` would assign for `(variant, sender, salt)`. Never reverts.
-Param: variant Variant of the token whose address is being predicted.
-Param: sender  Account that would call `createB20`.
-Param: salt    Caller-chosen salt.
-Return: The deterministic token address.
+
+B20 addresses are deterministic: `[B20 prefix (10 bytes)][variant byte (1 byte)][bytes9(keccak256(deployer, salt))]`. The variant byte is recoverable from the address, so off-chain tooling can identify the variant without an RPC call.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `variant` | `B20Variant` (`uint8`) | Variant of the token whose address is being predicted. |
+| `sender` | `address` | Account that would call `createB20`. |
+| `salt` | `bytes32` | Caller-chosen salt. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `address` | The deterministic token address. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 

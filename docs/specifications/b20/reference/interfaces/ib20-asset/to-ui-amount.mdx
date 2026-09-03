@@ -3,6 +3,10 @@ title: "IB20Asset.toUIAmount"
 description: "ERC-8056 raw-to-UI conversion reference."
 ---
 
+<Warning>
+The source file `docs/B20/Asset.md` that backed this page has been removed as part of a documentation restructure. The content below reflects the last known specification; verify against the current interface source before relying on it.
+</Warning>
+
 ## Signature
 
 ```solidity IB20Asset.sol
@@ -16,4 +20,22 @@ function toUIAmount(uint256 rawAmount) external view returns (uint256);
 
 ## Description
 
-Converts `rawAmount` to its UI representation at the effective multiplier.
+Converts `rawAmount` to its UI (scaled) representation using the effective multiplier. The result is `rawAmount * multiplier / 1e18`, rounded **down**. This is part of the optional ERC-8056 Conversion extension (`0x57854fc3`).
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `rawAmount` | `uint256` | Raw (unscaled) token amount to convert. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `uint256` | Scaled UI amount, integer-floored. The round-trip through `fromUIAmount` can lose up to one ULP. |
+
+## Behavior
+
+- Uses the **effective** multiplier at the time of the call. If a multiplier update has been scheduled via `updateUIMultiplier` and `block.timestamp` has reached `effectiveAt`, the new multiplier is applied; otherwise the current multiplier is used.
+- Division is integer-floored, so rounding loss is at most 1 wei of the scaled amount.
+- The raw balance stored on-chain is never modified by this call.

@@ -18,25 +18,31 @@ function updateBlocklist(uint64 policyId, bool blocked, address[] calldata accou
 
 ## Description
 
-Sets `accounts` membership in a BLOCKLIST policy to `blocked` in one batch.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `IncompatiblePolicyType` when the policy is not BLOCKLIST.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Dev: Reverts with `BatchSizeTooLarge` when `accounts.length` exceeds the registry limit.
-Param: policyId Policy to update.
-Param: blocked  Membership state to apply to every account in the batch.
-Param: accounts Accounts to update.
+Sets `accounts` membership in a `BLOCKLIST` policy to `blocked` in one batch.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to update. Must be an existing `BLOCKLIST` policy. |
+| `blocked` | `bool` | Membership state to apply to every account in the batch. |
+| `accounts` | `address[]` | Accounts to update. |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
+Callable by the policy admin for the target policy. Reverts with `FeatureNotActivated` when the PolicyRegistry feature is not active.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+| Error | Condition |
+|---|---|
+| `PolicyNotFound` | `policyId` does not exist. |
+| `IncompatiblePolicyType` | The policy is not a `BLOCKLIST` policy. |
+| `Unauthorized` | Caller is not the current admin. |
+| `BatchSizeTooLarge` | `accounts.length` exceeds the registry limit. |
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).updateBlocklist(arg0, arg1, arg2);
+IPolicyRegistry(target).updateBlocklist(policyId, blocked, accounts);
 ```

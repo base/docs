@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.createPolicy"
-description: "Generated B20 reference for createPolicy(address,uint8)."
+description: "Creates a new simple (ALLOWLIST or BLOCKLIST) policy with no initial members."
 ---
-
-
 
 ## Signature
 
@@ -18,20 +16,34 @@ function createPolicy(address admin, PolicyType policyType) external returns (ui
 
 ## Description
 
-Creates a new simple policy with no initial members. Permissionless.
-Dev: Reverts with `ZeroAddress` when `admin` is `address(0)`.
-Dev: Reverts with `IncompatiblePolicyType` when `policyType` is a composite gate.
-Param: admin      Initial admin authorized to modify membership and transfer or renounce administration.
-Param: policyType BLOCKLIST or ALLOWLIST.
-Return: newPolicyId The newly assigned policy ID.
+Creates a new simple policy with no initial members. Any caller may invoke this function. The newly created policy has an empty member set and the specified `admin`.
+
+To seed an initial member set in the same call, use `createPolicyWithAccounts` instead.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `admin` | `address` | Initial admin authorized to modify membership and transfer or renounce administration. Must not be `address(0)`. |
+| `policyType` | `PolicyType` | `ALLOWLIST` or `BLOCKLIST`. Composite gate types (`UNION`, `INTERSECT`) are not accepted here. |
+
+## Returns
+
+| Name | Type | Description |
+|---|---|---|
+| `newPolicyId` | `uint64` | The newly assigned policy ID. The top byte encodes the `PolicyType`; the low 56 bits are a global counter. |
 
 ## Access Control
 
-Permissionless creation, but state-changing registry calls require the feature to be active.
+Permissionless creation. This is a state-changing call, so it reverts with `FeatureNotActivated` while the PolicyRegistry feature is inactive.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+| Error | Condition |
+|---|---|
+| `ZeroAddress` | `admin` is `address(0)`. |
+| `IncompatiblePolicyType` | `policyType` is a composite gate (`UNION` or `INTERSECT`). |
+| `FeatureNotActivated` | The PolicyRegistry feature has not been activated. |
 
 ## Example
 

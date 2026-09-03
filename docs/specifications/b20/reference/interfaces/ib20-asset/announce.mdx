@@ -3,7 +3,9 @@ title: "IB20Asset.announce"
 description: "Generated B20 reference for announce(bytes[],string,string,string)."
 ---
 
-
+<Warning>
+The `docs/B20/Asset.md` source file that previously documented the Asset variant (including announcements) has been removed as part of a documentation restructure. This reference page reflects the last verified interface state.
+</Warning>
 
 ## Signature
 
@@ -22,21 +24,27 @@ Posts a holder-impacting announcement and atomically dispatches each entry in
 `internalCalls` via self-`delegatecall` (preserving `msg.sender`). Emits
 `Announcement` then `EndAnnouncement` with the same `id`. Pass an empty
 `internalCalls` for a pure disclosure.
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
-Dev: Reverts with `AnnouncementIdAlreadyUsed` when `id` has previously been consumed.
-Dev: Reverts with `InternalCallMalformed` when an entry in `internalCalls` is shorter than four bytes.
-Dev: Reverts with `AnnouncementInProgress` when an entry in `internalCalls` targets `announce` itself.
-Dev: An inner call that raises a Solidity `Panic` (e.g. arithmetic overflow) propagates the
-raw Panic unchanged; any other inner revert wraps as `InternalCallFailed(call)`. An inner
+
+Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
+Reverts with `AnnouncementIdAlreadyUsed` when `id` has previously been consumed.
+Reverts with `InternalCallMalformed` when an entry in `internalCalls` is shorter than four bytes.
+Reverts with `AnnouncementInProgress` when an entry in `internalCalls` targets `announce` itself.
+An inner call that raises a Solidity `Panic` (e.g. arithmetic overflow) propagates the
+raw `Panic` unchanged; any other inner revert wraps as `InternalCallFailed(call)`. An inner
 out-of-gas halts the whole call.
-Param: internalCalls ABI-encoded calldata blobs executed in order via self-`delegatecall`; may be empty.
-Param: id            Caller-chosen announcement id; single-use over the token's lifetime.
-Param: description   Human-readable summary of the announcement.
-Param: uri           Off-chain URI containing the full announcement contents.
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `internalCalls` | `bytes[] calldata` | ABI-encoded calldata blobs executed in order via self-`delegatecall`; may be empty. |
+| `id` | `string calldata` | Caller-chosen announcement id; single-use over the token's lifetime. |
+| `description` | `string calldata` | Human-readable summary of the announcement. |
+| `uri` | `string calldata` | Off-chain URI containing the full announcement contents. |
 
 ## Access Control
 
-`OPERATOR_ROLE` gates this Asset call.
+`OPERATOR_ROLE` gates this call.
 
 ## Policy Interaction
 
@@ -45,5 +53,14 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).announce(arg0, arg1, arg2, arg3);
+// Disclose and schedule a 2:1 forward split, effective at the ex-date.
+bytes[] memory calls = new bytes[](1);
+calls[0] = abi.encodeCall(IB20Asset.updateUIMultiplier, (2e18, exDateTimestamp));
+
+IB20Asset(token).announce({
+    internalCalls: calls,
+    id: "2026-Q3-split",
+    description: "2:1 forward split, effective at ex-date",
+    uri: "https://disclosures.example.com/..."
+});
 ```

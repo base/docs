@@ -20,21 +20,29 @@ function stageUpdateAdmin(uint64 policyId, address newAdmin) external;
 
 Stages a proposed new admin for `policyId`. The active admin does not change
 until `pendingAdmin` calls `finalizeUpdateAdmin`.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Param: policyId Policy whose admin is being staged.
-Param: newAdmin Proposed new admin, or `address(0)` to clear any pending nomination.
+
+Passing `address(0)` as `newAdmin` cancels any in-flight transfer. Re-staging while a pending admin already exists overwrites the prior nomination — the previous candidate loses their ability to finalize.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy whose admin is being staged. |
+| `newAdmin` | `address` | Proposed new admin, or `address(0)` to clear any pending nomination. |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
+Callable by the current policy admin for the target policy.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+| Error | Condition |
+|---|---|
+| `PolicyNotFound` | `policyId` does not exist. |
+| `Unauthorized` | Caller is not the current admin. |
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).stageUpdateAdmin(arg0, arg1);
+IPolicyRegistry(target).stageUpdateAdmin(policyId, newAdmin);
 ```

@@ -1,9 +1,11 @@
 ---
 title: "IB20Asset.toRawBalance"
-description: "Generated B20 reference for toRawBalance(uint256)."
+description: "Deprecated alias for fromUIAmount. Converts a scaled (UI) balance back to its raw representation."
 ---
 
-
+<Warning>
+`toRawBalance` is a deprecated alias retained in `IB20Asset` for backward compatibility. Prefer `fromUIAmount(uiAmount)` for new integrations.
+</Warning>
 
 ## Signature
 
@@ -18,17 +20,28 @@ function toRawBalance(uint256 scaledBalance) external view returns (uint256 rawB
 
 ## Description
 
-Converts a scaled balance back to its raw representation:
+Converts a scaled (UI) balance back to its raw representation using the current multiplier:
 `scaledBalance * WAD_PRECISION / multiplier`.
-Dev: Integer division rounds toward zero; conversions are not exactly reversible when
-`multiplier != WAD_PRECISION`. `toRawBalance(toScaledBalance(x))` may return a
-value slightly less than `x`.
-Param: scaledBalance Scaled token amount to convert back.
-Return: rawBalance Raw balance at the current multiplier.
+
+Integer division rounds toward zero. Conversions are not exactly reversible when `multiplier != WAD_PRECISION`: `toRawBalance(toScaledBalance(x))` may return a value slightly less than `x`.
+
+The canonical replacement is `fromUIAmount(uiAmount)`, which applies the same division. Both round down, so the round-trip from raw → UI → raw can lose up to one ULP of the scaled amount only.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `scaledBalance` | `uint256` | Scaled (UI) token amount to convert back to raw. |
+
+## Returns
+
+| Name | Type | Description |
+|---|---|---|
+| `rawBalance` | `uint256` | Raw balance at the current multiplier, rounded down. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 
@@ -37,5 +50,9 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).toRawBalance(arg0);
+// Deprecated — prefer fromUIAmount
+uint256 raw = IB20Asset(token).toRawBalance(scaledAmount);
+
+// Preferred equivalent
+uint256 raw = IB20Asset(token).fromUIAmount(scaledAmount);
 ```
