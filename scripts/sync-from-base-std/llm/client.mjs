@@ -9,8 +9,8 @@
  *
  * Owns three responsibilities:
  *
- *   1. `callClaude(prompt, page)` — wraps `client.messages.stream` (or
- *      `create` when LLM_STREAMING=0) and records a bench row. Retries on 5xx / 429 / network errors are
+ *   1. `complete(prompt, page)` — one streamed Gateway call; records a
+ *      bench row. `callClaude` is the text-only convenience over it. Retries on 5xx / 429 / network errors are
  *      handled inside the SDK (`maxRetries`), so this file no longer
  *      carries its own retry loop.
  *
@@ -102,29 +102,32 @@ function getClient() {
  *        prompt where they're easier to tune per dispatch kind.
  * @returns {Promise<string>} the model's text output
  */
-export async function callClaude(prompt, page = "", opts = {}) {
+/**
+ * Send one prompt through the Gateway and return the text plus the facts a
+ * caller needs to judge it (stop reason, output tokens). Streams the
+ * response: the Gateway edge times out a silent buffered request at ~90 s,
+ * which a long page regeneration exceeds; a stream delivers its first token
+ * in seconds and keeps the connection alive for the whole generation.
+ *
+ * @param {string} prompt
+ * @param {string=} page   doc page path, recorded in the bench log
+ * @param {{system?: string, model?: string, maxTokens?: number}=} opts
+ * @returns {Promise<{text: string, stopReason: string|null, outputTokens: number|null}>}
+ */
+export async function complete(prompt, page = "", opts = {}) {
   const client = getClient();
   const model = opts.model || DEFAULT_MODEL;
   const maxTokens = opts.maxTokens || DEFAULT_MAX_TOKENS;
-  const system = opts.system;
 
   const tStart = Date.now();
-  const params = {
-    model,
-    max_tokens: maxTokens,
-    ...(system ? { system } : {}),
-    messages: [{ role: "user", content: prompt }],
-  };
-  // Stream by default. A full-page regeneration of a ~15 KB page takes longer
-  // than the Gateway edge's origin timeout (~100 s) when the response is
-  // buffered, which surfaces as a Cloudflare 504 after every retry. With a
-  // stream, bytes flow from the first token, so the edge never sees a silent
-  // origin. finalMessage() yields the same Message shape as create().
-  // LLM_STREAMING=0 restores the buffered call.
-  const message =
-    process.env.LLM_STREAMING === "0"
-      ? await client.messages.create(params)
-      : await client.messages.stream(params).finalMessage();
+  const message = await client.messages
+    .stream({
+      model,
+      max_tokens: maxTokens,
+      ...(opts.system ? { system: opts.system } : {}),
+      messages: [{ role: "user", content: prompt }],
+    })
+    .finalMessage();
 
   const text = (message.content || [])
     .filter((b) => b.type === "text")
@@ -146,23 +149,14 @@ export async function callClaude(prompt, page = "", opts = {}) {
     stop_reason: message.stop_reason ?? null,
   });
 
-  return text;
-}
-
-/**
- * Same as callClaude, but returns the stop reason and usage alongside the
- * text so callers can refuse a truncated completion (`stop_reason ===
- * "max_tokens"`) instead of writing a page that was cut off mid-file.
- *
- * @returns {Promise<{text: string, stopReason: string|null, outputTokens: number|null}>}
- */
-export async function callClaudeDetailed(prompt, page = "", opts = {}) {
-  const text = await callClaude(prompt, page, opts);
-  const row = BENCH_LOG[BENCH_LOG.length - 1];
-  const mine = row && row.page === page ? row : null;
   return {
     text,
-    stopReason: mine ? mine.stop_reason : null,
-    outputTokens: mine ? mine.output_tokens : null,
+    stopReason: message.stop_reason ?? null,
+    outputTokens: message.usage?.output_tokens ?? null,
   };
+}
+
+/** Text-only convenience over complete(). */
+export async function callClaude(prompt, page = "", opts = {}) {
+  return (await complete(prompt, page, opts)).text;
 }
