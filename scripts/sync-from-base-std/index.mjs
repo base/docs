@@ -72,6 +72,8 @@ import {
   upsertSummaryRow,
   insertNavPage,
   firstHeading,
+  decideCall,
+  changedLines,
 } from "./release-utils.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -98,14 +100,6 @@ const CODE_CHANGE_PAGE_CONCURRENCY = NUM("CODE_CHANGE_PAGE_CONCURRENCY", 4);
  * exceeds this cap does a Haiku selection pass pick which pages proceed.
  */
 const CODE_CHANGE_MAX_PAGES = NUM("CODE_CHANGE_MAX_PAGES", 60);
-/** Minimum identifier length for symbol-mention routing (shorter = too generic). */
-const ROUTING_SYMBOL_MIN_LENGTH = NUM("ROUTING_SYMBOL_MIN_LENGTH", 6);
-/**
- * Pages above this size (chars) are flagged before the gateway call: a full
- * regeneration of a page this large is what exceeds the gateway's edge
- * timeout (~100 s) and returns 504.
- */
-const PAGE_SIZE_WARN_CHARS = NUM("PAGE_SIZE_WARN_CHARS", 12000);
 // Diff manifest pre-pass: split a large release diff into chunks at file
 // boundaries and extract each chunk's manifest concurrently, then merge.
 const MANIFEST_CHUNK_BYTES = NUM("MANIFEST_CHUNK_BYTES", 100000);
@@ -1188,8 +1182,8 @@ async function processPage(item, shared, useGroups) {
   const diffByFile = shared.diffByFile || new Map();
   const layout = shared.layout || { entryDir: "", summaryPage: "", entryRule: null };
   const pageRole = pageRoleFor(item.page, layout);
-  if (item.skipUnaffected) {
-    console.log(`[skip-unaffected] ${item.page} — no manifest intersection and no symbol mention`);
+  if (item.skip) {
+    console.log(`[skip] ${item.page} — ${item.skip}`);
     return { page: item.page, status: "noop" };
   }
   if (useGroups) console.log(`::group::${item.page}`);
@@ -1306,11 +1300,6 @@ async function processPage(item, shared, useGroups) {
         };
       }
       const prompt = buildClaudePrompt(kind, ctx);
-      if (current.length > PAGE_SIZE_WARN_CHARS) {
-        console.warn(
-          `::warning title=Large page::${item.page} is ${current.length} chars; a full regeneration may exceed the gateway edge timeout`,
-        );
-      }
       console.log(`[claude] ${item.page} — ${prompt.length} prompt chars (role=${pageRole})`);
       const tCall = Date.now();
       const completion = await complete(prompt, item.page, { system: SYSTEM_PROMPT });
@@ -1467,6 +1456,9 @@ async function main() {
     );
   }
 
+  // Per-file diff sections so each page only sees the hunks that routed it.
+  const diffByFile = splitDiffByFile(typeof payload.diff === "string" ? payload.diff : "");
+
   let work = [];
   if (kind === "code-change") {
     const changed = payload.changed_paths || [];
@@ -1478,17 +1470,20 @@ async function main() {
     // function still used by a quickstart, for example). Deterministic grep,
     // no model call. Depends on the manifest, so a dispatch without a diff
     // (artifact fetch failed) is path-routed only — say so in the log.
-    if (manifest.length === 0) {
-      console.log("[symbols] no manifest (empty diff or extraction skipped); path routing only");
+    // Read every docs page once; symbol routing and the call decision both
+    // need the content.
+    const pageContents = new Map();
+    for (const rel of await listDocPages()) {
+      const content = await safeReadFile(path.join(REPO_ROOT, rel));
+      if (content != null) pageContents.set(rel, content);
+    }
+
+    const symbols = routingSymbols(manifest);
+    if (symbols.length === 0) {
+      console.log("[symbols] no routing symbols (no manifest); path routing only");
     } else {
-      const symbols = routingSymbols(manifest, { minLength: ROUTING_SYMBOL_MIN_LENGTH });
       console.log(`[symbols] ${symbols.length} routing symbol(s): ${symbols.slice(0, 30).join(", ")}${symbols.length > 30 ? ", …" : ""}`);
-      const docPages = await listDocPages();
-      const pages = [];
-      for (const rel of docPages) {
-        const content = await safeReadFile(path.join(REPO_ROOT, rel));
-        if (content != null) pages.push({ path: rel, content });
-      }
+      const pages = [...pageContents].map(([p, content]) => ({ path: p, content }));
       const mentions = findSymbolMentions(pages, symbols);
       const before = work.length;
       work = mergeSymbolRoutes(work, mentions, manifest);
@@ -1498,41 +1493,32 @@ async function main() {
       if (!w.reasons) w.reasons = (w.sourceFiles || []).map((sf) => `path:${sf}`);
     }
 
-    // Decide up front which routed pages will actually reach the model, so
-    // the cap and the selection pass count real calls, not routed paths.
+    // One decision per page, made here and logged with the work list:
+    // does this page need a model call at all?
     const layout = changelogLayout(route);
     for (const w of work) {
-      const role = pageRoleFor(w.page, layout);
-      if (role !== "function-reference" || manifest.length === 0) continue;
-      if ((w.reasons || []).some((r) => r.startsWith("symbol:"))) continue;
-      const content = await safeReadFile(path.join(REPO_ROOT, w.page));
-      if (content == null) continue;
-      const rel = manifestForPage(manifest, { sourceFiles: w.sourceFiles, pageContent: content, requireSymbolMatch: true });
-      if (rel.length === 0) w.skipUnaffected = true;
-    }
-    const modelBound = work.filter((w) => !w.skipUnaffected);
-    const skippedCount = work.length - modelBound.length;
-    if (skippedCount > 0) console.log(`[route] ${skippedCount} function page(s) have no intersection with the manifest; skipped without a model call`);
-
-    if (modelBound.length > CODE_CHANGE_MAX_PAGES) {
-      // Deterministic cap — no model decides routing. Path-routed pages come
-      // first (a rule named them), then symbol-routed pages ordered by how
-      // many changed symbols they mention. Everything past the cap is dropped
-      // and named in a workflow warning so a reviewer can re-dispatch or
-      // widen the cap deliberately.
-      const score = (w) => {
-        const reasons = w.reasons || [];
-        const pathHits = reasons.filter((r) => r.startsWith("path:")).length;
-        const symHits = reasons.filter((r) => r.startsWith("symbol:")).length;
-        return pathHits * 1000 + symHits;
-      };
-      const ordered = [...modelBound].sort((a, b) => score(b) - score(a) || a.page.localeCompare(b.page));
-      const kept = ordered.slice(0, CODE_CHANGE_MAX_PAGES);
-      const dropped = ordered.slice(CODE_CHANGE_MAX_PAGES);
-      console.warn(
-        `::warning title=Routing cap reached::${modelBound.length} model-bound pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; kept ${kept.length}, dropped ${dropped.length}. Dropped: ${dropped.map((w) => w.page).join(", ")}`,
+      const content = pageContents.get(w.page);
+      if (content == null) continue; // missing pages are handled (created or skipped) in processPage
+      // Relevance reads the changed lines of real sources; mocks and tests
+      // mirror the interface and would mark every member page as touched.
+      const diffSlice = changedLines(
+        (w.sourceFiles || []).filter((sf) => !sf.startsWith("test/")).map((sf) => diffByFile.get(sf) || "").join("\n"),
       );
-      work = [...kept, ...work.filter((w) => w.skipUnaffected)];
+      w.skip = decideCall({ role: pageRoleFor(w.page, layout), content, diffSlice, manifest, symbols });
+    }
+    const modelBound = work.filter((w) => !w.skip);
+    if (modelBound.length > CODE_CHANGE_MAX_PAGES) {
+      // Deterministic cap: path-routed pages first, then by how many changed
+      // symbols the page mentions. Dropped pages are named so a reviewer can
+      // re-dispatch or widen the cap on purpose.
+      const pathRouted = (w) => w.reasons.some((r) => r.startsWith("path:"));
+      const symbolHits = (w) => w.reasons.filter((r) => r.startsWith("symbol:")).length;
+      modelBound.sort((a, b) => pathRouted(b) - pathRouted(a) || symbolHits(b) - symbolHits(a) || a.page.localeCompare(b.page));
+      const dropped = modelBound.splice(CODE_CHANGE_MAX_PAGES);
+      console.warn(
+        `::warning title=Routing cap reached::${modelBound.length + dropped.length} model-bound pages exceed CODE_CHANGE_MAX_PAGES=${CODE_CHANGE_MAX_PAGES}; dropped ${dropped.length}: ${dropped.map((w) => w.page).join(", ")}`,
+      );
+      work = [...modelBound, ...work.filter((w) => w.skip)];
     }
   } else if (kind === "release") {
     console.log(
@@ -1574,7 +1560,8 @@ async function main() {
   console.log(`[sync] routing to ${work.length} page(s):`);
   for (const w of work) {
     const why = w.reasons?.length ? ` ← ${w.reasons.join(", ")}` : "";
-    console.log(`  - ${w.page} (${w.transformer}${w.kinds?.length ? `, ${w.kinds.join("+")}` : ""})${why}`);
+    const verdict = w.skip ? `SKIP: ${w.skip}` : w.transformer;
+    console.log(`  - ${w.page} (${verdict})${why}`);
   }
 
   // Per-page transform. code-change and manual-update run at concurrency 1 so
@@ -1598,8 +1585,7 @@ async function main() {
     documentationGuidelines,
     knownRoutes,
     route,
-    // Per-file diff sections so each page only sees the hunks that routed it.
-    diffByFile: splitDiffByFile(typeof payload.diff === "string" ? payload.diff : ""),
+    diffByFile,
     layout: changelogLayout(route),
     snippetComponents: await listSnippetComponents(),
   };

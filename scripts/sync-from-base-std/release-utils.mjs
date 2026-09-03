@@ -551,3 +551,88 @@ export function firstHeading(markdown) {
   const m = String(markdown || "").match(/^#\s+(.+?)\s*$/m);
   return m ? m[1].trim() : "";
 }
+
+// ------------------------------------------------------------ call decision
+
+/**
+ * Largest page (chars) a full regeneration can return inside the 4096-token
+ * output budget. Measured: 4096 tokens came back as 10.7k–14k chars depending
+ * on how table-heavy the page is. Above this, the completion is cut off and
+ * refused, so the call is pointless; skip it before it starts.
+ */
+export const MAX_REGENERABLE_CHARS = 10000;
+
+/** Manifest kinds that change an interface's member inventory. */
+const INVENTORY_KINDS = new Set([
+  "field_added", "field_removed", "field_renamed", "signature_change",
+  "enum_variant_added", "enum_variant_removed",
+]);
+
+/** Frontmatter title, or "". */
+export function pageTitle(content) {
+  const fm = String(content || "").match(/^---\n([\s\S]+?)\n---/);
+  const m = fm && fm[1].match(/^title:\s*"?([^"\n]+?)"?\s*$/m);
+  return m ? m[1].trim() : "";
+}
+
+const mentions = (text, sym) =>
+  !!sym && new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(sym)}(?![A-Za-z0-9_])`).test(text || "");
+
+/**
+ * Decide, without a model, whether a routed page needs a model call.
+ * Returns null to call, or the reason to skip. The rules by page role:
+ *
+ *   function-reference  the page's own symbol (from its title, e.g.
+ *                       "IB20.seizeWithMemo") appears in the diff slice or
+ *                       among the routing symbols
+ *   interface-index     the manifest adds/removes/renames a member of this
+ *                       interface, or a routing symbol appears on the page
+ *   shared-reference,   a routing symbol appears in the page's code spans;
+ *   guide               with no symbols to test (no manifest), call
+ *   changelog-entry     always (reconciled against the whole source entry)
+ *   changelog-index     always (deterministic rows, no model)
+ *
+ * Any page larger than MAX_REGENERABLE_CHARS is skipped regardless of role,
+ * except the summary page, which never goes to the model.
+ */
+export function decideCall({ role, content = "", diffSlice = "", manifest = [], symbols = [] }) {
+  if (role === "changelog-index") return null;
+  if (content.length > MAX_REGENERABLE_CHARS) {
+    return `page is ${content.length} chars; a full regeneration exceeds the ${MAX_REGENERABLE_CHARS}-char budget (edit mode pending)`;
+  }
+  if (role === "changelog-entry") return null;
+
+  const title = pageTitle(content);
+  const code = extractCodeSpans(content);
+  const symbolOnPage = symbols.find((s) => mentions(code, s));
+
+  if (role === "function-reference") {
+    const own = title.includes(".") ? title.split(".").pop() : title;
+    if (!own) return null;
+    if (mentions(diffSlice, own) || symbols.includes(own) || symbols.includes(title)) return null;
+    return `own symbol ${own} is not in the diff or the manifest`;
+  }
+  if (role === "interface-index") {
+    const iface = title.split(/\s+/)[0];
+    const inventoryChanged = manifest.some(
+      (e) => INVENTORY_KINDS.has(e.kind) && String(e.subject || "").startsWith(`${iface}.`),
+    );
+    if (inventoryChanged || symbolOnPage) return null;
+    return `no member of ${iface} added, removed, or renamed, and no changed symbol on the page`;
+  }
+  // shared-reference / guide
+  if (symbols.length === 0 || symbolOnPage) return null;
+  return "no changed symbol appears on the page";
+}
+
+/**
+ * The added and removed lines of a unified diff, without the +++/--- headers.
+ * Relevance tests read these, not the unchanged context lines around them:
+ * a hunk touching one function carries three lines of its neighbours.
+ */
+export function changedLines(diff) {
+  return String(diff || "")
+    .split("\n")
+    .filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"))
+    .join("\n");
+}

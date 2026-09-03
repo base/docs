@@ -475,3 +475,49 @@ test("routingSymbols: prose words in before/after never route; mock/test entries
     assert.ok(!syms.includes(junk), `${junk} must not be a routing symbol`);
   }
 });
+
+// ------------------------------------------------------------- decideCall
+
+import { decideCall, pageTitle, MAX_REGENERABLE_CHARS } from "../release-utils.mjs";
+
+const fn = (title, body = "") => `---\ntitle: "${title}"\n---\n${body}`;
+
+test("decideCall: function page is called only when its own symbol changed", () => {
+  const page = fn("IB20.seizeWithMemo", "## Signature\n`function seizeWithMemo(...)`");
+  assert.equal(decideCall({ role: "function-reference", content: page, diffSlice: "+ /// seizeWithMemo reverts when", symbols: [] }), null);
+  assert.equal(decideCall({ role: "function-reference", content: page, diffSlice: "", symbols: ["seizeWithMemo"] }), null);
+  assert.match(decideCall({ role: "function-reference", content: page, diffSlice: "+ // transfer changed", symbols: ["transfer"] }), /own symbol seizeWithMemo/);
+});
+
+test("decideCall: interface index is called on inventory changes or a symbol on the page", () => {
+  const page = fn("IB20 Reference", "| [`SEIZE_HOLDER_POLICY`](/x) | `0xb2` |");
+  assert.equal(decideCall({ role: "interface-index", content: page, manifest: [{ kind: "field_renamed", subject: "IB20.SEIZE_EXEMPT_POLICY" }], symbols: [] }), null);
+  assert.equal(decideCall({ role: "interface-index", content: page, manifest: [{ kind: "other", subject: "IB20.seizeWithMemo" }], symbols: ["SEIZE_HOLDER_POLICY"] }), null);
+  assert.match(decideCall({ role: "interface-index", content: page, manifest: [{ kind: "other", subject: "IB20.seizeWithMemo" }], symbols: ["seizeWithMemo"] }), /no member of IB20/);
+  assert.match(decideCall({ role: "interface-index", content: page, manifest: [{ kind: "field_added", subject: "IPolicyRegistry.foo" }], symbols: [] }), /no member of IB20/);
+});
+
+test("decideCall: shared reference and guides need a changed symbol in a code span; no symbols means call", () => {
+  const page = fn("Errors", "| error | `AccountNotSeizable` |");
+  assert.equal(decideCall({ role: "shared-reference", content: page, symbols: ["AccountNotSeizable"] }), null);
+  assert.match(decideCall({ role: "guide", content: page, symbols: ["seizeWithMemo"] }), /no changed symbol/);
+  assert.equal(decideCall({ role: "guide", content: page, symbols: [] }), null, "no manifest → cannot judge → call");
+  assert.match(decideCall({ role: "guide", content: fn("G", "prose mentions AccountNotSeizable"), symbols: ["AccountNotSeizable"] }), /no changed symbol/, "prose is not a code span");
+});
+
+test("decideCall: pages over the regenerable budget are skipped before the call; changelog roles always run", () => {
+  const big = fn("IB20 Reference", "x".repeat(MAX_REGENERABLE_CHARS + 1));
+  assert.match(decideCall({ role: "interface-index", content: big, manifest: [{ kind: "field_added", subject: "IB20.x" }] }), /exceeds/);
+  assert.equal(decideCall({ role: "changelog-entry", content: fn("E", "short") }), null);
+  assert.equal(decideCall({ role: "changelog-index", content: big }), null, "summary never goes to the model");
+  assert.equal(pageTitle(fn("IB20.transfer")), "IB20.transfer");
+});
+
+import { changedLines } from "../release-utils.mjs";
+
+test("changedLines: keeps +/- lines only, drops headers and context", () => {
+  const diff = "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,3 +1,3 @@\n context allowance()\n-old seizeWithMemo\n+new seizeWithMemo\n";
+  const out = changedLines(diff);
+  assert.equal(out, "-old seizeWithMemo\n+new seizeWithMemo");
+  assert.ok(!out.includes("allowance"));
+});
