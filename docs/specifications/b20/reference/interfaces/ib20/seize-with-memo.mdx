@@ -20,7 +20,7 @@ function seizeWithMemo(address from, address to, uint256 amount, bytes32 memo) e
 
 Seizes `amount` of `from`'s balance and reassigns it to `to` in a single admin operation. Emits, in order, `Transfer(from, to, amount)`, `Memo(caller, memo)`, and `Seized(caller, from, to, amount)`. A memo of `bytes32(0)` is permitted.
 
-Admin operation: skips allowance and the transfer policies. The membership checks are that `from` is blocked under `SEIZE_HOLDER_POLICY` and `to` is authorized under `SEIZE_RECEIVER_POLICY`.
+Admin operation: skips allowance and the transfer policies. The membership checks are that `from` is seizable under `SEIZE_HOLDER_POLICY` and `to` is authorized under `SEIZE_RECEIVER_POLICY`.
 `to` is gated by `SEIZE_RECEIVER_POLICY`, which defaults to always-allow when unset, so an unconfigured token may seize to any destination (a treasury need not be allowlisted).
 
 ## Parameters
@@ -37,7 +37,7 @@ Admin operation: skips allowance and the transfer policies. The membership check
 - `ContractPaused(SEIZE)` when `SEIZE` is paused.
 - `AccessControlUnauthorizedAccount` when the caller does not hold `SEIZE_ROLE`.
 - `InvalidReceiver` when `to == address(0)`.
-- `AccountNotSeizable` when `from` is currently authorized under `SEIZE_HOLDER_POLICY`.
+- `AccountNotSeizable` when `from` is authorized under `SEIZE_HOLDER_POLICY`. Note that `SEIZE_HOLDER_POLICY` uses inverted semantics: `from` is seizable only when `isAuthorized(policyId, from)` returns `false`.
 - `PolicyForbids(SEIZE_RECEIVER_POLICY, ...)` when `to` is not authorized under `SEIZE_RECEIVER_POLICY`.
 - `InsufficientBalance` when `from`'s balance is below `amount`.
 
@@ -48,6 +48,8 @@ Admin operation: skips allowance and the transfer policies. The membership check
 ## Policy Interaction
 
 Checks `SEIZE_HOLDER_POLICY` for the holder and `SEIZE_RECEIVER_POLICY` for the destination.
+
+`SEIZE_HOLDER_POLICY` uses **inverted** authorization semantics compared to normal transfer-style gating: an account is seizable when `isAuthorized(policyId, from)` returns `false`, not `true`. An unset slot reads as `0` (always-allow), so no account is seizable until an issuer explicitly configures the slot.
 
 ## Example
 
