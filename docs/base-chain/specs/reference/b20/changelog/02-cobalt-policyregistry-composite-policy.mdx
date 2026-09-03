@@ -142,5 +142,7 @@ flag. `compositePolicyChildIds`, `MIN_COMPOSITE_CHILD_POLICIES`, `MAX_COMPOSITE_
 **Q: Can a B20 token's policy slot (for example, `TRANSFER_SENDER_POLICY` or `SEIZE_HOLDER_POLICY`)
 reference a composite ID?**
 Yes. B20 stores every policy slot as an opaque `uint64 policyId` and calls `isAuthorized`, so a
-composite ID works exactly like a simple one, and no B20-side change was needed. As with any policy
-ID, validate `policyExists(policyId)` before writing it to a slot.
+composite ID works exactly like a simple one, and no B20-side change was needed. Note that
+`SEIZE_HOLDER_POLICY` uses inverted semantics: a `from` account is seizable only when
+`isAuthorized(policyId, from)` returns `false`. This applies equally when the slot holds a composite
+ID. As with any policy ID, validate `policyExists(policyId)` before writing it to a slot.
