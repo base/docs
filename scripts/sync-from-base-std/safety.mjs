@@ -114,7 +114,9 @@ const SECRET_PATTERNS = [
 // upstream project but must not be copied into Base Docs sync PRs. This matches
 // standalone Markdown list items and YAML/frontmatter fields without affecting
 // prose such as "the author of this proposal".
-const AUTHOR_ATTRIBUTION_LINE = /^[ \t]*(?:[-*][ \t]+)?(?:authors?|contributors?)[ \t]*:[^\r\n]*(?:\r?\n|$)/gim;
+// Also catches a bold/italic label (`**Authors**:`) and git-style
+// `Co-authored-by:` trailers, which the model sometimes carries over.
+const AUTHOR_ATTRIBUTION_LINE = /^[ \t]*(?:[-*][ \t]+)?[*_]{0,2}(?:authors?|contributors?|co-authored-by)[*_]{0,2}[ \t]*:[^\r\n]*(?:\r?\n|$)/gim;
 
 // ----------------------------------------------------------------- helpers
 
