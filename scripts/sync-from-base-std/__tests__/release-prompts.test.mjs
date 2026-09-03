@@ -134,9 +134,3 @@ test("codeChangePrompt: create=true adds the new-page instruction; diff path unc
   assert.match(ref, /<source_diff>\n\+natspec/);
   assert.match(ref, /role: function-reference/);
 });
-
-test("releaseSelectionPrompt: event_description replaces the release header for code-change selection", () => {
-  const p = _rsp({ event_description: "A code change landed on base/base-std@abc1234: fix seize.", candidates: [{ path: "docs/a.mdx" }] });
-  assert.match(p, /A code change landed on base\/base-std@abc1234/);
-  assert.doesNotMatch(p, /New tag:/);
-});

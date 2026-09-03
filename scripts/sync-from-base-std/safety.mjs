@@ -110,7 +110,27 @@ const SECRET_PATTERNS = [
   },
 ];
 
+// Upstream release notes may contain contributor credits. They are useful in the
+// upstream project but must not be copied into Base Docs sync PRs. This matches
+// standalone Markdown list items and YAML/frontmatter fields without affecting
+// prose such as "the author of this proposal".
+// Also catches a bold/italic label (`**Authors**:`) and git-style
+// `Co-authored-by:` trailers, which the model sometimes carries over.
+const AUTHOR_ATTRIBUTION_LINE = /^[ \t]*(?:[-*][ \t]+)?[*_]{0,2}(?:authors?|contributors?|co-authored-by)[*_]{0,2}[ \t]*:[^\r\n]*(?:\r?\n|$)/gim;
+
 // ----------------------------------------------------------------- helpers
+
+/**
+ * Remove standalone author or contributor attribution from generated docs.
+ * This is a deterministic backstop for the no-attribution prompt rule.
+ *
+ * @param {string} content - the generated MDX content
+ * @returns {string} content without author or contributor fields
+ */
+export function stripAuthorAttribution(content) {
+  AUTHOR_ATTRIBUTION_LINE.lastIndex = 0;
+  return content.replace(AUTHOR_ATTRIBUTION_LINE, "");
+}
 
 /**
  * Run the server-side mirror of system-prompt rules 3–5. Returns a

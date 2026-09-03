@@ -22,7 +22,7 @@ const REPO_ROOT = path.resolve(
 const B20_REFERENCE_ROOT = "docs/specifications/b20";
 const B20_MANUAL_UPDATE_PAGES = [
   "docs/specifications/b20/specification-overview.mdx",
-  "docs/specifications/b20/launch-a-b20-token.mdx",
+  "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
   "docs/build-on-base/accept-payments/request-a-payment.mdx",
 ];
 
@@ -279,4 +279,30 @@ test("buildProvenanceComment cannot inject a second HTML comment boundary", () =
   assert.match(comment, /^<!--\n/);
   assert.match(comment, /\n-->$/);
   assert.doesNotMatch(body, /[<>]/);
+});
+
+import { validateMdx } from "../index.mjs";
+
+test("validateMdx: components already on the page or defined as snippets are allowed", () => {
+  const page = "---\ntitle: x\n---\n\n<StablecoinDemo scenario=\"block\" />\n\nBody.\n";
+  const routes = new Set();
+  // unknown component, not on the page, not a snippet → rejected
+  assert.match(validateMdx(page, "docs/a.mdx", routes) || "", /not registered.*StablecoinDemo/);
+  // same component already used by the page being edited → allowed
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
+  // defined as a snippet → allowed even on a page that did not use it before
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: "---\ntitle: x\n---\n", snippetComponents: new Set(["StablecoinDemo"]) }), null);
+  // a genuinely unknown component is still rejected
+  assert.match(validateMdx(page.replace("StablecoinDemo", "Nope"), "docs/a.mdx", routes, { current: page }) || "", /Nope/);
+});
+
+import { loadKnownRoutes } from "../index.mjs";
+
+test("loadKnownRoutes: index pages are reachable at their directory route", async () => {
+  const routes = await loadKnownRoutes();
+  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20/index"));
+  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20"), "directory route for index.mdx");
+  // and the validator accepts a link to it
+  const page = "---\ntitle: x\n---\n\nSee [IB20](/specifications/b20/reference/interfaces/ib20).\n";
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
 });
