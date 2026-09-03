@@ -21,7 +21,23 @@ import assert from "node:assert/strict";
 import {
   validateSafety,
   extractExternalUrls,
+  stripAuthorAttribution,
 } from "../safety.mjs";
+
+// ------------------------------------------------------ stripAuthorAttribution
+
+test("stripAuthorAttribution: removes standalone author and contributor fields", () => {
+  const out = stripAuthorAttribution(
+    "---\\ntitle: Example\\n---\\n\\nAuthors: Alice Example, Bob Example\\nContributor: Casey Example\\n\\nBody text.\\n",
+  );
+  assert.doesNotMatch(out, /^(Authors?|Contributors?):/im);
+  assert.match(out, /Body text\./);
+});
+
+test("stripAuthorAttribution: preserves prose that mentions authors", () => {
+  const input = "The author of this proposal describes the change.\\n";
+  assert.equal(stripAuthorAttribution(input), input);
+});
 
 // ---------------------------------------------------------------- validateSafety
 
@@ -196,4 +212,10 @@ test("extractExternalUrls: stops at common terminators (quotes, parens, brackets
 test("extractExternalUrls: returns empty set for empty/no-URL content", () => {
   assert.equal(extractExternalUrls("").size, 0);
   assert.equal(extractExternalUrls("no URLs in this prose at all.").size, 0);
+});
+
+test("stripAuthorAttribution: bold labels and Co-authored-by trailers are removed too", () => {
+  const out = stripAuthorAttribution("**Authors**: Rayyan Alam\n_Contributors_: Casey\nCo-authored-by: Someone <s@example.com>\n\nBody.\n");
+  assert.doesNotMatch(out, /Rayyan|Casey|Someone/);
+  assert.match(out, /Body\./);
 });

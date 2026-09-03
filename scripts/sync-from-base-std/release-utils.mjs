@@ -214,7 +214,7 @@ const MANIFEST_SYMBOL_IGNORE = new Set([
 
 /**
  * Extract the identifier tokens a manifest entry is about: the qualified
- * subject (e.g. `IB20.seizeWithMemo`), each of its parts, and any identifier
+ * subject (e.g. `IB20.seizeWithMemo`), its member part(s), and any identifier
  * in `before` / `after` (so a rename matches pages still using the old name).
  * Tokens shorter than 4 characters or on the ignore list are dropped.
  *
@@ -235,15 +235,29 @@ export function manifestEntrySymbols(entry) {
       out.push(tok);
     }
   };
-  const subject = typeof entry.subject === "string" ? entry.subject.trim() : "";
+  // Haiku sometimes appends prose to a subject ("IB20.foo() NatSpec",
+  // "MockB20.bar() implementation"). Only the leading identifier path counts.
+  const rawSubject = typeof entry.subject === "string" ? entry.subject.trim() : "";
+  const subject = (rawSubject.match(/^[A-Za-z_][A-Za-z0-9_.]*/) || [""])[0].replace(/\.$/, "");
   if (subject) {
     push(subject);
-    for (const part of subject.split(/[^A-Za-z0-9_]+/)) push(part);
+    // For a qualified subject (`IB20.seizeWithMemo`) only the member is
+    // evidence: the qualifier appears on every page of that interface.
+    const parts = subject.split(".").filter(Boolean);
+    for (const part of parts.length > 1 ? parts.slice(1) : parts) push(part);
   }
-  for (const field of ["before", "after"]) {
-    const text = typeof entry[field] === "string" ? entry[field] : "";
-    for (const tok of text.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []) push(tok);
-  }
+  // From before/after, only identifiers that appear on ONE side are evidence:
+  // `keccak256("OLD")` → `keccak256("NEW")` renames OLD, not keccak256.
+  // Before/after are free text; only identifier-shaped tokens (an uppercase
+  // letter, underscore, or digit) count, so words like "internal" or
+  // "against" never become evidence.
+  const looksLikeIdentifier = (t) => /[A-Z_0-9]/.test(t);
+  const ids = (text) =>
+    new Set(((typeof text === "string" ? text : "").match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter(looksLikeIdentifier));
+  const before = ids(entry.before);
+  const after = ids(entry.after);
+  for (const tok of before) if (!after.has(tok)) push(tok);
+  for (const tok of after) if (!before.has(tok)) push(tok);
   return out;
 }
 
@@ -254,7 +268,7 @@ const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  *
  * An entry is relevant when EITHER:
  *   - its `file` is one of the page's routed source files (exact or
- *     path-suffix match), OR
+ *     path-suffix match) — unless `requireSymbolMatch` is set, OR
  *   - one of its symbols (see manifestEntrySymbols) appears on the page as a
  *     whole identifier.
  *
@@ -267,13 +281,19 @@ const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * @param {{sourceFiles?: string[], pageContent?: string}} page
  * @returns {Array<object>}
  */
-export function manifestForPage(manifest, { sourceFiles = [], pageContent = "" } = {}) {
+export function manifestForPage(
+  manifest,
+  { sourceFiles = [], pageContent = "", requireSymbolMatch = false } = {},
+) {
   if (!Array.isArray(manifest) || manifest.length === 0) return [];
   const sources = Array.isArray(sourceFiles) ? sourceFiles : [];
   const content = typeof pageContent === "string" ? pageContent : "";
   return manifest.filter((entry) => {
     if (!entry || typeof entry !== "object") return false;
-    if (typeof entry.file === "string") {
+    // Pages that document exactly one callable (function-reference) must
+    // mention the entry's symbol: sharing a source file with fifty sibling
+    // pages is not evidence the change is about THIS page.
+    if (!requireSymbolMatch && typeof entry.file === "string") {
       for (const sf of sources) {
         if (entry.file === sf || entry.file.endsWith(sf) || sf.endsWith(entry.file)) return true;
       }
@@ -301,7 +321,11 @@ export function routingSymbols(manifest, { minLength = 6 } = {}) {
   if (!Array.isArray(manifest)) return [];
   const out = new Set();
   for (const entry of manifest) {
-    for (const sym of manifestEntrySymbols({ subject: entry?.subject, before: entry?.before })) {
+    // Mocks and tests document the reference implementation, not the public
+    // surface; their internals (`_requireSeizable`, `policyId() implementation`)
+    // must not route docs pages.
+    if (typeof entry?.file === "string" && /^test\//.test(entry.file)) continue;
+    for (const sym of manifestEntrySymbols({ subject: entry?.subject, before: entry?.before, after: entry?.after })) {
       const bare = sym.includes(".") ? sym.split(".").pop() : sym;
       if (bare.length >= minLength) out.add(bare);
       if (sym.includes(".")) out.add(sym);
@@ -526,4 +550,89 @@ export function insertNavPage(navigation, groupName, route) {
 export function firstHeading(markdown) {
   const m = String(markdown || "").match(/^#\s+(.+?)\s*$/m);
   return m ? m[1].trim() : "";
+}
+
+// ------------------------------------------------------------ call decision
+
+/**
+ * Largest page (chars) a full regeneration can return inside the 4096-token
+ * output budget. Measured: 4096 tokens came back as 10.7k–14k chars depending
+ * on how table-heavy the page is. Above this, the completion is cut off and
+ * refused, so the call is pointless; skip it before it starts.
+ */
+export const MAX_REGENERABLE_CHARS = 10000;
+
+/** Manifest kinds that change an interface's member inventory. */
+const INVENTORY_KINDS = new Set([
+  "field_added", "field_removed", "field_renamed", "signature_change",
+  "enum_variant_added", "enum_variant_removed",
+]);
+
+/** Frontmatter title, or "". */
+export function pageTitle(content) {
+  const fm = String(content || "").match(/^---\n([\s\S]+?)\n---/);
+  const m = fm && fm[1].match(/^title:\s*"?([^"\n]+?)"?\s*$/m);
+  return m ? m[1].trim() : "";
+}
+
+const mentions = (text, sym) =>
+  !!sym && new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(sym)}(?![A-Za-z0-9_])`).test(text || "");
+
+/**
+ * Decide, without a model, whether a routed page needs a model call.
+ * Returns null to call, or the reason to skip. The rules by page role:
+ *
+ *   function-reference  the page's own symbol (from its title, e.g.
+ *                       "IB20.seizeWithMemo") appears in the diff slice or
+ *                       among the routing symbols
+ *   interface-index     the manifest adds/removes/renames a member of this
+ *                       interface, or a routing symbol appears on the page
+ *   shared-reference,   a routing symbol appears in the page's code spans;
+ *   guide               with no symbols to test (no manifest), call
+ *   changelog-entry     always (reconciled against the whole source entry)
+ *   changelog-index     always (deterministic rows, no model)
+ *
+ * Any page larger than MAX_REGENERABLE_CHARS is skipped regardless of role,
+ * except the summary page, which never goes to the model.
+ */
+export function decideCall({ role, content = "", diffSlice = "", manifest = [], symbols = [] }) {
+  if (role === "changelog-index") return null;
+  if (content.length > MAX_REGENERABLE_CHARS) {
+    return `page is ${content.length} chars; a full regeneration exceeds the ${MAX_REGENERABLE_CHARS}-char budget (edit mode pending)`;
+  }
+  if (role === "changelog-entry") return null;
+
+  const title = pageTitle(content);
+  const code = extractCodeSpans(content);
+  const symbolOnPage = symbols.find((s) => mentions(code, s));
+
+  if (role === "function-reference") {
+    const own = title.includes(".") ? title.split(".").pop() : title;
+    if (!own) return null;
+    if (mentions(diffSlice, own) || symbols.includes(own) || symbols.includes(title)) return null;
+    return `own symbol ${own} is not in the diff or the manifest`;
+  }
+  if (role === "interface-index") {
+    const iface = title.split(/\s+/)[0];
+    const inventoryChanged = manifest.some(
+      (e) => INVENTORY_KINDS.has(e.kind) && String(e.subject || "").startsWith(`${iface}.`),
+    );
+    if (inventoryChanged || symbolOnPage) return null;
+    return `no member of ${iface} added, removed, or renamed, and no changed symbol on the page`;
+  }
+  // shared-reference / guide
+  if (symbols.length === 0 || symbolOnPage) return null;
+  return "no changed symbol appears on the page";
+}
+
+/**
+ * The added and removed lines of a unified diff, without the +++/--- headers.
+ * Relevance tests read these, not the unchanged context lines around them:
+ * a hunk touching one function carries three lines of its neighbours.
+ */
+export function changedLines(diff) {
+  return String(diff || "")
+    .split("\n")
+    .filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"))
+    .join("\n");
 }
