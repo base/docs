@@ -8,7 +8,7 @@
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/w/base/docs)](https://github.com/base/docs/graphs/contributors)
 [![GitHub Stars](https://img.shields.io/github/stars/base/docs.svg)](https://github.com/base/docs/stargazers)
 ![GitHub repo size](https://img.shields.io/github/repo-size/base/docs)
-[![GitHub](https://img.shields.io/github/license/base/docs?color=blue)](https://github.com/base/docs/blob/main/LICENSE.md)
+[![GitHub](https://img.shields.io/github/license/base/docs?color=blue)](https://github.com/base/docs/blob/master/LICENSE)
 
 <!-- Badge row 2 - links and profiles -->
 
