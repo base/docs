@@ -156,7 +156,7 @@ If your goal is to increase discoverability of your product, please request incl
 3. Request review from the docs team.
 4. Address feedback and iterate.
 5. Once approved, changes will be merged and published.
-
+Test commit
 ## Publishing changes
 
 The core team will review opened PRs. The SLA is 2 weeks, generally on a first-come, first-served basis outside of urgent changes. 
