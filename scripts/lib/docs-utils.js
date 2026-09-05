@@ -80,7 +80,8 @@ function loadMintIgnore(mintignorePath) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     if (trimmed.endsWith('/*')) {
-      ignored.dirs.add(trimmed.slice(1, -2));
+      const dir = trimmed.startsWith('/') ? trimmed.slice(1, -2) : trimmed.slice(0, -2);
+      ignored.dirs.add(dir);
     } else if (trimmed.startsWith('/')) {
       ignored.files.add(trimmed.slice(1));
     } else {
