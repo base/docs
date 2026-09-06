@@ -1,0 +1,63 @@
+---
+title: "Wallets"
+description: "Dale a tu agente la capacidad de mantener fondos, enviar pagos y firmar mensajes"
+---
+
+Un wallet onchain le da a tu agente la capacidad de mantener fondos, autorizar transacciones y firmar mensajes. Sin uno, tu agente puede leer datos pero no puede pagar por servicios, recibir pagos o probar su identidad.
+
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/G3yn8g4mf-s?si=jRsLzFPS_cui9-gF"
+  title="Agent wallets on Base"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+## Por qué tu agente necesita un wallet dedicado
+
+Un agente de IA *podría* generar su propio wallet creando una clave privada aleatoria a través de prompting, pero esto es inseguro. Aquí está el porqué:
+
+- La clave privada aparece en el contexto de conversación del agente, donde puede ser registrada, almacenada en caché o filtrada a través de middleware
+- Cualquier sistema con acceso al historial de prompts del agente podría extraer la clave
+- Si la clave se compromete, todos los fondos en el wallet se pierden permanentemente
+
+Los servicios de wallet dedicados resuelven esto gestionando claves en infraestructura segura que está separada del runtime de tu agente. Tu agente puede solicitar transacciones sin ver nunca la clave privada.
+
+## Opciones de wallet
+
+<Tabs>
+  <Tab title="BANKR Wallet">
+    **Qué es:** Un servicio de wallet diseñado para agentes ejecutándose en OpenClaw. BANKR gestiona las claves privadas y expone acciones de wallet como skills que tu agente puede llamar.
+
+    **Mejor para:** Agentes construidos con OpenClaw o BANKR que necesitan una integración rápida de wallet con skills preconstruidos.
+
+    **Cómo funciona:** Instala el skill de wallet de BANKR, y tu agente obtiene la capacidad de verificar balances, enviar tokens e interactuar con <Tooltip tip="Protocolos que proporcionan servicios financieros (préstamos, trading, etc.) a través de smart contracts en lugar de bancos tradicionales">protocolos DeFi</Tooltip>. Las claves son almacenadas y gestionadas por BANKR.
+
+    [Comienza →](https://github.com/BankrBot/openclaw-skills)
+  </Tab>
+
+  <Tab title="CDP Agentic Wallet">
+    **Qué es:** La infraestructura de wallet de Coinbase para agentes de IA. Proporciona gestión de wallet basada en API con seguridad de claves de nivel empresarial a través de la infraestructura de Coinbase.
+
+    **Mejor para:** Agentes construidos con Agent SDK que necesitan infraestructura de wallet lista para producción con seguridad respaldada por Coinbase.
+
+    **Cómo funciona:** Crea wallets a través del API de CDP. Tu agente solicita transacciones vía el API, y CDP maneja la firma y transmisión. Las claves son gestionadas en el enclave seguro de Coinbase, tu agente nunca las toca directamente.
+
+    [Comienza →](https://docs.cdp.coinbase.com/agentic-wallet/quickstart)
+  </Tab>
+</Tabs>
+
+## Lo que tu agente puede hacer con un wallet
+
+Una vez que tu agente tiene un wallet, puede:
+
+- **Mantener <Tooltip tip="Criptomonedas ancladas a un activo estable como el dólar estadounidense (por ejemplo, USDC). 1 USDC está diseñado para siempre equivaler a $1.">stablecoins</Tooltip>**: recibir y almacenar USDC u otros tokens
+- **Enviar y recibir pagos**: transferir fondos a otros wallets, pagar por acceso a API o recibir pagos por servicios
+- **Firmar mensajes**: probar criptográficamente que un mensaje o solicitud provino de tu agente (usado para verificación de identidad)
+- **Interactuar con protocolos**: llamar <Tooltip tip="Programas desplegados onchain que se ejecutan automáticamente cuando se cumplen las condiciones. Potencian todo, desde intercambios de tokens hasta préstamos.">smart contracts</Tooltip> para intercambiar tokens, proporcionar liquidez o usar otros servicios onchain
+
+## Siguiente paso
+
+<Card title="Pagos y transacciones" icon="arrow-right" href="/ai-agents/core-concepts/payments-and-transactions">
+  Aprende cómo tu agente paga por servicios y ejecuta acciones onchain.
+</Card>
