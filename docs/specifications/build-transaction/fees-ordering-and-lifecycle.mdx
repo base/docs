@@ -1,0 +1,105 @@
+---
+title: "Fees, Ordering, and Lifecycle"
+description: "Understand how validity transactions are prioritized, priced, evaluated, and included on Base."
+tag: "Soon"
+---
+
+Validity transactions participate in the same block-building process as ordinary transactions, but can use an explicit network tip and predicates that control when they are eligible.
+
+<Warning>
+The formulas and examples on this page describe the planned validity-transaction model. Network parameters and operational limits may change before general availability.
+</Warning>
+
+## Priority Score
+
+The builder compares ordinary and validity transactions using a unified tip-per-gas score:
+
+| Transaction | Priority score |
+| --- | --- |
+| Validity transaction with a recognized network tip | `network tip / gas limit` |
+| Ordinary transaction | `effective priority fee per gas` |
+
+The underlying EIP-8130 transaction must still set fee fields that can cover the current base fee. A network tip does not make an otherwise underpriced transaction executable.
+
+### Tie-Breaking
+
+When transactions have the same priority score, the transaction with fewer validity predicates is ranked first. An ordinary transaction has no validity predicates, so it wins an equal-score tie against a validity transaction.
+
+Arrival time and transaction hash may provide further deterministic ordering when both the score and predicate count are equal.
+
+## Eligibility and Re-evaluation
+
+Transactions are considered in priority order, but predicates decide whether a validity transaction is eligible at its candidate insertion point.
+
+1. The builder evaluates the highest-ranked candidate.
+2. If all of its predicates match, it can be included.
+3. If a predicate does not match, the builder skips the transaction and continues with the next eligible candidate.
+4. When an included transaction changes relevant state, skipped transactions affected by that change can be evaluated again.
+
+This allows a high-value backrun to remain dormant until an earlier transaction creates the state it requires.
+
+## Network Tip and Fees
+
+The network tip is encoded as a transfer to the Sequencer Fee Vault in the first EIP-8130 call phase. Later phases perform the application actions.
+
+| Outcome | Onchain fee behavior |
+| --- | --- |
+| Rejected before admission | The transaction does not execute and pays no Base network fee. |
+| Waiting for a predicate | The transaction has not executed and pays no Base network fee. |
+| Expires without inclusion | The transaction does not execute and pays no Base network fee. |
+| Included successfully | The sender or payer pays gas; the first-phase network tip is transferred. |
+| Included with a later phase failure | Gas is paid, completed earlier phases persist, and the first-phase network tip can remain paid. |
+
+RPC providers may apply separate commercial request or service charges that are not Base network fees.
+
+## Lifecycle
+
+```text Lifecycle lines wrap expandable highlight={4-6,9}
+Submit
+  ├─ Reject
+  └─ Accept
+      ├─ Wait while predicates are false
+      ├─ Become eligible and compete for inclusion
+      │   ├─ Include
+      │   └─ Remain pending
+      ├─ Replace or evict
+      └─ Expire
+```
+
+Submission and predicate satisfaction never guarantee inclusion. Block limits, a higher-scoring transaction, validation failure, replacement, or expiry can prevent an otherwise eligible transaction from landing.
+
+## Example: Arbitrage and a Resting Order
+
+Assume the normalized priority scores below are directly comparable. The initial USDC/WETH price is `1,985`, while an offchain venue prices WETH at `2,000`.
+
+| Candidate | Type | Priority score | Condition |
+| --- | --- | ---: | --- |
+| Buy WETH arbitrage | Validity | `5.00` | Price is at most `1,990` |
+| Resting sell order | Validity | `1.50` | Price is at least `2,030` |
+| Large user buy | Ordinary | `0.05` | None |
+
+Resulting order:
+
+1. The arbitrage has the highest score and its condition matches, so it lands first.
+2. The resting order is considered next, but its price condition is false, so it is skipped.
+3. The user buy lands and moves the price to approximately `2,040`.
+4. The state change causes the resting order to be evaluated again. Its condition now matches, so it can land immediately after the user buy in the same Flashblock.
+
+## Example: Oracle Update and Liquidations
+
+Two positions become liquidatable only after an oracle update.
+
+| Candidate | Type | Priority score | Condition |
+| --- | --- | ---: | --- |
+| Liquidation A | Validity | `4.00` | Oracle price is at most `X`; A has debt |
+| Oracle update | Ordinary | `0.05` | None |
+| Liquidation B | Ordinary | `0.03` | None |
+| Liquidation B | Validity | `0.03` | Oracle price is at most `X`; B has debt |
+
+Resulting order:
+
+1. Liquidation A is highest-ranked but initially ineligible, so it is skipped.
+2. The oracle update lands and makes both positions liquidatable.
+3. Liquidation A is evaluated again and lands next because of its higher score.
+4. The two B liquidations have equal scores. The ordinary transaction wins the tie because it has no predicates and clears B's debt.
+5. The validity version of liquidation B is evaluated again, fails its debt predicate, and remains unincluded until replacement, eviction, or expiry.
