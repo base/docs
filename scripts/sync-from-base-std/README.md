@@ -40,3 +40,22 @@ Configuration knobs are optional positive numbers:
 - `RELEASE_PAGE_CONCURRENCY` (default `4`)
 - `CLAUDE_MAX_TOKENS` and `CLAUDE_MODEL`
 - The bounded release manifest/selection settings documented in `index.mjs`
+
+## Source PR attribution
+
+For `code-change` dispatches the workflow @mentions the source PR author in
+the docs PR body and requests them as a reviewer, so the person who wrote the
+change sees the docs that describe it. The merger is named alongside, without
+a mention.
+
+Both logins are read from the GitHub API response for the source PR in the
+"Verify payload provenance" step, after that PR is confirmed merged into `main`
+of an allowlisted source repo. The dispatch payload carries no author field:
+it would be spoofable by any `DOCS_REPO_TOKEN` holder, and `client_payload` is
+already at GitHub's 10-property ceiling. Logins are shape-checked
+(`[A-Za-z0-9-]`, 1-39 chars, no leading `-`) before use; bot identities and
+anything malformed are dropped silently.
+
+The review request is best-effort. It returns HTTP 422 when the author lacks
+read access to this repo, and the workflow logs a warning instead of failing.
+A review request grants no permission and cannot satisfy required approvals.
