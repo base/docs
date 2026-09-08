@@ -1,13 +1,13 @@
 ---
 title: "Announce a Distribution"
 description: "Wrap a holder-impacting action with an onchain disclosure using the B20 Asset announce function."
-keywords: ["announce distribution", "B20 announcement", "asset distribution", "batchMint distribution", "stock split", "treasury burn"]
+keywords: ["announce distribution", "B20 announcement", "asset distribution", "batchMint distribution", "multiplier update", "treasury burn"]
 ---
 
 import { AssetDemo } from "/snippets/AssetDemo.jsx"
 import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
 
-Bracket a holder-impacting action with an onchain description and supporting URI. `announce` emits `Announcement` before the inner calls and `EndAnnouncement` after, giving indexers a reliable bracket for every corporate action.
+Bracket a holder-impacting action with an onchain description and supporting URI. `announce` emits `Announcement` before the inner calls and `EndAnnouncement` after, giving indexers a reliable bracket for every announced change.
 
 <RwaDisclaimer />
 
@@ -71,7 +71,7 @@ export async function announceStockDividend(token: Address, holders: Address[]) 
             calls,
             "2026-stock-dividend-01",
             "Five-percent stock dividend",
-            "https://example.com/corporate-actions/2026-01"
+            "https://example.com/announcements/2026-01"
         );
         require(IB20Asset(token).isAnnouncementIdUsed("2026-stock-dividend-01"), "announcement missing");
     }
@@ -85,26 +85,26 @@ On success, the unique announcement `id` is marked used and the batch mint execu
 </Check>
 
 <Note>
-This example issues additional shares. It does not distribute a cash dividend. A reinvested dividend that only rescales displayed balances is a multiplier update, covered below.
+This example issues additional shares. It does not distribute a cash dividend. A reinvested dividend that only rescales displayed balances is a multiplier update, covered below and in [Apply a Multiplier](/build-on-base/issue-rwa/apply-a-multiplier).
 </Note>
 
-## Wrap Other Corporate Actions
+## Announce Other Changes
 
 The same bracket discloses any operator-driven change. Each scenario below lists the roles the operator needs and the events the asset emits.
 
-### Stock Split or Reverse Split
+### Multiplier Update
 
 Wrap `updateUIMultiplier(newMultiplier, effectiveAt)`. A 2-for-1 split uses `2e18`. A reverse split uses a value below `1e18`. The operator needs `OPERATOR_ROLE` only.
 
-```solidity Announce a scheduled split lines wrap expandable highlight={3}
-function announceSplit(address token, uint256 newMultiplier, uint256 effectiveAt) public {
+```solidity Announce a multiplier update lines wrap expandable highlight={3}
+function announceMultiplierUpdate(address token, uint256 newMultiplier, uint256 effectiveAt) public {
     bytes[] memory calls = new bytes[](1);
     calls[0] = abi.encodeCall(IB20Asset.updateUIMultiplier, (newMultiplier, effectiveAt));
     IB20Asset(token).announce(
         calls,
-        "2026-split-01",
-        "2-for-1 stock split",
-        "https://example.com/corporate-actions/2026-split-01"
+        "2026-multiplier-01",
+        "2-for-1 multiplier update",
+        "https://example.com/announcements/2026-multiplier-01"
     );
 }
 ```
@@ -157,8 +157,5 @@ Typical inner causes of `InternalCallFailed`: missing `MINT_ROLE` or `BURN_ROLE`
 <CardGroup cols={2}>
   <Card title="Issue Shares" icon="coins" href="/build-on-base/issue-rwa/issue-units">
     Mint asset units to holders.
-  </Card>
-  <Card title="Run a Stock Split" icon="divide" href="/build-on-base/issue-rwa/apply-a-multiplier">
-    Apply a UI multiplier for stock splits.
   </Card>
 </CardGroup>

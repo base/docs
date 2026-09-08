@@ -135,7 +135,7 @@ contract B20Examples is Script {
             calls,
             "2026-stock-dividend-01",
             "Five-percent stock dividend",
-            "https://example.com/corporate-actions/2026-01"
+            "https://example.com/announcements/2026-01"
         );
         require(IB20Asset(token).isAnnouncementIdUsed("2026-stock-dividend-01"), "announcement missing");
     }
