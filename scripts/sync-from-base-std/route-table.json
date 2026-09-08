@@ -1,5 +1,5 @@
 {
-  "$comment": "Routes verified base/base-std source changes to the Base Docs pages that document them under docs/specifications/b20/. Each source file maps to its own interface index page and subtree (plus the shared overview, errors, and constants pages where relevant); Every rule carries a `kind` (interface | product-doc | changelog-entry | changelog-index) that downstream steps use to pick page ownership and input slicing. The changelog index (README.md / CHANGELOG.md) maps to the B20 changelog summary page; per-feature entries are matched by `source_pattern` and map to their own entry page. page_globs are expanded only against existing Markdown files under docs/. No rule fans out to the whole reference tree. Every routed page must be present in docs/docs.json navigation (checked by scripts/validate-docs-structure.js). This bundle intentionally does not create or delete reference pages.",
+  "$comment": "Routes verified base/base-std source changes to the Base Docs pages that document them under docs/specifications/b20/. Each source file maps to its own interface index page and subtree (plus the shared overview, errors, and constants pages where relevant); Every rule carries a `kind` (interface | product-doc | changelog-entry | changelog-index | ignored) that downstream steps use to pick page ownership and input slicing. The changelog index (README.md / CHANGELOG.md) maps to the B20 changelog summary page; per-feature entries are matched by `source_pattern` and map to their own entry page. page_globs are expanded only against existing Markdown files under docs/. No rule fans out to the whole reference tree. Every routed page must be present in docs/docs.json navigation (checked by scripts/validate-docs-structure.js). This bundle intentionally does not create or delete reference pages. A changed source path that matches no rule is reported as unrouted (PR body / issue) with a guideline-derived placement proposal; `ignored` rules name upstream files that are deliberately not synced so they stay out of that report.",
   "code_changes": [
     {
       "source_prefix": "src/interfaces/IActivationRegistry.sol",
@@ -195,10 +195,35 @@
       "transformer": "claude"
     },
     {
-      "source_prefix": "docs/B20/Asset.md",
+      "$comment": "base-std docs/ tree (audience-layered since base-std#213). Placement follows docs/ia-guidelines.md and docs/content-guidelines.md: architecture material is a component map on the spec overview plus invariants, chain-generic precompile mechanics go to Base Protocol → Execution, concept pages feed the spec overview key-concept sections and the owning reference pages, guides feed the existing Build on Base task pages, reference tables feed the B20 supporting pages. No rule here creates a page.",
+      "source_prefix": "docs/overview.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
+        "docs/specifications/b20/specification-overview.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/architecture.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/specifications/base-protocol/execution/precompiles.mdx",
+        "docs/specifications/b20/specification-overview.mdx",
+        "docs/specifications/b20/reference/invariants-tests.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-factory/index.mdx"
+      ],
+      "page_globs": [
+        "docs/specifications/b20/reference/interfaces/ib20-factory/**/*.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/concepts/multipliers.md",
       "kind": "product-doc",
       "pages": [
         "docs/specifications/b20/specification-overview.mdx",
+        "docs/build-on-base/issue-rwa/apply-a-multiplier.mdx",
         "docs/specifications/b20/reference/interfaces/ib20-asset/index.mdx"
       ],
       "page_globs": [
@@ -207,48 +232,16 @@
       "transformer": "claude"
     },
     {
-      "source_prefix": "docs/B20/Factory.md",
+      "source_prefix": "docs/concepts/policies.md",
       "kind": "product-doc",
       "pages": [
-        "docs/specifications/b20/specification-overview.mdx",
-        "docs/specifications/b20/reference/interfaces/ib20-factory/index.mdx",
-        "docs/build-on-base/issue-rwa/create-an-asset-token.mdx"
-      ],
-      "page_globs": [
-        "docs/specifications/b20/reference/interfaces/ib20-factory/**/*.mdx"
-      ],
-      "transformer": "claude"
-    },
-    {
-      "source_prefix": "docs/B20/Stablecoin.md",
-      "kind": "product-doc",
-      "pages": [
-        "docs/specifications/b20/specification-overview.mdx",
-        "docs/specifications/b20/reference/interfaces/ib20-stablecoin/index.mdx",
-        "docs/build-on-base/accept-payments/request-a-payment.mdx"
-      ],
-      "page_globs": [
-        "docs/specifications/b20/reference/interfaces/ib20-stablecoin/**/*.mdx"
-      ],
-      "transformer": "claude"
-    },
-    {
-      "source_prefix": "docs/B20/README.md",
-      "kind": "product-doc",
-      "pages": [
-        "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
         "docs/specifications/b20/specification-overview.mdx",
         "docs/specifications/b20/reference/constants-addresses.mdx",
-        "docs/build-on-base/accept-payments/request-a-payment.mdx"
-      ],
-      "transformer": "claude"
-    },
-    {
-      "source_prefix": "docs/PolicyRegistry/",
-      "kind": "product-doc",
-      "pages": [
-        "docs/specifications/b20/specification-overview.mdx",
-        "docs/specifications/b20/reference/interfaces/i-policy-registry/index.mdx"
+        "docs/specifications/b20/reference/interfaces/i-policy-registry/index.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/update-policy.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/policy-id.mdx",
+        "docs/build-on-base/issue-rwa/restrict-eligible-holders.mdx",
+        "docs/build-on-base/issue-stablecoins/restrict-who-can-hold.mdx"
       ],
       "page_globs": [
         "docs/specifications/b20/reference/interfaces/i-policy-registry/**/*.mdx"
@@ -256,15 +249,122 @@
       "transformer": "claude"
     },
     {
-      "source_prefix": "docs/ActivationRegistry/",
+      "source_prefix": "docs/concepts/roles-and-pause.md",
       "kind": "product-doc",
       "pages": [
         "docs/specifications/b20/specification-overview.mdx",
-        "docs/specifications/b20/reference/interfaces/i-activation-registry/index.mdx"
+        "docs/specifications/b20/reference/constants-addresses.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/index.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/grant-role.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/revoke-role.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/renounce-role.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/set-role-admin.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/pause.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/unpause.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/is-paused.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/paused-features.mdx",
+        "docs/build-on-base/issue-rwa/pause-transfers.mdx",
+        "docs/build-on-base/issue-stablecoins/pause-activity.mdx"
       ],
-      "page_globs": [
-        "docs/specifications/b20/reference/interfaces/i-activation-registry/**/*.mdx"
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/concepts/token-types.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/specifications/b20/specification-overview.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-factory/create-b20.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-asset/index.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-stablecoin/index.mdx",
+        "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
+        "docs/build-on-base/issue-stablecoins/issue-your-stablecoin.mdx"
       ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/guides/scheduling-stock-splits.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/build-on-base/issue-rwa/apply-a-multiplier.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-asset/update-ui-multiplier.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-asset/cancel-ui-multiplier-update.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-asset/update-multiplier.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/guides/announcing-corporate-actions.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/build-on-base/issue-rwa/announce-a-distribution.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-asset/announce.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20-asset/batch-mint.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/guides/seizeing-assets.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/build-on-base/issue-rwa/cancel-blocked-units.mdx",
+        "docs/build-on-base/issue-stablecoins/recover-funds.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/seize-with-memo.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/seize-role.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/seize-holder-policy.mdx",
+        "docs/specifications/b20/reference/interfaces/ib20/seize-receiver-policy.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "$comment": "Upstream authoring template, not documentation.",
+      "source_prefix": "docs/guides/template.md",
+      "kind": "ignored",
+      "pages": [],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/reference/constants.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/specifications/b20/reference/constants-addresses.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/reference/errors.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/specifications/b20/reference/errors-events.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "source_prefix": "docs/reference/events.md",
+      "kind": "product-doc",
+      "pages": [
+        "docs/specifications/b20/reference/errors-events.mdx"
+      ],
+      "transformer": "claude"
+    },
+    {
+      "$comment": "Upstream link index; the interface index pages under docs/ are generated from the .sol interfaces.",
+      "source_prefix": "docs/reference/interfaces.md",
+      "kind": "ignored",
+      "pages": [],
+      "transformer": "claude"
+    },
+    {
+      "$comment": "Upstream navigation index.",
+      "source_prefix": "docs/README.md",
+      "kind": "ignored",
+      "pages": [],
+      "transformer": "claude"
+    },
+    {
+      "$comment": "Upstream repository README; the docs entry points it links are routed individually.",
+      "source_prefix": "README.md",
+      "kind": "ignored",
+      "pages": [],
       "transformer": "claude"
     },
     {
