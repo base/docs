@@ -1,9 +1,11 @@
 ---
 title: "IB20Asset.scaledBalanceOf"
-description: "Generated B20 reference for scaledBalanceOf(address)."
+description: "Returns the UI (display) balance of an account by applying the current multiplier to its raw ERC-20 balance."
 ---
 
-
+<Warning>
+`scaledBalanceOf` is a deprecated alias. Prefer `balanceOfUI(account)` for new integrations.
+</Warning>
 
 ## Signature
 
@@ -18,13 +20,34 @@ function scaledBalanceOf(address account) external view returns (uint256);
 
 ## Description
 
-Convenience for `toUIAmount(balanceOf(account))`.
-Param: account Account whose scaled balance is being queried.
-Return: Scaled balance.
+Equivalent to `toUIAmount(balanceOf(account))`. Returns the caller-visible share count after applying the current multiplier: `balanceOf(account) * uiMultiplier() / WAD_PRECISION`.
+
+The raw ERC-20 balance is unchanged. Only the displayed value scales with the multiplier.
+
+This function is a deprecated alias of `balanceOfUI(account)`. Prefer `balanceOfUI` for new code.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `account` | `address` | Account whose UI balance is being queried. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `uint256` | UI balance: `balanceOf(account) * uiMultiplier() / WAD_PRECISION`. |
+
+## Multiplier Behavior
+
+- While a pending multiplier update exists (`effectiveAt() > block.timestamp`), this function still uses the **current** multiplier, not the scheduled one.
+- After `block.timestamp >= effectiveAt()`, the new multiplier takes effect automatically on read — no transaction or event fires at maturation.
+- Integer division rounds down. A round trip through `toUIAmount` then `fromUIAmount` can lose one unit in the last place when `uiMultiplier() != WAD_PRECISION`.
+- This function applies only to B20 Asset. B20 Stablecoin has no multiplier.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 
@@ -33,5 +56,9 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).scaledBalanceOf(arg0);
+// Deprecated alias — prefer balanceOfUI
+uint256 uiBalance = IB20Asset(target).scaledBalanceOf(account);
+
+// Preferred
+uint256 uiBalance = IB20Asset(target).balanceOfUI(account);
 ```

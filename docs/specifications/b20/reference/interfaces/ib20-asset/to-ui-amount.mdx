@@ -1,6 +1,6 @@
 ---
 title: "IB20Asset.toUIAmount"
-description: "ERC-8056 raw-to-UI conversion reference."
+description: "Converts a raw ERC-20 balance to its UI representation using the effective multiplier."
 ---
 
 ## Signature
@@ -16,4 +16,27 @@ function toUIAmount(uint256 rawAmount) external view returns (uint256);
 
 ## Description
 
-Converts `rawAmount` to its UI representation at the effective multiplier.
+Converts `rawAmount` to its UI representation at the effective multiplier. The formula is `rawAmount * uiMultiplier() / WAD_PRECISION`, where `WAD_PRECISION` is `1e18`. Integer division rounds down, so a round trip through `toUIAmount` then `fromUIAmount` can lose one unit in the last place (ULP) when the multiplier differs from `WAD_PRECISION`.
+
+The effective multiplier is time-dependent. If a pending update has been scheduled via `updateUIMultiplier` and `block.timestamp >= effectiveAt`, the new multiplier is used even though no storage write or event fires at that moment. Call `uiMultiplier()` to inspect the value this function applies.
+
+`toScaledBalance` is a deprecated alias of this function. Prefer `toUIAmount`.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `rawAmount` | `uint256` | Raw ERC-20 balance to convert. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `uint256` | UI amount: `rawAmount * uiMultiplier() / 1e18`, rounded down. |
+
+## Notes
+
+- This function is Asset-only. Stablecoin has no multiplier.
+- A default multiplier of `1e18` means UI equals raw.
+- A 2-for-1 split sets the multiplier to `2e18`; a 1-for-2 reverse split sets it to `5e17`.
+- The multiplier is an absolute value, not a ratio applied to the current one.

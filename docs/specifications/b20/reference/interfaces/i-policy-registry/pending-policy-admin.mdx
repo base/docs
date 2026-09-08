@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.pendingPolicyAdmin"
-description: "Generated B20 reference for pendingPolicyAdmin(uint64)."
+description: "Returns the staged pending admin for a policy, or address(0) if no transfer is in flight."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,32 @@ function pendingPolicyAdmin(uint64 policyId) external view returns (address);
 
 ## Description
 
-Returns the currently-staged pending admin for `policyId`, or `address(0)` when
-no transfer is in flight or for built-in sentinels, unknown IDs, and malformed IDs.
-Never reverts.
-Param: policyId Policy to query.
-Return: Pending admin, or `address(0)`.
+Returns the currently-staged pending admin for `policyId`, or `address(0)` when no transfer is in flight or for built-in sentinels, unknown IDs, and malformed IDs. Never reverts.
+
+The pending admin is set by `stageUpdateAdmin(policyId, newAdmin)` and cleared when `finalizeUpdateAdmin(policyId)` succeeds or when the current admin calls `stageUpdateAdmin` with `address(0)`. Until `finalizeUpdateAdmin` is called, `policyAdmin` still returns the current admin — the pending admin has no privileges yet.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `address` | Staged pending admin, or `address(0)` if none is set. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+Never reverts.
 
-## Example
+## Related
 
-```solidity Usage Example
-IPolicyRegistry(target).pendingPolicyAdmin(arg0);
-```
+- `stageUpdateAdmin` — sets the pending admin.
+- `finalizeUpdateAdmin` — promotes the pending admin to current admin; reverts `NoPendingAdmin` if nothing is staged, or `Unauthorized` if the caller is not the staged address.
+- `policyAdmin` — returns the current (active) admin.

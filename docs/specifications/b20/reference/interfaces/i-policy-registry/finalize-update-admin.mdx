@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.finalizeUpdateAdmin"
-description: "Generated B20 reference for finalizeUpdateAdmin(uint64)."
+description: "Completes a two-step admin transfer for a policy, promoting the pending admin to active admin."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,43 @@ function finalizeUpdateAdmin(uint64 policyId) external;
 
 ## Description
 
-Completes a two-step admin transfer. Promotes the caller to active admin and clears the pending slot.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `NoPendingAdmin` when no transfer is in flight.
-Dev: Reverts with `Unauthorized` when the caller is not the staged pending admin.
-Param: policyId Policy whose admin transfer is being finalized.
+Completes a two-step admin transfer initiated by `stageUpdateAdmin`. The caller must be the address that was staged as the pending admin. On success, the caller becomes the active admin, the pending slot clears, and the previous admin loses the ability to update the policy.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | The policy whose pending admin transfer is being finalized. |
+
+## Revert Conditions
+
+| Error | Condition |
+|---|---|
+| `PolicyNotFound()` | `policyId` does not exist in the registry. |
+| `NoPendingAdmin()` | No admin transfer is staged for this policy. |
+| `Unauthorized()` | The caller is not the staged pending admin. |
 
 ## Access Control
 
-Callable only by the staged pending admin for the target policy; finalization promotes the caller to active admin.
+Callable only by the staged pending admin for the target policy. Finalization atomically promotes the caller to active admin and clears the pending slot. The previous admin cannot update the policy after this call succeeds.
 
-## Policy Interaction
+## Behavior
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+This function is the second step of the two-step admin transfer pattern:
+
+1. The current admin calls `stageUpdateAdmin(policyId, newAdmin)`, which sets the pending admin without transferring control.
+2. The pending admin calls `finalizeUpdateAdmin(policyId)` to accept and complete the transfer.
+
+Until `finalizeUpdateAdmin` is called, `policyAdmin(policyId)` still returns the current admin. After a successful call, `policyAdmin(policyId)` returns the new admin and `pendingPolicyAdmin(policyId)` is cleared.
+
+Emits `PolicyAdminUpdated(policyId, previousAdmin, newAdmin)`.
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).finalizeUpdateAdmin(arg0);
+// Step 1: current admin stages the transfer
+IPolicyRegistry(registry).stageUpdateAdmin(policyId, nextAdmin);
+
+// Step 2: nextAdmin finalizes
+IPolicyRegistry(registry).finalizeUpdateAdmin(policyId);
 ```

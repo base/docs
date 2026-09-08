@@ -1,9 +1,7 @@
 ---
 title: "IB20.revokeRole"
-description: "Generated B20 reference for revokeRole(bytes32,address)."
+description: "Revokes a role from an account on a B20 token."
 ---
-
-
 
 ## Signature
 
@@ -18,7 +16,7 @@ function revokeRole(bytes32 role, address account) external;
 
 ## Description
 
-Revokes `role` from `account`. Emits `RoleRevoked`.
+Revokes `role` from `account`. The call is idempotent — if `account` does not hold `role`, the call succeeds and emits nothing. `RoleRevoked` fires only when membership actually changes.
 
 ## Parameters
 
@@ -29,12 +27,12 @@ Revokes `role` from `account`. Emits `RoleRevoked`.
 
 ## Reverts
 
-- `AccessControlUnauthorizedAccount` when the caller does not hold the admin role for `role`, or when the token has been transitioned to admin-less via `renounceLastAdmin`.
-- `LastAdminCannotRenounce` when `role == DEFAULT_ADMIN_ROLE` and `account` is the last default admin. Use `renounceLastAdmin` to clear the final admin.
+- `AccessControlUnauthorizedAccount` — caller does not hold the admin role for `role`, or the token has no admins (transitioned via `renounceLastAdmin`).
+- `LastAdminCannotRenounce` — `role == DEFAULT_ADMIN_ROLE` and `account` is the last remaining `DEFAULT_ADMIN_ROLE` holder. Use `renounceLastAdmin` to clear the final admin intentionally.
 
 ## Access Control
 
-Uses the B20 access-control role graph. Factory initCalls bypass role gates during creation.
+The caller must hold `getRoleAdmin(role)`. On a fresh token every role's admin is `DEFAULT_ADMIN_ROLE`. After `setRoleAdmin` is called the new admin role applies; `revokeRole` is not hardcoded to `DEFAULT_ADMIN_ROLE`.
 
 ## Policy Interaction
 
@@ -43,5 +41,5 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20(target).revokeRole(role, account);
+IB20(target).revokeRole(MINT_ROLE, account);
 ```

@@ -1,9 +1,7 @@
 ---
 title: "IB20.pause"
-description: "Generated B20 reference for pause(PausableFeature[])."
+description: "Pauses one or more token operation classes, blocking the gated functions until each feature is unpaused."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,34 @@ function pause(PausableFeature[] calldata features) external;
 
 ## Description
 
-Pauses each of `features`. Additive: features already paused remain paused; duplicates within the call are idempotent. Emits `Paused`.
+Pauses each feature in `features`. The call is additive: features already paused remain paused, and duplicates within the array are silent no-ops. Emits `Paused(updater, features)` with the exact array passed.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
-| `features` | Features to pause. |
+| `features` | One or more `PausableFeature` values to pause. Must be non-empty. |
+
+## PausableFeature values
+
+| Value | Gates |
+|---|---|
+| `TRANSFER` | `transfer`, `transferFrom`, and memo variants |
+| `MINT` | `mint`, `mintWithMemo`, and Asset `batchMint` |
+| `BURN` | `burn`, `burnWithMemo`, and deprecated `burnBlocked` |
+| `SEIZE` | `seizeWithMemo` |
+
+Each feature corresponds to one bit in a single storage word (`TRANSFER` = bit 0, `MINT` = bit 1, `BURN` = bit 2, `SEIZE` = bit 3). `ALL_FEATURES_PAUSED` (`15`) means all four bits are set.
 
 ## Reverts
 
-- `AccessControlUnauthorizedAccount` when the caller does not hold `PAUSE_ROLE`.
-- `EmptyFeatureSet` when `features.length == 0`.
+- `AccessControlUnauthorizedAccount(account, neededRole)` — caller does not hold `PAUSE_ROLE`.
+- `EmptyFeatureSet()` — `features.length == 0`.
+- `ContractPaused(feature)` — emitted by downstream calls when a paused feature is exercised; not thrown by `pause` itself.
 
 ## Access Control
 
-`PAUSE_ROLE` gates this call.
+`PAUSE_ROLE` gates this call. `PAUSE_ROLE` and `UNPAUSE_ROLE` are separate roles, so the account that pauses need not be the account that resumes.
 
 ## Policy Interaction
 
@@ -42,5 +52,9 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
+// Pause MINT and BURN in one call; TRANSFER remains live.
+PausableFeature[] memory features = new PausableFeature[](2);
+features[0] = PausableFeature.MINT;
+features[1] = PausableFeature.BURN;
 IB20(target).pause(features);
 ```

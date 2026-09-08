@@ -20,6 +20,14 @@ The demo uses a local browser-generated account to submit real transactions on *
 New to B20? See the [B20 Token Standard](/specifications/b20/specification-overview) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
 
+## How Policies Work
+
+The Policy Registry is a singleton precompile that stores each member list once. A token stores only a `uint64` policy ID per scope. When a gated function runs, the token calls `isAuthorized(policyId, account)` on the registry. Many tokens can share one policy; an update to the policy is immediately visible to every token that references it.
+
+Scopes gate specific functions. `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_POLICY` check the sender and recipient on every `transfer` and `transferFrom`. `MINT_RECEIVER_POLICY` checks the recipient on every `mint`. All three default to `ALWAYS_ALLOW` (`0`) until you bind a policy.
+
+An **allowlist** authorizes only accounts in the set. An empty allowlist authorizes nobody — seed your intended holders before binding the policy.
+
 ## Create and Bind a Holder Allowlist
 
 <CodeGroup>
@@ -73,15 +81,19 @@ done
 ```
 </CodeGroup>
 
-See the [B20 token standard](/specifications/b20/specification-overview) for the complete interface, roles, and policies.
-
 <Check>
 The token returns the new policy ID for both transfer policy scopes.
 </Check>
 
 <Warning>
-An allowlist denies every account not in the policy. Seed intended holders before binding it, and retain the `PolicyCreated` ID.
+An allowlist denies every account not in the policy. Seed intended holders before binding it, and retain the `PolicyCreated` ID. Membership batches are capped at 64 accounts per call; call `updateAllowlist` to add more after creation.
 </Warning>
+
+## Update Membership
+
+After creation, only the policy admin can add or remove accounts. Call `updateAllowlist(policyId, true, accounts)` to add and `updateAllowlist(policyId, false, accounts)` to remove. The change is visible to every token that references the policy on the next call — no second `updatePolicy` is needed on the token.
+
+To combine a KYC allowlist with a sanctions blocklist, create an `INTERSECT` composite policy referencing both simple policies, then bind the composite ID to the token's scopes. See the [B20 token standard](/specifications/b20/specification-overview) for the full policy type reference.
 
 ## See Also
 

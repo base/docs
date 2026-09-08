@@ -1,9 +1,7 @@
 ---
 title: "IB20.grantRole"
-description: "Generated B20 reference for grantRole(bytes32,address)."
+description: "Grants a role to an account on a B20 token, subject to the caller holding the role's admin role."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,30 @@ function grantRole(bytes32 role, address account) external;
 
 ## Description
 
-Grants `role` to `account`. Emits `RoleGranted`.
+Grants `role` to `account`. If `account` does not already hold `role`, emits `RoleGranted(role, account, sender)`. If `account` already holds `role`, the call is a no-op and emits nothing.
+
+The caller must hold the admin role of `role`. On a fresh token every role's admin is `DEFAULT_ADMIN_ROLE`. That mapping can be changed with `setRoleAdmin`. After `renounceLastAdmin` is called, no address holds `DEFAULT_ADMIN_ROLE` and `grantRole` becomes permanently unreachable for any role whose admin chain includes `DEFAULT_ADMIN_ROLE`.
+
+Any number of addresses can hold the same role. There is no single-holder slot.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
-| `role` | Role to grant. |
-| `account` | Recipient. |
+| `role` | The `bytes32` role identifier to grant. |
+| `account` | The address that will receive the role. |
 
 ## Reverts
 
-- `AccessControlUnauthorizedAccount` when the caller does not hold the admin role for `role`, or when the token has been transitioned to admin-less via `renounceLastAdmin` (admin-resurrection guard).
+| Error | Condition |
+|---|---|
+| `AccessControlUnauthorizedAccount(account, neededRole)` | Caller does not hold the admin role for `role`, including when the token has no admins after `renounceLastAdmin`. |
 
 ## Access Control
 
-Uses the B20 access-control role graph. Factory initCalls bypass role gates during creation.
+The caller must hold `getRoleAdmin(role)`. By default that is `DEFAULT_ADMIN_ROLE` for every role. After `setRoleAdmin(role, newAdminRole)` is called, the caller must hold `newAdminRole` instead.
+
+Factory `initCall`s bypass role gates during token creation. `createB20` uses this path to grant `DEFAULT_ADMIN_ROLE` to `initialAdmin` without a role check.
 
 ## Policy Interaction
 
@@ -42,5 +48,5 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20(target).grantRole(role, account);
+IB20(target).grantRole(MINT_ROLE, minterAddress);
 ```

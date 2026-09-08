@@ -1,9 +1,7 @@
 ---
 title: "IB20Factory.isB20Initialized"
-description: "Generated B20 reference for isB20Initialized(address)."
+description: "Returns whether the Factory has fully initialized a B20 token at the given address."
 ---
-
-
 
 ## Signature
 
@@ -18,21 +16,36 @@ function isB20Initialized(address token) external view returns (bool);
 
 ## Description
 
-Returns whether `createB20` has run to completion at `token`. Flips exactly once,
-the moment the creating `createB20` call returns. Never reverts.
-Param: token Address to check.
-Return: Whether `token` is an initialized B-20.
+Returns `true` if and only if `token` bears the `0xB2` address prefix **and** the `0xef` bytecode stub that `createB20` plants when it creates a token. This is the stronger existence check: `isB20(address)` tests the prefix alone and can return `true` for an address the Factory has never touched, whereas `isB20Initialized` confirms the Factory has run to completion at that address.
+
+The flag flips exactly once — the moment the creating `createB20` call returns. It never reverts.
+
+<Note>
+Before `createB20` is called, the predicted token address matches the `0xB2` prefix but carries no stub. Calls to that address are no-ops. Only after `createB20` returns does the `0xef` stub exist, enabling dynamic routing to the token's native logic.
+</Note>
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `token` | `address` | Address to check. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `bool` | `true` if `token` is a fully initialized B20 (prefix + stub present); `false` otherwise. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View function. No role required.
 
-## Policy Interaction
+## Revert Conditions
 
-No direct policy interaction.
+Never reverts.
 
 ## Example
 
 ```solidity Usage Example
-IB20Factory(target).isB20Initialized(arg0);
+IB20Factory(factoryAddress).isB20Initialized(tokenAddress);
 ```

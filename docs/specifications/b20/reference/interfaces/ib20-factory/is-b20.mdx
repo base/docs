@@ -1,9 +1,7 @@
 ---
 title: "IB20Factory.isB20"
-description: "Generated B20 reference for isB20(address)."
+description: "Returns whether an address matches the B20 address prefix, recovered from the address itself without consulting a registry."
 ---
-
-
 
 ## Signature
 
@@ -18,20 +16,34 @@ function isB20(address token) external view returns (bool);
 
 ## Description
 
-Returns whether `token` was created by this factory, recovered from the address prefix. Never reverts.
-Param: token Address to check.
-Return: Whether `token` matches the B-20 address prefix.
+Returns `true` when `token` bears the `0xB2` address prefix (byte `[0]` is `0xB2`, bytes `[1:9]` are zero). The check reads the address directly; it does not consult a registry or any on-chain state. Never reverts.
+
+<Note>
+`isB20` is a prefix-only check. It can return `true` for an address the Factory has not yet created. Use `isB20Initialized` when you need to confirm the token is live — that stronger check also requires the `0xef` bytecode stub the Factory plants during `createB20`.
+</Note>
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `token` | `address` | Address to check. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `bool` | `true` if `token` matches the B20 address prefix; `false` otherwise. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View — no access restriction.
 
 ## Policy Interaction
 
-No direct policy interaction.
+No policy interaction.
 
 ## Example
 
 ```solidity Usage Example
-IB20Factory(target).isB20(arg0);
+IB20Factory(factory).isB20(token);
 ```

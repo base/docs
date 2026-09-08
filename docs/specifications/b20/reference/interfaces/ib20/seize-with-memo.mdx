@@ -1,9 +1,7 @@
 ---
 title: "IB20.seizeWithMemo"
-description: "Generated B20 reference for seizeWithMemo(address,address,uint256,bytes32)."
+description: "Moves tokens from a holder to a safekeeping account in a single admin call without changing totalSupply."
 ---
-
-
 
 ## Signature
 
@@ -18,39 +16,78 @@ function seizeWithMemo(address from, address to, uint256 amount, bytes32 memo) e
 
 ## Description
 
-Seizes `amount` of `from`'s balance and reassigns it to `to` in a single admin operation. Emits, in order, `Transfer(from, to, amount)`, `Memo(caller, memo)`, and `Seized(caller, from, to, amount)`. A memo of `bytes32(0)` is permitted.
+Moves `amount` from `from` to `to` in a single admin operation. `totalSupply` does not change. Emits, in order, `Transfer(from, to, amount)`, `Memo(caller, memo)`, and `Seized(caller, from, to, amount)`. A memo of `bytes32(0)` is permitted.
 
-Admin operation: skips allowance and the transfer policies. The membership checks are that `from` is blocked under `SEIZE_HOLDER_POLICY` and `to` is authorized under `SEIZE_RECEIVER_POLICY`.
-`to` is gated by `SEIZE_RECEIVER_POLICY`, which defaults to always-allow when unset, so an unconfigured token may seize to any destination (a treasury need not be allowlisted).
+This is not a burn and not a mint. After the call, `to` is an ordinary holder and can transfer, burn, or hold the tokens.
+
+Seize skips allowance and the transfer policies (`TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`). It uses two dedicated policy scopes instead:
+
+| Scope | Account | Passes when |
+|---|---|---|
+| `SEIZE_HOLDER_POLICY` | `from` | `isAuthorized` returns `false` (inverted check) |
+| `SEIZE_RECEIVER_POLICY` | `to` | `isAuthorized` returns `true` |
+
+`SEIZE_HOLDER_POLICY` is inverted: when the scope is unset (ID `0`, always-allow), every account is authorized and therefore no account is seizable. Attach a blocklist and add the holder to make them seizable.
+
+`SEIZE_RECEIVER_POLICY` defaults to always-allow when unset, so an unconfigured token accepts any destination.
 
 ## Parameters
 
-| Parameter | Description |
-|---|---|
-| `from` | Account whose balance is being seized. |
-| `to` | Destination address for the seized balance. |
-| `amount` | Amount to seize. |
-| `memo` | Memo payload. |
+| Parameter | Type | Description |
+|---|---|---|
+| `from` | `address` | Account whose balance is being seized. Must be non-zero and distinct from `to`. |
+| `to` | `address` | Destination for the seized balance. Must be non-zero and distinct from `from`. |
+| `amount` | `uint256` | Amount to seize. Must not exceed `from`'s balance. |
+| `memo` | `bytes32` | Memo payload. `bytes32(0)` is allowed. |
 
 ## Reverts
 
-- `ContractPaused(SEIZE)` when `SEIZE` is paused.
-- `AccessControlUnauthorizedAccount` when the caller does not hold `SEIZE_ROLE`.
-- `InvalidReceiver` when `to == address(0)`.
-- `AccountNotSeizable` when `from` is currently authorized under `SEIZE_HOLDER_POLICY`.
-- `PolicyForbids(SEIZE_RECEIVER_POLICY, ...)` when `to` is not authorized under `SEIZE_RECEIVER_POLICY`.
-- `InsufficientBalance` when `from`'s balance is below `amount`.
+| Error | Condition |
+|---|---|
+| `ContractPaused(SEIZE)` | `SEIZE` is paused. Pausing `TRANSFER`, `MINT`, or `BURN` does not block seize. |
+| `AccessControlUnauthorizedAccount(caller, SEIZE_ROLE)` | Caller does not hold `SEIZE_ROLE`. |
+| `InvalidReceiver(to)` | `to` is `address(0)`, or `from == to`. |
+| `InvalidSender(from)` | `from` is `address(0)`. |
+| `AccountNotSeizable(from)` | `from` is authorized under `SEIZE_HOLDER_POLICY` (scope unset, or holder not on the attached blocklist). |
+| `PolicyForbids(SEIZE_RECEIVER_POLICY, policyId)` | `to` is not authorized under `SEIZE_RECEIVER_POLICY`. |
+| `InsufficientBalance(from, balance, amount)` | `from`'s balance is below `amount`. |
 
 ## Access Control
 
-`SEIZE_ROLE` gates seizure calls.
+`SEIZE_ROLE` gates this function. The `SEIZE` pausable feature provides a second switch: a caller holding `SEIZE_ROLE` still cannot seize while `SEIZE` is paused.
 
-## Policy Interaction
+## Events
 
-Checks `SEIZE_HOLDER_POLICY` for the holder and `SEIZE_RECEIVER_POLICY` for the destination.
+Emitted on success, in this order:
+
+1. `Transfer(from, to, amount)`
+2. `Memo(caller, memo)`
+3. `Seized(caller, from, to, amount)` — topic0: `0xa9aec5d8b86e2fa2fd6ac3af62f2622e3dfdab1967d4cbbb56a5df7d74cb887c`
 
 ## Example
 
 ```solidity Usage Example
-IB20(token).seizeWithMemo(holder, destination, amount, memo);
+// Grant the seizer role
+token.grantRole(token.SEIZE_ROLE(), seizer);
+
+// Create a blocklist, add the holder, attach it to the holder scope
+uint64 seizableId = POLICY_REGISTRY.createPolicy(policyAdmin, IPolicyRegistry.PolicyType.BLOCKLIST);
+address[] memory holders = new address[](1);
+holders[0] = alice;
+POLICY_REGISTRY.updateBlocklist(seizableId, true, holders);
+token.updatePolicy(token.SEIZE_HOLDER_POLICY(), seizableId);
+
+// Optionally restrict destinations
+uint64 destId = POLICY_REGISTRY.createPolicy(policyAdmin, IPolicyRegistry.PolicyType.ALLOWLIST);
+address[] memory dests = new address[](1);
+dests[0] = treasury;
+POLICY_REGISTRY.updateAllowlist(destId, true, dests);
+token.updatePolicy(token.SEIZE_RECEIVER_POLICY(), destId);
+
+// Execute the seize
+token.seizeWithMemo(alice, treasury, amount, keccak256("court-order-123"));
 ```
+
+<Note>
+`AccountNotSeizable` selector: `0x91dbbc8d`. This error fires when the holder scope is unset or the holder is not on the attached blocklist — not when the holder is on a transfer blocklist. Transfer and seize scopes are independent.
+</Note>

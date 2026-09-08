@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.updateComposite"
-description: "Generated B20 reference for updateComposite(uint64,uint64[])."
+description: "Replaces a composite policy's child-policy set in full with a new list of simple policy IDs."
 ---
-
-
 
 ## Signature
 
@@ -18,30 +16,37 @@ function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) exte
 
 ## Description
 
-Replaces a composite policy's child-policy set in full with `childPolicyIds`.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `IncompatiblePolicyType` when `policyId` is not a composite (UNION or INTERSECT).
-Dev: Reverts with `Unauthorized` when the caller is not the current admin. A renounced composite
-(admin `address(0)`) can never be updated.
-Dev: Reverts with `ChildPoliciesOutsideOfRange` when `childPolicyIds.length` is not in
-`[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]`; there is no clear-the-list
-path (the composite child-policy range, not the 64-account batch limit).
-Dev: Reverts with `PolicyNotFound` when any child policy does not exist.
-Dev: Reverts with `InvalidChildPolicy` when any child policy is itself a composite
-(not a simple policy).
-Param: policyId       Composite policy to update.
-Param: childPolicyIds Complete new set of existing simple policy IDs.
+Replaces a composite policy's child-policy set in full with `childPolicyIds`. There is no partial edit — the entire child set is replaced in one call.
+
+The write takes effect on the next `isAuthorized` call that references `policyId`. Every token that stores this policy ID sees the new result without a second `updatePolicy` call on the token.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Composite policy to update. Must exist and be a `UNION` or `INTERSECT` policy. |
+| `childPolicyIds` | `uint64[]` | Complete new set of existing simple policy IDs. Count must be in `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
+Callable only by the current admin of `policyId`. A composite whose admin has been renounced (via `renounceAdmin`) can never be updated.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+| Error | Condition |
+|---|---|
+| `Unauthorized()` | Caller is not the current policy admin. |
+| `PolicyNotFound()` | `policyId` does not exist, or any entry in `childPolicyIds` does not exist. |
+| `IncompatiblePolicyType()` | `policyId` is not a composite (`UNION` or `INTERSECT`). |
+| `ChildPoliciesOutsideOfRange()` | `childPolicyIds.length` is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
+| `InvalidChildPolicy(childPolicyId)` | A child policy is itself a composite rather than a simple (`ALLOWLIST` or `BLOCKLIST`) policy. |
+
+## Events
+
+Emits `CompositePolicyUpdated(policyId, updater, childPolicyIds)` on success.
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).updateComposite(arg0, arg1);
+IPolicyRegistry(registry).updateComposite(gateId, newChildPolicyIds);
 ```

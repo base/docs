@@ -1,6 +1,6 @@
 ---
 title: "IB20Asset.effectiveAt"
-description: "ERC-8056 pending multiplier timestamp reference."
+description: "Returns the timestamp at which the pending UI multiplier becomes effective."
 ---
 
 ## Signature
@@ -16,4 +16,27 @@ function effectiveAt() external view returns (uint256);
 
 ## Description
 
-Returns the timestamp at which the pending UI multiplier becomes effective.
+Returns the `block.timestamp` at which the pending UI multiplier becomes active.
+
+A live pending update exists while `effectiveAt() > block.timestamp`. Once `block.timestamp >= effectiveAt()`, `uiMultiplier()` returns the new multiplier automatically — no transaction is required and no event is emitted at maturation.
+
+After the flip, check for a new live pending update with `effectiveAt() > block.timestamp`. Do not check `effectiveAt() == 0`.
+
+## Behavior
+
+| State | Return value |
+|---|---|
+| No pending update | `0` |
+| Pending update scheduled | Future timestamp set by `updateUIMultiplier` |
+| Pending update matured | `0` (cleared after flip) |
+
+<Note>
+Maturation is time-based and storage-free. Indexers must not wait for an on-chain event at `effectiveAt`. The `UIMultiplierUpdated` event fires when the update is **recorded**, not when it matures.
+</Note>
+
+## Related
+
+- `uiMultiplier()` — returns the current effective multiplier.
+- `newUIMultiplier()` — returns the scheduled multiplier value.
+- `updateUIMultiplier(uint256, uint256)` — schedules a multiplier change and emits `UIMultiplierUpdated`.
+- `cancelUIMultiplierUpdate()` — clears a live pending update before `effectiveAt`.

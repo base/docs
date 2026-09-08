@@ -1,9 +1,7 @@
 ---
 title: "IB20.isPaused"
-description: "Generated B20 reference for isPaused(PausableFeature)."
+description: "Returns whether a specific pausable feature is currently paused on a B20 token."
 ---
-
-
 
 ## Signature
 
@@ -18,28 +16,48 @@ function isPaused(PausableFeature feature) external view returns (bool);
 
 ## Description
 
-Whether `feature` is currently paused. O(1).
+Returns whether `feature` is currently paused. O(1).
+
+`PausableFeature` is an enum with four independent values:
+
+| Value | Ordinal | Gates |
+|---|---|---|
+| `TRANSFER` | 0 | `transfer`, `transferFrom`, and memo variants |
+| `MINT` | 1 | `mint`, `mintWithMemo`, and `batchMint` |
+| `BURN` | 2 | `burn`, `burnWithMemo`, and the deprecated `burnBlocked` |
+| `SEIZE` | 3 | `seizeWithMemo` |
+
+The paused state for all features is stored as a bitmask in a single storage word; each feature's bit is its ordinal. `isPaused` reads that bit for the requested feature.
 
 ## Parameters
 
-| Parameter | Description |
-|---|---|
-| `feature` | Feature to query. |
+| Parameter | Type | Description |
+|---|---|---|
+| `feature` | `PausableFeature` | The feature to query. |
 
 ## Returns
 
-Whether `feature` is paused.
+`true` if `feature` is paused; `false` otherwise.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View function — no role required.
 
 ## Policy Interaction
 
 No direct policy interaction.
 
+## Behavior Notes
+
+- A paused feature blocks the operations listed in the table above regardless of whether the caller holds the relevant role. For example, a `MINT_ROLE` holder cannot mint while `MINT` is paused.
+- If an operation is attempted while its feature is paused, the transaction reverts with `ContractPaused(feature)`.
+- Use `pausedFeatures()` to read the full current paused set in one call.
+
 ## Example
 
 ```solidity Usage Example
-IB20(target).isPaused(feature);
+bool mintPaused = IB20(target).isPaused(PausableFeature.MINT);
+if (mintPaused) {
+    // minting is currently blocked
+}
 ```

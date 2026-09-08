@@ -1,6 +1,6 @@
 ---
 title: "IB20Asset.uiMultiplier"
-description: "ERC-8056 UI multiplier reference."
+description: "Returns the current ERC-8056 UI multiplier used to derive the displayed share count from raw ERC-20 balances."
 ---
 
 ## Signature
@@ -16,4 +16,28 @@ function uiMultiplier() external view returns (uint256);
 
 ## Description
 
-Returns the current ERC-8056 UI multiplier, represented with 18 decimals (`1e18 = 1.0`).
+Returns the effective UI multiplier at `block.timestamp`, represented with 18 decimals (`1e18 = 1.0`).
+
+Raw ERC-20 balances are never rewritten during a split. The multiplier changes the displayed scale only. A wallet or indexer derives the UI share count as:
+
+```
+ui = balanceOf(account) * uiMultiplier() / 1e18
+```
+
+A default (no-split) state returns `1e18`. A 2-for-1 split returns `2e18`. A 1-for-2 reverse split returns `5e17`.
+
+## Timing
+
+`uiMultiplier()` reflects a scheduled change **at or after** `effectiveAt`, not when `updateUIMultiplier` is called. Before `effectiveAt`, it returns the current multiplier. There is no event emitted at the flip — indexers must not wait for a log at `effectiveAt`.
+
+To inspect a live pending update, read `newUIMultiplier()` and `effectiveAt()`. A pending update is active while `effectiveAt() > block.timestamp`.
+
+## Related
+
+- `newUIMultiplier()` — the scheduled multiplier value, if any.
+- `effectiveAt()` — the timestamp at which the pending multiplier takes effect.
+- `balanceOfUI(account)` — convenience view: `balanceOf(account) * uiMultiplier() / 1e18`.
+- `totalSupplyUI()` — same formula applied to `totalSupply()`.
+- `toUIAmount(raw)` / `fromUIAmount(ui)` — convert single amounts at the current multiplier.
+- `updateUIMultiplier(newMultiplier, effectiveAt)` — schedules a future multiplier change.
+- `multiplier()` — deprecated alias of `uiMultiplier()`.

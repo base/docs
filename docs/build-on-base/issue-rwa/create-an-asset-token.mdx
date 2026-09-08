@@ -25,6 +25,8 @@ New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asse
 
 ## Create and Verify the Stock Token
 
+Choose the **Asset** variant when you need configurable decimals, announcements, a scheduled UI multiplier, extra metadata, or `batchMint`. Asset decimals must be in the range `[6, 18]`; values outside that range revert `InvalidDecimals`. The type is sealed into the token address at creation and cannot change.
+
 <CodeGroup>
 {/* sample: stock-create-ts */}
 ```typescript TypeScript lines wrap expandable highlight={15}
@@ -70,6 +72,8 @@ export async function createStockToken() {
     }
 ```
 </CodeGroup>
+
+The factory assigns a deterministic address from `(variant, sender, salt)`. Address byte `[10]` is `0x00` for Asset tokens. Reusing the same `(variant, sender, salt)` triple reverts `TokenAlreadyExists`. Optional `initCalls` — such as the role grants above — run on the new token in the same transaction; the factory drops access after `createB20` returns.
 
 See the [B20 token standard](/build-on-base/issue-rwa/create-an-asset-token) for the complete interface, roles, and policies.
 

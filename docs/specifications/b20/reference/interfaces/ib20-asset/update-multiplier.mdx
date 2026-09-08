@@ -1,9 +1,11 @@
 ---
 title: "IB20Asset.updateMultiplier"
-description: "Generated B20 reference for updateMultiplier(uint256)."
+description: "Deprecated instant multiplier override that sets the multiplier immediately and clears any pending scheduled update."
 ---
 
-
+<Warning>
+`updateMultiplier` is deprecated. Use `updateUIMultiplier` for routine stock splits and corporate actions. Reserve this function for emergency overrides only.
+</Warning>
 
 ## Signature
 
@@ -18,16 +20,37 @@ function updateMultiplier(uint256 newMultiplier) external;
 
 ## Description
 
-DEPRECATED. Instant failsafe / emergency override — sets the current multiplier immediately and
-cancels any live pending update without a scheduling window. Emits both `MultiplierUpdated` and
-`UIMultiplierUpdated`. Prefer `updateUIMultiplier` for routine corporate actions.
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
-Dev: Reverts with `InvalidMultiplier` when `newMultiplier` is zero or above `type(uint128).max`.
-Param: newMultiplier New multiplier scaled to `WAD_PRECISION`; must be in `(0, type(uint128).max]`.
+Applies `newMultiplier` immediately at `block.timestamp` and clears any live pending update without waiting for a scheduling window. Use this only when a live pending update is wrong and waiting for `effectiveAt` is not acceptable. Prefer `cancelUIMultiplierUpdate` followed by `updateUIMultiplier` when the fix can use a future timestamp.
+
+The multiplier is an 18-decimal WAD: `1e18` is `1.0` (`WAD_PRECISION`). A 2-for-1 split is `2e18`. A reverse split is a value below `1e18`.
 
 ## Access Control
 
-`OPERATOR_ROLE` gates this Asset call.
+Caller must hold `OPERATOR_ROLE`. Any other caller reverts `AccessControlUnauthorizedAccount(caller, OPERATOR_ROLE)`.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `newMultiplier` | `uint256` | New multiplier scaled to `WAD_PRECISION`. Must be in `(0, MAX_UI_MULTIPLIER]`. |
+
+## Reverts
+
+| Error | Condition |
+|---|---|
+| `AccessControlUnauthorizedAccount(caller, OPERATOR_ROLE)` | Caller does not hold `OPERATOR_ROLE`. |
+| `InvalidMultiplier()` | `newMultiplier` is zero or above `MAX_UI_MULTIPLIER`. |
+
+## Events
+
+Event order depends on whether a pending update exists at call time:
+
+| Situation | Events (in order) |
+|---|---|
+| Live pending (`effectiveAt > block.timestamp`) | `UIMultiplierUpdateCancelled`, then `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, block.timestamp)` |
+| Matured or no pending | `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, block.timestamp)` |
+
+`MultiplierUpdated` is itself deprecated. Integrators should process only `UIMultiplierUpdated` to avoid handling the same update twice.
 
 ## Policy Interaction
 
@@ -36,5 +59,7 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).updateMultiplier(arg0);
+// Emergency override: apply the correct multiplier immediately,
+// clearing any live pending update.
+IB20Asset(asset).updateMultiplier(correctMultiplier);
 ```

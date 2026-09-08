@@ -1,9 +1,7 @@
 ---
 title: "IB20.updatePolicy"
-description: "Generated B20 reference for updatePolicy(bytes32,uint64)."
+description: "Binds a Policy Registry policy ID to a policy scope on a B20 token."
 ---
-
-
 
 ## Signature
 
@@ -18,31 +16,48 @@ function updatePolicy(bytes32 policyScope, uint64 newPolicyId) external;
 
 ## Description
 
-Updates the policy ID assigned to `policyScope`. Takes effect immediately for the next operation that consults this slot. Emits `PolicyUpdated`.
+Binds `newPolicyId` to `policyScope`. Takes effect immediately: the next operation that consults that scope calls `isAuthorized(newPolicyId, account)` on the Policy Registry. Emits `PolicyUpdated`.
+
+Until a scope is updated it holds `0` (`ALWAYS_ALLOW`), so the check passes for every address.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
-| `policyScope` | Policy slot scope. |
-| `newPolicyId` | Policy ID to assign to the slot. |
+| `policyScope` | The scope slot to update. Must be a scope this token recognizes. |
+| `newPolicyId` | The policy ID to assign. Must be a built-in sentinel (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`) or an existing registry policy. |
 
 ## Reverts
 
-- `AccessControlUnauthorizedAccount` when the caller does not hold `DEFAULT_ADMIN_ROLE`.
-- `UnsupportedPolicyType` when `policyScope` is not recognized by this token.
-- `PolicyNotFound` when `newPolicyId` is not a built-in sentinel and does not exist in the registry.
+| Error | Condition |
+|---|---|
+| `AccessControlUnauthorizedAccount` | Caller does not hold `DEFAULT_ADMIN_ROLE`. |
+| `UnsupportedPolicyType(policyScope)` | `policyScope` is not a slot this token supports. |
+| `PolicyNotFound(newPolicyId)` | `newPolicyId` is not a built-in sentinel and does not exist in the registry. |
 
 ## Access Control
 
-`DEFAULT_ADMIN_ROLE` gates this call. Factory initCalls bypass the role gate during creation.
+`DEFAULT_ADMIN_ROLE` gates this call. During token creation, `initCalls` may bind policies in the same transaction; those calls bypass the role gate.
 
-## Policy Interaction
+## Policy Scopes
 
-Reads or writes a token policy-scope pointer into the PolicyRegistry.
+The recognized scopes and the accounts they check are:
+
+| Scope | Checked account | Denies when `isAuthorized` is |
+|---|---|---|
+| `TRANSFER_SENDER_POLICY` | `from` | `false` |
+| `TRANSFER_RECEIVER_POLICY` | `to` | `false` |
+| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` (on `transferFrom` when `msg.sender != from`) | `false` |
+| `MINT_RECEIVER_POLICY` | `to` | `false` |
+| `SEIZE_HOLDER_POLICY` | `from` | `true` |
+| `SEIZE_RECEIVER_POLICY` | `to` | `false` |
+
+Transfer scopes are skipped on factory `initCalls` transfers. `MINT_RECEIVER_POLICY` is always checked, including factory `initCalls` mints. `SEIZE_HOLDER_POLICY` unset (`ALWAYS_ALLOW`) means no account is seizable.
 
 ## Example
 
 ```solidity Usage Example
-IB20(token).updatePolicy(B20Constants.MINT_RECEIVER_POLICY, policyId);
+IB20(token).updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, policyId);
 ```
+
+The same policy ID can be bound to more than one scope and to more than one token. Updating membership in the registry policy is visible immediately on every scope and token that references it — no second `updatePolicy` call is needed.

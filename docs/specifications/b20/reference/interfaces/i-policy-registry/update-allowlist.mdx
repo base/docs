@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.updateAllowlist"
-description: "Generated B20 reference for updateAllowlist(uint64,bool,address[])."
+description: "Sets membership of a batch of accounts in an ALLOWLIST policy."
 ---
-
-
 
 ## Signature
 
@@ -18,25 +16,49 @@ function updateAllowlist(uint64 policyId, bool allowed, address[] calldata accou
 
 ## Description
 
-Sets `accounts` membership in an ALLOWLIST policy to `allowed` in one batch.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `IncompatiblePolicyType` when the policy is not ALLOWLIST.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Dev: Reverts with `BatchSizeTooLarge` when `accounts.length` exceeds the registry limit.
-Param: policyId Policy to update.
-Param: allowed  Membership state to apply to every account in the batch.
-Param: accounts Accounts to update.
+Sets each address in `accounts` to `allowed` (add or remove) in an `ALLOWLIST` policy. The change takes effect on the next `isAuthorized` call against this policy. Every token and composite that references `policyId` sees the updated membership immediately — no second write on the token is needed.
+
+Membership batches are capped at 64 accounts (`MAX_BATCH_SIZE`).
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | The allowlist policy to update. |
+| `allowed` | `bool` | `true` to add accounts to the set; `false` to remove them. |
+| `accounts` | `address[]` | Accounts to update. Maximum 64 per call. |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
+Callable only by the current admin of `policyId`. Any other caller reverts `Unauthorized`.
 
-## Policy Interaction
+## Revert Conditions
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+| Error | Condition |
+|---|---|
+| `Unauthorized()` | Caller is not the current policy admin. |
+| `PolicyNotFound()` | `policyId` does not exist in the registry. |
+| `IncompatiblePolicyType()` | The policy exists but is not an `ALLOWLIST`. |
+| `BatchSizeTooLarge(maxBatchSize)` | `accounts.length` exceeds 64. |
+
+## Events
+
+Emits `AllowlistUpdated(policyId, updater, allowed, accounts)` on success.
 
 ## Example
 
-```solidity Usage Example
-IPolicyRegistry(target).updateAllowlist(arg0, arg1, arg2);
+```solidity Title Add accounts to an allowlist
+IPolicyRegistry(registry).updateAllowlist(kycId, true, [alice, bob]);
 ```
+
+After this call, `isAuthorized(kycId, alice)` and `isAuthorized(kycId, bob)` return `true`. Any token or composite policy already pointing at `kycId` reflects this without a separate `updatePolicy` call on the token.
+
+To remove an account, pass `false`:
+
+```solidity Title Remove an account from an allowlist
+IPolicyRegistry(registry).updateAllowlist(kycId, false, [alice]);
+```
+
+<Note>
+Only the current admin of a policy can call `updateAllowlist`. If you need a different party to manage membership, use `stageUpdateAdmin` and `finalizeUpdateAdmin` to transfer administration first.
+</Note>

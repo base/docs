@@ -1,9 +1,7 @@
 ---
 title: "IB20.SEIZE_HOLDER_POLICY"
-description: "Generated B20 reference for SEIZE_HOLDER_POLICY()."
+description: "Returns the policy scope identifier consulted against the `from` address in seizeWithMemo."
 ---
-
-
 
 ## Signature
 
@@ -20,22 +18,36 @@ function SEIZE_HOLDER_POLICY() external view returns (bytes32);
 
 Policy slot consulted against `from` by `seizeWithMemo`.
 
-A `from` is seizable only when it is NOT authorized by this policy. An unset slot reads as `0` (always-allow), so no account is seizable until an issuer configures the slot.
+A `from` is seizable only when it is **not** authorized by this policy. The check is inverted relative to transfer and mint scopes: `seizeWithMemo` proceeds only when `isAuthorized(policyId, from)` returns `false`.
+
+When the slot is unset (`0`), the sentinel resolves to always-allow, meaning every account is authorized and therefore no account is seizable. You must attach a policy before any holder can be seized.
 
 ## Returns
 
-Policy scope constant.
+`bytes32` policy scope constant. Pass this value to `updatePolicy` and `policyId`.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View function. No role required.
 
 ## Policy Interaction
 
-No direct policy interaction.
+The policy ID stored at this scope is read by `seizeWithMemo` before moving any balance. The recommended policy type is `BLOCKLIST`:
+
+- Accounts **in** the blocklist have `isAuthorized = false` → seizable.
+- Accounts **not in** the blocklist have `isAuthorized = true` → not seizable.
+
+An `ALLOWLIST` or the `ALWAYS_BLOCK` sentinel inverts this logic and makes every account seizable. Do not attach either to `SEIZE_HOLDER_POLICY`.
 
 ## Example
 
 ```solidity Usage Example
-IB20(target).SEIZE_HOLDER_POLICY();
+// Read the scope constant
+bytes32 scope = IB20(token).SEIZE_HOLDER_POLICY();
+
+// Attach a blocklist policy to that scope
+IB20(token).updatePolicy(scope, seizableId);
+
+// Read back the attached policy ID
+uint64 id = IB20(token).policyId(scope);
 ```

@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.renounceAdmin"
-description: "Generated B20 reference for renounceAdmin(uint64)."
+description: "Permanently relinquishes administration of a policy, freezing its member set."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,35 @@ function renounceAdmin(uint64 policyId) external;
 
 ## Description
 
-Permanently relinquishes administration of `policyId`. The member set is frozen
-and the policy can never be re-administered; `isAuthorized` queries continue to work.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Param: policyId Policy whose administration is being renounced.
+Permanently relinquishes administration of `policyId`. After this call, the member set is frozen: no one can add or remove members, replace composite children, or assign a new admin. `isAuthorized` queries continue to work normally.
+
+Use this when you want to guarantee that a policy's membership can never change — for example, to make a compliance list immutable.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | The policy whose administration is being renounced. |
+
+## Revert Conditions
+
+| Error | Condition |
+|---|---|
+| `PolicyNotFound()` | `policyId` does not exist in the registry. |
+| `Unauthorized()` | The caller is not the current admin of `policyId`. |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
+Callable only by the current policy admin for `policyId`.
 
-## Policy Interaction
+## Behavior Notes
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+- Administration is gone permanently. There is no call that assigns a new admin after renounce.
+- A staged pending admin (set via `stageUpdateAdmin`) is also cleared — `finalizeUpdateAdmin` cannot be used to recover the policy.
+- Emits `PolicyAdminUpdated(policyId, previousAdmin, address(0))`.
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).renounceAdmin(arg0);
+IPolicyRegistry(registryAddress).renounceAdmin(policyId);
 ```
