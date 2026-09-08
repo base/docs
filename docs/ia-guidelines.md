@@ -174,7 +174,7 @@ A dropdown group containing the protocol overview, component specs, and design g
 
 ### Cobalt / Beryl / Azul (Upgrade Groups)
 
-- **Belongs**: Per-hardfork overview and the specific changes introduced in that hardfork — including feature-specific entries (e.g., B20 improvements, EIP-8130, reth-v2, node upgrades, proof system changes). All per-feature changelog entries go under the hardfork that introduced them, not in a separate per-feature group.
+- **Belongs**: Per-hardfork overview and the specific changes introduced in that hardfork — including feature-specific entries (e.g., B20 improvements, 200ms native blocks, reth-v2, node upgrades, proof system changes). All per-feature changelog entries go under the hardfork that introduced them, not in a separate per-feature group.
 - **Does not belong**: The current/canonical specification for features modified in the hardfork. After a hardfork ships, the canonical spec lives in Base Protocol; the Upgrades entry records *what changed and how to migrate*. No standalone per-feature sections — B20 changes go under Cobalt/Beryl, not a separate "B20" group.
 
 ### Optimism (Hardfork Groups)
