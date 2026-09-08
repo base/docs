@@ -1,25 +1,25 @@
 ---
 title: "200ms Native Blocks"
-description: "Specification for Denim's canonical 200ms blocks, including BaseTime, derivation, validation, and RPC behavior."
+description: "Specification for Cobalt's canonical 200ms blocks, including BaseTime, derivation, validation, and RPC behavior."
 tag: "Vibenet"
 ---
 
 <Warning>
 200ms native blocks are live on [Vibenet](/build-on-base/test-on-vibenet) for experimental developer testing. This deployment may change, and you should not rely on it for production decisions.
 
-Denim is not active on Base Sepolia or Base Mainnet; activation times and required client versions remain undecided.
+Cobalt is not active on Base Sepolia or Base Mainnet; activation times and required client versions remain undecided.
 </Warning>
 
 ## Summary
 
-Denim changes Base block production from one canonical block every two seconds to five complete canonical blocks per second. Each 200ms block has its own block number, hash, state root, receipts, forkchoice updates, and unsafe, safe, and finalized lifecycle.
+Cobalt changes Base block production from one canonical block every two seconds to five complete canonical blocks per second. Each 200ms block has its own block number, hash, state root, receipts, forkchoice updates, and unsafe, safe, and finalized lifecycle.
 
-Denim replaces [Flashblocks](/specifications/flashblocks), which publish incremental pending-state updates for a single block. As part of the Denim rollout, Base will stop producing Flashblocks and instead produce a canonical block every 200ms. Applications using Flashblocks must migrate to canonical block and RPC streams.
+Cobalt replaces [Flashblocks](/specifications/flashblocks), which publish incremental pending-state updates for a single block. As part of the Cobalt rollout, Base will stop producing Flashblocks and instead produce a canonical block every 200ms. Applications using Flashblocks must migrate to canonical block and RPC streams.
 
-Denim keeps the Ethereum block header and its seconds-based `timestamp` unchanged. A BaseTime metadata deposit supplies the sub-second component. Together, these values identify a canonical block's full millisecond timestamp.
+Cobalt keeps the Ethereum block header and its seconds-based `timestamp` unchanged. A BaseTime metadata deposit supplies the sub-second component. Together, these values identify a canonical block's full millisecond timestamp.
 
 <Info>
-If your application uses Flashblocks, see [Migrate From Flashblocks](/base-chain/specs/upgrades/denim/migrate-from-flashblocks) for the required API changes.
+If your application uses Flashblocks, see [Migrate From Flashblocks](/upgrades/cobalt/migrate-from-flashblocks) for the required API changes.
 </Info>
 
 ## Network Availability
@@ -36,7 +36,7 @@ Base Sepolia and Base Mainnet activation have not been scheduled.
 
 ### Full block timestamp
 
-Denim leaves `block.header.timestamp` as Unix time in whole seconds. For an activated block `b`, its full timestamp is:
+Cobalt leaves `block.header.timestamp` as Unix time in whole seconds. For an activated block `b`, its full timestamp is:
 
 $$
 T_{ms}(b) = 1000 \times b.header.timestamp + b.tx[1].timestamp\_millis\_part
@@ -91,7 +91,7 @@ At activation, before transaction execution, the protocol installs the canonical
 
 The Engine API uses `BasePayloadAttributes`, which flattens the standard `PayloadAttributes` fields alongside Base-specific fields.
 
-For payloads at or after Denim activation, `BasePayloadAttributes.timestampMillisPart` **MUST** be present and equal `0`, `200`, `400`, `600`, or `800`. Before activation, it **MUST NOT** be present.
+For payloads at or after Cobalt activation, `BasePayloadAttributes.timestampMillisPart` **MUST** be present and equal `0`, `200`, `400`, `600`, or `800`. Before activation, it **MUST NOT** be present.
 
 `BasePayloadAttributes.transactions[1]` **MUST** contain the BaseTime metadata deposit. The deposit **MUST** be sent by the protocol depositor to the BaseTime predeploy, and its calldata **MUST** contain the canonical encoding of `setTimestampMillisPart(uint16)`. The encoded value **MUST** equal `timestampMillisPart`.
 
@@ -103,7 +103,7 @@ All existing Engine timestamp fields remain seconds-based.
 
 ### Validation
 
-When processing `forkchoiceUpdated`, the execution client performs checks that do not require reading contract state. Before Denim, `timestampMillisPart` must be absent. After Denim, it must be present and equal `0`, `200`, `400`, `600`, or `800`. The block's whole-second timestamp must not be earlier than its parent's. Because block headers do not store milliseconds, the client checks exact 200ms progression after execution.
+When processing `forkchoiceUpdated`, the execution client performs checks that do not require reading contract state. Before Cobalt, `timestampMillisPart` must be absent. After Cobalt, it must be present and equal `0`, `200`, `400`, `600`, or `800`. The block's whole-second timestamp must not be earlier than its parent's. Because block headers do not store milliseconds, the client checks exact 200ms progression after execution.
 
 After execution, the client **MUST** verify that the block's full timestamp is exactly 200ms after its parent's. Blocks that do not satisfy this requirement are invalid.
 
@@ -111,7 +111,7 @@ After execution, the client **MUST** verify that the block's full timestamp is e
 
 ### Scheduled timestamps
 
-After activation, the derivation pipeline computes each block's timestamp from the Denim activation schedule and absolute L2 block number. It does not read the millisecond part from batch data or derive it from the local wall clock. The sequence is:
+After activation, the derivation pipeline computes each block's timestamp from the Cobalt activation schedule and absolute L2 block number. It does not read the millisecond part from batch data or derive it from the local wall clock. The sequence is:
 
 `p (.000)` → `child (.200)` → `child (.400)` → `child (.600)` → `child (.800)` → `child (.000 in the next second)`
 
@@ -126,14 +126,14 @@ The block begins with the L1 information deposit at `tx[0]` and the BaseTime met
 ## RPC
 
 <Note>
-The RPC behavior below is planned for Denim and is not available on production endpoints.
+The RPC behavior below is planned for Cobalt and is not available on production endpoints.
 </Note>
 
 ### Seconds compatibility
 
-Denim keeps the existing `timestamp` JSON-RPC field in Unix seconds. Engine timestamps, transaction-validity timestamps, `eth_call` timestamps, and EVM `block.timestamp` also remain seconds-based. RPC responses do not expose the internal `timestampMillisPart` field.
+Cobalt keeps the existing `timestamp` JSON-RPC field in Unix seconds. Engine timestamps, transaction-validity timestamps, `eth_call` timestamps, and EVM `block.timestamp` also remain seconds-based. RPC responses do not expose the internal `timestampMillisPart` field.
 
-After the Denim rollout, use canonical block responses and subscriptions such as `eth_subscribe("newHeads")` for sub-second updates. Flashblocks streams will stop.
+After the Cobalt rollout, use canonical block responses and subscriptions such as `eth_subscribe("newHeads")` for sub-second updates. Flashblocks streams will stop.
 
 ### Block and header timestamps
 
@@ -178,8 +178,8 @@ Mined log objects will add optional `blockTimestampMs` when returned by:
 
 Receipts will expose the field on their nested logs, not at the receipt's top level. A removed log will retain its original block timestamp along with its original block provenance. If the originating block's authenticated BaseTime metadata is unavailable, the log will omit the field rather than estimate it.
 
-As with block responses, pruned or unprovenanced transaction and log data will omit `blockTimestampMs`. The fields are optional so pre-Denim history and clients without the required body data remain representable.
+As with block responses, pruned or unprovenanced transaction and log data will omit `blockTimestampMs`. The fields are optional so pre-Cobalt history and clients without the required body data remain representable.
 
 ### Tooling
 
-Foundry's `AnyRpcBlock` and `OtherFields` paths can preserve an unknown block-level `timestampMs`, while EVM execution continues to use seconds. Plain Alloy `AnyRpcHeader` drops unknown fields; consumers that need Denim timestamps can use `WithOtherFields<AnyRpcHeader>` or a typed Base response. Locally mined Anvil blocks are not expected to produce BaseTime metadata in the initial rollout.
+Foundry's `AnyRpcBlock` and `OtherFields` paths can preserve an unknown block-level `timestampMs`, while EVM execution continues to use seconds. Plain Alloy `AnyRpcHeader` drops unknown fields; consumers that need Cobalt timestamps can use `WithOtherFields<AnyRpcHeader>` or a typed Base response. Locally mined Anvil blocks are not expected to produce BaseTime metadata in the initial rollout.
