@@ -82,7 +82,7 @@ On success, the asset emits `UIMultiplierUpdated(oldMultiplier, newMultiplier, e
 
 ### Read the Live Pending State
 
-```solidity Title Read the pending state
+```solidity Read the pending state
 asset.uiMultiplier();     // still the current multiplier
 asset.newUIMultiplier();  // scheduled target
 asset.effectiveAt();      // flip timestamp
@@ -102,7 +102,7 @@ When `block.timestamp >= effectiveAt`, `uiMultiplier()` returns the new multipli
 
 Call before `effectiveAt` to discard the pending split:
 
-```solidity Title Cancel the pending update
+```solidity Cancel the pending update
 asset.cancelUIMultiplierUpdate();
 ```
 
@@ -110,7 +110,7 @@ Emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`. 
 
 To cancel and reschedule atomically, wrap both calls in `announce`:
 
-```solidity Title Cancel and reschedule in one announcement wrap
+```solidity Cancel and reschedule in one announcement wrap
 bytes[] memory calls = new bytes[](2);
 calls[0] = abi.encodeCall(IB20Asset.cancelUIMultiplierUpdate, ());
 calls[1] = abi.encodeCall(IB20Asset.updateUIMultiplier, (secondMultiplier, secondEffectiveAt));

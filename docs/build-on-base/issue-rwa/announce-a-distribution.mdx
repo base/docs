@@ -96,7 +96,7 @@ The same bracket discloses any operator-driven change. Each scenario below lists
 
 Wrap `updateUIMultiplier(newMultiplier, effectiveAt)`. A 2-for-1 split uses `2e18`. A reverse split uses a value below `1e18`. The operator needs `OPERATOR_ROLE` only.
 
-```solidity Title Announce a scheduled split lines wrap expandable highlight={3}
+```solidity Announce a scheduled split lines wrap expandable highlight={3}
 function announceSplit(address token, uint256 newMultiplier, uint256 effectiveAt) public {
     bytes[] memory calls = new bytes[](1);
     calls[0] = abi.encodeCall(IB20Asset.updateUIMultiplier, (newMultiplier, effectiveAt));
@@ -113,7 +113,7 @@ On success the asset emits `Announcement`, `UIMultiplierUpdated`, then `EndAnnou
 
 To replace a live pending update, cancel and reschedule in one `announce`:
 
-```solidity Title Cancel and reschedule in one announcement wrap
+```solidity Cancel and reschedule in one announcement wrap
 bytes[] memory calls = new bytes[](2);
 calls[0] = abi.encodeCall(IB20Asset.cancelUIMultiplierUpdate, ());
 calls[1] = abi.encodeCall(IB20Asset.updateUIMultiplier, (newMultiplier, effectiveAt));
@@ -124,7 +124,7 @@ IB20Asset(token).announce(calls, id, description, uri);
 
 Wrap `burnWithMemo(amount, memo)`. The call burns the operator's own balance. The operator needs `OPERATOR_ROLE` and `BURN_ROLE`. `BURN` must not be paused.
 
-```solidity Title Announce a treasury burn wrap
+```solidity Announce a treasury burn wrap
 bytes[] memory calls = new bytes[](1);
 calls[0] = abi.encodeCall(IB20Asset.burnWithMemo, (amount, memo));
 IB20Asset(token).announce(calls, id, "Treasury burn", uri);
@@ -136,7 +136,7 @@ On success the asset emits `Announcement`, `Transfer(operator, address(0), amoun
 
 Pass an empty `internalCalls` array. The operator needs `OPERATOR_ROLE` only. The asset emits `Announcement` then `EndAnnouncement` with nothing between them. The `id` is still consumed.
 
-```solidity Title Notice only
+```solidity Notice only
 IB20Asset(token).announce(new bytes[](0), id, description, uri);
 ```
 
