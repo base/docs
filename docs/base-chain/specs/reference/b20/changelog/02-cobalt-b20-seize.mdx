@@ -60,7 +60,7 @@ at Cobalt. Seize lives on the shared `IB20` surface, so it's identical across As
 | Beryl error (selector) | Cobalt (selector) | Status | Why |
 | --- | --- | --- | --- |
 | `AccountNotBlocked(address)` `0x64a5cb46` | unchanged | present on Beryl already | Thrown by `burnBlocked` when `from` is authorized under `TRANSFER_SENDER_POLICY` (that is, not blocked). |
-| — | `AccountNotSeizable(address)` `0x91dbbc8d` | new | Thrown by `seizeWithMemo` when `from` is authorized under `SEIZE_HOLDER_POLICY` (that is, not seizable). |
+| — | `AccountNotSeizable(address)` `0x91dbbc8d` | new | Thrown by `seizeWithMemo` when `from` is authorized under `SEIZE_HOLDER_POLICY` (that is, `isAuthorized(policyId, from)` returns true, meaning `from` is not seizable). |
 
 ### Pause Features
 
@@ -90,9 +90,12 @@ Requirements and guards:
 - **Pause**: `SEIZE` must not be paused, or the call reverts `ContractPaused(SEIZE)`.
 - **Addresses**: `to != address(0)` and `from != to`, or the call reverts `InvalidReceiver`.
   `from != address(0)`, or the call reverts `InvalidSender`.
-- **Holder gate**: `from` must be blocked under `SEIZE_HOLDER_POLICY`, that is, not authorized by
-  it, or the call reverts `AccountNotSeizable`. An unset slot reads as always-allow, so no account
-  is seizable until an issuer configures `SEIZE_HOLDER_POLICY`.
+- **Holder gate**: `from` must be seizable under `SEIZE_HOLDER_POLICY` — that is,
+  `isAuthorized(policyId, from)` must return false. This is the inverse of the allowlist-style
+  checks used by `transfer` and `transferFrom`, where `isAuthorized(...) == true` permits the
+  operation. If `isAuthorized(policyId, from)` returns true, the call reverts `AccountNotSeizable`.
+  An unset slot reads as always-allow (`isAuthorized` returns true for all accounts), so no account
+  is seizable until an issuer explicitly configures `SEIZE_HOLDER_POLICY`.
 - **Destination gate**: `to` must be authorized under `SEIZE_RECEIVER_POLICY`, which mirrors
   `MINT_RECEIVER_POLICY` and is always enforced. But an unset slot is always-allow, so a token can
   seize to any destination (a treasury doesn't need to be allowlisted) until the slot is set.
@@ -126,8 +129,9 @@ old burn-blocked outcome, seize to a treasury or self address, then call `burn`.
 **Q: `seizeWithMemo` and `burnBlocked` both target "bad" accounts. Do they read the same set?**
 No, and this is deliberate. `seizeWithMemo` reads `SEIZE_HOLDER_POLICY`. `burnBlocked` reads
 `TRANSFER_SENDER_POLICY`. A token can define a seizable set that's distinct from its
-transfer-blocked set. In both cases, "eligible" means not authorized by the relevant policy, and an
-unset policy (always-allow) means nobody is eligible.
+transfer-blocked set. For `SEIZE_HOLDER_POLICY`, an account is seizable when `isAuthorized(policyId,
+from)` returns false — the inverse of the allowlist-style check used by transfer flows. An unset
+policy (always-allow) means nobody is seizable.
 
 **Q: Can I pause seize without pausing burns, or vice versa?**
 Yes. `SEIZE` (ordinal 3) and `BURN` (ordinal 2) are independent pause bits. Pausing `BURN` doesn't
@@ -138,10 +142,11 @@ No. `seizeWithMemo` requires `SEIZE_ROLE`. `burnBlocked` requires `BURN_BLOCKED_
 doesn't grant the other.
 
 **Q: I never configured the seize policies. What happens if I call `seizeWithMemo`?**
-It reverts `AccountNotSeizable(from)` for every `from`, because an unset `SEIZE_HOLDER_POLICY` is
-always-allow, so no account is seizable. You must configure `SEIZE_HOLDER_POLICY` to designate
-seizable holders before seize does anything. (Leaving `SEIZE_RECEIVER_POLICY` unset simply permits
-any destination.)
+It reverts `AccountNotSeizable(from)` for every `from`. An unset `SEIZE_HOLDER_POLICY` reads as
+always-allow, which means `isAuthorized(policyId, from)` returns true for all accounts — and because
+`SEIZE_HOLDER_POLICY` uses inverted semantics, no account is seizable. You must explicitly configure
+`SEIZE_HOLDER_POLICY` so that `isAuthorized` returns false for the accounts you want seizable.
+Leaving `SEIZE_RECEIVER_POLICY` unset simply permits any destination.
 
 **Q: Does seize consult the transfer policies or spend an allowance?**
 No. It's an admin operation: it bypasses `TRANSFER_SENDER/RECEIVER/EXECUTOR_POLICY` and allowances,

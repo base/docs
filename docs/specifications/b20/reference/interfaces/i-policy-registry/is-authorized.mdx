@@ -19,8 +19,8 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 ## Description
 
 Returns whether `account` is authorized under `policyId`. Never reverts; unknown
-or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -&gt; false,
-BLOCKLIST -&gt; true).
+or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -> false,
+BLOCKLIST -> true).
 Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
 Param: policyId Policy to query.
 Param: account  Account to check.
@@ -33,6 +33,8 @@ Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
 ## Policy Interaction
 
 This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+
+Note that `SEIZE_HOLDER_POLICY` uses **inverse** semantics: a `from` account is seizable only when `isAuthorized(policyId, from)` returns `false`. This is the opposite of transfer-style allowlist checks, where authorization permits an action.
 
 ## Example
 

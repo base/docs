@@ -64,12 +64,16 @@ These invariants and conformance test cases are the normative behavioral guarant
 31. Multiplier updates affect all holders simultaneously.
 32. `batchMint` enforces `MINT_RECEIVER_POLICY` for each recipient individually.
 
+### Seize
+
+33. `SEIZE_HOLDER_POLICY` uses inverted semantics: a `from` account is seizable only when `isAuthorized(policyId, from)` returns `false`. An unset slot reads as `0` (`ALWAYS_ALLOW`), so no account is seizable until an issuer explicitly configures the slot.
+
 ### Factory
 
-33. B20 addresses are deterministic: same inputs always produce the same address.
-34. The variant byte at address position 10 always matches the deployed variant.
-35. Each `(deployer, variant, salt)` tuple produces exactly one address.
-36. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
+34. B20 addresses are deterministic: same inputs always produce the same address.
+35. The variant byte at address position 10 always matches the deployed variant.
+36. Each `(deployer, variant, salt)` tuple produces exactly one address.
+37. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
 
 ## Test Cases
 
@@ -127,51 +131,54 @@ These invariants and conformance test cases are the normative behavioral guarant
 | 28 | `burnBlocked` by holder of `BURN_ROLE` (not `BURN_BLOCKED_ROLE`) | Reverts |
 | 29 | Freeze, seize full balance, re-mint to recovery | Succeeds |
 | 30 | Burn while `BURN` is paused | Reverts |
+| 31 | `seizeWithMemo` where `from` has `isAuthorized(SEIZE_HOLDER_POLICY, from)` returning `true` | Reverts with `AccountNotSeizable` |
+| 32 | `seizeWithMemo` where `from` has `isAuthorized(SEIZE_HOLDER_POLICY, from)` returning `false` | Succeeds (account is seizable) |
+| 33 | `seizeWithMemo` before issuer configures `SEIZE_HOLDER_POLICY` slot | Reverts — unset slot reads as `ALWAYS_ALLOW`, so `isAuthorized` returns `true` and no account is seizable |
 
 ### Pause
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 31 | Pause `TRANSFER`, call `transfer` | Reverts |
-| 32 | Pause `TRANSFER`, call `mint` | Succeeds |
-| 33 | Pause `TRANSFER`, call `approve` | Succeeds |
-| 34 | Pauser calls `unpause` without `UNPAUSE_ROLE` | Reverts |
+| 34 | Pause `TRANSFER`, call `transfer` | Reverts |
+| 35 | Pause `TRANSFER`, call `mint` | Succeeds |
+| 36 | Pause `TRANSFER`, call `approve` | Succeeds |
+| 37 | Pauser calls `unpause` without `UNPAUSE_ROLE` | Reverts |
 
 ### Memos
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 35 | `transferWithMemo` | Emits `Transfer` then `Memo` at consecutive log indices |
-| 36 | `transferFromWithMemo` | `Memo.caller` is `msg.sender`, not `from` |
-| 37 | `transfer` (non-memo variant) | No `Memo` event |
+| 38 | `transferWithMemo` | Emits `Transfer` then `Memo` at consecutive log indices |
+| 39 | `transferFromWithMemo` | `Memo.caller` is `msg.sender`, not `from` |
+| 40 | `transfer` (non-memo variant) | No `Memo` event |
 
 ### Permit
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 38 | Valid permit with correct signature, nonce, deadline | Succeeds |
-| 39 | Permit with expired deadline | Reverts |
-| 40 | Replay used permit signature | Reverts |
-| 41 | Permit signed before `updateName`, submitted after | Reverts |
-| 42 | Contract wallet signature (ERC-1271) | Reverts |
-| 43 | Permit while `TRANSFER` is paused | Succeeds |
+| 41 | Valid permit with correct signature, nonce, deadline | Succeeds |
+| 42 | Permit with expired deadline | Reverts |
+| 43 | Replay used permit signature | Reverts |
+| 44 | Permit signed before `updateName`, submitted after | Reverts |
+| 45 | Contract wallet signature (ERC-1271) | Reverts |
+| 46 | Permit while `TRANSFER` is paused | Succeeds |
 
 ### Factory
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 44 | `getB20Address` then deploy with same params | Addresses match |
-| 45 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
-| 46 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
-| 47 | Deploy when variant feature not activated | Reverts |
-| 48 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
+| 47 | `getB20Address` then deploy with same params | Addresses match |
+| 48 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
+| 49 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
+| 50 | Deploy when variant feature not activated | Reverts |
+| 51 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
 
 ### Variants
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 49 | Deploy Asset with `decimals = 5` | Reverts |
-| 50 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
-| 51 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
-| 52 | `batchMint` where one recipient is not on allowlist | Reverts |
-| 53 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
+| 52 | Deploy Asset with `decimals = 5` | Reverts |
+| 53 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
+| 54 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
+| 55 | `batchMint` where one recipient is not on allowlist | Reverts |
+| 56 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
