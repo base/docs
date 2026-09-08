@@ -789,7 +789,9 @@ jobs:
         #
         # Best-effort: an API failure leaves removed_paths empty and logs a
         # warning rather than failing a sync whose content is otherwise fine.
-        if: env.PAYLOAD_KIND != 'release' && env.PAYLOAD_SHA != ''
+        # Runs for every non-release dispatch so the payload's own
+        # removed_paths, if any, is always overwritten.
+        if: env.PAYLOAD_KIND != 'release'
         env:
           SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
           SHA: ${{ env.PAYLOAD_SHA }}
@@ -799,6 +801,13 @@ jobs:
           MAX_REMOVED_PATH_BYTES: 512
         run: |
           set -euo pipefail
+
+          if [[ -z "${SHA:-}" ]]; then
+            jq '.removed_paths = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+            mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
+            echo "No sha in payload; removed_paths cleared."
+            exit 0
+          fi
 
           commit="$RUNNER_TEMP/code-change-commit.json"
           code=$(curl -sS -o "$commit" -w '%{http_code}' \

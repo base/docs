@@ -713,7 +713,15 @@ async function proposePlacement({ sources, diffByFile, payload, sha, documentati
  */
 export function routingReportRows({ classification, proposals = [], source, sha }) {
   const rows = [];
-  const link = (f) => `[\`${f}\`](https://github.com/${source}/blob/${sha}/${f})`;
+  // Source paths come from the dispatch payload. Only paths made of plain
+  // path characters get a hyperlink; anything else is rendered as inert code
+  // so a crafted name cannot close the link and inject markdown.
+  const SAFE_PATH = /^[A-Za-z0-9][A-Za-z0-9._@+/-]{0,511}$/;
+  const SAFE_SHA = /^[0-9a-f]{7,40}$/;
+  const link = (f) =>
+    SAFE_PATH.test(f) && SAFE_SHA.test(String(sha || ""))
+      ? `[\`${f}\`](https://github.com/${source}/blob/${sha}/${f})`
+      : `\`${cell(f, 200)}\``;
   const unrouted = classification?.unrouted || [];
   const removed = classification?.removed || [];
   if (unrouted.length > 0) {
@@ -1758,7 +1766,7 @@ async function main() {
     // Trusted: derived by the workflow from the commit API, never from the
     // dispatcher's client_payload. Absent on older dispatchers → [].
     const removedPaths = Array.isArray(payload.removed_paths)
-      ? payload.removed_paths.filter((x) => typeof x === "string")
+      ? payload.removed_paths.filter((x) => typeof x === "string" && x.length <= 512).slice(0, 200)
       : [];
     console.log(`[sync] changed_paths: ${changed.length}${removedPaths.length ? ` (removed upstream: ${removedPaths.length})` : ""}`);
     work = await routeCodeChange(route, changed, { removedPaths });

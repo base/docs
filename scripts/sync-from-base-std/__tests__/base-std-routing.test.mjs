@@ -434,4 +434,12 @@ test("routingReportRows renders unrouted, proposal, and removed sections", () =>
   assert.match(md, /## Removed source files/);
   assert.match(md, /`docs\/B20\/Asset\.md`/);
   assert.deepEqual(routingReportRows({ classification: { unrouted: [], removed: [], ignored: ["README.md"] }, source: "x", sha: "y" }), []);
+  // A crafted path cannot close the markdown link; it is rendered as inert code.
+  const hostile = routingReportRows({
+    classification: { unrouted: ["docs/x.md)[click](https://evil.example/"], removed: [], ignored: [] },
+    source: "base/base-std",
+    sha: "be6d0450890e20fc4a739aeaff5e839f234d12a6",
+  }).join("\n");
+  assert.doesNotMatch(hostile, /evil\.example\/\)/);
+  assert.doesNotMatch(hostile, /\]\(https:\/\/github\.com[^)]*evil/);
 });
