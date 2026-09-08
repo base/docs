@@ -262,7 +262,7 @@ if (fs.existsSync(routeTablePath)) {
     }
   }
 
-  const ROUTE_KINDS = new Set(['interface', 'product-doc', 'changelog-entry', 'changelog-index']);
+  const ROUTE_KINDS = new Set(['interface', 'product-doc', 'changelog-entry', 'changelog-index', 'ignored']);
   for (const rule of routeTable.code_changes || []) {
     const where = `code_changes[${rule.source_prefix}]`;
     if (!ROUTE_KINDS.has(rule.kind)) {

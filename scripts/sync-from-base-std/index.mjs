@@ -25,6 +25,10 @@
  *   CLAUDE_MODEL          optional — defaults to claude-sonnet-4-6
  *   CLAUDE_MAX_TOKENS     optional — defaults to 4096
  *   LLM_GATEWAY_BASE_URL  optional — overrides the LLM gateway origin
+ *   GUIDELINE_ROUTING     optional — "propose" (default) surfaces a guideline-
+ *                         derived placement for unrouted source files in the
+ *                         PR/issue body; "apply" also edits the proposed pages
+ *                         in the same run; "off" disables the proposal call
  */
 
 import fs from "node:fs/promises";
@@ -36,6 +40,7 @@ import { fileURLToPath } from "node:url";
 // to the model — not this file.
 import {
   buildClaudePrompt,
+  placementProposalPrompt,
   releaseSelectionPrompt,
   SECURITY_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
@@ -52,7 +57,7 @@ import {
 // extraction). Lives in ./safety.mjs as zero-dep pure functions so the
 // test suite under __tests__/ can import without dragging in
 // the internal LLM Gateway protocol client.
-import { validateSafety, extractExternalUrls, stripAuthorAttribution } from "./safety.mjs";
+import { validateSafety, validateCallouts, extractExternalUrls, stripAuthorAttribution } from "./safety.mjs";
 // Zero-dep release helpers live in their own module so the unit tests can
 // import them without pulling in the Gateway client dependency (same pattern as safety.mjs).
 import {
@@ -117,6 +122,17 @@ const RELEASE_MANIFEST_PROMPT_CAP = NUM("RELEASE_MANIFEST_PROMPT_CAP", 80);
 const RELEASE_CHANGED_PATHS_PROMPT_CAP = NUM("RELEASE_CHANGED_PATHS_PROMPT_CAP", 60);
 // Release notes are untrusted free text; cap what we forward into prompts.
 const RELEASE_NOTES_PROMPT_CAP = NUM("RELEASE_NOTES_PROMPT_CAP", 8000);
+// Placement proposals for unrouted source files (see proposePlacement): how
+// many existing pages the model may choose from, and how much of each
+// unrouted file it sees. Both are prompt-size caps, not quality knobs.
+const PLACEMENT_MAX_CANDIDATES = NUM("PLACEMENT_MAX_CANDIDATES", 250);
+const PLACEMENT_EXCERPT_LINES = NUM("PLACEMENT_EXCERPT_LINES", 60);
+const PLACEMENT_MAX_SOURCES = NUM("PLACEMENT_MAX_SOURCES", 25);
+// Existing docs trees a proposal may point at. Specifications owns specs and
+// concepts; Build on Base owns how-to guides. Nothing else takes upstream
+// narrative content (docs/ia-guidelines.md).
+const PLACEMENT_CANDIDATE_ROOTS = ["docs/specifications/", "docs/build-on-base/"];
+const GUIDELINE_ROUTING = (process.env.GUIDELINE_ROUTING || "propose").toLowerCase();
 
 // --------------------------------------------------------------------- args
 function parseArgs(argv) {
@@ -282,8 +298,15 @@ async function fetchSourceFile(sourceRepo, sha, filePath) {
 
 export async function routeCodeChange(routeTable, changedPaths, options = {}) {
   const allPages = await listDocPages(options);
+  // A file the source commit deleted carries nothing to sync: its route
+  // targets are generated from surviving sources, and any deprecation the
+  // deletion implies shows up in the diffs of the files that still exist.
+  // Routing it used to hand the model an all-minus diff and an invitation to
+  // write "the source file has been removed" banners on live pages.
+  const removed = new Set(options.removedPaths || []);
   const work = new Map(); // page → {transformer, sourceFiles[], kinds[]}
   for (const filePath of changedPaths || []) {
+    if (removed.has(filePath)) continue;
     for (const rule of routeTable.code_changes) {
       if (!ruleMatches(rule, filePath)) continue;
       const globMatches = (rule.page_globs || []).flatMap((glob) => {
@@ -309,6 +332,41 @@ export async function routeCodeChange(routeTable, changedPaths, options = {}) {
     sourceFiles: uniq(info.sourceFiles),
     kinds: uniq(info.kinds),
   }));
+}
+
+/**
+ * Classify every changed source path by what the route table does with it:
+ *   routed    — at least one non-ignored rule matched
+ *   ignored   — only `kind: "ignored"` rules matched (deliberately unsynced)
+ *   unrouted  — no rule matched; surfaced in the PR/issue body so a human
+ *               can add a rule instead of the file being dropped silently
+ *   removed   — deleted in the source commit (trusted `removed_paths`)
+ * Pure function over the route table; no filesystem access.
+ *
+ * @returns {{routed: string[], ignored: string[], unrouted: string[], removed: string[]}}
+ */
+export function classifyChangedPaths(routeTable, changedPaths, { removedPaths = [] } = {}) {
+  const removedSet = new Set(removedPaths);
+  const out = { routed: [], ignored: [], unrouted: [], removed: [] };
+  for (const filePath of uniq(changedPaths || [])) {
+    if (removedSet.has(filePath)) {
+      out.removed.push(filePath);
+      continue;
+    }
+    const rules = (routeTable.code_changes || []).filter((r) => ruleMatches(r, filePath));
+    if (rules.length === 0) out.unrouted.push(filePath);
+    else if (rules.every((r) => r.kind === "ignored")) out.ignored.push(filePath);
+    else out.routed.push(filePath);
+  }
+  for (const filePath of removedPaths) {
+    if (!out.removed.includes(filePath)) out.removed.push(filePath);
+  }
+  return out;
+}
+
+/** Markdown sources are the ones a placement proposal can read as prose. */
+export function isDocSource(filePath) {
+  return /\.(md|mdx)$/i.test(String(filePath || ""));
 }
 
 /** Return every existing Markdown/Mint page under the configured docs root. */
@@ -520,6 +578,180 @@ async function selectReleasePages(routeTable, candidates, signals) {
   }
   const transformer = routeTable?.release?.transformer || "claude";
   return selected.map((page) => ({ page, transformer }));
+}
+
+/**
+ * Existing pages a placement proposal may name: the Specifications and Build
+ * on Base trees minus the per-function reference pages (an interface's index
+ * page stands in for its subtree). Bounded by PLACEMENT_MAX_CANDIDATES.
+ */
+async function listPlacementCandidates() {
+  const all = await listDocPages();
+  return all
+    .filter((p) => p.endsWith(".mdx"))
+    .filter((p) => PLACEMENT_CANDIDATE_ROOTS.some((root) => p.startsWith(root)))
+    .filter((p) => !/\/reference\/interfaces\/[^/]+\/(?!index\.mdx$)[^/]+\.mdx$/.test(p))
+    .slice(0, PLACEMENT_MAX_CANDIDATES);
+}
+
+/**
+ * The first PLACEMENT_EXCERPT_LINES lines of an unrouted source file. Read
+ * from the diff first (a newly added file's diff is the whole file, and it
+ * needs no network); fall back to the contents API at the dispatched sha.
+ */
+async function sourceExcerpt(filePath, { diffByFile, payload, sha }) {
+  const slice = diffByFile?.get(filePath);
+  if (slice) {
+    const added = slice
+      .split("\n")
+      .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+      .map((l) => l.slice(1));
+    if (added.length > 0) return added.slice(0, PLACEMENT_EXCERPT_LINES).join("\n");
+  }
+  const full = await fetchSourceFile(sourceRepo(payload), sha, filePath);
+  return full ? full.split("\n").slice(0, PLACEMENT_EXCERPT_LINES).join("\n") : "";
+}
+
+/** Markdown-table cell: one line, no pipes, no angle brackets. */
+function cell(text, max = 300) {
+  return String(text || "")
+    .replace(/[|\r\n<>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * Keep only proposals that name an unrouted source we asked about and an
+ * existing candidate page; drop duplicates and anything else the model made
+ * up. Pure function so the test suite can exercise the filter.
+ *
+ * @param {unknown} raw — parsed JSON from the model
+ * @param {{sources: string[], candidates: string[]}} allowed
+ * @returns {Array<{source: string, page: string, guideline_rule: string, rationale: string}>}
+ */
+export function filterPlacementProposals(raw, { sources, candidates }) {
+  if (!Array.isArray(raw)) return [];
+  const sourceSet = new Set(sources || []);
+  const candidateSet = new Set(candidates || []);
+  const seen = new Set();
+  const out = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const source = typeof entry.source === "string" ? entry.source : "";
+    const page = typeof entry.page === "string" ? entry.page : "";
+    if (!sourceSet.has(source) || !candidateSet.has(page)) continue;
+    const key = `${source}\u2192${page}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      source,
+      page,
+      guideline_rule: cell(entry.guideline_rule, 200),
+      rationale: cell(entry.rationale, 300),
+    });
+  }
+  return out;
+}
+
+/**
+ * Ask the model where each unrouted Markdown source belongs, using the same
+ * IA and content guidelines every page-editing prompt already carries. One
+ * Haiku call per run. The answer is advisory: it lands in the PR or issue
+ * body so a maintainer can add a route-table rule, and — only when
+ * GUIDELINE_ROUTING=apply — it also routes the proposed pages in this run.
+ * Proposals are filtered back against the candidate list, so the model can
+ * never point the sync at a page that does not exist.
+ *
+ * @returns {Promise<Array<{source: string, page: string, guideline_rule: string, rationale: string}>>}
+ */
+async function proposePlacement({ sources, diffByFile, payload, sha, documentationGuidelines }) {
+  const docSources = (sources || []).filter(isDocSource).slice(0, PLACEMENT_MAX_SOURCES);
+  if (docSources.length === 0 || GUIDELINE_ROUTING === "off") return [];
+  const candidatePaths = await listPlacementCandidates();
+  if (candidatePaths.length === 0) return [];
+  const candidates = await mapWithConcurrency(candidatePaths, 8, (rel) => readPageMetadata(rel));
+  const excerpts = [];
+  for (const filePath of docSources) {
+    excerpts.push({ path: filePath, excerpt: await sourceExcerpt(filePath, { diffByFile, payload, sha }) });
+  }
+  const prompt = placementProposalPrompt({
+    source_repo: sourceRepo(payload),
+    sha,
+    sources: excerpts,
+    candidates,
+    documentationGuidelines,
+  });
+  try {
+    const raw = await callClaude(prompt, "placement-proposal", {
+      model: HAIKU_MODEL,
+      maxTokens: 4096,
+      system: SECURITY_SYSTEM_PROMPT,
+    });
+    const proposals = filterPlacementProposals(parseManifestResponse(raw), {
+      sources: docSources,
+      candidates: candidatePaths,
+    });
+    console.log(`[placement] ${proposals.length} guideline-derived proposal(s) for ${docSources.length} unrouted doc source(s)`);
+    for (const p of proposals) console.log(`  - ${p.source} → ${p.page} (${p.guideline_rule || "no rule cited"})`);
+    return proposals;
+  } catch (err) {
+    console.warn(`[placement] proposal call failed (${err.message}); unrouted files are listed without a proposal`);
+    return [];
+  }
+}
+
+/**
+ * Markdown for the PR or issue body describing what the route table did NOT
+ * handle in this dispatch. Empty array when everything routed. Exported so the
+ * test suite can check the shape without a model call.
+ *
+ * @param {{classification: {unrouted: string[], removed: string[], ignored: string[]},
+ *          proposals: Array<{source: string, page: string, guideline_rule: string, rationale: string}>,
+ *          source: string, sha: string}} args
+ * @returns {string[]} lines
+ */
+export function routingReportRows({ classification, proposals = [], source, sha }) {
+  const rows = [];
+  const link = (f) => `[\`${f}\`](https://github.com/${source}/blob/${sha}/${f})`;
+  const unrouted = classification?.unrouted || [];
+  const removed = classification?.removed || [];
+  if (unrouted.length > 0) {
+    rows.push("");
+    rows.push("## Unrouted source files");
+    rows.push("");
+    rows.push(
+      "These files changed in the source commit but match no rule in `scripts/sync-from-base-std/route-table.json`, so no docs page was edited for them. Add a rule (or an `ignored` rule) so the next change routes on its own.",
+    );
+    rows.push("");
+    for (const f of unrouted) rows.push(`- ${link(f)}`);
+    if (proposals.length > 0) {
+      rows.push("");
+      rows.push("### Proposed placement (from IA guidelines)");
+      rows.push("");
+      rows.push(
+        `Derived from \`docs/ia-guidelines.md\` and \`docs/content-guidelines.md\` by the sync's placement pass. Every proposed page already exists; nothing here creates a page. ${GUIDELINE_ROUTING === "apply" ? "These pages were also edited in this run (GUIDELINE_ROUTING=apply)." : "Turn an accepted row into a route-table rule to make it permanent."}`,
+      );
+      rows.push("");
+      rows.push("| Source file | Proposed docs page | Guideline rule | Rationale |");
+      rows.push("|---|---|---|---|");
+      for (const p of proposals) {
+        rows.push(`| ${link(p.source)} | \`${p.page}\` | ${cell(p.guideline_rule) || "_(not cited)_"} | ${cell(p.rationale) || ""} |`);
+      }
+    }
+  }
+  if (removed.length > 0) {
+    rows.push("");
+    rows.push("## Removed source files");
+    rows.push("");
+    rows.push(
+      "Deleted in the source commit. Deletions are not routed: their docs pages are generated from surviving sources, and a deprecation shows up in the diff of the file that declares it. If a removal retires content a docs page still describes, edit that page by hand.",
+    );
+    rows.push("");
+    for (const f of removed) rows.push(`- \`${f}\``);
+  }
+  if (rows.length > 0) rows.push("");
+  return rows;
 }
 
 /**
@@ -1088,6 +1320,11 @@ export function validateMdx(content, pagePath, knownRoutes, { current = "", snip
   // if it does, so non-compliant output never lands on `main`.
   const safetyErr = validateSafety(content);
   if (safetyErr) return safetyErr;
+  // Callouts must describe reader-facing behavior, never repository
+  // housekeeping ("the source file has been removed"). Prompt rule #10 asks;
+  // this enforces.
+  const calloutErr = validateCallouts(content);
+  if (calloutErr) return calloutErr;
   return null;
 }
 
@@ -1398,6 +1635,57 @@ async function processPage(item, shared, useGroups) {
   }
 }
 
+/**
+ * Reviewer checklist + newly-introduced external URLs for the PR body. The
+ * validator already catches the *structural* problems (raw HTML, dangerous
+ * URL schemes, secrets); these rows surface the things that need a human eye.
+ *
+ * @param {Array<{page: string, newExternalUrls?: string[]}>} provenance
+ * @returns {string[]} markdown lines
+ */
+function reviewChecklistRows(provenance) {
+  const rows = [];
+  rows.push("");
+  rows.push("## Reviewer checklist");
+  rows.push("");
+  rows.push(
+    "Before merging, confirm each item below. The validator catches *structural* problems (raw HTML, dangerous URLs, secrets); these items need a human eye.",
+  );
+  rows.push("");
+  rows.push(
+    "- [ ] Anchor text on every new link reads honestly — no `click here`, no link text that contradicts its target host.",
+  );
+  rows.push(
+    "- [ ] Every newly introduced external URL (listed below) points to a host you expect to see in Coinbase docs.",
+  );
+  rows.push(
+    "- [ ] Frontmatter `title` / `description` still match the page's role (reference vs. overview vs. conceptual).",
+  );
+  rows.push(
+    "- [ ] Any `<Warning>` added describes a real breaking change in the source PR, not a paraphrase the model invented.",
+  );
+  rows.push("");
+  rows.push("### Newly introduced external URLs");
+  rows.push("");
+  const pagesWithNewUrls = provenance.filter(
+    (p) => Array.isArray(p.newExternalUrls) && p.newExternalUrls.length > 0,
+  );
+  if (pagesWithNewUrls.length === 0) {
+    rows.push("_No new external URLs in this sync._");
+  } else {
+    rows.push("| Docs page | New URL(s) |");
+    rows.push("|---|---|");
+    for (const p of pagesWithNewUrls) {
+      // Render each URL as a markdown autolink and join with <br> so the
+      // table cell stays one row per page no matter how many URLs landed.
+      const urlList = p.newExternalUrls.map((u) => `<${u}>`).join("<br>");
+      rows.push(`| \`${p.page}\` | ${urlList} |`);
+    }
+  }
+  rows.push("");
+  return rows;
+}
+
 // ------------------------------------------------------------------- main
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -1460,10 +1748,53 @@ async function main() {
   const diffByFile = splitDiffByFile(typeof payload.diff === "string" ? payload.diff : "");
 
   let work = [];
+  // What the route table did not handle (code-change only). Rendered into the
+  // PR body, or into an issue when nothing routed, so an upstream docs
+  // restructure is never dropped silently again.
+  let classification = null;
+  let proposals = [];
   if (kind === "code-change") {
     const changed = payload.changed_paths || [];
-    console.log(`[sync] changed_paths: ${changed.length}`);
-    work = await routeCodeChange(route, changed);
+    // Trusted: derived by the workflow from the commit API, never from the
+    // dispatcher's client_payload. Absent on older dispatchers → [].
+    const removedPaths = Array.isArray(payload.removed_paths)
+      ? payload.removed_paths.filter((x) => typeof x === "string")
+      : [];
+    console.log(`[sync] changed_paths: ${changed.length}${removedPaths.length ? ` (removed upstream: ${removedPaths.length})` : ""}`);
+    work = await routeCodeChange(route, changed, { removedPaths });
+    classification = classifyChangedPaths(route, changed, { removedPaths });
+    for (const [label, list] of Object.entries(classification)) {
+      if (label === "routed" || list.length === 0) continue;
+      console.log(`[routing] ${label} (${list.length}): ${list.slice(0, 20).join(", ")}${list.length > 20 ? ", …" : ""}`);
+    }
+    proposals = await proposePlacement({
+      sources: classification.unrouted,
+      diffByFile,
+      payload,
+      sha,
+      documentationGuidelines,
+    });
+    if (GUIDELINE_ROUTING === "apply" && proposals.length > 0) {
+      // Opt-in: treat accepted proposals as routes for this run. Pages still
+      // go through decideCall, the validator, and the reviewer checklist.
+      for (const prop of proposals) {
+        const existing = work.find((w) => w.page === prop.page);
+        if (existing) {
+          existing.sourceFiles = uniq([...(existing.sourceFiles || []), prop.source]);
+          existing.kinds = uniq([...(existing.kinds || []), "guideline-routed"]);
+          existing.reasons = uniq([...(existing.reasons || []), `guideline:${prop.source}`]);
+        } else {
+          work.push({
+            page: prop.page,
+            transformer: "claude",
+            sourceFiles: [prop.source],
+            kinds: ["guideline-routed"],
+            reasons: [`guideline:${prop.source}`],
+          });
+        }
+      }
+      console.log(`[placement] GUIDELINE_ROUTING=apply: ${proposals.length} proposal(s) added to the work list`);
+    }
 
     // Symbol-mention routing: pages that reference a changed identifier in a
     // code span need the edit even when no path rule names them (a renamed
@@ -1552,8 +1883,32 @@ async function main() {
     throw new Error(`Unknown payload kind: ${kind}`);
   }
 
+  const routingReport =
+    kind === "code-change" && classification
+      ? routingReportRows({ classification, proposals, source: sourceRepo(payload), sha })
+      : [];
+  const unroutedCount = classification?.unrouted?.length || 0;
+
   if (work.length === 0) {
     console.log("[sync] no pages routed. exiting cleanly.");
+    if (unroutedCount > 0) {
+      console.warn(
+        `::warning title=Unrouted source files::${unroutedCount} changed file(s) match no route-table rule; see the routing report`,
+      );
+    }
+    // Nothing to commit, but the routing report still has to reach a human.
+    // The workflow opens an issue from this file when unrouted_count > 0.
+    if (routingReport.length > 0 && process.env.RUNNER_TEMP) {
+      const reviewPath = path.join(process.env.RUNNER_TEMP, "sync-review.md");
+      await fs.writeFile(reviewPath, routingReport.join("\n"), "utf8");
+      console.log(`[review] wrote routing report to ${reviewPath}`);
+      if (process.env.GITHUB_OUTPUT) {
+        await fs.appendFile(process.env.GITHUB_OUTPUT, `review_md_path=${reviewPath}\n`);
+      }
+    }
+    if (process.env.GITHUB_OUTPUT) {
+      await fs.appendFile(process.env.GITHUB_OUTPUT, `touched_count=0\nunrouted_count=${unroutedCount}\n`);
+    }
     return;
   }
 
@@ -1640,7 +1995,8 @@ async function main() {
         `touched_count=${touched.length}\n` +
         `touched_paths=${touched.join(" ")}\n` +
         `rejected_count=${rejected.length}\n` +
-        `rejected_pages=${rejectedLine}\n`,
+        `rejected_pages=${rejectedLine}\n` +
+        `unrouted_count=${unroutedCount}\n`,
     );
   }
   // Emit a markdown fragment the workflow splices into the PR body — gives a
@@ -1709,47 +2065,12 @@ async function main() {
   //
   // The checkbox round-trips through GitHub PR edits, so a reviewer
   // ticking each item leaves a soft audit trail on the PR itself.
-  if (provenance.length > 0 && process.env.RUNNER_TEMP) {
+  if ((provenance.length > 0 || routingReport.length > 0) && process.env.RUNNER_TEMP) {
     const reviewPath = path.join(process.env.RUNNER_TEMP, "sync-review.md");
-    const rows = [];
-    rows.push("");
-    rows.push("## Reviewer checklist");
-    rows.push("");
-    rows.push(
-      "Before merging, confirm each item below. The validator catches *structural* problems (raw HTML, dangerous URLs, secrets); these items need a human eye.",
-    );
-    rows.push("");
-    rows.push(
-      "- [ ] Anchor text on every new link reads honestly — no `click here`, no link text that contradicts its target host.",
-    );
-    rows.push(
-      "- [ ] Every newly introduced external URL (listed below) points to a host you expect to see in Coinbase docs.",
-    );
-    rows.push(
-      "- [ ] Frontmatter `title` / `description` still match the page's role (reference vs. overview vs. conceptual).",
-    );
-    rows.push(
-      "- [ ] Any `<Warning>` added describes a real breaking change in the source PR, not a paraphrase the model invented.",
-    );
-    rows.push("");
-    rows.push("### Newly introduced external URLs");
-    rows.push("");
-    const pagesWithNewUrls = provenance.filter(
-      (p) => Array.isArray(p.newExternalUrls) && p.newExternalUrls.length > 0,
-    );
-    if (pagesWithNewUrls.length === 0) {
-      rows.push("_No new external URLs in this sync._");
-    } else {
-      rows.push("| Docs page | New URL(s) |");
-      rows.push("|---|---|");
-      for (const p of pagesWithNewUrls) {
-        // Render each URL as a markdown autolink and join with <br> so the
-        // table cell stays one row per page no matter how many URLs landed.
-        const urlList = p.newExternalUrls.map((u) => `<${u}>`).join("<br>");
-        rows.push(`| \`${p.page}\` | ${urlList} |`);
-      }
-    }
-    rows.push("");
+    const rows = [
+      ...(provenance.length > 0 ? reviewChecklistRows(provenance) : []),
+      ...routingReport,
+    ];
     const reviewMd = rows.join("\n");
     await fs.writeFile(reviewPath, reviewMd, "utf8");
     console.log(`[review] wrote checklist to ${reviewPath}`);

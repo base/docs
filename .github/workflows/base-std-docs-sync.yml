@@ -131,6 +131,10 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # Only used by "Open issue for unrouted source files" below: when a
+      # dispatch routes nothing but changed files the route table does not
+      # know, the routing report is filed as an issue instead of vanishing.
+      issues: write
     steps:
       - name: Harden the runner
         # Audit mode logs every outbound connection without blocking. After a
@@ -772,6 +776,56 @@ jobs:
 
           echo "::notice title=Payload provenance verified::kind=${KIND:-code-change} sha=${SHA:0:7} tag=${TAG:-none} pr_number=${PR_NUMBER:-none} artifact_run_id=${ARTIFACT_RUN_ID:-none} (all checks passed against ${SOURCE_REPO})"
 
+      - name: Derive trusted removed paths
+        # A code-change dispatch lists changed_paths but not what happened to
+        # each file. Before base-std#213 that did not matter; that commit
+        # deleted six documentation files the route table mapped, and the
+        # sync edited their target pages from an all-minus diff, adding
+        # "source file removed" banners to reference pages generated from an
+        # unchanged interface (base/docs#1928). The commit API is the trusted
+        # source of per-file status, so derive `removed_paths` here — never
+        # from client_payload — and let the script skip them for routing.
+        # A rename counts its previous name as removed.
+        #
+        # Best-effort: an API failure leaves removed_paths empty and logs a
+        # warning rather than failing a sync whose content is otherwise fine.
+        if: env.PAYLOAD_KIND != 'release' && env.PAYLOAD_SHA != ''
+        env:
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          SHA: ${{ env.PAYLOAD_SHA }}
+          SOURCE_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+          PAYLOAD_PATH: ${{ steps.payload_file.outputs.path }}
+          MAX_REMOVED_PATHS: 200
+          MAX_REMOVED_PATH_BYTES: 512
+        run: |
+          set -euo pipefail
+
+          commit="$RUNNER_TEMP/code-change-commit.json"
+          code=$(curl -sS -o "$commit" -w '%{http_code}' \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $SOURCE_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${SOURCE_REPO}/commits/${SHA}") || code="000"
+          if [[ "$code" != "200" ]]; then
+            echo "::warning title=Removed paths unavailable::reading commit ${SHA:0:7} on ${SOURCE_REPO} failed (HTTP ${code}); deletions will route like edits this run"
+            jq '.removed_paths = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+            mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
+            exit 0
+          fi
+          jq -e '(.files // []) | all(.[]; (.filename | type == "string"))' "$commit" >/dev/null \
+            || { echo "::warning title=Removed paths unavailable::commit ${SHA:0:7} returned malformed file metadata"; jq '.removed_paths = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"; mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"; exit 0; }
+          jq --argjson cap "$MAX_REMOVED_PATHS" --argjson bytes "$MAX_REMOVED_PATH_BYTES" '
+            [ .files[]?
+              | select(.status == "removed" or .status == "renamed")
+              | (if .status == "renamed" then .previous_filename else .filename end)
+              | select(type == "string" and length > 0 and length <= $bytes)
+            ] | unique | .[0:$cap]
+          ' "$commit" > "$RUNNER_TEMP/trusted-removed-paths.json"
+          jq --slurpfile removed "$RUNNER_TEMP/trusted-removed-paths.json" \
+            '.removed_paths = $removed[0]' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+          mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
+          echo "::notice title=Trusted removed paths derived::sha=${SHA:0:7} removed_paths=$(jq length "$RUNNER_TEMP/trusted-removed-paths.json")"
+
       - name: Derive trusted release routing inputs
         # client_payload.changed_paths is attacker-controlled JSON. For a
         # release, replace it with the paths returned by GitHub for the
@@ -1009,6 +1063,10 @@ jobs:
           RELEASE_PAGE_CONCURRENCY: ${{ vars.RELEASE_PAGE_CONCURRENCY }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           CLAUDE_MAX_TOKENS: ${{ vars.CLAUDE_MAX_TOKENS }}
+          # Repo variable. "propose" (default) lists a guideline-derived
+          # placement for unrouted source files in the PR/issue body;
+          # "apply" also edits the proposed pages; "off" skips the call.
+          GUIDELINE_ROUTING: ${{ vars.GUIDELINE_ROUTING }}
         run: |
           node scripts/sync-from-base-std/index.mjs --payload "$PAYLOAD_PATH"
 
@@ -1338,3 +1396,89 @@ jobs:
             echo "::warning title=Docs PR step::Step succeeded but no PR URL was returned"
           fi
           echo "PR: ${pr_url:-(no url returned)}"
+
+      - name: Open issue for unrouted source files
+        # When a dispatch produces a PR, the routing report (unrouted and
+        # removed source files, guideline-derived placement proposals) is
+        # part of the PR body. When it produces no PR — nothing routed, or
+        # every routed page came back unchanged — the report would otherwise
+        # be visible only in the run log. File it as an issue instead, once
+        # per source sha, so a maintainer can add the missing route-table
+        # rule. Same REST + jq pattern as the PR step; no gh CLI.
+        if: steps.commit.outputs.no_changes == 'true' && steps.sync.outputs.unrouted_count != '' && steps.sync.outputs.unrouted_count != '0' && steps.sync.outputs.review_md_path != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          REVIEW_MD_PATH: ${{ steps.sync.outputs.review_md_path }}
+          UNROUTED_COUNT: ${{ steps.sync.outputs.unrouted_count }}
+          SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
+          SHA: ${{ env.PAYLOAD_SHA }}
+          PR_NUMBER: ${{ env.PAYLOAD_PR_NUMBER }}
+          PR_TITLE: ${{ env.PAYLOAD_PR_TITLE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$REVIEW_MD_PATH" ]]; then
+            echo "::warning title=Unrouted report missing::sync reported ${UNROUTED_COUNT} unrouted file(s) but wrote no report"
+            exit 0
+          fi
+          short_sha="${SHA:0:7}"
+          title="Unrouted base-std docs: ${SOURCE_REPO}@${short_sha:-unknown}"
+
+          # One issue per source sha: a re-dispatch of the same commit updates
+          # the existing open issue instead of opening a twin.
+          existing=$(curl -sS \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPO}/issues?state=open&creator=app%2Fgithub-actions&per_page=100" \
+            | jq -r --arg t "$title" '[.[] | select(.pull_request == null) | select(.title == $t)][0].number // ""')
+
+          body_file="$RUNNER_TEMP/unrouted_issue_body.md"
+          {
+            if [[ -n "${PR_NUMBER:-}" ]]; then
+              echo "> **Source PR**: [${SOURCE_REPO}#${PR_NUMBER}](https://github.com/${SOURCE_REPO}/pull/${PR_NUMBER})${PR_TITLE:+ — _${PR_TITLE}_}"
+              echo ">"
+            fi
+            if [[ -n "${SHA:-}" ]]; then
+              echo "> **Merge commit**: [\`${short_sha}\`](https://github.com/${SOURCE_REPO}/commit/${SHA})"
+            fi
+            echo
+            echo "The docs sync ran for this commit and opened no PR: ${UNROUTED_COUNT} changed file(s) match no rule in \`scripts/sync-from-base-std/route-table.json\`. Add a rule (or an \`ignored\` rule) for each one, then re-dispatch the commit."
+            echo
+            cat "$REVIEW_MD_PATH"
+            echo
+            echo "_Opened by \`Apply Base Std Update\` workflow ([run](${RUN_URL}))._"
+          } > "$body_file"
+
+          payload_file="$RUNNER_TEMP/issue.json"
+          if [[ -n "$existing" ]]; then
+            echo "Updating existing issue #$existing"
+            jq -n --arg title "$title" --rawfile body "$body_file" '{title: $title, body: $body}' > "$payload_file"
+            status=$(curl -sS -o "$RUNNER_TEMP/issue_resp.json" -w "%{http_code}" \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPO}/issues/${existing}" \
+              --data-binary @"$payload_file")
+            expected="200"
+          else
+            echo "Creating issue: $title"
+            jq -n --arg title "$title" --rawfile body "$body_file" '{title: $title, body: $body}' > "$payload_file"
+            status=$(curl -sS -o "$RUNNER_TEMP/issue_resp.json" -w "%{http_code}" \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPO}/issues" \
+              --data-binary @"$payload_file")
+            expected="201"
+          fi
+          if [[ "$status" != "$expected" ]]; then
+            echo "::warning title=Unrouted issue not filed::issues API returned HTTP ${status} (expected ${expected}); the routing report is in this run's log"
+            cat "$RUNNER_TEMP/issue_resp.json" >&2 || true
+            exit 0
+          fi
+          issue_url=$(jq -r '.html_url // empty' "$RUNNER_TEMP/issue_resp.json")
+          echo "::notice title=Unrouted source files::${UNROUTED_COUNT} file(s) need a route-table rule — ${issue_url}"

@@ -20,6 +20,7 @@ import assert from "node:assert/strict";
 
 import {
   validateSafety,
+  validateCallouts,
   extractExternalUrls,
   stripAuthorAttribution,
 } from "../safety.mjs";
@@ -218,4 +219,48 @@ test("stripAuthorAttribution: bold labels and Co-authored-by trailers are remove
   const out = stripAuthorAttribution("**Authors**: Rayyan Alam\n_Contributors_: Casey\nCo-authored-by: Someone <s@example.com>\n\nBody.\n");
   assert.doesNotMatch(out, /Rayyan|Casey|Someone/);
   assert.match(out, /Body\./);
+});
+
+// ------------------------------------------------------------ validateCallouts
+//
+// Positive fixtures are the banners base/docs#1928 shipped after base-std#213
+// deleted docs/B20/Asset.md: reference pages generated from an unchanged
+// Solidity interface grew "source file removed" warnings. Negative fixtures are
+// the kinds of callout the sync is supposed to write.
+
+const HOUSEKEEPING_BANNERS = [
+  "The source file that documented this function (`docs/B20/Asset.md`) has been removed as part of a documentation restructure. The content below reflects the last verified state of this function's behavior.",
+  "This function is deleted upstream. The source file `docs/B20/Asset.md` has been removed. The content below reflects the last known state; verify against the current `IB20Asset` interface before use.",
+  "The `docs/B20/Asset.md` source file that backed the detailed multiplier documentation has been removed as part of a documentation restructure.",
+  "`updateMultiplier` is deprecated. The source file `docs/B20/Asset.md` has been removed as part of a documentation restructure. This function reference is retained for backward compatibility.",
+];
+
+test("validateCallouts: rejects the source-file-removed banners from docs#1928", () => {
+  for (const banner of HOUSEKEEPING_BANNERS) {
+    const err = validateCallouts(`---\ntitle: x\n---\n\n<Warning>\n${banner}\n</Warning>\n\n## Signature\n`);
+    assert.match(err || "", /<Warning> callout describes repository housekeeping/, banner.slice(0, 60));
+  }
+  // Same text in a Note or Info is just as wrong.
+  assert.match(validateCallouts(`<Note>${HOUSEKEEPING_BANNERS[0]}</Note>`) || "", /<Note> callout/);
+  assert.match(validateCallouts(`<Info>${HOUSEKEEPING_BANNERS[1]}</Info>`) || "", /<Info> callout/);
+});
+
+test("validateCallouts: never echoes the callout body, only the rule name", () => {
+  const err = validateCallouts(`<Warning>${HOUSEKEEPING_BANNERS[0]}</Warning>`);
+  assert.doesNotMatch(err, /docs\/B20\/Asset\.md/);
+});
+
+test("validateCallouts: reader-facing callouts pass", () => {
+  const legit = [
+    "<Warning>\n`toRawBalance` is a deprecated alias retained in `IB20Asset` for backward compatibility. Prefer `fromUIAmount(uiAmount)` for new integrations.\n</Warning>",
+    "<Warning>\nOne B20 token does not permanently equal one share. Always apply the current multiplier when converting between token units and the number of underlying shares.\n</Warning>",
+    "<Warning>\n`burnBlocked` has been removed in Cobalt. Use `seizeWithMemo`, which requires `SEIZE_ROLE`.\n</Warning>",
+    "<Note>\nThis is the normative Beryl specification for B20.\n</Note>",
+    "<Tip>\nSchedule the split with `updateUIMultiplier` inside an `announce` bracket so indexers can correlate the events.\n</Tip>",
+    // Housekeeping words outside a callout are prose, not a banner.
+    "The source file for this interface is `IB20Asset.sol`.\n\n<Note>Reads are always callable.</Note>",
+  ];
+  for (const page of legit) {
+    assert.equal(validateCallouts(page), null, page.slice(0, 60));
+  }
 });
