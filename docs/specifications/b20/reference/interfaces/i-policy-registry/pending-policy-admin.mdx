@@ -18,7 +18,7 @@ function pendingPolicyAdmin(uint64 policyId) external view returns (address);
 
 Returns the currently-staged pending admin for `policyId`, or `address(0)` when no transfer is in flight or for built-in sentinels, unknown IDs, and malformed IDs. Never reverts.
 
-The pending admin is set by `stageUpdateAdmin(policyId, newAdmin)` and cleared when `finalizeUpdateAdmin(policyId)` succeeds or when the current admin calls `stageUpdateAdmin` with `address(0)`. Until `finalizeUpdateAdmin` is called, `policyAdmin` still returns the current admin — the pending admin has no privileges yet.
+The pending admin is set by `stageUpdateAdmin(policyId, newAdmin)` and cleared when `finalizeUpdateAdmin(policyId)` succeeds or when the current admin calls `stageUpdateAdmin` with `address(0)`. Until `finalizeUpdateAdmin` is called, `policyAdmin` still returns the current admin, the pending admin has no privileges yet.
 
 ## Parameters
 
@@ -32,16 +32,10 @@ The pending admin is set by `stageUpdateAdmin(policyId, newAdmin)` and cleared w
 |---|---|
 | `address` | Staged pending admin, or `address(0)` if none is set. |
 
-## Access Control
-
-Read-only. No role required.
-
-## Revert Conditions
+## Reverts
 
 Never reverts.
 
-## Related
+## Access Control
 
-- `stageUpdateAdmin` — sets the pending admin.
-- `finalizeUpdateAdmin` — promotes the pending admin to current admin; reverts `NoPendingAdmin` if nothing is staged, or `Unauthorized` if the caller is not the staged address.
-- `policyAdmin` — returns the current (active) admin.
+Read-only. No role required.

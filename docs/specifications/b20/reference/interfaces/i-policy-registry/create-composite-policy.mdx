@@ -14,6 +14,21 @@ function createCompositePolicy(address admin, PolicyType policyType, uint64[] ca
 | Selector | `0x6fdd1491` |
 | Canonical signature | `createCompositePolicy(address,uint8,uint64[])` |
 
+## Description
+
+Creates a composite policy that combines two to four existing simple policies (`ALLOWLIST` or `BLOCKLIST`) under a single logic gate:
+
+| `policyType` | Authorized when |
+|---|---|
+| `UNION` | Any child authorizes the account |
+| `INTERSECT` | Every child authorizes the account |
+
+The registry stores references to the children, not a snapshot of their members. Every call to `isAuthorized` reads each child's current member set, so updates to a child policy are immediately visible through the composite.
+
+Creation is permissionless. The `admin` you supply is the only address that can later call `updateComposite`, `stageUpdateAdmin`, or `renounceAdmin` on this policy.
+
+On success, emits `PolicyCreated(newPolicyId, creator, policyType)`, `PolicyAdminUpdated(newPolicyId, address(0), admin)`, and `CompositePolicyUpdated(newPolicyId, creator, childPolicyIds)`.
+
 ## Parameters
 
 | Name | Type | Description |
@@ -28,22 +43,7 @@ function createCompositePolicy(address admin, PolicyType policyType, uint64[] ca
 |---|---|---|
 | `newPolicyId` | `uint64` | The newly assigned composite policy ID. |
 
-## Description
-
-Creates a composite policy that combines two to four existing simple policies (`ALLOWLIST` or `BLOCKLIST`) under a single logic gate:
-
-| `policyType` | Authorized when |
-|---|---|
-| `UNION` | Any child authorizes the account |
-| `INTERSECT` | Every child authorizes the account |
-
-The registry stores references to the children, not a snapshot of their members. Every call to `isAuthorized` reads each child's current member set, so updates to a child policy are immediately visible through the composite.
-
-Creation is permissionless. The `admin` you supply is the only address that can later call `updateComposite`, `stageUpdateAdmin`, or `renounceAdmin` on this policy.
-
-On success, emits `PolicyCreated` and `PolicyAdminUpdated(newPolicyId, address(0), admin)`.
-
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -56,11 +56,11 @@ On success, emits `PolicyCreated` and `PolicyAdminUpdated(newPolicyId, address(0
 
 ## Access Control
 
-Permissionless — any caller may create a composite policy.
+Permissionless, any caller may create a composite policy.
 
 ## Example
 
-```solidity Title Create a KYC-and-sanctions composite
+```solidity Title Create a KYC-and-sanctions composite lines wrap expandable highlight={10}
 // 1. Create a KYC allowlist and a sanctions blocklist first.
 uint64 kycId       = registry.createPolicy(admin, PolicyType.ALLOWLIST);
 uint64 sanctionsId = registry.createPolicy(admin, PolicyType.BLOCKLIST);
@@ -73,9 +73,9 @@ children[1] = sanctionsId;
 uint64 gateId = registry.createCompositePolicy(admin, PolicyType.INTERSECT, children);
 
 // 3. Bind the composite to the token's transfer and mint scopes.
-token.updatePolicy(PolicyScope.TRANSFER_SENDER_POLICY,   gateId);
-token.updatePolicy(PolicyScope.TRANSFER_RECEIVER_POLICY, gateId);
-token.updatePolicy(PolicyScope.MINT_RECEIVER_POLICY,     gateId);
+token.updatePolicy(B20Constants.TRANSFER_SENDER_POLICY, gateId);
+token.updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, gateId);
+token.updatePolicy(B20Constants.MINT_RECEIVER_POLICY, gateId);
 ```
 
 <Note>

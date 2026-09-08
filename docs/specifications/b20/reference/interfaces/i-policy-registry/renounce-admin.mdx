@@ -18,7 +18,10 @@ function renounceAdmin(uint64 policyId) external;
 
 Permanently relinquishes administration of `policyId`. After this call, the member set is frozen: no one can add or remove members, replace composite children, or assign a new admin. `isAuthorized` queries continue to work normally.
 
-Use this when you want to guarantee that a policy's membership can never change — for example, to make a compliance list immutable.
+Use this when you want to guarantee that a policy's membership can never change, for example, to make a compliance list immutable.
+
+- Administration is gone permanently. There is no call that assigns a new admin after renounce.
+- Emits `PolicyAdminUpdated(policyId, previousAdmin, address(0))`.
 
 ## Parameters
 
@@ -26,7 +29,7 @@ Use this when you want to guarantee that a policy's membership can never change 
 |---|---|---|
 | `policyId` | `uint64` | The policy whose administration is being renounced. |
 
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -36,12 +39,6 @@ Use this when you want to guarantee that a policy's membership can never change 
 ## Access Control
 
 Callable only by the current policy admin for `policyId`.
-
-## Behavior Notes
-
-- Administration is gone permanently. There is no call that assigns a new admin after renounce.
-- A staged pending admin (set via `stageUpdateAdmin`) is also cleared — `finalizeUpdateAdmin` cannot be used to recover the policy.
-- Emits `PolicyAdminUpdated(policyId, previousAdmin, address(0))`.
 
 ## Example
 

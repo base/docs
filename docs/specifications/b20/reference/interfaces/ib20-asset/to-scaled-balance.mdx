@@ -26,7 +26,7 @@ This is a deprecated alias of `toUIAmount`. The two functions are equivalent. Us
 
 The result is the amount that wallets and indexers display as a share count after a stock split. Raw ERC-20 balances, `transfer` amounts, `totalSupply`, and allowances are unaffected by the multiplier and remain raw.
 
-Integer division rounds down. A round trip through `toUIAmount` then `fromUIAmount` can lose one unit in the last place (ULP) when `uiMultiplier() != WAD_PRECISION`.
+Integer division rounds down. Rounding loss is confined to the scaled view and is at most one unit of the scaled amount; a round trip back through `fromUIAmount` may return slightly less than the original raw amount when `uiMultiplier() != WAD_PRECISION`.
 
 Multipliers are Asset-only. Stablecoin has no multiplier.
 
@@ -53,16 +53,9 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-// Deprecated alias — prefer toUIAmount
+// Deprecated alias; prefer toUIAmount
 uint256 ui = IB20Asset(target).toScaledBalance(rawBalance);
 
 // Preferred equivalent
 uint256 ui = IB20Asset(target).toUIAmount(rawBalance);
 ```
-
-## Related
-
-- `toUIAmount` — preferred replacement.
-- `fromUIAmount` (`toRawBalance`) — inverse conversion.
-- `balanceOfUI` (`scaledBalanceOf`) — applies the same formula to a holder's stored balance.
-- `uiMultiplier` — returns the effective multiplier at `block.timestamp`.

@@ -11,12 +11,12 @@ function pause(PausableFeature[] calldata features) external;
 
 | Field | Value |
 |---|---|
-| Selector | `0x9f98bd2d` |
-| Canonical signature | `pause(PausableFeature[])` |
+| Selector | `0xa290249c` |
+| Canonical signature | `pause(uint8[])` |
 
 ## Description
 
-Pauses each feature in `features`. The call is additive: features already paused remain paused, and duplicates within the array are silent no-ops. Emits `Paused(updater, features)` with the exact array passed.
+Pauses each feature in `features`. The call is additive: features already paused remain paused, and duplicates within the array are silent no-ops. Emits `Paused(updater, features)` with the exact array passed. While a feature is paused, the operations it gates revert `ContractPaused(feature)`.
 
 ## Parameters
 
@@ -24,22 +24,10 @@ Pauses each feature in `features`. The call is additive: features already paused
 |---|---|
 | `features` | One or more `PausableFeature` values to pause. Must be non-empty. |
 
-## PausableFeature values
-
-| Value | Gates |
-|---|---|
-| `TRANSFER` | `transfer`, `transferFrom`, and memo variants |
-| `MINT` | `mint`, `mintWithMemo`, and Asset `batchMint` |
-| `BURN` | `burn`, `burnWithMemo`, and deprecated `burnBlocked` |
-| `SEIZE` | `seizeWithMemo` |
-
-Each feature corresponds to one bit in a single storage word (`TRANSFER` = bit 0, `MINT` = bit 1, `BURN` = bit 2, `SEIZE` = bit 3). `ALL_FEATURES_PAUSED` (`15`) means all four bits are set.
-
 ## Reverts
 
-- `AccessControlUnauthorizedAccount(account, neededRole)` — caller does not hold `PAUSE_ROLE`.
-- `EmptyFeatureSet()` — `features.length == 0`.
-- `ContractPaused(feature)` — emitted by downstream calls when a paused feature is exercised; not thrown by `pause` itself.
+- `AccessControlUnauthorizedAccount(account, neededRole)`: caller does not hold `PAUSE_ROLE`.
+- `EmptyFeatureSet()`: `features.length == 0`.
 
 ## Access Control
 
@@ -48,6 +36,17 @@ Each feature corresponds to one bit in a single storage word (`TRANSFER` = bit 0
 ## Policy Interaction
 
 No direct policy interaction.
+
+## Pausable Features
+
+| Value | Gates |
+|---|---|
+| `TRANSFER` | `transfer`, `transferFrom`, and memo variants |
+| `MINT` | `mint`, `mintWithMemo`, and Asset `batchMint` |
+| `BURN` | `burn`, `burnWithMemo`, and deprecated `burnBlocked` |
+| `SEIZE` | `seizeWithMemo` |
+
+The ABI encodes `PausableFeature` as `uint8`, in enum order (`TRANSFER` = 0, `MINT` = 1, `BURN` = 2, `SEIZE` = 3). `B20Constants.ALL_FEATURES_PAUSED` (`15`) is the bitmask with all four set.
 
 ## Example
 

@@ -6,7 +6,7 @@ description: "Create a fiat-backed stablecoin on Base with one B20 factory call.
 
 import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
 
-Create a fiat-backed token with one call to the [B20 Factory](/specifications/b20/specification-overview#factory), using the `STABLECOIN` variant. Decimals are fixed at `6`, and the token carries an immutable ISO currency code. The type is sealed into the token address at creation and cannot change.
+Create a fiat-backed token with one call to the [B20 Factory](/specifications/b20/specification-overview#factory), using the `STABLECOIN` variant. Decimals are fixed at `6`, and the token carries an immutable, self-declared currency code such as `USD`. The type is sealed into the token address at creation and cannot change.
 
 ## Demo
 
@@ -25,11 +25,11 @@ New to B20? See the [B20 Token Standard](/specifications/b20/specification-overv
 Passing `STABLECOIN` to `createB20` writes discriminant byte `0x01` into position `[10]` of the token address. After the call returns:
 
 - `decimals()` returns `6` (hardcoded; you do not pass a decimals value).
-- `currency()` returns the immutable ISO code you provided (for example `"USD"`).
+- `currency()` returns the immutable code you provided (for example `"USD"`). B20 checks the format only, not that the code is a real currency.
 - The `IB20Stablecoin` surface is live at that address.
 - Asset-only selectors (`announce`, `updateUIMultiplier`, `batchMint`) do not execute on this address.
 
-The `currency` field is required and must be uppercase ASCII `A`–`Z` only. An empty code reverts `MissingRequiredField`; any other byte reverts `InvalidCurrency`.
+The `currency` field is required and must be uppercase ASCII `A` to `Z` only. An empty code reverts `MissingRequiredField`; any other byte reverts `InvalidCurrency`.
 
 ## Create and Verify the Stablecoin
 

@@ -20,7 +20,7 @@ Returns the `bytes32` role constant that gates `seizeWithMemo`. Any account that
 
 ## Returns
 
-`bytes32` — the `SEIZE_ROLE` constant.
+`bytes32`, the `SEIZE_ROLE` constant.
 
 ## Access Control
 
@@ -28,9 +28,9 @@ Read-only. Anyone may call this function to retrieve the role identifier.
 
 ## Policy Interaction
 
-No direct policy interaction. The role returned here is used alongside `SEIZE_HOLDER_POLICY` and `SEIZE_RECEIVER_POLICY` to authorize a seize operation. The caller must hold `SEIZE_ROLE`, the `from` account must not be authorized under `SEIZE_HOLDER_POLICY` (i.e., an inverted blocklist check), and the `to` account must be authorized under `SEIZE_RECEIVER_POLICY`.
+No direct policy interaction. The role returned here is used alongside `SEIZE_EXEMPT_POLICY` and `SEIZE_RECEIVER_POLICY` to authorize a seize operation. The caller must hold `SEIZE_ROLE`, the `from` account must not be authorized under `SEIZE_EXEMPT_POLICY` (i.e., an inverted blocklist check), and the `to` account must be authorized under `SEIZE_RECEIVER_POLICY`.
 
-## Usage
+## Example
 
 Grant this role to the account that will call `seizeWithMemo`:
 
@@ -43,5 +43,5 @@ token.seizeWithMemo(from, to, amount, memo);
 ```
 
 <Note>
-`SEIZE_ROLE` is separate from pause control. A holder of `SEIZE_ROLE` cannot seize while `PausableFeature.SEIZE` is paused — the call reverts `ContractPaused(SEIZE)`. Pausing `TRANSFER`, `MINT`, or `BURN` does not affect seize.
+`SEIZE_ROLE` is separate from pause control. A holder of `SEIZE_ROLE` cannot seize while `PausableFeature.SEIZE` is paused, the call reverts `ContractPaused(SEIZE)`. Pausing `TRANSFER`, `MINT`, or `BURN` does not affect seize.
 </Note>

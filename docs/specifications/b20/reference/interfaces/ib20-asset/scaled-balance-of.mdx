@@ -3,10 +3,6 @@ title: "IB20Asset.scaledBalanceOf"
 description: "Returns the UI (display) balance of an account by applying the current multiplier to its raw ERC-20 balance."
 ---
 
-<Warning>
-`scaledBalanceOf` is a deprecated alias. Prefer `balanceOfUI(account)` for new integrations.
-</Warning>
-
 ## Signature
 
 ```solidity IB20Asset.sol
@@ -24,7 +20,12 @@ Equivalent to `toUIAmount(balanceOf(account))`. Returns the caller-visible share
 
 The raw ERC-20 balance is unchanged. Only the displayed value scales with the multiplier.
 
-This function is a deprecated alias of `balanceOfUI(account)`. Prefer `balanceOfUI` for new code.
+`balanceOfUI(account)` from the ERC-8056 Balances extension returns the same value; integrators should prefer the ERC-8056 name.
+
+- While a pending multiplier update exists (`effectiveAt() > block.timestamp`), this function still uses the **current** multiplier, not the scheduled one.
+- After `block.timestamp >= effectiveAt()`, the new multiplier takes effect automatically on read: no transaction or event fires at maturation.
+- Integer division rounds down. Rounding loss is confined to the scaled view and is at most one unit of the scaled amount when `uiMultiplier() != WAD_PRECISION`.
+- This function applies only to B20 Asset. B20 Stablecoin has no multiplier.
 
 ## Parameters
 
@@ -38,13 +39,6 @@ This function is a deprecated alias of `balanceOfUI(account)`. Prefer `balanceOf
 |---|---|
 | `uint256` | UI balance: `balanceOf(account) * uiMultiplier() / WAD_PRECISION`. |
 
-## Multiplier Behavior
-
-- While a pending multiplier update exists (`effectiveAt() > block.timestamp`), this function still uses the **current** multiplier, not the scheduled one.
-- After `block.timestamp >= effectiveAt()`, the new multiplier takes effect automatically on read — no transaction or event fires at maturation.
-- Integer division rounds down. A round trip through `toUIAmount` then `fromUIAmount` can lose one unit in the last place when `uiMultiplier() != WAD_PRECISION`.
-- This function applies only to B20 Asset. B20 Stablecoin has no multiplier.
-
 ## Access Control
 
 Read-only. No role required.
@@ -56,9 +50,7 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-// Deprecated alias — prefer balanceOfUI
 uint256 uiBalance = IB20Asset(target).scaledBalanceOf(account);
-
-// Preferred
-uint256 uiBalance = IB20Asset(target).balanceOfUI(account);
+// Same value through the ERC-8056 name:
+uint256 uiBalanceErc8056 = IB20Asset(target).balanceOfUI(account);
 ```

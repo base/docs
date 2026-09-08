@@ -16,7 +16,7 @@ function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) exte
 
 ## Description
 
-Replaces a composite policy's child-policy set in full with `childPolicyIds`. There is no partial edit — the entire child set is replaced in one call.
+Replaces a composite policy's child-policy set in full with `childPolicyIds`. There is no partial edit, the entire child set is replaced in one call.
 
 The write takes effect on the next `isAuthorized` call that references `policyId`. Every token that stores this policy ID sees the new result without a second `updatePolicy` call on the token.
 
@@ -27,11 +27,7 @@ The write takes effect on the next `isAuthorized` call that references `policyId
 | `policyId` | `uint64` | Composite policy to update. Must exist and be a `UNION` or `INTERSECT` policy. |
 | `childPolicyIds` | `uint64[]` | Complete new set of existing simple policy IDs. Count must be in `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
 
-## Access Control
-
-Callable only by the current admin of `policyId`. A composite whose admin has been renounced (via `renounceAdmin`) can never be updated.
-
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -39,11 +35,15 @@ Callable only by the current admin of `policyId`. A composite whose admin has be
 | `PolicyNotFound()` | `policyId` does not exist, or any entry in `childPolicyIds` does not exist. |
 | `IncompatiblePolicyType()` | `policyId` is not a composite (`UNION` or `INTERSECT`). |
 | `ChildPoliciesOutsideOfRange()` | `childPolicyIds.length` is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
-| `InvalidChildPolicy(childPolicyId)` | A child policy is itself a composite rather than a simple (`ALLOWLIST` or `BLOCKLIST`) policy. |
+| `InvalidChildPolicy(childPolicyId)` | A child is a composite or a built-in sentinel (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`) rather than a simple `ALLOWLIST` or `BLOCKLIST` policy. |
 
 ## Events
 
 Emits `CompositePolicyUpdated(policyId, updater, childPolicyIds)` on success.
+
+## Access Control
+
+Callable only by the current admin of `policyId`. A composite whose admin has been renounced (via `renounceAdmin`) can never be updated.
 
 ## Example
 

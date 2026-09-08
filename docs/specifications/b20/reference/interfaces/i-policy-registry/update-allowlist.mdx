@@ -16,9 +16,9 @@ function updateAllowlist(uint64 policyId, bool allowed, address[] calldata accou
 
 ## Description
 
-Sets each address in `accounts` to `allowed` (add or remove) in an `ALLOWLIST` policy. The change takes effect on the next `isAuthorized` call against this policy. Every token and composite that references `policyId` sees the updated membership immediately — no second write on the token is needed.
+Sets each address in `accounts` to `allowed` (add or remove) in an `ALLOWLIST` policy. The change takes effect on the next `isAuthorized` call against this policy. Every token and composite that references `policyId` sees the updated membership immediately, no second write on the token is needed.
 
-Membership batches are capped at 64 accounts (`MAX_BATCH_SIZE`).
+Membership batches are capped by the registry, currently at 64 accounts. A larger batch reverts `BatchSizeTooLarge(maxBatchSize)`, which carries the limit.
 
 ## Parameters
 
@@ -28,11 +28,7 @@ Membership batches are capped at 64 accounts (`MAX_BATCH_SIZE`).
 | `allowed` | `bool` | `true` to add accounts to the set; `false` to remove them. |
 | `accounts` | `address[]` | Accounts to update. Maximum 64 per call. |
 
-## Access Control
-
-Callable only by the current admin of `policyId`. Any other caller reverts `Unauthorized`.
-
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -45,10 +41,17 @@ Callable only by the current admin of `policyId`. Any other caller reverts `Unau
 
 Emits `AllowlistUpdated(policyId, updater, allowed, accounts)` on success.
 
+## Access Control
+
+Callable only by the current admin of `policyId`. Any other caller reverts `Unauthorized`.
+
 ## Example
 
 ```solidity Title Add accounts to an allowlist
-IPolicyRegistry(registry).updateAllowlist(kycId, true, [alice, bob]);
+address[] memory accounts = new address[](2);
+accounts[0] = alice;
+accounts[1] = bob;
+IPolicyRegistry(registry).updateAllowlist(kycId, true, accounts);
 ```
 
 After this call, `isAuthorized(kycId, alice)` and `isAuthorized(kycId, bob)` return `true`. Any token or composite policy already pointing at `kycId` reflects this without a separate `updatePolicy` call on the token.
@@ -56,7 +59,9 @@ After this call, `isAuthorized(kycId, alice)` and `isAuthorized(kycId, bob)` ret
 To remove an account, pass `false`:
 
 ```solidity Title Remove an account from an allowlist
-IPolicyRegistry(registry).updateAllowlist(kycId, false, [alice]);
+address[] memory removed = new address[](1);
+removed[0] = alice;
+IPolicyRegistry(registry).updateAllowlist(kycId, false, removed);
 ```
 
 <Note>

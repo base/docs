@@ -18,17 +18,13 @@ function multiplier() external view returns (uint256);
 
 Returns the effective multiplier at `block.timestamp`, scaled to `WAD_PRECISION` (`1e18`). Holder balances are stored as raw ERC-20 units; the multiplier scales them into a derived UI view without rewriting those balances.
 
-This function is a deprecated alias of the ERC-8056 `uiMultiplier()`. Prefer `uiMultiplier()`.
+This function is an alias of the ERC-8056 `uiMultiplier()`. Both return the same value; integrators should prefer the ERC-8056 name.
 
-A default multiplier of `WAD_PRECISION` (`1e18`) means UI equals raw. A 2-for-1 split is encoded as `2e18`; a 1-for-2 reverse split is `5e17`.
+A multiplier of `WAD_PRECISION` (`1e18`) means UI equals raw. A 2-for-1 split is encoded as `2e18`; a 1-for-2 reverse split is `5e17`.
 
 The UI balance for a holder is `balanceOf(account) * multiplier() / WAD_PRECISION`. Use `balanceOfUI(account)` to read that derived value directly.
 
 If a pending update has been scheduled via `updateUIMultiplier`, this function still returns the current multiplier until `block.timestamp >= effectiveAt()`. The pending value is readable from `newUIMultiplier()`.
-
-<Note>
-This is a deprecated alias. Use `uiMultiplier()` (ERC-8056) instead. Both return the same value.
-</Note>
 
 ## Access Control
 
@@ -41,6 +37,6 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).multiplier();       // deprecated alias
-IB20Asset(target).uiMultiplier();     // preferred ERC-8056 name
+IB20Asset(target).multiplier();       // B20 name
+IB20Asset(target).uiMultiplier();     // ERC-8056 name, same value
 ```

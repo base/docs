@@ -49,7 +49,7 @@ base-cast send "$TOKEN_ADDRESS" "unpause(uint8[])" "[0]" \
 ```
 </CodeGroup>
 
-`pause` and `unpause` each accept a `PausableFeature[]` array. Pass `[0]` to target `TRANSFER` only. The four pausable features are `TRANSFER` (0), `MINT` (1), `BURN` (2), and `SEIZE` (3). Pausing one feature does not affect the others — a holder can still transfer while `MINT` is paused, and a minter can still mint while `TRANSFER` is paused.
+`pause` and `unpause` each accept a `PausableFeature[]` array. Pass `[0]` to target `TRANSFER` only. The four pausable features are `TRANSFER` (0), `MINT` (1), `BURN` (2), and `SEIZE` (3). Pausing one feature does not affect the others. A holder can still transfer while `MINT` is paused, and a minter can still mint while `TRANSFER` is paused.
 
 Passing an empty array reverts `EmptyFeatureSet`. A feature already in the requested state is a no-op; the call does not revert. After the call, read `isPaused(feature)` to confirm the current state. The event emitted (`Paused` or `Unpaused`) carries the exact array you passed, not the resulting paused set.
 
@@ -60,7 +60,7 @@ Transfer pause state changes without pausing mint or burn.
 </Check>
 
 <Note>
-`pause` requires `PAUSE_ROLE`. `unpause` requires `UNPAUSE_ROLE`. These are separate roles — grant recovery authority more narrowly than emergency pause authority.
+`pause` requires `PAUSE_ROLE`. `unpause` requires `UNPAUSE_ROLE`. These are separate roles, so grant recovery authority more narrowly than emergency pause authority.
 </Note>
 
 ## See Also

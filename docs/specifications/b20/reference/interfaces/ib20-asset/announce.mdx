@@ -25,6 +25,11 @@ Emits `Announcement(caller, id, description, uri)`, executes every entry in `int
 
 Indexers pair open and close brackets by `id`. Every event emitted between the two logs belongs to the announced action. A state-changing call that appears outside this bracket was invoked directly, not through `announce`.
 
+- Execution order: emit `Announcement` → run inner calls → emit `EndAnnouncement`. If any inner call fails, the whole transaction reverts and `id` is not consumed.
+- After a successful call, `isAnnouncementIdUsed(id)` returns `true`.
+- `announce` is defined on **B20 Asset** only. Stablecoin has no announcements.
+- Typical inner calls: `updateUIMultiplier`, `cancelUIMultiplierUpdate`, `batchMint`, `mintWithMemo`, `burnWithMemo`.
+
 ## Parameters
 
 | Name | Type | Description |
@@ -34,11 +39,7 @@ Indexers pair open and close brackets by `id`. Every event emitted between the t
 | `description` | `string` | Human-readable summary shown to holders. The asset does not verify this string. |
 | `uri` | `string` | Off-chain URI for the full announcement record. The asset does not verify this string. |
 
-## Access Control
-
-`OPERATOR_ROLE` gates this call. Any other caller reverts `AccessControlUnauthorizedAccount`. Inner calls keep their own role gates; the operator must hold every role the inner calls require (for example `MINT_ROLE` for `batchMint`, `BURN_ROLE` for `burnWithMemo`).
-
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -50,12 +51,9 @@ Indexers pair open and close brackets by `id`. Every event emitted between the t
 
 A Solidity `Panic` inside an inner call (for example arithmetic overflow) propagates raw and is not wrapped as `InternalCallFailed`.
 
-## Behavior Notes
+## Access Control
 
-- Execution order: emit `Announcement` → run inner calls → emit `EndAnnouncement`. If any inner call fails, the whole transaction reverts and `id` is not consumed.
-- After a successful call, `isAnnouncementIdUsed(id)` returns `true`.
-- `announce` is defined on **B20 Asset** only. Stablecoin has no announcements.
-- Typical inner calls: `updateUIMultiplier`, `cancelUIMultiplierUpdate`, `batchMint`, `mintWithMemo`, `burnWithMemo`.
+`OPERATOR_ROLE` gates this call. Any other caller reverts `AccessControlUnauthorizedAccount`. Inner calls keep their own role gates; the operator must hold every role the inner calls require (for example `MINT_ROLE` for `batchMint`, `BURN_ROLE` for `burnWithMemo`).
 
 ## Example
 
@@ -71,9 +69,3 @@ asset.announce(calls, id, description, uri);
 asset.announce(new bytes[](0), id, description, uri);
 // Emits: Announcement → EndAnnouncement
 ```
-
-## Related
-
-- `isAnnouncementIdUsed(string id)` — selector `0xc0da474e`
-- `Announcement(address indexed caller, string id, string description, string uri)` — topic0 `0xccebf8218a62875909564adef86a6f4df81503cb617221e793357d62f8e813f7`
-- `EndAnnouncement(string id)` — topic0 `0x96d64dafe2c790596430196b982ad1da3221cb3b0f4e6e2df77f2e4f71a90037`

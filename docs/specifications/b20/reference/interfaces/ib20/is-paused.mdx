@@ -11,8 +11,8 @@ function isPaused(PausableFeature feature) external view returns (bool);
 
 | Field | Value |
 |---|---|
-| Selector | `0x165c44bc` |
-| Canonical signature | `isPaused(PausableFeature)` |
+| Selector | `0xbc61e733` |
+| Canonical signature | `isPaused(uint8)` |
 
 ## Description
 
@@ -27,7 +27,11 @@ Returns whether `feature` is currently paused. O(1).
 | `BURN` | 2 | `burn`, `burnWithMemo`, and the deprecated `burnBlocked` |
 | `SEIZE` | 3 | `seizeWithMemo` |
 
-The paused state for all features is stored as a bitmask in a single storage word; each feature's bit is its ordinal. `isPaused` reads that bit for the requested feature.
+The ABI encodes `PausableFeature` as `uint8`, so callers pass the ordinal.
+
+- A paused feature blocks the operations listed in the table above regardless of whether the caller holds the relevant role. For example, a `MINT_ROLE` holder cannot mint while `MINT` is paused.
+- If an operation is attempted while its feature is paused, the transaction reverts with `ContractPaused(feature)`.
+- Use `pausedFeatures()` to read the full current paused set in one call.
 
 ## Parameters
 
@@ -41,17 +45,11 @@ The paused state for all features is stored as a bitmask in a single storage wor
 
 ## Access Control
 
-View function — no role required.
+View function, no role required.
 
 ## Policy Interaction
 
 No direct policy interaction.
-
-## Behavior Notes
-
-- A paused feature blocks the operations listed in the table above regardless of whether the caller holds the relevant role. For example, a `MINT_ROLE` holder cannot mint while `MINT` is paused.
-- If an operation is attempted while its feature is paused, the transaction reverts with `ContractPaused(feature)`.
-- Use `pausedFeatures()` to read the full current paused set in one call.
 
 ## Example
 

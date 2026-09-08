@@ -1,0 +1,55 @@
+---
+title: "IB20.SEIZE_EXEMPT_POLICY"
+description: "Returns the policy scope identifier consulted against the `from` address in seizeWithMemo. An authorized account is seize-exempt."
+---
+
+## Signature
+
+```solidity IB20.sol
+function SEIZE_EXEMPT_POLICY() external view returns (bytes32);
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xfeb346ec` |
+| Canonical signature | `SEIZE_EXEMPT_POLICY()` |
+
+## Description
+
+Policy slot consulted against `from` by `seizeWithMemo`. An authorized account is seize-exempt.
+
+The check is inverted relative to the transfer and mint scopes: `seizeWithMemo` proceeds only when `isAuthorized(policyId, from)` returns `false`. When the slot is unset (`0`), the always-allow sentinel applies, every account is authorized, and every account is seize-exempt. You must attach a policy before any holder can be seized.
+
+The value is `keccak256("SEIZE_EXEMPT_POLICY")`, `0xedb5da348cfb67af08746d3afd1be81034b50d5c8576f31aff688f39dfd540ed`. Before Cobalt this scope was named `SEIZE_HOLDER_POLICY`; see the [seize changelog entry](/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize).
+
+## Returns
+
+`bytes32` policy scope constant. Pass this value to `updatePolicy` and `policyId`.
+
+## Access Control
+
+View function. No role required.
+
+## Policy Interaction
+
+The policy ID stored at this scope is read by `seizeWithMemo` before moving any balance. The recommended policy type is `BLOCKLIST`:
+
+- Accounts in the blocklist have `isAuthorized = false`, so they are seizable.
+- Accounts not in the blocklist have `isAuthorized = true`, so they are seize-exempt.
+
+An `ALLOWLIST` or the `ALWAYS_BLOCK` sentinel inverts this logic and makes every account seizable. Do not attach either to `SEIZE_EXEMPT_POLICY`.
+
+This scope is independent of `TRANSFER_SENDER_POLICY`. Blocking a holder from transferring does not make them seizable.
+
+## Example
+
+```solidity Title Make one holder seizable lines wrap expandable
+// Create a blocklist and add the holder
+uint64 seizableId = registry.createPolicy(policyAdmin, IPolicyRegistry.PolicyType.BLOCKLIST);
+address[] memory holders = new address[](1);
+holders[0] = alice;
+registry.updateBlocklist(seizableId, true, holders);
+
+// Attach it to the seize-exempt scope; alice is now seizable, everyone else is exempt
+IB20(token).updatePolicy(IB20(token).SEIZE_EXEMPT_POLICY(), seizableId);
+```

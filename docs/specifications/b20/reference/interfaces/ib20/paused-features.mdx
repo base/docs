@@ -16,9 +16,13 @@ function pausedFeatures() external view returns (PausableFeature[] memory);
 
 ## Description
 
-Returns every `PausableFeature` that is currently paused on this token. The four possible values are `TRANSFER`, `MINT`, `BURN`, and `SEIZE`. The paused set is stored as one bit per feature in a single storage word; this function decodes that bitmap into an array. Order is implementation-defined — treat the result as a set.
+Returns every `PausableFeature` that is currently paused on this token. The four possible values are `TRANSFER`, `MINT`, `BURN`, and `SEIZE`. Order is implementation-defined, so treat the result as a set.
 
 To check a single feature, prefer `isPaused(feature)`.
+
+- The returned array reflects the state at the block the call executes in.
+- `B20Constants.ALL_FEATURES_PAUSED` (`15`) is the bitmask with every feature set.
+- Pausing is controlled by `pause(PausableFeature[])` (requires `PAUSE_ROLE`) and reversed by `unpause(PausableFeature[])` (requires `UNPAUSE_ROLE`). When a feature is paused, operations it gates revert `ContractPaused(feature)`.
 
 ## Returns
 
@@ -28,17 +32,11 @@ To check a single feature, prefer `isPaused(feature)`.
 
 ## Access Control
 
-View — no role required.
+View, no role required.
 
 ## Policy Interaction
 
 No direct policy interaction.
-
-## Behavior Notes
-
-- The returned array reflects the state at the block the call executes in.
-- `ALL_FEATURES_PAUSED` (`15`) means all four bits are set; this function returns all four enum members in that case.
-- Pausing is controlled by `pause(PausableFeature[])` (requires `PAUSE_ROLE`) and reversed by `unpause(PausableFeature[])` (requires `UNPAUSE_ROLE`). When a feature is paused, operations it gates revert `ContractPaused(feature)`.
 
 ## Example
 

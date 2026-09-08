@@ -18,13 +18,22 @@ function finalizeUpdateAdmin(uint64 policyId) external;
 
 Completes a two-step admin transfer initiated by `stageUpdateAdmin`. The caller must be the address that was staged as the pending admin. On success, the caller becomes the active admin, the pending slot clears, and the previous admin loses the ability to update the policy.
 
+This function is the second step of the two-step admin transfer pattern:
+
+1. The current admin calls `stageUpdateAdmin(policyId, newAdmin)`, which sets the pending admin without transferring control.
+2. The pending admin calls `finalizeUpdateAdmin(policyId)` to accept and complete the transfer.
+
+Until `finalizeUpdateAdmin` is called, `policyAdmin(policyId)` still returns the current admin. After a successful call, `policyAdmin(policyId)` returns the new admin and `pendingPolicyAdmin(policyId)` is cleared.
+
+Emits `PolicyAdminUpdated(policyId, previousAdmin, newAdmin)`.
+
 ## Parameters
 
 | Name | Type | Description |
 |---|---|---|
 | `policyId` | `uint64` | The policy whose pending admin transfer is being finalized. |
 
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -35,17 +44,6 @@ Completes a two-step admin transfer initiated by `stageUpdateAdmin`. The caller 
 ## Access Control
 
 Callable only by the staged pending admin for the target policy. Finalization atomically promotes the caller to active admin and clears the pending slot. The previous admin cannot update the policy after this call succeeds.
-
-## Behavior
-
-This function is the second step of the two-step admin transfer pattern:
-
-1. The current admin calls `stageUpdateAdmin(policyId, newAdmin)`, which sets the pending admin without transferring control.
-2. The pending admin calls `finalizeUpdateAdmin(policyId)` to accept and complete the transfer.
-
-Until `finalizeUpdateAdmin` is called, `policyAdmin(policyId)` still returns the current admin. After a successful call, `policyAdmin(policyId)` returns the new admin and `pendingPolicyAdmin(policyId)` is cleared.
-
-Emits `PolicyAdminUpdated(policyId, previousAdmin, newAdmin)`.
 
 ## Example
 

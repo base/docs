@@ -14,6 +14,14 @@ function policyAdmin(uint64 policyId) external view returns (address);
 | Selector | `0x09dd0a47` |
 | Canonical signature | `policyAdmin(uint64)` |
 
+## Description
+
+Never reverts. Returns `address(0)` for any ID that has no admin, including sentinels and IDs that have never been created.
+
+After `renounceAdmin`, no address can be assigned as admin again. `policyAdmin` returns `address(0)` permanently for that policy.
+
+During a pending admin transfer, `policyAdmin` still returns the **current** admin. The staged nominee is readable via `pendingPolicyAdmin`. Administration transfers only when the nominee calls `finalizeUpdateAdmin`.
+
 ## Parameters
 
 | Name | Type | Description |
@@ -24,17 +32,9 @@ function policyAdmin(uint64 policyId) external view returns (address);
 
 The current admin address, or `address(0)` for built-in sentinels (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`), renounced policies, unknown IDs, and malformed IDs.
 
-## Behavior
-
-Never reverts. Returns `address(0)` for any ID that has no admin — including sentinels and IDs that have never been created.
-
-After `renounceAdmin`, no address can be assigned as admin again. `policyAdmin` returns `address(0)` permanently for that policy.
-
-During a pending admin transfer, `policyAdmin` still returns the **current** admin. The staged nominee is readable via `pendingPolicyAdmin`. Administration transfers only when the nominee calls `finalizeUpdateAdmin`.
-
 ## Access Control
 
-View — no role required.
+View, no role required.
 
 ## Example
 

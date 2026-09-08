@@ -1,18 +1,18 @@
 ---
-title: "Schedule a Stock Split"
-description: "Schedule a B20 Asset multiplier update so displayed share counts change at a future time without rewriting raw balances."
+title: "Apply a Multiplier"
+description: "Schedule a B20 Asset multiplier update so displayed share counts change at a future time without rewriting raw balances. A stock split is one example."
 keywords: ["asset token multiplier", "B20 multiplier", "scaled token balance", "stock split", "updateUIMultiplier"]
 ---
 
 import { AssetDemo } from "/snippets/AssetDemo.jsx"
 import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
 
-Schedule a 2-for-1 stock split by calling `updateUIMultiplier(2e18, effectiveAt)` on a B20 Asset. Raw `balanceOf`, `totalSupply`, and transfer amounts stay unchanged. Wallets and indexers read the post-split share count through `balanceOfUI` and related views after `effectiveAt` passes.
+Schedule a 2-for-1 stock split by calling `updateUIMultiplier(2e18, effectiveAt)` on a B20 Asset. Raw `balanceOf`, `totalSupply`, and transfer amounts stay unchanged. Wallets and indexers read the post-split share count through `balanceOfUI` and related views once `effectiveAt` passes.
 
 <RwaDisclaimer />
 
 <Warning>
-The routine path is `updateUIMultiplier`, not the deprecated `updateMultiplier`. `updateMultiplier` applies a value immediately and clears any pending update — use it only as an emergency override.
+The routine path is `updateUIMultiplier`. The deprecated `updateMultiplier` applies a value immediately and clears any pending update. Use it only as an emergency override.
 </Warning>
 
 ## Demo
@@ -24,7 +24,7 @@ The demo uses a local browser-generated account to submit real transactions on *
 </Tip>
 
 <Note>
-New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@be6d045`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
 
 ## How the Multiplier Works
@@ -38,51 +38,39 @@ Raw `balanceOf` is unchanged by a split. The multiplier changes only the derived
 | `totalSupplyUI()` | `totalSupply() * uiMultiplier() / 1e18` |
 | `toUIAmount(raw)` / `fromUIAmount(ui)` | Convert at the effective multiplier |
 
-The multiplier is an 18-decimal WAD: `1e18` is `1.0`. A 2-for-1 split uses `2e18`. A 1-for-2 reverse split uses `5e17`. Integer division rounds down, so a round trip through `toUIAmount` and `fromUIAmount` can lose up to one unit in the last place when `multiplier != 1e18`. Prefer 18 decimals for equities to keep that effect small.
+The multiplier is an 18-decimal WAD: `1e18` is `1.0`. A 2-for-1 split uses `2e18`. A 1-for-2 reverse split uses `5e17`. Integer division rounds down, so the rounding loss is confined to the scaled view and is at most one unit of the scaled amount. The raw-side difference on a round trip through `fromUIAmount` can be larger when the multiplier is below `1e18`. Prefer 18 decimals for stock tokens to keep that effect small.
 
 ## Schedule and Verify the Split Multiplier
 
-### Prerequisites
-
-- A B20 Asset you administer.
-- `DEFAULT_ADMIN_ROLE` to grant `OPERATOR_ROLE`.
-- A future `effectiveAt` timestamp and a `newMultiplier` in `(0, MAX_UI_MULTIPLIER]`.
-
-Only an account holding `OPERATOR_ROLE` may call `updateUIMultiplier`, `cancelUIMultiplierUpdate`, or `updateMultiplier`. Any other caller reverts `AccessControlUnauthorizedAccount`.
-
-### Grant `OPERATOR_ROLE` and schedule
+Only an account holding `OPERATOR_ROLE` may call `updateUIMultiplier`, `cancelUIMultiplierUpdate`, or `updateMultiplier`. Any other caller reverts `AccessControlUnauthorizedAccount`. The token created in [Create an Asset Token](/build-on-base/issue-rwa/create-an-asset-token) grants `OPERATOR_ROLE` to the deployer.
 
 <CodeGroup>
-```typescript TypeScript lines wrap expandable highlight={7,8}
+{/* sample: stock-split-ts */}
+```typescript TypeScript lines wrap expandable highlight={8}
 import { type Address } from "viem";
 import { publicClient } from "../../shared/clients.js";
 import { assetAbi } from "../abi.js";
 import { sendContract } from "../write.js";
 
-export async function scheduleTwoForOneSplit(token: Address, operator: Address) {
-  await sendContract({ address: token, abi: assetAbi, functionName: "grantRole",
-    args: [await publicClient.readContract({ address: token, abi: assetAbi, functionName: "OPERATOR_ROLE" }), operator] });
-  const effectiveAt = BigInt(Math.floor(Date.now() / 1000) + 86400); // 1 day from now
-  await sendContract({ address: token, abi: assetAbi, functionName: "updateUIMultiplier",
-    args: [2n * 10n ** 18n, effectiveAt] });
-  const newMultiplier = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "newUIMultiplier" });
-  if (newMultiplier !== 2n * 10n ** 18n) throw new Error("Split not scheduled");
+export async function scheduleTwoForOneSplit(token: Address) {
+  const effectiveAt = BigInt(Math.floor(Date.now() / 1000) + 86_400);
+  await sendContract({ address: token, abi: assetAbi, functionName: "updateUIMultiplier", args: [2n * 10n ** 18n, effectiveAt] });
+  const pending = await publicClient.readContract({ address: token, abi: assetAbi, functionName: "newUIMultiplier" });
+  if (pending !== 2n * 10n ** 18n) throw new Error("Split was not scheduled");
   return effectiveAt;
 }
 ```
-```solidity Solidity lines wrap expandable highlight={3,4}
-function scheduleAndVerifySplit(address token, address operator) public returns (uint256 scheduled) {
-    IB20Asset(token).grantRole(IB20Asset(token).OPERATOR_ROLE(), operator);
-    uint256 effectiveAt = block.timestamp + 1 days;
+{/* sample: stock-split-solidity */}
+```solidity Solidity lines wrap expandable highlight={3}
+function scheduleSplit(address token) public returns (uint256 effectiveAt) {
+    effectiveAt = block.timestamp + 1 days;
     IB20Asset(token).updateUIMultiplier(2e18, effectiveAt);
-    // While pending: uiMultiplier() is still 1e18, newUIMultiplier() is 2e18
     require(IB20Asset(token).newUIMultiplier() == 2e18, "split not scheduled");
-    return effectiveAt;
+    require(IB20Asset(token).effectiveAt() == effectiveAt, "effectiveAt mismatch");
 }
 ```
+{/* sample: stock-split-cli */}
 ```bash CLI lines wrap expandable highlight={2}
-base-cast send "$TOKEN_ADDRESS" "grantRole(bytes32,address)" "$OPERATOR_ROLE" "$OPERATOR" \
-  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
 EFFECTIVE_AT=$(( $(date +%s) + 86400 ))
 base-cast send "$TOKEN_ADDRESS" "updateUIMultiplier(uint256,uint256)" 2000000000000000000 "$EFFECTIVE_AT" \
   --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
@@ -90,21 +78,21 @@ base-cast call "$TOKEN_ADDRESS" "newUIMultiplier()(uint256)" --rpc-url "$RPC_URL
 ```
 </CodeGroup>
 
-On success, the asset emits `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)`. That event fires when the update is **recorded**, not when the multiplier becomes active.
+On success, the asset emits `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)`. That event fires when the update is recorded, not when the multiplier becomes active.
 
-### Read the live pending state
+### Read the Live Pending State
 
-```solidity Solidity
-asset.uiMultiplier();     // still the old (current) multiplier
+```solidity Title Read the pending state
+asset.uiMultiplier();     // still the current multiplier
 asset.newUIMultiplier();  // scheduled target
 asset.effectiveAt();      // flip timestamp
 ```
 
 A second `updateUIMultiplier` while a pending update is live reverts `UIMultiplierUpdateExists`. To replace a pending update, cancel first, then reschedule.
 
-### Confirm after `effectiveAt`
+### Confirm After the Effective Time
 
-When `block.timestamp >= effectiveAt`, `uiMultiplier()` returns the new multiplier. Maturation does **not** emit an event and does **not** write storage. Do not wait for a second event at the flip.
+When `block.timestamp >= effectiveAt`, `uiMultiplier()` returns the new multiplier. Maturation emits no event. Do not wait for a second event at the flip.
 
 <Check>
 `uiMultiplier()` returns `2e18` at or after `effectiveAt`. Raw `balanceOf` stays unchanged. `balanceOfUI` doubles.
@@ -114,29 +102,29 @@ When `block.timestamp >= effectiveAt`, `uiMultiplier()` returns the new multipli
 
 Call before `effectiveAt` to discard the pending split:
 
-```solidity Solidity
+```solidity Title Cancel the pending update
 asset.cancelUIMultiplierUpdate();
 ```
 
-Emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`. Calling with no live pending (including after maturity) reverts `UIMultiplierUpdateDoesNotExist`.
+Emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`. Calling with no live pending update, including after maturity, reverts `UIMultiplierUpdateDoesNotExist`.
 
 To cancel and reschedule atomically, wrap both calls in `announce`:
 
-```solidity Solidity lines wrap
+```solidity Title Cancel and reschedule in one announcement wrap
 bytes[] memory calls = new bytes[](2);
 calls[0] = abi.encodeCall(IB20Asset.cancelUIMultiplierUpdate, ());
 calls[1] = abi.encodeCall(IB20Asset.updateUIMultiplier, (secondMultiplier, secondEffectiveAt));
-asset.announce(calls, "reorder-2026-Q3", "reorder split", "https://disclosures.example/");
+asset.announce(calls, "2026-split-02", "Rescheduled 2-for-1 stock split", "https://example.com/corporate-actions/2026-split-02");
 ```
 
 ## Emergency Override
 
-Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and you cannot wait for `effectiveAt`. It applies the value immediately and clears any pending update.
+Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and you cannot wait for `effectiveAt`. It applies the value immediately and clears any pending update. The interface guarantees that it emits both `MultiplierUpdated` and `UIMultiplierUpdated`. The base-std stock-split guide documents the sequence as:
 
 | Situation | Events (in order) |
 | --- | --- |
-| Live pending (`effectiveAt > block.timestamp`) | `UIMultiplierUpdateCancelled`, then `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, block.timestamp)` |
-| Matured or no pending | `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, block.timestamp)` |
+| Live pending (`effectiveAt > block.timestamp`) | `UIMultiplierUpdateCancelled`, then `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, effectiveAtTimestamp)` |
+| Matured or no pending | `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, effectiveAtTimestamp)` |
 
 `MultiplierUpdated` is deprecated. Process only `UIMultiplierUpdated` to avoid handling the same update twice.
 
@@ -146,7 +134,7 @@ Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and yo
 - If `effectiveAtTimestamp > block.timestamp`, treat the update as pending until that time.
 - Maturation emits nothing. Do not wait for a second event at the flip.
 - On `UIMultiplierUpdateCancelled`, discard the pending update.
-- Detect a live pending with `effectiveAt() > block.timestamp`. Do **not** check `effectiveAt() == 0`.
+- Detect a live pending update with `effectiveAt() > block.timestamp`. Do not check `effectiveAt() == 0`.
 
 ## Common Errors
 
@@ -156,8 +144,8 @@ Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and yo
 | `InvalidMultiplier()` | `newMultiplier` is zero or above `MAX_UI_MULTIPLIER`. | Pass a value in `(0, MAX_UI_MULTIPLIER]`. |
 | `EffectiveAtInPast(effectiveAt)` | `effectiveAt <= block.timestamp`. | Pass a strictly future timestamp. |
 | `EffectiveAtTooFar(effectiveAt)` | `effectiveAt > type(uint64).max`. | Pass a timestamp that fits in `uint64`. |
-| `UIMultiplierUpdateExists(effectiveAt)` | A live pending update already exists. | Cancel first, or cancel-then-reschedule in one `announce`. |
-| `UIMultiplierUpdateDoesNotExist()` | `cancelUIMultiplierUpdate` with no live pending (including after maturity). | Call only while `effectiveAt() > block.timestamp`. |
+| `UIMultiplierUpdateExists(effectiveAt)` | A live pending update already exists. | Cancel first, or cancel and reschedule in one `announce`. |
+| `UIMultiplierUpdateDoesNotExist()` | `cancelUIMultiplierUpdate` with no live pending update, including after maturity. | Call only while `effectiveAt() > block.timestamp`. |
 | `AnnouncementIdAlreadyUsed(id)` | `announce` reused an `id`. | Choose a new single-use `id`. |
 | `InternalCallFailed(call)` | An inner call in `announce` reverted. | Fix the encoded calldata and retry. |
 

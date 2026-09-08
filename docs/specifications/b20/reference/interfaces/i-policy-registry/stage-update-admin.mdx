@@ -14,14 +14,7 @@ function stageUpdateAdmin(uint64 policyId, address newAdmin) external;
 | Selector | `0x1d7ae695` |
 | Canonical signature | `stageUpdateAdmin(uint64,address)` |
 
-## Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| `policyId` | `uint64` | Policy whose admin is being staged. |
-| `newAdmin` | `address` | Proposed new admin. Pass `address(0)` to clear a nomination that has not been finalized. |
-
-## Behavior
+## Description
 
 Nominates `newAdmin` as the pending admin for `policyId`. The current admin does not change. `policyAdmin(policyId)` still returns the current admin. `pendingPolicyAdmin(policyId)` returns `newAdmin`.
 
@@ -31,23 +24,30 @@ Passing `address(0)` as `newAdmin` clears any previously staged nomination witho
 
 Emits `PolicyAdminStaged(policyId, currentAdmin, pendingAdmin)`.
 
-## Access Control
+## Parameters
 
-Callable only by the current policy admin for `policyId`. Any other caller reverts `Unauthorized`.
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy whose admin is being staged. |
+| `newAdmin` | `address` | Proposed new admin. Pass `address(0)` to clear a nomination that has not been finalized. |
 
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
 | `PolicyNotFound()` | `policyId` does not exist in the registry. |
 | `Unauthorized()` | Caller is not the current admin of `policyId`. |
 
+## Access Control
+
+Callable only by the current policy admin for `policyId`. Any other caller reverts `Unauthorized`.
+
 ## Example
 
 ```solidity Title Admin handoff
-// Step 1 — current admin nominates a successor
+// Step 1: current admin nominates a successor
 IPolicyRegistry(registry).stageUpdateAdmin(policyId, nextAdmin);
 
-// Step 2 — nextAdmin finalizes (separate transaction, called by nextAdmin)
+// Step 2: nextAdmin finalizes (separate transaction, called by nextAdmin)
 IPolicyRegistry(registry).finalizeUpdateAdmin(policyId);
 ```

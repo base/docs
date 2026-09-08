@@ -14,6 +14,16 @@ function updateBlocklist(uint64 policyId, bool blocked, address[] calldata accou
 | Selector | `0x5c4e51b8` |
 | Canonical signature | `updateBlocklist(uint64,bool,address[])` |
 
+## Description
+
+Sets each address in `accounts` to the membership state `blocked` within the identified BLOCKLIST policy. A BLOCKLIST authorizes any account that is **not** in the set, so adding an account (`blocked = true`) causes `isAuthorized` to return `false` for that account, and removing it (`blocked = false`) restores authorization.
+
+The change takes effect on the next `isAuthorized` query. Every token and composite policy that references `policyId` sees the updated result immediately, no second `updatePolicy` call is needed on any token.
+
+Batches are capped by the registry, currently at 64 accounts. A larger batch reverts `BatchSizeTooLarge(maxBatchSize)`, which carries the limit.
+
+Emits `BlocklistUpdated(policyId, updater, blocked, accounts)` on success.
+
 ## Parameters
 
 | Name | Type | Description |
@@ -22,21 +32,7 @@ function updateBlocklist(uint64 policyId, bool blocked, address[] calldata accou
 | `blocked` | `bool` | Membership state to apply to every account in the batch. `true` adds accounts to the blocklist; `false` removes them. |
 | `accounts` | `address[]` | Accounts to update. Capped at 64 per call. |
 
-## Behavior
-
-Sets each address in `accounts` to the membership state `blocked` within the identified BLOCKLIST policy. A BLOCKLIST authorizes any account that is **not** in the set, so adding an account (`blocked = true`) causes `isAuthorized` to return `false` for that account, and removing it (`blocked = false`) restores authorization.
-
-The change takes effect on the next `isAuthorized` query. Every token and composite policy that references `policyId` sees the updated result immediately — no second `updatePolicy` call is needed on any token.
-
-Batches are capped at `64` accounts (`MAX_BATCH_SIZE`). Exceeding this limit reverts with `BatchSizeTooLarge`.
-
-Emits `BlocklistUpdated(policyId, updater, blocked, accounts)` on success.
-
-## Access Control
-
-Callable only by the current admin of `policyId`. Any other caller reverts `Unauthorized`.
-
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -45,12 +41,21 @@ Callable only by the current admin of `policyId`. Any other caller reverts `Unau
 | `IncompatiblePolicyType()` | The policy is not a `BLOCKLIST`. |
 | `BatchSizeTooLarge(maxBatchSize)` | `accounts.length` exceeds 64. |
 
+## Access Control
+
+Callable only by the current admin of `policyId`. Any other caller reverts `Unauthorized`.
+
 ## Example
 
-```solidity Title Add accounts to a blocklist
+```solidity Title Add accounts to a blocklist lines wrap expandable highlight={5,10}
 // Add two addresses to an existing BLOCKLIST policy.
-IPolicyRegistry(registry).updateBlocklist(sanctionsId, true, [Carol, Dave]);
+address[] memory blocked = new address[](2);
+blocked[0] = carol;
+blocked[1] = dave;
+IPolicyRegistry(registry).updateBlocklist(sanctionsId, true, blocked);
 
-// Remove Carol from the blocklist.
-IPolicyRegistry(registry).updateBlocklist(sanctionsId, false, [Carol]);
+// Remove carol from the blocklist.
+address[] memory unblocked = new address[](1);
+unblocked[0] = carol;
+IPolicyRegistry(registry).updateBlocklist(sanctionsId, false, unblocked);
 ```

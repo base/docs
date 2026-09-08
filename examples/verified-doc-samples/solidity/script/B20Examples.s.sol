@@ -142,10 +142,11 @@ contract B20Examples is Script {
     // docs:end stock-dividend-solidity
 
     // docs:start stock-split-solidity
-    function splitStock(address token, address holder) public returns (uint256 scaledBalance) {
-        IB20Asset(token).updateMultiplier(2e18);
-        require(IB20Asset(token).multiplier() == 2e18, "multiplier not updated");
-        scaledBalance = IB20Asset(token).scaledBalanceOf(holder);
+    function scheduleSplit(address token) public returns (uint256 effectiveAt) {
+        effectiveAt = block.timestamp + 1 days;
+        IB20Asset(token).updateUIMultiplier(2e18, effectiveAt);
+        require(IB20Asset(token).newUIMultiplier() == 2e18, "split not scheduled");
+        require(IB20Asset(token).effectiveAt() == effectiveAt, "effectiveAt mismatch");
     }
     // docs:end stock-split-solidity
 }

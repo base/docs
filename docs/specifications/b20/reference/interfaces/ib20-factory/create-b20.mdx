@@ -16,9 +16,17 @@ function createB20(B20Variant variant, bytes32 salt, bytes calldata params, byte
 
 ## Description
 
-Creates a B20 token of the given `variant` at the deterministic address derived from `(variant, msg.sender, salt)`. The Factory encodes the variant choice into the token address: byte `[0]` is `0xB2`, byte `[10]` is the variant discriminant (`0x00` for Asset, `0x01` for Stablecoin). The Factory then plants a `0xef` bytecode stub at that address — the stub the node reads to recognize a live B20 — seals the token's identity (name, symbol, decimals, and variant-specific fields), emits `B20Created`, grants the initial admin role (skipped when `address(0)` is passed), and dispatches each entry in `initCalls` on the new token. Returns the token address.
+Creates a B20 token of the given `variant` at the deterministic address derived from `(variant, msg.sender, salt)`. The Factory encodes the variant choice into the token address: byte `[0]` is `0xB2`, byte `[10]` is the variant discriminant (`0x00` for Asset, `0x01` for Stablecoin). The Factory then plants a `0xef` bytecode stub at that address, the stub the node reads to recognize a live B20, seals the token's identity (name, symbol, decimals, and variant-specific fields), emits `B20Created`, grants the initial admin role (skipped when `address(0)` is passed), and dispatches each entry in `initCalls` on the new token. Returns the token address.
 
 The type is chosen once. After `createB20` returns, the variant encoded in the address cannot change. The Factory retains no persisted access after the call returns.
+
+During the `createB20` call, factory-originated calls bypass the token's role gates and its transfer-side policy gates (`TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`, `TRANSFER_EXECUTOR_POLICY`). This lets `initCalls` perform admin setup, `grantRole`, `updatePolicy`, `updateSupplyCap`, bootstrap transfers, without the Factory holding any role. The bypass is not total:
+
+- **`MINT_RECEIVER_POLICY` is always enforced**, including for factory-originated mints. An `initCalls` bundle that sets a restrictive `MINT_RECEIVER_POLICY` and then mints to a non-authorized account reverts `PolicyForbids(MINT_RECEIVER_POLICY, ...)`, bubbled out of `createB20`.
+- **Pause is never bypassed.** Pause defaults to nothing-paused at creation. To start paused, sequence the `pause(...)` call last among `initCalls`.
+- **Token invariants are never bypassed.** Supply-cap math and balance accounting always apply.
+
+The window closes when `createB20` returns.
 
 ## Parameters
 
@@ -35,7 +43,7 @@ The type is chosen once. After `createB20` returns, the variant encoded in the a
 |---|---|---|
 | `token` | `address` | Address of the newly created token. |
 
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -43,21 +51,11 @@ The type is chosen once. After `createB20` returns, the variant encoded in the a
 | `FeatureNotActivated` | The variant feature (`B20Asset` or `B20Stablecoin`) is not activated in the Activation Registry. |
 | `InvalidVariant` | `variant` is outside the `B20Variant` range. |
 | `UnsupportedVersion` | The leading `version` byte in `params` is unrecognized for the given `variant`. |
-| `MissingRequiredField` | A required string field is empty — for example, Stablecoin `currency`. |
+| `MissingRequiredField` | A required string field is empty: for example, Stablecoin `currency`. |
 | `InvalidCurrency` | Stablecoin `currency` is non-empty but contains a byte outside `A`–`Z`. |
 | `InvalidDecimals` | Asset `decimals` is outside `[B20Constants.MIN_ASSET_DECIMALS, B20Constants.MAX_ASSET_DECIMALS]` (i.e., outside `[6, 18]`). |
 | `TokenAlreadyExists` | A token already exists at the derived address. Reusing `(variant, sender, salt)` always hits this. |
 | `InitCallFailed` | An entry in `initCalls` reverted. The inner reason is bubbled when available. |
-
-## Bootstrap Window
-
-During the `createB20` call, factory-originated calls bypass the token's role gates and its transfer-side policy gates (`TRANSFER_SENDER_POLICY`, `TRANSFER_RECEIVER_POLICY`, `TRANSFER_EXECUTOR_POLICY`). This lets `initCalls` perform admin setup — `grantRole`, `updatePolicy`, `updateSupplyCap`, bootstrap transfers — without the Factory holding any role. The bypass is not total:
-
-- **`MINT_RECEIVER_POLICY` is always enforced**, including for factory-originated mints. An `initCalls` bundle that sets a restrictive `MINT_RECEIVER_POLICY` and then mints to a non-authorized account reverts `PolicyForbids(MINT_RECEIVER_POLICY, ...)`, bubbled out of `createB20`.
-- **Pause is never bypassed.** Pause defaults to nothing-paused at creation. To start paused, sequence the `pause(...)` call last among `initCalls`.
-- **Token invariants are never bypassed.** Supply-cap math and balance accounting always apply.
-
-The window closes when `createB20` returns.
 
 ## Access Control
 

@@ -25,15 +25,7 @@ Mints `amounts[i]` to `recipients[i]` in one call. All-or-nothing: any element r
 | `recipients` | `address[]` | Accounts receiving the minted tokens. |
 | `amounts` | `uint256[]` | Per-recipient amounts, parallel to `recipients`. |
 
-## Access Control
-
-Caller must hold `MINT_ROLE`. Reverts `AccessControlUnauthorizedAccount` otherwise.
-
-## Policy Interaction
-
-Each recipient must pass `MINT_RECEIVER_POLICY`. Reverts `PolicyForbids(MINT_RECEIVER_POLICY, ...)` for any recipient that does not.
-
-## Revert Conditions
+## Reverts
 
 | Error | Condition |
 |---|---|
@@ -45,9 +37,17 @@ Each recipient must pass `MINT_RECEIVER_POLICY`. Reverts `PolicyForbids(MINT_REC
 | `PolicyForbids(MINT_RECEIVER_POLICY, ...)` | Any recipient is not authorized by the mint receiver policy. |
 | `SupplyCapExceeded` | Cumulative mint would exceed the supply cap. |
 
+## Access Control
+
+Caller must hold `MINT_ROLE`. Reverts `AccessControlUnauthorizedAccount` otherwise.
+
+## Policy Interaction
+
+Each recipient must pass `MINT_RECEIVER_POLICY`. Reverts `PolicyForbids(MINT_RECEIVER_POLICY, ...)` for any recipient that does not.
+
 ## Example
 
-```solidity Title Usage Example
+```solidity Title Usage Example lines wrap expandable highlight={9}
 address[] memory recipients = new address[](2);
 recipients[0] = holderA;
 recipients[1] = holderB;
