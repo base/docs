@@ -1,92 +1,49 @@
 ---
 title: "Troubleshooting"
-description: "Diagnose validity transaction submission, predicate, expiry, funding, and inclusion issues."
+description: "Diagnose validity transaction submission, expiry, funding, and inclusion issues."
 tag: "Soon"
 ---
 
-Use the returned transaction hash, [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus), and [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to distinguish submission problems from inclusion problems.
+A successful submission returns a transaction hash, but it does not guarantee inclusion. Validity transactions do not expose a public pending-status, event, log, or trace API. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm onchain inclusion.
 
-## RPC Method Not Found
+## RPC Method Is Unavailable
 
-**Symptom:** The endpoint returns JSON-RPC error `-32601` or reports that `base_sendRawTransactionValidity` is unavailable.
+**Likely cause:** The endpoint or network does not support experimental validity transactions.
 
-**Likely cause:** The endpoint or network does not have experimental validity transactions enabled.
+**Resolution:** Use vibenet while the feature is in preview. Mainnet and Base Sepolia support is planned with the Cobalt hardfork. The method is not allowlisted, but standard transaction-submission rate limits apply.
 
-**Resolution:** Use only an endpoint that explicitly lists support for the method. Standard Base RPC endpoints may not expose experimental methods during a limited preview.
+## Submission Fails
 
-## Invalid Parameters
+Ensure that the transaction is a valid signed EIP-8130 transaction and that every predicate uses a supported type and operator.
 
-### Malformed Serialized Transaction
+- Supported predicate types are `balance`, `storage`, `block_number`, and `flashblock_index`.
+- Supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`.
+- All predicates must be satisfied at the same candidate insertion point.
+- The first call phase must contain a single ETH transfer to the Sequencer Fee Vault.
 
-The first parameter must be one signed, serialized EIP-8130 transaction encoded as a `0x`-prefixed hex string. A structured transaction object is not accepted in its place.
+The published API does not yet define a stable error catalog. Record the exact JSON-RPC error returned by the endpoint when escalating an issue.
 
-Recreate and sign the transaction with the supported EIP-8130 client before calling the validity RPC.
+## Transaction Was Submitted but Not Included
 
-### Invalid Predicate Shape
+A transaction can remain unincluded when:
 
-Each predicate must contain a supported `type` and a nested `params` object. Common mistakes include:
+- One or more predicates are false.
+- Another transaction has a higher priority score.
+- The builder skips validity transactions for the remainder of a Flashblock under rare conditions, such as heavy transaction load.
+- The transaction is replaced by another transaction with the same nonce.
+- Its EIP-8130 expiry passes before inclusion.
 
-- Using `slot` as the predicate type instead of `storage`.
-- Omitting `address` from a `balance` or `storage` predicate.
-- Putting `block_number` and `flashblock_index` in the same predicate object.
-- Encoding quantities as decimal strings instead of `0x`-prefixed quantities.
-- Adding fields that are not supported by the selected predicate type.
-
-### Storage Value Outside the Mask
-
-For a storage predicate, every bit set in `value` must also be allowed by `mask`.
-
-For example, `mask: "0xff"` cannot be compared with `value: "0x1ff"`. Expand the mask or correct the expected value.
-
-### Unsatisfiable Position Predicate
-
-A Flashblock or block-number upper bound can already be in the past when the transaction is submitted. Recompute the target position and sign a new transaction with an updated EIP-8130 validity window.
-
-## Transaction Is Known but Not Included
-
-A `Known` status confirms that the endpoint recognizes the hash. It does not confirm that:
-
-- Every predicate currently matches.
-- The transaction has the highest priority score.
-- The transaction fits within current block limits.
-- The EIP-8130 validity window remains open.
-
-Check the observed balance, storage value, block number, and Flashblock index. Also confirm that `maxFeePerGas` can cover the current base fee and that the account can fund both gas and its network tip.
-
-## Transaction Status Is Unknown
-
-An `Unknown` response is not a detailed terminal status. Depending on the endpoint, it can mean that the transaction was never received, is no longer retained, expired, was replaced, or was evicted.
-
-Confirm that the submission returned the expected hash, then query the transaction receipt and explorer before submitting a replacement.
-
-## Predicate Matched but the Transaction Did Not Land
-
-Predicate satisfaction makes a transaction eligible; it does not reserve blockspace. The transaction can still lose to a higher priority score, become invalid after another state change, or expire before selection.
-
-Use a validity window that covers the expected opportunity and a network tip appropriate for the transaction's gas limit and urgency.
+After each transaction, the builder evaluates predicates again. A transaction whose predicate becomes true can compete for inclusion immediately in the same Flashblock, but it is not guaranteed blockspace.
 
 ## Transaction Expired
 
-An EIP-8130 transaction cannot be included after its upper validity bound. A block-number or Flashblock upper-bound predicate can also become permanently unsatisfiable.
+EIP-8130 expiry is evaluated against canonical block time. There is no minimum expiry. The current target maximum and default are 60 seconds, but this can change; set an explicit expiry in every transaction.
 
-Expired transactions cannot be refreshed because changing the validity window changes the signed transaction. Construct, sign, and submit a replacement.
-
-## Included Transaction Reverted
-
-Validity predicates do not guarantee successful application execution. Inspect the EIP-8130 receipt's per-phase results and trace the failing call where tracing is available.
-
-Remember that completed earlier phases persist. A first-phase network tip can remain paid even when a later action phase reverts.
+An expired transaction cannot be refreshed. Construct, sign, and submit a replacement with a new expiry. The replacement must increase `maxFeePerGas` by at least 10%, while `priorityFeePerGas` remains `0`.
 
 ## Insufficient Funds
 
-Confirm that the sender or payer can cover:
-
-- The transaction's maximum execution cost.
-- Any EIP-8130 account setup or authentication cost.
-- The first-phase network tip.
-- Any value transferred by later application phases.
-
-If the balances change while the transaction waits, a previously affordable transaction may no longer execute successfully.
+Confirm that the transaction can pay normal execution fees, its ETH network tip, and any ETH value sent by its application calls. A transaction that never lands onchain pays no fees.
 
 ## Get Help
 

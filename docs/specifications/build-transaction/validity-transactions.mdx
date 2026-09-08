@@ -1,13 +1,13 @@
 ---
 title: "Validity Transactions"
-description: "Learn how validity transactions use inclusion conditions to control when a transaction can be included on Base."
+description: "Use EIP-8130 transactions with conditions that control when they can be included on Base."
 tag: "Soon"
 ---
 
-Validity transactions let you submit one signed, time-bounded EIP-8130 transaction with conditions that control when it becomes eligible for inclusion. They are designed for actions that are useful only within a short window or after a specific state change, such as backruns, liquidations, and conditional orders.
+Validity transactions let you submit a signed, time-bounded EIP-8130 transaction with conditions that control when it is eligible for inclusion. They are intended for time-sensitive, state-dependent actions such as backruns, liquidations, and conditional orders.
 
 <Warning>
-Validity transactions are experimental. Supported networks, RPC endpoints, validity-window bounds, and limits will be published before the feature becomes generally available.
+Validity transactions are experimental. They are currently available only on vibenet. Mainnet and Base Sepolia support is planned with the Cobalt hardfork.
 </Warning>
 
 ## How Validity Transactions Work
@@ -16,84 +16,71 @@ A validity transaction combines three mechanisms:
 
 | Mechanism | Purpose |
 | --- | --- |
-| EIP-8130 validity window | Sets the earliest and latest time at which the signed transaction can execute. |
+| EIP-8130 expiry | Limits how long the signed transaction can be included. Expiry is compared with canonical block time. |
 | Validity predicates | Keep the transaction ineligible until conditions on state or block position are satisfied. |
 | Network tip | Contributes to the transaction's priority score when it competes for inclusion. |
 
 <Steps>
 <Step title="Construct and Sign">
-Construct an [EIP-8130 transaction](/specifications/native-account-abstraction) with a short validity window. Put the sequencer tip in the first phase and the application actions in later phases.
+Construct and sign an [EIP-8130 transaction](/specifications/native-account-abstraction). Its first call phase must contain one ETH transfer to the Sequencer Fee Vault; later phases contain the application actions.
 </Step>
 
 <Step title="Submit with Conditions">
-Submit the serialized transaction through `base_sendRawTransactionValidity`, along with its validity predicates.
+Submit the serialized transaction through `base_sendRawTransactionValidity` with its validity predicates. The method follows `eth_sendRawTransaction` submission semantics.
 </Step>
 
 <Step title="Wait for Eligibility">
-The builder checks the predicates against the block state and position it is currently building. If any predicate is false, the transaction is skipped without stopping normal block building.
-</Step>
-
-<Step title="Re-evaluate After Changes">
-When an earlier transaction changes relevant state, a skipped validity transaction can be evaluated again. If every predicate now matches, it becomes eligible immediately.
+The builder checks predicates after each transaction. If any predicate is false, the validity transaction is skipped and normal block building continues.
 </Step>
 
 <Step title="Include or Expire">
-An eligible transaction competes for inclusion using its priority score. If it is not included before its EIP-8130 validity window closes, it expires without executing.
+Once every predicate matches, the transaction can compete for inclusion by priority. It expires without executing if it is not included before its EIP-8130 expiry.
 </Step>
 </Steps>
 
-## Why Use Validity Transactions
+## Availability and Limits
 
-### Application Developers
+Validity transactions are not allowlisted. They are subject to Base's standard transaction-submission rate limits, which are not currently documented and may change.
 
-Replace speculative probe transactions with one conditional submission. This reduces failed or unnecessary transactions during periods of fast-changing state, including market volatility.
-
-### Searchers and Market Makers
-
-Express state-dependent backruns and price the opportunity through a network tip. A transaction can remain dormant until an exchange rate, balance, storage value, block number, or Flashblock position matches its requirements.
-
-### Infrastructure and Service Providers
-
-Wrap a standard RPC submission flow for applications that need conditional, replaceable, time-bounded transactions without building a separate transaction execution system.
+There is no minimum expiry. The current target maximum and default are 60 seconds, but this is configurable; provide an explicit expiry in every transaction. The planned predicate limit is approximately 16 predicates per transaction and remains subject to change.
 
 ## Lifecycle
 
 | State | Meaning |
 | --- | --- |
-| Submitted | The RPC accepted the serialized transaction and its predicates. |
-| Ineligible | At least one predicate does not match the current build state or position. |
+| Submitted | The RPC accepts the signed transaction and predicates. |
+| Ineligible | At least one predicate does not match at the current candidate insertion point. |
 | Eligible | Every predicate matches and the transaction can compete for inclusion. |
-| Included | The transaction was selected and executed in a block or Flashblock. |
-| Expired | Its time or position bounds can no longer be satisfied. |
-| Replaced | Another transaction superseded the submitted transaction under the applicable replay or nonce rules. |
-| Evicted | Infrastructure removed the transaction before inclusion. |
+| Included | The transaction executes onchain. |
+| Expired | Its EIP-8130 expiry has passed. |
+| Replaced | A transaction with the same nonce supersedes it under `eth_sendRawTransaction` semantics. |
 
 <Note>
-Eligibility does not guarantee inclusion. An eligible transaction can still lose to higher-priority transactions, exceed a block limit, fail validation, be replaced, or reach the end of its validity window.
+Eligibility does not guarantee inclusion. A transaction can lose to a higher-priority transaction, be skipped during heavy load, be replaced, or expire before it is selected.
 </Note>
 
-## Privacy and Normal Block Building
+## Privacy and Block Building
 
-Validity submissions are not propagated through ordinary public transaction gossip before inclusion. They are still visible to the RPC, mempool, builder, and infrastructure services that process them.
+Like other transactions in Base's private mempool, a validity transaction is visible after inclusion in a block. Its additional validity criteria are not recorded onchain.
 
-An ineligible validity transaction does not block eligible ordinary transactions. The builder skips it and continues normal block construction, so validity transactions add conditional behavior without changing the chain's ability to build a block.
+An ineligible validity transaction does not block ordinary transactions. The builder skips it and continues normal block construction. Under rare conditions such as heavy transaction load, validity transactions can be skipped for the remainder of a Flashblock.
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Build a Validity Transaction" href="/specifications/build-transaction/build-a-validity-transaction" icon="hammer">
-    Construct, sign, submit, and monitor a validity transaction.
+    Prepare and submit a validity transaction.
   </Card>
   <Card title="base_sendRawTransactionValidity" href="/specifications/build-transaction/base_sendRawTransactionValidity" icon="code">
-    Review the complete JSON-RPC request, response, predicate, and error reference.
+    Review the submission semantics and predicate schema.
   </Card>
   <Card title="Predicates and Safety" href="/specifications/build-transaction/predicates-and-safety" icon="shield-check">
     Learn the supported conditions and their safety considerations.
   </Card>
   <Card title="Fees, Ordering, and Lifecycle" href="/specifications/build-transaction/fees-ordering-and-lifecycle" icon="arrow-down-1-9">
-    Understand priority scores, re-evaluation, fees, and terminal states.
+    Understand priority, re-evaluation, and fees.
   </Card>
   <Card title="Troubleshooting" href="/specifications/build-transaction/troubleshooting" icon="screwdriver-wrench">
-    Diagnose submission, predicate, expiry, and inclusion issues.
+    Diagnose submission, expiry, and inclusion issues.
   </Card>
 </CardGroup>

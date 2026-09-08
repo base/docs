@@ -1,105 +1,54 @@
 ---
 title: "Fees, Ordering, and Lifecycle"
-description: "Understand how validity transactions are prioritized, priced, evaluated, and included on Base."
+description: "Understand how validity transactions are prioritized, evaluated, and included on Base."
 tag: "Soon"
 ---
 
-Validity transactions participate in the same block-building process as ordinary transactions, but can use an explicit network tip and predicates that control when they are eligible.
+Validity transactions participate in normal block building, but predicates control when they are eligible and a network tip determines their priority.
 
 <Warning>
-The formulas and examples on this page describe the planned validity-transaction model. Network parameters and operational limits may change before general availability.
+Validity transactions are experimental. The current parameters and operational limits may change before general availability.
 </Warning>
 
 ## Priority Score
 
-The builder compares ordinary and validity transactions using a unified tip-per-gas score:
+The builder orders transactions by priority:
 
 | Transaction | Priority score |
 | --- | --- |
-| Validity transaction with a recognized network tip | `network tip / gas limit` |
-| Ordinary transaction | `effective priority fee per gas` |
+| Validity transaction | `tip / tx.gasLimit` |
+| Ordinary transaction | `priorityFeePerGas` |
 
-The underlying EIP-8130 transaction must still set fee fields that can cover the current base fee. A network tip does not make an otherwise underpriced transaction executable.
-
-### Tie-Breaking
-
-When transactions have the same priority score, the transaction with fewer validity predicates is ranked first. An ordinary transaction has no validity predicates, so it wins an equal-score tie against a validity transaction.
-
-Arrival time and transaction hash may provide further deterministic ordering when both the score and predicate count are equal.
+When transactions have the same priority score, the transaction with fewer predicates is ranked first. Ordinary transactions have no predicates, so they win an equal-priority tie against validity transactions.
 
 ## Eligibility and Re-evaluation
 
-Transactions are considered in priority order, but predicates decide whether a validity transaction is eligible at its candidate insertion point.
+The builder enforces descending priority order within a Flashblock, except when a validity transaction is delayed because its predicates are not satisfied.
 
-1. The builder evaluates the highest-ranked candidate.
-2. If all of its predicates match, it can be included.
-3. If a predicate does not match, the builder skips the transaction and continues with the next eligible candidate.
-4. When an included transaction changes relevant state, skipped transactions affected by that change can be evaluated again.
+1. The builder evaluates a validity transaction at its candidate insertion point.
+2. If every predicate matches, the transaction can be included.
+3. If any predicate does not match, the builder skips it and continues with the next transaction.
+4. After each transaction, the builder checks predicates again. A skipped transaction can become eligible immediately after an earlier transaction changes relevant state.
 
-This allows a high-value backrun to remain dormant until an earlier transaction creates the state it requires.
+A transaction becoming eligible does not reserve blockspace. It can still lose to a higher-priority transaction, be skipped under heavy load for the remainder of a Flashblock, be replaced, or expire.
 
 ## Network Tip and Fees
 
-The network tip is encoded as a transfer to the Sequencer Fee Vault in the first EIP-8130 call phase. Later phases perform the application actions.
+The first call phase of an EIP-8130 validity transaction must contain a single ETH transfer to the Sequencer Fee Vault. This transfer is the network tip used for priority comparison. The precise transaction encoding remains subject to EIP-8130 finalization.
 
 | Outcome | Onchain fee behavior |
 | --- | --- |
-| Rejected before admission | The transaction does not execute and pays no Base network fee. |
-| Waiting for a predicate | The transaction has not executed and pays no Base network fee. |
-| Expires without inclusion | The transaction does not execute and pays no Base network fee. |
-| Included successfully | The sender or payer pays gas; the first-phase network tip is transferred. |
-| Included with a later phase failure | Gas is paid, completed earlier phases persist, and the first-phase network tip can remain paid. |
+| Not included | No fees are paid. This includes transactions that are rejected, waiting for predicates, expired, replaced, or skipped. |
+| Included | Normal onchain execution fees apply, and the network tip is transferred as part of the transaction. |
 
-RPC providers may apply separate commercial request or service charges that are not Base network fees.
+## Expiry and Replacement
 
-## Lifecycle
+Expiry is the EIP-8130 transaction expiry, evaluated against canonical block time. There is no minimum expiry. The current target maximum and default are 60 seconds, but the value can be reconfigured; set an explicit expiry rather than relying on the default.
 
-```text Lifecycle lines wrap expandable highlight={4-6,9}
-Submit
-  ├─ Reject
-  └─ Accept
-      ├─ Wait while predicates are false
-      ├─ Become eligible and compete for inclusion
-      │   ├─ Include
-      │   └─ Remain pending
-      ├─ Replace or evict
-      └─ Expire
-```
+Validity transactions use the same duplicate-submission, nonce, cancellation, replay, and replacement semantics as `eth_sendRawTransaction`. A replacement must increase `maxFeePerGas` by at least 10%. Set `priorityFeePerGas` to `0`; a replacement can raise or lower its network tip.
 
-Submission and predicate satisfaction never guarantee inclusion. Block limits, a higher-scoring transaction, validation failure, replacement, or expiry can prevent an otherwise eligible transaction from landing.
+## Example: A State-Dependent Backrun
 
-## Example: Arbitrage and a Resting Order
+A validity transaction can use a `storage` predicate to wait for an earlier transaction to update a contract slot. If the predicate is false, the builder skips the transaction and continues in priority order. After each later transaction, it evaluates the predicate again; if the slot now matches, the validity transaction can compete for immediate inclusion in the same Flashblock.
 
-Assume the normalized priority scores below are directly comparable. The initial USDC/WETH price is `1,985`, while an offchain venue prices WETH at `2,000`.
-
-| Candidate | Type | Priority score | Condition |
-| --- | --- | ---: | --- |
-| Buy WETH arbitrage | Validity | `5.00` | Price is at most `1,990` |
-| Resting sell order | Validity | `1.50` | Price is at least `2,030` |
-| Large user buy | Ordinary | `0.05` | None |
-
-Resulting order:
-
-1. The arbitrage has the highest score and its condition matches, so it lands first.
-2. The resting order is considered next, but its price condition is false, so it is skipped.
-3. The user buy lands and moves the price to approximately `2,040`.
-4. The state change causes the resting order to be evaluated again. Its condition now matches, so it can land immediately after the user buy in the same Flashblock.
-
-## Example: Oracle Update and Liquidations
-
-Two positions become liquidatable only after an oracle update.
-
-| Candidate | Type | Priority score | Condition |
-| --- | --- | ---: | --- |
-| Liquidation A | Validity | `4.00` | Oracle price is at most `X`; A has debt |
-| Oracle update | Ordinary | `0.05` | None |
-| Liquidation B | Ordinary | `0.03` | None |
-| Liquidation B | Validity | `0.03` | Oracle price is at most `X`; B has debt |
-
-Resulting order:
-
-1. Liquidation A is highest-ranked but initially ineligible, so it is skipped.
-2. The oracle update lands and makes both positions liquidatable.
-3. Liquidation A is evaluated again and lands next because of its higher score.
-4. The two B liquidations have equal scores. The ordinary transaction wins the tie because it has no predicates and clears B's debt.
-5. The validity version of liquidation B is evaluated again, fails its debt predicate, and remains unincluded until replacement, eviction, or expiry.
+The predicate does not guarantee inclusion or successful execution. The transaction must still have a competitive priority score, remain within its expiry, and pass normal transaction validation.

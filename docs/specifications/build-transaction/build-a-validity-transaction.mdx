@@ -1,184 +1,36 @@
 ---
 title: "Build a Validity Transaction"
-description: "Create, sign, submit, and monitor a validity transaction on Base."
+description: "Prepare, sign, and submit an EIP-8130 validity transaction on Base."
 tag: "Soon"
 ---
 
-This guide uses Viem to construct, sign, submit, and monitor an EIP-8130 transaction that becomes eligible when its sender has a positive ETH balance.
+This guide explains the confirmed transaction requirements for a validity transaction. Runnable Ethers and Viem examples will be published when the EIP-8130 transaction encoding and the experimental RPC schema are finalized.
 
 <Warning>
-Validity transactions are experimental. Use only a network and RPC endpoint that explicitly lists support for `base_sendRawTransactionValidity`.
+Validity transactions are experimental and currently available only on vibenet. Mainnet and Base Sepolia support is planned with the Cobalt hardfork.
 </Warning>
 
 ## Prerequisites
 
-Before submitting, you need:
+Before submitting a transaction, you need:
 
-- [Bun](https://bun.sh/) installed locally.
-- An RPC endpoint that supports EIP-8130 and `base_sendRawTransactionValidity`.
-- The endpoint's chain ID.
-- A development private key funded with enough ETH for gas, the network tip, and the application transfer.
+- A vibenet RPC endpoint that supports `base_sendRawTransactionValidity`.
+- An EIP-8130-compatible signer and transaction builder.
+- An account funded with enough ETH for normal execution fees, the network tip, and any ETH value sent by application calls.
 
 For EIP-8130 account and transaction concepts, see [Native Account Abstraction](/specifications/native-account-abstraction).
 
-## 1. Create the Project
+## 1. Construct the Transaction
 
-Install the EIP-8130 Viem branch and TypeScript runner:
+Create a signed EIP-8130 transaction with an explicit expiry. Expiry is evaluated against canonical block time. There is no minimum expiry; the current target maximum and default are 60 seconds, but this value may change.
 
-```bash Terminal lines wrap expandable highlight={3-4}
-mkdir validity-transaction-example
-cd validity-transaction-example
-bun init -y
-bun add "viem@github:chunter-cb/viem#24aa695819c535ca4eac941c34cf8614cc331b05"
-```
+Use the first call phase for exactly one ETH transfer to the Sequencer Fee Vault. Put application calls in later phases. The ETH transferred in the first phase is the network tip used to prioritize the validity transaction.
 
-Set the preview endpoint, chain ID, and funded development key:
+## 2. Define Validity Predicates
 
-```bash .env lines wrap expandable highlight={1-3}
-RPC_URL="https://your-validity-enabled-rpc.example"
-CHAIN_ID="84538453"
-PRIVATE_KEY="0xyour-funded-development-private-key"
-```
+Supply one or more predicates that describe the state or position required for inclusion. Every predicate must be true at the same candidate insertion point.
 
-Never use a production key in an experimental integration.
-
-## 2. Construct and Submit the Transaction
-
-Create `send-validity-transaction.ts`:
-
-```typescript send-validity-transaction.ts lines wrap expandable highlight={31-38,48-56,60-70}
-import {
-  createPublicClient,
-  defineChain,
-  http,
-  type Hex,
-} from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import {
-  encodeWalletCalls,
-  estimateGas,
-  prepareTransaction,
-  toEoaAccount,
-  waitForTransactionReceipt,
-} from "viem/eip8130";
-
-const rpcUrl = process.env.RPC_URL;
-const chainId = Number(process.env.CHAIN_ID);
-const privateKey = process.env.PRIVATE_KEY as Hex | undefined;
-
-if (!rpcUrl || !Number.isSafeInteger(chainId) || !privateKey) {
-  throw new Error("Set RPC_URL, CHAIN_ID, and PRIVATE_KEY in your environment.");
-}
-
-const chain = defineChain({
-  id: chainId,
-  name: "Base Validity Preview",
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [rpcUrl] } },
-});
-
-const client = createPublicClient({ chain, transport: http(rpcUrl) });
-const owner = privateKeyToAccount(privateKey);
-const account = toEoaAccount(owner);
-
-const sequencerFeeVault = "0x4200000000000000000000000000000000000011";
-const recipient = "0x000000000000000000000000000000000000dEaD";
-const validBefore = BigInt(Date.now() + 20_000);
-
-const calls = encodeWalletCalls({
-  account: account.address,
-  calls: [
-    [{ to: sequencerFeeVault, value: 10_000_000_000_000n }],
-    [{ to: recipient, value: 1n }],
-  ],
-});
-
-const estimatedGas = await estimateGas(client, {
-  sender: account.address,
-  calls,
-});
-
-const transaction = await prepareTransaction(client, {
-  account,
-  calls,
-  gas: (estimatedGas * 120n) / 100n,
-  validBefore,
-});
-
-const signedTransaction = await account.signTransaction(transaction);
-
-const hash = (await client.request({
-  // @ts-expect-error Experimental Base RPC method is not in Viem's standard schema.
-  method: "base_sendRawTransactionValidity",
-  params: [
-    signedTransaction,
-    {
-      validity: [
-        {
-          type: "balance",
-          params: { address: account.address, op: ">=", value: "0x1" },
-        },
-      ],
-    },
-  ],
-})) as Hex;
-
-console.log("Submitted:", hash);
-
-const receipt = await waitForTransactionReceipt(client, { hash, validBefore });
-console.log("Included in block:", receipt.blockNumber.toString());
-console.log("Phase statuses:", receipt.eip8130.phaseStatuses);
-```
-
-The transaction contains two phases:
-
-1. The first phase transfers the network tip to the Sequencer Fee Vault.
-2. The second phase transfers one wei to the burn address as the example application action.
-
-<Warning>
-Completed EIP-8130 phases persist if a later phase reverts. If the tip phase succeeds and an application phase fails, the tip can still be paid.
-</Warning>
-
-The balance predicate is true while the sender has at least one wei. Replace it with the application-specific conditions described in [Predicates and Safety](/specifications/build-transaction/predicates-and-safety).
-
-## 3. Run the Example
-
-Load the environment variables and run the script:
-
-```bash Terminal highlight={1-2}
-source .env
-bun run send-validity-transaction.ts
-```
-
-The script prints the transaction hash after the RPC accepts it. It then waits until the transaction is included or its EIP-8130 validity window closes.
-
-```text Expected Output
-Submitted: 0x6c783c4e4f9a65d1a36ef9c8f7f30104f615a8b4cb296d3a8b4f3c972f7c13e1
-Included in block: 12345678
-Phase statuses: [ "0x1", "0x1" ]
-```
-
-If the script reports insufficient funds, fund the address printed by `account.address` before running it again. If it reports that the RPC method does not exist, use a validity-enabled endpoint.
-
-## 4. Monitor the Transaction Separately
-
-Use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to check whether the transaction is known to the endpoint. A `Known` result does not mean the transaction is currently eligible.
-
-Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to detect inclusion. A `null` receipt means the transaction has not been included in a block visible to that endpoint.
-
-Stop waiting when:
-
-- A receipt is returned.
-- The EIP-8130 validity window closes.
-- Your application replaces or abandons the transaction.
-
-For the complete request schema and error responses, see [`base_sendRawTransactionValidity`](/specifications/build-transaction/base_sendRawTransactionValidity).
-
-## Use a Specific Flashblock Position
-
-Use separate `block_number` and `flashblock_index` predicates to constrain both values:
-
-```json Position Predicates lines wrap expandable highlight={4,11}
+```json Position Predicates lines wrap expandable highlight={5,12}
 {
   "validity": [
     {
@@ -199,4 +51,26 @@ Use separate `block_number` and `flashblock_index` predicates to constrain both 
 }
 ```
 
-Every predicate in the array must match at the same candidate insertion point.
+Supported predicate types are `balance`, `storage`, `block_number`, and `flashblock_index`. The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. The planned limit is approximately 16 predicates per transaction and remains subject to change.
+
+For predicate examples and safety guidance, see [Predicates and Safety](/specifications/build-transaction/predicates-and-safety).
+
+## 3. Submit the Signed Transaction
+
+Submit the serialized signed transaction and its predicates through `base_sendRawTransactionValidity`. A successful response returns the transaction hash.
+
+The method follows `eth_sendRawTransaction` semantics for duplicates, nonce handling, cancellation, replay, and replacement. A replacement must increase `maxFeePerGas` by at least 10%; set `priorityFeePerGas` to `0`. The network tip may be raised or lowered in a replacement.
+
+## 4. Wait for Inclusion or Expiry
+
+The builder checks predicates after each transaction. When all predicates match, the transaction can compete for inclusion using `tip / tx.gasLimit`. Ordinary transactions use `priorityFeePerGas` instead and win an equal-priority tie because they have fewer predicates.
+
+A matching predicate does not guarantee inclusion. A transaction can lose priority, be skipped under heavy load for the remainder of a Flashblock, be replaced, or expire.
+
+There is no public pending-status, event, log, or trace API for validity transactions. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm onchain inclusion.
+
+## Next Steps
+
+- Read the [`base_sendRawTransactionValidity` reference](/specifications/build-transaction/base_sendRawTransactionValidity) for submission and replacement semantics.
+- Read [Fees, Ordering, and Lifecycle](/specifications/build-transaction/fees-ordering-and-lifecycle) to understand priority and fees.
+- Read [Troubleshooting](/specifications/build-transaction/troubleshooting) if a transaction is not included.

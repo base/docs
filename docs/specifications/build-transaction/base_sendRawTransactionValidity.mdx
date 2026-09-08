@@ -1,50 +1,34 @@
 ---
 title: "base_sendRawTransactionValidity"
 sidebarTitle: "base_sendRawTransactionValidity"
-description: "Submit a signed EIP-8130 transaction with builder-enforced validity predicates."
+description: "Submit a signed EIP-8130 transaction with validity predicates."
 tag: "Soon"
 ---
 
-Submits one signed, serialized EIP-8130 transaction with predicates that control when the transaction is eligible for inclusion. The method returns the signed transaction hash when the endpoint accepts the submission.
+Submits a signed EIP-8130 transaction with predicates that control when it is eligible for inclusion. On successful submission, the method returns the transaction hash.
 
 <Warning>
-This method is experimental and is available only on RPC endpoints that explicitly enable validity transactions. Supported endpoints and rate limits will be published before general availability.
+This experimental method is currently available only on vibenet. Mainnet and Base Sepolia support is planned with the Cobalt hardfork. It is not allowlisted, but standard transaction-submission rate limits apply.
 </Warning>
-
-The EIP-8130 validity window and network tip are part of the signed transaction. The second RPC parameter contains only the builder validity predicates.
 
 ## Parameters
 
-<ParamField body="transaction" type="string" required>
-  One signed, serialized EIP-8130 transaction encoded as a `0x`-prefixed hex string.
+The method accepts a signed, serialized EIP-8130 transaction and its validity predicates. The transaction contains its expiry, fee fields, gas limit, call phases, network tip, and authorization. The validity predicates are supplied to the builder with the transaction.
 
-  The transaction contains its validity window, fee fields, gas limit, call phases, network tip, and authentication data. Changing any of those fields requires a new signature and produces a new transaction hash.
-</ParamField>
-
-<ParamField body="options" type="object" required>
-  Options transported with the transaction to the builder. These options are not part of the signed EIP-8130 transaction body.
-
-  <Expandable title="Options">
-    <ParamField body="validity" type="array" required>
-      One or more validity predicates. The builder combines predicates with logical AND, so every predicate must match at the same candidate insertion point.
-
-      The endpoint rejects an empty array and requests that exceed its configured predicate limit.
-    </ParamField>
-  </Expandable>
-</ParamField>
+The first call phase must contain a single ETH transfer to the Sequencer Fee Vault. Later phases can contain application actions. The precise EIP-8130 encoding remains subject to finalization.
 
 ## Predicate Types
 
 | Type | Parameters | Comparison |
 | --- | --- | --- |
-| `balance` | `address`, `op`, `value` | Compares the account's ETH balance with `value`. |
-| `storage` | `address`, `slot`, optional `mask`, `op`, `value` | Compares `storage(address, slot) & mask` with `value`. |
+| `balance` | `address`, `op`, `value` | Compares an address's ETH balance with `value`. |
+| `storage` | `address`, `slot`, `op`, `value` | Compares a contract storage slot with `value`. |
 | `block_number` | `op`, `value` | Compares the block number being built with `value`. |
 | `flashblock_index` | `op`, `value` | Compares the Flashblock index being built with `value`. |
 
-The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Addresses use 20-byte hex encoding. Numeric values use `0x`-prefixed hexadecimal quantity encoding.
+The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. All predicates are combined with logical AND. The planned limit is approximately 16 predicates per transaction and remains subject to change.
 
-For evaluation behavior, examples, and safety considerations, see [Predicates and Safety](/specifications/build-transaction/predicates-and-safety).
+For evaluation behavior and safety considerations, see [Predicates and Safety](/specifications/build-transaction/predicates-and-safety).
 
 ## Returns
 
@@ -52,77 +36,32 @@ For evaluation behavior, examples, and safety considerations, see [Predicates an
   The 32-byte hash of the signed EIP-8130 transaction.
 </ResponseField>
 
-Returning a hash means that the endpoint accepted the submission. It does not guarantee predicate satisfaction or inclusion.
-
-## Request
-
-<RequestExample>
-```bash cURL lines wrap expandable highlight={5,8-10,13-19}
-curl "$RPC_URL" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  --data '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "base_sendRawTransactionValidity",
-    "params": [
-      "0x79f901...",
-      {
-        "validity": [
-          {
-            "type": "balance",
-            "params": {
-              "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
-              "op": ">=",
-              "value": "0x1"
-            }
-          }
-        ]
-      }
-    ]
-  }'
-```
-</RequestExample>
-
-## Success Response
+Returning a hash confirms submission acceptance. It does not confirm that predicates match or that the transaction will be included.
 
 <ResponseExample>
 ```json Success
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "result": "0x6c783c4e4f9a65d1a36ef9c8f7f30104f615a8b4cb296d3a8b4f3c972f7c13e1"
+  "result": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331"
 }
 ```
 </ResponseExample>
 
-## Error Responses
+## Submission and Replacement
 
-| Code | Cause | Resolution |
-| --- | --- | --- |
-| `-32601` | The endpoint does not expose the experimental method. | Use an endpoint that lists validity-transaction support. |
-| `-32602` | The transaction cannot be decoded. | Sign and serialize one valid EIP-8130 transaction. |
-| `-32602` | The predicate array is empty or exceeds the endpoint limit. | Include at least one predicate and stay within the published limit. |
-| `-32602` | A predicate has missing, unknown, or inconsistent fields. | Correct the predicate using the schemas on this page. |
-| `-32602` | A storage value contains bits outside its mask. | Expand the mask or reduce the expected value. |
-| `-32602` | A block-position predicate can no longer be satisfied. | Sign a replacement with a future block position and validity window. |
-| `-32000` | The transaction pool rejects the transaction. | Check funding, nonce or replay identity, fees, duplicates, and replacement pricing. |
+Duplicate submissions, nonce handling, cancellation, replay, and replacement use the same semantics as `eth_sendRawTransaction`.
 
-<ResponseExample>
-```json Invalid Parameters lines wrap expandable highlight={5-6}
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": -32602,
-    "message": "validity predicates must not be empty"
-  }
-}
-```
-</ResponseExample>
+A replacement must increase `maxFeePerGas` by at least 10%. Set `priorityFeePerGas` to `0`; the replacement's network tip can be raised or lowered.
 
-## Monitor the Submission
+## Inclusion and Observability
 
-Use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to check whether the endpoint knows the hash. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to detect inclusion.
+There is no external pending-status, event, log, or trace surface for validity transactions. Query [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm that a transaction was included onchain.
 
-For an end-to-end Viem example, see [Build a Validity Transaction](/specifications/build-transaction/build-a-validity-transaction).
+A transaction can remain unincluded because its predicates are false, another transaction has higher priority, it is skipped during heavy load, it is replaced, or it reaches its expiry. Its validity criteria are not recorded onchain.
+
+## Errors
+
+This method returns standard JSON-RPC errors when submission fails. Error codes and validation details are not yet published; do not depend on a particular code or message while the feature is experimental.
+
+For a submission walkthrough, see [Build a Validity Transaction](/specifications/build-transaction/build-a-validity-transaction).
