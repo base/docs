@@ -20,11 +20,12 @@ import {
   newSmartAccount,
   privateKeyToAccount,
   toHex,
+  vibenetDevnetDeployment,
   waitForTransactionReceipt,
 } from "./aa.txt";
 
 export const CHAIN_ID = 84538453;
-export const ENGINE_VERSION = 2;
+export const ENGINE_VERSION = 3;
 export const NETWORK_NAME = "Base Vibenet";
 export const API_URL = "https://api.vibes.base.org";
 export const ACCOUNT_RPC = `${API_URL}/api/vibenet/account/rpc`;
@@ -319,28 +320,68 @@ export async function contracts() {
   return response.json();
 }
 
+// Vibenet is ephemeral: a reset redeploys the enshrined EIP-8130 system
+// contracts, and several land at new addresses. The account address is a CREATE2
+// over the account implementation, so a stale implementation makes the client
+// derive a `from` the node cannot reproduce.
+//
+// Resolution order: the live `eip8130` block from /api/vibenet/contracts, then
+// the canonical devnet set carried by aa.txt, which is refreshed every time the
+// vendored bundle is re-pinned. The API has omitted the `eip8130` block since a
+// reset, so the second source is load-bearing, not belt-and-braces. Each
+// candidate is checked for code on chain because an address that is merely
+// present in either source may already have been reset away.
+//
+// Returns null when neither yields a live implementation, so callers can report
+// the demo as unavailable rather than throwing mid-transaction.
+async function resolveImplementation(deployment) {
+  const candidates = [
+    deployment?.eip8130?.DefaultAccount,
+    vibenetDevnetDeployment?.accounts?.default,
+  ].filter((value) => typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value));
+  for (const candidate of candidates) {
+    if (await isDeployed(candidate)) return candidate;
+  }
+  return null;
+}
+
 export async function probeCapabilities(domain = "stablecoin") {
-  const [chainId, blockNumber, asset, stablecoin, policy] = await Promise.all([
+  const [chainId, blockNumber, asset, stablecoin, policy, deployment] = await Promise.all([
     rpc("eth_chainId"),
     rpc("eth_blockNumber"),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [ASSET_FEATURE]),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [STABLECOIN_FEATURE]),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [POLICY_FEATURE]),
+    // A failed lookup is not fatal: resolveImplementation still has the
+    // bundled canonical set to fall back to.
+    contracts().catch(() => null),
   ]);
+  // Probed here so `live` reflects whether a write can actually be signed. The
+  // activation registry alone reports B20 as available on a chain whose account
+  // implementation has moved, which is what previously let a demo advertise
+  // itself as live and then fail on the reader's first click.
+  const implementation = await resolveImplementation(deployment);
   const expectedChain = BigInt(chainId) === BigInt(CHAIN_ID);
   const domainActive = domain === "asset" ? asset : stablecoin;
   return {
-    live: expectedChain && domainActive && policy,
+    live: expectedChain && domainActive && Boolean(policy) && Boolean(implementation),
     chainId: Number(BigInt(chainId)),
     blockNumber: Number(BigInt(blockNumber)),
-    capabilities: { asset: Boolean(asset), stablecoin: Boolean(stablecoin), policy: Boolean(policy) },
+    capabilities: {
+      asset: Boolean(asset),
+      stablecoin: Boolean(stablecoin),
+      policy: Boolean(policy),
+      account: Boolean(implementation),
+    },
     reason: !expectedChain
       ? `Unexpected chain ${Number(BigInt(chainId))}`
       : !domainActive
         ? `B20 ${domain} creation is not activated`
         : !policy
           ? "B20 policy writes are not activated"
-          : null,
+          : !implementation
+            ? "Vibenet has no live EIP-8130 account implementation"
+            : null,
   };
 }
 
@@ -367,9 +408,11 @@ function saveStoredAccount(value) {
 }
 
 export async function getSharedAccount() {
-  const [deployment, genesis] = await Promise.all([contracts(), genesisHash()]);
-  const implementation = deployment.eip8130?.DefaultAccount;
-  if (!implementation) throw new Error("Vibenet reported no DefaultAccount implementation");
+  const [deployment, genesis] = await Promise.all([contracts().catch(() => null), genesisHash()]);
+  // Backstop only. probeCapabilities() runs the same resolution before a demo
+  // renders as live, so a reader should never reach this throw.
+  const implementation = await resolveImplementation(deployment);
+  if (!implementation) throw new Error("Vibenet has no live EIP-8130 account implementation");
 
   let stored = loadStoredAccount();
   if (
@@ -834,8 +877,8 @@ const api = {
 };
 
 if (typeof window !== "undefined") {
-  window.__baseDocsVibenetEngineV2 = api;
-  window.dispatchEvent(new CustomEvent("base-docs-vibenet-engine:v2-ready"));
+  window.__baseDocsVibenetEngineV3 = api;
+  window.dispatchEvent(new CustomEvent("base-docs-vibenet-engine:v3-ready"));
 }
 
 export default api;
