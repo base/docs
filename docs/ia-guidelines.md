@@ -55,7 +55,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 ### Tokenize Assets
 
-- **Belongs**: Step-by-step guides for asset tokenization: create an asset token, issue units, restrict holders, cancel blocked units, announce distributions, apply multipliers, and pause transfers.
+- **Belongs**: Step-by-step guides for asset tokenization: create an asset token, issue units, restrict holders, cancel blocked units, announce distributions, apply multipliers, pause transfers, and list tokenized stocks (the integration guide for exchanges, wallets, and indexers).
 - **Does not belong**: B20 Asset variant specification details (those live in Specifications → B20).
 
 ### Issue Stablecoins
