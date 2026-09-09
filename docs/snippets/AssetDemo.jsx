@@ -4,16 +4,16 @@ export const AssetDemo = ({ flow }) => {
   // Mintlify snippets cannot import npm packages or sibling modules. Load the
   // shared .txt engine and vendored AA client as Blob ES modules on first use.
   const loadVibenetEngine = () => {
-    if (window.__baseDocsVibenetEngineV2) return Promise.resolve(window.__baseDocsVibenetEngineV2);
-    if (window.__baseDocsVibenetEnginePromiseV2) return window.__baseDocsVibenetEnginePromiseV2;
+    if (window.__baseDocsVibenetEngineV3) return Promise.resolve(window.__baseDocsVibenetEngineV3);
+    if (window.__baseDocsVibenetEnginePromiseV3) return window.__baseDocsVibenetEnginePromiseV3;
 
-    window.__baseDocsVibenetEnginePromiseV2 = new Promise((resolve, reject) => {
+    window.__baseDocsVibenetEnginePromiseV3 = new Promise((resolve, reject) => {
       const onReady = () => {
         cleanup();
-        resolve(window.__baseDocsVibenetEngineV2);
+        resolve(window.__baseDocsVibenetEngineV3);
       };
-      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v2-ready", onReady);
-      window.addEventListener("base-docs-vibenet-engine:v2-ready", onReady, { once: true });
+      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v3-ready", onReady);
+      window.addEventListener("base-docs-vibenet-engine:v3-ready", onReady, { once: true });
 
       (async () => {
         try {
@@ -25,7 +25,7 @@ export const AssetDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=2"),
+            fetchText("/static/vibenet-engine.txt?v=3"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
@@ -36,18 +36,18 @@ export const AssetDemo = ({ flow }) => {
           tag.dataset.baseDocsVibenetEngine = "true";
           tag.onerror = () => {
             cleanup();
-            window.__baseDocsVibenetEnginePromiseV2 = null;
+            window.__baseDocsVibenetEnginePromiseV3 = null;
             reject(new Error("Failed to evaluate the Vibenet engine"));
           };
           document.head.appendChild(tag);
         } catch (error) {
           cleanup();
-          window.__baseDocsVibenetEnginePromiseV2 = null;
+          window.__baseDocsVibenetEnginePromiseV3 = null;
           reject(error);
         }
       })();
     });
-    return window.__baseDocsVibenetEnginePromiseV2;
+    return window.__baseDocsVibenetEnginePromiseV3;
   };
 
   // Capability-only check; it intentionally avoids downloading the AA bundle.
@@ -616,8 +616,9 @@ export const AssetDemo = ({ flow }) => {
     }
     setBusy(true);
     setActionError(null);
+    let engine = null;
     try {
-      const engine = await loadVibenetEngine();
+      engine = await loadVibenetEngine();
       const ctx = await ensureLiveContext(engine);
       const state = { balances: { ...sim.balances }, blocked: sim.blocked, multiplier: sim.multiplier, paused: sim.paused };
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
@@ -633,7 +634,12 @@ export const AssetDemo = ({ flow }) => {
     } catch (error) {
       if (results.length === 0) {
         try {
-          const latest = await probeVibenet();
+          // Prefer the engine's probe once the bundle is loaded: unlike the
+          // lightweight probe above, it also confirms a live EIP-8130 account
+          // implementation, which is what a Vibenet reset takes away.
+          const latest = engine
+            ? await engine.probeCapabilities("asset")
+            : await probeVibenet();
           if (!latest.live) {
             setProbeInfo(latest);
             setLiveState("offline");
