@@ -92,8 +92,8 @@ npx skills add base/base-skills
 |SDKs & APIs/Base MCP/Skill & Plugins:agents/plugins/index,agents/plugins/custom-plugins
 |SDKs & APIs/Base MCP/Skill & Plugins/Native Plugins:agents/plugins/native/index,agents/plugins/native/aerodrome,agents/plugins/native/avantis,agents/plugins/native/balancer,agents/plugins/native/bankr,agents/plugins/native/bitrefill,agents/plugins/native/brickken,agents/plugins/native/clawnch,agents/plugins/native/flaunch,agents/plugins/native/gmgn,agents/plugins/native/hydrex,agents/plugins/native/kyberswap,agents/plugins/native/moonwell,agents/plugins/native/morpho,agents/plugins/native/o1-exchange,agents/plugins/native/opensea,agents/plugins/native/printr,agents/plugins/native/uniswap,agents/plugins/native/venice,agents/plugins/native/virtuals,agents/plugins/native/yo
 |Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
-|Upgrades/Denim:upgrades/denim/eip-8130
-|Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/200ms-blocks,upgrades/cobalt/migrate-from-flashblocks,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy
+|Upgrades/Denim:upgrades/denim/overview,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks
+|Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy
 |Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
 |Upgrades/Azul:upgrades/azul/overview,upgrades/azul/node-upgrade,upgrades/azul/exec-engine,upgrades/azul/proofs
 |Upgrades/Optimism:upgrades/canyon/overview
