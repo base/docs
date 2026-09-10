@@ -1,9 +1,7 @@
 ---
 title: "IB20Asset.WAD_PRECISION"
-description: "Generated B20 reference for WAD_PRECISION()."
+description: "Fixed-point precision constant used to scale the B20 Asset UI multiplier."
 ---
-
-
 
 ## Signature
 
@@ -18,12 +16,15 @@ function WAD_PRECISION() external view returns (uint256);
 
 ## Description
 
-Fixed-point precision used to scale `multiplier`. Equal to `1e18`.
-Return: Precision constant.
+Returns `1e18`, the fixed-point denominator used to scale the UI multiplier.
+
+The UI balance formula is `raw * multiplier / WAD_PRECISION`. A multiplier of `1e18` means UI equals raw (1.0×). A 2-for-1 split uses `2e18`; a 1-for-2 reverse split uses `5e17`.
+
+This constant applies only to B20 Asset. B20 Stablecoin has no multiplier.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View-only. No role required.
 
 ## Policy Interaction
 
@@ -32,5 +33,6 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).WAD_PRECISION();
+uint256 precision = IB20Asset(target).WAD_PRECISION(); // 1e18
+uint256 uiBalance = rawBalance * multiplier / precision;
 ```

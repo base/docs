@@ -1,14 +1,17 @@
 ---
 title: "IB20Asset.announce"
-description: "Generated B20 reference for announce(bytes[],string,string,string)."
+description: "Wraps one or more asset calls in a disclosed announcement bracket, emitting Announcement and EndAnnouncement with the same id."
 ---
-
-
 
 ## Signature
 
 ```solidity IB20Asset.sol
-function announce( bytes[] calldata internalCalls, string calldata id, string calldata description, string calldata uri ) external;
+function announce(
+    bytes[] calldata internalCalls,
+    string calldata id,
+    string calldata description,
+    string calldata uri
+) external;
 ```
 
 | Field | Value |
@@ -18,32 +21,51 @@ function announce( bytes[] calldata internalCalls, string calldata id, string ca
 
 ## Description
 
-Posts a holder-impacting announcement and atomically dispatches each entry in
-`internalCalls` via self-`delegatecall` (preserving `msg.sender`). Emits
-`Announcement` then `EndAnnouncement` with the same `id`. Pass an empty
-`internalCalls` for a pure disclosure.
-Dev: Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `OPERATOR_ROLE`.
-Dev: Reverts with `AnnouncementIdAlreadyUsed` when `id` has previously been consumed.
-Dev: Reverts with `InternalCallMalformed` when an entry in `internalCalls` is shorter than four bytes.
-Dev: Reverts with `AnnouncementInProgress` when an entry in `internalCalls` targets `announce` itself.
-Dev: An inner call that raises a Solidity `Panic` (e.g. arithmetic overflow) propagates the
-raw Panic unchanged; any other inner revert wraps as `InternalCallFailed(call)`. An inner
-out-of-gas halts the whole call.
-Param: internalCalls ABI-encoded calldata blobs executed in order via self-`delegatecall`; may be empty.
-Param: id            Caller-chosen announcement id; single-use over the token's lifetime.
-Param: description   Human-readable summary of the announcement.
-Param: uri           Off-chain URI containing the full announcement contents.
+Emits `Announcement(caller, id, description, uri)`, executes every entry in `internalCalls` atomically via self-`delegatecall` (preserving `msg.sender`), then emits `EndAnnouncement(id)`. Pass an empty `internalCalls` array for a notice with no on-chain effect; both events still fire and `id` is consumed.
+
+Indexers pair open and close brackets by `id`. Every event emitted between the two logs belongs to the announced action. A state-changing call that appears outside this bracket was invoked directly, not through `announce`.
+
+- Execution order: emit `Announcement` → run inner calls → emit `EndAnnouncement`. If any inner call fails, the whole transaction reverts and `id` is not consumed.
+- After a successful call, `isAnnouncementIdUsed(id)` returns `true`.
+- `announce` is defined on **B20 Asset** only. Stablecoin has no announcements.
+- Typical inner calls: `updateUIMultiplier`, `cancelUIMultiplierUpdate`, `batchMint`, `mintWithMemo`, `burnWithMemo`.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `internalCalls` | `bytes[]` | ABI-encoded calldata blobs executed in order via self-`delegatecall`. Each entry must be at least 4 bytes. May be empty. |
+| `id` | `string` | Caller-chosen announcement identifier. Single-use over the token's lifetime. A successful `announce` consumes `id`; reuse reverts. |
+| `description` | `string` | Human-readable summary shown to holders. The asset does not verify this string. |
+| `uri` | `string` | Off-chain URI for the full announcement record. The asset does not verify this string. |
+
+## Reverts
+
+| Error | Condition |
+|---|---|
+| `AccessControlUnauthorizedAccount(caller, OPERATOR_ROLE)` | Caller does not hold `OPERATOR_ROLE`. |
+| `AnnouncementIdAlreadyUsed(id)` | A prior successful `announce` already consumed `id`. |
+| `InternalCallMalformed(call)` | An entry in `internalCalls` is shorter than 4 bytes. |
+| `AnnouncementInProgress()` | An inner call targets `announce` itself. |
+| `InternalCallFailed(call)` | An inner call reverted with an ordinary revert. The underlying reason is not bubbled; replay the call directly to diagnose. |
+
+A Solidity `Panic` inside an inner call (for example arithmetic overflow) propagates raw and is not wrapped as `InternalCallFailed`.
 
 ## Access Control
 
-`OPERATOR_ROLE` gates this Asset call.
-
-## Policy Interaction
-
-No direct policy interaction.
+`OPERATOR_ROLE` gates this call. Any other caller reverts `AccessControlUnauthorizedAccount`. Inner calls keep their own role gates; the operator must hold every role the inner calls require (for example `MINT_ROLE` for `batchMint`, `BURN_ROLE` for `burnWithMemo`).
 
 ## Example
 
-```solidity Usage Example
-IB20Asset(target).announce(arg0, arg1, arg2, arg3);
+```solidity Scheduled split wrapped in an announcement
+bytes[] memory calls = new bytes[](1);
+calls[0] = abi.encodeCall(IB20Asset.updateUIMultiplier, (2e18, effectiveAt));
+
+asset.announce(calls, id, description, uri);
+// Emits: Announcement → UIMultiplierUpdated → EndAnnouncement
+```
+
+```solidity Notice with no inner calls
+asset.announce(new bytes[](0), id, description, uri);
+// Emits: Announcement → EndAnnouncement
 ```

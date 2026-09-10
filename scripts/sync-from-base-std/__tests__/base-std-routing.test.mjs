@@ -8,8 +8,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildProvenanceComment,
+  classifyChangedPaths,
+  filterPlacementProposals,
+  isDocSource,
   loadDocumentationGuidelines,
   routeCodeChange,
+  routingReportRows,
 } from "../index.mjs";
 
 const require = createRequire(import.meta.url);
@@ -149,7 +153,7 @@ test("route rules carry a kind, and changelog index vs entry are routed differen
       "utf8",
     ),
   );
-  const KINDS = new Set(["interface", "product-doc", "changelog-entry", "changelog-index"]);
+  const KINDS = new Set(["interface", "product-doc", "changelog-entry", "changelog-index", "ignored"]);
   for (const rule of routeTable.code_changes) {
     assert.ok(KINDS.has(rule.kind), `rule ${rule.source_prefix} has kind '${rule.kind}'`);
   }
@@ -305,4 +309,137 @@ test("loadKnownRoutes: index pages are reachable at their directory route", asyn
   // and the validator accepts a link to it
   const page = "---\ntitle: x\n---\n\nSee [IB20](/specifications/b20/reference/interfaces/ib20).\n";
   assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
+});
+
+// ---------------------------------------------------------------------------
+// base-std#213 (be6d045) restructured the upstream docs/ tree. The old route
+// table mapped only the six files that commit deleted and nothing it added, so
+// the sync edited pages from an all-minus diff and dropped 15 new files
+// silently. These tests pin the behavior that replaced that.
+
+const RESTRUCTURE_FIXTURE = "scripts/sync-from-base-std/fixtures/code-change-docs-restructure.json";
+
+async function loadRouteTable() {
+  return JSON.parse(
+    await fs.readFile(path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"), "utf8"),
+  );
+}
+
+test("upstream docs tree routes to the pages the IA guidelines assign", async () => {
+  const routeTable = await loadRouteTable();
+  const pagesFor = async (src) =>
+    (await routeCodeChange(routeTable, [src], { repoRoot: REPO_ROOT })).map((w) => w.page);
+
+  // Architecture: chain-generic precompile mechanics → Base Protocol → Execution;
+  // B20 component map → spec overview; execution/versioning invariants → invariants page.
+  const arch = await pagesFor("docs/architecture.md");
+  for (const expected of [
+    "docs/specifications/base-protocol/execution/precompiles.mdx",
+    `${B20_REFERENCE_ROOT}/specification-overview.mdx`,
+    `${B20_REFERENCE_ROOT}/reference/invariants-tests.mdx`,
+    `${B20_REFERENCE_ROOT}/reference/interfaces/ib20-factory/is-b20-initialized.mdx`,
+  ]) {
+    assert.ok(arch.includes(expected), `docs/architecture.md should route to ${expected}`);
+  }
+  assert.ok(!arch.some((p) => p.includes("/i-policy-registry/")), "architecture must not fan out to the policy registry subtree");
+
+  // Concepts feed the spec overview key-concept sections plus the owning reference pages.
+  const multipliers = await pagesFor("docs/concepts/multipliers.md");
+  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/specification-overview.mdx`));
+  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/update-ui-multiplier.mdx`));
+  assert.ok(multipliers.includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
+
+  // Guides feed the existing Build on Base task pages (ia-guidelines: Tokenize Assets / Issue Stablecoins).
+  assert.ok((await pagesFor("docs/guides/scheduling-stock-splits.md")).includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
+  assert.ok((await pagesFor("docs/guides/announcing-corporate-actions.md")).includes("docs/build-on-base/issue-rwa/announce-a-distribution.mdx"));
+  const seize = await pagesFor("docs/guides/seizeing-assets.md");
+  assert.ok(seize.includes("docs/build-on-base/issue-rwa/cancel-blocked-units.mdx"));
+  assert.ok(seize.includes("docs/build-on-base/issue-stablecoins/recover-funds.mdx"));
+  assert.ok(seize.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20/seize-with-memo.mdx`));
+
+  // Reference tables feed the supporting pages.
+  assert.deepEqual(await pagesFor("docs/reference/constants.md"), [`${B20_REFERENCE_ROOT}/reference/constants-addresses.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/errors.md"), [`${B20_REFERENCE_ROOT}/reference/errors-events.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/events.md"), [`${B20_REFERENCE_ROOT}/reference/errors-events.mdx`]);
+
+  // Scaffolding is explicitly ignored, and the retired flat tree no longer routes anywhere.
+  for (const src of ["docs/guides/template.md", "docs/reference/interfaces.md", "docs/README.md", "README.md", "docs/B20/Asset.md", "docs/PolicyRegistry/README.md"]) {
+    assert.deepEqual(await pagesFor(src), [], `${src} must not route`);
+  }
+});
+
+test("removed source files never route, even when a rule still matches them", async () => {
+  const routeTable = {
+    code_changes: [
+      { source_prefix: "docs/B20/Asset.md", kind: "product-doc", pages: [`${B20_REFERENCE_ROOT}/specification-overview.mdx`], transformer: "claude" },
+      { source_prefix: "src/interfaces/IB20Asset.sol", kind: "interface", pages: [`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`], transformer: "claude" },
+    ],
+  };
+  const work = await routeCodeChange(
+    routeTable,
+    ["docs/B20/Asset.md", "src/interfaces/IB20Asset.sol"],
+    { repoRoot: REPO_ROOT, removedPaths: ["docs/B20/Asset.md"] },
+  );
+  assert.deepEqual(work.map((w) => w.page), [`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`]);
+  assert.deepEqual(work[0].sourceFiles, ["src/interfaces/IB20Asset.sol"]);
+});
+
+test("classifyChangedPaths separates routed, ignored, unrouted, and removed for the be6d045 fixture", async () => {
+  const routeTable = await loadRouteTable();
+  const fixture = JSON.parse(await fs.readFile(path.join(REPO_ROOT, RESTRUCTURE_FIXTURE), "utf8"));
+  const c = classifyChangedPaths(routeTable, fixture.changed_paths, { removedPaths: fixture.removed_paths });
+  assert.deepEqual(c.removed, fixture.removed_paths);
+  assert.deepEqual(c.ignored.sort(), ["README.md", "docs/README.md", "docs/guides/template.md", "docs/reference/interfaces.md"]);
+  assert.deepEqual(c.unrouted, [], "every surviving file in the restructure has a rule");
+  assert.equal(c.routed.length, fixture.changed_paths.length - c.removed.length - c.ignored.length);
+  // A file outside every rule is reported, not dropped.
+  const c2 = classifyChangedPaths(routeTable, ["docs/concepts/brand-new-topic.md", "foundry.toml"]);
+  assert.deepEqual(c2.unrouted, ["docs/concepts/brand-new-topic.md", "foundry.toml"]);
+  assert.ok(isDocSource("docs/concepts/brand-new-topic.md"));
+  assert.ok(!isDocSource("foundry.toml"));
+});
+
+test("filterPlacementProposals keeps only real sources and existing candidate pages", () => {
+  const sources = ["docs/concepts/brand-new-topic.md"];
+  const candidates = [`${B20_REFERENCE_ROOT}/specification-overview.mdx`];
+  const kept = filterPlacementProposals(
+    [
+      { source: "docs/concepts/brand-new-topic.md", page: candidates[0], guideline_rule: "Specifications → B20 | key concepts", rationale: "Concept page | fits the overview\n<b>x</b>" },
+      { source: "docs/concepts/brand-new-topic.md", page: candidates[0] }, // duplicate
+      { source: "docs/concepts/brand-new-topic.md", page: "docs/specifications/b20/does-not-exist.mdx" }, // hallucinated page
+      { source: "src/not-asked.sol", page: candidates[0] }, // not an unrouted source
+      "garbage",
+      null,
+    ],
+    { sources, candidates },
+  );
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].page, candidates[0]);
+  assert.doesNotMatch(kept[0].rationale, /[|<>\n]/, "table cells are sanitized");
+  assert.deepEqual(filterPlacementProposals("not an array", { sources, candidates }), []);
+});
+
+test("routingReportRows renders unrouted, proposal, and removed sections", () => {
+  const rows = routingReportRows({
+    classification: { unrouted: ["docs/concepts/new.md"], removed: ["docs/B20/Asset.md"], ignored: [] },
+    proposals: [{ source: "docs/concepts/new.md", page: "docs/specifications/b20/specification-overview.mdx", guideline_rule: "Key concepts", rationale: "Concept material" }],
+    source: "base/base-std",
+    sha: "be6d0450890e20fc4a739aeaff5e839f234d12a6",
+  });
+  const md = rows.join("\n");
+  assert.match(md, /## Unrouted source files/);
+  assert.match(md, /https:\/\/github\.com\/base\/base-std\/blob\/be6d0450890e20fc4a739aeaff5e839f234d12a6\/docs\/concepts\/new\.md/);
+  assert.match(md, /### Proposed placement \(from IA guidelines\)/);
+  assert.match(md, /\| .*docs\/concepts\/new\.md.* \| `docs\/specifications\/b20\/specification-overview\.mdx` \| Key concepts \| Concept material \|/);
+  assert.match(md, /## Removed source files/);
+  assert.match(md, /`docs\/B20\/Asset\.md`/);
+  assert.deepEqual(routingReportRows({ classification: { unrouted: [], removed: [], ignored: ["README.md"] }, source: "x", sha: "y" }), []);
+  // A crafted path cannot close the markdown link; it is rendered as inert code.
+  const hostile = routingReportRows({
+    classification: { unrouted: ["docs/x.md)[click](https://evil.example/"], removed: [], ignored: [] },
+    source: "base/base-std",
+    sha: "be6d0450890e20fc4a739aeaff5e839f234d12a6",
+  }).join("\n");
+  assert.doesNotMatch(hostile, /evil\.example\/\)/);
+  assert.doesNotMatch(hostile, /\]\(https:\/\/github\.com[^)]*evil/);
 });

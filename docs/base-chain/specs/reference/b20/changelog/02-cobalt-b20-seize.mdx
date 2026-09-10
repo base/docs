@@ -12,7 +12,7 @@ description: "The B20 seize surface at Cobalt and the deprecation of burnBlocked
 
 At Cobalt, the base B20 surface gains a first-class seize operation. `seizeWithMemo(from, to,
 amount, memo)` reassigns a holder's balance to a destination in one admin call, gated by a new
-`SEIZE_ROLE`, a new `SEIZE` pause vector, and two new policy slots (`SEIZE_HOLDER_POLICY`,
+`SEIZE_ROLE`, a new `SEIZE` pause vector, and two new policy slots (`SEIZE_EXEMPT_POLICY`,
 `SEIZE_RECEIVER_POLICY`).
 
 Nothing you call today breaks: every Beryl selector, event topic, and error keeps its exact 4-byte
@@ -23,7 +23,7 @@ To migrate, move administrative balance removal from `burnBlocked` to `seizeWith
 treasury or self address, then call `burn` if you want the supply destroyed.
 
 Seize is opt-in per token. The surface exists at Cobalt, but seize does nothing until the issuer
-configures `SEIZE_HOLDER_POLICY`. With the slot unset (always-allow), no account is seizable, and
+configures `SEIZE_EXEMPT_POLICY`. With the slot unset (always-allow), no account is seizable, and
 every `seizeWithMemo` call reverts `AccountNotSeizable`. An issuer that never sets the policy has, in
 effect, no seize capability on that token.
 
@@ -45,7 +45,7 @@ at Cobalt. Seize lives on the shared `IB20` surface, so it's identical across As
 | `BURN_BLOCKED_ROLE()` `0x32ad9be8` | `BURN_BLOCKED_ROLE()` `0x32ad9be8` | carried over unchanged | Still gates `burnBlocked` only. |
 | — | `seizeWithMemo(address,address,uint256,bytes32)` `0xf916d81b` | new | Admin balance reassignment. A transfer, not a burn. |
 | — | `SEIZE_ROLE()` `0x3c7e9ba5` | new | Required to call `seizeWithMemo`. Value `keccak256("SEIZE_ROLE")` = `0x3469b8b0d89e9604f8510ed143f74a8336d22955d4f83e23bf53d9414e27f432`. |
-| — | `SEIZE_HOLDER_POLICY()` `0xb279d311` | new | Policy slot checked against `from`. Value `keccak256("SEIZE_HOLDER_POLICY")` = `0x1497ab2b67ebb0a75dd9cdd6aec9f0e64620e6b87e911af7a088ac12e58d9ef2`. |
+| — | `SEIZE_EXEMPT_POLICY()` `0xfeb346ec` | new | Policy slot checked against `from`. Value `keccak256("SEIZE_EXEMPT_POLICY")` = `0xedb5da348cfb67af08746d3afd1be81034b50d5c8576f31aff688f39dfd540ed`. |
 | — | `SEIZE_RECEIVER_POLICY()` `0xb31da27f` | new | Policy slot checked against `to`. Value `keccak256("SEIZE_RECEIVER_POLICY")` = `0xbf15b19caf5c77422c038bc25f26b8b815c3a14f6d04c6616076b81bcfe07b3d`. |
 
 ### Events
@@ -60,7 +60,7 @@ at Cobalt. Seize lives on the shared `IB20` surface, so it's identical across As
 | Beryl error (selector) | Cobalt (selector) | Status | Why |
 | --- | --- | --- | --- |
 | `AccountNotBlocked(address)` `0x64a5cb46` | unchanged | present on Beryl already | Thrown by `burnBlocked` when `from` is authorized under `TRANSFER_SENDER_POLICY` (that is, not blocked). |
-| — | `AccountNotSeizable(address)` `0x91dbbc8d` | new | Thrown by `seizeWithMemo` when `from` is authorized under `SEIZE_HOLDER_POLICY` (that is, not seizable). |
+| — | `AccountNotSeizable(address)` `0x91dbbc8d` | new | Thrown by `seizeWithMemo` when `from` is authorized under `SEIZE_EXEMPT_POLICY` (that is, not seizable). |
 
 ### Pause Features
 
@@ -90,9 +90,9 @@ Requirements and guards:
 - **Pause**: `SEIZE` must not be paused, or the call reverts `ContractPaused(SEIZE)`.
 - **Addresses**: `to != address(0)` and `from != to`, or the call reverts `InvalidReceiver`.
   `from != address(0)`, or the call reverts `InvalidSender`.
-- **Holder gate**: `from` must be blocked under `SEIZE_HOLDER_POLICY`, that is, not authorized by
+- **Holder gate**: `from` must be blocked under `SEIZE_EXEMPT_POLICY`, that is, not authorized by
   it, or the call reverts `AccountNotSeizable`. An unset slot reads as always-allow, so no account
-  is seizable until an issuer configures `SEIZE_HOLDER_POLICY`.
+  is seizable until an issuer configures `SEIZE_EXEMPT_POLICY`.
 - **Destination gate**: `to` must be authorized under `SEIZE_RECEIVER_POLICY`, which mirrors
   `MINT_RECEIVER_POLICY` and is always enforced. But an unset slot is always-allow, so a token can
   seize to any destination (a treasury doesn't need to be allowlisted) until the slot is set.
@@ -124,7 +124,7 @@ untouched. `burnBlocked` is the burn: it sends to `address(0)` and reduces suppl
 old burn-blocked outcome, seize to a treasury or self address, then call `burn`.
 
 **Q: `seizeWithMemo` and `burnBlocked` both target "bad" accounts. Do they read the same set?**
-No, and this is deliberate. `seizeWithMemo` reads `SEIZE_HOLDER_POLICY`. `burnBlocked` reads
+No, and this is deliberate. `seizeWithMemo` reads `SEIZE_EXEMPT_POLICY`. `burnBlocked` reads
 `TRANSFER_SENDER_POLICY`. A token can define a seizable set that's distinct from its
 transfer-blocked set. In both cases, "eligible" means not authorized by the relevant policy, and an
 unset policy (always-allow) means nobody is eligible.
@@ -138,14 +138,14 @@ No. `seizeWithMemo` requires `SEIZE_ROLE`. `burnBlocked` requires `BURN_BLOCKED_
 doesn't grant the other.
 
 **Q: I never configured the seize policies. What happens if I call `seizeWithMemo`?**
-It reverts `AccountNotSeizable(from)` for every `from`, because an unset `SEIZE_HOLDER_POLICY` is
-always-allow, so no account is seizable. You must configure `SEIZE_HOLDER_POLICY` to designate
+It reverts `AccountNotSeizable(from)` for every `from`, because an unset `SEIZE_EXEMPT_POLICY` is
+always-allow, so no account is seizable. You must configure `SEIZE_EXEMPT_POLICY` to designate
 seizable holders before seize does anything. (Leaving `SEIZE_RECEIVER_POLICY` unset simply permits
 any destination.)
 
 **Q: Does seize consult the transfer policies or spend an allowance?**
 No. It's an admin operation: it bypasses `TRANSFER_SENDER/RECEIVER/EXECUTOR_POLICY` and allowances,
-and enforces only `SEIZE_HOLDER_POLICY` (on `from`) and `SEIZE_RECEIVER_POLICY` (on `to`).
+and enforces only `SEIZE_EXEMPT_POLICY` (on `from`) and `SEIZE_RECEIVER_POLICY` (on `to`).
 
 **Q: Is seize available on B20 Stablecoin as well as B20 Asset?**
 Yes. It's defined on the shared `IB20` surface, so both variants expose the identical

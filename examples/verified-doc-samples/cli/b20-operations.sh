@@ -87,9 +87,10 @@ base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$BLOCKED_HOLDER" 
 # docs:end stock-cancel-cli
 
 # docs:start stock-split-cli
-base-cast send "$TOKEN_ADDRESS" "updateMultiplier(uint256)" 2000000000000000000 \
+EFFECTIVE_AT=$(( $(date +%s) + 86400 ))
+base-cast send "$TOKEN_ADDRESS" "updateUIMultiplier(uint256,uint256)" 2000000000000000000 "$EFFECTIVE_AT" \
   --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-base-cast call "$TOKEN_ADDRESS" "scaledBalanceOf(address)(uint256)" "$HOLDER" --rpc-url "$RPC_URL"
+base-cast call "$TOKEN_ADDRESS" "newUIMultiplier()(uint256)" --rpc-url "$RPC_URL"
 # docs:end stock-split-cli
 
 # docs:start stock-pause-cli

@@ -5,16 +5,16 @@ export const StablecoinDemo = ({ flow }) => {
   // npm packages. The live engine therefore ships as .txt, is converted to a Blob
   // module on first interaction, and publishes its API on window.
   const loadVibenetEngine = () => {
-    if (window.__baseDocsVibenetEngineV2) return Promise.resolve(window.__baseDocsVibenetEngineV2);
-    if (window.__baseDocsVibenetEnginePromiseV2) return window.__baseDocsVibenetEnginePromiseV2;
+    if (window.__baseDocsVibenetEngineV3) return Promise.resolve(window.__baseDocsVibenetEngineV3);
+    if (window.__baseDocsVibenetEnginePromiseV3) return window.__baseDocsVibenetEnginePromiseV3;
 
-    window.__baseDocsVibenetEnginePromiseV2 = new Promise((resolve, reject) => {
+    window.__baseDocsVibenetEnginePromiseV3 = new Promise((resolve, reject) => {
       const onReady = () => {
         cleanup();
-        resolve(window.__baseDocsVibenetEngineV2);
+        resolve(window.__baseDocsVibenetEngineV3);
       };
-      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v2-ready", onReady);
-      window.addEventListener("base-docs-vibenet-engine:v2-ready", onReady, { once: true });
+      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v3-ready", onReady);
+      window.addEventListener("base-docs-vibenet-engine:v3-ready", onReady, { once: true });
 
       (async () => {
         try {
@@ -26,7 +26,7 @@ export const StablecoinDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=2"),
+            fetchText("/static/vibenet-engine.txt?v=3"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
@@ -37,18 +37,18 @@ export const StablecoinDemo = ({ flow }) => {
           tag.dataset.baseDocsVibenetEngine = "true";
           tag.onerror = () => {
             cleanup();
-            window.__baseDocsVibenetEnginePromiseV2 = null;
+            window.__baseDocsVibenetEnginePromiseV3 = null;
             reject(new Error("Failed to evaluate the Vibenet engine"));
           };
           document.head.appendChild(tag);
         } catch (error) {
           cleanup();
-          window.__baseDocsVibenetEnginePromiseV2 = null;
+          window.__baseDocsVibenetEnginePromiseV3 = null;
           reject(error);
         }
       })();
     });
-    return window.__baseDocsVibenetEnginePromiseV2;
+    return window.__baseDocsVibenetEnginePromiseV3;
   };
 
   // Lightweight capability probe. This deliberately does not load aa.txt: the
@@ -662,8 +662,9 @@ export const StablecoinDemo = ({ flow }) => {
     }
     setBusy(true);
     setActionError(null);
+    let engine = null;
     try {
-      const engine = await loadVibenetEngine();
+      engine = await loadVibenetEngine();
       const ctx = await ensureLiveContext(engine);
       const state = { balances: { ...sim.balances }, blocked: sim.blocked };
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
@@ -681,7 +682,12 @@ export const StablecoinDemo = ({ flow }) => {
       // degrade to the unchanged scripted flow instead of surfacing a broken demo.
       if (results.length === 0) {
         try {
-          const latest = await probeVibenet();
+          // Prefer the engine's probe once the bundle is loaded: unlike the
+          // lightweight probe above, it also confirms a live EIP-8130 account
+          // implementation, which is what a Vibenet reset takes away.
+          const latest = engine
+            ? await engine.probeCapabilities("stablecoin")
+            : await probeVibenet();
           if (!latest.live) {
             setProbeInfo(latest);
             setLiveState("offline");
