@@ -1,54 +1,22 @@
 ---
 title: "Fees, Ordering, and Lifecycle"
-description: "Understand how validity transactions are prioritized, evaluated, and included on Base."
-tag: "Soon"
+description: "Understand fees, expiry, and replacement for validity transactions."
 ---
 
-Validity transactions participate in normal block building, but predicates control when they are eligible and a network tip determines their priority.
+## Fees
 
-<Warning>
-Validity transactions are experimental. The current parameters and operational limits may change before general availability.
-</Warning>
+Set `maxFeePerGas` and `maxPriorityFeePerGas` on the signed EIP-1559 transaction. Validity Transactions do not use a separate tip transfer.
 
-## Priority Score
+A transaction that is not included does not pay onchain execution fees. An included transaction pays normal execution fees, even if it reverts.
 
-The builder orders transactions by priority:
+## Ordering
 
-| Transaction | Priority score |
-| --- | --- |
-| Validity transaction | `tip / tx.gasLimit` |
-| Ordinary transaction | `priorityFeePerGas` |
+A transaction competes for inclusion only after every predicate matches. A matching predicate does not reserve block space.
 
-When transactions have the same priority score, the transaction with fewer predicates is ranked first. Ordinary transactions have no predicates, so they win an equal-priority tie against validity transactions.
+## Expiry
 
-## Eligibility and Re-evaluation
+Add a `block_number` predicate with a maximum block to limit a transaction's lifetime.
 
-The builder enforces descending priority order within a Flashblock, except when a validity transaction is delayed because its predicates are not satisfied.
+## Replacement
 
-1. The builder evaluates a validity transaction at its candidate insertion point.
-2. If every predicate matches, the transaction can be included.
-3. If any predicate does not match, the builder skips it and continues with the next transaction.
-4. After each transaction, the builder checks predicates again. A skipped transaction can become eligible immediately after an earlier transaction changes relevant state.
-
-A transaction becoming eligible does not reserve blockspace. It can still lose to a higher-priority transaction, be skipped under heavy load for the remainder of a Flashblock, be replaced, or expire.
-
-## Network Tip and Fees
-
-The first call phase of an EIP-8130 validity transaction must contain a single ETH transfer to the Sequencer Fee Vault. This transfer is the network tip used for priority comparison. The precise transaction encoding remains subject to EIP-8130 finalization.
-
-| Outcome | Onchain fee behavior |
-| --- | --- |
-| Not included | No fees are paid. This includes transactions that are rejected, waiting for predicates, expired, replaced, or skipped. |
-| Included | Normal onchain execution fees apply, and the network tip is transferred as part of the transaction. |
-
-## Expiry and Replacement
-
-Expiry is the EIP-8130 transaction expiry, evaluated against canonical block time. There is no minimum expiry. The current target maximum and default are 60 seconds, but the value can be reconfigured; set an explicit expiry rather than relying on the default.
-
-Validity transactions use the same duplicate-submission, nonce, cancellation, replay, and replacement semantics as `eth_sendRawTransaction`. A replacement must increase `maxFeePerGas` by at least 10%. Set `priorityFeePerGas` to `0`; a replacement can raise or lower its network tip.
-
-## Example: A State-Dependent Backrun
-
-A validity transaction can use a `storage` predicate to wait for an earlier transaction to update a contract slot. If the predicate is false, the builder skips the transaction and continues in priority order. After each later transaction, it evaluates the predicate again; if the slot now matches, the validity transaction can compete for immediate inclusion in the same Flashblock.
-
-The predicate does not guarantee inclusion or successful execution. The transaction must still have a competitive priority score, remain within its expiry, and pass normal transaction validation.
+A later transaction with the same sender and nonce can replace a pending transaction. If the RPC returns an underpriced-replacement error, increase the fee fields, sign again, and retry.

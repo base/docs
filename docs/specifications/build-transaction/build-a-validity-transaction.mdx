@@ -1,76 +1,95 @@
 ---
 title: "Build a Validity Transaction"
-description: "Prepare, sign, and submit an EIP-8130 validity transaction on Base."
-tag: "Soon"
+description: "Sign and submit a validity transaction with Viem."
 ---
 
-This guide explains the confirmed transaction requirements for a validity transaction. Runnable Ethers and Viem examples will be published when the EIP-8130 transaction encoding and the experimental RPC schema are finalized.
+This guide shows how to sign an EIP-1559 transaction with Viem and submit it with validity predicates.
 
 <Warning>
-Validity transactions are experimental and currently available only on vibenet. Mainnet and Base Sepolia support is planned with the Cobalt hardfork.
+Validity Transactions are experimental. `base_sendRawTransactionValidity` is currently available on Vibenet.
 </Warning>
 
-## Prerequisites
+## 1. Create Predicates
 
-Before submitting a transaction, you need:
+Use `storage` to wait for contract state. Use `block_number` to set a maximum block. Every predicate must match.
 
-- A vibenet RPC endpoint that supports `base_sendRawTransactionValidity`.
-- An EIP-8130-compatible signer and transaction builder.
-- An account funded with enough ETH for normal execution fees, the network tip, and any ETH value sent by application calls.
+```ts Predicate setup lines wrap expandable highlight={5,8,9,10,14,16,17}
+import type { Address, Hex } from 'viem';
 
-For EIP-8130 account and transaction concepts, see [Native Account Abstraction](/specifications/native-account-abstraction).
-
-## 1. Construct the Transaction
-
-Create a signed EIP-8130 transaction with an explicit expiry. Expiry is evaluated against canonical block time. There is no minimum expiry; the current target maximum and default are 60 seconds, but this value may change.
-
-Use the first call phase for exactly one ETH transfer to the Sequencer Fee Vault. Put application calls in later phases. The ETH transferred in the first phase is the network tip used to prioritize the validity transaction.
-
-## 2. Define Validity Predicates
-
-Supply one or more predicates that describe the state or position required for inclusion. Every predicate must be true at the same candidate insertion point.
-
-```json Position Predicates lines wrap expandable highlight={5,12}
-{
-  "validity": [
-    {
-      "type": "block_number",
-      "params": {
-        "op": "=",
-        "value": "0x12345"
-      }
+const validity = [
+  {
+    type: 'storage',
+    params: {
+      address: '0x8ba1f109551bD432803012645Ac136ddd64DBA72' as Address,
+      slot: '0x0000000000000000000000000000000000000000000000000000000000000008' as Hex,
+      op: '=',
+      value: '0x000000000000000000000000000000000000000000000000000000000000002a' as Hex,
     },
-    {
-      "type": "flashblock_index",
-      "params": {
-        "op": "=",
-        "value": "0x7"
-      }
-    }
-  ]
-}
+  },
+  {
+    type: 'block_number',
+    params: {
+      op: '<=',
+      value: '0x00000000000000000000000000000000000000000000000000000000011a6a1' as Hex,
+    },
+  },
+] as const;
 ```
 
-Supported predicate types are `balance`, `storage`, `block_number`, and `flashblock_index`. The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. The planned limit is approximately 16 predicates per transaction and remains subject to change.
+Omit `mask` to compare the full storage word.
 
-For predicate examples and safety guidance, see [Predicates and Safety](/specifications/build-transaction/predicates-and-safety).
+## 2. Sign an EIP-1559 Transaction
 
-## 3. Submit the Signed Transaction
+Use the sender's next nonce. The signed payload becomes the first RPC parameter.
 
-Submit the serialized signed transaction and its predicates through `base_sendRawTransactionValidity`. A successful response returns the transaction hash.
+```ts Sign transaction lines wrap expandable highlight={7,12,14,15,20,21}
+import { createPublicClient, http, type Chain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
-The method follows `eth_sendRawTransaction` semantics for duplicates, nonce handling, cancellation, replay, and replacement. A replacement must increase `maxFeePerGas` by at least 10%; set `priorityFeePerGas` to `0`. The network tip may be raised or lowered in a replacement.
+const client = createPublicClient({ chain, transport: http(rpcUrl) });
+const account = privateKeyToAccount(privateKey);
+const fees = await client.estimateFeesPerGas();
+const nonce = await client.getTransactionCount({
+  address: account.address,
+  blockTag: 'latest',
+});
 
-## 4. Wait for Inclusion or Expiry
+const rawTransaction = await account.signTransaction({
+  chainId: (chain as Chain).id,
+  type: 'eip1559',
+  nonce,
+  to: '0x...' as Address,
+  data: '0x...' as Hex,
+  value: 0n,
+  gas: 100_000n,
+  maxFeePerGas: fees.maxFeePerGas,
+  maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+});
+```
 
-The builder checks predicates after each transaction. When all predicates match, the transaction can compete for inclusion using `tip / tx.gasLimit`. Ordinary transactions use `priorityFeePerGas` instead and win an equal-priority tie because they have fewer predicates.
+## 3. Submit the Transaction
 
-A matching predicate does not guarantee inclusion. A transaction can lose priority, be skipped under heavy load for the remainder of a Flashblock, be replaced, or expire.
+Pass the signed transaction and `validity` as separate parameters.
 
-There is no public pending-status, event, log, or trace API for validity transactions. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm onchain inclusion.
+```ts Submit transaction lines wrap expandable highlight={7,8,12,13}
+const response = await fetch(rpcUrl, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'base_sendRawTransactionValidity',
+    params: [rawTransaction, { validity }],
+  }),
+});
 
-## Next Steps
+const body = await response.json();
+if (body.error) throw new Error(body.error.message);
+const hash = body.result;
+```
 
-- Read the [`base_sendRawTransactionValidity` reference](/specifications/build-transaction/base_sendRawTransactionValidity) for submission and replacement semantics.
-- Read [Fees, Ordering, and Lifecycle](/specifications/build-transaction/fees-ordering-and-lifecycle) to understand priority and fees.
-- Read [Troubleshooting](/specifications/build-transaction/troubleshooting) if a transaction is not included.
+## 4. Check Inclusion
+
+The RPC returns a transaction hash. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to check for an onchain receipt.
+
+For field definitions, see [Validity Transaction RPC](/specifications/build-transaction/base_sendRawTransactionValidity).

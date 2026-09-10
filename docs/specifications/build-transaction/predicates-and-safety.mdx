@@ -1,116 +1,50 @@
 ---
 title: "Predicates and Safety"
-description: "Use validity predicates safely and understand when the builder evaluates them."
-tag: "Soon"
+description: "Use storage and block-number predicates safely."
 ---
 
-Validity predicates are inclusion conditions evaluated by the builder. They can keep a signed transaction pending until account state, contract storage, or a block position matches the transaction's requirements.
+Predicates are inclusion conditions. They do not guarantee inclusion or successful execution.
 
-Predicates filter eligibility. They do not guarantee inclusion or successful execution.
+## Predicate Types
 
-## Supported Predicates
+| Type | Parameters |
+| --- | --- |
+| `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
+| `block_number` | `op`, `value` |
 
-| Type | Observed value | Parameters |
-| --- | --- | --- |
-| `balance` | ETH balance of an address | `address`, `op`, `value` |
-| `storage` | A storage slot in a contract | `address`, `slot`, `op`, `value` |
-| `block_number` | The block number being built | `op`, `value` |
-| `flashblock_index` | The Flashblock index being built | `op`, `value` |
+The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate values use 32-byte hexadecimal words.
 
-Supported comparison operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`.
+## Evaluation
 
-All predicates in the `validity` array are combined with logical AND. Every predicate must match at the same candidate insertion point. The planned limit is approximately 16 predicates per transaction; this remains subject to change.
+Base checks a transaction before inclusion. If a predicate is false, the transaction remains pending.
 
-## When Predicates Are Evaluated
+An earlier transaction can change the storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
 
-The builder checks predicates after each transaction. If a predicate does not match, the transaction is skipped and the builder continues with the next transaction in priority order.
+## Storage Example
 
-A later transaction can change a balance or storage slot. When that happens, a previously skipped validity transaction can be evaluated again and become eligible immediately in the same Flashblock.
-
-Under rare conditions, including heavy transaction load, validity transactions can be skipped for the remainder of a Flashblock even when their predicates match.
-
-## Examples
-
-### Balance
-
-This predicate is true when the address holds at least one wei:
-
-```json Balance Predicate lines wrap expandable highlight={4,7}
-{
-  "type": "balance",
-  "params": {
-    "address": "0x1111111111111111111111111111111111111111",
-    "op": ">=",
-    "value": "0x1"
-  }
-}
-```
-
-### Storage
-
-This predicate is true when the specified contract storage slot equals the expected value:
-
-```json Storage Predicate lines wrap expandable highlight={4,8}
+```json Storage predicate lines wrap expandable highlight={5,6,7,8,9}
 {
   "type": "storage",
   "params": {
     "address": "0x2222222222222222222222222222222222222222",
-    "slot": "0x7",
+    "slot": "0x0000000000000000000000000000000000000000000000000000000000000007",
+    "mask": "0x00000000000000000000000000000000000000000000000000000000000000ff",
     "op": "=",
-    "value": "0x2a"
+    "value": "0x000000000000000000000000000000000000000000000000000000000000002a"
   }
 }
 ```
 
-### Block Position
+Base compares `(storage[address][slot] & mask)` with `value`. Omit `mask` to compare the full storage word.
 
-Use separate predicates to require both a block number and a Flashblock index:
+## Safety
 
-```json Block Position lines wrap expandable highlight={4,11}
-[
-  {
-    "type": "block_number",
-    "params": {
-      "op": "=",
-      "value": "0x12345"
-    }
-  },
-  {
-    "type": "flashblock_index",
-    "params": {
-      "op": "=",
-      "value": "0x7"
-    }
-  }
-]
-```
+A predicate does not simulate a transaction. Keep critical checks in the application call.
 
-## Safety Guidance
+Predicates read raw storage. They cannot call view functions or evaluate computed values. Verify the target contract's storage layout before using a storage predicate.
 
-### Treat Predicates as Filters
+State can change during block building. A condition can become true or false before inclusion.
 
-A matching predicate does not simulate the complete transaction. The transaction can still fail normal validation, lose priority, or revert during execution. Make the application call validate its critical assumptions as well.
+Do not use transaction placement as a source of randomness. Do not assume a zero-valued slot makes a CREATE2 address, proxy, or uninitialized contract safe to call.
 
-### Validate Oracle Assumptions
-
-If an application uses an oracle value in storage, include the freshness, round, and source checks it needs. A storage value can be stale, manipulated, or updated more than once in a Flashblock.
-
-### Account for State Changes
-
-Transactions that execute before yours can change balances and storage. Describe the state your application needs precisely, and expect that it can change again before execution.
-
-### Verify Storage Layouts
-
-Proxy upgrades and implementation changes can move or reinterpret storage. Do not depend on a storage slot unless its layout is stable and controlled.
-
-### Avoid Initialization Assumptions
-
-CREATE2 addresses, proxies, and uninitialized contracts can have predictable addresses before they have the expected code or configuration. A zero-valued storage slot does not prove that a contract is safe to call.
-
-### Set an Explicit, Short Expiry
-
-Use an explicit expiry that covers the expected opportunity without leaving an old transaction usable longer than necessary. Expiry is evaluated against canonical block time; the current target maximum and default are 60 seconds, and may change.
-
-### Understand the Privacy Boundary
-
-Like other transactions in Base's private mempool, a validity transaction is visible after inclusion in a block. Its validity criteria are not recorded onchain. Do not put secrets in transaction calldata or predicate values.
+Validity criteria are not recorded onchain. Do not include secrets in calldata or predicate values.

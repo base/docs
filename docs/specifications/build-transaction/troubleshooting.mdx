@@ -1,52 +1,36 @@
 ---
 title: "Troubleshooting"
-description: "Diagnose validity transaction submission, expiry, funding, and inclusion issues."
-tag: "Soon"
+description: "Diagnose validity transaction submission and inclusion issues."
 ---
 
-A successful submission returns a transaction hash, but it does not guarantee inclusion. Validity transactions do not expose a public pending-status, event, log, or trace API. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm onchain inclusion.
+Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm onchain inclusion.
 
 ## RPC Method Is Unavailable
 
-**Likely cause:** The endpoint or network does not support experimental validity transactions.
-
-**Resolution:** Use vibenet while the feature is in preview. Mainnet and Base Sepolia support is planned with the Cobalt hardfork. The method is not allowlisted, but standard transaction-submission rate limits apply.
+Use an endpoint that supports `base_sendRawTransactionValidity`. The method is currently available on Vibenet.
 
 ## Submission Fails
 
-Ensure that the transaction is a valid signed EIP-8130 transaction and that every predicate uses a supported type and operator.
+Confirm that the first parameter is a signed EIP-1559 transaction. Confirm that the second parameter has a non-empty `validity` array.
 
-- Supported predicate types are `balance`, `storage`, `block_number`, and `flashblock_index`.
-- Supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`.
-- All predicates must be satisfied at the same candidate insertion point.
-- The first call phase must contain a single ETH transfer to the Sequencer Fee Vault.
+Check the predicate type, operator, and 32-byte hexadecimal values. See [Validity Transaction RPC](/specifications/build-transaction/base_sendRawTransactionValidity) for the request format.
 
-The published API does not yet define a stable error catalog. Record the exact JSON-RPC error returned by the endpoint when escalating an issue.
+Record the full JSON-RPC error when escalating an issue.
 
-## Transaction Was Submitted but Not Included
+## Transaction Was Not Included
 
-A transaction can remain unincluded when:
-
-- One or more predicates are false.
-- Another transaction has a higher priority score.
-- The builder skips validity transactions for the remainder of a Flashblock under rare conditions, such as heavy transaction load.
-- The transaction is replaced by another transaction with the same nonce.
-- Its EIP-8130 expiry passes before inclusion.
-
-After each transaction, the builder evaluates predicates again. A transaction whose predicate becomes true can compete for inclusion immediately in the same Flashblock, but it is not guaranteed blockspace.
+A transaction can remain pending because a predicate is false, another transaction has higher priority, it is replaced, or its maximum block passed.
 
 ## Transaction Expired
 
-EIP-8130 expiry is evaluated against canonical block time. There is no minimum expiry. The current target maximum and default are 60 seconds, but this can change; set an explicit expiry in every transaction.
+Submit a new signed transaction with a later `block_number` condition.
 
-An expired transaction cannot be refreshed. Construct, sign, and submit a replacement with a new expiry. The replacement must increase `maxFeePerGas` by at least 10%, while `priorityFeePerGas` remains `0`.
+## Replacement Is Underpriced
 
-## Insufficient Funds
-
-Confirm that the transaction can pay normal execution fees, its ETH network tip, and any ETH value sent by its application calls. A transaction that never lands onchain pays no fees.
+Increase the fee fields, sign again, and retry with the same sender and nonce.
 
 ## Get Help
 
-When escalating an issue, include the network, RPC provider, transaction hash, predicate types, submission time, and exact JSON-RPC error. Do not share private keys, authentication data, or full signed transactions in public support channels.
+Include the network, RPC provider, transaction hash, predicate type, submission time, and JSON-RPC error. Do not share private keys, authentication data, or full signed transactions in public support channels.
 
 For community support, use the `#developer-chat` channel in the [Base Discord](https://base.org/discord).

@@ -1,67 +1,69 @@
 ---
-title: "base_sendRawTransactionValidity"
-sidebarTitle: "base_sendRawTransactionValidity"
-description: "Submit a signed EIP-8130 transaction with validity predicates."
-tag: "Soon"
+title: "Validity Transaction RPC"
+sidebarTitle: "Validity Transaction RPC"
+description: "Submit a signed raw transaction with validity predicates."
 ---
 
-Submits a signed EIP-8130 transaction with predicates that control when it is eligible for inclusion. On successful submission, the method returns the transaction hash.
+Submits a signed EIP-1559 transaction with predicates that control when Base can include it.
 
 <Warning>
-This experimental method is currently available only on vibenet. Mainnet and Base Sepolia support is planned with the Cobalt hardfork. It is not allowlisted, but standard transaction-submission rate limits apply.
+This experimental method is currently available on Vibenet. The production API contract is not yet confirmed.
 </Warning>
 
 ## Parameters
 
-The method accepts a signed, serialized EIP-8130 transaction and its validity predicates. The transaction contains its expiry, fee fields, gas limit, call phases, network tip, and authorization. The validity predicates are supplied to the builder with the transaction.
+Pass two parameters. The first is a signed, serialized transaction. The second contains a non-empty `validity` array.
 
-The first call phase must contain a single ETH transfer to the Sequencer Fee Vault. Later phases can contain application actions. The precise EIP-8130 encoding remains subject to finalization.
+<RequestExample>
+```json Request lines wrap expandable highlight={7,8,11,15}
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "base_sendRawTransactionValidity",
+  "params": [
+    "0x<signed-raw-transaction>",
+    {
+      "validity": [
+        {
+          "type": "storage",
+          "params": {
+            "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+            "slot": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "mask": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+            "op": "=",
+            "value": "0x000000000000000000000000000000000000000000000000000000000000002a"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+</RequestExample>
 
-## Predicate Types
+## Predicates
 
-| Type | Parameters | Comparison |
-| --- | --- | --- |
-| `balance` | `address`, `op`, `value` | Compares an address's ETH balance with `value`. |
-| `storage` | `address`, `slot`, `op`, `value` | Compares a contract storage slot with `value`. |
-| `block_number` | `op`, `value` | Compares the block number being built with `value`. |
-| `flashblock_index` | `op`, `value` | Compares the Flashblock index being built with `value`. |
+| Type | Parameters |
+| --- | --- |
+| `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
+| `block_number` | `op`, `value` |
 
-The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. All predicates are combined with logical AND. The planned limit is approximately 16 predicates per transaction and remains subject to change.
+The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`.
 
-For evaluation behavior and safety considerations, see [Predicates and Safety](/specifications/build-transaction/predicates-and-safety).
+Storage `slot`, `mask`, and `value` are 32-byte hexadecimal words. The `mask` defaults to all ones. Block-number values are also 32-byte hexadecimal words.
 
 ## Returns
 
 <ResponseField name="result" type="string">
-  The 32-byte hash of the signed EIP-8130 transaction.
+  The 32-byte hash of the submitted transaction.
 </ResponseField>
 
-Returning a hash confirms submission acceptance. It does not confirm that predicates match or that the transaction will be included.
-
-<ResponseExample>
-```json Success
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331"
-}
-```
-</ResponseExample>
-
-## Submission and Replacement
-
-Duplicate submissions, nonce handling, cancellation, replay, and replacement use the same semantics as `eth_sendRawTransaction`.
-
-A replacement must increase `maxFeePerGas` by at least 10%. Set `priorityFeePerGas` to `0`; the replacement's network tip can be raised or lowered.
-
-## Inclusion and Observability
-
-There is no external pending-status, event, log, or trace surface for validity transactions. Query [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm that a transaction was included onchain.
-
-A transaction can remain unincluded because its predicates are false, another transaction has higher priority, it is skipped during heavy load, it is replaced, or it reaches its expiry. Its validity criteria are not recorded onchain.
+Returning a hash confirms acceptance. It does not confirm inclusion.
 
 ## Errors
 
-This method returns standard JSON-RPC errors when submission fails. Error codes and validation details are not yet published; do not depend on a particular code or message while the feature is experimental.
+The method returns JSON-RPC errors. Handle an unavailable method, invalid parameters, and a missing transaction hash.
 
-For a submission walkthrough, see [Build a Validity Transaction](/specifications/build-transaction/build-a-validity-transaction).
+Error codes and messages are not yet stable.
+
+Read [Predicates and Safety](/specifications/build-transaction/predicates-and-safety) for evaluation rules. Read [Troubleshooting](/specifications/build-transaction/troubleshooting) when a transaction is not included.
