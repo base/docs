@@ -3,7 +3,7 @@ title: "Build a Validity Transaction"
 description: "Sign and submit a validity transaction with Viem."
 ---
 
-This guide shows how to sign an EIP-1559 transaction with Viem and submit it with validity predicates.
+This guide shows how to sign an EIP-1559 transaction with Viem and submit it with validity predicates. The API also supports signed legacy and EIP-2930 transactions.
 
 <Warning>
 Validity Transactions are experimental. `base_sendRawTransactionValidity` is currently available on Vibenet.
@@ -11,38 +11,47 @@ Validity Transactions are experimental. `base_sendRawTransactionValidity` is cur
 
 ## 1. Create Predicates
 
-Use `storage` to wait for contract state. Use `block_number` to set a maximum block. Every predicate must match.
+Use `balance` or `storage` to wait for account or contract state. Use `block_number` and `flashblock_index` to constrain the candidate position. Every predicate must match.
 
-```ts Predicate setup lines wrap expandable highlight={5,8,9,10,14,16,17}
+```ts Predicate setup lines wrap expandable
 import type { Address, Hex } from 'viem';
 
 const validity = [
   {
+    type: 'balance',
+    params: {
+      address: '0x8ba1f109551bD432803012645Ac136ddd64DBA72' as Address,
+      op: '>=',
+      value: '0x1' as Hex,
+    },
+  },
+  {
     type: 'storage',
     params: {
       address: '0x8ba1f109551bD432803012645Ac136ddd64DBA72' as Address,
-      slot: '0x0000000000000000000000000000000000000000000000000000000000000008' as Hex,
+      slot: '0x8' as Hex,
       op: '=',
-      value: '0x000000000000000000000000000000000000000000000000000000000000002a' as Hex,
+      value: '0x2a' as Hex,
     },
   },
   {
     type: 'block_number',
-    params: {
-      op: '<=',
-      value: '0x00000000000000000000000000000000000000000000000000000000011a6a1' as Hex,
-    },
+    params: { op: '<=', value: '0x11a6a1' as Hex },
+  },
+  {
+    type: 'flashblock_index',
+    params: { op: '<=', value: '0x2' as Hex },
   },
 ] as const;
 ```
 
-Omit `mask` to compare the full storage word.
+Omit `mask` to compare the full storage word. Use `flashblock_index` to target a position within a Flashblock.
 
 ## 2. Sign an EIP-1559 Transaction
 
 Use the sender's next nonce. The signed payload becomes the first RPC parameter.
 
-```ts Sign transaction lines wrap expandable highlight={7,12,14,15,20,21}
+```ts Sign transaction lines wrap expandable
 import { createPublicClient, http, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -71,7 +80,7 @@ const rawTransaction = await account.signTransaction({
 
 Pass the signed transaction and `validity` as separate parameters.
 
-```ts Submit transaction lines wrap expandable highlight={7,8,12,13}
+```ts Submit transaction lines wrap expandable
 const response = await fetch(rpcUrl, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },

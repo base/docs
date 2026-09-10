@@ -4,7 +4,7 @@ sidebarTitle: "Validity Transaction RPC"
 description: "Submit a signed raw transaction with validity predicates."
 ---
 
-Submits a signed EIP-1559 transaction with predicates that control when Base can include it.
+Submits a signed legacy, EIP-2930, or EIP-1559 transaction with predicates that control when Base can include it.
 
 <Warning>
 This experimental method is currently available on Vibenet. The production API contract is not yet confirmed.
@@ -15,7 +15,7 @@ This experimental method is currently available on Vibenet. The production API c
 Pass two parameters. The first is a signed, serialized transaction. The second contains a non-empty `validity` array.
 
 <RequestExample>
-```json Request lines wrap expandable highlight={7,8,11,15}
+```json Request lines wrap expandable
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -28,10 +28,10 @@ Pass two parameters. The first is a signed, serialized transaction. The second c
           "type": "storage",
           "params": {
             "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
-            "slot": "0x0000000000000000000000000000000000000000000000000000000000000008",
-            "mask": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+            "slot": "0x8",
+            "mask": "0xff",
             "op": "=",
-            "value": "0x000000000000000000000000000000000000000000000000000000000000002a"
+            "value": "0x2a"
           }
         }
       ]
@@ -45,12 +45,12 @@ Pass two parameters. The first is a signed, serialized transaction. The second c
 
 | Type | Parameters |
 | --- | --- |
+| `balance` | `address`, `op`, `value` |
 | `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
 | `block_number` | `op`, `value` |
+| `flashblock_index` | `op`, `value` |
 
-The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`.
-
-Storage `slot`, `mask`, and `value` are 32-byte hexadecimal words. The `mask` defaults to all ones. Block-number values are also 32-byte hexadecimal words.
+The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate values use `0x`-prefixed hexadecimal strings. The `mask` defaults to all ones.
 
 ## Returns
 

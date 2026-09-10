@@ -4,7 +4,7 @@ description: "Submit signed transactions that Base considers when onchain condit
 tag: "Soon"
 ---
 
-Validity Transactions let you submit a signed EIP-1559 transaction with conditions on Base state. Use them for conditional swaps, withdrawals, and other state-dependent actions.
+Validity Transactions let you submit a signed transaction with conditions on Base state. The API supports legacy, EIP-2930, and EIP-1559 transactions. Use them for conditional swaps, withdrawals, and other state-dependent actions.
 
 <Warning>
 Validity Transactions are experimental. `base_sendRawTransactionValidity` is currently available on Vibenet. Mainnet and Base Sepolia availability are not yet confirmed.
@@ -12,15 +12,15 @@ Validity Transactions are experimental. `base_sendRawTransactionValidity` is cur
 
 ## How It Works
 
-Submit a signed raw transaction and a non-empty `validity` array. The current API supports storage and block-number predicates.
+Submit a signed raw transaction and a non-empty `validity` array. The current API supports balance, storage, block-number, and Flashblock-index predicates.
 
 A transaction is eligible only when every predicate matches. Base checks predicates before inclusion. A pending transaction can become eligible after an earlier transaction changes the state it watches.
 
-Validity Transactions use normal EIP-1559 fee fields. Eligibility does not reserve block space or guarantee inclusion.
+EIP-1559 Validity Transactions use normal fee fields. Eligibility does not reserve block space or guarantee inclusion.
 
 ## Lifetime and Privacy
 
-Use a `block_number` predicate to set a maximum block. Use the sender's nonce when replacing a pending transaction.
+Use `block_number` or `flashblock_index` predicates to constrain when a transaction can be included. Use the sender's nonce when replacing a pending transaction.
 
 Validity criteria are sent separately from the signed transaction. They do not appear in the resulting onchain transaction. Do not include secrets in calldata or predicate values.
 

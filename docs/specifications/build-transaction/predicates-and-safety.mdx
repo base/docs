@@ -1,6 +1,6 @@
 ---
 title: "Predicates and Safety"
-description: "Use storage and block-number predicates safely."
+description: "Use validity predicates safely."
 ---
 
 Predicates are inclusion conditions. They do not guarantee inclusion or successful execution.
@@ -9,33 +9,52 @@ Predicates are inclusion conditions. They do not guarantee inclusion or successf
 
 | Type | Parameters |
 | --- | --- |
+| `balance` | `address`, `op`, `value` |
 | `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
 | `block_number` | `op`, `value` |
+| `flashblock_index` | `op`, `value` |
 
-The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate values use 32-byte hexadecimal words.
+The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate values use `0x`-prefixed hexadecimal strings.
 
 ## Evaluation
 
 Base checks a transaction before inclusion. If a predicate is false, the transaction remains pending.
 
-An earlier transaction can change the storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
+An earlier transaction can change the balance or storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
+
+## Balance Example
+
+```json Balance predicate lines wrap expandable
+{
+  "type": "balance",
+  "params": {
+    "address": "0x2222222222222222222222222222222222222222",
+    "op": ">=",
+    "value": "0x1"
+  }
+}
+```
 
 ## Storage Example
 
-```json Storage predicate lines wrap expandable highlight={5,6,7,8,9}
+```json Storage predicate lines wrap expandable
 {
   "type": "storage",
   "params": {
     "address": "0x2222222222222222222222222222222222222222",
-    "slot": "0x0000000000000000000000000000000000000000000000000000000000000007",
-    "mask": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+    "slot": "0x7",
+    "mask": "0xff",
     "op": "=",
-    "value": "0x000000000000000000000000000000000000000000000000000000000000002a"
+    "value": "0x2a"
   }
 }
 ```
 
 Base compares `(storage[address][slot] & mask)` with `value`. Omit `mask` to compare the full storage word.
+
+## Block and Flashblock Position
+
+Use `block_number` to target a block and `flashblock_index` to target a position within that Flashblock. Add separate predicates when both conditions must match.
 
 ## Safety
 
