@@ -1,9 +1,7 @@
 ---
 title: "IB20.SEIZE_ROLE"
-description: "Generated B20 reference for SEIZE_ROLE()."
+description: "Returns the role required to call seizeWithMemo on a B20 token."
 ---
-
-
 
 ## Signature
 
@@ -18,22 +16,32 @@ function SEIZE_ROLE() external view returns (bytes32);
 
 ## Description
 
-Required to call `seizeWithMemo`.
+Returns the `bytes32` role constant that gates `seizeWithMemo`. Any account that does not hold this role will have its `seizeWithMemo` call revert with `AccessControlUnauthorizedAccount`.
 
 ## Returns
 
-Role constant.
+`bytes32`, the `SEIZE_ROLE` constant.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. Anyone may call this function to retrieve the role identifier.
 
 ## Policy Interaction
 
-No direct policy interaction.
+No direct policy interaction. The role returned here is used alongside `SEIZE_EXEMPT_POLICY` and `SEIZE_RECEIVER_POLICY` to authorize a seize operation. The caller must hold `SEIZE_ROLE`, the `from` account must not be authorized under `SEIZE_EXEMPT_POLICY` (i.e., an inverted blocklist check), and the `to` account must be authorized under `SEIZE_RECEIVER_POLICY`.
 
 ## Example
 
-```solidity Usage Example
-IB20(target).SEIZE_ROLE();
+Grant this role to the account that will call `seizeWithMemo`:
+
+```solidity Grant SEIZE_ROLE and seize
+bytes32 seizeRole = token.SEIZE_ROLE();
+token.grantRole(seizeRole, seizer);
+
+// seizer may now call:
+token.seizeWithMemo(from, to, amount, memo);
 ```
+
+<Note>
+`SEIZE_ROLE` is separate from pause control. A holder of `SEIZE_ROLE` cannot seize while `PausableFeature.SEIZE` is paused, the call reverts `ContractPaused(SEIZE)`. Pausing `TRANSFER`, `MINT`, or `BURN` does not affect seize.
+</Note>

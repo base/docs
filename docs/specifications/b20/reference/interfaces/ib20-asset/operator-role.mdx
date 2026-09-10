@@ -1,9 +1,7 @@
 ---
 title: "IB20Asset.OPERATOR_ROLE"
-description: "Generated B20 reference for OPERATOR_ROLE()."
+description: "Returns the OPERATOR_ROLE constant that gates multiplier scheduling and announcements on B20 Asset."
 ---
-
-
 
 ## Signature
 
@@ -18,14 +16,20 @@ function OPERATOR_ROLE() external view returns (bytes32);
 
 ## Description
 
-Required to call `announce`, `updateUIMultiplier`, `cancelUIMultiplierUpdate`, and
-`updateMultiplier`. The metadata setters (`updateName`, `updateSymbol`,
-`updateExtraMetadata`) are gated by the inherited `METADATA_ROLE` instead.
-Return: Role constant.
+Returns the `bytes32` role constant required to call:
+
+- `announce`: disclose an operator-driven change
+- `updateUIMultiplier`: schedule a future multiplier change
+- `cancelUIMultiplierUpdate`: cancel a live pending multiplier update
+- `updateMultiplier`: immediate override (deprecated; emergency use only)
+
+The metadata setters (`updateName`, `updateSymbol`, `updateExtraMetadata`) are gated by `METADATA_ROLE`, not `OPERATOR_ROLE`.
+
+This role is Asset-only. B20 Stablecoin has no multiplier and does not expose `OPERATOR_ROLE` for these purposes.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only view; returns a constant. No role required to call this function.
 
 ## Policy Interaction
 
@@ -34,5 +38,5 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).OPERATOR_ROLE();
+bytes32 role = IB20Asset(target).OPERATOR_ROLE();
 ```

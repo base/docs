@@ -1,13 +1,13 @@
 ---
-title: "Tokenized Stocks on Base"
-description: "Technical guide to integrating tokenized stocks on Base, including B20 contracts, multipliers, compliance policies, and price feeds."
+title: "List Tokenized Stocks"
+description: "Let users trade Coinbase-issued tokenized stocks on your app."
 ---
 
 Tokenized Stocks on Base are built on the Base-native token standard, [B20](/build-on-base/issue-rwa/create-an-asset-token). B20 is an extension of the ERC-20 token standard and is intended to be asset-agnostic, with tokenized stocks being one of several possible use cases.
 
 Product-specific details about Tokenized Stocks on Base can be found within [coinbase.com/tokenize](https://coinbase.com/tokenize).
 
-## Token information and listings
+## Token Information and Listings
 
 Tokenized stocks launch similarly to any ERC-20 token: name, symbol, and icon come from the usual sources, along with a few notable B20 specifics. Standard ERC-20 methods and events are supported natively.
 
@@ -19,7 +19,7 @@ B20 specifics:
 - Tokens should be identified by address rather than ticker or symbol. Metadata is mutable onchain and should be indexed accordingly.
 - Discover new tokens by watching the [`B20Created`](/specifications/b20/reference/interfaces/ib20-factory) event.
 
-## What B20 adds beyond ERC-20
+## B20 Token Features
 
 ### Multipliers
 
@@ -72,11 +72,11 @@ Two design points:
 
 **Admin actions:** admin operations and `updateMultiplier` ([`OPERATOR_ROLE`](/specifications/b20/reference/interfaces/ib20-asset/operator-role)) execute immediately when the role holder calls; the B20 standard has no built-in timelock. The `Announcement` and `EndAnnouncement` events are public notice, not an enforced delay. Any timelock or multisig is applied by the issuer at the governance layer.
 
-### Extra metadata
+### Extra Metadata
 
 Issuers can store arbitrary key/value data onchain via [`extraMetadata(key)`](/specifications/b20/reference/interfaces/ib20-asset/extra-metadata) (for example, security identifiers such as ISIN and CUSIP).
 
-### Name and symbol
+### Name and Symbol
 
 Name and symbol are updatable onchain ([`updateName`](/specifications/b20/reference/interfaces/ib20/update-name), [`updateSymbol`](/specifications/b20/reference/interfaces/ib20/update-symbol)), so the token can track offchain changes to the underlying without redeploying.
 
@@ -84,7 +84,7 @@ Name and symbol are updatable onchain ([`updateName`](/specifications/b20/refere
 
 [`transferWithMemo`](/specifications/b20/reference/interfaces/ib20/transfer-with-memo) and [`transferFromWithMemo`](/specifications/b20/reference/interfaces/ib20/transfer-from-with-memo) attach a `bytes32` reference to an individual transfer (emitted as a `Memo` event), for annotating transfers with offchain data for reconciliation and reporting.
 
-### Supply cap
+### Supply Cap
 
 An optional supply cap bounds total supply, mitigating over-minting from operational errors or a compromise.
 
@@ -97,7 +97,7 @@ Holding and trading on the secondary market is permissionless. KYC only happens 
 
 **Security and audits:** tokenized stocks are B20 native precompiles, not separately deployed contracts, so there is no per-asset contract and no per-address verified contract on Basescan (precompiles hold no bytecode). B20 shipped in Base's Beryl upgrade on code audited by Base and Spearbit, with ongoing Cantina (smart contract) and HackerOne (offchain and infrastructure) bug-bounty coverage. Every token shares the same audited implementation.
 
-## Price feeds
+## Price Feeds
 
 A tokenized stock's price is available from both onchain and offchain sources. In every case, the price is derived from the same relationship: the underlying equity's market price scaled by the token's multiplier.
 
@@ -156,13 +156,13 @@ Two common patterns are used to determine value:
 - Directly reading the token's market price from a provider that tracks the B20 asset.
 - Reading the underlying reference price and applying the multiplier calculation manually.
 
-### Historical data
+### Historical Data
 
 For historical OHLC and time-series data, use market-data providers or query Chainlink round history by `roundId`.
 
 Since prices are total-return (multiplier-adjusted), reconstruct the series consistently by applying the multiplier history ([`MultiplierUpdated`](/specifications/b20/reference/interfaces/ib20-asset) events, emitted by both scheduled and instant multiplier changes) if starting from raw share prices.
 
-## Contract addresses
+## Contract Addresses
 
 | Ticker | Contract address |
 |--------|------------------|
@@ -181,7 +181,7 @@ Since prices are total-return (multiplier-adjusted), reconstruct the series cons
 | SPCXc | `0xb2000000000000000000007b9fcbd005511aCBd5` |
 | TSLAc | `0xb2000000000000000000001e800a7f5189430cD0` |
 
-## Additional resources
+## Additional Resources
 
 - [B20 Standard](/specifications/b20/specification-overview)
 - [Base Standard Library](https://github.com/base/base-std/tree/main)

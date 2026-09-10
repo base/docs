@@ -1,9 +1,7 @@
 ---
 title: "IB20.setRoleAdmin"
-description: "Generated B20 reference for setRoleAdmin(bytes32,bytes32)."
+description: "Sets the admin role for a given role on a B20 token, controlling which role can grant and revoke it."
 ---
-
-
 
 ## Signature
 
@@ -18,29 +16,41 @@ function setRoleAdmin(bytes32 role, bytes32 newAdminRole) external;
 
 ## Description
 
-Sets the admin role for `role`. Emits `RoleAdminChanged`.
+Reassigns the admin of `role` to `newAdminRole`. After the call, `grantRole` and `revokeRole` for `role` require the caller to hold `newAdminRole`, not the previous admin. Only the current admin of `role` may call this function.
+
+Emits `RoleAdminChanged(role, previousAdminRole, newAdminRole)`.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
 | `role` | Role whose admin is being updated. |
-| `newAdminRole` | New admin role. |
+| `newAdminRole` | New admin role. May be any role, including `role` itself to lock administration of that role. |
 
 ## Reverts
 
-- `AccessControlUnauthorizedAccount` when the caller does not hold the current admin role for `role`, or when the token has been transitioned to admin-less via `renounceLastAdmin`.
+- `AccessControlUnauthorizedAccount(account, neededRole)`: caller does not hold the current admin role for `role`, or the token has no admins (transitioned via `renounceLastAdmin`).
+
+## Events
+
+| Event | Emitted when |
+|---|---|
+| `RoleAdminChanged(role, previousAdminRole, newAdminRole)` | Admin reassignment succeeds |
 
 ## Access Control
 
-Uses the B20 access-control role graph. Factory initCalls bypass role gates during creation.
+Caller must hold `getRoleAdmin(role)` at the time of the call. On a fresh token, every role's admin is `DEFAULT_ADMIN_ROLE`.
 
-## Policy Interaction
-
-No direct policy interaction.
+Setting `newAdminRole` equal to `role` makes the role self-administrating. Combined with revoking all current holders, this permanently closes the ability to grant that role to new accounts.
 
 ## Example
 
 ```solidity Usage Example
-IB20(target).setRoleAdmin(role, newAdminRole);
+// Make BURN_ROLE the admin of MINT_ROLE.
+// After this call, only BURN_ROLE holders can grant or revoke MINT_ROLE.
+IB20(target).setRoleAdmin(MINT_ROLE, BURN_ROLE);
+
+// Lock MINT_ROLE permanently (self-admin, no holders).
+IB20(target).revokeRole(MINT_ROLE, holder);
+IB20(target).setRoleAdmin(MINT_ROLE, MINT_ROLE);
 ```
