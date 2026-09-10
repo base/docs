@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.MAX_COMPOSITE_CHILD_POLICIES"
-description: "Generated B20 reference for MAX_COMPOSITE_CHILD_POLICIES()."
+description: "Returns the maximum number of child policies a composite policy may reference."
 ---
-
-
 
 ## Signature
 
@@ -18,19 +16,18 @@ function MAX_COMPOSITE_CHILD_POLICIES() external view returns (uint256);
 
 ## Description
 
-Maximum number of child policies a composite may reference, inclusive. Never reverts.
-Return: Maximum permitted child-policy count.
+Returns the upper bound on the number of child policies a composite policy may reference. The valid child count range is `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]`, which is `2` through `4`. Never reverts.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+Used by `createCompositePolicy` and `updateComposite` to validate that the supplied child array length does not exceed this bound. Exceeding it reverts `ChildPoliciesOutsideOfRange`.
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).MAX_COMPOSITE_CHILD_POLICIES();
+uint256 max = IPolicyRegistry(target).MAX_COMPOSITE_CHILD_POLICIES();
 ```

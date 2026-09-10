@@ -1,12 +1,8 @@
 ---
 title: "B20 Specification"
-sidebarTitle: "Specification Overview"
+sidebarTitle: "Specification"
 description: "Normative Beryl specification for Base's B20 native token standard, precompile registries, policy scopes, factory, and variants."
 ---
-
-<Note>
-This is the normative Beryl specification for B20.
-</Note>
 
 B20 is Base's native ERC-20-compatible token standard implemented as Rust precompiles. It adds chain-native roles, policy scopes, memos, pausing, supply caps, ERC-2612 `permit`, deterministic factory creation, and variant-specific surfaces for Asset and Stablecoin tokens.
 
@@ -101,7 +97,7 @@ B20 tokens store one `uint64 policyId` per supported policy scope.
 | `TRANSFER_RECEIVER_POLICY` | `to` | `transfer`, `transferFrom`, and memo variants |
 | `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` when `msg.sender != from` |
 | `MINT_RECEIVER_POLICY` | `to` | `mint`, `mintWithMemo` |
-| `SEIZE_HOLDER_POLICY` | `from` | `seizeWithMemo`; holder is seizable only when not authorized |
+| `SEIZE_EXEMPT_POLICY` | `from` | `seizeWithMemo`; an authorized holder is seize-exempt, so only unauthorized holders are seizable |
 | `SEIZE_RECEIVER_POLICY` | `to` | `seizeWithMemo`; destination must be authorized |
 
 All scopes default to `ALWAYS_ALLOW` at creation. `approve` and `permit` are not policy-gated.
@@ -118,7 +114,7 @@ The legacy `burnBlocked` path is deprecated and retained for backwards compatibi
 
 ## Seize
 
-`seizeWithMemo(from, to, amount, memo)` transfers balance from `from` to `to` and emits `Transfer`, `Memo`, and `Seized`. It is gated by `SEIZE_ROLE`, skips allowance and transfer policies, requires `from` to be denied by `SEIZE_HOLDER_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`.
+`seizeWithMemo(from, to, amount, memo)` transfers balance from `from` to `to` and emits `Transfer`, `Memo`, and `Seized`. It is gated by `SEIZE_ROLE`, skips allowance and transfer policies, requires `from` to be denied by `SEIZE_EXEMPT_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`.
 
 ## Supply Cap
 
@@ -218,7 +214,7 @@ Stablecoin tokens add `currency()`, set once at creation. The value must contain
 | ActivationRegistry | `0x8453000000000000000000000000000000000001` |
 | PolicyRegistry | `0x8453000000000000000000000000000000000002` |
 
-## Developer Documentation
+## Learn More
 
 - [B20 token standard](/build-on-base/issue-rwa/create-an-asset-token): conceptual introduction to B20 and when to use it
 - [Generated reference](/specifications/b20/reference/interfaces/ib20)

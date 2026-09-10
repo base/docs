@@ -20,10 +20,12 @@ The demo uses a local browser-generated account to submit real transactions on *
 </Tip>
 
 <Note>
-New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@v1.0.0`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@be6d045`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
 
 ## Create and Verify the Stock Token
+
+Choose the **Asset** variant when you need configurable decimals, announcements, a scheduled UI multiplier, extra metadata, or `batchMint`. Asset decimals must be in the range `[6, 18]`; values outside that range revert `InvalidDecimals`. The type is sealed into the token address at creation and cannot change.
 
 <CodeGroup>
 {/* sample: stock-create-ts */}
@@ -70,6 +72,8 @@ export async function createStockToken() {
     }
 ```
 </CodeGroup>
+
+The factory assigns a deterministic address from `(variant, sender, salt)`. Address byte `[10]` is `0x00` for Asset tokens. Reusing the same `(variant, sender, salt)` triple reverts `TokenAlreadyExists`. Optional `initCalls`, such as the role grants above, run on the new token in the same transaction. The factory drops access after `createB20` returns.
 
 See the [B20 token standard](/build-on-base/issue-rwa/create-an-asset-token) for the complete interface, roles, and policies.
 

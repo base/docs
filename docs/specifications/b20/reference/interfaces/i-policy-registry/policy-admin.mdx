@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.policyAdmin"
-description: "Generated B20 reference for policyAdmin(uint64)."
+description: "Returns the current admin of a policy in the Policy Registry."
 ---
-
-
 
 ## Signature
 
@@ -18,21 +16,28 @@ function policyAdmin(uint64 policyId) external view returns (address);
 
 ## Description
 
-Returns the current admin of `policyId`, or `address(0)` for built-in sentinels,
-renounced policies, unknown IDs, and malformed IDs. Never reverts.
-Param: policyId Policy to query.
-Return: Current admin, or `address(0)`.
+Never reverts. Returns `address(0)` for any ID that has no admin, including sentinels and IDs that have never been created.
+
+After `renounceAdmin`, no address can be assigned as admin again. `policyAdmin` returns `address(0)` permanently for that policy.
+
+During a pending admin transfer, `policyAdmin` still returns the **current** admin. The staged nominee is readable via `pendingPolicyAdmin`. Administration transfers only when the nominee calls `finalizeUpdateAdmin`.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | The policy to query. |
+
+## Returns
+
+The current admin address, or `address(0)` for built-in sentinels (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`), renounced policies, unknown IDs, and malformed IDs.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
-
-## Policy Interaction
-
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+View, no role required.
 
 ## Example
 
 ```solidity Usage Example
-IPolicyRegistry(target).policyAdmin(arg0);
+address admin = IPolicyRegistry(registry).policyAdmin(policyId);
 ```

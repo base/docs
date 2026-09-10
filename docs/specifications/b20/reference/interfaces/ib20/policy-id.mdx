@@ -1,9 +1,7 @@
 ---
 title: "IB20.policyId"
-description: "Generated B20 reference for policyId(bytes32)."
+description: "Returns the policy ID currently bound to a given policy scope on a B20 token."
 ---
-
-
 
 ## Signature
 
@@ -18,32 +16,44 @@ function policyId(bytes32 policyScope) external view returns (uint64);
 
 ## Description
 
-The current policy ID configured for `policyScope`. Returns `0` (always-allow built-in) for any slot that has never been assigned.
+Returns the policy ID stored for `policyScope`. If the scope has never been assigned, this returns `0`, which is the `ALWAYS_ALLOW` built-in sentinel, every address is authorized.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
-| `policyScope` | Policy slot scope. |
+| `policyScope` | The policy scope slot to query (for example, `TRANSFER_RECEIVER_POLICY` or `MINT_RECEIVER_POLICY`). |
 
 ## Returns
 
-Configured policy ID.
+The `uint64` policy ID currently bound to the scope. `0` means `ALWAYS_ALLOW`.
 
 ## Reverts
 
-- `UnsupportedPolicyType` when `policyScope` is not recognized by this token.
+- `UnsupportedPolicyType(policyScope)`: when `policyScope` is not a slot this token supports.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View function. No role required.
 
-## Policy Interaction
+## Policy Scopes
 
-Reads or writes a token policy-scope pointer into the PolicyRegistry.
+The following scopes are recognized by a B20 token. Pass one of these as `policyScope`:
+
+| Scope | Checked on | Account checked |
+|---|---|---|
+| `TRANSFER_SENDER_POLICY` | `transfer`, `transferFrom`, and memo variants | `from` |
+| `TRANSFER_RECEIVER_POLICY` | `transfer`, `transferFrom`, and memo variants | `to` |
+| `TRANSFER_EXECUTOR_POLICY` | `transferFrom` and `transferFromWithMemo` when `msg.sender != from` | `msg.sender` |
+| `MINT_RECEIVER_POLICY` | `mint`, `mintWithMemo`, `batchMint` | `to` |
+| `SEIZE_EXEMPT_POLICY` | `seizeWithMemo` | `from` |
+| `SEIZE_RECEIVER_POLICY` | `seizeWithMemo` | `to` |
+
+An unset scope reads as `0` (`ALWAYS_ALLOW`). To bind a different policy, the token admin calls `updatePolicy(policyScope, newPolicyId)`.
 
 ## Example
 
 ```solidity Usage Example
 uint64 id = IB20(token).policyId(B20Constants.MINT_RECEIVER_POLICY);
+// id == 0 means ALWAYS_ALLOW (no mint restriction)
 ```
