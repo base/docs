@@ -216,7 +216,11 @@ test("every route-table page exists and is listed in docs.json navigation", asyn
     ),
   );
   const { loadNavigation, collectNavigationPages } = require("../../lib/docs-utils.js");
-  const navSet = new Set(collectNavigationPages(loadNavigation(path.join(REPO_ROOT, "docs"))));
+  const navSet = new Set(
+    collectNavigationPages(loadNavigation(path.join(REPO_ROOT, "docs"))).flatMap((page) =>
+      page.endsWith("/index") ? [page, page.slice(0, -"/index".length)] : [page],
+    ),
+  );
   const routeOf = (page) =>
     page.replace(/^docs\//, "").replace(/\.mdx?$/, "").replace(/\/index$/, "");
 
