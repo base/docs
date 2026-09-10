@@ -7,7 +7,9 @@ tag: "Vibenet"
 <Warning>
 200ms native blocks are live on [Vibenet](/build-on-base/test-on-vibenet) for experimental developer testing. This deployment may change, and you should not rely on it for production decisions.
 
-Denim is not active on Base Sepolia or Base Mainnet; activation times and required client versions remain undecided.
+Denim is targeting Base Sepolia and Base Mainnet in October 2026; exact activation times and required client versions remain undecided.
+
+Denim changes how fast `block.number` advances. If your contracts measure time in blocks, read [Block-Number-Based Contract Logic](#block-number-based-contract-logic) before activation.
 </Warning>
 
 ## Summary
@@ -27,10 +29,36 @@ If your application uses Flashblocks, see [Migrate From Flashblocks](/upgrades/d
 | Network | Status | Activation timestamp | Required client versions |
 | --- | --- | --- | --- |
 | `vibenet` | Live for experimental testing | — | — |
-| `sepolia` | Not active | `TBD` | `TBD` |
-| `mainnet` | Not active | `TBD` | `TBD` |
+| `sepolia` | Planning for October 2026 | `TBD` | `TBD` |
+| `mainnet` | Planning for October 2026 | `TBD` | `TBD` |
 
-Base Sepolia and Base Mainnet activation have not been scheduled.
+Base Sepolia and Base Mainnet activation timestamps have not been scheduled. This page will list the activation timestamps and required client versions once they are set.
+
+## Block-Number-Based Contract Logic
+
+<Warning>
+Denim moves Base from one block every two seconds to five blocks per second. `block.number` advances ten times faster in wall-clock time, while `block.timestamp` still advances in whole seconds. Any contract or offchain system that treats a block count as a duration will see that duration shrink to one tenth of its intended length after activation. Block-count constants baked into immutable or non-upgradeable contracts cannot be retuned after activation.
+</Warning>
+
+Audit your contracts for logic that converts block counts to time before Denim activates:
+
+| Pattern | Effect after Denim |
+| --- | --- |
+| Timelocks, cooldowns, and exit delays measured as `block.number - start >= N` | Elapse in one tenth of the intended wall-clock time. |
+| Vesting, emission, or difficulty schedules measured in blocks | Complete or retarget ten times faster in wall-clock time. |
+| Per-block rate limits or caps that reset when `block.number` changes | Reset five times per second instead of once every two seconds, raising the effective per-second limit ten times. |
+| Deadlines set as `expirationBlock = block.number + N` | Expire in one tenth of the intended wall-clock time. |
+| Governance voting delay and voting period in blocks, including `ERC20Votes` with the default block-number `clock()` | Voting windows shrink ten times. Stored checkpoints stay correct. |
+| Uniswap V3 style TWAP oracles | TWAP values stay correct because accumulators are second-weighted. A fixed observation cardinality covers roughly half as much wall-clock history, so long `observe()` lookbacks revert with `OLD` sooner. |
+
+Logic that measures time with `block.timestamp` is unaffected.
+
+To prepare:
+
+- Replace block-count durations with `block.timestamp` comparisons where you can redeploy or upgrade.
+- Where a block count is governance-tunable, plan to divide it by ten at activation.
+- Where a block count is immutable and cannot be changed, assess the impact and plan a migration before activation.
+- Test the changed behavior on [Vibenet](/build-on-base/test-on-vibenet), which already produces 200ms blocks.
 
 ## Execution
 
