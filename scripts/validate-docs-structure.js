@@ -233,7 +233,10 @@ for (const file of checkedRoots.flatMap(filesUnder)) {
 const routeTablePath = path.join(root, 'scripts/sync-from-base-std/route-table.json');
 if (fs.existsSync(routeTablePath)) {
   const routeTable = JSON.parse(fs.readFileSync(routeTablePath, 'utf8'));
-  const navSet = new Set(navPages);
+  // Mintlify serves `index.mdx` at both the explicit `/index` path and its
+  // directory route. Keep both forms reachable when navigation deliberately
+  // names the index file to preserve its frontmatter-derived sidebar title.
+  const navSet = new Set(navPages.flatMap((page) => (page.endsWith('/index') ? [page, page.slice(0, -'/index'.length)] : [page])));
   const allDocs = allMdx(docs).map((rel) => `docs/${rel.split(path.sep).join('/')}.mdx`);
 
   function globToRegExp(glob) {
