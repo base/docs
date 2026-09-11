@@ -1,0 +1,45 @@
+---
+title: "Overview"
+description: "Submit signed transactions that Base considers when onchain conditions match."
+tag: "Soon"
+---
+
+Validity Transactions let you submit a signed transaction with conditions on Base state. The API supports legacy, EIP-2930, and EIP-1559 transactions; EIP-1559 is recommended. Use them for conditional swaps, withdrawals, and other state-dependent actions.
+
+<Warning>
+Validity Transactions are experimental. `base_sendRawTransactionValidity` is currently available on Vibenet. Mainnet and Base Sepolia availability are not yet confirmed.
+</Warning>
+
+## How It Works
+
+Submit a signed raw transaction and a non-empty `validity` array. The current API supports balance, storage, block-number, and Flashblock-index predicates.
+
+A transaction is eligible only when every predicate matches. Base checks predicates before inclusion. A pending transaction can become eligible after an earlier transaction changes the state it watches.
+
+EIP-1559 Validity Transactions use normal fee fields. Eligibility does not reserve block space or guarantee inclusion.
+
+## Lifetime and Privacy
+
+Use `block_number` or `flashblock_index` predicates to constrain when a transaction can be included. Use the sender's nonce when replacing a pending transaction.
+
+Validity criteria are sent separately from the signed transaction. They do not appear in the resulting onchain transaction. Do not include secrets in calldata or predicate values.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build a Validity Transaction" href="/specifications/build-transaction/build-a-validity-transaction" icon="hammer">
+    Sign and submit a transaction with Viem.
+  </Card>
+  <Card title="Validity Transaction RPC" href="/specifications/build-transaction/base_sendRawTransactionValidity" icon="code">
+    Review the request format.
+  </Card>
+  <Card title="Fees, Ordering, and Lifecycle" href="/specifications/build-transaction/fees-ordering-and-lifecycle" icon="arrow-down-1-9">
+    Understand fees, expiry, and replacement.
+  </Card>
+  <Card title="Predicates and Safety" href="/specifications/build-transaction/predicates-and-safety" icon="shield-check">
+    Learn predicate rules and safety limits.
+  </Card>
+  <Card title="Troubleshooting" href="/specifications/build-transaction/troubleshooting" icon="screwdriver-wrench">
+    Diagnose submission and inclusion issues.
+  </Card>
+</CardGroup>

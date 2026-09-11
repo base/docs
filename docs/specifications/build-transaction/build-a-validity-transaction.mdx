@@ -1,0 +1,104 @@
+---
+title: "Build a Validity Transaction"
+description: "Sign and submit a validity transaction with Viem."
+---
+
+This guide uses an EIP-1559 transaction with Viem because it is the recommended transaction type. The API also supports signed legacy and EIP-2930 transactions.
+
+<Warning>
+Validity Transactions are experimental. `base_sendRawTransactionValidity` is currently available on Vibenet.
+</Warning>
+
+## 1. Create Predicates
+
+Use `balance` or `storage` to wait for account or contract state. Use `block_number` and `flashblock_index` to constrain the candidate position. Every predicate must match.
+
+```ts Predicate setup lines wrap expandable
+import type { Address, Hex } from 'viem';
+
+const validity = [
+  {
+    type: 'balance',
+    params: {
+      address: '0x8ba1f109551bD432803012645Ac136ddd64DBA72' as Address,
+      op: '>=',
+      value: '0x1' as Hex,
+    },
+  },
+  {
+    type: 'storage',
+    params: {
+      address: '0x8ba1f109551bD432803012645Ac136ddd64DBA72' as Address,
+      slot: '0x8' as Hex,
+      op: '=',
+      value: '0x2a' as Hex,
+    },
+  },
+  {
+    type: 'block_number',
+    params: { op: '<=', value: '0x11a6a1' as Hex },
+  },
+  {
+    type: 'flashblock_index',
+    params: { op: '<=', value: '0x2' as Hex },
+  },
+] as const;
+```
+
+Omit `mask` to compare the full storage word. Use `flashblock_index` to target a position within a Flashblock.
+
+## 2. Sign an EIP-1559 Transaction
+
+Use the sender's next nonce. The signed payload becomes the first RPC parameter.
+
+```ts Sign transaction lines wrap expandable
+import { createPublicClient, http, type Chain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const client = createPublicClient({ chain, transport: http(rpcUrl) });
+const account = privateKeyToAccount(privateKey);
+const fees = await client.estimateFeesPerGas();
+const nonce = await client.getTransactionCount({
+  address: account.address,
+  blockTag: 'latest',
+});
+
+const rawTransaction = await account.signTransaction({
+  chainId: (chain as Chain).id,
+  type: 'eip1559',
+  nonce,
+  to: '0x...' as Address,
+  data: '0x...' as Hex,
+  value: 0n,
+  gas: 100_000n,
+  maxFeePerGas: fees.maxFeePerGas,
+  maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+});
+```
+
+## 3. Submit the Transaction
+
+Pass the signed transaction and `validity` as separate parameters.
+
+```ts Submit transaction lines wrap expandable
+const response = await fetch(rpcUrl, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'base_sendRawTransactionValidity',
+    params: [rawTransaction, { validity }],
+  }),
+});
+
+const body = await response.json();
+if (body.error) throw new Error(body.error.message);
+const hash = body.result;
+```
+
+## 4. Check Inclusion
+
+The RPC returns a transaction hash. Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to check for an onchain receipt.
+
+For field definitions, see [Validity Transaction RPC](/specifications/build-transaction/base_sendRawTransactionValidity).
