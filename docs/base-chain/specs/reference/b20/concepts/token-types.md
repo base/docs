@@ -42,7 +42,7 @@ After creation, the node reads the variant byte in the address and runs that var
 
 ## 4. Asset
 
-Asset is the general-purpose variant. That includes real-world assets (RWAs). It is not an RWA-only type. The type-specific surface is [`IB20Asset`](../../src/interfaces/IB20Asset.sol), which extends `IB20` at the same address.
+Asset is the general-purpose variant. That includes real-world assets (RWAs). It is not an RWA-only type. The type-specific surface is [`IB20Asset`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Asset.sol), which extends `IB20` at the same address.
 
 Creation sets immutable `decimals` in `[6, 18]`. Values outside that range revert `InvalidDecimals`. Asset has no `currency()`.
 
@@ -85,7 +85,7 @@ sequenceDiagram
     Factory-->>Issuer: token address
 ```
 
-After return, address byte `[10]` is `0x01`. `decimals()` is `6`. `currency()` is `"USD"`. The type-specific surface is [`IB20Stablecoin`](../../src/interfaces/IB20Stablecoin.sol). Calling `announce` on that address does not run Asset logic.
+After return, address byte `[10]` is `0x01`. `decimals()` is `6`. `currency()` is `"USD"`. The type-specific surface is [`IB20Stablecoin`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Stablecoin.sol). Calling `announce` on that address does not run Asset logic.
 
 ### 6.2 Creating an Asset
 
@@ -107,7 +107,7 @@ sequenceDiagram
     Factory-->>Issuer: token address
 ```
 
-After return, address byte `[10]` is `0x00`. `decimals()` is `18`. [`IB20Asset`](../../src/interfaces/IB20Asset.sol) `announce` and `updateUIMultiplier` are live. There is no `currency()`.
+After return, address byte `[10]` is `0x00`. `decimals()` is `18`. [`IB20Asset`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Asset.sol) `announce` and `updateUIMultiplier` are live. There is no `currency()`.
 
 ### 6.3 A later call
 

@@ -2,7 +2,7 @@
 
 *Exhaustive list of events emitted by the B20 system, grouped by declaring file.*
 
-## [`IB20`](../../src/interfaces/IB20.sol)
+## [`IB20`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20.sol)
 
 | Event | Emitted by | When |
 |---|---|---|
@@ -24,7 +24,7 @@
 | `SymbolUpdated(address indexed updater, string newSymbol)` | `updateSymbol` | The token symbol changes. Carries the new symbol string. |
 | `EIP712DomainChanged()` | `updateName` | ERC-5267 domain-change signal, emitted exactly once per successful call, immediately after `NameUpdated`. `updateSymbol` does NOT emit this. |
 
-## [`IB20Asset`](../../src/interfaces/IB20Asset.sol)
+## [`IB20Asset`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Asset.sol)
 
 | Event | Emitted by | When |
 |---|---|---|
@@ -36,13 +36,13 @@
 
 [^1]: The function-level docs show only `updateMultiplier` emitting `MultiplierUpdated`; the scheduled `updateUIMultiplier` emits `UIMultiplierUpdated` only. The event's own doc-comment in source additionally names `updateUIMultiplier` as an emitter of `MultiplierUpdated`, which conflicts with `updateUIMultiplier`'s own `@notice` — flagging here rather than silently picking one.
 
-## [`IB20Factory`](../../src/interfaces/IB20Factory.sol)
+## [`IB20Factory`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Factory.sol)
 
 | Event | Emitted by | When |
 |---|---|---|
 | `B20Created(address indexed token, B20Variant indexed variant, string name, string symbol, uint8 decimals, bytes variantEventParams)` | `createB20` | Once per invocation, after the token's identity is sealed and before any `initCalls` are dispatched. `variantEventParams` carries variant-specific identity data (empty for ASSET; ABI-encoded `B20StablecoinEventParams` for STABLECOIN). |
 
-## [`IPolicyRegistry`](../../src/interfaces/IPolicyRegistry.sol)
+## [`IPolicyRegistry`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IPolicyRegistry.sol)
 
 | Event | Emitted by | When |
 |---|---|---|
@@ -53,14 +53,14 @@
 | `BlocklistUpdated(uint64 indexed policyId, address indexed updater, bool blocked, address[] accounts)` | `updateBlocklist` | One or more accounts have their BLOCKLIST membership set to `blocked` in a single batch. |
 | `CompositePolicyUpdated(uint64 indexed policyId, address indexed updater, uint64[] childPolicyIds)` | `createCompositePolicy`, `updateComposite` | A composite policy's child set is set or replaced in full. Emitted on creation and on every subsequent update; carries the complete post-update set. |
 
-## [`IActivationRegistry`](../../src/interfaces/IActivationRegistry.sol)
+## [`IActivationRegistry`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IActivationRegistry.sol)
 
 | Event | Emitted by | When |
 |---|---|---|
 | `FeatureActivated(bytes32 indexed feature, address indexed caller)` | `activate` | `feature` is activated. |
 | `FeatureDeactivated(bytes32 indexed feature, address indexed caller)` | `deactivate` | `feature` is deactivated. |
 
-## [`IERC8056`](../../src/interfaces/IERC8056.sol) (`IScaledUIAmount`)
+## [`IERC8056`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IERC8056.sol) (`IScaledUIAmount`)
 
 | Event | Emitted by | When |
 |---|---|---|

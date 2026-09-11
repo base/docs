@@ -2,9 +2,9 @@
 
 *Exhaustive list of custom errors, selectors, and the conditions that trigger them. Selectors are the 4-byte `keccak256` hash of the error signature — computed with `cast sig "ErrorName(types...)"`. Enum parameters encode as their underlying `uint8`.*
 
-*Note: several error names are reused across files with different parameters (or none), which changes the selector. `PolicyNotFound()` ([`IPolicyRegistry`](../../src/interfaces/IPolicyRegistry.sol)) and `PolicyNotFound(uint64)` ([`IB20`](../../src/interfaces/IB20.sol)) are unrelated errors with different selectors, as are `Unauthorized()` (`IB20` / `IPolicyRegistry`) and `Unauthorized(address)` ([`IActivationRegistry`](../../src/interfaces/IActivationRegistry.sol)). Conversely, `LengthMismatch(uint256,uint256)` shares one selector across [`IB20Asset`](../../src/interfaces/IB20Asset.sol) and [`B20FactoryLib`](../../src/lib/B20FactoryLib.sol) — they're independently declared but identical in signature.*
+*Note: several error names are reused across files with different parameters (or none), which changes the selector. `PolicyNotFound()` ([`IPolicyRegistry`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IPolicyRegistry.sol)) and `PolicyNotFound(uint64)` ([`IB20`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20.sol)) are unrelated errors with different selectors, as are `Unauthorized()` (`IB20` / `IPolicyRegistry`) and `Unauthorized(address)` ([`IActivationRegistry`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IActivationRegistry.sol)). Conversely, `LengthMismatch(uint256,uint256)` shares one selector across [`IB20Asset`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Asset.sol) and [`B20FactoryLib`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/lib/B20FactoryLib.sol) — they're independently declared but identical in signature.*
 
-## [`IB20`](../../src/interfaces/IB20.sol)
+## [`IB20`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20.sol)
 
 | Error | Selector | Thrown when |
 |---|---|---|
@@ -33,7 +33,7 @@
 | `NotSoleAdmin()` | `0x2a98e73b` | `renounceLastAdmin()` was called when other accounts also hold `DEFAULT_ADMIN_ROLE`. |
 | `AccessControlBadConfirmation()` | `0x6697b232` | The `callerConfirmation` argument to `renounceRole` was not `msg.sender`. |
 
-## [`IB20Asset`](../../src/interfaces/IB20Asset.sol)
+## [`IB20Asset`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Asset.sol)
 
 | Error | Selector | Thrown when |
 |---|---|---|
@@ -50,7 +50,7 @@
 | `InternalCallMalformed(bytes call)` | `0x4e2f143e` | An inner call dispatched by `announce` was shorter than four bytes. |
 | `InternalCallFailed(bytes call)` | `0xb288a127` | An inner call dispatched by `announce` reverted with an ordinary revert (reason not bubbled). |
 
-## [`IB20Factory`](../../src/interfaces/IB20Factory.sol)
+## [`IB20Factory`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IB20Factory.sol)
 
 | Error | Selector | Thrown when |
 |---|---|---|
@@ -63,7 +63,7 @@
 | `InvalidDecimals(uint8 decimals)` | `0xca950391` | The asset `decimals` was outside `[B20Constants.MIN_ASSET_DECIMALS, B20Constants.MAX_ASSET_DECIMALS]`. |
 | `InitCallFailed(uint256 index)` | `0x4eae0860` | One of the `initCalls` reverted with no bubbled reason. |
 
-## [`IPolicyRegistry`](../../src/interfaces/IPolicyRegistry.sol)
+## [`IPolicyRegistry`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IPolicyRegistry.sol)
 
 | Error | Selector | Thrown when |
 |---|---|---|
@@ -77,7 +77,7 @@
 | `ChildPoliciesOutsideOfRange()` | `0x697ec868` | A composite policy was created or updated with a child-policy count outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]`. |
 | `InvalidChildPolicy(uint64 childPolicyId)` | `0x46508ef6` | A child policy is not an existing simple (ALLOWLIST/BLOCKLIST) policy. |
 
-## [`IActivationRegistry`](../../src/interfaces/IActivationRegistry.sol)
+## [`IActivationRegistry`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/interfaces/IActivationRegistry.sol)
 
 | Error | Selector | Thrown when |
 |---|---|---|
@@ -87,7 +87,7 @@
 | `DelegateCallNotAllowed()` | `0x0d89438e` | The precompile was invoked via `DELEGATECALL` or `CALLCODE`. |
 | `StaticCallNotAllowed()` | `0xbeaba5b7` | A state-mutating entry point was invoked from a `STATICCALL` frame. |
 
-## [`B20FactoryLib`](../../src/lib/B20FactoryLib.sol)
+## [`B20FactoryLib`](https://github.com/base/base-std/blob/bbfb352e9fe2f67bf6ca33ea4d9a7f2fe0cca20d/src/lib/B20FactoryLib.sol)
 
 | Error | Selector | Thrown when |
 |---|---|---|
