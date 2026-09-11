@@ -53,3 +53,11 @@ Shipped with the [Beryl upgrade](/upgrades/beryl/overview).
 **Deprecated**
 
 - `burnBlocked` and `BURN_BLOCKED_ROLE`, retained for backwards compatibility. New seizure flows use `seizeWithMemo`.
+
+<Warning>
+**Pooled-balance integrators:** `seizeWithMemo` and `burnBlocked` both allow funds to move out of a contract address without the regular transfer flow. This affects lending-protocol vaults, AMM pools, staking contracts, custodial wallets, and bridges — any system that maintains internal accounting against a single on-chain token balance. The mechanism acts at the pooling contract's address, not at individual depositor-share granularity, so the accounting impact falls on the pool as a whole.
+
+This is not a new risk. `burnBlocked` already allowed an issuer to zero a blocked address's balance through block, burn, and reissue elsewhere. `seizeWithMemo` does not expand who is exposed — it collapses that workaround into one call, redirects the balance instead of burning and reissuing it, and emits a dedicated `Seized` event. Both paths remain live.
+
+To check current exposure, read the policy IDs assigned to `SEIZE_HOLDER_POLICY` and `TRANSFER_SENDER_POLICY` using `token.policyId(...)` (`IB20.policyId`, `src/interfaces/IB20.sol`), then query the Policy Registry's `isAuthorized(policyId, account)` with the pooling contract's own address against each ID. If the contract is not authorized under the seize-holder policy, or is blocked under the transfer-sender policy, funds can be seized or burned from that vault balance under the current configuration. This check is point-in-time only — an issuer can later change either slot with `updatePolicy`, so "not seizable today" is not a durable guarantee.
+</Warning>
