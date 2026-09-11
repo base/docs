@@ -1,0 +1,75 @@
+---
+title: "Aplicaciones de Agentes"
+description: "Construye servicios diseñados para agentes y haz que tu aplicación sea descubrible"
+---
+
+import { GithubRepoCard } from "/snippets/GithubRepoCard.mdx";
+
+Una aplicación de agentes es un servicio construido con agentes de IA como el usuario principal. En lugar de renderizar una interfaz visual para que los humanos hagan clic, una aplicación de agentes expone endpoints estructurados que los agentes pueden descubrir, entender y llamar programáticamente.
+
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/-y0ZJ-0z7Ow?si=YtmXlwM_3m8Gm0WE"
+  title="Building agent apps on Base"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+## Cómo los agentes descubren tu aplicación
+
+Los agentes encuentran tu servicio a través de un archivo `SKILL.md` alojado en una ruta de URL bien conocida: `/.well-known/SKILL.md`. Si has trabajado con desarrollo web, este patrón puede ser familiar:
+
+- Apple usa `/.well-known/apple-app-site-association` para enlaces universales
+- Las autoridades de certificados SSL usan `/.well-known/acme-challenge/` para verificar la propiedad del dominio
+- OAuth usa `/.well-known/openid-configuration` para descubrimiento
+
+La convención `/.well-known/` es una forma estándar de alojar metadatos en una ubicación predecible. Para aplicaciones de agentes, tu archivo `SKILL.md` vive ahí para que cualquier agente pueda encontrarlo verificando `tudominio.com/.well-known/SKILL.md`.
+
+### Qué va en un SKILL.md
+
+Tu archivo `SKILL.md` describe qué hace tu aplicación, qué endpoints están disponibles y cómo usarlos. Aquí hay una plantilla conceptual:
+
+```markdown Title "SKILL.md template"
+# Nombre de Tu Aplicación
+
+## Descripción
+Qué hace tu aplicación, en lenguaje simple.
+
+## Endpoints
+
+### POST /api/action-name
+- **Descripción:** Qué hace este endpoint
+- **Entradas:** Qué parámetros espera
+- **Salida:** Qué devuelve
+- **Pago:** Si requiere pago x402 y el costo
+
+## Autenticación
+Cómo los agentes deben autenticarse (por ejemplo, SIWA, clave de API, x402).
+```
+
+Cuando un agente lee tu `SKILL.md`, entiende qué ofrece tu servicio y cómo interactuar con él, sin humanos en el medio.
+
+## Diseñando para usuarios agentes
+
+Los agentes no son humanos. No navegan, adivinan o interpretan señales visuales. Al construir una aplicación de agentes, sigue estas pautas:
+
+- **Documenta efectos secundarios**: si un endpoint transfiere fondos, modifica estado o desencadena acciones externas, dilo explícitamente en tu `SKILL.md`
+- **Devuelve JSON estructurado**: los agentes analizan JSON, no HTML. Cada endpoint debe devolver respuestas JSON bien estructuradas con nombres de campo consistentes
+- **Soporta x402 para acceso de pago**: si tu servicio cuesta dinero, implementa el [protocolo x402](/ai-agents/core-concepts/payments-and-transactions) para que los agentes puedan pagar por solicitud sin pre-registro
+- **Usa respuestas de error claras**: devuelve mensajes de error descriptivos con códigos de estado HTTP apropiados para que los agentes puedan manejar fallos elegantemente
+
+## Haciendo tu aplicación descubrible
+
+Aloja tu `SKILL.md` en `/.well-known/SKILL.md` y registra tu aplicación en el [registry ERC-8004](/ai-agents/core-concepts/identity-verification-auth). El mismo registry usado para identidad de agentes se usa para descubrimiento de aplicaciones. Una vez registrado, los agentes pueden consultar el registry, encontrar tu servicio y leer tu `SKILL.md` para entender cómo interactuar con él.
+
+<Warning>
+El Agent App Framework es experimental. Las APIs y convenciones pueden cambiar a medida que el estándar evoluciona.
+</Warning>
+
+<GithubRepoCard title="Agent App Framework" githubUrl="https://github.com/base/agent-apps-experimental" />
+
+## Continúa explorando
+
+<Card title="Volver al resumen" icon="arrow-left" href="/ai-agents/index">
+  Regresa al resumen de agentes de IA para un resumen de todos los componentes.
+</Card>

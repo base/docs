@@ -1,0 +1,94 @@
+---
+title: "Pagos y Transacciones"
+description: "Cómo tu agente paga por servicios, recibe pagos y ejecuta acciones onchain"
+---
+
+Tu agente tiene un wallet. Ahora necesita usarlo. Esta página cubre dos conceptos clave: cómo tu agente paga por servicios automáticamente usando el protocolo x402, y cómo los skills definen las acciones que tu agente puede realizar.
+
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/b5Wx2NAeY2E?si=r1FumIsbGt6nAt29"
+  title="Payments and transactions for agents"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+## x402: pago por solicitud con stablecoins
+
+x402 permite que tu agente pague por solicitudes de API usando <Tooltip tip="Criptomonedas ancladas a un activo estable como el dólar estadounidense (por ejemplo, USDC). 1 USDC está diseñado para siempre equivaler a $1.">stablecoins</Tooltip> sin suscripciones o claves de API. Tu agente solicita un recurso, el servidor le dice el precio, tu agente paga y el servidor entrega los datos.
+
+El nombre proviene del código de estado HTTP `402 Payment Required`, que ha estado reservado en la especificación HTTP desde los años 1990 pero nunca fue ampliamente adoptado. x402 finalmente lo pone en uso.
+
+### Cómo funciona x402
+
+<Steps>
+  <Step title="Tu agente hace una solicitud">
+    Tu agente envía una solicitud HTTP estándar a un endpoint de API, igual que cualquier otra llamada de API.
+  </Step>
+
+  <Step title="El servidor responde con 402 Payment Required">
+    En lugar de devolver datos, el servidor responde con un código de estado `402` e incluye detalles de pago: cuánto cuesta, en qué stablecoin pagar y dónde enviar el pago.
+  </Step>
+
+  <Step title="Tu agente paga">
+    El wallet de tu agente construye y envía un pago onchain basado en las instrucciones del servidor. Esto sucede automáticamente, sin aprobación humana necesaria.
+  </Step>
+
+  <Step title="El servidor entrega los datos">
+    Una vez confirmado el pago, el servidor devuelve los datos solicitados. Todo el flujo toma segundos.
+  </Step>
+</Steps>
+
+Este modelo es poderoso para agentes porque no requiere una relación preexistente entre tu agente y el servicio. Cualquier agente con un wallet financiado puede pagar por cualquier API habilitada para x402 sobre la marcha.
+
+[Aprende más sobre x402 →](https://www.x402.org/)
+
+## Skills: acciones que tu agente puede realizar
+
+Los skills son definiciones de funciones tipadas que describen una acción que tu agente puede invocar. Cada skill especifica un nombre, entradas esperadas y tipo de retorno similar a un esquema de herramienta o función en cualquier integración de uso de herramientas de LLM. Tu agente analiza estas definiciones en runtime y las llama cuando son relevantes.
+
+Los skills cubren acciones como verificar el balance de un token, ejecutar un intercambio, enviar un pago o llamar a un <Tooltip tip="Un programa desplegado onchain que se ejecuta automáticamente cuando se cumplen las condiciones">smart contract</Tooltip>.
+
+### Cómo se ve un skill
+
+Una definición de skill incluye el nombre de la acción, una descripción de lo que hace, las entradas requeridas y la salida esperada. Aquí hay un ejemplo simplificado:
+
+```json Title "Conceptual skill definition"
+{
+  "skill": "check-balance",
+  "description": "Check the token balance of a wallet address",
+  "inputs": {
+    "wallet_address": "The address to check",
+    "token": "The token symbol (e.g., USDC, ETH)"
+  },
+  "output": "The current balance of the specified token"
+}
+```
+
+Tu agente lee esta definición, entiende qué entradas necesita proporcionar y llama al skill cuando es relevante para la tarea en cuestión.
+
+### Proveedores de skills
+
+<Tabs>
+  <Tab title="BANKR Skills">
+    **Qué son:** Skills preconstruidos para agentes ejecutándose en OpenClaw. Los skills de BANKR cubren acciones comunes como intercambios de tokens, verificaciones de balance e interacciones DeFi.
+
+    **Mejor para:** Agentes usando OpenClaw o BANKR que necesitan capacidades onchain listas para usar.
+
+    [Explora los skills de BANKR →](https://github.com/BankrBot/openclaw-skills)
+  </Tab>
+
+  <Tab title="CDP Skills">
+    **Qué son:** Skills proporcionados por la plataforma de desarrolladores de Coinbase. Los skills de CDP se integran con el Agentic Wallet y cubren gestión de wallet, operaciones de tokens e interacciones de protocolos.
+
+    **Mejor para:** Agentes usando Agent SDK con un CDP Agentic Wallet.
+
+    [Explora los skills de CDP →](https://docs.cdp.coinbase.com/agentic-wallet/skills/overview)
+  </Tab>
+</Tabs>
+
+## Siguiente paso
+
+<Card title="Identidad, verificación y autenticación" icon="arrow-right" href="/ai-agents/core-concepts/identity-verification-auth">
+  Haz que tu agente sea descubrible y verificable para que otros agentes y servicios puedan confiar en él.
+</Card>
