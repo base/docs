@@ -230,3 +230,5 @@ Examples:
 - `02-cobalt-b20asset-multiplier.mdx`
 - `02-cobalt-b20-seize.mdx`
 - `02-cobalt-policyregistry-composite-policy.mdx`
+
+<!-- Test-only change for validating the Guideline Files approval gate. Do not merge. -->
