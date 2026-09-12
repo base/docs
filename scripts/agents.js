@@ -42,7 +42,7 @@ const CONFIG = {
   docsUrl: 'https://docs.base.org',
   mcpUrl: 'https://docs.base.org/mcp',
   skillsRepoUrl: 'https://github.com/base/skills',
-  skillsInstallCmd: 'npx skills add base/base-skills',
+  skillsInstallCmd: 'npx skills add base/skills --skill base-mcp',
 };
 
 function discoverFeaturedPages() {
