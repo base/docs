@@ -50,7 +50,7 @@ npx skills add base/base-skills
 |Build on Base/Accept Payments/Confirm and Reconcile:build-on-base/accept-payments/verify-a-payment,build-on-base/accept-payments/watch-for-payments,build-on-base/accept-payments/reconcile-payments
 |Build on Base/Accept Payments/Return and Pay Out:build-on-base/accept-payments/refund-a-payment,build-on-base/accept-payments/send-a-payout,build-on-base/accept-payments/split-a-payment
 |Build on Base/Accept Payments/Accept Agentic Payments:build-on-base/accept-payments/charge-for-an-api,build-on-base/accept-payments/settle-usage-based-payments,build-on-base/accept-payments/batch-high-frequency-payments,build-on-base/accept-payments/call-a-paid-service
-|Specifications/Specifications:specifications/overview,specifications/native-account-abstraction,specifications/flashblocks
+|Specifications/Specifications:specifications/overview,specifications/flashblocks
 |Specifications/Specifications/Base Protocol:specifications/base-protocol/overview,specifications/base-protocol/batcher,specifications/base-protocol/design-goals
 |Specifications/Specifications/Base Protocol/Consensus:specifications/base-protocol/consensus/specification,specifications/base-protocol/consensus/derivation,specifications/base-protocol/consensus/p2p,specifications/base-protocol/consensus/rpc
 |Specifications/Specifications/Base Protocol/Execution:specifications/base-protocol/execution/l2-execution-engine,specifications/base-protocol/execution/precompiles,specifications/base-protocol/execution/predeploys,specifications/base-protocol/execution/preinstalls
@@ -73,7 +73,7 @@ npx skills add base/base-skills
 |SDKs & APIs/Base Verify API:sdks/base-verify/overview,sdks/base-verify/verify-social-accounts,sdks/base-verify/verify-users-onchain
 |SDKs & APIs/Migrated Documentation:sdks/migrated-products
 |Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
-|Upgrades/Denim:upgrades/denim/overview,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks
+|Upgrades/Denim:upgrades/denim/overview,specifications/native-account-abstraction,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks,base-chain/specs/reference/b20/changelog/03-denim-b20-transfer-executor-enforcement
 |Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy,upgrades/cobalt/validity-transactions
 |Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
 |Upgrades/Azul:upgrades/azul/overview,upgrades/azul/node-upgrade,upgrades/azul/exec-engine,upgrades/azul/proofs
