@@ -1,9 +1,7 @@
 ---
 title: "IB20.transferFromWithMemo"
-description: "Generated B20 reference for transferFromWithMemo(address,address,uint256,bytes32)."
+description: "Transfers tokens on behalf of another address and emits a Memo event, with executor, sender, and receiver policy enforcement."
 ---
-
-
 
 ## Signature
 
@@ -33,13 +31,26 @@ Same as `transferFrom`, plus emits `Memo` immediately after the standard `Transf
 
 Always `true` on success.
 
-## Access Control
-
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
-
 ## Policy Interaction
 
-Checks `TRANSFER_EXECUTOR_POLICY` when `msg.sender != from`, plus sender and receiver transfer scopes.
+`TRANSFER_EXECUTOR_POLICY` is checked against `msg.sender` on every call, including when `msg.sender == from`. Sender (`from`) and receiver (`to`) policies are also enforced. All three checks are bypassed during the factory bootstrap window; see `IB20Factory.createB20`.
+
+<Warning>
+`TRANSFER_EXECUTOR_POLICY` now applies even when `msg.sender == from`. Tokens that have configured a restrictive executor policy will block holder-initiated transfers unless the holder is explicitly authorized as an executor.
+</Warning>
+
+## Revert Conditions
+
+| Revert | Condition |
+|---|---|
+| `ContractPaused(TRANSFER)` | The `TRANSFER` operation is paused. |
+| `InvalidReceiver` | `to == address(0)`. |
+| `InvalidSender` | `from == address(0)`. |
+| `InsufficientAllowance` | The caller's allowance from `from` is below `amount`. |
+| `PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...)` | `msg.sender` is not authorized by the executor policy. |
+| `PolicyForbids(TRANSFER_SENDER_POLICY, ...)` | `from` is not authorized by the sender policy. |
+| `PolicyForbids(TRANSFER_RECEIVER_POLICY, ...)` | `to` is not authorized by the receiver policy. |
+| `InsufficientBalance` | `from`'s balance is below `amount`. |
 
 ## Example
 

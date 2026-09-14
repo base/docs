@@ -67,6 +67,10 @@ For plain USDC, call `transfer` instead and record the original order ID, captur
 
 `reserveOnce` must atomically create a pending refund and reduce the available refundable balance before broadcasting. If the worker loses the receipt, reconcile that pending record from chain data instead of releasing it and risking a duplicate transfer.
 
+<Warning>
+B20 tokens with a restrictive `TRANSFER_EXECUTOR_POLICY` now apply that policy to every transfer call — including direct `transfer` and `transferWithMemo` — not only delegated `transferFrom` paths. If your merchant account is not authorized as an executor on the token, the refund transfer will revert. Confirm your account is on the token's executor allowlist before broadcasting a refund.
+</Warning>
+
 <Check>
 The refund transfer goes to the payer from the original receipt, and the durable refund ledger reduces the remaining refundable amount.
 </Check>

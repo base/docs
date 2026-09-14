@@ -65,6 +65,10 @@ The transaction emits one `PayoutSent` event per recipient under the same `batch
 Cap batch size from measured gas usage and keep the contract's `MAX_RECIPIENTS` bound. A single failed token transfer reverts the entire batch.
 </Warning>
 
+<Warning>
+B20 tokens enforce `TRANSFER_EXECUTOR_POLICY` on every transfer path — including `transferFrom` calls where `msg.sender == from`. If the token has a restrictive executor policy, your payout contract's address must be authorized as an executor, or all transfers will revert with `PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...)`.
+</Warning>
+
 Do not approve the public `Multicall3` contract as an ERC-20 spender. Downstream token calls see Multicall3 as `msg.sender`, and any caller can ask that general-purpose contract to invoke `transferFrom` against an allowance you grant it. Use a purpose-built contract that fixes who can initiate payouts and how recipients are selected.
 
 ## See Also

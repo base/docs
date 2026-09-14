@@ -1,6 +1,6 @@
 ---
 title: "IB20.transfer"
-description: "Generated B20 reference for transfer(address,uint256)."
+description: "Transfers tokens from msg.sender to a destination address, subject to executor, sender, and receiver policy checks."
 ---
 
 
@@ -36,17 +36,22 @@ Always `true` on success.
 - `ContractPaused(TRANSFER)` when `TRANSFER` is paused.
 - `InvalidReceiver` when `to == address(0)`.
 - `InvalidSender` when `msg.sender == address(0)`.
-- `PolicyForbids(TRANSFER_SENDER_POLICY, ...)` when `msg.sender` is not authorized.
+- `PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...)` when `msg.sender` is not authorized as an executor.
+- `PolicyForbids(TRANSFER_SENDER_POLICY, ...)` when `msg.sender` is not authorized as a sender.
 - `PolicyForbids(TRANSFER_RECEIVER_POLICY, ...)` when `to` is not authorized.
 - `InsufficientBalance` when `msg.sender`'s balance is below `amount`.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Standard ERC-20 caller rules apply. The factory bootstrap bypass suppresses all three policy checks during the creation window; see `IB20Factory.createB20`.
 
 ## Policy Interaction
 
-Checks `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_POLICY`; `approve` and `permit` are not policy-gated.
+Checks `TRANSFER_EXECUTOR_POLICY`, `TRANSFER_SENDER_POLICY`, and `TRANSFER_RECEIVER_POLICY` on every call. The executor check runs even when `msg.sender == from`, so an executor allowlist can restrict holder-initiated transfers with no self-transfer exemption.
+
+<Warning>
+`TRANSFER_EXECUTOR_POLICY` now applies to `transfer` (not only `transferFrom`). If you have configured a restrictive executor allowlist, holders who are not on that list can no longer initiate transfers directly — they must use an authorized executor.
+</Warning>
 
 ## Example
 
