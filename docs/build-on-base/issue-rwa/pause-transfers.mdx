@@ -63,6 +63,16 @@ Transfer pause state changes without pausing mint or burn.
 `pause` requires `PAUSE_ROLE`. `unpause` requires `UNPAUSE_ROLE`. These are separate roles, so grant recovery authority more narrowly than emergency pause authority.
 </Note>
 
+## Executor Policy and Transfer Initiation
+
+`TRANSFER_EXECUTOR_POLICY` now applies to **every** transfer path — `transfer`, `transferFrom`, and their memo variants — including when `msg.sender == from`. If your token has configured a restrictive executor policy, holders moving their own tokens (via direct `transfer` or self-`transferFrom`) must also be authorized as initiators.
+
+<Warning>
+If you have set a restrictive `TRANSFER_EXECUTOR_POLICY`, holders who are not on the executor allowlist can no longer initiate transfers themselves. This closes the previous bypasses where a direct `transfer` call or a self-`transferFrom` call skipped the executor check. Review your executor policy configuration before deploying tokens that rely on holder-initiated transfers.
+</Warning>
+
+Tokens that have never configured `TRANSFER_EXECUTOR_POLICY` are unaffected — an unset executor slot is always-allow.
+
 ## See Also
 
 <CardGroup cols={2}>
