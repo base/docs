@@ -1,5 +1,27 @@
 # Scripts
 
+## Redirect validator
+
+Check every redirect destination against the docs tree and other redirects:
+
+```bash
+node scripts/validate-redirects.js
+```
+
+The repository has pre-existing broken redirects. CI compares a pull request with its base
+revision so existing debt does not block unrelated work while newly broken destinations,
+redirect chains, and cycles fail the check:
+
+```bash
+node scripts/validate-redirects.js --base-ref <git-ref>
+```
+
+Run the dependency-free test suite with:
+
+```bash
+node --test scripts/validate-redirects.test.js
+```
+
 ## MDX Linter
 
 Deterministic linter for MDX documentation files.
