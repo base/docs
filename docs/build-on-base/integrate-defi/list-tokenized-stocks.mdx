@@ -11,19 +11,19 @@ Product-specific details about Tokenized Stocks on Base can be found within [coi
 
 Tokenized stocks launch similarly to any ERC-20 token: name, symbol, and icon come from the usual sources, along with a few notable B20 specifics. Standard ERC-20 methods and events are supported natively.
 
-- **Onchain:** [`name`](/specifications/b20/reference/interfaces/ib20/name), [`symbol`](/specifications/b20/reference/interfaces/ib20/symbol), [`decimals`](/specifications/b20/reference/interfaces/ib20/decimals), and [`contractURI`](/specifications/b20/reference/interfaces/ib20/contract-uri) ([ERC-7572](https://eips.ethereum.org/EIPS/eip-7572) metadata).
+- **Onchain:** [`name`](/specifications/b20/reference/interfaces), [`symbol`](/specifications/b20/reference/interfaces), [`decimals`](/specifications/b20/reference/interfaces), and [`contractURI`](/specifications/b20/reference/interfaces) ([ERC-7572](https://eips.ethereum.org/EIPS/eip-7572) metadata).
 - **Offchain:** logos are also available from the canonical token list and market-data aggregators.
 
 B20 specifics:
 
 - Tokens should be identified by address rather than ticker or symbol. Metadata is mutable onchain and should be indexed accordingly.
-- Discover new tokens by watching the [`B20Created`](/specifications/b20/reference/interfaces/ib20-factory) event.
+- Discover new tokens by watching the [`B20Created`](/specifications/b20/reference/interfaces) event.
 
 ## B20 Token Features
 
 ### Multipliers
 
-An underlying real-world asset may undergo events that change the redemption ratio of a B20 token. For tokenized stocks, these events include dividends or stock splits, which must be passed along to the holder of the B20 tokenized equity onchain. The [multiplier](/specifications/b20/reference/interfaces/ib20-asset/multiplier) variable instantly updates the redemption ratio of a B20 token based on any corporate actions that occur.
+An underlying real-world asset may undergo events that change the redemption ratio of a B20 token. For tokenized stocks, these events include dividends or stock splits, which must be passed along to the holder of the B20 tokenized equity onchain. The [multiplier](/specifications/b20/reference/interfaces) variable instantly updates the redemption ratio of a B20 token based on any corporate actions that occur.
 
 <Warning>
 One B20 token does not permanently equal one share. Always apply the current multiplier when converting between token units and the number of underlying shares.
@@ -35,54 +35,54 @@ At this time, for tokenized stocks, cash dividends are converted to shares of th
 
 Multiplier updates come in two forms:
 
-- **Scheduled (ERC-8056):** set a future-dated change with [`updateUIMultiplier`](/specifications/b20/reference/interfaces/ib20-asset/update-ui-multiplier), which gives advance onchain notice. Use this for routine corporate actions.
-- **Instant (deprecated):** [`updateMultiplier`](/specifications/b20/reference/interfaces/ib20-asset/update-multiplier) applies immediately and clears any pending scheduled change. It is a retained emergency failsafe; prefer the scheduled path.
-- **Cancellation:** clear a pending scheduled update with [`cancelUIMultiplierUpdate`](/specifications/b20/reference/interfaces/ib20-asset/cancel-ui-multiplier-update).
+- **Scheduled (ERC-8056):** set a future-dated change with [`updateUIMultiplier`](/specifications/b20/reference/interfaces), which gives advance onchain notice. Use this for routine corporate actions.
+- **Instant (deprecated):** [`updateMultiplier`](/specifications/b20/reference/interfaces) applies immediately and clears any pending scheduled change. It is a retained emergency failsafe; prefer the scheduled path.
+- **Cancellation:** clear a pending scheduled update with [`cancelUIMultiplierUpdate`](/specifications/b20/reference/interfaces).
 
 The B20 contract provides several helper functions for common calculations, where `raw` is the number of B20 units and `scaled` is the quantity of stocks redeemable:
 
 | Function | Description |
 |----------|-------------|
-| [`scaledBalanceOf(account)`](/specifications/b20/reference/interfaces/ib20-asset/scaled-balance-of) | Raw balance × multiplier |
-| [`toScaledBalance(raw)`](/specifications/b20/reference/interfaces/ib20-asset/to-scaled-balance) | Convert raw amount to scaled |
-| [`toRawBalance(scaled)`](/specifications/b20/reference/interfaces/ib20-asset/to-raw-balance) | Convert scaled amount to raw |
+| [`scaledBalanceOf(account)`](/specifications/b20/reference/interfaces) | Raw balance × multiplier |
+| [`toScaledBalance(raw)`](/specifications/b20/reference/interfaces) | Convert raw amount to scaled |
+| [`toRawBalance(scaled)`](/specifications/b20/reference/interfaces) | Convert scaled amount to raw |
 
 ### Policies
 
-To comply with any regulatory requirements that apply to a particular asset, [policies](/specifications/b20/reference/interfaces/i-policy-registry) that manage allowlists and blocklists may be implemented. Policies determine whether a transfer is allowed or rejected.
+To comply with any regulatory requirements that apply to a particular asset, [policies](/specifications/b20/reference/interfaces) that manage allowlists and blocklists may be implemented. Policies determine whether a transfer is allowed or rejected.
 
-The B20 contract provides the [`isAuthorized(policyID, account)`](/specifications/b20/reference/interfaces/i-policy-registry/is-authorized) function, which you can use to determine whether a specific account is allowed to transfer funds.
+The B20 contract provides the [`isAuthorized(policyID, account)`](/specifications/b20/reference/interfaces) function, which you can use to determine whether a specific account is allowed to transfer funds.
 
 <Note>
-The standard [`approve()`](/specifications/b20/reference/interfaces/ib20/approve) function is not policy gated. Checking whether a quantity of funds is approved to be transferred does not guarantee that the funds aren't blocked by a policy.
+The standard [`approve()`](/specifications/b20/reference/interfaces) function is not policy gated. Checking whether a quantity of funds is approved to be transferred does not guarantee that the funds aren't blocked by a policy.
 </Note>
 
 ### Pauses
 
-Onchain [pauses](/specifications/b20/reference/interfaces/ib20/pause) are unlikely, but be aware that B20s allow specific functions within a contract to be paused. Monitor these to maintain an accurate understanding of whether funds can be transferred at a given point in time.
+Onchain [pauses](/specifications/b20/reference/interfaces) are unlikely, but be aware that B20s allow specific functions within a contract to be paused. Monitor these to maintain an accurate understanding of whether funds can be transferred at a given point in time.
 
 ### Announcements
 
-Sensitive operations are wrapped in onchain [announcement events](/specifications/b20/reference/interfaces/ib20-asset/announce): [`announce`](/specifications/b20/reference/interfaces/ib20-asset/announce) emits [`Announcement (id, description, uri)`](/specifications/b20/reference/interfaces/ib20-asset), then [`EndAnnouncement`](/specifications/b20/reference/interfaces/ib20-asset). Integrators index these to catch corporate actions as they execute.
+Sensitive operations are wrapped in onchain [announcement events](/specifications/b20/reference/interfaces): [`announce`](/specifications/b20/reference/interfaces) emits [`Announcement (id, description, uri)`](/specifications/b20/reference/interfaces), then [`EndAnnouncement`](/specifications/b20/reference/interfaces). Integrators index these to catch corporate actions as they execute.
 
 Two design points:
 
 - Announcements can be atomically bundled with the token change they describe (for example, the multiplier update for a stock split), keeping onchain records clean.
 - Descriptions are intentionally human-readable onchain to support public reporting requirements.
 
-**Admin actions:** admin operations and `updateMultiplier` ([`OPERATOR_ROLE`](/specifications/b20/reference/interfaces/ib20-asset/operator-role)) execute immediately when the role holder calls; the B20 standard has no built-in timelock. The `Announcement` and `EndAnnouncement` events are public notice, not an enforced delay. Any timelock or multisig is applied by the issuer at the governance layer.
+**Admin actions:** admin operations and `updateMultiplier` ([`OPERATOR_ROLE`](/specifications/b20/reference/interfaces)) execute immediately when the role holder calls; the B20 standard has no built-in timelock. The `Announcement` and `EndAnnouncement` events are public notice, not an enforced delay. Any timelock or multisig is applied by the issuer at the governance layer.
 
 ### Extra Metadata
 
-Issuers can store arbitrary key/value data onchain via [`extraMetadata(key)`](/specifications/b20/reference/interfaces/ib20-asset/extra-metadata) (for example, security identifiers such as ISIN and CUSIP).
+Issuers can store arbitrary key/value data onchain via [`extraMetadata(key)`](/specifications/b20/reference/interfaces) (for example, security identifiers such as ISIN and CUSIP).
 
 ### Name and Symbol
 
-Name and symbol are updatable onchain ([`updateName`](/specifications/b20/reference/interfaces/ib20/update-name), [`updateSymbol`](/specifications/b20/reference/interfaces/ib20/update-symbol)), so the token can track offchain changes to the underlying without redeploying.
+Name and symbol are updatable onchain ([`updateName`](/specifications/b20/reference/interfaces), [`updateSymbol`](/specifications/b20/reference/interfaces)), so the token can track offchain changes to the underlying without redeploying.
 
 ### Memos
 
-[`transferWithMemo`](/specifications/b20/reference/interfaces/ib20/transfer-with-memo) and [`transferFromWithMemo`](/specifications/b20/reference/interfaces/ib20/transfer-from-with-memo) attach a `bytes32` reference to an individual transfer (emitted as a `Memo` event), for annotating transfers with offchain data for reconciliation and reporting.
+[`transferWithMemo`](/specifications/b20/reference/interfaces) and [`transferFromWithMemo`](/specifications/b20/reference/interfaces) attach a `bytes32` reference to an individual transfer (emitted as a `Memo` event), for annotating transfers with offchain data for reconciliation and reporting.
 
 ### Supply Cap
 
@@ -105,7 +105,7 @@ A tokenized stock's price is available from both onchain and offchain sources. I
 Token Price = Underlying Equity Market Price × Multiplier
 ```
 
-The multiplier is sourced per token and is WAD-scaled (a fixed-point number with 18 decimals). To get the real factor, divide the onchain value by that scale; call [`WAD_PRECISION()`](/specifications/b20/reference/interfaces/ib20-asset/wad-precision) to read the scale (it returns `1e18`).
+The multiplier is sourced per token and is WAD-scaled (a fixed-point number with 18 decimals). To get the real factor, divide the onchain value by that scale; call [`WAD_PRECISION()`](/specifications/b20/reference/interfaces) to read the scale (it returns `1e18`).
 
 ### Onchain
 
@@ -157,7 +157,7 @@ Two common patterns are used to determine value:
 
 For historical OHLC and time-series data, use market-data providers or query Chainlink round history by `roundId`.
 
-Since prices are total-return (multiplier-adjusted), reconstruct the series consistently by applying the multiplier history ([`MultiplierUpdated`](/specifications/b20/reference/interfaces/ib20-asset) events, emitted by both scheduled and instant multiplier changes) if starting from raw share prices.
+Since prices are total-return (multiplier-adjusted), reconstruct the series consistently by applying the multiplier history ([`MultiplierUpdated`](/specifications/b20/reference/interfaces) events, emitted by both scheduled and instant multiplier changes) if starting from raw share prices.
 
 ## Contract Addresses
 
@@ -177,7 +177,7 @@ Since prices are total-return (multiplier-adjusted), reconstruct the series cons
 
 ## Additional Resources
 
-- [B20 Standard](/specifications/b20/specification-overview)
+- [B20 Standard](/specifications/b20/overview)
 - [Base Standard Library](https://github.com/base/base-std/tree/main)
 
 ## Disclaimer
