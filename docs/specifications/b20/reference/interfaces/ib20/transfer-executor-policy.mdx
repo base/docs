@@ -1,6 +1,6 @@
 ---
 title: "IB20.TRANSFER_EXECUTOR_POLICY"
-description: "Generated B20 reference for TRANSFER_EXECUTOR_POLICY()."
+description: "Returns the policy slot consulted against msg.sender on every transfer entrypoint in IB20."
 ---
 
 
@@ -18,9 +18,13 @@ function TRANSFER_EXECUTOR_POLICY() external view returns (bytes32);
 
 ## Description
 
-Policy slot consulted against `msg.sender` on `transferFrom` when distinct from `from`. Not consulted on `transfer`.
+Policy slot consulted against `msg.sender` (the initiator) on every transfer, including when `msg.sender == from`. This applies to `transfer`, `transferFrom`, and their memo variants.
 
 Bypassed for factory-originated calls during the creation (bootstrap) window; see `IB20Factory.createB20`.
+
+<Warning>
+`TRANSFER_EXECUTOR_POLICY` now applies to all transfer entrypoints — including `transfer` and self-`transferFrom` where `msg.sender == from`. Previously it applied only when `msg.sender != from` on the `transferFrom` path. Tokens with a restrictive executor policy will block holder-initiated transfers unless those holders are authorized as executors.
+</Warning>
 
 ## Returns
 
@@ -28,11 +32,11 @@ Policy scope constant.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only view function; no access restriction.
 
 ## Policy Interaction
 
-No direct policy interaction.
+The executor policy is checked against `msg.sender` on every transfer path (`transfer`, `transferFrom`, `transferWithMemo`, `transferFromWithMemo`). There is no exemption when `msg.sender == from`. An unset policy slot is always-allow, so tokens that never configured this policy are unaffected.
 
 ## Example
 

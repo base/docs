@@ -24,9 +24,13 @@ New to B20? See the [B20 Token Standard](/specifications/b20/specification-overv
 
 The Policy Registry is a singleton precompile that stores each member list once. A token stores only a `uint64` policy ID per scope. When a gated function runs, the token calls `isAuthorized(policyId, account)` on the registry. Many tokens can share one policy; an update to the policy is immediately visible to every token that references it.
 
-Scopes gate specific functions. `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_POLICY` check the sender and recipient on every `transfer` and `transferFrom`. `MINT_RECEIVER_POLICY` checks the recipient on every `mint`. All three default to `ALWAYS_ALLOW` (`0`) until you bind a policy.
+Scopes gate specific functions. `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_POLICY` check the sender and recipient on every `transfer` and `transferFrom`. `TRANSFER_EXECUTOR_POLICY` checks `msg.sender` (the initiator) on every `transfer`, `transferFrom`, and their memo variants — including when `msg.sender == from`. `MINT_RECEIVER_POLICY` checks the recipient on every `mint`. All four default to `ALWAYS_ALLOW` (`0`) until you bind a policy.
 
 An **allowlist** authorizes only accounts in the set. An empty allowlist authorizes nobody, so seed your intended holders before binding the policy.
+
+<Warning>
+`TRANSFER_EXECUTOR_POLICY` now applies to all transfer entrypoints, including direct `transfer` calls where `msg.sender == from`. If you have set a restrictive executor policy, holders who are not on the allowlist can no longer move their own tokens via `transfer` or self-`transferFrom`. Add all authorized initiators to the policy before restricting this scope.
+</Warning>
 
 ## Create and Bind a Holder Allowlist
 

@@ -26,7 +26,7 @@ These invariants and conformance test cases are the normative behavioral guarant
 ### Transfer Policies
 
 10. `approve` is never policy-gated.
-11. `TRANSFER_EXECUTOR_POLICY` is checked only on `transferFrom`, never on `transfer`.
+11. `TRANSFER_EXECUTOR_POLICY` is checked on every transfer entrypoint (`transfer`, `transferFrom`, and memo'd variants), including when `msg.sender == from`.
 12. `MINT_RECEIVER_POLICY` is always enforced, even during factory `initCalls`.
 13. All three transfer-side scopes are bypassed during `initCalls`.
 14. Every scope defaults to `ALWAYS_ALLOW` at token creation.
@@ -104,74 +104,75 @@ These invariants and conformance test cases are the normative behavioral guarant
 | 15 | Sender on blocklist calls `transfer` | Reverts with `PolicyForbids` |
 | 16 | Sender on blocklist calls `approve` | Succeeds |
 | 17 | `transferFrom` where executor is on executor blocklist | Reverts |
-| 18 | Direct `transfer` by sender on executor blocklist (not sender blocklist) | Succeeds |
-| 19 | During `initCalls`, transfer from blocklisted sender | Succeeds — bypass |
-| 20 | During `initCalls`, mint to receiver on mint-receiver blocklist | Reverts — never bypassed |
+| 18 | Direct `transfer` by sender on executor blocklist (not sender blocklist) | Reverts with `PolicyForbids` |
+| 19 | `transferFrom` where `msg.sender == from` and executor is on executor blocklist | Reverts with `PolicyForbids` |
+| 20 | During `initCalls`, transfer from blocklisted sender | Succeeds — bypass |
+| 21 | During `initCalls`, mint to receiver on mint-receiver blocklist | Reverts — never bypassed |
 
 ### Mint and Supply Cap
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 21 | Mint that would push `totalSupply` above cap | Reverts with `SupplyCapExceeded` |
-| 22 | Mint exactly to cap | Succeeds |
-| 23 | `updateSupplyCap` below current `totalSupply` | Reverts with `InvalidSupplyCap` |
-| 24 | Burn tokens, then mint up to cap | Succeeds |
-| 25 | Mint while `MINT` is paused | Reverts |
+| 22 | Mint that would push `totalSupply` above cap | Reverts with `SupplyCapExceeded` |
+| 23 | Mint exactly to cap | Succeeds |
+| 24 | `updateSupplyCap` below current `totalSupply` | Reverts with `InvalidSupplyCap` |
+| 25 | Burn tokens, then mint up to cap | Succeeds |
+| 26 | Mint while `MINT` is paused | Reverts |
 
 ### Burn and Seize
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 26 | `burnBlocked` on frozen account | Succeeds |
-| 27 | `burnBlocked` on non-frozen account | Reverts |
-| 28 | `burnBlocked` by holder of `BURN_ROLE` (not `BURN_BLOCKED_ROLE`) | Reverts |
-| 29 | Freeze, seize full balance, re-mint to recovery | Succeeds |
-| 30 | Burn while `BURN` is paused | Reverts |
+| 27 | `burnBlocked` on frozen account | Succeeds |
+| 28 | `burnBlocked` on non-frozen account | Reverts |
+| 29 | `burnBlocked` by holder of `BURN_ROLE` (not `BURN_BLOCKED_ROLE`) | Reverts |
+| 30 | Freeze, seize full balance, re-mint to recovery | Succeeds |
+| 31 | Burn while `BURN` is paused | Reverts |
 
 ### Pause
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 31 | Pause `TRANSFER`, call `transfer` | Reverts |
-| 32 | Pause `TRANSFER`, call `mint` | Succeeds |
-| 33 | Pause `TRANSFER`, call `approve` | Succeeds |
-| 34 | Pauser calls `unpause` without `UNPAUSE_ROLE` | Reverts |
+| 32 | Pause `TRANSFER`, call `transfer` | Reverts |
+| 33 | Pause `TRANSFER`, call `mint` | Succeeds |
+| 34 | Pause `TRANSFER`, call `approve` | Succeeds |
+| 35 | Pauser calls `unpause` without `UNPAUSE_ROLE` | Reverts |
 
 ### Memos
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 35 | `transferWithMemo` | Emits `Transfer` then `Memo` at consecutive log indices |
-| 36 | `transferFromWithMemo` | `Memo.caller` is `msg.sender`, not `from` |
-| 37 | `transfer` (non-memo variant) | No `Memo` event |
+| 36 | `transferWithMemo` | Emits `Transfer` then `Memo` at consecutive log indices |
+| 37 | `transferFromWithMemo` | `Memo.caller` is `msg.sender`, not `from` |
+| 38 | `transfer` (non-memo variant) | No `Memo` event |
 
 ### Permit
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 38 | Valid permit with correct signature, nonce, deadline | Succeeds |
-| 39 | Permit with expired deadline | Reverts |
-| 40 | Replay used permit signature | Reverts |
-| 41 | Permit signed before `updateName`, submitted after | Reverts |
-| 42 | Contract wallet signature (ERC-1271) | Reverts |
-| 43 | Permit while `TRANSFER` is paused | Succeeds |
+| 39 | Valid permit with correct signature, nonce, deadline | Succeeds |
+| 40 | Permit with expired deadline | Reverts |
+| 41 | Replay used permit signature | Reverts |
+| 42 | Permit signed before `updateName`, submitted after | Reverts |
+| 43 | Contract wallet signature (ERC-1271) | Reverts |
+| 44 | Permit while `TRANSFER` is paused | Succeeds |
 
 ### Factory
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 44 | `getB20Address` then deploy with same params | Addresses match |
-| 45 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
-| 46 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
-| 47 | Deploy when variant feature not activated | Reverts |
-| 48 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
+| 45 | `getB20Address` then deploy with same params | Addresses match |
+| 46 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
+| 47 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
+| 48 | Deploy when variant feature not activated | Reverts |
+| 49 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
 
 ### Variants
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 49 | Deploy Asset with `decimals = 5` | Reverts |
-| 50 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
-| 51 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
-| 52 | `batchMint` where one recipient is not on allowlist | Reverts |
-| 53 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
+| 50 | Deploy Asset with `decimals = 5` | Reverts |
+| 51 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
+| 52 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
+| 53 | `batchMint` where one recipient is not on allowlist | Reverts |
+| 54 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
