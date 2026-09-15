@@ -1,12 +1,39 @@
 ---
 title: "Refund a Payment"
-keywords: ["refund USDC payment", "B20 refund memo", "partial crypto refund", "refund payer address"]
-description: "Return tokens to the verified payer and keep partial or repeated refunds within the captured balance."
+keywords: ["Commerce Payments refund", "refund USDC payment", "partial crypto refund", "refund payer address"]
+description: "Refund a Commerce Payments Protocol capture or return a direct token payment to the verified payer."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Refund the address that actually paid, derived from the verified `Transfer` log. Track `captured - refunded` in your ledger because ERC-20 tokens do not maintain an order-level refundable balance.
+Return all or part of a captured payment to the original payer. Use the protocol's refundable balance when the payment was charged or captured through Commerce Payments Protocol; otherwise enforce the balance in your own ledger.
+
+<Tip>
+Payments settled through the Commerce Payments Protocol maintain `refundableAmount` onchain and reject refunds above the captured, unrefunded balance or after `refundExpiry`. See [Use the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol).
+</Tip>
+
+## Refund Through the Protocol
+
+The deployed `OperatorRefundCollector` pulls refund liquidity from the operator. Approve that collector for the token, then call `refund` from the same operator named in `PaymentInfo`.
+
+```typescript TypeScript backend lines wrap expandable highlight={5-9}
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "refund",
+  args: [paymentInfo, refundAmount, operatorRefundCollector, "0x"],
+});
+const hash = await operatorWallet.writeContract(request);
+const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+if (receipt.status !== "success") throw new Error("Refund reverted");
+```
+
+Verify `PaymentRefunded(paymentInfoHash, refundAmount, operatorRefundCollector)`. The protocol reduces `refundableAmount` before collecting and forwarding the refund, so the transaction reverts if the amount is too high or the operator has not supplied enough approved liquidity.
+
+## Refund a Direct Token Transfer
+
+For a payment outside the protocol, derive the payer from the canonical transfer and reserve the refund in your database before broadcasting.
 
 ## Demo
 

@@ -1,0 +1,183 @@
+---
+title: "Use the Commerce Payments Protocol"
+keywords: ["Commerce Payments Protocol", "onchain authorization capture", "USDC escrow Base", "commerce payments Base"]
+description: "Add escrow-backed authorization, partial capture, voids, payer reclaim, and bounded refunds to a checkout on Base."
+---
+
+Use the [Commerce Payments Protocol](https://github.com/base/commerce-payments) when a purchase cannot settle safely as one irreversible token transfer. The protocol moves an authorized amount into escrow, lets an operator capture it after fulfillment, and keeps every later movement within terms approved by the payer.
+
+The protocol is permissionless and immutable. You can operate payments yourself or integrate an operator that submits lifecycle transactions and pays gas. The operator can advance or cancel a payment, but cannot change its payer-approved receiver, token, amount, expiry, or fee bounds.
+
+## Choose a Settlement Model
+
+| Requirement | Use |
+|---|---|
+| Deliver immediately and handle returns in your own ledger | [Direct token payment](/build-on-base/accept-payments/request-a-payment) |
+| Reserve funds before inventory, tax, shipping, or fulfillment is final | Commerce Payments Protocol `authorize` and `capture` |
+| Settle immediately but retain an onchain refundable balance | Commerce Payments Protocol `charge` |
+| Negotiate machine-to-machine payment over HTTP | [x402](/build-on-base/accept-payments/charge-for-an-api) |
+
+<Warning>
+A stored ERC-3009 or Permit2 signature is not a reserved balance. Protocol authorization occurs only when `authorize` successfully moves funds into the operator's escrow token store.
+</Warning>
+
+## Follow the Payment Lifecycle
+
+| Operation | Caller | Result |
+|---|---|---|
+| `authorize` | Operator | Moves payer funds into escrow and makes them capturable |
+| `charge` | Operator | Collects and settles in one transaction, making the amount refundable |
+| `capture` | Operator | Pays the receiver and fee receiver from escrow; supports multiple partial captures |
+| `void` | Operator | Returns all remaining capturable funds to the payer |
+| `reclaim` | Payer | Returns remaining capturable funds after `authorizationExpiry` |
+| `refund` | Operator | Returns up to the previously captured, unrefunded amount before `refundExpiry` |
+
+A payment can be collected once through either `authorize` or `charge`. It may then have multiple captures or refunds until its corresponding onchain balance reaches zero.
+
+## Use the v1.1.0 Deployments
+
+The v1.1.0 contracts use the same CREATE2 addresses on Base and Base Sepolia.
+
+| Contract | Address |
+|---|---|
+| `AuthCaptureEscrow` | `0xf96815976523E00e65Be8f34cA5e64b4f41EB19c` |
+| `ERC3009PaymentCollector` | `0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88` |
+| `Permit2PaymentCollector` | `0xD69831Aed5bfe262067ec4c751f4F830EcdD446e` |
+| `PreApprovalPaymentCollector` | `0xF1F9C408C787B2bC6CAEB91e5BbEc434a5c8d2Ea` |
+| `SpendPermissionPaymentCollector` | `0xB508c1C0a13849693DC175307667653C5977a408` |
+| `OperatorRefundCollector` | `0x7a03443724d14798c4AB4622F1DAAcA761Fea486` |
+
+Confirm the version and addresses in the [upstream deployment table](https://github.com/base/commerce-payments#deployment-addresses) before a production release.
+
+## Define Payer-Approved Terms
+
+Every payment is identified by the hash of its `PaymentInfo`, the chain ID, and the escrow contract address.
+
+```typescript TypeScript lines wrap expandable highlight={2-5,7-11,13-15}
+const now = BigInt(Math.floor(Date.now() / 1000));
+const paymentInfo = {
+  operator: operatorAccount.address,
+  payer: payerAddress,
+  receiver: merchantAddress,
+  token: usdcAddress,
+  maxAmount: parseUnits("125", 6),
+  preApprovalExpiry: now + 15n * 60n,
+  authorizationExpiry: now + 7n * 24n * 60n * 60n,
+  refundExpiry: now + 45n * 24n * 60n * 60n,
+  minFeeBps: 0,
+  maxFeeBps: 250,
+  feeReceiver: platformAddress,
+  salt: bytesToBigInt(crypto.getRandomValues(new Uint8Array(32))),
+} as const;
+```
+
+| Field | What it constrains |
+|---|---|
+| `operator` | The only account that can authorize, charge, capture, void, or refund |
+| `payer` and `receiver` | The source and merchant destination |
+| `token` and `maxAmount` | The asset and maximum collectible amount |
+| `preApprovalExpiry` | Last time the signed collection approval may be used |
+| `authorizationExpiry` | Last time escrowed funds may be captured; reclaim begins afterward |
+| `refundExpiry` | Last time the protocol accepts a refund |
+| `minFeeBps` and `maxFeeBps` | Payer-approved bounds for the absolute fee supplied at capture |
+| `feeReceiver` | Fixed recipient, or the zero address if the operator may choose at settlement |
+| `salt` | Entropy that prevents otherwise identical purchases from sharing an ID |
+
+Require `preApprovalExpiry <= authorizationExpiry <= refundExpiry`, generate a fresh salt for every purchase, and persist the complete struct. You need the exact same fields for every later operation.
+
+## Choose a Payment Collector
+
+Collectors separate the escrow lifecycle from the wallet's token authorization method.
+
+| Collector | Best for | Payer setup |
+|---|---|---|
+| ERC-3009 | USDC and other ERC-3009 tokens | One payment-specific signature |
+| Permit2 | Broad ERC-20 support | One token approval to Permit2, then payment-specific signatures |
+| Pre-approval | Any standard ERC-20 | Direct allowance to the collector |
+| Spend permission | Coinbase Smart Wallet and scheduled collection | Spend-permission signature |
+
+The collector must cryptographically bind its approval to the payment and only allow the escrow to invoke collection. Prefer the audited collectors deployed with the protocol rather than an unreviewed custom collector.
+
+## Authorize or Charge
+
+After the payer completes the selected collector flow, the operator submits its signature or encoded approval as `collectorData`.
+
+<Tabs>
+  <Tab title="Reserve for Later">
+    ```typescript TypeScript backend lines wrap expandable highlight={5-9}
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "authorize",
+  args: [paymentInfo, parseUnits("125", 6), paymentCollector, collectorData],
+});
+const hash = await operatorWallet.writeContract(request);
+await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+    ```
+
+    A successful `PaymentAuthorized` event means the amount is in escrow and available for later capture.
+  </Tab>
+  <Tab title="Settle Immediately">
+    ```typescript TypeScript backend lines wrap expandable highlight={5-13}
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "charge",
+  args: [
+    paymentInfo,
+    parseUnits("125", 6),
+    paymentCollector,
+    collectorData,
+    parseUnits("2.50", 6),
+    platformAddress,
+  ],
+});
+const hash = await operatorWallet.writeContract(request);
+await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+    ```
+
+    A successful `PaymentCharged` event means settlement completed and the charged amount is now refundable in the protocol.
+  </Tab>
+</Tabs>
+
+<Check>
+Read `paymentState(paymentInfoHash)` after confirmation. Authorization increases `capturableAmount`; charge increases `refundableAmount`.
+</Check>
+
+## Complete or Reverse the Payment
+
+Continue with the operation that matches the order outcome:
+
+<CardGroup cols={2}>
+  <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
+    Settle all or part of the escrowed amount.
+  </Card>
+  <Card title="Capture a Partial Amount" icon="receipt" href="/build-on-base/accept-payments/capture-a-partial-amount">
+    Capture multiple fulfillment increments without a new payer approval.
+  </Card>
+  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
+    Return escrowed funds, or let the payer reclaim them after expiry.
+  </Card>
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Return previously captured funds within the approved refund window.
+  </Card>
+</CardGroup>
+
+## Reconcile by Payment Hash
+
+Index `PaymentAuthorized`, `PaymentCharged`, `PaymentCaptured`, `PaymentVoided`, `PaymentReclaimed`, and `PaymentRefunded`. They share the indexed `paymentInfoHash`, so use that value as the onchain payment ID and join it to your order record.
+
+Do not infer protocol state from ERC-20 transfers alone. Read `paymentState(paymentInfoHash)` and process confirmed protocol events idempotently by `(blockHash, transactionHash, logIndex)`.
+
+## Apply the Security Model
+
+- Treat successful onchain authorization, not a wallet signature, as the inventory or fulfillment guarantee.
+- Give each payment short, explicit expiry windows and let payers reclaim after operator inactivity.
+- Keep `maxFeeBps` no higher than the commercial terms require. Fix `feeReceiver` unless dynamic routing is necessary.
+- Use a collector that binds authorization to the complete payment. A malicious collector can misuse the allowance a payer grants it.
+- Expect denylisted tokens to block a lifecycle transfer involving the payer, receiver, or fee receiver.
+- Separate operator signing keys from merchant receiving wallets and monitor every state transition.
+
+For the complete contract behavior and threat model, read the upstream [protocol overview](https://github.com/base/commerce-payments/blob/main/docs/README.md), [security analysis](https://github.com/base/commerce-payments/blob/main/docs/Security.md), and [audit reports](https://github.com/base/commerce-payments/tree/main/audits).
