@@ -25,6 +25,8 @@ Creates a composite policy that combines two to four existing simple policies (`
 
 The registry stores references to the children, not a snapshot of their members. Every call to `isAuthorized` reads each child's current member set, so updates to a child policy are immediately visible through the composite.
 
+A child policy ID may carry the invert flag (bit 63, set via `invertedPolicyId`). The registry validates and stores the base policy ID while preserving the invert flag. At authorization time, the inverted child returns the opposite of its base's result. An inverted composite child is not valid and reverts `InvalidChildPolicy`. Across the whole child set, `PolicyNotFound` takes precedence over `InvalidChildPolicy`.
+
 Creation is permissionless. The `admin` you supply is the only address that can later call `updateComposite`, `stageUpdateAdmin`, or `renounceAdmin` on this policy.
 
 On success, emits `PolicyCreated(newPolicyId, creator, policyType)`, `PolicyAdminUpdated(newPolicyId, address(0), admin)`, and `CompositePolicyUpdated(newPolicyId, creator, childPolicyIds)`.
@@ -35,7 +37,7 @@ On success, emits `PolicyCreated(newPolicyId, creator, policyType)`, `PolicyAdmi
 |---|---|---|
 | `admin` | `address` | Initial admin authorized to update child policies and transfer or renounce administration. Cannot be `address(0)`. |
 | `policyType` | `PolicyType` (`uint8`) | Must be `UNION` or `INTERSECT`. |
-| `childPolicyIds` | `uint64[]` | IDs of existing simple policies to combine. Count must be in `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
+| `childPolicyIds` | `uint64[]` | IDs of existing simple policies to combine. Count must be in `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). A child ID may have its invert flag (bit 63) set; the registry validates and stores the base while preserving the flag. |
 
 ## Returns
 
@@ -50,8 +52,8 @@ On success, emits `PolicyCreated(newPolicyId, creator, policyType)`, `PolicyAdmi
 | `ZeroAddress()` | `admin` is `address(0)` |
 | `IncompatiblePolicyType()` | `policyType` is not `UNION` or `INTERSECT` |
 | `ChildPoliciesOutsideOfRange()` | `childPolicyIds.length` is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4) |
-| `PolicyNotFound()` | Any child policy ID does not exist in the registry |
-| `InvalidChildPolicy(childPolicyId)` | Any child is not an existing simple policy (composites and built-in sentinels are not valid children) |
+| `PolicyNotFound()` | Any child policy ID's base does not exist in the registry (checked first, across the whole set) |
+| `InvalidChildPolicy(childPolicyId)` | Any child's base is not a simple policy (composites, inverted composites, and built-in sentinels are not valid children) |
 | Panic `0x11` | The policy ID counter has reached its maximum value |
 
 ## Access Control
@@ -78,6 +80,23 @@ token.updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, gateId);
 token.updatePolicy(B20Constants.MINT_RECEIVER_POLICY, gateId);
 ```
 
+```solidity KYC and not on an exclusion list lines wrap expandable highlight={9,11}
+// 1. Create a KYC allowlist and an exclusion allowlist.
+uint64 kycId       = registry.createPolicy(admin, PolicyType.ALLOWLIST);
+uint64 exclusionId = registry.createPolicy(admin, PolicyType.ALLOWLIST);
+
+// 2. Invert the exclusion ID so the child evaluates as "not on the list".
+uint64 notExcluded = registry.invertedPolicyId(exclusionId);
+
+// 3. INTERSECT: KYC'd AND not on the exclusion list.
+uint64[] memory children = new uint64[](2);
+children[0] = kycId;
+children[1] = notExcluded;
+
+uint64 gateId = registry.createCompositePolicy(admin, PolicyType.INTERSECT, children);
+token.updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, gateId);
+```
+
 <Note>
-Updating a child policy's membership (via `updateAllowlist` or `updateBlocklist`) takes effect on the next `isAuthorized` call through any composite that references it. No second `updateComposite` is needed on the token.
+Updating a child policy's membership (via `updateAllowlist` or `updateBlocklist`) takes effect on the next `isAuthorized` call through any composite that references it. No second `updateComposite` is needed on the token. This applies to inverted children too — updating the base updates the inverse.
 </Note>

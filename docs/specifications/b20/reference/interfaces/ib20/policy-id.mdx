@@ -18,6 +18,8 @@ function policyId(bytes32 policyScope) external view returns (uint64);
 
 Returns the policy ID stored for `policyScope`. If the scope has never been assigned, this returns `0`, which is the `ALWAYS_ALLOW` built-in sentinel, every address is authorized.
 
+An inverted policy ID (bit 63 set) is a valid binding. The token treats the stored value as an opaque `uint64` and passes it to the policy registry unchanged. The registry strips bit 63 when checking existence and evaluates the base policy before inverting the result.
+
 ## Parameters
 
 | Parameter | Description |
@@ -26,7 +28,7 @@ Returns the policy ID stored for `policyScope`. If the scope has never been assi
 
 ## Returns
 
-The `uint64` policy ID currently bound to the scope. `0` means `ALWAYS_ALLOW`.
+The `uint64` policy ID currently bound to the scope. `0` means `ALWAYS_ALLOW`. Bit 63 may be set, indicating an inverted policy.
 
 ## Reverts
 
@@ -49,11 +51,12 @@ The following scopes are recognized by a B20 token. Pass one of these as `policy
 | `SEIZE_EXEMPT_POLICY` | `seizeWithMemo` | `from` |
 | `SEIZE_RECEIVER_POLICY` | `seizeWithMemo` | `to` |
 
-An unset scope reads as `0` (`ALWAYS_ALLOW`). To bind a different policy, the token admin calls `updatePolicy(policyScope, newPolicyId)`.
+An unset scope reads as `0` (`ALWAYS_ALLOW`). To bind a different policy, the token admin calls `updatePolicy(policyScope, newPolicyId)`. An inverted ID is valid when its base policy exists; `policyExists` strips bit 63, so the registry resolves it correctly.
 
 ## Example
 
 ```solidity Usage Example
 uint64 id = IB20(token).policyId(B20Constants.MINT_RECEIVER_POLICY);
 // id == 0 means ALWAYS_ALLOW (no mint restriction)
+// id with bit 63 set means an inverted policy is bound
 ```

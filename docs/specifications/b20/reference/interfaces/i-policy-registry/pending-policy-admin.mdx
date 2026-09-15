@@ -18,13 +18,15 @@ function pendingPolicyAdmin(uint64 policyId) external view returns (address);
 
 Returns the currently-staged pending admin for `policyId`, or `address(0)` when no transfer is in flight or for built-in sentinels, unknown IDs, and malformed IDs. Never reverts.
 
-The pending admin is set by `stageUpdateAdmin(policyId, newAdmin)` and cleared when `finalizeUpdateAdmin(policyId)` succeeds or when the current admin calls `stageUpdateAdmin` with `address(0)`. Until `finalizeUpdateAdmin` is called, `policyAdmin` still returns the current admin, the pending admin has no privileges yet.
+If `policyId` has the invert flag set (bit 63), the function strips that bit and returns the base policy's pending admin. An inverted ID has no record of its own.
+
+The pending admin is set by `stageUpdateAdmin(policyId, newAdmin)` and cleared when `finalizeUpdateAdmin(policyId)` succeeds or when the current admin calls `stageUpdateAdmin` with `address(0)`. Until `finalizeUpdateAdmin` is called, `policyAdmin` still returns the current admin; the pending admin has no privileges yet.
 
 ## Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| `policyId` | `uint64` | Policy to query. |
+| `policyId` | `uint64` | Policy to query. Pass the plain or inverted ID; bit 63 is stripped before the lookup. |
 
 ## Returns
 

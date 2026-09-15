@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.createPolicy"
-description: "Generated B20 reference for createPolicy(address,uint8)."
+description: "Creates a new simple policy with no initial members and returns its assigned policy ID."
 ---
-
-
 
 ## Signature
 
@@ -18,20 +16,39 @@ function createPolicy(address admin, PolicyType policyType) external returns (ui
 
 ## Description
 
-Creates a new simple policy with no initial members. Permissionless.
-Dev: Reverts with `ZeroAddress` when `admin` is `address(0)`.
-Dev: Reverts with `IncompatiblePolicyType` when `policyType` is a composite gate.
-Param: admin      Initial admin authorized to modify membership and transfer or renounce administration.
-Param: policyType BLOCKLIST or ALLOWLIST.
-Return: newPolicyId The newly assigned policy ID.
+Creates a new simple policy with no initial members. Permissionless. The registry assigns a new policy ID and returns it. The member set starts empty.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `admin` | `address` | Initial admin authorized to modify membership and transfer or renounce administration. Cannot be `address(0)`. |
+| `policyType` | `PolicyType` | `ALLOWLIST` or `BLOCKLIST`. Composite types are not valid here. |
+
+## Returns
+
+| Name | Type | Description |
+|---|---|---|
+| `newPolicyId` | `uint64` | The newly assigned policy ID. |
+
+## Revert Conditions
+
+| Error | Condition |
+|---|---|
+| `ZeroAddress` | `admin` is `address(0)`. |
+| `IncompatiblePolicyType` | `policyType` is a composite gate (`UNION` or `INTERSECT`). |
 
 ## Access Control
 
-Permissionless creation, but state-changing registry calls require the feature to be active.
+Permissionless. Any caller may create a policy.
 
-## Policy Interaction
+## Behavior
 
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+Emits `PolicyCreated` and `PolicyAdminUpdated(newPolicyId, address(0), admin)`. After the call, `policyAdmin(newPolicyId)` returns `admin` and `policyExists(newPolicyId)` returns `true`.
+
+To seed members in the same call, use `createPolicyWithAccounts`. To create a composite policy, use `createCompositePolicy`.
+
+A policy ID returned here is a plain (non-inverted) ID. To obtain the inverted form, call `invertedPolicyId(newPolicyId)`, which toggles bit 63. The inverted ID shares the same member set and does not require a separate creation step.
 
 ## Example
 
