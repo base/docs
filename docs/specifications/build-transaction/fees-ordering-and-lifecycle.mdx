@@ -1,0 +1,22 @@
+---
+title: "Fees, Ordering, and Lifecycle"
+description: "Understand fees, expiry, and replacement for validity transactions."
+---
+
+## Fees
+
+Transactions use the normal fee rules for their type. For EIP-1559 transactions, set `maxFeePerGas` and `maxPriorityFeePerGas` on the signed transaction.
+
+A transaction that is not included does not pay onchain execution fees. An included transaction pays normal execution fees, even if it reverts.
+
+## Ordering
+
+A transaction competes for inclusion only after every predicate matches. A matching predicate does not reserve block space.
+
+## Expiry
+
+Add a `block_number` predicate with a maximum block to limit a transaction's lifetime. Combine it with `flashblock_index` to tighten the expiry bound to a position within that block's Flashblocks.
+
+## Replacement
+
+A later transaction with the same sender and nonce can replace a pending transaction. If the RPC returns an underpriced-replacement error, increase the fee fields, sign again, and retry.

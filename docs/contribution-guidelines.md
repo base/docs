@@ -141,7 +141,7 @@ Edit `docs/docs.json` to add or remove pages from the sidebar.
 
 ## Specification Pages
 
-Spec pages in Core Primitives and Network Systems follow a specific structure. See [content-guidelines.md](../content-guidelines.md) for the full reference.
+Spec pages in Core Primitives and Network Systems follow a specific structure. See [content-guidelines.md](content-guidelines.md) for the full reference.
 
 ### Page Types
 
@@ -163,7 +163,7 @@ Spec pages in Core Primitives and Network Systems follow a specific structure. S
 
 ## Changelog Entries
 
-Upgrade pages follow a structure inspired by improvement proposals (TIPs, EIPs). See [content-guidelines.md](../content-guidelines.md) for the full template.
+Upgrade pages follow a structure inspired by improvement proposals (TIPs, EIPs). See [content-guidelines.md](content-guidelines.md) for the full template.
 
 ### Required Sections
 
@@ -198,7 +198,7 @@ Use the right Mintlify component for the content type:
 | **ParamField / ResponseField** | API parameter and response documentation |
 | **Expandable** | Nested object properties |
 
-See [mintlify-reference.md](../mintlify-reference.md) for full syntax examples.
+See [mintlify-reference.md](mintlify-reference.md) for full syntax examples.
 
 ---
 
@@ -254,7 +254,7 @@ Structural changes to the information architecture — adding tabs, renaming sec
 
 | File | Purpose |
 |------|---------|
-| [content-guidelines.md](../content-guidelines.md) | Writing rules, spec page structure, changelog format |
+| [content-guidelines.md](content-guidelines.md) | Writing rules, spec page structure, changelog format |
 | [ia-guidelines.md](ia-guidelines.md) | What belongs in each tab and section |
-| [mintlify-reference.md](../mintlify-reference.md) | Mintlify component syntax |
-| [scripts/README.md](../scripts/README.md) | Linter usage |
+| [mintlify-reference.md](mintlify-reference.md) | Mintlify component syntax |
+| [scripts/README.md](https://github.com/base/docs/blob/master/scripts/README.md) | Linter usage |

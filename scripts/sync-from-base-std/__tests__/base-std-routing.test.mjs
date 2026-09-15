@@ -1,30 +1,33 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildProvenanceComment,
+  classifyChangedPaths,
+  filterPlacementProposals,
+  isDocSource,
   loadDocumentationGuidelines,
   routeCodeChange,
+  routingReportRows,
 } from "../index.mjs";
 
+const require = createRequire(import.meta.url);
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
   "..",
 );
-const B20_REFERENCE_GLOB = "docs/base-chain/specs/reference/b20/**/*.mdx";
-const B20_STANDALONE_PAGES = [
-  "docs/base-chain/network-information/b20-token-standard.mdx",
-  "docs/apps/guides/accept-b20-payments.mdx",
-  "docs/get-started/launch-b20-token.mdx",
-];
+const B20_REFERENCE_ROOT = "docs/specifications/b20";
 const B20_MANUAL_UPDATE_PAGES = [
-  "docs/base-chain/specs/reference/b20/index.mdx",
-  ...B20_STANDALONE_PAGES,
+  "docs/specifications/b20/specification-overview.mdx",
+  "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
+  "docs/build-on-base/accept-payments/request-a-payment.mdx",
 ];
 
 async function listMdxFiles(root) {
@@ -77,43 +80,189 @@ test("routeCodeChange expands page_globs only to existing docs pages", async () 
   }
 });
 
-test("B20 source changes route to the complete current B20 documentation set", async () => {
+test("route table maps each source file to its own interface subtree, never the whole tree", async () => {
   const routeTable = JSON.parse(
     await fs.readFile(
       path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"),
       "utf8",
     ),
   );
-  const expected = [
-    ...(await listMdxFiles(
-      path.join(REPO_ROOT, "docs/base-chain/specs/reference/b20"),
-    )),
-    ...B20_STANDALONE_PAGES,
-  ].sort();
+  const allB20Pages = await listMdxFiles(path.join(REPO_ROOT, B20_REFERENCE_ROOT));
 
   for (const rule of routeTable.code_changes) {
-    assert.deepEqual(rule.pages, B20_STANDALONE_PAGES);
-    assert.deepEqual(rule.page_globs, [B20_REFERENCE_GLOB]);
+    for (const glob of rule.page_globs || []) {
+      assert.notEqual(
+        glob,
+        `${B20_REFERENCE_ROOT}/**/*.mdx`,
+        `rule ${rule.source_prefix} fans out to the whole B20 reference tree`,
+      );
+    }
+    for (const page of rule.pages || []) {
+      assert.ok(
+        existsSync(path.join(REPO_ROOT, page)),
+        `rule ${rule.source_prefix} names a page that does not exist: ${page}`,
+      );
+    }
   }
   assert.deepEqual(routeTable.manual_update.allowed_pages, B20_MANUAL_UPDATE_PAGES);
+  assert.doesNotMatch(
+    JSON.stringify(routeTable),
+    /specs\/upgrades\/beryl\/b20\/specification|specs\/upgrades\/beryl\/b20\/demos/,
+  );
 
-  const work = await routeCodeChange(
+  // An interface change routes to that interface's page + subtree (plus a few
+  // shared pages), not to every other interface's subtree.
+  const assetWork = await routeCodeChange(
     routeTable,
     ["src/interfaces/IB20Asset.sol"],
     { repoRoot: REPO_ROOT },
   );
-  const routed = work.map((item) => item.page).sort();
+  const assetRouted = assetWork.map((item) => item.page);
+  const assetSubtree = allB20Pages.filter((p) =>
+    p.startsWith(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/`),
+  );
+  for (const page of assetSubtree) assert.ok(assetRouted.includes(page), `missing ${page}`);
+  assert.ok(assetRouted.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`));
+  assert.ok(
+    !assetRouted.some((p) => p.includes("/interfaces/i-policy-registry")),
+    "IB20Asset change must not route into the i-policy-registry subtree",
+  );
+  assert.ok(assetRouted.length < allB20Pages.length / 2);
 
-  assert.deepEqual(routed, expected);
-  assert.doesNotMatch(
-    JSON.stringify(routeTable),
-    /specs\/upgrades\/beryl\/b20\/specification|specs\/upgrades\/cobalt\/eip-8130|specs\/upgrades\/beryl\/b20\/demos/,
+  // A changelog change routes to the B20 changelog page only, not the
+  // reference tree. This is the fan-out that previously produced 120 pages.
+  const changelogWork = await routeCodeChange(
+    routeTable,
+    ["changelog/02_Cobalt_B20_seize.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  assert.ok(
+    !changelogWork.some((item) => item.page === `${B20_REFERENCE_ROOT}/changelog.mdx`),
+    "entry edit must not route to the summary page",
+  );
+  assert.ok(
+    !changelogWork.some((item) => item.page.includes("/reference/interfaces/")),
+    "entry edit must not route into interface subtrees",
   );
 });
 
+test("route rules carry a kind, and changelog index vs entry are routed differently", async () => {
+  const routeTable = JSON.parse(
+    await fs.readFile(
+      path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"),
+      "utf8",
+    ),
+  );
+  const KINDS = new Set(["interface", "product-doc", "changelog-entry", "changelog-index", "ignored"]);
+  for (const rule of routeTable.code_changes) {
+    assert.ok(KINDS.has(rule.kind), `rule ${rule.source_prefix} has kind '${rule.kind}'`);
+  }
+  const summary = `${B20_REFERENCE_ROOT}/changelog.mdx`;
+
+  // The index (README.md / CHANGELOG.md) is the only thing that reaches the summary page.
+  for (const src of ["changelog/README.md", "CHANGELOG.md"]) {
+    const work = await routeCodeChange(routeTable, [src], { repoRoot: REPO_ROOT });
+    assert.deepEqual(work.map((w) => [w.page, w.kinds]), [[summary, ["changelog-index"]]], src);
+  }
+  // A per-feature entry is classified as changelog-entry and never touches the summary.
+  const entry = await routeCodeChange(
+    routeTable,
+    ["changelog/02_Cobalt_B20_seize.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  assert.ok(!entry.some((w) => w.page === summary), "entry edit must not route to the summary");
+  assert.deepEqual(
+    entry.map((w) => [w.page, w.kinds]),
+    [["docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx", ["changelog-entry"]]],
+  );
+  // Derivation follows the naming convention in content-guidelines.md.
+  const multiplier = await routeCodeChange(
+    routeTable,
+    ["changelog/02_Cobalt_B20Asset_multiplier.md", "changelog/02_Cobalt_PolicyRegistry_composite_policy.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  assert.deepEqual(multiplier.map((w) => w.page).sort(), [
+    "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier.mdx",
+    "docs/base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy.mdx",
+  ]);
+  // A future hardfork/feature derives a path even before the page exists
+  // (processPage skips missing pages until creation lands).
+  const future = await routeCodeChange(routeTable, ["changelog/03_Denim_B20_pause_v2.md"], { repoRoot: REPO_ROOT });
+  assert.deepEqual(future.map((w) => w.page), ["docs/base-chain/specs/reference/b20/changelog/03-denim-b20-pause-v2.mdx"]);
+  // Authoring helpers in the same directory route nowhere.
+  for (const src of ["changelog/AGENTS.md", "changelog/TEMPLATE_POINT_FORM.md"]) {
+    assert.deepEqual(await routeCodeChange(routeTable, [src], { repoRoot: REPO_ROOT }), [], src);
+  }
+  // Interface sources are classified as interface.
+  const iface = await routeCodeChange(routeTable, ["src/interfaces/IB20.sol"], { repoRoot: REPO_ROOT });
+  assert.ok(iface.length > 0);
+  for (const w of iface) assert.deepEqual(w.kinds, ["interface"]);
+  // A mixed PR keeps both kinds on a page routed by both.
+  const mixed = await routeCodeChange(
+    routeTable,
+    ["src/interfaces/IB20.sol", "changelog/README.md"],
+    { repoRoot: REPO_ROOT },
+  );
+  const overview = mixed.find((w) => w.page === `${B20_REFERENCE_ROOT}/specification-overview.mdx`);
+  assert.deepEqual(overview.kinds, ["interface"]);
+  assert.deepEqual(mixed.find((w) => w.page === summary).kinds, ["changelog-index"]);
+});
+
+test("every route-table page exists and is listed in docs.json navigation", async () => {
+  const routeTable = JSON.parse(
+    await fs.readFile(
+      path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"),
+      "utf8",
+    ),
+  );
+  const { loadNavigation, collectNavigationPages } = require("../../lib/docs-utils.js");
+  const navSet = new Set(
+    collectNavigationPages(loadNavigation(path.join(REPO_ROOT, "docs"))).flatMap((page) =>
+      page.endsWith("/index") ? [page, page.slice(0, -"/index".length)] : [page],
+    ),
+  );
+  const routeOf = (page) =>
+    page.replace(/^docs\//, "").replace(/\.mdx?$/, "").replace(/\/index$/, "");
+
+  const sources = uniqueSourcePrefixes(routeTable);
+  const work = await routeCodeChange(routeTable, sources, { repoRoot: REPO_ROOT });
+  const routed = [
+    ...work.map((item) => item.page),
+    ...routeTable.manual_update.allowed_pages,
+  ];
+  assert.ok(routed.length > 0);
+  // Interface member pages are deliberately kept out of the sidebar and
+  // linked from their interface landing page, so they count as reachable
+  // when that landing page is in the nav.
+  const reachable = (page) => {
+    const route = routeOf(page);
+    if (navSet.has(route)) return true;
+    const parent = route.split("/").slice(0, -1).join("/");
+    return /\/reference\/interfaces\/[^/]+$/.test(parent) && navSet.has(parent);
+  };
+  for (const page of routed) {
+    assert.ok(existsSync(path.join(REPO_ROOT, page)), `missing on disk: ${page}`);
+    assert.ok(reachable(page), `not reachable from docs.json navigation: ${page}`);
+  }
+  // Every glob must expand to at least one page, or a docs move has silently
+  // disconnected a source file from its reference pages.
+  for (const rule of routeTable.code_changes) {
+    if (!rule.page_globs?.length) continue;
+    const ruleWork = await routeCodeChange(routeTable, [rule.source_prefix], { repoRoot: REPO_ROOT });
+    assert.ok(
+      ruleWork.length > (rule.pages || []).length,
+      `page_globs for ${rule.source_prefix} expand to no pages`,
+    );
+  }
+});
+
+function uniqueSourcePrefixes(routeTable) {
+  return [...new Set(routeTable.code_changes.map((rule) => rule.source_prefix))];
+}
+
 test("loadDocumentationGuidelines reads the canonical content and IA guidelines", async () => {
   const contentGuidelines = (
-    await fs.readFile(path.join(REPO_ROOT, "content-guidelines.md"), "utf8")
+    await fs.readFile(path.join(REPO_ROOT, "docs/content-guidelines.md"), "utf8")
   ).trim();
   const iaGuidelines = (
     await fs.readFile(path.join(REPO_ROOT, "docs/ia-guidelines.md"), "utf8")
@@ -122,7 +271,7 @@ test("loadDocumentationGuidelines reads the canonical content and IA guidelines"
 
   assert.ok(contentGuidelines.length > 0);
   assert.ok(iaGuidelines.length > 0);
-  assert.match(loaded, /Source: content-guidelines\.md/);
+  assert.match(loaded, /Source: docs\/content-guidelines\.md/);
   assert.match(loaded, /Source: docs\/ia-guidelines\.md/);
   assert.ok(loaded.includes(contentGuidelines));
   assert.ok(loaded.includes(iaGuidelines));
@@ -138,4 +287,163 @@ test("buildProvenanceComment cannot inject a second HTML comment boundary", () =
   assert.match(comment, /^<!--\n/);
   assert.match(comment, /\n-->$/);
   assert.doesNotMatch(body, /[<>]/);
+});
+
+import { validateMdx } from "../index.mjs";
+
+test("validateMdx: components already on the page or defined as snippets are allowed", () => {
+  const page = "---\ntitle: x\n---\n\n<StablecoinDemo scenario=\"block\" />\n\nBody.\n";
+  const routes = new Set();
+  // unknown component, not on the page, not a snippet → rejected
+  assert.match(validateMdx(page, "docs/a.mdx", routes) || "", /not registered.*StablecoinDemo/);
+  // same component already used by the page being edited → allowed
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
+  // defined as a snippet → allowed even on a page that did not use it before
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: "---\ntitle: x\n---\n", snippetComponents: new Set(["StablecoinDemo"]) }), null);
+  // a genuinely unknown component is still rejected
+  assert.match(validateMdx(page.replace("StablecoinDemo", "Nope"), "docs/a.mdx", routes, { current: page }) || "", /Nope/);
+});
+
+import { loadKnownRoutes } from "../index.mjs";
+
+test("loadKnownRoutes: index pages are reachable at their directory route", async () => {
+  const routes = await loadKnownRoutes();
+  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20/index"));
+  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20"), "directory route for index.mdx");
+  // and the validator accepts a link to it
+  const page = "---\ntitle: x\n---\n\nSee [IB20](/specifications/b20/reference/interfaces/ib20).\n";
+  assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
+});
+
+// ---------------------------------------------------------------------------
+// base-std#213 (be6d045) restructured the upstream docs/ tree. The old route
+// table mapped only the six files that commit deleted and nothing it added, so
+// the sync edited pages from an all-minus diff and dropped 15 new files
+// silently. These tests pin the behavior that replaced that.
+
+const RESTRUCTURE_FIXTURE = "scripts/sync-from-base-std/fixtures/code-change-docs-restructure.json";
+
+async function loadRouteTable() {
+  return JSON.parse(
+    await fs.readFile(path.join(REPO_ROOT, "scripts/sync-from-base-std/route-table.json"), "utf8"),
+  );
+}
+
+test("upstream docs tree routes to the pages the IA guidelines assign", async () => {
+  const routeTable = await loadRouteTable();
+  const pagesFor = async (src) =>
+    (await routeCodeChange(routeTable, [src], { repoRoot: REPO_ROOT })).map((w) => w.page);
+
+  // Architecture: chain-generic precompile mechanics → Base Protocol → Execution;
+  // B20 component map → spec overview; execution/versioning invariants → invariants page.
+  const arch = await pagesFor("docs/architecture.md");
+  for (const expected of [
+    "docs/specifications/base-protocol/execution/precompiles.mdx",
+    `${B20_REFERENCE_ROOT}/specification-overview.mdx`,
+    `${B20_REFERENCE_ROOT}/reference/invariants-tests.mdx`,
+    `${B20_REFERENCE_ROOT}/reference/interfaces/ib20-factory/is-b20-initialized.mdx`,
+  ]) {
+    assert.ok(arch.includes(expected), `docs/architecture.md should route to ${expected}`);
+  }
+  assert.ok(!arch.some((p) => p.includes("/i-policy-registry/")), "architecture must not fan out to the policy registry subtree");
+
+  // Concepts feed the spec overview key-concept sections plus the owning reference pages.
+  const multipliers = await pagesFor("docs/concepts/multipliers.md");
+  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/specification-overview.mdx`));
+  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/update-ui-multiplier.mdx`));
+  assert.ok(multipliers.includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
+
+  // Guides feed the existing Build on Base task pages (ia-guidelines: Tokenize Assets / Issue Stablecoins).
+  assert.ok((await pagesFor("docs/guides/scheduling-stock-splits.md")).includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
+  assert.ok((await pagesFor("docs/guides/announcing-corporate-actions.md")).includes("docs/build-on-base/issue-rwa/announce-a-distribution.mdx"));
+  const seize = await pagesFor("docs/guides/seizeing-assets.md");
+  assert.ok(seize.includes("docs/build-on-base/issue-rwa/cancel-blocked-units.mdx"));
+  assert.ok(seize.includes("docs/build-on-base/issue-stablecoins/recover-funds.mdx"));
+  assert.ok(seize.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20/seize-with-memo.mdx`));
+
+  // Reference tables feed the supporting pages.
+  assert.deepEqual(await pagesFor("docs/reference/constants.md"), [`${B20_REFERENCE_ROOT}/reference/constants-addresses.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/errors.md"), [`${B20_REFERENCE_ROOT}/reference/errors-events.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/events.md"), [`${B20_REFERENCE_ROOT}/reference/errors-events.mdx`]);
+
+  // Scaffolding is explicitly ignored, and the retired flat tree no longer routes anywhere.
+  for (const src of ["docs/guides/template.md", "docs/reference/interfaces.md", "docs/README.md", "README.md", "docs/B20/Asset.md", "docs/PolicyRegistry/README.md"]) {
+    assert.deepEqual(await pagesFor(src), [], `${src} must not route`);
+  }
+});
+
+test("removed source files never route, even when a rule still matches them", async () => {
+  const routeTable = {
+    code_changes: [
+      { source_prefix: "docs/B20/Asset.md", kind: "product-doc", pages: [`${B20_REFERENCE_ROOT}/specification-overview.mdx`], transformer: "claude" },
+      { source_prefix: "src/interfaces/IB20Asset.sol", kind: "interface", pages: [`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`], transformer: "claude" },
+    ],
+  };
+  const work = await routeCodeChange(
+    routeTable,
+    ["docs/B20/Asset.md", "src/interfaces/IB20Asset.sol"],
+    { repoRoot: REPO_ROOT, removedPaths: ["docs/B20/Asset.md"] },
+  );
+  assert.deepEqual(work.map((w) => w.page), [`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`]);
+  assert.deepEqual(work[0].sourceFiles, ["src/interfaces/IB20Asset.sol"]);
+});
+
+test("classifyChangedPaths separates routed, ignored, unrouted, and removed for the be6d045 fixture", async () => {
+  const routeTable = await loadRouteTable();
+  const fixture = JSON.parse(await fs.readFile(path.join(REPO_ROOT, RESTRUCTURE_FIXTURE), "utf8"));
+  const c = classifyChangedPaths(routeTable, fixture.changed_paths, { removedPaths: fixture.removed_paths });
+  assert.deepEqual(c.removed, fixture.removed_paths);
+  assert.deepEqual(c.ignored.sort(), ["README.md", "docs/README.md", "docs/guides/template.md", "docs/reference/interfaces.md"]);
+  assert.deepEqual(c.unrouted, [], "every surviving file in the restructure has a rule");
+  assert.equal(c.routed.length, fixture.changed_paths.length - c.removed.length - c.ignored.length);
+  // A file outside every rule is reported, not dropped.
+  const c2 = classifyChangedPaths(routeTable, ["docs/concepts/brand-new-topic.md", "foundry.toml"]);
+  assert.deepEqual(c2.unrouted, ["docs/concepts/brand-new-topic.md", "foundry.toml"]);
+  assert.ok(isDocSource("docs/concepts/brand-new-topic.md"));
+  assert.ok(!isDocSource("foundry.toml"));
+});
+
+test("filterPlacementProposals keeps only real sources and existing candidate pages", () => {
+  const sources = ["docs/concepts/brand-new-topic.md"];
+  const candidates = [`${B20_REFERENCE_ROOT}/specification-overview.mdx`];
+  const kept = filterPlacementProposals(
+    [
+      { source: "docs/concepts/brand-new-topic.md", page: candidates[0], guideline_rule: "Specifications → B20 | key concepts", rationale: "Concept page | fits the overview\n<b>x</b>" },
+      { source: "docs/concepts/brand-new-topic.md", page: candidates[0] }, // duplicate
+      { source: "docs/concepts/brand-new-topic.md", page: "docs/specifications/b20/does-not-exist.mdx" }, // hallucinated page
+      { source: "src/not-asked.sol", page: candidates[0] }, // not an unrouted source
+      "garbage",
+      null,
+    ],
+    { sources, candidates },
+  );
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].page, candidates[0]);
+  assert.doesNotMatch(kept[0].rationale, /[|<>\n]/, "table cells are sanitized");
+  assert.deepEqual(filterPlacementProposals("not an array", { sources, candidates }), []);
+});
+
+test("routingReportRows renders unrouted, proposal, and removed sections", () => {
+  const rows = routingReportRows({
+    classification: { unrouted: ["docs/concepts/new.md"], removed: ["docs/B20/Asset.md"], ignored: [] },
+    proposals: [{ source: "docs/concepts/new.md", page: "docs/specifications/b20/specification-overview.mdx", guideline_rule: "Key concepts", rationale: "Concept material" }],
+    source: "base/base-std",
+    sha: "be6d0450890e20fc4a739aeaff5e839f234d12a6",
+  });
+  const md = rows.join("\n");
+  assert.match(md, /## Unrouted source files/);
+  assert.match(md, /https:\/\/github\.com\/base\/base-std\/blob\/be6d0450890e20fc4a739aeaff5e839f234d12a6\/docs\/concepts\/new\.md/);
+  assert.match(md, /### Proposed placement \(from IA guidelines\)/);
+  assert.match(md, /\| .*docs\/concepts\/new\.md.* \| `docs\/specifications\/b20\/specification-overview\.mdx` \| Key concepts \| Concept material \|/);
+  assert.match(md, /## Removed source files/);
+  assert.match(md, /`docs\/B20\/Asset\.md`/);
+  assert.deepEqual(routingReportRows({ classification: { unrouted: [], removed: [], ignored: ["README.md"] }, source: "x", sha: "y" }), []);
+  // A crafted path cannot close the markdown link; it is rendered as inert code.
+  const hostile = routingReportRows({
+    classification: { unrouted: ["docs/x.md)[click](https://evil.example/"], removed: [], ignored: [] },
+    source: "base/base-std",
+    sha: "be6d0450890e20fc4a739aeaff5e839f234d12a6",
+  }).join("\n");
+  assert.doesNotMatch(hostile, /evil\.example\/\)/);
+  assert.doesNotMatch(hostile, /\]\(https:\/\/github\.com[^)]*evil/);
 });

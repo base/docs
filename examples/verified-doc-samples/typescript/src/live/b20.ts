@@ -16,7 +16,7 @@ import { issueShares } from "../b20/stock/stock-issue-ts.js";
 import { restrictStockHolders } from "../b20/stock/stock-restrict-ts.js";
 import { cancelBlockedShares } from "../b20/stock/stock-cancel-ts.js";
 import { announceStockDividend } from "../b20/stock/stock-dividend-ts.js";
-import { runTwoForOneSplit } from "../b20/stock/stock-split-ts.js";
+import { scheduleTwoForOneSplit } from "../b20/stock/stock-split-ts.js";
 import { setStockTransfersPaused } from "../b20/stock/stock-pause-ts.js";
 
 const holder = required("HOLDER_ADDRESS") as Address;
@@ -70,7 +70,7 @@ async function main() {
   await setBlocked(stockBlocklist, holder, true);
   await cancelBlockedShares(stock, holder);
   await announceStockDividend(stock, [account.address, holder]);
-  await runTwoForOneSplit(stock, account.address);
+  await scheduleTwoForOneSplit(stock);
   await setStockTransfersPaused(stock, true);
   await setStockTransfersPaused(stock, false);
 

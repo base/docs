@@ -9,6 +9,7 @@ Technical documentation for Base (Ethereum L2). Built with Mintlify.
 | `mintlify dev` | Local dev server |
 | `/lint` | Lint MDX files and fix issues |
 | `/doc-feedback` | Review content quality |
+| `/screenshot` | Capture affected docs pages for the PR body |
 | `/agents` | Generate AGENTS.md index for AI agents (also runs via `githooks/post-commit` when commit message contains `agents.md`) |
 | `/llms` | Regenerate `docs/llms.txt` and `docs/llms-full.txt` (also runs via `githooks/post-commit` when commit message contains `llms.txt`) |
 
@@ -80,3 +81,47 @@ sidebar label is `sidebarTitle` if present, otherwise `title`.
 3. Run `node scripts/validate-docs-structure.js` if `docs.json` or page frontmatter changed (nav, orphans, redirects, redundant sidebar labels)
 4. Add redirects for removed pages
 5. Verify links work
+
+## Opening PRs
+
+Every PR that changes rendered pages must include screenshots:
+
+1. Run `/screenshot` to capture the affected pages and upload them as
+   prerelease assets (`gh release create screenshots-pr-<N> --prerelease` —
+   draft releases don't work: their assets aren't publicly fetchable, so the
+   images render broken in PR bodies).
+2. Fill in the **Screenshots** section of the PR template with the embedded
+   images. For backend-only changes (`scripts/`, `.github/`, repo-root
+   markdown), write "N/A (no user-facing changes)".
+3. Screenshots live in `screenshots/` locally (gitignored) — never commit them.
+4. After the PR merges, delete its release and tag:
+   `gh release delete screenshots-pr-<N> --cleanup-tag --yes`.
+
+## CI Approval Gates
+
+Structural changes to the documentation are gated by required status checks. Ordinary content
+edits are unaffected — the gates only activate when a pull request touches a protected surface.
+
+| Check | Activates when | Requires |
+|-------|----------------|----------|
+| `IA Gate / Get Started Pages` | Adds a page under `docs/get-started/`, or adds a page reference to the Get Started tab in `docs.json` | 3 Writer approvals |
+| `IA Gate / Build on Base Solutions` | Adds, renames or removes a top-level group in the Build on Base tab | 1 Governance Owner |
+| `IA Gate / Guideline Files` | Touches `docs/ia-guidelines.md` or `docs/content-guidelines.md` | 1 Governance Owner |
+| `IA Gate / CI Configuration` | Touches the gate workflows, `.github/ia-governance.json`, `.github/CODEOWNERS` or `.github/scripts/` | 3 Writer approvals |
+| `Docs Style / Conformance` | Always; lints the pages the PR changes | Zero lint errors |
+
+Notes for anyone working on these:
+
+- Config lives in [`.github/ia-governance.json`](.github/ia-governance.json) — owner handles,
+  thresholds and protected path globs. Changing it needs 3 Writer approvals.
+- Only approvals on the **current head SHA** count, and the author's own approval never counts.
+  Pushing a new commit resets the tally.
+- Reordering groups in `docs.json` does not trip a gate; renaming one does.
+- Approvals are picked up by a scheduled sweep, so a check can take up to ~10 minutes to turn
+  green after a review lands. `IA approval gates` also accepts a manual `workflow_dispatch`
+  with a PR number if you need it sooner.
+- `.github/workflows/ia-approval-gates.yml` is privileged and must stay on
+  `pull_request_target` with a default-branch checkout. Read the trust-model comment at the
+  top of that file before changing its triggers.
+- `npm test` runs the gate engine and linter unit tests; the style workflow runs it on every
+  pull request.

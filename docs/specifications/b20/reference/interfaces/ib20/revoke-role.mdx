@@ -1,0 +1,45 @@
+---
+title: "IB20.revokeRole"
+description: "Revokes a role from an account on a B20 token."
+---
+
+## Signature
+
+```solidity IB20.sol
+function revokeRole(bytes32 role, address account) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0xd547741f` |
+| Canonical signature | `revokeRole(bytes32,address)` |
+
+## Description
+
+Revokes `role` from `account` and emits `RoleRevoked(role, account, sender)`. B20 follows OpenZeppelin AccessControl semantics, under which revoking a role the account does not hold changes nothing and emits no event.
+
+## Parameters
+
+| Parameter | Description |
+|---|---|
+| `role` | Role to revoke. |
+| `account` | Account to revoke from. |
+
+## Reverts
+
+- `AccessControlUnauthorizedAccount`: caller does not hold the admin role for `role`, or the token has no admins (transitioned via `renounceLastAdmin`).
+- `LastAdminCannotRenounce`: `role == DEFAULT_ADMIN_ROLE` and `account` is the last remaining `DEFAULT_ADMIN_ROLE` holder. Use `renounceLastAdmin` to clear the final admin intentionally.
+
+## Access Control
+
+The caller must hold `getRoleAdmin(role)`. On a fresh token every role's admin is `DEFAULT_ADMIN_ROLE`. After `setRoleAdmin` is called the new admin role applies; `revokeRole` is not hardcoded to `DEFAULT_ADMIN_ROLE`.
+
+## Policy Interaction
+
+No direct policy interaction.
+
+## Example
+
+```solidity Usage Example
+IB20(target).revokeRole(MINT_ROLE, account);
+```

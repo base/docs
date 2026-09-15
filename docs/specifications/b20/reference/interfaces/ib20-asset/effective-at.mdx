@@ -1,0 +1,33 @@
+---
+title: "IB20Asset.effectiveAt"
+description: "Returns the timestamp at which the pending UI multiplier becomes effective."
+---
+
+## Signature
+
+```solidity IB20Asset.sol
+function effectiveAt() external view returns (uint256);
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x97a4064f` |
+| Canonical signature | `effectiveAt()` |
+
+## Description
+
+Returns the `block.timestamp` at which the pending UI multiplier becomes active.
+
+A live pending update exists while `effectiveAt() > block.timestamp`. Once `block.timestamp >= effectiveAt()`, `uiMultiplier()` returns the new multiplier automatically, no transaction is required and no event is emitted at maturation.
+
+After the flip, check for a new live pending update with `effectiveAt() > block.timestamp`. Do not check `effectiveAt() == 0`.
+
+| State | Return value |
+|---|---|
+| No pending update | `0` |
+| Pending update scheduled | Future timestamp set by `updateUIMultiplier` |
+| Pending update matured | The scheduled timestamp, now in the past. Only `cancelUIMultiplierUpdate` resets the value to `0`. |
+
+<Note>
+Maturation is time-based. Indexers must not wait for an onchain event at `effectiveAt`. The `UIMultiplierUpdated` event fires when the update is **recorded**, not when it matures.
+</Note>

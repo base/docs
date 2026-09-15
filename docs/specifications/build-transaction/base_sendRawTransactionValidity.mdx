@@ -1,0 +1,69 @@
+---
+title: "Validity Transaction RPC"
+sidebarTitle: "Validity Transaction RPC"
+description: "Submit a signed raw transaction with validity predicates."
+---
+
+Submits a signed legacy, EIP-2930, or EIP-1559 transaction with predicates that control when Base can include it. EIP-1559 is recommended.
+
+<Warning>
+This experimental method is currently available on Vibenet. The production API contract is not yet confirmed.
+</Warning>
+
+## Parameters
+
+Pass two parameters. The first is a signed, serialized transaction. The second contains a non-empty `validity` array.
+
+<RequestExample>
+```json Request lines wrap expandable
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "base_sendRawTransactionValidity",
+  "params": [
+    "0x<signed-raw-transaction>",
+    {
+      "validity": [
+        {
+          "type": "storage",
+          "params": {
+            "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+            "slot": "0x8",
+            "mask": "0xff",
+            "op": "=",
+            "value": "0x2a"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+</RequestExample>
+
+## Predicates
+
+| Type | Parameters |
+| --- | --- |
+| `balance` | `address`, `op`, `value` |
+| `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
+| `block_number` | `op`, `value` |
+| `flashblock_index` | `op`, `value` |
+
+The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate values use `0x`-prefixed hexadecimal strings. The `mask` defaults to all ones.
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The 32-byte hash of the submitted transaction.
+</ResponseField>
+
+Returning a hash confirms acceptance. It does not confirm inclusion.
+
+## Errors
+
+The method returns JSON-RPC errors. Handle an unavailable method, invalid parameters, and a missing transaction hash.
+
+Error codes and messages are not yet stable.
+
+Read [Predicates and Safety](/specifications/build-transaction/predicates-and-safety) for evaluation rules. Read [Troubleshooting](/specifications/build-transaction/troubleshooting) when a transaction is not included.

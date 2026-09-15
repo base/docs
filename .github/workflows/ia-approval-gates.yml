@@ -1,0 +1,115 @@
+# IA approval gates -- publishes the four structural approval checks defined in
+# .github/ia-governance.json.
+#
+# TRUST MODEL -- read before editing.
+#
+# This workflow is privileged: it holds a token that can write check runs, and on fork
+# pull requests that token is read/write. It is therefore built on pull_request_target,
+# which runs the workflow file and the checked-out scripts from the DEFAULT BRANCH, never
+# from the pull request. That is what makes the gates unbypassable: a pull request cannot
+# edit .github/ia-governance.json or check-ia-approvals.mjs and have its own copy judge it.
+#
+# Consequences to preserve:
+#   * Never add `ref:` to actions/checkout here. Checking out pull request head would hand
+#     a write-capable token to unreviewed code.
+#   * Never add the pull_request or pull_request_review events to this file. Both run the
+#     PR's own copy of the workflow and scripts, which would reopen the bypass above.
+#     Approvals are picked up by the scheduled sweep instead.
+#   * Never interpolate ${{ github.event.* }} inside a `run:` block. Pull request titles,
+#     branch names and file contents are attacker-controlled; pass them through `env:`.
+#   * Never move this job to a self-hosted runner group. pull_request_target requires
+#     isolated, ephemeral compute.
+
+name: IA approval gates
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize # head moved, so head-SHA-scoped approvals reset
+      - edited # REQUIRED: fires on base-branch retarget, which changes the diff
+      #          without changing the head SHA. Omitting this is a full bypass.
+      - ready_for_review
+  schedule:
+    # Picks up approvals landing on open pull requests, and re-publishes verdicts before
+    # GitHub retires required checks after 7 days.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to re-evaluate
+        required: true
+        type: string
+
+# No `paths:` filter anywhere in this file. A required check that is filtered out never
+# reports, and an unreported required check leaves the pull request permanently blocked.
+
+permissions: {}
+
+concurrency:
+  # Verdicts are keyed on (head SHA, check name), so two runs for the same pull request
+  # must not race. Cancelling is worse than queueing: a cancelled run leaves the previous
+  # verdict standing against a newer head.
+  group: ia-gates-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Evaluate IA gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # base checkout; also authorizes the collaborator-permission API
+      pull-requests: read # pull request metadata, files and reviews
+      checks: write # publish gate verdicts as check runs
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
+        with:
+          # Deliberately stricter than this repo's usual `audit`: this job holds a
+          # write-capable token, and audit mode blocks nothing.
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+
+      # No `ref:` -- this must stay the trusted default-branch checkout.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: "22"
+          # No `cache:` -- under pull_request_target the cache is read-only in the default
+          # branch scope, so saving fails as a warning and never restores usefully.
+
+      - name: Evaluate gates for this pull request
+        if: github.event_name == 'pull_request_target'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node .github/scripts/check-ia-approvals.mjs --pr "$PR_NUMBER"
+
+      - name: Re-evaluate a pull request on request
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          # Validate before use: workflow inputs are free text.
+          case "$PR_NUMBER" in
+            ''|*[!0-9]*) echo "::error::pr_number must be a positive integer"; exit 1 ;;
+          esac
+          node .github/scripts/check-ia-approvals.mjs --pr "$PR_NUMBER"
+
+      - name: Sweep open pull requests
+        if: github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node .github/scripts/check-ia-approvals.mjs --sweep

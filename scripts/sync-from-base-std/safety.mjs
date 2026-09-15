@@ -7,7 +7,7 @@
  * imported into any future tooling without dragging the rest of
  * `index.mjs` along.
  *
- * Two responsibilities:
+ * Three responsibilities:
  *
  *   1. `validateSafety(content)` — server-side mirror of the security
  *      directives in the model's system prompt
@@ -19,7 +19,12 @@
  *      matched secret substring — only the rule name — so a leaked
  *      key cannot propagate into workflow logs or the PR body.
  *
- *   2. `extractExternalUrls(content)` — pulls every external
+ *   2. `validateCallouts(content)` — rejects Warning / Note / Info / Tip
+ *      / Check callouts whose body talks about repository housekeeping
+ *      (source files removed, documentation restructures) instead of
+ *      reader-facing behavior. Returns a reject reason or null.
+ *
+ *   3. `extractExternalUrls(content)` — pulls every external
  *      (`http://` / `https://`) URL out of a page body, deduplicated
  *      and with trailing markdown punctuation stripped. Used by the
  *      reviewer-checklist diff to surface URLs that are NEW in the
@@ -110,7 +115,27 @@ const SECRET_PATTERNS = [
   },
 ];
 
+// Upstream release notes may contain contributor credits. They are useful in the
+// upstream project but must not be copied into Base Docs sync PRs. This matches
+// standalone Markdown list items and YAML/frontmatter fields without affecting
+// prose such as "the author of this proposal".
+// Also catches a bold/italic label (`**Authors**:`) and git-style
+// `Co-authored-by:` trailers, which the model sometimes carries over.
+const AUTHOR_ATTRIBUTION_LINE = /^[ \t]*(?:[-*][ \t]+)?[*_]{0,2}(?:authors?|contributors?|co-authored-by)[*_]{0,2}[ \t]*:[^\r\n]*(?:\r?\n|$)/gim;
+
 // ----------------------------------------------------------------- helpers
+
+/**
+ * Remove standalone author or contributor attribution from generated docs.
+ * This is a deterministic backstop for the no-attribution prompt rule.
+ *
+ * @param {string} content - the generated MDX content
+ * @returns {string} content without author or contributor fields
+ */
+export function stripAuthorAttribution(content) {
+  AUTHOR_ATTRIBUTION_LINE.lastIndex = 0;
+  return content.replace(AUTHOR_ATTRIBUTION_LINE, "");
+}
 
 /**
  * Run the server-side mirror of system-prompt rules 3–5. Returns a
@@ -153,6 +178,48 @@ export function validateSafety(content) {
   for (const { name, re } of SECRET_PATTERNS) {
     if (re.test(content)) {
       return `secret_match: ${name} pattern detected in output`;
+    }
+  }
+  return null;
+}
+
+// Callouts (Warning / Note / Info / Tip / Check) must describe reader-facing
+// behavior. A run that sees an upstream *documentation* file deleted or moved
+// has, in the past, produced banners such as "The source file docs/B20/Asset.md
+// has been removed as part of a documentation restructure" on reference pages
+// generated from an unchanged Solidity interface. Nothing about the protocol
+// changed, so the callout is noise at best and misleading at worst ("this
+// function is deleted upstream"). The patterns are scoped to callout bodies
+// and to repository-housekeeping phrasing, so a legitimate deprecation notice
+// ("`burnBlocked` is deprecated; use `seizeWithMemo`") passes.
+const CALLOUT_BLOCK = /<(Warning|Note|Info|Tip|Check)\b[^>]*>([\s\S]*?)<\/\1>/g;
+const HOUSEKEEPING_PATTERNS = [
+  { name: "source-file reference", re: /\b(?:source|upstream|markdown|docs?) files?\b/i },
+  { name: "removed-as-part-of-restructure", re: /\b(?:has|have|was|were) been (?:removed|deleted|moved|renamed) as part of\b/i },
+  { name: "documentation restructure", re: /\b(?:documentation|docs) restructur/i },
+  { name: "deleted upstream", re: /\bdeleted upstream\b/i },
+  { name: "verify-against-source", re: /\bverify against (?:the )?(?:current |original )?(?:source|interface|spec)/i },
+  { name: "last-known-state", re: /\blast (?:known|verified) (?:state|specification|interface)/i },
+];
+
+/**
+ * Reject callouts that talk about repository housekeeping instead of
+ * reader-facing behavior. Returns a reject reason string naming the callout
+ * type and the matched rule (never the full body), or null when every
+ * callout is clean.
+ *
+ * @param {string} content - the MDX content to validate
+ * @returns {string|null}
+ */
+export function validateCallouts(content) {
+  CALLOUT_BLOCK.lastIndex = 0;
+  let m;
+  while ((m = CALLOUT_BLOCK.exec(content)) !== null) {
+    const [, tag, body] = m;
+    for (const { name, re } of HOUSEKEEPING_PATTERNS) {
+      if (re.test(body)) {
+        return `<${tag}> callout describes repository housekeeping (${name}); callouts must describe reader-facing behavior, never source-file moves or removals`;
+      }
     }
   }
   return null;

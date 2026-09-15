@@ -1,0 +1,56 @@
+---
+title: "IPolicyRegistry.finalizeUpdateAdmin"
+description: "Completes a two-step admin transfer for a policy, promoting the pending admin to active admin."
+---
+
+## Signature
+
+```solidity IPolicyRegistry.sol
+function finalizeUpdateAdmin(uint64 policyId) external;
+```
+
+| Field | Value |
+|---|---|
+| Selector | `0x33031a9c` |
+| Canonical signature | `finalizeUpdateAdmin(uint64)` |
+
+## Description
+
+Completes a two-step admin transfer initiated by `stageUpdateAdmin`. The caller must be the address that was staged as the pending admin. On success, the caller becomes the active admin, the pending slot clears, and the previous admin loses the ability to update the policy.
+
+This function is the second step of the two-step admin transfer pattern:
+
+1. The current admin calls `stageUpdateAdmin(policyId, newAdmin)`, which sets the pending admin without transferring control.
+2. The pending admin calls `finalizeUpdateAdmin(policyId)` to accept and complete the transfer.
+
+Until `finalizeUpdateAdmin` is called, `policyAdmin(policyId)` still returns the current admin. After a successful call, `policyAdmin(policyId)` returns the new admin and `pendingPolicyAdmin(policyId)` is cleared.
+
+Emits `PolicyAdminUpdated(policyId, previousAdmin, newAdmin)`.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | The policy whose pending admin transfer is being finalized. |
+
+## Reverts
+
+| Error | Condition |
+|---|---|
+| `PolicyNotFound()` | `policyId` does not exist in the registry. |
+| `NoPendingAdmin()` | No admin transfer is staged for this policy. |
+| `Unauthorized()` | The caller is not the staged pending admin. |
+
+## Access Control
+
+Callable only by the staged pending admin for the target policy. Finalization atomically promotes the caller to active admin and clears the pending slot. The previous admin cannot update the policy after this call succeeds.
+
+## Example
+
+```solidity Usage Example
+// Step 1: current admin stages the transfer
+IPolicyRegistry(registry).stageUpdateAdmin(policyId, nextAdmin);
+
+// Step 2: nextAdmin finalizes
+IPolicyRegistry(registry).finalizeUpdateAdmin(policyId);
+```

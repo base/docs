@@ -1,0 +1,36 @@
+---
+title: "Troubleshooting"
+description: "Diagnose validity transaction submission and inclusion issues."
+---
+
+Use [`eth_getTransactionReceipt`](/base-chain/api-reference/ethereum-json-rpc-api/eth_getTransactionReceipt) to confirm onchain inclusion.
+
+## RPC Method Is Unavailable
+
+Use an endpoint that supports `base_sendRawTransactionValidity`. The method is currently available on Vibenet.
+
+## Submission Fails
+
+Confirm that the first parameter is a signed legacy, EIP-2930, or EIP-1559 transaction. Confirm that the second parameter has a non-empty `validity` array.
+
+Check the predicate type, operator, and `0x`-prefixed hexadecimal values. See [Validity Transaction RPC](/specifications/build-transaction/base_sendRawTransactionValidity) for the request format.
+
+Record the full JSON-RPC error when escalating an issue.
+
+## Transaction Was Not Included
+
+A transaction can remain pending because a predicate is false, another transaction has higher priority, it is replaced, or its maximum block or Flashblock position passed.
+
+## Transaction Expired
+
+Submit a new signed transaction with later `block_number` or `flashblock_index` conditions.
+
+## Replacement Is Underpriced
+
+Increase the fee fields, sign again, and retry with the same sender and nonce.
+
+## Get Help
+
+Include the network, RPC provider, transaction hash, predicate type, submission time, and JSON-RPC error. Do not share private keys, authentication data, or full signed transactions in public support channels.
+
+For community support, use the `#developer-chat` channel in the [Base Discord](https://base.org/discord).

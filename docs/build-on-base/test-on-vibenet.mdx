@@ -33,6 +33,7 @@ If the embed doesn't load, open [chain.base.org/vibenet](https://chain.base.org/
 | :--- | :--- |
 | **Network name** | Base Vibenet |
 | **RPC endpoint** | [rpc.vibes.base.org](https://rpc.vibes.base.org) |
+| **WebSocket endpoint** | `wss://rpc.vibes.base.org/ws` |
 | **Chain ID** | 84538453 |
 | **Currency symbol** | ETH |
 | **Faucet** | [chain.base.org/vibenet/faucet](https://chain.base.org/vibenet/faucet) |
@@ -50,14 +51,49 @@ curl -X POST https://api.vibes.base.org/api/vibenet/faucet/drip \
   -d '{"address":"0xYourAddress"}'
 ```
 
+## Stream With WebSockets
+
+Vibenet exposes a public WebSocket endpoint at `wss://rpc.vibes.base.org/ws`. Subscribe with `eth_subscribe` for push updates instead of polling:
+
+- **`newHeads`** — a new event on every block, for tracking chain and block state.
+- **`logs`** — contract events filtered by address and indexed topics, for tracking application state.
+
+```javascript newHeads subscription lines wrap expandable
+import WebSocket from "ws";
+
+const ws = new WebSocket("wss://rpc.vibes.base.org/ws");
+
+ws.on("open", () => {
+  ws.send(JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_subscribe",
+    params: ["newHeads"],
+  }));
+});
+
+ws.on("message", (data) => {
+  const msg = JSON.parse(data.toString());
+  if (msg.method === "eth_subscription") {
+    console.log("new head:", msg.params.result.number);
+  }
+});
+```
+
+With 200ms blocks, a 250–1000ms poll can miss multiple blocks, so treat WebSocket push as the primary source. Keep a small number of long-lived connections, multiplex subscriptions and ordinary JSON-RPC calls over one connection, and reserve polling for reconciliation (balances, fees, and health checks). Keep an HTTPS RPC call path as a fallback if the socket drops.
+
+<Note>
+This public WebSocket is Vibenet only. Base does not provide a free public WebSocket RPC endpoint for Base Mainnet or Base Sepolia; the public endpoints there are HTTP only. For WebSocket access on Sepolia or Mainnet, run your own node or use a WebSocket-capable provider from the [Base Services Hub](/get-started/base-services-hub).
+</Note>
+
 ## What's Available Now
 
 <CardGroup cols={2}>
-  <Card title="B20 Token Standard" icon="coins" href="/base-chain/network-information/b20-token-standard">
+  <Card title="B20 Token Standard" icon="coins" href="/build-on-base/issue-rwa/create-an-asset-token">
     Base's native token standard: roles, supply caps, policy gating, and memos built into the chain.
   </Card>
-  <Card title="Native Account Abstraction (EIP-8130)" icon="key" href="/base-chain/specs/upgrades/cobalt/eip-8130">
-    Onchain smart accounts, scoped session keys, and native gas sponsorship, previewing on Vibenet.
+  <Card title="200ms Native Blocks" icon="clock" href="/upgrades/denim/200ms-blocks">
+    Test canonical 200ms blocks and migrate Flashblocks integrations.
   </Card>
 </CardGroup>
 
@@ -67,7 +103,7 @@ curl -X POST https://api.vibes.base.org/api/vibenet/faucet/drip \
   <Card title="Connect to Base" icon="plug" href="/base-chain/quickstart/connecting-to-base">
     Add Vibenet to your wallet and development environment.
   </Card>
-  <Card title="Launch a B20 Token" icon="rocket" href="/base-chain/network-information/b20-token-standard">
+  <Card title="Launch a B20 Token" icon="rocket" href="/build-on-base/issue-rwa/create-an-asset-token">
     Deploy a token on Vibenet with one factory call.
   </Card>
 </CardGroup>
