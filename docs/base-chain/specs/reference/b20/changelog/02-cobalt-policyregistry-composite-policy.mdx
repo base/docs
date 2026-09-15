@@ -1,146 +1,335 @@
 ---
 title: "PolicyRegistry: Composite Policies (UNION / INTERSECT)"
-description: "Composite policies (UNION / INTERSECT) added to the PolicyRegistry at Cobalt. Combine child policies into one authorization check."
+description: "Cobalt adds UNION and INTERSECT composite policies to PolicyRegistry so B20 integrations can combine simple authorization policies without flattening their member lists."
 ---
-
-> **Audience:** teams integrated against `PolicyRegistry` on Beryl, creating and administering
-> simple `ALLOWLIST`/`BLOCKLIST` policies, and referencing policy IDs on B20 policy slots. This note
-> covers only the composite (`UNION`/`INTERSECT`) policy support landing at the Cobalt hardfork.
 
 ## Summary
 
-At Cobalt, `PolicyRegistry` gains composite policies: a policy that authorizes by combining 2–4
-existing simple policies under a `UNION` (OR) or `INTERSECT` (AND) gate. Create one with the new
-`createCompositePolicy`, and mutate it in full with the new `updateComposite`.
+[Cobalt](/upgrades/cobalt/overview) adds composite policies to `PolicyRegistry`. A composite
+combines two to four existing simple `ALLOWLIST` or `BLOCKLIST` policies under a `UNION` (OR) or
+`INTERSECT` (AND) gate. Create a composite with `createCompositePolicy` and replace its complete
+child set with `updateComposite`.
 
-Nothing you call today breaks: every Beryl selector, event topic, and error keeps its exact 4-byte
-selector or topic0 and stays dialable at Cobalt. The only change to existing behavior is that
-`createPolicy` and `createPolicyWithAccounts` gain one new, previously unreachable, revert path,
-rejecting a composite `policyType` with the already-existing `IncompatiblePolicyType` error.
+The change is additive. Existing Beryl selectors, events, errors, and simple-policy behavior remain
+dialable at Cobalt. `createPolicy` and `createPolicyWithAccounts` add one revert path:
+`IncompatiblePolicyType` when called with a composite `policyType`.
 
-Until Cobalt activates, only the Beryl (simple-policy) surface exists on-chain, and every composite
-selector below is undialable.
+## Motivation
 
-## Mapping Table
+Asset issuers often reuse authorization policies across assets, such as a KYC allowlist or a
+sanctions blocklist. Before Cobalt, combining more than one policy required copying their members
+into a flattened policy and operating offchain infrastructure to synchronize every source update.
+That duplication can become stale: a valid account can be rejected, or a removed account can remain
+authorized, until the copied list is updated.
 
-The selectors and topic0s below are computed directly from `src/interfaces/IPolicyRegistry.sol`
-with `cast sig` and `cast sig-event`. Every Beryl symbol keeps its selector at Cobalt.
+Authorization can also require an explicit OR or AND relationship. For example, a policy can admit
+an account that is on either a shared or token-specific allowlist, or it can require an account to
+be both KYC-verified and in a Pro User allowlist. Composite policies express those relationships
+without copying membership data. Each authorization check uses the current state of every evaluated
+child policy.
 
-### `PolicyType` Enum
+## What Changed
 
-| Beryl | Cobalt addition | Why |
+### Policy Context
+
+B20 stores a `PolicyRegistry` policy ID for each restricted operation. When an operation is
+attempted, B20 calls `isAuthorized(policyId, account)` and rejects the operation if the account is
+not authorized.
+
+```mermaid Policy Authorization Flow
+flowchart TD
+    T["b20.transfer(to, amount)"] --> I["policyRegistry.isAuthorized(TRANSFER_SENDER_POLICY, caller)"]
+    I -->|true| Ok["emit Transfer(caller, to, amount)"]
+    I -->|false| Revert[revert]
+```
+
+`BLOCKLIST` and `ALLOWLIST` remain simple policies. They are the only valid composite children.
+
+### Interface Changes
+
+`PolicyType` is append-only: `UNION = 2` and `INTERSECT = 3` follow `BLOCKLIST = 0` and
+`ALLOWLIST = 1`. This preserves the existing packed policy-ID encoding.
+
+```solidity IPolicyRegistry.sol lines expandable wrap highlight={13-22}
+enum PolicyType {
+    BLOCKLIST,
+    ALLOWLIST,
+    UNION,
+    INTERSECT
+}
+
+error ChildPoliciesOutsideOfRange();
+error InvalidChildPolicy(uint64 childPolicyId);
+
+event CompositePolicyUpdated(uint64 indexed policyId, address indexed updater, uint64[] childPolicyIds);
+
+function createCompositePolicy(address admin, PolicyType policyType, uint64[] calldata childPolicyIds)
+    external
+    returns (uint64 newPolicyId);
+
+function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) external;
+
+function compositePolicyChildIds(uint64 policyId) external view returns (uint64[] memory);
+
+function MIN_COMPOSITE_CHILD_POLICIES() external view returns (uint256);
+function MAX_COMPOSITE_CHILD_POLICIES() external view returns (uint256);
+```
+
+| Symbol | Selector / Topic0 | Status | Behavior |
+| --- | --- | --- | --- |
+| `createCompositePolicy(address,uint8,uint64[])` | `0x6fdd1491` | New | Creates a `UNION` or `INTERSECT` composite. `PolicyType` ABI-encodes as `uint8`. |
+| `updateComposite(uint64,uint64[])` | `0xbfe142c0` | New | Replaces the complete child set. |
+| `compositePolicyChildIds(uint64)` | `0x7c40df74` | New view | Returns child IDs in stored order, or an empty array for a non-composite. |
+| `MIN_COMPOSITE_CHILD_POLICIES()` | `0xb3ae29f7` | New view | Returns `2`. |
+| `MAX_COMPOSITE_CHILD_POLICIES()` | `0x54309870` | New view | Returns `4`. |
+| `ChildPoliciesOutsideOfRange()` | `0x697ec868` | New error | The child count is outside `[2, 4]`; this is distinct from the 64-account `BatchSizeTooLarge` limit. |
+| `InvalidChildPolicy(uint64)` | `0x46508ef6` | New error | A child is a composite or a built-in sentinel. |
+| `CompositePolicyUpdated(uint64,address,uint64[])` | `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363` | New event | Emitted on composite creation and every update with the complete post-update set. |
+| `isAuthorized(uint64,address)` | `0x55a1179e` | Extended | Dispatches composite policies using live child evaluation. |
+| `createPolicy(address,uint8)` | `0xca5d55f6` | Extended | Rejects `UNION` and `INTERSECT` with `IncompatiblePolicyType`. |
+| `createPolicyWithAccounts(address,uint8,address[])` | `0xa2d3044f` | Extended | Rejects `UNION` and `INTERSECT` with `IncompatiblePolicyType`. |
+
+For the complete current interface, see the [IPolicyRegistry reference](/specifications/b20/reference/interfaces/i-policy-registry/index).
+
+#### Composite Policy Creation
+
+`createCompositePolicy(admin, policyType, childPolicyIds)` creates a `UNION` or `INTERSECT` policy,
+assigns `admin` as its initial administrator, and returns a new policy ID. It stores references to
+its children rather than copying their membership.
+
+The child set must contain two to four existing simple policies. Child policies cannot be composites
+or the `ALWAYS_ALLOW` and `ALWAYS_BLOCK` built-in sentinels. Each evaluated child requires a
+membership storage read, so gas increases with the number of children evaluated.
+
+Validation runs in this order:
+
+1. `ZeroAddress` — `admin` is `address(0)`.
+2. `IncompatiblePolicyType` — `policyType` is not `UNION` or `INTERSECT`.
+3. `ChildPoliciesOutsideOfRange` — the child count is outside `[2, 4]`.
+4. `PolicyNotFound` — one or more children do not exist; the registry completes this pass before
+   checking child types.
+5. `InvalidChildPolicy` — a child is a composite or built-in sentinel.
+
+On success, the registry emits `PolicyCreated(policyId, creator, policyType)`,
+`PolicyAdminUpdated(policyId, address(0), admin)`, and
+`CompositePolicyUpdated(policyId, creator, childPolicyIds)`, in that order.
+
+#### Composite Policy Updates
+
+`updateComposite(policyId, childPolicyIds)` atomically replaces a composite's complete child set.
+It does not support a partial update or an empty child set. The event
+`CompositePolicyUpdated(policyId, updater, childPolicyIds)` is emitted on success; an update does
+not emit `PolicyAdminUpdated` because the administrator does not change.
+
+Validation runs in this order:
+
+1. `PolicyNotFound` — `policyId` does not exist.
+2. `IncompatiblePolicyType` — `policyId` is not a `UNION` or `INTERSECT` policy.
+3. `Unauthorized` — the caller is not the current administrator. A renounced composite cannot be
+   updated.
+4. `ChildPoliciesOutsideOfRange` — the new child count is outside `[2, 4]`.
+5. `PolicyNotFound` — one or more new children do not exist.
+6. `InvalidChildPolicy` — a new child is a composite or built-in sentinel.
+
+### Behavioral Changes
+
+#### Existing Constructor Reverts
+
+`createPolicy` and `createPolicyWithAccounts` continue to create only simple policies. Both now
+revert with `IncompatiblePolicyType` if their `policyType` is `UNION` or `INTERSECT`.
+
+#### Authorization Evaluation
+
+`isAuthorized` evaluates composites as follows:
+
+```text Authorization Evaluation lines expandable wrap highlight={1-12}
+isAuthorized(policyId, account):
+    if policy is ALLOWLIST:
+        return account is in the policy
+
+    if policy is BLOCKLIST:
+        return account is not in the policy
+
+    if policy is UNION:
+        return true when any child authorizes the account
+
+    if policy is INTERSECT:
+        return false when any child does not authorize the account
+```
+
+Composite children must be simple policies, so evaluation has a maximum depth of one and cannot
+recurse or form cycles. Authorization is live rather than a membership snapshot: changes to a child
+policy apply to every referencing composite on its next authorization check.
+
+Evaluation short-circuits. `UNION` stops at the first authorizing child and `INTERSECT` stops at the
+first non-authorizing child. Child ordering cannot change the authorization result, but it can change
+gas usage; place the child most likely to short-circuit first.
+
+The registry preserves child order and permits duplicate child IDs. It neither sorts nor
+deduplicates them. A child remains effective after its administrator renounces administration:
+renunciation freezes future membership updates but does not delete the policy or change its current
+authorization result.
+
+A well-formed but never-created `UNION` ID has no children and returns `false`; a well-formed but
+never-created `INTERSECT` ID has no children and returns `true`. Consumers that store policy IDs
+must call `policyExists(policyId)` before storing them. Otherwise, an invalid `INTERSECT` ID can
+behave like `ALWAYS_ALLOW`.
+
+#### State Changes
+
+The change adds a `children` mapping at offset `4` in the `base.policy_registry` ERC-7201 namespace.
+It is additive: existing offsets `0` through `3` are unchanged and no storage migration is required.
+The offset is relative to the namespace location, not literal EVM storage slot `4`.
+
+| Field | Value |
+| --- | --- |
+| Namespace location | `0x00503aeb06982fa1fe3151dc68f90b3946c55c449dfd447e49dcaece71ba4a00` |
+| Offset | `CHILDREN_OFFSET = 4` |
+| Field type | `mapping(uint64 policyId => uint64[] childPolicyIds) children` |
+
+Each mapping entry stores the dynamic-array length. Its elements begin at the hash of that entry and
+pack four `uint64` child IDs into one 256-bit storage slot, which covers the two-to-four-child limit.
+
+| Bits | Array Index | Field |
 | --- | --- | --- |
-| `BLOCKLIST = 0`, `ALLOWLIST = 1` | `UNION = 2`, `INTERSECT = 3` | Append-only. Existing values and the packed-ID top-byte encoding are unchanged. |
+| `0–63` | `0` | `childPolicyIds[0]` |
+| `64–127` | `1` | `childPolicyIds[1]` |
+| `128–191` | `2` | `childPolicyIds[2]` |
+| `192–255` | `3` | `childPolicyIds[3]` |
 
-### Functions
+Simple and composite policies share the global `nextCounter`, which starts at `2` because `0` and
+`1` are reserved for `ALWAYS_ALLOW` and `ALWAYS_BLOCK`. A composite policy ID stores its
+`PolicyType` in the top byte and the next counter value in the low 56 bits; composites do not use a
+separate counter.
 
-| Beryl symbol (selector) | Cobalt (selector) | Status | Why |
-| --- | --- | --- | --- |
-| `createPolicy(address,uint8)` `0xca5d55f6` | unchanged | present on Beryl already, new revert path | Now also reverts `IncompatiblePolicyType` when `policyType` is `UNION`/`INTERSECT`, checked after `ZeroAddress`. |
-| `createPolicyWithAccounts(address,uint8,address[])` `0xa2d3044f` | unchanged | present on Beryl already, new revert path | Same composite-type rejection, checked after `ZeroAddress` and before `BatchSizeTooLarge`. |
-| — | `createCompositePolicy(address,uint8,uint64[])` `0x6fdd1491` | new | Creates a `UNION`/`INTERSECT` policy from 2–4 existing simple policy IDs. |
-| — | `updateComposite(uint64,uint64[])` `0xbfe142c0` | new | Replaces a composite's child-policy set in full. There's no partial-update or clear-the-list path. |
-| — | `compositePolicyChildIds(uint64)` `0x7c40df74` | new | Read-only child-set getter. Always callable, not gated. |
-| — | `MIN_COMPOSITE_CHILD_POLICIES()` `0xb3ae29f7` | new | Constant `2`. Always callable. |
-| — | `MAX_COMPOSITE_CHILD_POLICIES()` `0x54309870` | new | Constant `4`. Always callable. |
+## Examples
 
-`isAuthorized(uint64,address)` `0x55a1179e`, `policyExists(uint64)` `0x330f5637`,
-`policyAdmin(uint64)` `0x09dd0a47`, `pendingPolicyAdmin(uint64)` `0x017548b7`,
-`updateAllowlist(uint64,bool,address[])` `0x3388fb5b`, `updateBlocklist(uint64,bool,address[])`
-`0x5c4e51b8`, `stageUpdateAdmin(uint64,address)` `0x1d7ae695`, `finalizeUpdateAdmin(uint64)`
-`0x33031a9c`, and `renounceAdmin(uint64)` `0xefdb7fa3` carry over unchanged.
+Assume `employeesPolicyId` and `approvedRegionPolicyId` are existing `ALLOWLIST` policies. Both
+examples authorize an account that appears in either list for transfers.
 
-### Events
+### Before: Flattened Policy
 
-| Beryl event (topic0) | Cobalt (topic0) | Status | Why |
-| --- | --- | --- | --- |
-| `PolicyCreated(uint64,address,uint8)` `0x718d87917f0c4cfd1263707ef0e77c656ed8d8bfaca06152bdb0b8094142ec27` | unchanged | carried over | Also emitted for composite creation, with `policyType` `UNION`/`INTERSECT`. |
-| — | `CompositePolicyUpdated(uint64,address,uint64[])` `0x4ff6adaab31b0df87aa7b8b7320c52b8b3b5eede3bf28a6baaaa8b8b7e1d6363` | new | Emitted on composite creation and every `updateComposite` call. Carries the complete post-update child set. |
+B20 stores one policy ID per scope, so both source lists must be copied into a flattened allowlist.
+Offchain infrastructure then watches both sources and propagates membership changes to the copy.
 
-`PolicyAdminStaged`, `PolicyAdminUpdated`, `AllowlistUpdated`, and `BlocklistUpdated` carry over
-unchanged. They aren't emitted for composites, because composites have no membership set of their
-own.
+```solidity Flattened Policy
+uint64 flattenedPolicyId = policyRegistry.createPolicyWithAccounts(
+    admin,
+    PolicyType.ALLOWLIST,
+    /* union of employees and approved-region addresses */
+);
 
-### Errors
+b20.updatePolicy(TRANSFER_SENDER_POLICY, flattenedPolicyId);
+```
 
-| Beryl error (selector) | Cobalt (selector) | Status | Why |
-| --- | --- | --- | --- |
-| `IncompatiblePolicyType()` `0xf1011ef5` | unchanged | present on Beryl already, new call sites | Now also thrown by `createPolicy`/`createPolicyWithAccounts` (a composite `policyType` passed to a simple constructor), `createCompositePolicy` (`policyType` isn't `UNION`/`INTERSECT`), and `updateComposite` (the target isn't a composite). |
-| `PolicyNotFound()` `0x720caa4f` | unchanged | present on Beryl already, new call sites | Now also thrown for the composite target itself in `updateComposite`, and for any nonexistent child in `createCompositePolicy`/`updateComposite`. |
-| — | `ChildPoliciesOutsideOfRange()` `0x697ec868` | new | Thrown when the child count is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (`[2, 4]`). |
-| — | `InvalidChildPolicy(uint64)` `0x46508ef6` | new | Thrown when a child is itself a composite, or a built-in sentinel (`ALWAYS_ALLOW`/`ALWAYS_BLOCK`). |
+```mermaid Flattened Policy Flow lines expandable wrap highlight={1-8}
+flowchart LR
+    E[employeesPolicyId members]
+    R[approvedRegionPolicyId members]
+    F[flattenedPolicyId]
+    T[B20 TRANSFER_SENDER_POLICY]
+    E -->|copy| F
+    R -->|copy| F
+    T -->|stores| F
+```
 
-## New at Cobalt: Adopt These
+```mermaid Flattened Policy Synchronization lines expandable wrap highlight={1-12}
+sequenceDiagram
+    participant SourceAdmin
+    participant Employees as employeesPolicyId
+    participant Listener as Sync infrastructure
+    participant Flat as flattenedPolicyId
+    participant B20
 
-### `createCompositePolicy(admin, policyType, childPolicyIds)`
+    SourceAdmin->>Employees: updateAllowlist(true, [Alice])
+    Employees-->>Listener: AllowlistUpdated(..., true, [Alice])
+    Note over B20,Flat: Alice cannot transfer yet
+    Listener->>Flat: updateAllowlist(true, [Alice])
+    Note over B20,Flat: Alice can transfer
+```
 
-Creates a `UNION`/`INTERSECT` policy over 2–4 existing simple policy IDs. Each check fires before
-the next, in this order:
+### After: Composite Policy
 
-1. `ZeroAddress`: `admin == address(0)`.
-2. `IncompatiblePolicyType`: `policyType` isn't `UNION`/`INTERSECT`.
-3. `ChildPoliciesOutsideOfRange`: `childPolicyIds.length` is outside `[2, 4]`.
-4. `PolicyNotFound`: any child doesn't exist. This is checked as one pass over the whole set, before
-   the next check.
-5. `InvalidChildPolicy`: any child is a composite or a built-in sentinel. This is a second pass.
+Create a `UNION` composite that references the source policies and assign its ID to B20. B20 needs
+no composite-specific logic: it continues to pass the stored policy ID to `PolicyRegistry`.
 
-On success, it emits `PolicyCreated(policyId, creator, policyType)`,
-`PolicyAdminUpdated(policyId, 0, admin)`, then `CompositePolicyUpdated(policyId, creator,
-childPolicyIds)`.
+```solidity Composite Policy
+uint64 compositePolicyId = policyRegistry.createCompositePolicy(
+    admin,
+    PolicyType.UNION,
+    [employeesPolicyId, approvedRegionPolicyId]
+);
 
-### `updateComposite(policyId, childPolicyIds)`
+b20.updatePolicy(TRANSFER_SENDER_POLICY, compositePolicyId);
+```
 
-Replaces a composite's child-policy set in full. A child omitted from the new set no longer governs
-the composite; there's no partial-update or clear-the-list path. Checks run in this order:
+The creation call emits `PolicyCreated(policyId, admin, UNION)`, then
+`PolicyAdminUpdated(policyId, address(0), admin)`, then
+`CompositePolicyUpdated(policyId, admin, childPolicyIds)`. Adding Alice to `employeesPolicyId`
+authorizes her on the next check without copying members into another policy.
 
-1. `PolicyNotFound`: `policyId` doesn't exist.
-2. `IncompatiblePolicyType`: `policyId` is a simple policy, not a composite.
-3. `Unauthorized`: the caller isn't the current admin. A renounced composite (admin `address(0)`)
-   can never be updated.
-4. `ChildPoliciesOutsideOfRange`: the new count is outside `[2, 4]`.
-5. `PolicyNotFound`: any new child doesn't exist.
-6. `InvalidChildPolicy`: any new child is a composite or a built-in sentinel.
+```mermaid Composite Policy Authorization lines expandable wrap highlight={1-15}
+sequenceDiagram
+    participant Admin
+    participant Employees as employeesPolicyId
+    participant Region as approvedRegionPolicyId
+    participant Union as UNION composite
+    participant B20
 
-It emits `CompositePolicyUpdated(policyId, updater, childPolicyIds)`.
+    Admin->>Union: createCompositePolicy(UNION, [employees, approvedRegion])
+    Admin->>B20: updatePolicy(TRANSFER_SENDER_POLICY, compositePolicyId)
 
-### Live, Depth-1 Evaluation
+    Note over Employees: Alice added to employeesPolicyId
+    B20->>Union: isAuthorized(compositePolicyId, Alice)
+    Union->>Employees: isAuthorized(employeesPolicyId, Alice)
+    Employees-->>Union: true
+    Union-->>B20: true
+```
 
-`isAuthorized` on a composite calls each child policy's `isAuthorized`; it never uses a snapshot
-taken at creation or the last update. `UNION` returns `true` on the first authorizing child (it
-short-circuits). `INTERSECT` returns `false` on the first non-authorizing child. Recursion never
-exceeds depth 1, because every child is validated to be a simple (`ALLOWLIST`/`BLOCKLIST`) policy at
-write time, so a composite's children can never themselves be composites.
+## Design Decisions and Alternatives Considered
 
-## Guarantees and Edge Cases
+Cobalt uses two explicit policy types, a single `createCompositePolicy` function, and full
+replacement through `updateComposite`.
 
-**Q: Can a composite's child be another composite (nested composites)?**
-No. `createCompositePolicy` and `updateComposite` revert `InvalidChildPolicy(childPolicyId)` for any
-child whose type is `UNION`/`INTERSECT`. Nesting is impossible by construction.
+### One Generic Composite Type
 
-**Q: Can a built-in sentinel (`ALWAYS_ALLOW`/`ALWAYS_BLOCK`) be a composite child?**
-No, for the same `InvalidChildPolicy` revert. To mix always-allow or always-block behavior into a
-composite gate, use a real `ALLOWLIST`/`BLOCKLIST` policy that reproduces the effect you want
-instead.
+A generic composite type with a separately stored operator such as AND, OR, NOT, or XOR would add
+storage and authorization complexity without a requirement for additional operators. Explicit
+`UNION` and `INTERSECT` types keep the policy ID encoding, gas profile, and audit surface smaller.
 
-**Q: Can I pass the same child ID twice, or shrink a composite below 2 children?**
-Duplicates are allowed. The registry neither sorts nor deduplicates the stored child list; the only
-cost is extra evaluation, since `UNION`/`INTERSECT` are idempotent under duplicates. Shrinking below
-2 isn't possible: every `updateComposite` call enforces the same `[2, 4]` range as creation, so
-there's no path to an empty or undersized composite.
+### Token-Level Policy Groups
 
-**Q: If a child policy's admin renounces, does the parent composite break?**
-No. `renounceAdmin` on the child only clears its admin and freezes its future membership changes.
-The child still exists, and `isAuthorized` on it still resolves normally, so the composite keeps
-evaluating it exactly as before.
+Storing multiple policy IDs and an operator on each B20 token would prevent reusable composites and
+spread the change across token variants, factories, and authorization hot paths. A reusable
+PolicyRegistry policy keeps B20's policy slot as an opaque `uint64` ID.
 
-**Q: Is composite mutation gated separately from simple-policy mutation?**
-No. `createCompositePolicy` and `updateComposite` are gated by the same `ActivationRegistry` flag
-that gates `createPolicy`, `updateAllowlist`, and others. There's no composite-specific activation
-flag. `compositePolicyChildIds`, `MIN_COMPOSITE_CHILD_POLICIES`, `MAX_COMPOSITE_CHILD_POLICIES`, and
-`isAuthorized` on a composite ID are all always callable, whether or not the feature is active.
+### Incremental Child Updates
 
-**Q: Can a B20 token's policy slot (for example, `TRANSFER_SENDER_POLICY` or `SEIZE_EXEMPT_POLICY`)
-reference a composite ID?**
-Yes. B20 stores every policy slot as an opaque `uint64 policyId` and calls `isAuthorized`, so a
-composite ID works exactly like a simple one, and no B20-side change was needed. As with any policy
-ID, validate `policyExists(policyId)` before writing it to a slot.
+Separate add/remove operations would need array-mutation, length, and deduplication behavior. A
+composite has at most four children, so atomic full replacement is simpler and inexpensive.
+
+### Separate Creator Functions
+
+Separate `createUnionPolicy` and `createIntersectPolicy` functions would duplicate the creation API.
+A single `createCompositePolicy` supports both operators consistently.
+
+### Nested Composites
+
+Allowing composites to reference composites requires depth limits, cycle protections, and potentially
+unbounded authorization traversal. Restricting children to simple policies guarantees depth-1
+evaluation and bounds worst-case gas.
+
+## Migration
+
+This change is non-breaking. Existing simple `ALLOWLIST` and `BLOCKLIST` policies continue to work,
+and integrations that do not need composite behavior require no action.
+
+To replace a flattened policy:
+
+1. Identify the existing simple policies to combine.
+2. Create a `UNION` or `INTERSECT` composite with `createCompositePolicy`.
+3. Write the composite ID to the relevant B20 policy scope with `b20.updatePolicy`.
+4. Remove the old flattened policy if it is no longer needed.
+
+B20 treats the composite ID as the same opaque `uint64` policy ID it uses for simple policies, so no
+B20 contract change is required.

@@ -50,6 +50,7 @@ and the Naming Conventions section of [ia-guidelines.md](../docs/ia-guidelines.m
 | `title-case/nav-title` | Error | `docs.json` tab and group names use title case (`--check-nav`) |
 | `heading/no-h1` | Error | No H1 in body; the H1 comes from frontmatter `title` |
 | `heading/starts-at-h2` | Error | First body heading is H2 |
+| `heading/redundant-page-title` | Error | First body heading does not repeat the frontmatter page title |
 | `heading/skipped-level` | Warning | No H2 → H4 jumps |
 | `heading/none` | Warning | At least one heading per page (SEO) |
 | `codeblock/language` | Error | Language specifier required |
