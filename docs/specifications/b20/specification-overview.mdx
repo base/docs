@@ -52,14 +52,14 @@ State-changing PolicyRegistry calls are ActivationRegistry-gated. Read functions
 | `UNION` | Composite: account is authorized if any child simple policy authorizes it. |
 | `INTERSECT` | Composite: account is authorized only if every child simple policy authorizes it. |
 
-Composite policies reference existing simple `ALLOWLIST` or `BLOCKLIST` child policies. They cannot reference composites or built-ins as children.
+Composite policies reference existing simple `ALLOWLIST` or `BLOCKLIST` child policies. They cannot reference composites or built-ins as children. A child policy ID may carry the invert flag (bit 63); the registry validates and stores the base while preserving the flag.
 
 ### Policy IDs
 
 Policy IDs are laid out as:
 
 ```text Policy ID Layout
-[top 8 bits: PolicyType][low 56 bits: counter]
+[bit 63: invert flag][bits 62-56: PolicyType][low 56 bits: counter]
 ```
 
 Counters `0` and `1` are reserved for built-ins:
@@ -67,9 +67,26 @@ Counters `0` and `1` are reserved for built-ins:
 | Built-in | Value | Behavior |
 |---|---:|---|
 | `ALWAYS_ALLOW` | `0` | Authorizes every account. |
-| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) &lt;&lt; 56) \| 1` | Denies every account. |
+| `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) << 56) \| 1` | Denies every account. |
 
 Custom policy creation starts at counter `2`.
+
+#### Invert Flag (Bit 63)
+
+Bit 63 of a policy ID is the invert (NOT) flag. Setting it does not create a new policy — membership stays on the base ID. `isAuthorized` on an inverted ID returns the opposite of the base's result. If the base does not exist, the result is `false` (fail-closed). A mistyped inverted ID never becomes allow-everyone.
+
+Call `invertedPolicyId(policyId)` to toggle the flag. Inversion is involutive: `invertedPolicyId(invertedPolicyId(id)) == id`. You can also set bit 63 directly.
+
+Read views strip bit 63 and load the base:
+
+| View | Inverted-ID behavior |
+|---|---|
+| `policyExists(policyId)` | Returns existence of the base. |
+| `policyAdmin(policyId)` | Returns the base's admin. |
+| `pendingPolicyAdmin(policyId)` | Returns the base's pending admin. |
+| `compositePolicyChildIds(policyId)` | Returns the base composite's children, with per-child invert flags preserved. |
+
+An inverted ID is valid in a token scope when its base exists, because `policyExists` strips bit 63.
 
 ### Admin Model
 
@@ -79,11 +96,12 @@ Each policy has one admin. Admin transfer is two-step: `stageUpdateAdmin(policyI
 
 | Method | Description |
 |---|---|
-| `isAuthorized(policyId, account)` | Returns authorization and never reverts for uncreated IDs. |
-| `policyExists(policyId)` | Returns whether a policy exists. |
-| `policyAdmin(policyId)` | Returns the current admin or zero. |
-| `pendingPolicyAdmin(policyId)` | Returns the staged admin or zero. |
-| `compositePolicyChildIds(policyId)` | Returns child policy IDs for composite policies. |
+| `isAuthorized(policyId, account)` | Returns authorization and never reverts for uncreated IDs. If bit 63 is set, returns the negated result of the base; fail-closed if the base does not exist. |
+| `policyExists(policyId)` | Returns whether a policy exists; strips bit 63 and checks the base. |
+| `policyAdmin(policyId)` | Returns the current admin or zero; strips bit 63. |
+| `pendingPolicyAdmin(policyId)` | Returns the staged admin or zero; strips bit 63. |
+| `compositePolicyChildIds(policyId)` | Returns child policy IDs for composite policies; strips bit 63, returns children as stored including per-child invert flags. |
+| `invertedPolicyId(policyId)` | Toggles bit 63; never reverts, reads no state. |
 
 `isAuthorized` collapses uncreated IDs to empty-set semantics. Callers that write policy IDs into token scopes must validate `policyExists` unless writing a built-in.
 
