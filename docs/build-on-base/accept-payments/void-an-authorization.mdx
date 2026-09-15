@@ -1,12 +1,57 @@
 ---
 title: "Void an Authorization"
-keywords: ["cancel EIP-3009 authorization", "void USDC payment", "cancelAuthorization", "authorization expiry"]
-description: "Expire an unused USDC authorization or cancel its nonce onchain with the buyer's signature."
+keywords: ["Commerce Payments void", "reclaim escrowed payment", "cancel EIP-3009 authorization", "authorization expiry"]
+description: "Void escrowed payment funds, let the payer reclaim after expiry, or cancel an unused USDC signature."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Close an authorization that you will not capture. Because no funds were reserved, a merchant can stop using the signature offchain, but only the buyer can authorize an onchain nonce cancellation.
+Close an authorization that you will not capture and make any reserved amount available to the payer again.
+
+<Note>
+For a Commerce Payments Protocol authorization, the operator can call `void` to return the remaining escrowed amount. If the operator becomes inactive, the payer can call `reclaim` after `authorizationExpiry`. See [Use the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol).
+</Note>
+
+## Return Funds from Escrow
+
+<Tabs>
+  <Tab title="Operator Void">
+    The operator can void the remaining authorization at any time.
+
+    ```typescript TypeScript backend lines wrap expandable highlight={5-6}
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "void",
+  args: [paymentInfo],
+});
+const hash = await operatorWallet.writeContract(request);
+await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+    ```
+  </Tab>
+  <Tab title="Payer Reclaim">
+    After `authorizationExpiry`, the payer can recover the remaining amount without the operator.
+
+    ```typescript TypeScript payer lines wrap expandable highlight={5-6}
+const { request } = await publicClient.simulateContract({
+  account: payerAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "reclaim",
+  args: [paymentInfo],
+});
+const hash = await payerWallet.writeContract(request);
+await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+    ```
+  </Tab>
+</Tabs>
+
+Both operations set `capturableAmount` to zero and return the remainder to `paymentInfo.payer`. Verify `PaymentVoided` or `PaymentReclaimed` before closing the order.
+
+## Cancel a Signature Without Escrow
+
+If no funds entered the protocol, use the ERC-3009 cancellation alternative below.
 
 ## Demo
 

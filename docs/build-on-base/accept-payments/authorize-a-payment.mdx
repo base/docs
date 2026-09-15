@@ -1,12 +1,39 @@
 ---
 title: "Authorize a Payment"
-keywords: ["EIP-3009 authorization", "deferred USDC payment", "receiveWithAuthorization Base", "USDC payment signature"]
-description: "Ask a buyer to sign a USDC authorization that your merchant backend can capture later on Base."
+keywords: ["Commerce Payments authorization", "EIP-3009 authorization", "USDC escrow Base", "deferred USDC payment"]
+description: "Reserve payer funds with Commerce Payments Protocol or store a USDC signature for later collection on Base."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Ask the buyer to approve an exact USDC payment offchain, then decide when to settle it. EIP-3009 signs the payer, recipient, amount, validity window, and one-time nonce without sending a transaction.
+Choose whether authorization should reserve funds onchain or only store a signature for later collection. Use escrow when fulfillment depends on the funds remaining available.
+
+<Note>
+This signature-only flow does not reserve funds. For commerce orders that need a guaranteed balance before fulfillment, [authorize through the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol) so the successful authorization transaction moves funds into escrow.
+</Note>
+
+## Reserve Funds in Escrow
+
+After the payer signs for an audited payment collector, the designated operator submits the complete `PaymentInfo`, amount, collector, and collector-specific signature data.
+
+```typescript TypeScript backend lines wrap expandable highlight={5-9}
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "authorize",
+  args: [paymentInfo, amount, paymentCollector, collectorData],
+});
+const hash = await operatorWallet.writeContract(request);
+const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+if (receipt.status !== "success") throw new Error("Authorization reverted");
+```
+
+Verify the `PaymentAuthorized` event and persist its `paymentInfoHash`. A successful transaction moves `amount` into the operator's token store and increases the payment's `capturableAmount`.
+
+## Store a Signature Without Escrow
+
+Use the signature-only alternative below when you accept the risk that the payer's balance may change before collection.
 
 ## Demo
 

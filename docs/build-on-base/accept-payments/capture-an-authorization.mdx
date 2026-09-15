@@ -1,12 +1,39 @@
 ---
 title: "Capture an Authorization"
-keywords: ["capture EIP-3009 authorization", "receiveWithAuthorization", "deferred USDC settlement", "USDC capture Base"]
-description: "Settle a stored USDC authorization from the merchant account with receiveWithAuthorization."
+keywords: ["Commerce Payments capture", "capture EIP-3009 authorization", "partial capture Base", "USDC capture Base"]
+description: "Capture escrowed funds through Commerce Payments Protocol or settle a stored USDC authorization directly."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Capture an exact USDC authorization when you are ready to fulfill the order. Use `receiveWithAuthorization` so the token requires the transaction sender to be the authorized recipient.
+Capture a payment after inventory, tax, or fulfillment is ready. If authorization placed funds in the Commerce Payments Protocol escrow, settlement no longer depends on the payer's current wallet balance.
+
+<Note>
+This page captures a signature directly from the payer's current balance. If you already reserved funds with the Commerce Payments Protocol, call the escrow's `capture` operation instead; see [Use the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol).
+</Note>
+
+## Capture Escrowed Funds
+
+The operator supplies an absolute `feeAmount` within the payer-approved basis-point range. The protocol sends `amount - feeAmount` to the receiver, sends the fee separately, and moves the full amount from `capturableAmount` to `refundableAmount`.
+
+```typescript TypeScript backend lines wrap expandable highlight={5-9}
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "capture",
+  args: [paymentInfo, amount, feeAmount, feeReceiver],
+});
+const hash = await operatorWallet.writeContract(request);
+const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+if (receipt.status !== "success") throw new Error("Capture reverted");
+```
+
+Capture before `authorizationExpiry` and verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` before fulfillment.
+
+## Capture Directly from the Payer
+
+The alternative below submits an unescrowed ERC-3009 signature and succeeds only if the payer still has enough spendable USDC.
 
 ## Demo
 

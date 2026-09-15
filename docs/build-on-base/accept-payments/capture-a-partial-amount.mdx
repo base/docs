@@ -1,12 +1,40 @@
 ---
 title: "Capture a Partial Amount"
-keywords: ["partial payment capture", "EIP-2612 permit checkout", "variable USDC payment", "capture maximum amount"]
-description: "Authorize a maximum USDC amount and capture the final total through a constrained one-use checkout contract."
+keywords: ["partial payment capture", "Commerce Payments Protocol", "EIP-2612 permit checkout", "variable USDC payment"]
+description: "Partially capture an escrowed authorization or collect a variable USDC total through a constrained checkout contract."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Use a capped EIP-2612 permit when the final total is unknown at authorization time, such as an open tab, a post-service tip, or shipping calculated during fulfillment. EIP-3009 fixes the exact value, so it cannot partially capture one authorization.
+Capture less than the authorized maximum when the final total changes after checkout, or capture separate increments as an order ships.
+
+<Tip>
+The Commerce Payments Protocol supports multiple partial captures from an escrowed authorization without deploying a custom checkout contract. [Compare the protocol flow](/build-on-base/accept-payments/use-commerce-payments-protocol) before using the permit pattern below.
+</Tip>
+
+## Partially Capture Escrowed Funds
+
+Call `capture` repeatedly with the exact amount for each fulfillment increment. The sum of successful captures cannot exceed the amount placed in escrow.
+
+```typescript TypeScript backend lines wrap expandable highlight={1-6}
+export async function capturePartial(paymentInfo: PaymentInfo, amount: bigint) {
+  const { request } = await publicClient.simulateContract({
+    account: operatorAccount,
+    address: authCaptureEscrow,
+    abi: authCaptureEscrowAbi,
+    functionName: "capture",
+    args: [paymentInfo, amount, calculateFee(amount), feeReceiver],
+  });
+  const hash = await operatorWallet.writeContract(request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
+```
+
+Read `paymentState(paymentInfoHash)` before scheduling the next increment. The remaining `capturableAmount` is the maximum still available, while `refundableAmount` tracks the cumulative captured amount that has not been refunded.
+
+## Capture with a Custom Permit Checkout
+
+If you do not need escrow, use the capped permit pattern below. It collects only when you capture and therefore does not guarantee that funds remain available.
 
 ## Demo
 
