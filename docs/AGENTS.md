@@ -74,7 +74,7 @@ npx skills add base/base-skills
 |SDKs & APIs/Migrated Documentation:sdks/migrated-products
 |Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
 |Upgrades/Denim:upgrades/denim/overview,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks
-|Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy
+|Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy,upgrades/cobalt/validity-transactions
 |Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
 |Upgrades/Azul:upgrades/azul/overview,upgrades/azul/node-upgrade,upgrades/azul/exec-engine,upgrades/azul/proofs
 |Upgrades/Optimism:upgrades/canyon/overview
