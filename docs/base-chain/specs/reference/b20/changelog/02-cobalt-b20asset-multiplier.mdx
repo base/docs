@@ -145,12 +145,3 @@ read the ceiling from `MAX_UI_MULTIPLIER()` without risking the revert.
 No. The multiplier is purely cosmetic: it rescales only the UI/scaled view. `balanceOf`,
 `transfer`, `totalSupply`, and `Transfer` stay raw, and no multiplier change, scheduled or instant,
 affects them. Only the `*UI` / scaled reads move.
-
-**Q: Does `TRANSFER_EXECUTOR_POLICY` apply to `transfer` and self-`transferFrom`?**
-Yes, as of the Cobalt-era `IB20` update. `TRANSFER_EXECUTOR_POLICY` is checked against
-`msg.sender` on every transfer path — `transfer`, `transferFrom`, `transferWithMemo`, and
-`transferFromWithMemo` — including when `msg.sender == from`. There is no carve-out for the holder
-initiating their own transfer. If you have configured a restrictive executor policy and rely on
-holders moving their own tokens via `transfer` or self-`transferFrom`, those holders must now be
-authorized as initiators. Tokens that have never configured `TRANSFER_EXECUTOR_POLICY` are
-unaffected (the unset slot is always-allow).
