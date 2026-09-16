@@ -1,7 +1,7 @@
 ---
 title: "Request a Payment"
 keywords: ["request USDC payment", "wallet USDC checkout", "B20 payment memo", "onchain checkout Base"]
-description: "Request and settle a USDC or memo-enabled B20 payment from a wallet on Base."
+description: "Request an immediately settled USDC or memo-enabled B20 payment from a wallet on Base."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
@@ -100,7 +100,7 @@ function pay(bytes32 orderId, uint256 amount) external {
     </CodeGroup>
 
     <Warning>
-    `TRANSFER_EXECUTOR_POLICY` now applies to every transfer entrypoint — including `transfer`, `transferFrom`, and their memo variants — even when `msg.sender == from`. If the token issuer has configured an executor allowlist, both direct wallet transfers and checkout-contract pulls must be authorized. Ensure your checkout contract address and any holder-initiated transfers are covered before deployment.
+    If the Solidity checkout calls `transferFromWithMemo`, the payer must approve it and any `TRANSFER_EXECUTOR_POLICY` must authorize the checkout contract. The merchant must still verify the expected amount before fulfillment.
     </Warning>
   </Tab>
 </Tabs>
