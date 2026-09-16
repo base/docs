@@ -33,6 +33,7 @@ If the embed doesn't load, open [chain.base.org/vibenet](https://chain.base.org/
 | :--- | :--- |
 | **Network name** | Base Vibenet |
 | **RPC endpoint** | [rpc.vibes.base.org](https://rpc.vibes.base.org) |
+| **WebSocket endpoint** | `wss://rpc.vibes.base.org/ws` |
 | **Chain ID** | 84538453 |
 | **Currency symbol** | ETH |
 | **Faucet** | [chain.base.org/vibenet/faucet](https://chain.base.org/vibenet/faucet) |
@@ -49,6 +50,41 @@ curl -X POST https://api.vibes.base.org/api/vibenet/faucet/drip \
   -H "content-type: application/json" \
   -d '{"address":"0xYourAddress"}'
 ```
+
+## Stream With WebSockets
+
+Vibenet exposes a public WebSocket endpoint at `wss://rpc.vibes.base.org/ws`. Subscribe with `eth_subscribe` for push updates instead of polling:
+
+- **`newHeads`** — a new event on every block, for tracking chain and block state.
+- **`logs`** — contract events filtered by address and indexed topics, for tracking application state.
+
+```javascript newHeads subscription lines wrap expandable
+import WebSocket from "ws";
+
+const ws = new WebSocket("wss://rpc.vibes.base.org/ws");
+
+ws.on("open", () => {
+  ws.send(JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_subscribe",
+    params: ["newHeads"],
+  }));
+});
+
+ws.on("message", (data) => {
+  const msg = JSON.parse(data.toString());
+  if (msg.method === "eth_subscription") {
+    console.log("new head:", msg.params.result.number);
+  }
+});
+```
+
+With 200ms blocks, a 250–1000ms poll can miss multiple blocks, so treat WebSocket push as the primary source. Keep a small number of long-lived connections, multiplex subscriptions and ordinary JSON-RPC calls over one connection, and reserve polling for reconciliation (balances, fees, and health checks). Keep an HTTPS RPC call path as a fallback if the socket drops.
+
+<Note>
+This public WebSocket is Vibenet only. Base does not provide a free public WebSocket RPC endpoint for Base Mainnet or Base Sepolia; the public endpoints there are HTTP only. For WebSocket access on Sepolia or Mainnet, run your own node or use a WebSocket-capable provider from the [Base Services Hub](/get-started/base-services-hub).
+</Note>
 
 ## What's Available Now
 
