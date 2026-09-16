@@ -1,93 +1,77 @@
 ---
 title: "Refund a Payment"
-keywords: ["Commerce Payments refund", "OperatorRefundCollector", "PaymentRefunded", "partial USDC refund"]
-description: "Source refund liquidity and return up to the captured, unrefunded amount to the original payer."
+keywords: ["Commerce Payments refund", "OperatorRefundCollector", "partial USDC refund", "PaymentRefunded"]
+description: "Return captured Commerce Payments Protocol value to the original payer within the refund window."
 ---
 
-Call `refund` to reverse all or part of a charge or capture before `refundExpiry`. The protocol enforces the refundable limit and always sends tokens to `paymentInfo.payer`.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Captured funds are not retained by the escrow. A refund collector must source replacement liquidity from the operator, merchant, or another approved source.
+Refund all or part of a protocol charge or capture before `refundExpiry`. Commerce Payments Protocol maintains the refundable limit onchain and always sends the refund to `paymentInfo.payer`.
 
-## Understand Refund Accounting
+## Demo
 
-Every successful `charge` or `capture` increases `refundableAmount` by its gross amount. Every refund decreases it.
+<PaymentsDemo flow="refund" />
 
-```text Refund limit
-available refund = total charged and captured - total refunded
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Fund and Submit the Refund
+
+Captured funds have already left escrow. The deployed `OperatorRefundCollector` sources replacement liquidity from `paymentInfo.operator`, so approve it for the refund amount before calling `refund`.
+
+{/* sample: refund-payment-ts */}
+```typescript TypeScript lines wrap expandable highlight={5-11,14-20,23-29}
+export async function refundPayment(
+  payment: StoredProtocolPayment,
+  refundAmount: bigint,
+) {
+  const [, , refundableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
+  });
+  if (refundAmount > refundableAmount) throw new Error("Refund exceeds captured amount");
+  const approval = await publicClient.simulateContract({
+    account,
+    address: payment.paymentInfo.token,
+    abi: refundApprovalAbi,
+    functionName: "approve",
+    args: [OPERATOR_REFUND_COLLECTOR, refundAmount],
+  });
+  const approvalHash = await walletClient.writeContract(approval.request);
+  await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 2 });
+
+  const refund = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "refund",
+    args: [payment.paymentInfo, refundAmount, OPERATOR_REFUND_COLLECTOR, "0x"],
+  });
+  const hash = await walletClient.writeContract(refund.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+}
 ```
 
-Fees do not reduce this limit. If a 100 USDC capture sent 3 USDC to a fee receiver and 97 USDC to the merchant, the protocol permits up to 100 USDC of refunds.
+Every charge or capture increases `refundableAmount` by its gross amount. Fees do not reduce that limit. Every refund decreases it by the amount returned.
 
-## Fund the Deployed Refund Collector
-
-The v1.1.0 `OperatorRefundCollector` pulls tokens from `paymentInfo.operator`. Approve only the amount your refund worker needs.
-
-```typescript approve-refunds.ts lines wrap expandable highlight={4-6}
-const approvalHash = await operatorWallet.writeContract({
-  account: operatorAccount,
-  address: paymentInfo.token,
-  abi: erc20Abi,
-  functionName: "approve",
-  args: [operatorRefundCollector, refundAmount],
-});
-await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 2 });
-```
-
-The approval is refund liquidity, not permission to increase the protocol's refundable accounting. `refund` still rejects any amount above the payment's balance.
-
-## Submit the Refund
-
-```typescript refund-payment.ts lines wrap expandable highlight={4-8}
-const { request } = await publicClient.simulateContract({
-  account: operatorAccount,
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "refund",
-  args: [paymentInfo, refundAmount, operatorRefundCollector, "0x"],
-});
-const hash = await operatorWallet.writeContract(request);
-const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Payment refund reverted");
-```
-
-The transaction decreases `refundableAmount`, collects the exact replacement amount into the operator's token store, and forwards it to the payer atomically.
-
-## Verify the Refund
-
-```solidity PaymentRefunded.sol highlight={1-5}
-event PaymentRefunded(
-    bytes32 indexed paymentInfoHash,
-    uint256 amount,
-    address tokenCollector
-);
-```
-
-Confirm the event, the token transfer to `paymentInfo.payer`, and the new state before marking the refund complete.
-
-```text State transition
-refundableAmount -= refundAmount
-capturableAmount = unchanged
-hasCollectedPayment = true
-```
-
-A payment can be partially captured, partially refunded, and still retain both capturable and refundable balances.
-
-## Use a Custom Refund Collector Carefully
-
-Custom refund collectors can source liquidity from the merchant or another party through ERC-3009, Permit2, or a purpose-built vault. The escrow accepts any collector that reports the refund type and delivers the exact amount.
+<Check>
+Verify `PaymentRefunded(paymentInfoHash, amount, tokenCollector)`, the transfer to the stored payer, and the updated `refundableAmount` before completing the return.
+</Check>
 
 <Warning>
-Payment collectors and refund collectors are intentionally separate. Do not reuse residual payer approval to fund a refund. A refund collector must obtain independent authorization from the party providing refund liquidity.
+Refund accounting is not refund liquidity. The operator or another independently authorized source must provide the tokens. Never reuse residual payer authorization to fund a refund.
 </Warning>
 
-## Handle Common Reverts
+## See Also
 
-| Error | What to check |
-|---|---|
-| `InvalidSender` | Only `paymentInfo.operator` can refund |
-| `AfterRefundExpiry` | Chain time reached or passed `refundExpiry` |
-| `RefundExceedsCapture` | Amount exceeds current `refundableAmount` |
-| `InvalidCollectorForOperation` | Supplied collector does not report the refund type |
-| `TokenCollectionFailed` | Refund source did not deliver the exact amount |
-
-Continue with [reconcile payments](/build-on-base/accept-payments/reconcile-payments) to join refunds to the original payment hash.
+<CardGroup cols={2}>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Confirm the original protocol settlement and payment hash.
+  </Card>
+  <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
+    Match refunds to charges and captures.
+  </Card>
+</CardGroup>

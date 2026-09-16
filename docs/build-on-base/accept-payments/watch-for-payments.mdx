@@ -1,109 +1,80 @@
 ---
 title: "Watch for Payments"
-keywords: ["watch Commerce Payments events", "AuthCaptureEscrow logs", "PaymentAuthorized webhook", "payment event indexer Base"]
-description: "Index Commerce Payments Protocol lifecycle events with confirmed backfills, overlap scans, and idempotent processing."
+keywords: ["watch Commerce Payments", "AuthCaptureEscrow events", "Base payment listener", "payment event backfill"]
+description: "Watch Commerce Payments Protocol events, backfill missed blocks, and process confirmed lifecycle changes idempotently."
 ---
 
-Watch the v1.1.0 `AuthCaptureEscrow` address, not token addresses. All six lifecycle events share the indexed `paymentInfoHash`, giving you one payment-centric stream across collectors and tokens.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-## Index the Protocol Events
+Turn `AuthCaptureEscrow` logs into a durable payment feed. A WebSocket subscription provides low-latency wakeups, while an overlapping confirmed backfill supplies the canonical source of truth after disconnects or reorgs.
 
-| Event | Lifecycle meaning |
-|---|---|
-| `PaymentAuthorized` | Payer funds entered escrow and became capturable |
-| `PaymentCharged` | Funds were collected and settled immediately |
-| `PaymentCaptured` | Some escrowed funds settled to the receiver and fee receiver |
-| `PaymentVoided` | The operator returned the remaining authorization |
-| `PaymentReclaimed` | The payer recovered the remaining authorization after expiry |
-| `PaymentRefunded` | A refund collector sourced funds and the protocol returned them to the payer |
+## Demo
 
-Also index `TokenStoreCreated` for operational monitoring, but do not treat it as a payment state transition.
+<PaymentsDemo flow="watch" />
 
-## Backfill Confirmed Logs
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
 
-```typescript index-commerce-payments.ts lines wrap expandable highlight={8-17,20-24}
-export async function syncCommercePayments(store: EventStore) {
-  const head = await publicClient.getBlockNumber();
-  if (head <= confirmationDepth) return;
+## Subscribe and Backfill
 
-  const toBlock = head - confirmationDepth;
-  const cursor = await store.lastCanonicalBlock();
-  const fromBlock = cursor > deploymentBlock
-    ? cursor - overlapBlocks
-    : deploymentBlock;
+Watch the v1.1.0 escrow for `PaymentAuthorized`, `PaymentCharged`, `PaymentCaptured`, `PaymentVoided`, `PaymentReclaimed`, and `PaymentRefunded`. They all share the indexed `paymentInfoHash`.
 
-  const logs = await publicClient.getContractEvents({
-    address: authCaptureEscrow,
+{/* sample: watch-payments-ts */}
+```typescript TypeScript worker lines wrap expandable highlight={6-13,16-23,29-35}
+export async function watchPayments(
+  startBlock: bigint,
+  store: PaymentEventStore,
+) {
+  async function backfillConfirmed() {
+    const head = await client.getBlockNumber();
+    if (head <= confirmations) return;
+    const toBlock = head - confirmations;
+    const cursor = await store.lastScannedBlock();
+    const fromBlock = cursor && cursor > startBlock + confirmations
+      ? cursor - confirmations
+      : startBlock;
+    const logs = await client.getContractEvents({
+      address: AUTH_CAPTURE_ESCROW,
+      abi: authCaptureEscrowAbi,
+      fromBlock,
+      toBlock,
+      strict: true,
+    });
+
+    // Replace the overlap and advance the cursor in one database transaction.
+    await store.replaceRange(fromBlock, toBlock, logs);
+  }
+
+  await backfillConfirmed();
+  return client.watchContractEvent({
+    address: AUTH_CAPTURE_ESCROW,
     abi: authCaptureEscrowAbi,
-    fromBlock,
-    toBlock,
-    strict: true,
-  });
-
-  await store.replaceCanonicalRange({
-    chainId: base.id,
-    contract: authCaptureEscrow,
-    fromBlock,
-    toBlock,
-    logs,
+    onLogs: backfillConfirmed,
+    onError: (error) => console.error("Payment watcher failed", error),
   });
 }
 ```
 
-`replaceCanonicalRange` should run in one database transaction: remove previously indexed rows in the overlap, insert the logs returned from the canonical chain, reduce affected payment state, and advance the cursor only after all writes succeed.
+Implement `replaceRange` as one database transaction: remove rows in the overlap, insert the current canonical logs, rebuild affected payment state, and advance the cursor only after all writes succeed.
 
-## Use Subscriptions Only as Wakeups
-
-```typescript watch-commerce-payments.ts lines wrap expandable highlight={1-7}
-const unwatch = publicClient.watchContractEvent({
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  onLogs: () => void syncCommercePayments(store),
-  onError: (error) => logger.error({ error }, "payment subscription failed"),
-});
-```
-
-A WebSocket event reduces latency but is not the source of truth. Disconnects, provider limits, and reorgs can drop or replace notifications. Always converge through `eth_getLogs` or `getContractEvents` over a confirmed overlap window.
-
-## Store Stable Event Identity
-
-Use all of these fields:
-
-- Chain ID
-- Escrow contract address
-- Block hash and block number
-- Transaction hash
-- Log index
-- Event name and indexed `paymentInfoHash`
-
-Transaction hash alone is insufficient because one transaction may emit multiple protocol events or multiple logs relevant to accounting.
-
-## Route v1.0 and v1.1 Separately
-
-The v1.1.0 deployment uses a new escrow address and changes `PaymentCharged` and `PaymentCaptured` from a `uint16 feeBps` field to a `uint256 feeAmount` field. Their event signatures and `topic0` values therefore differ.
-
-| Version | Escrow address on Base and Base Sepolia |
-|---|---|
-| v1.0.0 | `0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff` |
-| v1.1.0 | `0xf96815976523E00e65Be8f34cA5e64b4f41EB19c` |
-
-| Event | v1.0 `topic0` | v1.1 `topic0` |
-|---|---|---|
-| `PaymentCharged` | `0x943ae4341dd799d7aeedc501f616cd26b134639e0bc2ec059581ba3ebbf1e7d0` | `0x137b0e73e4453f43c2e1ad2552980a0e0c7e988764619974ca26d37a7159940c` |
-| `PaymentCaptured` | `0xe749f7bbd01b49bb05abf26ca492cb4dfdea6bedeada8a40fdccd478c73a74e2` | `0xac1e0db1957daedbc6944bcb4c8dc947ff8101d710671ac2ec26309f7f38d58e` |
+<Check>
+After reconnects or short reorgs, the overlap scan converges on canonical protocol events without applying one log twice.
+</Check>
 
 <Warning>
-An old ABI may decode the v1.1 fee field without throwing but interpret raw token units as basis points. Key decoders by `(contract address, event signature)` and never mix ABIs across versions.
+Do not mix v1.0 and v1.1 event ABIs. `PaymentCharged` and `PaymentCaptured` changed event topics when settlement switched from `feeBps` to absolute `feeAmount`.
 </Warning>
 
-## Monitor Failure Conditions
+Choose a confirmation policy that matches your risk tolerance. See [transaction finality](/specifications/transactions/transaction-finality).
 
-Alert when:
+## See Also
 
-- An authorization approaches `authorizationExpiry` with a nonzero capturable balance.
-- A refund approaches `refundExpiry` while customer service still considers it open.
-- Collection or lifecycle transfers repeatedly revert because of a token denylist.
-- State reconstructed from events differs from `paymentState(paymentInfoHash)`.
-- One operator's token store balance is below aggregate capturable accounting for a token.
-
-Continue with [reconcile payments](/build-on-base/accept-payments/reconcile-payments).
+<CardGroup cols={2}>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Validate each candidate event against its order.
+  </Card>
+  <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
+    Produce charge, capture, fee, and refund rows.
+  </Card>
+</CardGroup>

@@ -1,84 +1,71 @@
 ---
 title: "Capture an Authorization"
-keywords: ["Commerce Payments capture", "capture escrow payment", "PaymentCaptured", "USDC capture Base"]
-description: "Transfer authorized funds from escrow to the merchant and fee receiver before authorization expiry."
+keywords: ["Commerce Payments capture", "capture escrowed USDC", "PaymentCaptured", "deferred settlement Base"]
+description: "Capture authorized Commerce Payments Protocol funds from escrow before the authorization expires."
 ---
 
-Call `capture` after fulfillment is ready. The operator chooses an amount no greater than the remaining `capturableAmount` and supplies an absolute fee within the payer-approved bounds for that capture.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Capture does not contact the payer or use the original collector again. It sends funds already held in the operator's token store.
+Capture an authorization when the order is ready to settle. The operator transfers all or part of the escrowed amount to the receiver and fee receiver without collecting from the payer again.
 
-## Check the Capturable Balance
+## Demo
 
-```typescript capturable-balance.ts lines wrap expandable highlight={1-7}
-const paymentInfoHash = await publicClient.readContract({
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "getHash",
-  args: [paymentInfo],
-});
-const [, capturableAmount] = await publicClient.readContract({
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "paymentState",
-  args: [paymentInfoHash],
-});
+<PaymentsDemo flow="capture" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Check and Capture
+
+Read `paymentState(paymentInfoHash)` before capture. The amount must be nonzero, no greater than `capturableAmount`, and submitted strictly before `authorizationExpiry`.
+
+The operator supplies an absolute `feeAmount` in raw token units. The protocol validates it against the per-capture `minFeeBps` and `maxFeeBps` stored in `PaymentInfo`.
+
+{/* sample: usdc-capture-ts */}
+```typescript TypeScript lines wrap expandable highlight={5-11,14-19,22-24}
+export async function captureAuthorization(
+  payment: StoredProtocolPayment,
+  amount = payment.paymentInfo.maxAmount,
+) {
+  const [, capturableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
+  });
+  if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "capture",
+    args: [payment.paymentInfo, amount, 0n, zeroAddress],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment capture reverted");
+  return receipt;
+}
 ```
 
-Reject the fulfillment job if the amount exceeds the current balance or the chain timestamp has reached `authorizationExpiry`.
+Capture decreases `capturableAmount` and increases `refundableAmount` by the same gross amount. The receiver gets the gross amount minus fees.
 
-## Capture the Funds
-
-```typescript capture-payment.ts lines wrap expandable highlight={5-9}
-const amount = parseUnits("125.00", 6);
-const feeAmount = parseUnits("2.50", 6);
-const { request } = await publicClient.simulateContract({
-  account: operatorAccount,
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "capture",
-  args: [paymentInfo, amount, feeAmount, feeReceiver],
-});
-const hash = await operatorWallet.writeContract(request);
-const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Payment capture reverted");
-```
-
-The protocol first decreases `capturableAmount` and increases `refundableAmount`, then transfers the fee and merchant proceeds. A failed token transfer reverts the entire call.
-
-## Verify Settlement
-
-```solidity PaymentCaptured.sol highlight={1-6}
-event PaymentCaptured(
-    bytes32 indexed paymentInfoHash,
-    uint256 amount,
-    uint256 feeAmount,
-    address feeReceiver
-);
-```
-
-The state changes by the gross capture amount:
-
-```text State transition
-capturableAmount -= amount
-refundableAmount += amount
-```
-
-The receiver receives `amount - feeAmount`, but `refundableAmount` increases by the full `amount`. A protocol refund returns gross captured value to the payer and must source that value through a refund collector.
+<Check>
+Verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` and the expected receiver transfers before marking the fulfillment increment settled.
+</Check>
 
 <Warning>
-Capture must execute strictly before `authorizationExpiry`. At the exact expiry timestamp, capture reverts and payer reclaim is available.
+At `authorizationExpiry`, capture is no longer available and the payer can reclaim the remaining balance. Use chain time rather than an application server clock when enforcing the deadline.
 </Warning>
 
-## Handle Common Reverts
+## See Also
 
-| Error | What to check |
-|---|---|
-| `InvalidSender` | Only `paymentInfo.operator` can capture |
-| `AfterAuthorizationExpiry` | The capture window has closed |
-| `InsufficientAuthorization` | Amount exceeds the remaining capturable balance |
-| `FeeAmountOutOfRange` | Absolute fee is outside the bounds for this capture amount |
-| `ZeroFeeReceiver` | A nonzero fee was paired with the zero address |
-| `InvalidFeeReceiver` | Dynamic call recipient conflicts with a fixed payment recipient |
-
-For multiple shipments or a final amount below the reservation, see [capture a partial amount](/build-on-base/accept-payments/capture-a-partial-amount).
+<CardGroup cols={2}>
+  <Card title="Capture a Partial Amount" icon="receipt" href="/build-on-base/accept-payments/capture-a-partial-amount">
+    Settle split shipments or a reduced final total.
+  </Card>
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Return previously captured value to the payer.
+  </Card>
+</CardGroup>

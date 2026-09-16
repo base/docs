@@ -1,0 +1,78 @@
+---
+title: "Charge on a Schedule"
+keywords: ["Commerce Payments recurring charge", "SpendPermissionPaymentCollector", "scheduled USDC payment", "smart wallet billing"]
+description: "Create one Commerce Payments Protocol charge per billing period using a smart-wallet spend permission."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Use the deployed `SpendPermissionPaymentCollector` when a Coinbase Smart Wallet approves repeated collection. Your scheduler still creates a fresh `PaymentInfo` and unique salt for every billing period because each protocol payment can be charged only once.
+
+## Demo
+
+<PaymentsDemo flow="schedule" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Charge One Billing Period
+
+The collector reconstructs a spend permission from `PaymentInfo`: the payer is the account, the collector is the spender, the token and allowance come from the payment, and `preApprovalExpiry` is the permission end. Encode the permission signature and optional MagicSpend withdrawal request as `collectorData`.
+
+Use a durable billing key such as `subscriptionId:periodStart` before submitting the protocol charge.
+
+{/* sample: scheduled-charge-ts */}
+```typescript TypeScript lines wrap expandable highlight={8-10,13-22,25-28}
+export async function chargeSubscriptionPeriod(args: {
+  paymentInfo: PaymentInfo;
+  collectorData: Hex;
+  billingKey: string;
+  amount: bigint;
+  store: BillingStore;
+}) {
+  if (!(await args.store.reserveOnce(args.billingKey))) {
+    throw new Error("Billing period was already submitted");
+  }
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "charge",
+    args: [
+      args.paymentInfo,
+      args.amount,
+      SPEND_PERMISSION_PAYMENT_COLLECTOR,
+      args.collectorData,
+      0n,
+      zeroAddress,
+    ],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Scheduled charge reverted");
+  await args.store.complete(args.billingKey, hash);
+  return receipt;
+}
+```
+
+A successful charge emits `PaymentCharged` and creates a protocol `refundableAmount` for that billing period.
+
+<Check>
+Store the billing key, `paymentInfoHash`, charge transaction, amount, and spend-permission usage in one durable workflow.
+</Check>
+
+<Warning>
+Commerce Payments Protocol does not run a scheduler. Protect the operator key, serialize retries, and do not reuse a prior period's `PaymentInfo` or salt.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Request a Payment" icon="credit-card" href="/build-on-base/accept-payments/request-a-payment">
+    Use the same charge lifecycle for a one-time checkout.
+  </Card>
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Reverse a charged billing period before refund expiry.
+  </Card>
+</CardGroup>

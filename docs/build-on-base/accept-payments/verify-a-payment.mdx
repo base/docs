@@ -1,107 +1,74 @@
 ---
 title: "Verify a Payment"
-keywords: ["verify Commerce Payments", "paymentInfoHash", "PaymentCharged verification", "PaymentCaptured verification"]
-description: "Verify confirmed Commerce Payments Protocol events, state, and replay protection before fulfilling an order."
+keywords: ["verify Commerce Payments", "verify PaymentCharged", "paymentInfoHash", "prevent payment replay"]
+description: "Verify confirmed Commerce Payments Protocol events and claim each settlement exactly once before fulfillment."
 ---
 
-Use `AuthCaptureEscrow` events as the canonical record of payment lifecycle operations. Raw ERC-20 transfers are not sufficient because collectors and token stores produce different transfer shapes, and a transfer alone does not identify the protocol operation or payment terms.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-## Define the Expected Payment
+Never fulfill from a wallet signature, submitted transaction hash, or client state. Decode confirmed `AuthCaptureEscrow` events, match their `paymentInfoHash` to the order, and claim each settlement exactly once in persistent storage.
 
-Load the exact `PaymentInfo` and canonical hash stored when the checkout was created.
+## Demo
 
-```typescript expected-payment.ts lines wrap expandable highlight={1-7}
-const expectedHash = await publicClient.readContract({
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "getHash",
-  args: [storedPaymentInfo],
-});
-if (expectedHash !== order.paymentInfoHash) {
-  throw new Error("Stored payment terms do not match the order");
-}
-```
+<PaymentsDemo flow="verify" />
 
-Also fix the expected chain ID and v1.1.0 escrow address in server configuration. The hash is bound to both, but verification must reject receipts from another chain before decoding.
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
 
-## Verify a Lifecycle Transaction
+## Verify a Protocol Settlement
 
-```typescript verify-protocol-payment.ts lines wrap expandable highlight={10-19,22-27}
-export async function verifyProtocolOperation(args: {
+Use the v1.1.0 escrow address and ABI together. The `PaymentCharged` and `PaymentCaptured` events contain an absolute `uint256 feeAmount`; the v1.0 events used a different field type and event topic.
+
+{/* sample: verify-token-payment-ts */}
+```typescript Backend lines wrap expandable highlight={8-18,21-27}
+export async function verifyPayment(args: {
   hash: Hash;
-  expectedEvent: "PaymentAuthorized" | "PaymentCharged" | "PaymentCaptured";
   paymentInfoHash: Hash;
+  orderId: string;
   store: PaymentStore;
 }) {
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash: args.hash,
-    confirmations: 2,
-  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: args.hash, confirmations: 2 });
   if (receipt.status !== "success") throw new Error("Payment transaction reverted");
-
   const events = parseEventLogs({
     abi: authCaptureEscrowAbi,
     logs: receipt.logs.filter(
-      (log) => log.address.toLowerCase() === authCaptureEscrow.toLowerCase(),
+      (log) => log.address.toLowerCase() === AUTH_CAPTURE_ESCROW.toLowerCase(),
     ),
     strict: true,
   });
-  const operation = events.find(
-    (event) => event.eventName === args.expectedEvent &&
+  const settlement = events.find(
+    (event) =>
+      (event.eventName === "PaymentCharged" || event.eventName === "PaymentCaptured") &&
       event.args.paymentInfoHash === args.paymentInfoHash,
   );
-  if (!operation) throw new Error("Expected protocol operation not found");
-
-  if (!(await args.store.claimOnce(args.paymentInfoHash, args.hash, operation.logIndex))) {
-    throw new Error("Payment operation was already processed");
+  if (!settlement) throw new Error("Expected protocol settlement was not found");
+  if (!(await args.store.claimOnce(args.paymentInfoHash, args.orderId))) {
+    throw new Error("Payment was already used");
   }
-  return { receipt, operation };
+  return settlement;
 }
 ```
 
-`claimOnce` must rely on a database uniqueness constraint. Use `(chainId, escrowAddress, transactionHash, logIndex)` as the event identity and separately enforce the order transitions permitted for each `paymentInfoHash`.
+`PaymentAuthorized` and `PaymentCharged` include the full `PaymentInfo`. Later lifecycle events include only the hash, so join them to the immutable terms stored when you created the order.
 
-## Validate Operation-Specific Fields
-
-| Event | Fields to compare with the order |
-|---|---|
-| `PaymentAuthorized` | Full `PaymentInfo`, authorized amount, collector, and hash |
-| `PaymentCharged` | Full `PaymentInfo`, charged amount, collector, absolute fee, fee receiver, and hash |
-| `PaymentCaptured` | Hash, gross capture amount, absolute fee, and fee receiver |
-| `PaymentVoided` | Hash and returned capturable amount |
-| `PaymentReclaimed` | Hash and returned capturable amount |
-| `PaymentRefunded` | Hash, gross refund amount, and refund collector |
-
-The initial authorization or charge event contains the full `PaymentInfo`. Later events contain only the hash, so join them to the immutable terms stored for that hash.
-
-## Read State as a Cross-Check
-
-```typescript verify-payment-state.ts lines wrap expandable highlight={1-6}
-const [hasCollectedPayment, capturableAmount, refundableAmount] =
-  await publicClient.readContract({
-    address: authCaptureEscrow,
-    abi: authCaptureEscrowAbi,
-    functionName: "paymentState",
-    args: [order.paymentInfoHash],
-  });
-```
-
-Use state to confirm amount invariants, not to infer event history. For example, `capturableAmount == 0` can mean immediate charge, full capture, void, or reclaim.
-
-## Gate Fulfillment by the Correct Event
-
-| Business action | Required confirmation |
-|---|---|
-| Reserve inventory or begin protected fulfillment | Confirmed `PaymentAuthorized` with enough `capturableAmount` |
-| Treat an immediate checkout as paid | Confirmed `PaymentCharged` |
-| Ship or deliver a captured increment | Confirmed `PaymentCaptured` for that increment |
-| Close a canceled authorization | Confirmed `PaymentVoided` or `PaymentReclaimed` |
-| Mark a return paid | Confirmed `PaymentRefunded` and transfer to the stored payer |
+<Check>
+Only the first confirmed event with the expected chain, escrow address, payment hash, operation, amount, and fee reaches fulfillment.
+</Check>
 
 <Warning>
-Do not fulfill from a payer signature, submitted transaction hash, client callback, or unconfirmed subscription event. Only a canonical successful protocol event proves the state transition.
+`claimOnce` must use a database uniqueness constraint and participate in the same durable workflow as fulfillment. A process-local `Set` cannot prevent replay across restarts or workers.
 </Warning>
 
-Choose a confirmation policy that matches fulfillment value and reversibility. See [transaction finality](/specifications/transactions/transaction-finality).
+Choose a confirmation depth that matches the value and reversibility of fulfillment. See [transaction finality](/specifications/transactions/transaction-finality).
 
-Next, [watch for protocol events](/build-on-base/accept-payments/watch-for-payments) and [reconcile payment state](/build-on-base/accept-payments/reconcile-payments).
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Request a Payment" icon="credit-card" href="/build-on-base/accept-payments/request-a-payment">
+    Create an immediate protocol charge.
+  </Card>
+  <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
+    Backfill and process confirmed escrow events.
+  </Card>
+</CardGroup>

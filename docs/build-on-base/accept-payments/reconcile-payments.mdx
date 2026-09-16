@@ -1,140 +1,93 @@
 ---
 title: "Reconcile Payments"
-keywords: ["Commerce Payments reconciliation", "paymentInfoHash ledger", "capturable refundable accounting", "payment settlement report"]
-description: "Reduce Commerce Payments Protocol events into an order ledger and verify authorization, capture, fee, and refund invariants."
+keywords: ["Commerce Payments reconciliation", "paymentInfoHash report", "payment settlement ledger", "AuthCaptureEscrow accounting"]
+description: "Build a settlement report from Commerce Payments Protocol charges, captures, fees, voids, reclaims, and refunds."
 ---
 
-Reconcile by `paymentInfoHash`. The initial `PaymentAuthorized` or `PaymentCharged` event establishes the immutable payment terms, and every later event changes either the capturable or refundable balance.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-## Build the Payment Ledger
+Turn confirmed protocol logs into ledger rows keyed by `paymentInfoHash`. The initial authorization or charge establishes immutable payment terms; later events update capturable and refundable accounting.
 
-Store one payment record with:
+## Demo
 
-| Field | Source |
-|---|---|
-| Chain, escrow version, and address | Integration configuration |
-| `paymentInfoHash` | Indexed protocol event field |
-| Full `PaymentInfo` | Initial authorization or charge event |
-| Collected amount and collector | Initial authorization or charge event |
-| Captures and fees | `PaymentCaptured` events, or the initial charge |
-| Voided or reclaimed amount | `PaymentVoided` or `PaymentReclaimed` |
-| Refunded amount and collector | `PaymentRefunded` events |
-| Current balances | Event reduction cross-checked against `paymentState` |
+<PaymentsDemo flow="reconcile" />
 
-Do not use receiver token transfers as the primary ledger. A fee creates multiple transfers, collector behavior varies, and refund liquidity can come from a party other than the original receiver.
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
 
-## Reduce Events in Chain Order
+## Build a Settlement Report
 
-```typescript reduce-payment-events.ts lines wrap expandable highlight={9-24}
-type LedgerState = {
-  collected: bigint;
-  capturable: bigint;
-  refundable: bigint;
-  captured: bigint;
-  returned: bigint;
-  refunded: bigint;
-  fees: bigint;
-};
+Query the v1.1.0 escrow, then create gross, fee, and refund rows from its lifecycle events.
 
-export function applyEvent(state: LedgerState, event: EscrowEvent): LedgerState {
-  switch (event.eventName) {
-    case "PaymentAuthorized":
-      return { ...state, collected: event.args.amount, capturable: event.args.amount };
-    case "PaymentCharged":
-      return {
-        ...state,
-        collected: event.args.amount,
-        captured: event.args.amount,
-        refundable: event.args.amount,
-        fees: event.args.feeAmount,
-      };
-    case "PaymentCaptured":
-      return {
-        ...state,
-        capturable: state.capturable - event.args.amount,
-        captured: state.captured + event.args.amount,
-        refundable: state.refundable + event.args.amount,
-        fees: state.fees + event.args.feeAmount,
-      };
-    case "PaymentVoided":
-    case "PaymentReclaimed":
-      return { ...state, capturable: 0n, returned: state.returned + event.args.amount };
-    case "PaymentRefunded":
-      return {
-        ...state,
-        refundable: state.refundable - event.args.amount,
-        refunded: state.refunded + event.args.amount,
-      };
-  }
-}
-```
-
-Apply events by block number, transaction index, and log index. Re-run affected payments when an overlap scan replaces logs after a reorg.
-
-## Enforce Accounting Invariants
-
-For an authorization flow:
-
-```text Authorization conservation
-PaymentAuthorized.amount
-  = sum(PaymentCaptured.amount)
-  + PaymentVoided.amount or PaymentReclaimed.amount
-  + current capturableAmount
-```
-
-For settled value:
-
-```text Refund conservation
-PaymentCharged.amount + sum(PaymentCaptured.amount)
-  = sum(PaymentRefunded.amount)
-  + current refundableAmount
-```
-
-Also enforce:
-
-- Exactly one collection event exists: `PaymentAuthorized` or `PaymentCharged`, never both.
-- Every event after collection uses the same `paymentInfoHash` and escrow version.
-- Every capture fee lies within the per-capture bounds in the stored `PaymentInfo`.
-- Merchant proceeds plus fee equal the gross charged or captured amount.
-- A void or reclaim amount equals the capturable balance immediately before that event.
-- State never becomes negative in the reducer.
-
-## Reconcile Onchain State
-
-```typescript reconcile-state.ts lines wrap expandable highlight={1-8}
-const [, onchainCapturable, onchainRefundable] =
-  await publicClient.readContract({
-    address: authCaptureEscrow,
+{/* sample: reconcile-payments-ts */}
+```typescript TypeScript backend lines wrap expandable highlight={4-11,14-24,25-35}
+export async function buildSettlementReport(
+  fromBlock: bigint,
+  toBlock: bigint,
+) {
+  const logs = await publicClient.getContractEvents({
+    address: AUTH_CAPTURE_ESCROW,
     abi: authCaptureEscrowAbi,
-    functionName: "paymentState",
-    args: [paymentInfoHash],
+    fromBlock,
+    toBlock,
+    strict: true,
   });
-if (ledger.capturable !== onchainCapturable || ledger.refundable !== onchainRefundable) {
-  throw new Error("Event ledger does not match escrow state");
+  return logs.flatMap((log) => {
+    if (!log.transactionHash) return [];
+    if (log.eventName === "PaymentCharged") return [{
+      paymentInfoHash: log.args.paymentInfoHash,
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      operation: "charge",
+      grossAmount: log.args.amount,
+      feeAmount: log.args.feeAmount,
+    }];
+    if (log.eventName === "PaymentCaptured") return [{
+      paymentInfoHash: log.args.paymentInfoHash,
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      operation: "capture",
+      grossAmount: log.args.amount,
+      feeAmount: log.args.feeAmount,
+    }];
+    if (log.eventName === "PaymentRefunded") return [{
+      paymentInfoHash: log.args.paymentInfoHash,
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      operation: "refund",
+      grossAmount: -log.args.amount,
+      feeAmount: 0n,
+    }];
+    return [];
+  });
 }
 ```
 
-A mismatch usually indicates a missing block range, wrong ABI version, unhandled reorg, or duplicate reduction.
+For every charge or capture:
 
-## Report Gross, Fees, and Net Separately
-
-For each charge or capture, report:
-
-```text gross amount = event.amount
-fee amount = event.feeAmount
-merchant net = event.amount - event.feeAmount
+```text Accounting
+merchant net = gross amount - fee amount
+refundable balance += gross amount
 ```
 
-The refund limit is based on gross amount, not merchant net. Keep fee reimbursement and commercial allocation separate from the protocol's refund accounting.
-
-## Close Expired Windows
-
-At `authorizationExpiry`, flag remaining capturable funds as payer-reclaimable. Do not recognize them as operator revenue.
-
-At `refundExpiry`, the protocol can no longer process a refund for that payment. If your commercial policy permits later returns, account for them as an external transfer outside this protocol lifecycle.
+For every refund, reduce the refundable balance by the gross refund amount. A void or reclaim reduces only the capturable balance and does not reverse earlier captures.
 
 <Check>
-Run financial reports only through a finalized block range. Label more recent confirmed events as provisional and replace them if the canonical chain changes.
+For an authorization, reconcile the authorized amount to captures plus the voided or reclaimed amount plus current `capturableAmount`. Reconcile total charged and captured value to refunds plus current `refundableAmount`.
 </Check>
 
-See [watch for payments](/build-on-base/accept-payments/watch-for-payments) for the indexing loop and [verify a payment](/build-on-base/accept-payments/verify-a-payment) for order-level fulfillment checks.
+<Warning>
+Run financial reports only through a finalized block range. If you display more recent confirmations, label them provisional and replace them after a reorg.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
+    Keep the underlying escrow event index current.
+  </Card>
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Understand gross refund accounting and liquidity.
+  </Card>
+</CardGroup>

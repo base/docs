@@ -1,85 +1,79 @@
 ---
 title: "Authorize a Payment"
-keywords: ["Commerce Payments authorize", "escrow USDC payment", "PaymentAuthorized", "authorize capture Base"]
-description: "Move payer funds into Commerce Payments Protocol escrow so the operator can capture them after fulfillment."
+keywords: ["Commerce Payments authorize", "USDC escrow Base", "PaymentAuthorized", "authorize and capture"]
+description: "Move payer funds into Commerce Payments Protocol escrow for later capture on Base."
 ---
 
-Use `authorize` when settlement must wait for inventory, tax, shipping, service completion, or another fulfillment decision. A successful authorization moves tokens into escrow immediately, so later capture does not depend on the payer keeping funds in their wallet.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Authorize a payment when fulfillment happens after checkout. A successful protocol authorization moves tokens into the operator's escrow store immediately, so later capture does not depend on the payer keeping funds in their wallet.
+
+## Demo
+
+<PaymentsDemo flow="authorize" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
 
 <Warning>
-A collector signature by itself is not an authorization. Funds become guaranteed for capture only after the `authorize` transaction succeeds and the operator's token store receives them.
+The collector signature is only permission to collect. Treat funds as reserved only after `authorize` succeeds and emits `PaymentAuthorized`.
 </Warning>
 
-## Prepare the Authorization
+## Authorize and Store the Payment
 
-1. [Configure `PaymentInfo`](/build-on-base/accept-payments/configure-a-payment) with a short pre-approval window and a fulfillment-appropriate authorization window.
-2. [Prepare `collectorData`](/build-on-base/accept-payments/choose-a-token-collector) for the payer's token and wallet.
-3. Choose an authorization `amount` no greater than `paymentInfo.maxAmount`.
-4. Persist the payment terms before submitting from `paymentInfo.operator`.
+Build one immutable `PaymentInfo` with the operator, payer, receiver, token, maximum amount, three ordered expiry timestamps, fee bounds, fee receiver, and a unique salt. Store the exact struct because every later operation recomputes its hash.
 
-## Move Funds into Escrow
+The fixture prepares an ERC-3009 collector signature and submits the authorization from `paymentInfo.operator`.
 
-```typescript authorize-payment.ts lines wrap expandable highlight={4-8}
-const amount = parseUnits("125.00", 6);
-const { request } = await publicClient.simulateContract({
-  account: operatorAccount,
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "authorize",
-  args: [paymentInfo, amount, paymentCollector, collectorData],
-});
-const hash = await operatorWallet.writeContract(request);
-const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Payment authorization reverted");
+{/* sample: usdc-authorize-ts */}
+```typescript TypeScript lines wrap expandable highlight={6,11-18,21-24}
+export async function authorizePayment(
+  merchant: Address,
+  orderId: string,
+  amount: string,
+) {
+  const payment = await prepareErc3009Payment(merchant, orderId, amount);
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "authorize",
+    args: [
+      payment.paymentInfo,
+      payment.paymentInfo.maxAmount,
+      ERC3009_PAYMENT_COLLECTOR,
+      payment.collectorData,
+    ],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment authorization reverted");
+  return { ...payment, authorizationHash: hash };
+}
 ```
 
-The escrow records state before calling the collector, but the whole transaction reverts if collection fails. The non-reentrancy guard prevents the collector from entering another lifecycle operation during collection.
-
-## Verify the Reservation
-
-```solidity PaymentAuthorized.sol lines wrap expandable highlight={2-5}
-event PaymentAuthorized(
-    bytes32 indexed paymentInfoHash,
-    PaymentInfo paymentInfo,
-    uint256 amount,
-    address tokenCollector
-);
-```
-
-After confirmation, the payment state is:
-
-```text State after authorization
-hasCollectedPayment = true
-capturableAmount = amount
-refundableAmount = 0
-```
-
-You can also read the operator store address with `getTokenStore(paymentInfo.operator)` and confirm the token balance, but use `paymentState` for per-payment accounting because one store can hold funds for many payments.
+| State field | Value after authorization |
+|---|---|
+| `hasCollectedPayment` | `true` permanently |
+| `capturableAmount` | Authorized amount held in escrow |
+| `refundableAmount` | `0` until capture |
 
 <Check>
-Begin protected fulfillment only after the confirmed event matches the stored payment, `capturableAmount` covers the order, and your backend records the authorization idempotently.
+Persist `paymentInfoHash`, the full terms, collector, authorization transaction, and `PaymentAuthorized.amount` against the order.
 </Check>
 
-## Understand Amount Collection
+<Warning>
+The payment can be collected only once. Use a new cryptographically random salt for every checkout attempt, including retries after a void or reclaim.
+</Warning>
 
-The requested `amount` may be lower than `maxAmount`. Collector behavior differs:
+## See Also
 
-| Collector | What leaves the payer during authorization |
-|---|---|
-| ERC-3009 | Pulls `maxAmount`, returns the difference, and leaves `amount` in escrow |
-| Permit2 | Pulls only `amount`, bounded by the signed `maxAmount` |
-| Pre-approval | Pulls only `amount` through the token allowance |
-| Spend permission | Spends only `amount` from the configured allowance |
-
-## Handle Common Reverts
-
-| Error | What to check |
-|---|---|
-| `ExceedsMaxAmount` | Requested authorization is greater than `maxAmount` |
-| `AfterPreApprovalExpiry` | Operator submitted after the payer's collection approval expired |
-| `InvalidExpiries` | The three expiry timestamps are not ordered |
-| `PaymentAlreadyCollected` | The payment hash was previously authorized or charged |
-| `InvalidCollectorForOperation` | Collector does not report the payment type |
-| `TokenCollectionFailed` | Token store did not receive the exact requested amount |
-
-Next, [capture the authorization](/build-on-base/accept-payments/capture-an-authorization), [void it](/build-on-base/accept-payments/void-an-authorization), or let the payer [reclaim it after expiry](/build-on-base/accept-payments/reclaim-an-authorization).
+<CardGroup cols={2}>
+  <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
+    Settle the escrowed amount before authorization expiry.
+  </Card>
+  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
+    Return funds now, or let the payer reclaim after expiry.
+  </Card>
+</CardGroup>

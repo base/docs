@@ -1,76 +1,68 @@
 ---
 title: "Capture a Partial Amount"
-keywords: ["Commerce Payments partial capture", "split shipment capture", "incremental capture Base", "capturableAmount"]
-description: "Capture an escrowed authorization in one or more increments without collecting from the payer again."
+keywords: ["Commerce Payments partial capture", "split shipment payment", "variable USDC capture", "capturableAmount"]
+description: "Capture less than the escrowed authorization or settle it across multiple fulfillment increments."
 ---
 
-The Commerce Payments Protocol supports multiple captures against one authorization. Use this for split shipments, adjusted taxes, reduced fulfillment quantities, or any order whose final settled amount is lower than the reservation.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Each capture independently validates its amount, fee, receiver, caller, and deadline.
+Capture less than the authorized amount when the final total changes after checkout, or capture multiple increments as an order ships. Commerce Payments Protocol tracks the remaining reservation onchain without a custom checkout contract.
 
-## Capture One Fulfillment Increment
+## Demo
 
-```typescript capture-partial.ts lines wrap expandable highlight={2-8}
-export async function capturePartial(amount: bigint, feeAmount: bigint) {
-  const { request } = await publicClient.simulateContract({
-    account: operatorAccount,
-    address: authCaptureEscrow,
+<PaymentsDemo flow="partial" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Capture the Final Amount
+
+Call the same `capture` function for every increment. The sum of successful captures cannot exceed `PaymentAuthorized.amount`, and each capture independently validates its fee bounds.
+
+{/* sample: usdc-variable-payment-ts */}
+```typescript TypeScript lines wrap expandable highlight={6-12,15-20,23-24}
+export async function capturePartialPayment(
+  payment: StoredProtocolPayment,
+  actualAmount: string,
+) {
+  const amount = parseUnits(actualAmount, 6);
+  const [, capturableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
+  });
+  if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
     abi: authCaptureEscrowAbi,
     functionName: "capture",
-    args: [paymentInfo, amount, feeAmount, feeReceiver],
+    args: [payment.paymentInfo, amount, 0n, zeroAddress],
   });
-  const hash = await operatorWallet.writeContract(request);
+  const hash = await walletClient.writeContract(simulation.request);
   return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
 }
 ```
 
-Suppose 100 USDC is authorized:
-
-| Operation | Capturable | Refundable |
-|---|---:|---:|
-| Authorization | 100 USDC | 0 USDC |
-| Capture 60 USDC | 40 USDC | 60 USDC |
-| Capture 25 USDC | 15 USDC | 85 USDC |
-| Void remaining 15 USDC | 0 USDC | 85 USDC |
-
-Voiding or reclaiming the remainder does not change the already captured refundable balance.
-
-## Re-Read State Before Every Capture
-
-Concurrent fulfillment workers can race for the same authorization. Serialize captures per `paymentInfoHash`, simulate immediately before submission, and reconcile the confirmed event before scheduling another increment.
-
-```typescript remaining-authorization.ts lines wrap expandable highlight={1-6}
-const [, capturableAmount, refundableAmount] = await publicClient.readContract({
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "paymentState",
-  args: [paymentInfoHash],
-});
-if (nextAmount > capturableAmount) throw new Error("Capture exceeds reservation");
-```
-
-## Calculate Fees Per Capture
-
-Fee bounds apply to each capture, not to the authorization in aggregate.
-
-```typescript capture-fee.ts highlight={1-5}
-const minimumFee = amount * BigInt(paymentInfo.minFeeBps) / 10_000n;
-const maximumFee = amount * BigInt(paymentInfo.maxFeeBps) / 10_000n;
-if (feeAmount < minimumFee || feeAmount > maximumFee) {
-  throw new Error("Fee is outside payer-approved bounds");
-}
-```
-
-Integer division rounds both bounds down. For tokens with few decimals, many small captures can produce a lower aggregate minimum fee than one large capture. Apply a minimum capture size offchain if this matters to your fee agreement.
-
-## Close the Remainder
-
-After the final shipment:
-
-- Call [void](/build-on-base/accept-payments/void-an-authorization) to return the remainder immediately.
-- Let the payer [reclaim](/build-on-base/accept-payments/reclaim-an-authorization) after expiry if the operator does not act.
-- Leave no capturable dust intentionally; surface it clearly to the payer if business rules require it to remain until expiry.
+For a 100 USDC authorization, a 64 USDC capture leaves 36 USDC capturable and makes 64 USDC refundable. You can capture another increment or void the remainder.
 
 <Check>
-Reconcile the sum of `PaymentCaptured.amount`, `PaymentVoided.amount`, and `PaymentReclaimed.amount` to the original `PaymentAuthorized.amount`.
+After every capture, reconcile `PaymentCaptured.amount` with the new `capturableAmount` and `refundableAmount` before another worker advances the order.
 </Check>
+
+<Warning>
+Fee bounds are evaluated per capture and use integer division. With low-decimal tokens, fragmenting one settlement into many small captures can reduce the aggregate minimum fee. Enforce a minimum capture size offchain when that matters.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
+    Review the capture deadline, fee, and state transition.
+  </Card>
+  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
+    Return the unneeded remainder to the payer.
+  </Card>
+</CardGroup>

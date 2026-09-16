@@ -1,68 +1,71 @@
 ---
 title: "Void an Authorization"
-keywords: ["Commerce Payments void", "cancel escrowed payment", "PaymentVoided", "return authorized funds"]
-description: "Let the operator cancel an authorization and return all remaining escrowed funds to the payer."
+keywords: ["Commerce Payments void", "cancel escrow payment", "PaymentVoided", "payer reclaim"]
+description: "Return the remaining escrowed authorization to the payer or let the payer reclaim it after expiry."
 ---
 
-Call `void` when an authorized order cannot be fulfilled. It clears the full remaining `capturableAmount` and returns those tokens from the operator's token store to the original payer.
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Only the operator can void. The function has no expiry restriction, so the operator can act before or after `authorizationExpiry` as long as a capturable balance remains.
+Close an authorization that you will not capture. The operator can call `void` at any time to return all remaining capturable funds. If the operator becomes inactive, the payer can call `reclaim` at or after `authorizationExpiry`.
 
-## Check the Order Decision
+## Demo
 
-Before voiding:
+<PaymentsDemo flow="void" />
 
-- Stop any capture worker for the same `paymentInfoHash`.
-- Confirm no additional shipment should settle.
-- Load the original stored `PaymentInfo` without changing any field.
-- Read the current `capturableAmount`; `void` always returns all of it.
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
 
-There is no partial void function. To settle part and release the rest, capture the final amount first, then void the remainder.
+| Path | Caller | Available when |
+|---|---|---|
+| `void(paymentInfo)` | Operator | Any time a capturable balance remains |
+| `reclaim(paymentInfo)` | Payer | At or after `authorizationExpiry` |
 
-## Void the Remaining Amount
+## Void the Remaining Authorization
 
-```typescript void-payment.ts lines wrap expandable highlight={4-8}
-const { request } = await publicClient.simulateContract({
-  account: operatorAccount,
-  address: authCaptureEscrow,
-  abi: authCaptureEscrowAbi,
-  functionName: "void",
-  args: [paymentInfo],
-});
-const hash = await operatorWallet.writeContract(request);
-const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Payment void reverted");
+`void` returns the complete `capturableAmount`; there is no partial-void operation. Capture the final fulfilled amount first, then void the remainder.
+
+{/* sample: usdc-void-ts */}
+```typescript TypeScript lines wrap expandable highlight={3-9,12-17,20-22}
+export async function voidAuthorization(payment: StoredProtocolPayment) {
+  const [, capturableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
+  });
+  if (capturableAmount === 0n) throw new Error("Authorization has no remaining funds");
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "void",
+    args: [payment.paymentInfo],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment void reverted");
+  return receipt;
+}
 ```
 
-## Verify the Return
+Both `void` and `reclaim` set `capturableAmount` to zero while leaving any previously captured `refundableAmount` unchanged.
 
-```solidity PaymentVoided.sol highlight={1-4}
-event PaymentVoided(
-    bytes32 indexed paymentInfoHash,
-    uint256 amount
-);
-```
-
-The event amount is the entire balance that was capturable when the call executed.
-
-```text State transition
-capturableAmount = 0
-refundableAmount = unchanged
-hasCollectedPayment = true
-```
-
-If part of the payment was already captured, that amount remains refundable through the protocol. Void affects only funds still in escrow.
+<Check>
+Verify `PaymentVoided` or `PaymentReclaimed`, and match its amount to the capturable balance immediately before the return.
+</Check>
 
 <Warning>
-The operator and payer can race after `authorizationExpiry`: the operator may call `void`, while the payer may call `reclaim`. Only one transaction can return the remaining balance; the other reverts with `ZeroAuthorization`.
+After authorization expiry, the operator and payer can race to return the same remainder through `void` or `reclaim`. One succeeds and the other reverts with `ZeroAuthorization`; process either event idempotently as the terminal authorization return.
 </Warning>
 
-## Handle Common Reverts
+## See Also
 
-| Error | What to check |
-|---|---|
-| `InvalidSender` | Transaction did not come from `paymentInfo.operator` |
-| `ZeroAuthorization` | The payment was fully captured, previously voided, or reclaimed |
-| Token transfer revert | The token blocks the payer, token store, or transfer behavior |
-
-If the operator is unavailable, direct the payer to [reclaim the authorization](/build-on-base/accept-payments/reclaim-an-authorization).
+<CardGroup cols={2}>
+  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
+    Configure the authorization and recovery windows.
+  </Card>
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Return value that was already captured.
+  </Card>
+</CardGroup>
