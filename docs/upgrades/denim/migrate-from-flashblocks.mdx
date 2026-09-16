@@ -17,9 +17,9 @@ Use this guide if your application consumes Flashblocks. Denim replaces Flashblo
 
 Inventory every Flashblocks subscription and RPC request that uses the `"pending"` block tag before Denim. Replace each integration using the table below.
 
-## Replace Flashblocks Integrations
+## Update Integrations for Denim
 
-| Flashblocks integration | Update for Denim |
+| Integration to review | Action for Denim |
 | --- | --- |
 | `eth_subscribe("newFlashblocks")` | Use `eth_subscribe("newHeads")`. |
 | `eth_subscribe("pendingLogs")` | Use `eth_subscribe("logs")`. |
@@ -32,6 +32,7 @@ Inventory every Flashblocks subscription and RPC request that uses the `"pending
 | `eth_simulateV1(..., "pending")` | Use normal RPC calls to read the latest canonical state. |
 | `eth_getLogs` with a range ending at `"pending"` | Use normal RPC calls to query logs from canonical blocks. |
 | `eth_getBlockTransactionCountByNumber("pending")` | Use normal RPC calls to read the latest canonical block. |
+| Bridge or proof flow that reads historical block hashes or beacon roots | Review its history assumptions. The retained number of values is unchanged, but 200ms blocks mean that history covers less elapsed time. |
 
 <Warning>
 The `"pending"` block tag and Flashblocks preconfirmation state have no direct equivalent after Denim. The replacements above return canonical data from 200ms blocks, not preconfirmed or pending data.
