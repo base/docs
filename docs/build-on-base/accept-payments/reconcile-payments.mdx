@@ -1,83 +1,140 @@
 ---
 title: "Reconcile Payments"
-keywords: ["payment reconciliation Base", "ERC-20 settlement report", "B20 memo report", "merchant payment ledger"]
-description: "Build a merchant settlement report from token transfers and optional B20 memo events."
+keywords: ["Commerce Payments reconciliation", "paymentInfoHash ledger", "capturable refundable accounting", "payment settlement report"]
+description: "Reduce Commerce Payments Protocol events into an order ledger and verify authorization, capture, fee, and refund invariants."
 ---
 
-import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+Reconcile by `paymentInfoHash`. The initial `PaymentAuthorized` or `PaymentCharged` event establishes the immutable payment terms, and every later event changes either the capturable or refundable balance.
 
-Turn confirmed token logs into ledger rows for captures, refunds, and payouts. This guide owns the merchant report; [Reconcile with memos](/build-on-base/issue-stablecoins/reconcile-with-memos) explains the B20 memo mechanics from an issuer's perspective.
+## Build the Payment Ledger
 
-## Demo
+Store one payment record with:
 
-<PaymentsDemo flow="reconcile" />
+| Field | Source |
+|---|---|
+| Chain, escrow version, and address | Integration configuration |
+| `paymentInfoHash` | Indexed protocol event field |
+| Full `PaymentInfo` | Initial authorization or charge event |
+| Collected amount and collector | Initial authorization or charge event |
+| Captures and fees | `PaymentCaptured` events, or the initial charge |
+| Voided or reclaimed amount | `PaymentVoided` or `PaymentReclaimed` |
+| Refunded amount and collector | `PaymentRefunded` events |
+| Current balances | Event reduction cross-checked against `paymentState` |
 
-<Tip>
-The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
-</Tip>
+Do not use receiver token transfers as the primary ledger. A fee creates multiple transfers, collector behavior varies, and refund liquidity can come from a party other than the original receiver.
 
-## Build a Settlement Report
+## Reduce Events in Chain Order
 
-{/* sample: reconcile-payments-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={8-10,15,23}
-export async function buildSettlementReport(
-  token: Address,
-  merchant: Address,
-  fromBlock: bigint,
-  toBlock: bigint,
-) {
-  const [incoming, outgoing, memos] = await Promise.all([
-    publicClient.getLogs({ address: token, event: transferEvent, args: { to: merchant }, fromBlock, toBlock, strict: true }),
-    publicClient.getLogs({ address: token, event: transferEvent, args: { from: merchant }, fromBlock, toBlock, strict: true }),
-    publicClient.getLogs({ address: token, event: memoEvent, fromBlock, toBlock, strict: true }),
-  ]);
-  const memoByTransfer = new Map<string, Hex>();
-  for (const log of memos) {
-    if (!log.transactionHash || log.logIndex === null) continue;
-    memoByTransfer.set(`${log.transactionHash}:${log.logIndex - 1}`, log.args.memo);
-  }
+```typescript reduce-payment-events.ts lines wrap expandable highlight={9-24}
+type LedgerState = {
+  collected: bigint;
+  capturable: bigint;
+  refundable: bigint;
+  captured: bigint;
+  returned: bigint;
+  refunded: bigint;
+  fees: bigint;
+};
 
-  const transfers = new Map(
-    [...incoming, ...outgoing].map((log) => [`${log.transactionHash}:${log.logIndex}`, log]),
-  );
-  return [...transfers.values()]
-    .sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex)
-    .map((log) => {
-      if (!log.transactionHash) throw new Error("Expected a mined log");
-      const memo = memoByTransfer.get(`${log.transactionHash}:${log.logIndex}`);
+export function applyEvent(state: LedgerState, event: EscrowEvent): LedgerState {
+  switch (event.eventName) {
+    case "PaymentAuthorized":
+      return { ...state, collected: event.args.amount, capturable: event.args.amount };
+    case "PaymentCharged":
       return {
-        transactionHash: log.transactionHash,
-        logIndex: log.logIndex,
-        direction: log.args.to.toLowerCase() === merchant.toLowerCase() ? "capture" : "outgoing",
-        counterparty: log.args.to.toLowerCase() === merchant.toLowerCase() ? log.args.from : log.args.to,
-        amount: log.args.amount,
-        reference: memo ? hexToString(memo, { size: 32 }).replace(/\0+$/, "") : undefined,
+        ...state,
+        collected: event.args.amount,
+        captured: event.args.amount,
+        refundable: event.args.amount,
+        fees: event.args.feeAmount,
       };
-    });
+    case "PaymentCaptured":
+      return {
+        ...state,
+        capturable: state.capturable - event.args.amount,
+        captured: state.captured + event.args.amount,
+        refundable: state.refundable + event.args.amount,
+        fees: state.fees + event.args.feeAmount,
+      };
+    case "PaymentVoided":
+    case "PaymentReclaimed":
+      return { ...state, capturable: 0n, returned: state.returned + event.args.amount };
+    case "PaymentRefunded":
+      return {
+        ...state,
+        refundable: state.refundable - event.args.amount,
+        refunded: state.refunded + event.args.amount,
+      };
+  }
 }
 ```
 
-A B20 `Memo` immediately follows its parent `Transfer`, so `(transactionHash, logIndex - 1)` joins the reference to the operation. Plain USDC has no memo event; join those transfers to your stored transaction hash, authorization nonce, or contract event.
+Apply events by block number, transaction index, and log index. Re-run affected payments when an overlap scan replaces logs after a reorg.
+
+## Enforce Accounting Invariants
+
+For an authorization flow:
+
+```text Authorization conservation
+PaymentAuthorized.amount
+  = sum(PaymentCaptured.amount)
+  + PaymentVoided.amount or PaymentReclaimed.amount
+  + current capturableAmount
+```
+
+For settled value:
+
+```text Refund conservation
+PaymentCharged.amount + sum(PaymentCaptured.amount)
+  = sum(PaymentRefunded.amount)
+  + current refundableAmount
+```
+
+Also enforce:
+
+- Exactly one collection event exists: `PaymentAuthorized` or `PaymentCharged`, never both.
+- Every event after collection uses the same `paymentInfoHash` and escrow version.
+- Every capture fee lies within the per-capture bounds in the stored `PaymentInfo`.
+- Merchant proceeds plus fee equal the gross charged or captured amount.
+- A void or reclaim amount equals the capturable balance immediately before that event.
+- State never becomes negative in the reducer.
+
+## Reconcile Onchain State
+
+```typescript reconcile-state.ts lines wrap expandable highlight={1-8}
+const [, onchainCapturable, onchainRefundable] =
+  await publicClient.readContract({
+    address: authCaptureEscrow,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [paymentInfoHash],
+  });
+if (ledger.capturable !== onchainCapturable || ledger.refundable !== onchainRefundable) {
+  throw new Error("Event ledger does not match escrow state");
+}
+```
+
+A mismatch usually indicates a missing block range, wrong ABI version, unhandled reorg, or duplicate reduction.
+
+## Report Gross, Fees, and Net Separately
+
+For each charge or capture, report:
+
+```text gross amount = event.amount
+fee amount = event.feeAmount
+merchant net = event.amount - event.feeAmount
+```
+
+The refund limit is based on gross amount, not merchant net. Keep fee reimbursement and commercial allocation separate from the protocol's refund accounting.
+
+## Close Expired Windows
+
+At `authorizationExpiry`, flag remaining capturable funds as payer-reclaimable. Do not recognize them as operator revenue.
+
+At `refundExpiry`, the protocol can no longer process a refund for that payment. If your commercial policy permits later returns, account for them as an external transfer outside this protocol lifecycle.
 
 <Check>
-Every returned row has a stable transaction/log identity, direction, counterparty, amount, and an order reference when the token emitted a memo.
+Run financial reports only through a finalized block range. Label more recent confirmed events as provisional and replace them if the canonical chain changes.
 </Check>
 
-<Warning>
-Run reports only through a finalized block range for accounting. If you also display recent confirmations, label them provisional and replace them after a reorg.
-</Warning>
-
-## Classify Outgoing Transfers
-
-A raw `Transfer` from the merchant can be a refund, payout, treasury move, or split leg. Join it to your refund ledger or the `PayoutSent(reference, ...)` event rather than guessing from direction alone.
-
-## See Also
-
-<CardGroup cols={2}>
-  <Card title="Reconcile with B20 Memos" icon="tag" href="/build-on-base/issue-stablecoins/reconcile-with-memos">
-    Learn the token-level memo ordering guarantee.
-  </Card>
-  <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
-    Keep the underlying event index current.
-  </Card>
-</CardGroup>
+See [watch for payments](/build-on-base/accept-payments/watch-for-payments) for the indexing loop and [verify a payment](/build-on-base/accept-payments/verify-a-payment) for order-level fulfillment checks.

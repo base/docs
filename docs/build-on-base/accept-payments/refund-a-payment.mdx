@@ -1,22 +1,43 @@
 ---
 title: "Refund a Payment"
-keywords: ["Commerce Payments refund", "refund USDC payment", "partial crypto refund", "refund payer address"]
-description: "Refund a Commerce Payments Protocol capture or return a direct token payment to the verified payer."
+keywords: ["Commerce Payments refund", "OperatorRefundCollector", "PaymentRefunded", "partial USDC refund"]
+description: "Source refund liquidity and return up to the captured, unrefunded amount to the original payer."
 ---
 
-import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+Call `refund` to reverse all or part of a charge or capture before `refundExpiry`. The protocol enforces the refundable limit and always sends tokens to `paymentInfo.payer`.
 
-Return all or part of a captured payment to the original payer. Use the protocol's refundable balance when the payment was charged or captured through Commerce Payments Protocol; otherwise enforce the balance in your own ledger.
+Captured funds are not retained by the escrow. A refund collector must source replacement liquidity from the operator, merchant, or another approved source.
 
-<Tip>
-Payments settled through the Commerce Payments Protocol maintain `refundableAmount` onchain and reject refunds above the captured, unrefunded balance or after `refundExpiry`. See [Use the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol).
-</Tip>
+## Understand Refund Accounting
 
-## Refund Through the Protocol
+Every successful `charge` or `capture` increases `refundableAmount` by its gross amount. Every refund decreases it.
 
-The deployed `OperatorRefundCollector` pulls refund liquidity from the operator. Approve that collector for the token, then call `refund` from the same operator named in `PaymentInfo`.
+```text Refund limit
+available refund = total charged and captured - total refunded
+```
 
-```typescript TypeScript backend lines wrap expandable highlight={5-9}
+Fees do not reduce this limit. If a 100 USDC capture sent 3 USDC to a fee receiver and 97 USDC to the merchant, the protocol permits up to 100 USDC of refunds.
+
+## Fund the Deployed Refund Collector
+
+The v1.1.0 `OperatorRefundCollector` pulls tokens from `paymentInfo.operator`. Approve only the amount your refund worker needs.
+
+```typescript approve-refunds.ts lines wrap expandable highlight={4-6}
+const approvalHash = await operatorWallet.writeContract({
+  account: operatorAccount,
+  address: paymentInfo.token,
+  abi: erc20Abi,
+  functionName: "approve",
+  args: [operatorRefundCollector, refundAmount],
+});
+await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 2 });
+```
+
+The approval is refund liquidity, not permission to increase the protocol's refundable accounting. `refund` still rejects any amount above the payment's balance.
+
+## Submit the Refund
+
+```typescript refund-payment.ts lines wrap expandable highlight={4-8}
 const { request } = await publicClient.simulateContract({
   account: operatorAccount,
   address: authCaptureEscrow,
@@ -26,89 +47,47 @@ const { request } = await publicClient.simulateContract({
 });
 const hash = await operatorWallet.writeContract(request);
 const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Refund reverted");
+if (receipt.status !== "success") throw new Error("Payment refund reverted");
 ```
 
-Verify `PaymentRefunded(paymentInfoHash, refundAmount, operatorRefundCollector)`. The protocol reduces `refundableAmount` before collecting and forwarding the refund, so the transaction reverts if the amount is too high or the operator has not supplied enough approved liquidity.
+The transaction decreases `refundableAmount`, collects the exact replacement amount into the operator's token store, and forwards it to the payer atomically.
 
-## Refund a Direct Token Transfer
+## Verify the Refund
 
-For a payment outside the protocol, derive the payer from the canonical transfer and reserve the refund in your database before broadcasting.
-
-## Demo
-
-<PaymentsDemo flow="refund" />
-
-<Tip>
-The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
-</Tip>
-
-## Return a B20 Payment with Its Order Reference
-
-{/* sample: refund-payment-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={8,16,24}
-export async function refundPayment(args: {
-  token: Address;
-  captureHash: Hash;
-  orderId: string;
-  refundId: string;
-  amount: bigint;
-  ledger: RefundLedger;
-}) {
-  if ((await args.ledger.captureHash(args.orderId)) !== args.captureHash) {
-    throw new Error("Capture hash does not belong to this order");
-  }
-  const capture = await publicClient.waitForTransactionReceipt({ hash: args.captureHash, confirmations: 2 });
-  if (capture.status !== "success") throw new Error("Original payment reverted");
-  const transfers = parseEventLogs({
-    abi: refundableTokenAbi,
-    eventName: "Transfer",
-    logs: capture.logs,
-    strict: true,
-  });
-  const payment = transfers.find(
-    (log) =>
-      log.address.toLowerCase() === args.token.toLowerCase() &&
-      log.args.to.toLowerCase() === account.address.toLowerCase(),
-  );
-  if (!payment) throw new Error("Original payment to this merchant was not found");
-  if (!(await args.ledger.reserveOnce(args.orderId, args.refundId, args.amount))) {
-    throw new Error("Refund is duplicated or exceeds the refundable balance");
-  }
-
-  const simulation = await publicClient.simulateContract({
-    account,
-    address: args.token,
-    abi: refundableTokenAbi,
-    functionName: "transferWithMemo",
-    args: [payment.args.from, args.amount, stringToHex(args.orderId, { size: 32 })],
-  });
-  const hash = await walletClient.writeContract(simulation.request);
-  await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-  await args.ledger.complete(args.refundId, hash);
-  return hash;
-}
+```solidity PaymentRefunded.sol highlight={1-5}
+event PaymentRefunded(
+    bytes32 indexed paymentInfoHash,
+    uint256 amount,
+    address tokenCollector
+);
 ```
 
-For plain USDC, call `transfer` instead and record the original order ID, capture hash, refund hash, and amount offchain. B20 can carry the original order ID in the refund transaction with `transferWithMemo`.
+Confirm the event, the token transfer to `paymentInfo.payer`, and the new state before marking the refund complete.
 
-`reserveOnce` must atomically create a pending refund and reduce the available refundable balance before broadcasting. If the worker loses the receipt, reconcile that pending record from chain data instead of releasing it and risking a duplicate transfer.
+```text State transition
+refundableAmount -= refundAmount
+capturableAmount = unchanged
+hasCollectedPayment = true
+```
 
-<Check>
-The refund transfer goes to the payer from the original receipt, and the durable refund ledger reduces the remaining refundable amount.
-</Check>
+A payment can be partially captured, partially refunded, and still retain both capturable and refundable balances.
+
+## Use a Custom Refund Collector Carefully
+
+Custom refund collectors can source liquidity from the merchant or another party through ERC-3009, Permit2, or a purpose-built vault. The escrow accepts any collector that reports the refund type and delivers the exact amount.
 
 <Warning>
-Never refund a client-supplied address without comparing it to the canonical payment event. Also enforce a database transaction or uniqueness rule so concurrent refund requests cannot exceed the captured amount.
+Payment collectors and refund collectors are intentionally separate. Do not reuse residual payer approval to fund a refund. A refund collector must obtain independent authorization from the party providing refund liquidity.
 </Warning>
 
-## See Also
+## Handle Common Reverts
 
-<CardGroup cols={2}>
-  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-    Extract the canonical payer and captured amount.
-  </Card>
-  <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
-    Match refunds back to captures and orders.
-  </Card>
-</CardGroup>
+| Error | What to check |
+|---|---|
+| `InvalidSender` | Only `paymentInfo.operator` can refund |
+| `AfterRefundExpiry` | Chain time reached or passed `refundExpiry` |
+| `RefundExceedsCapture` | Amount exceeds current `refundableAmount` |
+| `InvalidCollectorForOperation` | Supplied collector does not report the refund type |
+| `TokenCollectionFailed` | Refund source did not deliver the exact amount |
+
+Continue with [reconcile payments](/build-on-base/accept-payments/reconcile-payments) to join refunds to the original payment hash.

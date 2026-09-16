@@ -1,22 +1,37 @@
 ---
 title: "Capture an Authorization"
-keywords: ["Commerce Payments capture", "capture EIP-3009 authorization", "partial capture Base", "USDC capture Base"]
-description: "Capture escrowed funds through Commerce Payments Protocol or settle a stored USDC authorization directly."
+keywords: ["Commerce Payments capture", "capture escrow payment", "PaymentCaptured", "USDC capture Base"]
+description: "Transfer authorized funds from escrow to the merchant and fee receiver before authorization expiry."
 ---
 
-import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+Call `capture` after fulfillment is ready. The operator chooses an amount no greater than the remaining `capturableAmount` and supplies an absolute fee within the payer-approved bounds for that capture.
 
-Capture a payment after inventory, tax, or fulfillment is ready. If authorization placed funds in the Commerce Payments Protocol escrow, settlement no longer depends on the payer's current wallet balance.
+Capture does not contact the payer or use the original collector again. It sends funds already held in the operator's token store.
 
-<Note>
-This page captures a signature directly from the payer's current balance. If you already reserved funds with the Commerce Payments Protocol, call the escrow's `capture` operation instead; see [Use the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol).
-</Note>
+## Check the Capturable Balance
 
-## Capture Escrowed Funds
+```typescript capturable-balance.ts lines wrap expandable highlight={1-7}
+const paymentInfoHash = await publicClient.readContract({
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "getHash",
+  args: [paymentInfo],
+});
+const [, capturableAmount] = await publicClient.readContract({
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "paymentState",
+  args: [paymentInfoHash],
+});
+```
 
-The operator supplies an absolute `feeAmount` within the payer-approved basis-point range. The protocol sends `amount - feeAmount` to the receiver, sends the fee separately, and moves the full amount from `capturableAmount` to `refundableAmount`.
+Reject the fulfillment job if the amount exceeds the current balance or the chain timestamp has reached `authorizationExpiry`.
 
-```typescript TypeScript backend lines wrap expandable highlight={5-9}
+## Capture the Funds
+
+```typescript capture-payment.ts lines wrap expandable highlight={5-9}
+const amount = parseUnits("125.00", 6);
+const feeAmount = parseUnits("2.50", 6);
 const { request } = await publicClient.simulateContract({
   account: operatorAccount,
   address: authCaptureEscrow,
@@ -26,97 +41,44 @@ const { request } = await publicClient.simulateContract({
 });
 const hash = await operatorWallet.writeContract(request);
 const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Capture reverted");
+if (receipt.status !== "success") throw new Error("Payment capture reverted");
 ```
 
-Capture before `authorizationExpiry` and verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` before fulfillment.
+The protocol first decreases `capturableAmount` and increases `refundableAmount`, then transfers the fee and merchant proceeds. A failed token transfer reverts the entire call.
 
-## Capture Directly from the Payer
+## Verify Settlement
 
-The alternative below submits an unescrowed ERC-3009 signature and succeeds only if the payer still has enough spendable USDC.
-
-## Demo
-
-<PaymentsDemo flow="capture" />
-
-<Tip>
-The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
-</Tip>
-
-## Check and Capture
-
-{/* sample: usdc-capture-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={4,9,25}
-export async function captureAuthorization(stored: StoredAuthorization) {
-  const { authorization, signature } = stored;
-  if (authorization.to.toLowerCase() !== account.address.toLowerCase()) {
-    throw new Error("The connected merchant is not the authorized recipient");
-  }
-  const [used, balance] = await Promise.all([
-    publicClient.readContract({
-      address: USDC,
-      abi: usdcAbi,
-      functionName: "authorizationState",
-      args: [authorization.from, authorization.nonce],
-    }),
-    publicClient.readContract({
-      address: USDC,
-      abi: usdcAbi,
-      functionName: "balanceOf",
-      args: [authorization.from],
-    }),
-  ]);
-  if (used) throw new Error("Authorization was already used or canceled");
-  if (balance < authorization.value) throw new Error("Payer balance is too low");
-
-  const { v, r, s } = parseSignature(signature);
-  const simulation = await publicClient.simulateContract({
-    account,
-    address: USDC,
-    abi: usdcAbi,
-    functionName: "receiveWithAuthorization",
-    args: [
-      authorization.from,
-      authorization.to,
-      authorization.value,
-      authorization.validAfter,
-      authorization.validBefore,
-      authorization.nonce,
-      Number(v),
-      r,
-      s,
-    ],
-  });
-  const hash = await walletClient.writeContract(simulation.request);
-  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-}
+```solidity PaymentCaptured.sol highlight={1-6}
+event PaymentCaptured(
+    bytes32 indexed paymentInfoHash,
+    uint256 amount,
+    uint256 feeAmount,
+    address feeReceiver
+);
 ```
 
-`receiveWithAuthorization` prevents an unrelated account from front-running capture because `msg.sender` must equal `to`. Capture immediately for an auto-settle checkout, or retain the signature until inventory, shipping, or service delivery is ready.
+The state changes by the gross capture amount:
 
-<Check>
-The receipt succeeds, USDC emits `Transfer(payer, merchant, value)`, and `authorizationState(payer, nonce)` becomes `true`.
-</Check>
+```text State transition
+capturableAmount -= amount
+refundableAmount += amount
+```
+
+The receiver receives `amount - feeAmount`, but `refundableAmount` increases by the full `amount`. A protocol refund returns gross captured value to the payer and must source that value through a refund collector.
 
 <Warning>
-The balance read and transaction simulation reduce avoidable failures, but neither reserves funds. Treat only the successful receipt as settlement and make fulfillment idempotent.
+Capture must execute strictly before `authorizationExpiry`. At the exact expiry timestamp, capture reverts and payer reclaim is available.
 </Warning>
 
-## After Capture
+## Handle Common Reverts
 
-Verify the token, payer, recipient, amount, confirmation depth, and replay state before fulfillment.
+| Error | What to check |
+|---|---|
+| `InvalidSender` | Only `paymentInfo.operator` can capture |
+| `AfterAuthorizationExpiry` | The capture window has closed |
+| `InsufficientAuthorization` | Amount exceeds the remaining capturable balance |
+| `FeeAmountOutOfRange` | Absolute fee is outside the bounds for this capture amount |
+| `ZeroFeeReceiver` | A nonzero fee was paired with the zero address |
+| `InvalidFeeReceiver` | Dynamic call recipient conflicts with a fixed payment recipient |
 
-<Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-  Validate the canonical `Transfer` log and claim the order once.
-</Card>
-
-## See Also
-
-<CardGroup cols={2}>
-  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
-    Collect and store the buyer's EIP-3009 signature.
-  </Card>
-  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
-    Close an authorization that you will not capture.
-  </Card>
-</CardGroup>
+For multiple shipments or a final amount below the reservation, see [capture a partial amount](/build-on-base/accept-payments/capture-a-partial-amount).

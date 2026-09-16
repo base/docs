@@ -1,98 +1,78 @@
 ---
 title: "Accept Payments"
-keywords: ["accept USDC payments Base", "EIP-3009 payments", "B20 payments", "x402 agentic payments"]
-description: "Choose an onchain payment lifecycle for checkout, agentic payments, reconciliation, refunds, and payouts on Base."
+keywords: ["Commerce Payments Protocol", "accept USDC payments Base", "authorize and capture Base", "onchain commerce payments"]
+description: "Choose an immediate charge or escrow-backed authorize-and-capture lifecycle with the Commerce Payments Protocol on Base."
 ---
 
-import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+Accept commerce payments on Base with onchain controls for delayed settlement, partial fulfillment, cancellation, payer recovery, bounded fees, and refunds. The Commerce Payments Protocol provides two checkout paths: immediate `charge`, or escrow-backed `authorize` followed by `capture`.
 
-Accept token payments on Base with the settlement model your product needs. Start with an immediate USDC or B20 transfer, use the Commerce Payments Protocol to reserve funds in escrow before fulfillment, or use x402 for HTTP-native payments. The same lifecycle extends to scheduled charges, refunds, payouts, and reconciliation.
+## Choose the Checkout Path
 
-## Demo
+| Requirement | Start with |
+|---|---|
+| The order can settle immediately | [Charge a payment](/build-on-base/accept-payments/charge-a-payment) |
+| Fulfillment, tax, inventory, or the final amount is decided later | [Authorize a payment](/build-on-base/accept-payments/authorize-a-payment) |
+| The order ships or settles in increments | [Capture a partial amount](/build-on-base/accept-payments/capture-a-partial-amount) |
 
-<PaymentsDemo />
-
-<Tip>
-The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
-</Tip>
+Both paths create a unique onchain payment identified by `paymentInfoHash`. The payer approves immutable parties, token, maximum amount, expiry windows, and fee bounds before an operator advances the lifecycle.
 
 ## Payment Lifecycle
 
-| Stage | What happens | Start with |
-|---|---|---|
-| Request | The buyer transfers immediately for a simple checkout | [Request a payment](/build-on-base/accept-payments/request-a-payment) |
-| Authorize | An operator moves payer funds into escrow under payer-approved terms | [Use the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol) |
-| Capture | The operator settles all or part of the escrowed amount | [Capture an authorization](/build-on-base/accept-payments/capture-an-authorization) |
-| Confirm | Your backend verifies confirmed logs and claims the order once | [Verify a payment](/build-on-base/accept-payments/verify-a-payment) |
-| Return or distribute | You refund the payer or pay downstream recipients | [Refund a payment](/build-on-base/accept-payments/refund-a-payment) |
+<Frame>
+  <img src="/images/commerce-payments/payment-lifecycle.png" alt="Commerce Payments Protocol lifecycle from charge or authorization through capture, void, reclaim, and refund" />
+</Frame>
 
-## Take a Payment
+| Stage | What happens | Guide |
+|---|---|---|
+| Configure | Define the operator, payer, receiver, token, maximum, expiries, fees, and unique salt | [Configure a payment](/build-on-base/accept-payments/configure-a-payment) |
+| Collect | Convert a wallet approval into an exact token transfer | [Choose a token collector](/build-on-base/accept-payments/choose-a-token-collector) |
+| Charge or authorize | Settle immediately, or reserve funds in escrow | [Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol) |
+| Capture | Transfer all or part of an authorization to the receiver and fee receiver | [Capture an authorization](/build-on-base/accept-payments/capture-an-authorization) |
+| Cancel or recover | The operator voids, or the payer reclaims after authorization expiry | [Void](/build-on-base/accept-payments/void-an-authorization) and [reclaim](/build-on-base/accept-payments/reclaim-an-authorization) |
+| Refund | Source replacement liquidity and return captured value to the original payer | [Refund a payment](/build-on-base/accept-payments/refund-a-payment) |
+
+## Build the Integration
 
 <CardGroup cols={2}>
-  <Card title="Use the Commerce Payments Protocol" icon="cart-shopping" href="/build-on-base/accept-payments/use-commerce-payments-protocol">
-    Reserve funds in escrow, capture partially, void, reclaim, and refund.
+  <Card title="Understand the Protocol" icon="diagram-project" href="/build-on-base/accept-payments/use-commerce-payments-protocol">
+    Learn the roles, contracts, state model, deployments, and trust boundaries.
   </Card>
-  <Card title="Request a Payment" icon="credit-card" href="/build-on-base/accept-payments/request-a-payment">
-    Settle USDC immediately or attach an order memo to B20.
+  <Card title="Configure a Payment" icon="sliders" href="/build-on-base/accept-payments/configure-a-payment">
+    Create immutable terms and calculate the canonical payment hash.
   </Card>
-  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
-    Collect an exact EIP-3009 authorization for later capture.
+  <Card title="Choose a Token Collector" icon="wallet" href="/build-on-base/accept-payments/choose-a-token-collector">
+    Support ERC-3009, Permit2, ERC-20 pre-approval, or spend permissions.
+  </Card>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Confirm protocol events and state before fulfillment.
+  </Card>
+</CardGroup>
+
+## Operate the Lifecycle
+
+<CardGroup cols={2}>
+  <Card title="Charge a Payment" icon="credit-card" href="/build-on-base/accept-payments/charge-a-payment">
+    Collect and settle atomically with an onchain refund limit.
+  </Card>
+  <Card title="Authorize a Payment" icon="lock" href="/build-on-base/accept-payments/authorize-a-payment">
+    Reserve payer funds in escrow before fulfillment.
   </Card>
   <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
-    Settle the stored authorization from the merchant account.
+    Settle escrowed value before authorization expiry.
   </Card>
   <Card title="Capture a Partial Amount" icon="receipt" href="/build-on-base/accept-payments/capture-a-partial-amount">
-    Authorize a maximum and charge the final total safely.
+    Capture split shipments or a reduced final total.
   </Card>
   <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
-    Expire or cancel an authorization you will not capture.
+    Return the remaining reservation from the operator.
   </Card>
-  <Card title="Charge on a Schedule" icon="calendar" href="/build-on-base/accept-payments/charge-on-a-schedule">
-    Run recurring charges within a spend permission.
+  <Card title="Reclaim an Authorization" icon="rotate-left" href="/build-on-base/accept-payments/reclaim-an-authorization">
+    Recover remaining escrow from the payer after expiry.
   </Card>
-</CardGroup>
-
-## Confirm and Reconcile
-
-<CardGroup cols={2}>
-  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-    Validate settlement and claim each order once.
-  </Card>
-  <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
-    Subscribe to transfers and backfill confirmed blocks.
+  <Card title="Refund a Payment" icon="money-bill-transfer" href="/build-on-base/accept-payments/refund-a-payment">
+    Return previously captured value within the refund window.
   </Card>
   <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
-    Export captures, refunds, and payouts into your ledger.
-  </Card>
-</CardGroup>
-
-## Return and Pay Out
-
-<CardGroup cols={2}>
-  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
-    Return funds to the verified payer and track refundable balance.
-  </Card>
-  <Card title="Send a Payout" icon="money-bill-transfer" href="/build-on-base/accept-payments/send-a-payout">
-    Pay a bounded recipient batch under one reference.
-  </Card>
-  <Card title="Split a Payment" icon="divide" href="/build-on-base/accept-payments/split-a-payment">
-    Distribute exact basis-point shares without stranded dust.
-  </Card>
-</CardGroup>
-
-## Accept Agentic Payments
-
-<CardGroup cols={2}>
-  <Card title="Charge for an API" icon="server" href="/build-on-base/accept-payments/charge-for-an-api">
-    Protect a fixed-price route with x402 `exact`.
-  </Card>
-  <Card title="Settle Usage-Based Payments" icon="gauge" href="/build-on-base/accept-payments/settle-usage-based-payments">
-    Authorize a maximum and settle measured usage with `upto`.
-  </Card>
-  <Card title="Batch High-Frequency Payments" icon="layer-group" href="/build-on-base/accept-payments/batch-high-frequency-payments">
-    Advance vouchers per request and settle channels in batches.
-  </Card>
-  <Card title="Call a Paid Service" icon="robot" href="/build-on-base/accept-payments/call-a-paid-service">
-    Enforce network, asset, and spend policy before an agent signs.
+    Reduce lifecycle events into an auditable payment ledger.
   </Card>
 </CardGroup>

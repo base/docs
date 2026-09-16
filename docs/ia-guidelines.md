@@ -65,8 +65,8 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 ### Accept Payments
 
-- **Belongs**: Guides for requesting, authorizing, capturing, verifying, and reconciling payments, plus refunds, payouts, splits, scheduled charges, and agentic payments.
-- **Does not belong**: B20 memo specification (Specifications → B20). x402 protocol spec.
+- **Belongs**: Task guides for the Commerce Payments Protocol: configure terms, choose a collector, charge, authorize, capture, void, reclaim, refund, verify, watch, and reconcile.
+- **Does not belong**: Direct ERC-20 or B20 transfer tutorials, payout and split contracts, subscription systems, agentic payment guides, the B20 memo specification (Specifications → B20), or the x402 protocol specification.
 
 ---
 

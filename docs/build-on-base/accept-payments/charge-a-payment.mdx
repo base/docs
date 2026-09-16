@@ -1,0 +1,101 @@
+---
+title: "Charge a Payment"
+keywords: ["Commerce Payments charge", "immediate USDC payment Base", "PaymentCharged", "charge onchain payment"]
+description: "Collect and settle a Commerce Payments Protocol payment atomically while preserving an onchain refundable balance."
+---
+
+Use `charge` when the payer should settle immediately. The call combines collection and capture: it pulls tokens through a payment collector, distributes the fee and merchant proceeds, and records the full charged amount as refundable.
+
+Unlike a direct ERC-20 transfer, charge binds the receiver, maximum amount, fee range, refund deadline, and operator into a unique payment lifecycle.
+
+## Prepare the Charge
+
+Before submitting:
+
+1. [Configure and persist `PaymentInfo`](/build-on-base/accept-payments/configure-a-payment).
+2. [Choose a payment collector](/build-on-base/accept-payments/choose-a-token-collector) and obtain its payer approval.
+3. Calculate an absolute `feeAmount` within the bounds for the amount being charged.
+4. Ensure the transaction sender is exactly `paymentInfo.operator`.
+
+## Submit the Charge
+
+```typescript charge-payment.ts lines wrap expandable highlight={5-14}
+const amount = parseUnits("125.00", 6);
+const feeAmount = parseUnits("2.50", 6);
+
+const { request } = await publicClient.simulateContract({
+  account: operatorAccount,
+  address: authCaptureEscrow,
+  abi: authCaptureEscrowAbi,
+  functionName: "charge",
+  args: [
+    paymentInfo,
+    amount,
+    paymentCollector,
+    collectorData,
+    feeAmount,
+    feeReceiver,
+  ],
+});
+const hash = await operatorWallet.writeContract(request);
+const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+if (receipt.status !== "success") throw new Error("Payment charge reverted");
+```
+
+The operation is atomic. If collection, fee validation, or either outgoing transfer fails, all state and token movement revert.
+
+## Verify the Result
+
+```solidity PaymentCharged.sol lines wrap expandable highlight={2,5-7}
+event PaymentCharged(
+    bytes32 indexed paymentInfoHash,
+    PaymentInfo paymentInfo,
+    uint256 amount,
+    address tokenCollector,
+    uint256 feeAmount,
+    address feeReceiver
+);
+```
+
+Confirm the event comes from the v1.1.0 escrow, then read the payment state:
+
+```text State after charge
+hasCollectedPayment = true
+capturableAmount = 0
+refundableAmount = amount
+```
+
+The receiver gets `amount - feeAmount`. The fee receiver gets `feeAmount`. When the fee is zero, the receiver gets the full amount.
+
+<Check>
+Only treat the charge as paid after the receipt succeeds, the `PaymentCharged` fields match the stored checkout, and your database claims `paymentInfoHash` exactly once.
+</Check>
+
+## Understand the Validations
+
+| Validation | Required condition |
+|---|---|
+| Caller | `msg.sender == paymentInfo.operator` |
+| Amount | Greater than zero, no larger than `uint120`, and no larger than `maxAmount` |
+| Timing | Current timestamp is strictly before `preApprovalExpiry` |
+| Expiries | `preApprovalExpiry <= authorizationExpiry <= refundExpiry` |
+| Collection | Payment has never been authorized or charged before |
+| Collector | Reports the payment collector type and delivers the exact amount |
+| Fee | Absolute amount is inside the payer-approved per-charge bounds |
+| Fee receiver | Matches the fixed receiver, or follows the dynamic receiver rules |
+
+A later call with the same payment hash reverts with `PaymentAlreadyCollected`, even after the charge is fully refunded.
+
+## Handle Common Reverts
+
+| Error | What to check |
+|---|---|
+| `InvalidSender` | Operator wallet and `PaymentInfo.operator` differ |
+| `AfterPreApprovalExpiry` | The payer approval expired before submission |
+| `PaymentAlreadyCollected` | This salt and exact payment terms were already used |
+| `InvalidCollectorForOperation` | A refund collector or incompatible contract was supplied |
+| `TokenCollectionFailed` | Collector did not increase the token store by exactly `amount` |
+| `FeeAmountOutOfRange` | Absolute fee is outside the bounds for this charge amount |
+| `InvalidFeeReceiver` | Supplied receiver differs from a fixed `PaymentInfo.feeReceiver` |
+
+Continue with [verify a payment](/build-on-base/accept-payments/verify-a-payment) and [refund a payment](/build-on-base/accept-payments/refund-a-payment).

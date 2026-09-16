@@ -1,22 +1,26 @@
 ---
 title: "Authorize a Payment"
-keywords: ["Commerce Payments authorization", "EIP-3009 authorization", "USDC escrow Base", "deferred USDC payment"]
-description: "Reserve payer funds with Commerce Payments Protocol or store a USDC signature for later collection on Base."
+keywords: ["Commerce Payments authorize", "escrow USDC payment", "PaymentAuthorized", "authorize capture Base"]
+description: "Move payer funds into Commerce Payments Protocol escrow so the operator can capture them after fulfillment."
 ---
 
-import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+Use `authorize` when settlement must wait for inventory, tax, shipping, service completion, or another fulfillment decision. A successful authorization moves tokens into escrow immediately, so later capture does not depend on the payer keeping funds in their wallet.
 
-Choose whether authorization should reserve funds onchain or only store a signature for later collection. Use escrow when fulfillment depends on the funds remaining available.
+<Warning>
+A collector signature by itself is not an authorization. Funds become guaranteed for capture only after the `authorize` transaction succeeds and the operator's token store receives them.
+</Warning>
 
-<Note>
-This signature-only flow does not reserve funds. For commerce orders that need a guaranteed balance before fulfillment, [authorize through the Commerce Payments Protocol](/build-on-base/accept-payments/use-commerce-payments-protocol) so the successful authorization transaction moves funds into escrow.
-</Note>
+## Prepare the Authorization
 
-## Reserve Funds in Escrow
+1. [Configure `PaymentInfo`](/build-on-base/accept-payments/configure-a-payment) with a short pre-approval window and a fulfillment-appropriate authorization window.
+2. [Prepare `collectorData`](/build-on-base/accept-payments/choose-a-token-collector) for the payer's token and wallet.
+3. Choose an authorization `amount` no greater than `paymentInfo.maxAmount`.
+4. Persist the payment terms before submitting from `paymentInfo.operator`.
 
-After the payer signs for an audited payment collector, the designated operator submits the complete `PaymentInfo`, amount, collector, and collector-specific signature data.
+## Move Funds into Escrow
 
-```typescript TypeScript backend lines wrap expandable highlight={5-9}
+```typescript authorize-payment.ts lines wrap expandable highlight={4-8}
+const amount = parseUnits("125.00", 6);
 const { request } = await publicClient.simulateContract({
   account: operatorAccount,
   address: authCaptureEscrow,
@@ -26,90 +30,56 @@ const { request } = await publicClient.simulateContract({
 });
 const hash = await operatorWallet.writeContract(request);
 const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-if (receipt.status !== "success") throw new Error("Authorization reverted");
+if (receipt.status !== "success") throw new Error("Payment authorization reverted");
 ```
 
-Verify the `PaymentAuthorized` event and persist its `paymentInfoHash`. A successful transaction moves `amount` into the operator's token store and increases the payment's `capturableAmount`.
+The escrow records state before calling the collector, but the whole transaction reverts if collection fails. The non-reentrancy guard prevents the collector from entering another lifecycle operation during collection.
 
-## Store a Signature Without Escrow
+## Verify the Reservation
 
-Use the signature-only alternative below when you accept the risk that the payer's balance may change before collection.
-
-## Demo
-
-<PaymentsDemo flow="authorize" />
-
-<Tip>
-The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
-</Tip>
-
-<Warning>
-An EIP-3009 signature is deferred payment authorization, not a reserved balance. The payer can move funds before capture, and token policy can still block settlement. Only a successful capture transaction guarantees payment.
-</Warning>
-
-## Sign and Store the Authorization
-
-{/* sample: usdc-authorize-ts */}
-```typescript TypeScript lines wrap expandable highlight={8-11,17,21-24}
-export async function authorizePayment(
-  merchant: Address,
-  orderId: string,
-  amount: string,
-): Promise<StoredAuthorization> {
-  const { account, publicClient, walletClient } = await browserClients();
-  const [name, version] = await Promise.all([
-    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
-    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
-  ]);
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  const authorization = {
-    from: account,
-    to: merchant,
-    value: parseUnits(amount, 6),
-    validAfter: now - 60n,
-    validBefore: now + 15n * 60n,
-    nonce: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
-  } as const;
-  const signature = await walletClient.signTypedData({
-    account,
-    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
-    types: transferAuthorizationTypes,
-    primaryType: "TransferWithAuthorization",
-    message: authorization,
-  });
-  return { orderId, authorization, signature };
-}
+```solidity PaymentAuthorized.sol lines wrap expandable highlight={2-5}
+event PaymentAuthorized(
+    bytes32 indexed paymentInfoHash,
+    PaymentInfo paymentInfo,
+    uint256 amount,
+    address tokenCollector
+);
 ```
 
-Store the returned payload and signature against the order on your backend. Generate a cryptographically random 32-byte nonce for every attempt, and never reuse it for another order.
+After confirmation, the payment state is:
 
-| Field | Purpose |
-|---|---|
-| `value` | Exact amount that can settle |
-| `validAfter` | Earliest valid capture time |
-| `validBefore` | Capture deadline |
-| `nonce` | One-time identifier consumed by capture or cancellation |
+```text State after authorization
+hasCollectedPayment = true
+capturableAmount = amount
+refundableAmount = 0
+```
+
+You can also read the operator store address with `getTokenStore(paymentInfo.operator)` and confirm the token balance, but use `paymentState` for per-payment accounting because one store can hold funds for many payments.
 
 <Check>
-The wallet returns a typed-data signature, while `authorizationState(payer, nonce)` remains `false` until the authorization is captured or canceled onchain.
+Begin protected fulfillment only after the confirmed event matches the stored payment, `capturableAmount` covers the order, and your backend records the authorization idempotently.
 </Check>
 
-## Choose an Authorization Path
+## Understand Amount Collection
 
-| Need | Primitive | Continue with |
-|---|---|---|
-| Exact wallet payment captured later | EIP-3009 | [Capture an authorization](/build-on-base/accept-payments/capture-an-authorization) |
-| Variable total known later | EIP-2612 plus a constrained checkout | [Capture a partial amount](/build-on-base/accept-payments/capture-a-partial-amount) |
-| Repeated scheduled charges | Smart-account spend permission | [Charge on a schedule](/build-on-base/accept-payments/charge-on-a-schedule) |
-| Payment negotiated over HTTP | x402 exact | [Charge for an API](/build-on-base/accept-payments/charge-for-an-api) |
+The requested `amount` may be lower than `maxAmount`. Collector behavior differs:
 
-## See Also
+| Collector | What leaves the payer during authorization |
+|---|---|
+| ERC-3009 | Pulls `maxAmount`, returns the difference, and leaves `amount` in escrow |
+| Permit2 | Pulls only `amount`, bounded by the signed `maxAmount` |
+| Pre-approval | Pulls only `amount` through the token allowance |
+| Spend permission | Spends only `amount` from the configured allowance |
 
-<CardGroup cols={2}>
-  <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
-    Submit the stored signature from the merchant account.
-  </Card>
-  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
-    Let an authorization expire or cancel its nonce onchain.
-  </Card>
-</CardGroup>
+## Handle Common Reverts
+
+| Error | What to check |
+|---|---|
+| `ExceedsMaxAmount` | Requested authorization is greater than `maxAmount` |
+| `AfterPreApprovalExpiry` | Operator submitted after the payer's collection approval expired |
+| `InvalidExpiries` | The three expiry timestamps are not ordered |
+| `PaymentAlreadyCollected` | The payment hash was previously authorized or charged |
+| `InvalidCollectorForOperation` | Collector does not report the payment type |
+| `TokenCollectionFailed` | Token store did not receive the exact requested amount |
+
+Next, [capture the authorization](/build-on-base/accept-payments/capture-an-authorization), [void it](/build-on-base/accept-payments/void-an-authorization), or let the payer [reclaim it after expiry](/build-on-base/accept-payments/reclaim-an-authorization).

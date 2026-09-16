@@ -27,7 +27,6 @@ const B20_REFERENCE_ROOT = "docs/specifications/b20";
 const B20_MANUAL_UPDATE_PAGES = [
   "docs/specifications/b20/specification-overview.mdx",
   "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
-  "docs/build-on-base/accept-payments/request-a-payment.mdx",
 ];
 
 async function listMdxFiles(root) {
