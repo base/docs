@@ -16,7 +16,7 @@ function updateComposite(uint64 policyId, uint64[] calldata childPolicyIds) exte
 
 ## Description
 
-Replaces a composite policy's child-policy set in full with `childPolicyIds`. There is no partial edit, the entire child set is replaced in one call.
+Replaces a composite policy's child-policy set in full with `childPolicyIds`. There is no partial edit — the entire child set is replaced in one call.
 
 The write takes effect on the next `isAuthorized` call that references `policyId`. Every token that stores this policy ID sees the new result without a second `updatePolicy` call on the token.
 
@@ -25,17 +25,27 @@ The write takes effect on the next `isAuthorized` call that references `policyId
 | Name | Type | Description |
 |---|---|---|
 | `policyId` | `uint64` | Composite policy to update. Must exist and be a `UNION` or `INTERSECT` policy. |
-| `childPolicyIds` | `uint64[]` | Complete new set of existing simple policy IDs. Count must be in `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
+| `childPolicyIds` | `uint64[]` | Complete new set of child policy IDs. Count must be in `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). Each entry may be a plain or inverted simple policy ID. |
+
+## Child Policy Inversion
+
+A child ID may carry the invert flag (bit 63). The registry validates the base policy (the ID with bit 63 cleared) and stores the child ID with the invert bit set. At authorization time, the composite evaluates the inverted child as the logical NOT of its base result.
+
+Validity rules applied to each child:
+
+- The base (bit 63 cleared) must exist — `PolicyNotFound` if it does not.
+- The base must be a simple `ALLOWLIST` or `BLOCKLIST`, not a composite or built-in sentinel — `InvalidChildPolicy` if it is not.
+- `PolicyNotFound` takes precedence over `InvalidChildPolicy` across the whole child set (two-pass validation).
 
 ## Reverts
 
 | Error | Condition |
 |---|---|
 | `Unauthorized()` | Caller is not the current policy admin. |
-| `PolicyNotFound()` | `policyId` does not exist, or any entry in `childPolicyIds` does not exist. |
+| `PolicyNotFound()` | `policyId` does not exist, or the base of any entry in `childPolicyIds` does not exist. |
 | `IncompatiblePolicyType()` | `policyId` is not a composite (`UNION` or `INTERSECT`). |
 | `ChildPoliciesOutsideOfRange()` | `childPolicyIds.length` is outside `[MIN_COMPOSITE_CHILD_POLICIES, MAX_COMPOSITE_CHILD_POLICIES]` (2–4). |
-| `InvalidChildPolicy(childPolicyId)` | A child is a composite or a built-in sentinel (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`) rather than a simple `ALLOWLIST` or `BLOCKLIST` policy. |
+| `InvalidChildPolicy(childPolicyId)` | The base of a child is a composite or a built-in sentinel (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`) rather than a simple `ALLOWLIST` or `BLOCKLIST` policy. The full `childPolicyId` (including the invert bit) is passed to the error. |
 
 ## Events
 

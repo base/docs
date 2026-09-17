@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.isAuthorized"
-description: "Generated B20 reference for isAuthorized(uint64,address)."
+description: "Returns whether an account is authorized under a policy ID, including inverted (NOT) policy semantics."
 ---
-
-
 
 ## Signature
 
@@ -18,17 +16,46 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 
 ## Description
 
-Returns whether `account` is authorized under `policyId`. Never reverts; unknown
-or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -&gt; false,
-BLOCKLIST -&gt; true).
-Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
-Param: policyId Policy to query.
-Param: account  Account to check.
-Return: Whether `account` is authorized.
+Returns whether `account` is authorized under `policyId`. Never reverts.
+
+Unknown or malformed IDs collapse to empty-member-set semantics (`ALLOWLIST` → `false`, `BLOCKLIST` → `true`).
+
+Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
+
+### Invert (NOT) semantics
+
+When bit 63 of `policyId` is set (the invert flag), `isAuthorized` resolves the base policy (`policyId & ~INVERT_BIT`) and returns the **opposite** of its result:
+
+- If the base policy does not exist, returns `false` (fail-closed). A missing or malformed base is never treated as allow-everyone.
+- If the base policy exists, returns `!isAuthorized(base, account)`.
+
+This applies to every policy type: `ALLOWLIST`, `BLOCKLIST`, `UNION`, and `INTERSECT`.
+
+Use `invertedPolicyId(policyId)` to set or clear bit 63. The inverted ID has no record of its own; members live on the base.
+
+```mermaid
+flowchart TD
+    Q["isAuthorized(policyId, account)"] --> Inv{"bit 63 set?"}
+    Inv -->|no| T[Dispatch on policy type]
+    Inv -->|yes| E{"policyExists(base)?"}
+    E -->|no| F[false]
+    E -->|yes| N["not isAuthorized(base, account)"]
+```
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. Bit 63 may be set to invert the result. |
+| `account` | `address` | Account to check. |
+
+## Returns
+
+`bool` — `true` if `account` is authorized under `policyId`, `false` otherwise.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View function. No role or admin restriction.
 
 ## Policy Interaction
 
@@ -37,5 +64,10 @@ This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
 ## Example
 
 ```solidity Usage Example
+// Plain policy
 bool ok = StdPrecompiles.POLICY_REGISTRY.isAuthorized(policyId, account);
+
+// Inverted policy: authorized if account is NOT in the base policy's member set
+uint64 notExcluded = StdPrecompiles.POLICY_REGISTRY.invertedPolicyId(exclusionId);
+bool notOnExclusionList = StdPrecompiles.POLICY_REGISTRY.isAuthorized(notExcluded, account);
 ```

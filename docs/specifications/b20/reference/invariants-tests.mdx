@@ -15,61 +15,65 @@ These invariants and conformance test cases are the normative behavioral guarant
 3. After `renounceAdmin(policyId)`, all membership-mutating calls on that policy revert permanently.
 4. `ALWAYS_ALLOW` (ID `0`) authorizes every account. `ALWAYS_BLOCK` denies every account. Neither can be created, modified, or renounced.
 5. Policy IDs are globally unique and monotonically increasing within each `PolicyType` prefix.
+6. An inverted policy ID (bit 63 set) is an extension of its base — `policyExists`, `policyAdmin`, and `pendingPolicyAdmin` resolve to the base's values.
+7. `isAuthorized` on an inverted ID returns the negated result of the base. If the base does not exist, it returns `false` (fail-closed).
+8. `invertedPolicyId(invertedPolicyId(id)) == id` — inversion is involutive.
+9. An inverted composite child `id` evaluates the base's members and returns the opposite result; an inverted **composite** child is rejected.
 
 ### Roles
 
-6. The last `DEFAULT_ADMIN_ROLE` holder cannot be removed via `renounceRole` or `revokeRole` — only `renounceLastAdmin()`.
-7. After `renounceLastAdmin()`, no address can ever hold `DEFAULT_ADMIN_ROLE` again.
-8. Roles granted before admin renunciation continue to function.
-9. Custom roles have no built-in effect on any B20 operation.
+10. The last `DEFAULT_ADMIN_ROLE` holder cannot be removed via `renounceRole` or `revokeRole` — only `renounceLastAdmin()`.
+11. After `renounceLastAdmin()`, no address can ever hold `DEFAULT_ADMIN_ROLE` again.
+12. Roles granted before admin renunciation continue to function.
+13. Custom roles have no built-in effect on any B20 operation.
 
 ### Transfer Policies
 
-10. `approve` is never policy-gated.
-11. `TRANSFER_EXECUTOR_POLICY` is checked only on `transferFrom`, never on `transfer`.
-12. `MINT_RECEIVER_POLICY` is always enforced, even during factory `initCalls`.
-13. All three transfer-side scopes are bypassed during `initCalls`.
-14. Every scope defaults to `ALWAYS_ALLOW` at token creation.
+14. `approve` is never policy-gated.
+15. `TRANSFER_EXECUTOR_POLICY` is checked only on `transferFrom`, never on `transfer`.
+16. `MINT_RECEIVER_POLICY` is always enforced, even during factory `initCalls`.
+17. All three transfer-side scopes are bypassed during `initCalls`.
+18. Every scope defaults to `ALWAYS_ALLOW` at token creation.
 
 ### Supply
 
-15. `totalSupply` can never exceed the supply cap.
-16. The supply cap can never be set below the current `totalSupply`.
-17. Burns reduce `totalSupply` and create headroom under the cap.
+19. `totalSupply` can never exceed the supply cap.
+20. The supply cap can never be set below the current `totalSupply`.
+21. Burns reduce `totalSupply` and create headroom under the cap.
 
 ### Pause
 
-18. Each `PausableFeature` is independent — pausing one does not affect the others.
-19. `approve` and `permit` are never affected by any pause state.
-20. Pause state is never bypassed during factory `initCalls`.
+22. Each `PausableFeature` is independent — pausing one does not affect the others.
+23. `approve` and `permit` are never affected by any pause state.
+24. Pause state is never bypassed during factory `initCalls`.
 
 ### Memos
 
-21. The `Memo` event is always emitted at exactly `logIndex + 1` relative to its parent `Transfer` event.
-22. Memo methods are functionally identical to their non-memo counterparts in all respects except event emission.
+25. The `Memo` event is always emitted at exactly `logIndex + 1` relative to its parent `Transfer` event.
+26. Memo methods are functionally identical to their non-memo counterparts in all respects except event emission.
 
 ### Permit
 
-23. `permit` only accepts ECDSA signatures. ERC-1271 contract signatures always fail.
-24. Each successful `permit` increments the owner's nonce by exactly 1.
-25. Permits signed before `updateName` fail after the name change.
+27. `permit` only accepts ECDSA signatures. ERC-1271 contract signatures always fail.
+28. Each successful `permit` increments the owner's nonce by exactly 1.
+29. Permits signed before `updateName` fail after the name change.
 
 ### Variants
 
-26. Asset decimals are set at creation and immutable. Valid range is 6–18.
-27. Stablecoin decimals are always `6`.
-28. `OPERATOR_ROLE` exists only on Asset tokens.
-29. Announcement IDs are unique across a token's lifetime.
-30. The currency code on a Stablecoin is immutable and contains only `A`–`Z` characters.
-31. Multiplier updates affect all holders simultaneously.
-32. `batchMint` enforces `MINT_RECEIVER_POLICY` for each recipient individually.
+30. Asset decimals are set at creation and immutable. Valid range is 6–18.
+31. Stablecoin decimals are always `6`.
+32. `OPERATOR_ROLE` exists only on Asset tokens.
+33. Announcement IDs are unique across a token's lifetime.
+34. The currency code on a Stablecoin is immutable and contains only `A`–`Z` characters.
+35. Multiplier updates affect all holders simultaneously.
+36. `batchMint` enforces `MINT_RECEIVER_POLICY` for each recipient individually.
 
 ### Factory
 
-33. B20 addresses are deterministic: same inputs always produce the same address.
-34. The variant byte at address position 10 always matches the deployed variant.
-35. Each `(deployer, variant, salt)` tuple produces exactly one address.
-36. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
+37. B20 addresses are deterministic: same inputs always produce the same address.
+38. The variant byte at address position 10 always matches the deployed variant.
+39. Each `(deployer, variant, salt)` tuple produces exactly one address.
+40. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
 
 ## Test Cases
 
@@ -85,93 +89,106 @@ These invariants and conformance test cases are the normative behavioral guarant
 | 6 | `isAuthorized` with non-existent allowlist-prefixed ID | Returns `false` |
 | 7 | `renounceAdmin`, then `updateBlocklist` | Reverts |
 | 8 | `finalizeUpdateAdmin` from non-pending address | Reverts |
+| 9 | `isAuthorized(invertedPolicyId(id), account)` where base authorizes account | Returns `false` |
+| 10 | `isAuthorized(invertedPolicyId(id), account)` where base denies account | Returns `true` |
+| 11 | `isAuthorized(invertedPolicyId(id), account)` where base does not exist | Returns `false` (fail-closed) |
+| 12 | `policyExists(invertedPolicyId(id))` where base exists | Returns `true` |
+| 13 | `policyExists(invertedPolicyId(id))` where base does not exist | Returns `false` |
+| 14 | `policyAdmin(invertedPolicyId(id))` | Returns same address as `policyAdmin(id)` |
+| 15 | `pendingPolicyAdmin(invertedPolicyId(id))` | Returns same address as `pendingPolicyAdmin(id)` |
+| 16 | `compositePolicyChildIds(invertedPolicyId(id))` where base is composite | Returns same children as base, preserving per-child invert flags |
+| 17 | `invertedPolicyId(invertedPolicyId(id))` | Returns `id` |
+| 18 | `createCompositePolicy` with an inverted simple-policy child | Succeeds |
+| 19 | `createCompositePolicy` with an inverted composite child | Reverts with `InvalidChildPolicy` |
+| 20 | `INTERSECT` composite of policy A and `invertedPolicyId(policyB)` — account in A but in B | `isAuthorized` returns `false` |
+| 21 | `INTERSECT` composite of policy A and `invertedPolicyId(policyB)` — account in A but not in B | `isAuthorized` returns `true` |
 
 ### Roles
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 9 | Grant `MINT_ROLE`, call `mint` | Succeeds |
-| 10 | Call `mint` without `MINT_ROLE` | Reverts |
-| 11 | One admin remains, call `revokeRole(DEFAULT_ADMIN_ROLE)` | Reverts with `LastAdminCannotRenounce` |
-| 12 | Call `renounceLastAdmin()` | Succeeds — token becomes admin-less |
-| 13 | After `renounceLastAdmin`, `MINT_ROLE` holder calls `mint` | Succeeds — non-admin roles still work |
-| 14 | Deploy with `initialAdmin == address(0)`, call `grantRole` | Reverts |
+| 22 | Grant `MINT_ROLE`, call `mint` | Succeeds |
+| 23 | Call `mint` without `MINT_ROLE` | Reverts |
+| 24 | One admin remains, call `revokeRole(DEFAULT_ADMIN_ROLE)` | Reverts with `LastAdminCannotRenounce` |
+| 25 | Call `renounceLastAdmin()` | Succeeds — token becomes admin-less |
+| 26 | After `renounceLastAdmin`, `MINT_ROLE` holder calls `mint` | Succeeds — non-admin roles still work |
+| 27 | Deploy with `initialAdmin == address(0)`, call `grantRole` | Reverts |
 
 ### Transfer Policies
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 15 | Sender on blocklist calls `transfer` | Reverts with `PolicyForbids` |
-| 16 | Sender on blocklist calls `approve` | Succeeds |
-| 17 | `transferFrom` where executor is on executor blocklist | Reverts |
-| 18 | Direct `transfer` by sender on executor blocklist (not sender blocklist) | Succeeds |
-| 19 | During `initCalls`, transfer from blocklisted sender | Succeeds — bypass |
-| 20 | During `initCalls`, mint to receiver on mint-receiver blocklist | Reverts — never bypassed |
+| 28 | Sender on blocklist calls `transfer` | Reverts with `PolicyForbids` |
+| 29 | Sender on blocklist calls `approve` | Succeeds |
+| 30 | `transferFrom` where executor is on executor blocklist | Reverts |
+| 31 | Direct `transfer` by sender on executor blocklist (not sender blocklist) | Succeeds |
+| 32 | During `initCalls`, transfer from blocklisted sender | Succeeds — bypass |
+| 33 | During `initCalls`, mint to receiver on mint-receiver blocklist | Reverts — never bypassed |
 
 ### Mint and Supply Cap
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 21 | Mint that would push `totalSupply` above cap | Reverts with `SupplyCapExceeded` |
-| 22 | Mint exactly to cap | Succeeds |
-| 23 | `updateSupplyCap` below current `totalSupply` | Reverts with `InvalidSupplyCap` |
-| 24 | Burn tokens, then mint up to cap | Succeeds |
-| 25 | Mint while `MINT` is paused | Reverts |
+| 34 | Mint that would push `totalSupply` above cap | Reverts with `SupplyCapExceeded` |
+| 35 | Mint exactly to cap | Succeeds |
+| 36 | `updateSupplyCap` below current `totalSupply` | Reverts with `InvalidSupplyCap` |
+| 37 | Burn tokens, then mint up to cap | Succeeds |
+| 38 | Mint while `MINT` is paused | Reverts |
 
 ### Burn and Seize
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 26 | `burnBlocked` on frozen account | Succeeds |
-| 27 | `burnBlocked` on non-frozen account | Reverts |
-| 28 | `burnBlocked` by holder of `BURN_ROLE` (not `BURN_BLOCKED_ROLE`) | Reverts |
-| 29 | Freeze, seize full balance, re-mint to recovery | Succeeds |
-| 30 | Burn while `BURN` is paused | Reverts |
+| 39 | `burnBlocked` on frozen account | Succeeds |
+| 40 | `burnBlocked` on non-frozen account | Reverts |
+| 41 | `burnBlocked` by holder of `BURN_ROLE` (not `BURN_BLOCKED_ROLE`) | Reverts |
+| 42 | Freeze, seize full balance, re-mint to recovery | Succeeds |
+| 43 | Burn while `BURN` is paused | Reverts |
 
 ### Pause
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 31 | Pause `TRANSFER`, call `transfer` | Reverts |
-| 32 | Pause `TRANSFER`, call `mint` | Succeeds |
-| 33 | Pause `TRANSFER`, call `approve` | Succeeds |
-| 34 | Pauser calls `unpause` without `UNPAUSE_ROLE` | Reverts |
+| 44 | Pause `TRANSFER`, call `transfer` | Reverts |
+| 45 | Pause `TRANSFER`, call `mint` | Succeeds |
+| 46 | Pause `TRANSFER`, call `approve` | Succeeds |
+| 47 | Pauser calls `unpause` without `UNPAUSE_ROLE` | Reverts |
 
 ### Memos
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 35 | `transferWithMemo` | Emits `Transfer` then `Memo` at consecutive log indices |
-| 36 | `transferFromWithMemo` | `Memo.caller` is `msg.sender`, not `from` |
-| 37 | `transfer` (non-memo variant) | No `Memo` event |
+| 48 | `transferWithMemo` | Emits `Transfer` then `Memo` at consecutive log indices |
+| 49 | `transferFromWithMemo` | `Memo.caller` is `msg.sender`, not `from` |
+| 50 | `transfer` (non-memo variant) | No `Memo` event |
 
 ### Permit
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 38 | Valid permit with correct signature, nonce, deadline | Succeeds |
-| 39 | Permit with expired deadline | Reverts |
-| 40 | Replay used permit signature | Reverts |
-| 41 | Permit signed before `updateName`, submitted after | Reverts |
-| 42 | Contract wallet signature (ERC-1271) | Reverts |
-| 43 | Permit while `TRANSFER` is paused | Succeeds |
+| 51 | Valid permit with correct signature, nonce, deadline | Succeeds |
+| 52 | Permit with expired deadline | Reverts |
+| 53 | Replay used permit signature | Reverts |
+| 54 | Permit signed before `updateName`, submitted after | Reverts |
+| 55 | Contract wallet signature (ERC-1271) | Reverts |
+| 56 | Permit while `TRANSFER` is paused | Succeeds |
 
 ### Factory
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 44 | `getB20Address` then deploy with same params | Addresses match |
-| 45 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
-| 46 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
-| 47 | Deploy when variant feature not activated | Reverts |
-| 48 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
+| 57 | `getB20Address` then deploy with same params | Addresses match |
+| 58 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
+| 59 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
+| 60 | Deploy when variant feature not activated | Reverts |
+| 61 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
 
 ### Variants
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 49 | Deploy Asset with `decimals = 5` | Reverts |
-| 50 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
-| 51 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
-| 52 | `batchMint` where one recipient is not on allowlist | Reverts |
-| 53 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
+| 62 | Deploy Asset with `decimals = 5` | Reverts |
+| 63 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
+| 64 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
+| 65 | `batchMint` where one recipient is not on allowlist | Reverts |
+| 66 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |

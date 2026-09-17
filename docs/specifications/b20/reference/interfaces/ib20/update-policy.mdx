@@ -25,7 +25,7 @@ Until a scope is updated it holds `0` (`ALWAYS_ALLOW`), so the check passes for 
 | Parameter | Description |
 |---|---|
 | `policyScope` | The scope slot to update. Must be a scope this token recognizes. |
-| `newPolicyId` | The policy ID to assign. Must be a built-in sentinel (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`) or an existing registry policy. |
+| `newPolicyId` | The policy ID to assign. Must be a built-in sentinel (`ALWAYS_ALLOW`, `ALWAYS_BLOCK`), an existing registry policy, or an inverted ID whose base policy exists. The token treats the value as an opaque `uint64`. |
 
 ## Reverts
 
@@ -33,7 +33,7 @@ Until a scope is updated it holds `0` (`ALWAYS_ALLOW`), so the check passes for 
 |---|---|
 | `AccessControlUnauthorizedAccount` | Caller does not hold `DEFAULT_ADMIN_ROLE`. |
 | `UnsupportedPolicyType(policyScope)` | `policyScope` is not a slot this token supports. |
-| `PolicyNotFound(newPolicyId)` | `newPolicyId` is not a built-in sentinel and does not exist in the registry. |
+| `PolicyNotFound(newPolicyId)` | `newPolicyId` is not a built-in sentinel and does not exist in the registry. An inverted ID is valid when its base exists, because `policyExists` strips bit 63 before checking. |
 
 ## Access Control
 
@@ -54,10 +54,21 @@ The recognized scopes and the accounts they check are:
 
 Transfer scopes are skipped on factory `initCalls` transfers. `MINT_RECEIVER_POLICY` is always checked, including factory `initCalls` mints. `SEIZE_EXEMPT_POLICY` unset (`ALWAYS_ALLOW`) means no account is seizable.
 
+## Inverted Policy IDs
+
+Bit 63 of a `uint64` policy ID is the invert (NOT) flag. Passing an inverted ID to `updatePolicy` is valid as long as the base policy (the ID with bit 63 cleared) exists in the registry. The token stores and passes the full `uint64` — including the invert bit — to `isAuthorized`, which returns the opposite of the base policy's decision. If the base does not exist at evaluation time, `isAuthorized` returns `false` (fail-closed).
+
+Use `invertedPolicyId(policyId)` on the Policy Registry to toggle the bit rather than computing it manually.
+
 ## Example
 
 ```solidity Usage Example
 IB20(token).updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, policyId);
 ```
 
-The same policy ID can be bound to more than one scope and to more than one token. Updating membership in the registry policy is visible immediately on every scope and token that references it, no second `updatePolicy` call is needed.
+```solidity Inverted Policy Example
+uint64 notExcluded = IPolicyRegistry(registry).invertedPolicyId(exclusionId);
+IB20(token).updatePolicy(B20Constants.TRANSFER_RECEIVER_POLICY, notExcluded);
+```
+
+The same policy ID can be bound to more than one scope and to more than one token. Updating membership in the registry policy is visible immediately on every scope and token that references it; no second `updatePolicy` call is needed.

@@ -28,6 +28,12 @@ Scopes gate specific functions. `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_
 
 An **allowlist** authorizes only accounts in the set. An empty allowlist authorizes nobody, so seed your intended holders before binding the policy.
 
+### Inverted policy IDs
+
+Bit 63 of a `uint64` policy ID is the invert (NOT) flag. When that bit is set, `isAuthorized` resolves the base policy and returns the opposite result. If the base does not exist, the result is `false` — a mistyped inverted ID never becomes allow-everyone. Call `invertedPolicyId(policyId)` on the registry to toggle the bit. The inverted ID shares the base's member set; updating the base updates the inverse immediately.
+
+You can pass an inverted simple policy ID as a child of an `INTERSECT` or `UNION` composite to express "A AND NOT X" without maintaining a mirror list.
+
 ## Create and Bind a Holder Allowlist
 
 <CodeGroup>
@@ -93,7 +99,7 @@ An allowlist denies every account not in the policy. Seed intended holders befor
 
 After creation, only the policy admin can add or remove accounts. Call `updateAllowlist(policyId, true, accounts)` to add and `updateAllowlist(policyId, false, accounts)` to remove. The change is visible to every token that references the policy on the next call. No second `updatePolicy` is needed on the token.
 
-To combine a KYC allowlist with a sanctions blocklist, create an `INTERSECT` composite policy referencing both simple policies, then bind the composite ID to the token's scopes. See the [B20 token standard](/specifications/b20/specification-overview) for the full policy type reference.
+To combine a KYC allowlist with a sanctions blocklist, create an `INTERSECT` composite policy referencing both simple policies, then bind the composite ID to the token's scopes. You can also pass an inverted policy ID as a composite child — for example, `[kycId, invertedPolicyId(exclusionId)]` — to express "KYC'd and not on the exclusion list" without duplicating members. See the [B20 token standard](/specifications/b20/specification-overview) for the full policy type reference.
 
 ## See Also
 
