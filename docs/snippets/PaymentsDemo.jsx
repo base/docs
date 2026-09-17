@@ -34,7 +34,7 @@ export const PaymentsDemo = ({ flow }) => {
   // ======================================================================
   const FLOWS = {
     accept: {
-      label: "Accept", title: "Charge a Commerce Payments Protocol payment", readout: true,
+      label: "Accept", title: "Charge an escrow-backed payment", readout: true,
       href: "/build-on-base/accept-payments/request-a-payment",
       erc20: "The payer signs immutable terms; the operator collects and settles in one atomic transaction.",
       steps: [
