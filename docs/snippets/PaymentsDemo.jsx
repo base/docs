@@ -35,7 +35,7 @@ export const PaymentsDemo = ({ flow }) => {
   const FLOWS = {
     accept: {
       label: "Accept", title: "Charge an escrow-backed payment", readout: true,
-      href: "/build-on-base/accept-payments/request-a-payment",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Charge.md",
       erc20: "The payer signs immutable terms; the operator collects and settles in one atomic transaction.",
       steps: [
         { stage: "Approve", action: "Approve $5",
@@ -50,7 +50,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     verify: {
       label: "Verify", title: "Confirm a protocol payment before you ship", readout: false,
-      href: "/build-on-base/accept-payments/verify-a-payment",
+      href: "https://github.com/base/commerce-payments/blob/main/src/AuthCaptureEscrow.sol",
       erc20: "Never trust the browser — confirm AuthCaptureEscrow events and payment state server-side.",
       steps: [
         { stage: "Receive", action: "Send hash",
@@ -69,7 +69,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     b20: {
       label: "B20", title: "Accept and reconcile a B20 payment", readout: false,
-      href: "/build-on-base/accept-payments/request-a-payment#accept-b20-with-a-memo",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/TokenCollectors.md",
       erc20: "A B20 memo ties the payment to your order without assigning a deposit address per customer.",
       steps: [
         { stage: "Pay", action: "Pay order",
@@ -84,7 +84,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     x402: {
       label: "Agent pays", title: "Let an agent pay per API call", readout: false,
-      href: "/build-on-base/accept-payments/charge-for-an-api",
+      href: "https://github.com/base/commerce-payments",
       erc20: "Agents pay for data and services autonomously, one request at a time.",
       steps: [
         { stage: "Request", action: "Call API",
@@ -103,7 +103,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     authorize: {
       label: "Authorize", title: "Reserve funds in protocol escrow", readout: false,
-      href: "/build-on-base/accept-payments/authorize-a-payment",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Authorize.md",
       metrics: (s) => [["Authorization", s.authorization || "Not submitted"], ["Capturable", M(`${s.capturable || 0}.00 USDC`)]],
       erc20: "The payer approves immutable terms; the operator moves funds into escrow before fulfillment.",
       steps: [
@@ -120,7 +120,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     capture: {
       label: "Capture", title: "Capture an escrowed authorization", readout: true,
-      href: "/build-on-base/accept-payments/capture-an-authorization",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Capture.md",
       metrics: (s) => [["Capturable", M(`${s.capturable ?? 25}.00 USDC`)], ["Refundable", M(`${s.refundable || 0}.00 USDC`)]],
       erc20: "Capture settles funds already held in the operator token store; it does not contact the payer again.",
       steps: [
@@ -134,7 +134,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     partial: {
       label: "Variable", title: "Capture below the authorized amount", readout: true,
-      href: "/build-on-base/accept-payments/capture-a-partial-amount",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Capture.md",
       metrics: (s) => [["Capturable", M(`${s.capturable ?? 100}.00 USDC`)], ["Refundable", M(`${s.refundable || 0}.00 USDC`)]],
       erc20: "One authorization can settle through multiple captures; the escrow tracks the remainder onchain.",
       steps: [
@@ -151,7 +151,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     void: {
       label: "Void", title: "Return an unused escrow balance", readout: false,
-      href: "/build-on-base/accept-payments/void-an-authorization",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Void.md",
       metrics: (s) => [["Payment state", s.authorization || "Authorized"], ["Capturable", M(`${s.capturable ?? 25}.00 USDC`)]],
       erc20: "The operator can void now; the payer can reclaim the same remainder after authorization expiry.",
       steps: [
@@ -165,7 +165,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     schedule: {
       label: "Schedule", title: "Charge one protocol payment per billing period", readout: true,
-      href: "/build-on-base/accept-payments/charge-on-a-schedule",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/TokenCollectors.md#spendpermissionpaymentcollector",
       metrics: (s) => [["Billing period", s.period || "Not charged"], ["Refundable", M(`${s.refundable || 0}.00 USDC`)]],
       erc20: "A spend permission can fund repeated collection, but every protocol charge needs fresh PaymentInfo and salt.",
       steps: [
@@ -179,7 +179,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     x402Upto: {
       label: "Usage", title: "Settle actual API usage below a maximum", readout: false,
-      href: "/build-on-base/accept-payments/settle-usage-based-payments",
+      href: "https://github.com/base/commerce-payments",
       metrics: (s) => [["Authorized maximum", M("0.10 USDC")], ["Settled actual", M(`${s.usageCharge || "0.00"} USDC`)]],
       erc20: "x402 upto separates the maximum a buyer approves from the amount a successful handler settles.",
       steps: [
@@ -196,7 +196,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     x402Batch: {
       label: "Batch", title: "Settle many small API calls as a channel", readout: false,
-      href: "/build-on-base/accept-payments/batch-high-frequency-payments",
+      href: "https://github.com/base/commerce-payments",
       metrics: (s) => [["Latest voucher", M(`${s.voucher || "0.00"} USDC`)], ["Onchain claims", String(s.claims || 0)]],
       erc20: "Cumulative vouchers keep per-call latency offchain while the latest channel state remains claimable.",
       steps: [
@@ -213,7 +213,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     x402Buyer: {
       label: "Agent buys", title: "Apply policy before an agent pays", readout: false,
-      href: "/build-on-base/accept-payments/call-a-paid-service",
+      href: "https://github.com/base/commerce-payments",
       erc20: "The x402 wrapper retries automatically, but your local wallet policy remains the final signing gate.",
       steps: [
         { stage: "Discover", action: "Read 402", text: "The agent receives payment requirements from the service.",
@@ -229,7 +229,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     watch: {
       label: "Watch", title: "Watch and backfill protocol events", readout: false,
-      href: "/build-on-base/accept-payments/watch-for-payments",
+      href: "https://github.com/base/commerce-payments/blob/main/src/AuthCaptureEscrow.sol",
       metrics: (s) => [["Confirmed cursor", M(s.cursor || "#21,499,988")], ["Indexed events", String(s.indexed || 0)]],
       erc20: "WebSocket events wake the worker; an overlapping AuthCaptureEscrow log scan restores canonical state.",
       steps: [
@@ -246,7 +246,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     reconcile: {
       label: "Reconcile", title: "Turn protocol events into settlement rows", readout: false,
-      href: "/build-on-base/accept-payments/reconcile-payments",
+      href: "https://github.com/base/commerce-payments/blob/main/src/AuthCaptureEscrow.sol",
       metrics: (s) => [["Rows exported", String(s.rows || 0)], ["Unmatched", String(s.unmatched || 0)]],
       erc20: "paymentInfoHash joins charges, captures, fees, voids, reclaims, and refunds to one order lifecycle.",
       steps: [
@@ -263,7 +263,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     refund: {
       label: "Refund", title: "Refund captured protocol value", readout: true,
-      href: "/build-on-base/accept-payments/refund-a-payment",
+      href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Refund.md",
       metrics: (s) => [["Refundable", M(`${s.refundable || 5}.00 USDC`)]],
       erc20: "The protocol enforces the refund limit; a refund collector supplies replacement liquidity.",
       steps: [
@@ -280,7 +280,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     payout: {
       label: "Payout", title: "Send one referenced payout batch", readout: false,
-      href: "/build-on-base/accept-payments/send-a-payout",
+      href: "https://github.com/base/commerce-payments",
       metrics: (s) => [["Recipients paid", String(s.recipientsPaid || 0)], ["Total", M(`${s.payoutTotal || 0}.00 USDC`)]],
       erc20: "A bounded payout contract pulls tokens directly from sender to recipients and emits one reference per leg.",
       steps: [
@@ -294,7 +294,7 @@ export const PaymentsDemo = ({ flow }) => {
     },
     split: {
       label: "Split", title: "Split one amount without stranded dust", readout: false,
-      href: "/build-on-base/accept-payments/split-a-payment",
+      href: "https://github.com/base/commerce-payments",
       metrics: (s) => [["Distributed", M(`${s.distributed || 0} units`)], ["Contract balance", M("0 units")]],
       erc20: "Basis-point math rounds down; assigning the remainder makes the split equal the input exactly.",
       steps: [
@@ -565,7 +565,7 @@ export const PaymentsDemo = ({ flow }) => {
               </div>
               <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step completed in the mock simulation above.</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href={f.href || "/build-on-base/accept-payments/request-a-payment"} style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href={f.href || "https://github.com/base/commerce-payments"} style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
