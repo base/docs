@@ -24,6 +24,99 @@ B20 method and event signatures are part of the chain's consensus surface. Exist
 | B20 Asset, B20 Stablecoin | Seize surface + `burnBlocked` deprecation | `IB20` (shared surface) | [Seize surface](/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize) |
 | PolicyRegistry | Composite Policies (UNION / INTERSECT) | `IPolicyRegistry` | [Composite policies](/base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy) |
 
+### B20 Asset — Schedule Multiplier Updates (ERC-8056)
+
+Authors: Rayyan Alam and Markus
+
+Adds a scheduled multiplier setter for B20 Asset issuers running corporate actions such as stock splits and reverse stock splits. The `updateUIMultiplier` function lets an operator schedule a multiplier change for a specific future timestamp instead of applying it immediately. The existing `updateMultiplier` function is retained as an emergency instant setter. All three write functions (`updateUIMultiplier`, `cancelUIMultiplierUpdate`, `updateMultiplier`) require `OPERATOR_ROLE`.
+
+**New functions**
+
+| Symbol | Selector | Notes |
+| --- | --- | --- |
+| `updateUIMultiplier(uint256,uint256)` | `0x628e600f` | Schedules a multiplier change for a future timestamp. |
+| `cancelUIMultiplierUpdate()` | `0x2c97a0f0` | Cancels the single live pending update. |
+| `newUIMultiplier()` | `0xdc767007` | Returns the pending scheduled multiplier. |
+| `effectiveAt()` | `0x97a4064f` | Returns the timestamp when the pending multiplier becomes effective. |
+| `totalSupplyUI()` | `0x9bea6429` | Returns total supply scaled by the current UI multiplier. |
+| `MAX_UI_MULTIPLIER()` | `0x785c0cf0` | Returns the multiplier ceiling (`type(uint128).max`). |
+| `supportsInterface(bytes4)` | `0x01ffc9a7` | ERC-165 feature detection. |
+| `uiMultiplier()` | `0xa60bf13d` | ERC-8056 alias for `multiplier()`. |
+| `balanceOfUI(address)` | `0x437a9958` | ERC-8056 alias for `scaledBalanceOf(address)`. |
+| `toUIAmount(uint256)` | `0x3248d4ff` | ERC-8056 conversion; byte-identical to `toScaledBalance`. |
+| `fromUIAmount(uint256)` | `0x65cd9b3c` | ERC-8056 conversion; byte-identical to `toRawBalance`. |
+
+**New events**
+
+| Symbol | Topic0 | Notes |
+| --- | --- | --- |
+| `UIMultiplierUpdated(uint256,uint256,uint256)` | `0x2205df4534432b2f60654a3fdb48737ffdaf3e9edb1a498bd985bc026b15b055` | Emitted when a multiplier update is scheduled or applied. Parameters: `(oldMultiplier, newMultiplier, effectiveAtTimestamp)`. |
+| `UIMultiplierUpdateCancelled(uint256,uint256)` | `0x883856335ba5f60c18b9817c4505d3c7d3f6223dcf39516b30c508c46a5e1cad` | Emitted when a pending multiplier update is cancelled. |
+
+**New errors**
+
+| Symbol | Selector | Notes |
+| --- | --- | --- |
+| `EffectiveAtInPast(uint256)` | `0x14119cf6` | Thrown when `effectiveAt <= block.timestamp`. |
+| `EffectiveAtTooFar(uint256)` | `0x1ce214fa` | Thrown when `effectiveAt > type(uint64).max`. |
+| `UIMultiplierUpdateExists(uint256)` | `0x4481a68e` | Thrown when a live pending update already exists. |
+| `UIMultiplierUpdateDoesNotExist()` | `0xa7d6a5ca` | Thrown when cancel is called with no live pending update. |
+
+**Changed errors**
+
+<Warning>
+`InvalidMultiplier()` (selector `0x6f12f3dc`) now also rejects multipliers above `type(uint128).max`. Before Cobalt, `updateMultiplier` rejected only zero. The error symbol and selector are unchanged. This ceiling matches the scheduled setter and keeps `balance * multiplier` within `uint256`. The bound is unreachable for realistic corporate actions.
+</Warning>
+
+**Deprecated**
+
+| Symbol | Selector | Status | Notes |
+| --- | --- | --- | --- |
+| `updateMultiplier(uint256)` | `0x5ffe6146` | deprecated-dialable | Retained as emergency failsafe. Instant setter; clears any live pending update. Prefer `updateUIMultiplier`. |
+| `toScaledBalance(uint256)` | `0x04f04c99` | deprecated-dialable | Prefer `toUIAmount(uint256)`. |
+| `toRawBalance(uint256)` | `0x0ca06c44` | deprecated-dialable | Prefer `fromUIAmount(uint256)`. |
+| `MultiplierUpdated(uint256)` | topic0 `0x4dbe4840d7465bd162f67814cea0b519567a2e0e578bcde61e7f4ced361e5a3d` | deprecated-still-emitted | Emitted only by the instant setter alongside `UIMultiplierUpdated`. Prefer `UIMultiplierUpdated`. |
+
+### PolicyRegistry — Composite Policies (UNION / INTERSECT)
+
+Adds `UNION` (OR) and `INTERSECT` (AND) composite policy types. A `UNION` policy authorizes an account if any child policy authorizes it. An `INTERSECT` policy authorizes an account only if every child policy authorizes it. Each composite references two to four existing simple policies (`ALLOWLIST` or `BLOCKLIST`). Composite policies cannot reference other composites.
+
+**New `PolicyType` enum values**
+
+| Value | Name | Semantics |
+| --- | --- | --- |
+| `2` | `UNION` | Authorized if any child policy authorizes the account (OR). |
+| `3` | `INTERSECT` | Authorized only if every child policy authorizes the account (AND). |
+
+**New functions**
+
+| Symbol | Selector | Notes |
+| --- | --- | --- |
+| `createCompositePolicy(address,uint8,uint64[])` | new | Creates a `UNION` or `INTERSECT` policy with two to four child policies. Returns the new policy ID. |
+| `updateComposite(uint64,uint64[])` | new | Replaces the entire child set of an existing composite policy. |
+| `MIN_COMPOSITE_CHILD_POLICIES()` | new | Returns the minimum number of child policies required (2). |
+| `MAX_COMPOSITE_CHILD_POLICIES()` | new | Returns the maximum number of child policies allowed (4). |
+
+**New events**
+
+| Symbol | Notes |
+| --- | --- |
+| `CompositePolicyUpdated(uint64,address,uint64[])` | Emitted when a composite policy's child policies are updated. |
+
+**New errors**
+
+| Symbol | Notes |
+| --- | --- |
+| `IncompatiblePolicyType()` | Thrown when `createPolicy` or `createPolicyWithAccounts` is called with `UNION` or `INTERSECT`. |
+| `ChildPoliciesOutsideOfRange()` | Thrown when the child count is not between `MIN_COMPOSITE_CHILD_POLICIES` and `MAX_COMPOSITE_CHILD_POLICIES`. |
+| `InvalidChildPolicy()` | Thrown when a composite policy references a composite child or a built-in sentinel policy. |
+
+### B20 Asset, B20 Stablecoin — Seize Surface + `burnBlocked` Deprecation
+
+Author: Stephan
+
+See the full entry: [Seize surface](/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize).
+
 ## [Beryl](/upgrades/beryl/overview) — Initial Release
 
 | Network | Activated |
