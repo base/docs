@@ -1,0 +1,122 @@
+export const featuredStocks = [
+  { symbol: "AAPLc", name: "Apple Inc.", isin: "US0378331005", address: "0xb200000000000000000000c2e324d24d7eecd1fb" },
+  { symbol: "AMZNc", name: "Amazon.com Inc.", isin: "US0231351067", address: "0xb200000000000000000000d9192b6b456483c2e8" },
+  { symbol: "GOOGLc", name: "Alphabet Inc.", isin: "US02079K3059", address: "0xb2000000000000000000002d0ba3164cc74f58b7" },
+  { symbol: "METAc", name: "Meta Platforms Inc.", isin: "US30303M1027", address: "0xb2000000000000000000008bc8786b856e61707c" },
+  { symbol: "MSFTc", name: "Microsoft Corporation", isin: "US5949181045", address: "0xb200000000000000000000ab99cfa739e253872b" },
+  { symbol: "MSTRc", name: "Strategy Inc.", isin: "US5949724083", address: "0xb2000000000000000000004884b426556b92883d" },
+  { symbol: "NVDAc", name: "NVIDIA Corporation", isin: "US67066G1040", address: "0xb20000000000000000000078ee7ce2fe4908108c" },
+  { symbol: "SNDKc", name: "SanDisk Corporation", isin: "US80004C1018", address: "0xb200000000000000000000397293cb8cda9a10c5" },
+  { symbol: "SPCXc", name: "SpaceX", isin: "US0000000001", address: "0xb2000000000000000000007b9fcbd005511acbd5" },
+  { symbol: "TSLAc", name: "Tesla Inc.", isin: "US88160R1014", address: "0xb2000000000000000000001e800a7f5189430cd0" },
+];
+
+export const mockStocks = Array.from({ length: 990 }, (_, index) => {
+  const number = String(index + 11).padStart(4, "0");
+  return {
+    symbol: `STK${number}c`,
+    name: `Sample Tokenized Stock ${number}`,
+    isin: `US00000${String(index + 11).padStart(4, "0")}`,
+    address: `0xb200${(index + 11).toString(16).padStart(36, "0")}`,
+  };
+});
+
+export const stocks = [...featuredStocks, ...mockStocks];
+export const pageSize = 25;
+
+export const TokenizedStocksCatalogPreview = () => {
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredStocks = normalizedQuery
+    ? stocks.filter((stock) =>
+        [stock.symbol, stock.name, stock.isin, stock.address]
+          .some((value) => value.toLowerCase().includes(normalizedQuery))
+      )
+    : stocks;
+  const pageCount = Math.max(1, Math.ceil(filteredStocks.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * pageSize;
+  const pageStocks = filteredStocks.slice(start, start + pageSize);
+
+  const onSearch = (event) => {
+    setQuery(event.target.value);
+    setPage(1);
+  };
+
+  return (
+    <div className="my-6 rounded-lg border border-gray-200 dark:border-gray-800">
+      <div className="border-b border-gray-200 p-5 dark:border-gray-800">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="m-0 text-sm font-medium text-gray-900 dark:text-gray-100">Tokenized stock catalog</p>
+            <p className="mb-0 mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {filteredStocks.length.toLocaleString()} of {stocks.length.toLocaleString()} assets
+            </p>
+          </div>
+          <label className="block sm:w-80">
+            <span className="sr-only">Search tokenized stocks</span>
+            <input
+              value={query}
+              onChange={onSearch}
+              placeholder="Search by symbol, company, ISIN, or address"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="m-0 w-full text-left text-sm">
+          <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+            <tr>
+              <th className="whitespace-nowrap px-5 py-3 font-medium">Symbol</th>
+              <th className="min-w-52 px-5 py-3 font-medium">Underlying</th>
+              <th className="whitespace-nowrap px-5 py-3 font-medium">ISIN</th>
+              <th className="min-w-96 px-5 py-3 font-medium">Contract address</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageStocks.map((stock) => (
+              <tr key={stock.address} className="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                <td className="whitespace-nowrap px-5 py-3 font-mono text-xs font-medium text-gray-900 dark:text-gray-100">{stock.symbol}</td>
+                <td className="px-5 py-3 text-gray-700 dark:text-gray-300">{stock.name}</td>
+                <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{stock.isin}</td>
+                <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{stock.address}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {pageStocks.length === 0 && (
+        <p className="m-0 p-5 text-sm text-gray-600 dark:text-gray-400">No tokenized stocks match that search.</p>
+      )}
+
+      <div className="flex items-center justify-between gap-4 border-t border-gray-200 p-4 text-sm dark:border-gray-800">
+        <p className="m-0 text-gray-600 dark:text-gray-400">
+          Showing {pageStocks.length ? start + 1 : 0}–{Math.min(start + pageSize, filteredStocks.length)} of {filteredStocks.length.toLocaleString()}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage(Math.min(pageCount, currentPage + 1))}
+            disabled={currentPage === pageCount}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
