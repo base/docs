@@ -1,12 +1,12 @@
 ---
 title: "Capture an Authorization"
-keywords: ["capture EIP-3009 authorization", "receiveWithAuthorization", "deferred USDC settlement", "USDC capture Base"]
-description: "Settle a stored USDC authorization from the merchant account with receiveWithAuthorization."
+keywords: ["Commerce Payments capture", "capture escrowed USDC", "PaymentCaptured", "deferred settlement Base"]
+description: "Capture authorized funds from escrow before the authorization expires."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Capture an exact USDC authorization when you are ready to fulfill the order. Use `receiveWithAuthorization` so the token requires the transaction sender to be the authorized recipient.
+Capture an authorization when the order is ready to settle. The operator transfers all or part of the escrowed amount to the receiver and fee receiver without collecting from the payer again.
 
 ## Demo
 
@@ -18,78 +18,54 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 
 ## Check and Capture
 
-{/* sample: usdc-capture-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={4,9,25}
-export async function captureAuthorization(stored: StoredAuthorization) {
-  const { authorization, signature } = stored;
-  if (authorization.to.toLowerCase() !== account.address.toLowerCase()) {
-    throw new Error("The connected merchant is not the authorized recipient");
-  }
-  const [used, balance] = await Promise.all([
-    publicClient.readContract({
-      address: USDC,
-      abi: usdcAbi,
-      functionName: "authorizationState",
-      args: [authorization.from, authorization.nonce],
-    }),
-    publicClient.readContract({
-      address: USDC,
-      abi: usdcAbi,
-      functionName: "balanceOf",
-      args: [authorization.from],
-    }),
-  ]);
-  if (used) throw new Error("Authorization was already used or canceled");
-  if (balance < authorization.value) throw new Error("Payer balance is too low");
+Read `paymentState(paymentInfoHash)` before capture. The amount must be nonzero, no greater than `capturableAmount`, and submitted strictly before `authorizationExpiry`.
 
-  const { v, r, s } = parseSignature(signature);
+The operator supplies an absolute `feeAmount` in raw token units. The protocol validates it against the per-capture `minFeeBps` and `maxFeeBps` stored in `PaymentInfo`.
+
+{/* sample: usdc-capture-ts */}
+```typescript TypeScript lines wrap expandable highlight={8-11,16-17}
+export async function captureAuthorization(
+  payment: StoredProtocolPayment,
+  amount = payment.paymentInfo.maxAmount,
+) {
+  const [, capturableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
+  });
+  if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
   const simulation = await publicClient.simulateContract({
     account,
-    address: USDC,
-    abi: usdcAbi,
-    functionName: "receiveWithAuthorization",
-    args: [
-      authorization.from,
-      authorization.to,
-      authorization.value,
-      authorization.validAfter,
-      authorization.validBefore,
-      authorization.nonce,
-      Number(v),
-      r,
-      s,
-    ],
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "capture",
+    args: [payment.paymentInfo, amount, 0n, zeroAddress],
   });
   const hash = await walletClient.writeContract(simulation.request);
-  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment capture reverted");
+  return receipt;
 }
 ```
 
-`receiveWithAuthorization` prevents an unrelated account from front-running capture because `msg.sender` must equal `to`. Capture immediately for an auto-settle checkout, or retain the signature until inventory, shipping, or service delivery is ready.
+Capture decreases `capturableAmount` and increases `refundableAmount` by the same gross amount. The receiver gets the gross amount minus fees.
 
 <Check>
-The receipt succeeds, USDC emits `Transfer(payer, merchant, value)`, and `authorizationState(payer, nonce)` becomes `true`.
+Verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` and the expected receiver transfers before marking the fulfillment increment settled.
 </Check>
 
 <Warning>
-The balance read and transaction simulation reduce avoidable failures, but neither reserves funds. Treat only the successful receipt as settlement and make fulfillment idempotent.
+At `authorizationExpiry`, capture is no longer available and the payer can reclaim the remaining balance. Use chain time rather than an application server clock when enforcing the deadline.
 </Warning>
-
-## After Capture
-
-Verify the token, payer, recipient, amount, confirmation depth, and replay state before fulfillment.
-
-<Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-  Validate the canonical `Transfer` log and claim the order once.
-</Card>
 
 ## See Also
 
 <CardGroup cols={2}>
-  <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
-    Collect and store the buyer's EIP-3009 signature.
+  <Card title="Capture a Partial Amount" icon="receipt" href="/build-on-base/accept-payments/capture-a-partial-amount">
+    Settle split shipments or a reduced final total.
   </Card>
-  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
-    Close an authorization that you will not capture.
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Return previously captured value to the payer.
   </Card>
 </CardGroup>

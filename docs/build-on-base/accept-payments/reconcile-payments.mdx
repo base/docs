@@ -1,12 +1,12 @@
 ---
 title: "Reconcile Payments"
-keywords: ["payment reconciliation Base", "ERC-20 settlement report", "B20 memo report", "merchant payment ledger"]
-description: "Build a merchant settlement report from token transfers and optional B20 memo events."
+keywords: ["Commerce Payments reconciliation", "paymentInfoHash report", "payment settlement ledger", "AuthCaptureEscrow accounting"]
+description: "Build a settlement report from escrow charges, captures, fees, voids, reclaims, and refunds."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Turn confirmed token logs into ledger rows for captures, refunds, and payouts. This guide owns the merchant report; [Reconcile with memos](/build-on-base/issue-stablecoins/reconcile-with-memos) explains the B20 memo mechanics from an issuer's perspective.
+Turn confirmed protocol logs into ledger rows keyed by `paymentInfoHash`. The initial authorization or charge establishes immutable payment terms; later events update capturable and refundable accounting.
 
 ## Demo
 
@@ -18,66 +18,76 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 
 ## Build a Settlement Report
 
+Query the v1.1.0 escrow, then create gross, fee, and refund rows from its lifecycle events.
+
 {/* sample: reconcile-payments-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={8-10,15,23}
+```typescript TypeScript backend lines wrap expandable highlight={5-10,14,22,30}
 export async function buildSettlementReport(
-  token: Address,
-  merchant: Address,
   fromBlock: bigint,
   toBlock: bigint,
 ) {
-  const [incoming, outgoing, memos] = await Promise.all([
-    publicClient.getLogs({ address: token, event: transferEvent, args: { to: merchant }, fromBlock, toBlock, strict: true }),
-    publicClient.getLogs({ address: token, event: transferEvent, args: { from: merchant }, fromBlock, toBlock, strict: true }),
-    publicClient.getLogs({ address: token, event: memoEvent, fromBlock, toBlock, strict: true }),
-  ]);
-  const memoByTransfer = new Map<string, Hex>();
-  for (const log of memos) {
-    if (!log.transactionHash || log.logIndex === null) continue;
-    memoByTransfer.set(`${log.transactionHash}:${log.logIndex - 1}`, log.args.memo);
-  }
-
-  const transfers = new Map(
-    [...incoming, ...outgoing].map((log) => [`${log.transactionHash}:${log.logIndex}`, log]),
-  );
-  return [...transfers.values()]
-    .sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex)
-    .map((log) => {
-      if (!log.transactionHash) throw new Error("Expected a mined log");
-      const memo = memoByTransfer.get(`${log.transactionHash}:${log.logIndex}`);
-      return {
-        transactionHash: log.transactionHash,
-        logIndex: log.logIndex,
-        direction: log.args.to.toLowerCase() === merchant.toLowerCase() ? "capture" : "outgoing",
-        counterparty: log.args.to.toLowerCase() === merchant.toLowerCase() ? log.args.from : log.args.to,
-        amount: log.args.amount,
-        reference: memo ? hexToString(memo, { size: 32 }).replace(/\0+$/, "") : undefined,
-      };
-    });
+  const logs = await publicClient.getContractEvents({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    fromBlock,
+    toBlock,
+    strict: true,
+  });
+  return logs.flatMap((log) => {
+    if (!log.transactionHash) return [];
+    if (log.eventName === "PaymentCharged") return [{
+      paymentInfoHash: log.args.paymentInfoHash,
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      operation: "charge",
+      grossAmount: log.args.amount,
+      feeAmount: log.args.feeAmount,
+    }];
+    if (log.eventName === "PaymentCaptured") return [{
+      paymentInfoHash: log.args.paymentInfoHash,
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      operation: "capture",
+      grossAmount: log.args.amount,
+      feeAmount: log.args.feeAmount,
+    }];
+    if (log.eventName === "PaymentRefunded") return [{
+      paymentInfoHash: log.args.paymentInfoHash,
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      operation: "refund",
+      grossAmount: -log.args.amount,
+      feeAmount: 0n,
+    }];
+    return [];
+  });
 }
 ```
 
-A B20 `Memo` immediately follows its parent `Transfer`, so `(transactionHash, logIndex - 1)` joins the reference to the operation. Plain USDC has no memo event; join those transfers to your stored transaction hash, authorization nonce, or contract event.
+For every charge or capture:
+
+```text Accounting
+merchant net = gross amount - fee amount
+refundable balance += gross amount
+```
+
+For every refund, reduce the refundable balance by the gross refund amount. A void or reclaim reduces only the capturable balance and does not reverse earlier captures.
 
 <Check>
-Every returned row has a stable transaction/log identity, direction, counterparty, amount, and an order reference when the token emitted a memo.
+For an authorization, reconcile the authorized amount to captures plus the voided or reclaimed amount plus current `capturableAmount`. Reconcile total charged and captured value to refunds plus current `refundableAmount`.
 </Check>
 
 <Warning>
-Run reports only through a finalized block range for accounting. If you also display recent confirmations, label them provisional and replace them after a reorg.
+Run financial reports only through a finalized block range. If you display more recent confirmations, label them provisional and replace them after a reorg.
 </Warning>
-
-## Classify Outgoing Transfers
-
-A raw `Transfer` from the merchant can be a refund, payout, treasury move, or split leg. Join it to your refund ledger or the `PayoutSent(reference, ...)` event rather than guessing from direction alone.
 
 ## See Also
 
 <CardGroup cols={2}>
-  <Card title="Reconcile with B20 Memos" icon="tag" href="/build-on-base/issue-stablecoins/reconcile-with-memos">
-    Learn the token-level memo ordering guarantee.
-  </Card>
   <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
-    Keep the underlying event index current.
+    Keep the underlying escrow event index current.
+  </Card>
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Understand gross refund accounting and liquidity.
   </Card>
 </CardGroup>

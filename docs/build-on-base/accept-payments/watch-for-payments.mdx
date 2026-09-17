@@ -1,12 +1,12 @@
 ---
 title: "Watch for Payments"
-keywords: ["watch ERC-20 transfers", "eth_subscribe payment webhook", "Base payment listener", "backfill token events"]
-description: "Watch token Transfer logs, backfill missed blocks, and process confirmed payments idempotently."
+keywords: ["watch Commerce Payments", "AuthCaptureEscrow events", "Base payment listener", "payment event backfill"]
+description: "Watch escrow events, backfill missed blocks, and process confirmed lifecycle changes idempotently."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Turn token logs into a durable payment feed. A WebSocket subscription provides low-latency wakeups, while `eth_getLogs` over an overlap window supplies the source of truth after disconnects or reorgs.
+Turn `AuthCaptureEscrow` logs into a durable payment feed. A WebSocket subscription provides low-latency wakeups, while an overlapping confirmed backfill supplies the canonical source of truth after disconnects or reorgs.
 
 ## Demo
 
@@ -18,11 +18,11 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 
 ## Subscribe and Backfill
 
+Watch the v1.1.0 escrow for `PaymentAuthorized`, `PaymentCharged`, `PaymentCaptured`, `PaymentVoided`, `PaymentReclaimed`, and `PaymentRefunded`. They all share the indexed `paymentInfoHash`.
+
 {/* sample: watch-payments-ts */}
-```typescript TypeScript worker lines wrap expandable highlight={2,7,15-18}
+```typescript TypeScript worker lines wrap expandable highlight={13-18,22,26-29}
 export async function watchPayments(
-  token: Address,
-  merchant: Address,
   startBlock: bigint,
   store: PaymentEventStore,
 ) {
@@ -34,50 +34,47 @@ export async function watchPayments(
     const fromBlock = cursor && cursor > startBlock + confirmations
       ? cursor - confirmations
       : startBlock;
-    const logs = await client.getLogs({
-      address: token,
-      event: transferEvent,
-      args: { to: merchant },
+    const logs = await client.getContractEvents({
+      address: AUTH_CAPTURE_ESCROW,
+      abi: authCaptureEscrowAbi,
       fromBlock,
       toBlock,
       strict: true,
     });
 
-    // In one database transaction, replace this overlap window and advance the cursor.
-    // Key each row by (blockHash, transactionHash, logIndex) so retries stay idempotent.
+    // Replace the overlap and advance the cursor in one database transaction.
     await store.replaceRange(fromBlock, toBlock, logs);
   }
 
   await backfillConfirmed();
-  return client.watchEvent({
-    address: token,
-    event: transferEvent,
-    args: { to: merchant },
+  return client.watchContractEvent({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
     onLogs: backfillConfirmed,
     onError: (error) => console.error("Payment watcher failed", error),
   });
 }
 ```
 
-Implement `replaceRange` as one database transaction: delete previously indexed rows in the overlap, insert the canonical logs returned now, and advance the cursor only after both operations succeed.
+Implement `replaceRange` as one database transaction: remove rows in the overlap, insert the current canonical logs, rebuild affected payment state, and advance the cursor only after all writes succeed.
 
 <Check>
-After a reconnect or short reorg, the overlap scan converges on the canonical confirmed logs without fulfilling the same log twice.
+After reconnects or short reorgs, the overlap scan converges on canonical protocol events without applying one log twice.
 </Check>
 
 <Warning>
-Do not fulfill directly from an unconfirmed subscription callback. Wait for your chosen confirmation depth, and identify each event by `(blockHash, transactionHash, logIndex)` rather than transaction hash alone.
+Do not mix v1.0 and v1.1 event ABIs. `PaymentCharged` and `PaymentCaptured` changed event topics when settlement switched from `feeBps` to absolute `feeAmount`.
 </Warning>
 
-Choose a confirmation policy that matches your risk tolerance. See [transaction finality](/specifications/transactions/transaction-finality) for Base's confirmation stages.
+Choose a confirmation policy that matches your risk tolerance. See [transaction finality](/specifications/transactions/transaction-finality).
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-    Validate each candidate transfer against its order.
+    Validate each candidate event against its order.
   </Card>
   <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
-    Produce settlement rows over a block range.
+    Produce charge, capture, fee, and refund rows.
   </Card>
 </CardGroup>

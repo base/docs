@@ -1,12 +1,12 @@
 ---
 title: "Authorize a Payment"
-keywords: ["EIP-3009 authorization", "deferred USDC payment", "receiveWithAuthorization Base", "USDC payment signature"]
-description: "Ask a buyer to sign a USDC authorization that your merchant backend can capture later on Base."
+keywords: ["Commerce Payments authorize", "USDC escrow Base", "PaymentAuthorized", "authorize and capture"]
+description: "Move payer funds into escrow for later capture on Base."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Ask the buyer to approve an exact USDC payment offchain, then decide when to settle it. EIP-3009 signs the payer, recipient, amount, validity window, and one-time nonce without sending a transaction.
+Authorize a payment when fulfillment happens after checkout. A successful protocol authorization moves tokens into the operator's escrow store immediately, so later capture does not depend on the payer keeping funds in their wallet.
 
 ## Demo
 
@@ -17,72 +17,63 @@ The demo above is mock only. If you want to see onchain demos on Vibenet, head t
 </Tip>
 
 <Warning>
-An EIP-3009 signature is deferred payment authorization, not a reserved balance. The payer can move funds before capture, and token policy can still block settlement. Only a successful capture transaction guarantees payment.
+The collector signature is only permission to collect. Treat funds as reserved only after `authorize` succeeds and emits `PaymentAuthorized`.
 </Warning>
 
-## Sign and Store the Authorization
+## Authorize and Store the Payment
+
+Build one immutable `PaymentInfo` with the operator, payer, receiver, token, maximum amount, three ordered expiry timestamps, fee bounds, fee receiver, and a unique salt. Store the exact struct because every later operation recomputes its hash.
+
+The fixture prepares an ERC-3009 collector signature and submits the authorization from `paymentInfo.operator`.
 
 {/* sample: usdc-authorize-ts */}
-```typescript TypeScript lines wrap expandable highlight={8-11,17,21-24}
+```typescript TypeScript lines wrap expandable highlight={6,11,15-16}
 export async function authorizePayment(
   merchant: Address,
   orderId: string,
   amount: string,
-): Promise<StoredAuthorization> {
-  const { account, publicClient, walletClient } = await browserClients();
-  const [name, version] = await Promise.all([
-    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
-    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
-  ]);
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  const authorization = {
-    from: account,
-    to: merchant,
-    value: parseUnits(amount, 6),
-    validAfter: now - 60n,
-    validBefore: now + 15n * 60n,
-    nonce: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
-  } as const;
-  const signature = await walletClient.signTypedData({
+) {
+  const payment = await prepareErc3009Payment(merchant, orderId, amount);
+  const simulation = await publicClient.simulateContract({
     account,
-    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
-    types: transferAuthorizationTypes,
-    primaryType: "TransferWithAuthorization",
-    message: authorization,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "authorize",
+    args: [
+      payment.paymentInfo,
+      payment.paymentInfo.maxAmount,
+      ERC3009_PAYMENT_COLLECTOR,
+      payment.collectorData,
+    ],
   });
-  return { orderId, authorization, signature };
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment authorization reverted");
+  return { ...payment, authorizationHash: hash };
 }
 ```
 
-Store the returned payload and signature against the order on your backend. Generate a cryptographically random 32-byte nonce for every attempt, and never reuse it for another order.
-
-| Field | Purpose |
+| State field | Value after authorization |
 |---|---|
-| `value` | Exact amount that can settle |
-| `validAfter` | Earliest valid capture time |
-| `validBefore` | Capture deadline |
-| `nonce` | One-time identifier consumed by capture or cancellation |
+| `hasCollectedPayment` | `true` permanently |
+| `capturableAmount` | Authorized amount held in escrow |
+| `refundableAmount` | `0` until capture |
 
 <Check>
-The wallet returns a typed-data signature, while `authorizationState(payer, nonce)` remains `false` until the authorization is captured or canceled onchain.
+Persist `paymentInfoHash`, the full terms, collector, authorization transaction, and `PaymentAuthorized.amount` against the order.
 </Check>
 
-## Choose an Authorization Path
-
-| Need | Primitive | Continue with |
-|---|---|---|
-| Exact wallet payment captured later | EIP-3009 | [Capture an authorization](/build-on-base/accept-payments/capture-an-authorization) |
-| Variable total known later | EIP-2612 plus a constrained checkout | [Capture a partial amount](/build-on-base/accept-payments/capture-a-partial-amount) |
-| Repeated scheduled charges | Smart-account spend permission | [Charge on a schedule](/build-on-base/accept-payments/charge-on-a-schedule) |
-| Payment negotiated over HTTP | x402 exact | [Charge for an API](/build-on-base/accept-payments/charge-for-an-api) |
+<Warning>
+The payment can be collected only once. Use a new cryptographically random salt for every checkout attempt, including retries after a void or reclaim.
+</Warning>
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
-    Submit the stored signature from the merchant account.
+    Settle the escrowed amount before authorization expiry.
   </Card>
   <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
-    Let an authorization expire or cancel its nonce onchain.
+    Return funds now, or let the payer reclaim after expiry.
   </Card>
 </CardGroup>
