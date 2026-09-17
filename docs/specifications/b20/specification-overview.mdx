@@ -95,12 +95,14 @@ B20 tokens store one `uint64 policyId` per supported policy scope.
 |---|---|---|
 | `TRANSFER_SENDER_POLICY` | `from` | `transfer`, `transferFrom`, and memo variants |
 | `TRANSFER_RECEIVER_POLICY` | `to` | `transfer`, `transferFrom`, and memo variants |
-| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` when `msg.sender != from` |
+| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transfer`, `transferFrom`, and memo variants |
 | `MINT_RECEIVER_POLICY` | `to` | `mint`, `mintWithMemo` |
 | `SEIZE_EXEMPT_POLICY` | `from` | `seizeWithMemo`; an authorized holder is seize-exempt, so only unauthorized holders are seizable |
 | `SEIZE_RECEIVER_POLICY` | `to` | `seizeWithMemo`; destination must be authorized |
 
 All scopes default to `ALWAYS_ALLOW` at creation. `approve` and `permit` are not policy-gated.
+
+`TRANSFER_EXECUTOR_POLICY` checks `msg.sender` on every transfer entrypoint — including `transfer` and self-`transferFrom` where `msg.sender == from`. An executor allowlist therefore gates who may initiate any transfer, not just delegated ones. Factory `initCalls` transfers bypass this check.
 
 ## Mint
 
