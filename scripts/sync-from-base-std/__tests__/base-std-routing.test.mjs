@@ -356,8 +356,8 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
 
   // Reference tables feed the supporting pages.
   assert.deepEqual(await pagesFor("docs/reference/constants.md"), [`${B20_REFERENCE_ROOT}/reference/constants.mdx`]);
-  assert.deepEqual(await pagesFor("docs/reference/errors.md"), []);
-  assert.deepEqual(await pagesFor("docs/reference/events.md"), []);
+  assert.deepEqual(await pagesFor("docs/reference/errors.md"), [`${B20_REFERENCE_ROOT}/reference/errors.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/events.md"), [`${B20_REFERENCE_ROOT}/reference/events.mdx`]);
   assert.deepEqual(await pagesFor("docs/reference/interfaces.md"), [`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`]);
 
   // Scaffolding is explicitly ignored, and the retired flat tree no longer routes anywhere.
@@ -387,7 +387,7 @@ test("classifyChangedPaths separates routed, ignored, unrouted, and removed for 
   const fixture = JSON.parse(await fs.readFile(path.join(REPO_ROOT, RESTRUCTURE_FIXTURE), "utf8"));
   const c = classifyChangedPaths(routeTable, fixture.changed_paths, { removedPaths: fixture.removed_paths });
   assert.deepEqual(c.removed, fixture.removed_paths);
-  assert.deepEqual(c.ignored.sort(), ["README.md", "docs/README.md", "docs/guides/template.md", "docs/reference/errors.md", "docs/reference/events.md"]);
+  assert.deepEqual(c.ignored.sort(), ["README.md", "docs/README.md", "docs/guides/template.md"]);
   assert.deepEqual(c.unrouted, [], "every surviving file in the restructure has a rule");
   assert.equal(c.routed.length, fixture.changed_paths.length - c.removed.length - c.ignored.length);
   // A file outside every rule is reported, not dropped.
