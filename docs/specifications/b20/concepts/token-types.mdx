@@ -1,4 +1,7 @@
-# Token Types
+---
+title: "Token Types"
+description: "Compare B20 Asset and Stablecoin variants, their creation parameters, and their capabilities."
+---
 
 *What Asset and Stablecoin are, how `createB20` seals the type into the address, and what each type adds on top of `IB20`. Address encoding and node dispatch are in [Architecture](/specifications/b20/architecture). Roles and policies are shared across types; see [Roles and Pause](/specifications/b20/concepts/roles-and-pause) and [Policies](/specifications/b20/concepts/policies).*
 
@@ -15,7 +18,7 @@ Both variants implement `IB20`: ERC-20, roles, pause, policies, mint, burn, and 
 
 The type is chosen once. `createB20` writes it into the token address. After that call returns, the type cannot change.
 
-```mermaid
+```mermaid What a token type is
 flowchart TD
     A["createB20(variant, salt, params, initCalls)"] --> B{variant}
     B -->|ASSET 0x00| C[Asset token]
@@ -72,7 +75,7 @@ The same issuer can create both types. Different salts produce different address
 
 Predict the address with `getB20Address(STABLECOIN, sender, saltB)`. Then call `createB20` with `B20StablecoinCreateParams`: `version` `1`, name, symbol, `initialAdmin`, and `currency: "USD"`.
 
-```mermaid
+```mermaid 1 Creating a Stablecoin Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Issuer
     participant Factory
@@ -91,7 +94,7 @@ After return, address byte `[10]` is `0x01`. `decimals()` is `6`. `currency()` i
 
 Predict the address with `getB20Address(ASSET, sender, saltA)`. Then call `createB20` with `B20AssetCreateParams`: `version` `1`, name, symbol, `initialAdmin`, and `decimals: 18`. Optional `initCalls` can grant `OPERATOR_ROLE` or call `batchMint` in the same transaction.
 
-```mermaid
+```mermaid 2 Creating an Asset Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Issuer
     participant Factory
@@ -113,7 +116,7 @@ After return, address byte `[10]` is `0x00`. `decimals()` is `18`. [`IB20Asset`]
 
 A call to the token address does not choose the type again. The node reads byte `[10]` and runs that variant's logic.
 
-```mermaid
+```mermaid 3 A later call Diagram lines wrap expandable highlight={1}
 flowchart TD
     C[Call arrives at token address] --> V{Byte 10}
     V -->|0x00 Asset| A[Asset logic]

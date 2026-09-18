@@ -1,4 +1,7 @@
-# Roles and Pause
+---
+title: "Roles and Pause"
+description: "How B20 roles authorize privileged operations and pause vectors control token features."
+---
 
 *How B20 gates privileged operations with roles, and how pause freezes one class of operations without stopping the rest of the token. Policy checks are a separate authorization layer; see [Policies](/specifications/b20/concepts/policies).*
 
@@ -50,7 +53,7 @@ Every role has an admin role. `getRoleAdmin(role)` returns it. On a fresh token,
 
 The admin of a role is not fixed. `setRoleAdmin(role, newAdminRole)` reassigns it to any other role, including a custom one. After that call, `grantRole` and `revokeRole` follow the new admin. They are not hardcoded to `DEFAULT_ADMIN_ROLE`. An issuer can make `BURN_ROLE` holders the admin of `MINT_ROLE` without changing `DEFAULT_ADMIN_ROLE`. Only the role's current admin can call `setRoleAdmin`. The call emits `RoleAdminChanged(role, previousAdminRole, newAdminRole)`.
 
-```mermaid
+```mermaid 4 Delegating administration lines wrap expandable highlight={1}
 flowchart TD
     subgraph before [Fresh token]
         DA1[DEFAULT_ADMIN_ROLE] --> M1[MINT_ROLE]
@@ -70,7 +73,7 @@ flowchart TD
 
 The default admin grants `MINT_ROLE` to `minterA`. `minterA` can mint. The admin revokes the role. The next `mint` reverts.
 
-```mermaid
+```mermaid 1 Default admin grants and revokes Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Token as B20 token
@@ -92,7 +95,7 @@ sequenceDiagram
 
 The default admin makes `BURN_ROLE` the admin of `MINT_ROLE`, then grants `BURN_ROLE` to `burnAdmin`. `burnAdmin` grants `MINT_ROLE` to `minterA`. The default admin does not have to make that grant.
 
-```mermaid
+```mermaid 2 A delegated admin grants Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Token as B20 token
@@ -125,7 +128,7 @@ After creation, the only path is `renounceLastAdmin()`. The caller must be the s
 
 `DEFAULT_ADMIN_ROLE` tracks an internal holder count only to enforce these last-admin guards. The count does not cap membership. There is no setter that assigns `DEFAULT_ADMIN_ROLE` to `address(0)`.
 
-```mermaid
+```mermaid 1 All admin Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Token as B20 token
@@ -151,7 +154,7 @@ A holder left in place keeps minting and can still grant `MINT_ROLE` to others. 
 
 The same two steps retire any operating role. The call emits `RoleAdminChanged(role, previousAdminRole, role)`. Watch for `newAdminRole == role`.
 
-```mermaid
+```mermaid 2 A single capability Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Token as B20 token
@@ -183,7 +186,7 @@ A caller who still holds `MINT_ROLE` cannot mint while `MINT` is paused. `pause`
 
 The paused set is one bit per feature in a single storage word. The bit is the `PausableFeature` ordinal:
 
-```solidity
+```solidity 1 The features Diagram
 enum PausableFeature {
     TRANSFER, // bit 0
     MINT,     // bit 1
@@ -210,7 +213,7 @@ Pause `MINT` and `BURN` in one call. `transfer` still succeeds. `mint` and `burn
 
 Then unpause `BURN` only. Burning works again. `MINT` stays paused, so `mint` still reverts.
 
-```mermaid
+```mermaid 3 Example Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Pauser
     participant Token as B20 token

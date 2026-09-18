@@ -1,4 +1,7 @@
-# Policies
+---
+title: "Policies"
+description: "How B20 policies apply shared allowlists, blocklists, and composite checks to token operations."
+---
 
 *How B20 reuses shared allowlists and blocklists for compliance checks. Roles and pause are a separate authorization layer; see [Roles and Pause](/specifications/b20/concepts/roles-and-pause). The Policy Registry precompile itself is in [Architecture](/specifications/b20/architecture).*
 
@@ -8,7 +11,7 @@ Most token compliance reduces to a membership check on an address list: is this 
 
 Policies move the list into one place. The Policy Registry is a singleton precompile. It stores each list once, with the membership logic that runs on it. A token stores only a policy ID in a slot. Before a gated function runs, the token asks the registry whether the relevant address is authorized. Many tokens can share one policy. An update to that policy is visible to every token that references it.
 
-```mermaid
+```mermaid Why policies exist
 flowchart LR
     T1[Token A] -->|policy ID| R[Policy Registry]
     T2[Token B] -->|same policy ID| R
@@ -27,7 +30,7 @@ The Policy Registry owns member sets and composite gates. Creation is permission
 
 `isAuthorized` never reverts. It returns whether the account is authorized under that policy. The token decides what a `false` (or, for one scope, a `true`) means. Most scopes revert `PolicyForbids` when the result is `false`. The function then does not run.
 
-```mermaid
+```mermaid 1 The registry and the token Diagram
 flowchart TD
     A[Gated call arrives at the token] --> B[Read policy ID from the scope]
     B --> C["Registry isAuthorized(policyId, account)"]
@@ -63,7 +66,7 @@ A **composite** policy combines two to four existing simple policies. It does no
 
 Children must be existing `ALLOWLIST` or `BLOCKLIST` policies. Another composite is not a valid child. The built-in sentinels in [§2.5](#25-built-in-sentinels) are not valid children either. Updating a child's members changes every composite that references it. There is no flatten-and-copy step. Any of these types can also be inverted. See [§2.3](#23-inverting-a-policy).
 
-```mermaid
+```mermaid 2 Policy types Diagram lines wrap expandable highlight={1}
 flowchart TD
     Q["isAuthorized(policyId, account)"] --> T{Policy type}
     T -->|ALLOWLIST| A[In the set?]
@@ -88,7 +91,7 @@ Call `invertedPolicyId(policyId)` to set or clear that bit. You can also set bit
 
 Read views strip bit 63 and load the base. `policyExists` and `policyAdmin` on an inverted ID match the base. An inverted ID has no record of its own.
 
-```mermaid
+```mermaid 3 Inverting a policy Diagram
 flowchart TD
     Q["isAuthorized(policyId, account)"] --> Inv{"bit 63 set?"}
     Inv -->|no| T[Dispatch on policy type]
@@ -113,7 +116,7 @@ A composite starts from policies that already exist. Call `createCompositePolicy
 
 Both paths emit `PolicyCreated` and `PolicyAdminUpdated(policyId, address(0), admin)`. `policyAdmin(policyId)` then returns that admin.
 
-```mermaid
+```mermaid 1 Creating a policy Diagram
 sequenceDiagram
     participant Creator
     participant Registry as Policy Registry
@@ -133,7 +136,7 @@ The admin of an allowlist calls `updateAllowlist(policyId, allowed, accounts)` t
 
 Those writes change what `isAuthorized` returns on the next query. Every token that already stores this policy ID sees the new result. The token does not need a second `updatePolicy`.
 
-```mermaid
+```mermaid 2 Updating a policy Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Other as Other caller
@@ -153,7 +156,7 @@ A policy has one admin at a time. To hand it off, the current admin calls `stage
 
 The pending admin then calls `finalizeUpdateAdmin(policyId)`. The caller must be the staged address, or the call reverts `Unauthorized`. If nothing is staged, it reverts `NoPendingAdmin`. On success the pending admin becomes the current admin, the pending slot clears, and the previous admin can no longer update the policy.
 
-```mermaid
+```mermaid 3 Changing the admin Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Next as nextAdmin
@@ -200,7 +203,7 @@ The write takes effect on the next call that hits that scope. It emits `PolicyUp
 
 You can also bind a policy in `createB20` `initCalls`, in the same transaction that creates the token.
 
-```mermaid
+```mermaid 1 Updating a scope Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Registry as Policy Registry
@@ -233,7 +236,7 @@ Start with a receiver allowlist. Then combine it with a sanctions blocklist so a
 
 Create an allowlist, add the KYC'd accounts, and bind it to `TRANSFER_RECEIVER_POLICY`. Alice is on the list. Bob is not. A holder can send to Alice. A send to Bob reverts.
 
-```mermaid
+```mermaid 1 One allowlist Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Registry as Policy Registry
@@ -266,7 +269,7 @@ Adding Bob to the allowlist later authorizes him on every token that already poi
 
 A single allowlist cannot express "on the KYC list and not on the sanctions list" when those lists are maintained separately. Create both simple policies, then an `INTERSECT` composite, then bind the composite to the transfer and mint scopes.
 
-```mermaid
+```mermaid 2 Composite KYC and sanctions Diagram lines wrap expandable highlight={1}
 flowchart TD
     C["INTERSECT composite"] --> K[KYC ALLOWLIST]
     C --> S[Sanctions BLOCKLIST]
@@ -280,7 +283,7 @@ flowchart TD
 
 
 
-```mermaid
+```mermaid 2 Composite KYC and sanctions Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Registry as Policy Registry
@@ -328,7 +331,7 @@ Section 4.2 stores sanctioned addresses as a `BLOCKLIST`, so "not sanctioned" is
 
 Create a KYC allowlist and an exclusion allowlist. Invert the exclusion ID. Pass both into an `INTERSECT` composite.
 
-```mermaid
+```mermaid 3 Invert KYC and not on an exclusion allowlist Diagram lines wrap expandable highlight={1}
 flowchart TD
     C["INTERSECT composite"] --> K[KYC ALLOWLIST]
     C --> N["inverted exclusion ALLOWLIST"]
@@ -341,7 +344,7 @@ flowchart TD
     X --> B3[Carol: listed]
 ```
 
-```mermaid
+```mermaid 3 Invert KYC and not on an exclusion allowlist Diagram lines wrap expandable highlight={1}
 sequenceDiagram
     participant Admin
     participant Registry as Policy Registry
