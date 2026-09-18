@@ -1,4 +1,7 @@
-# B20 Execution Architecture
+---
+title: "B20 Execution Architecture"
+description: "How B20 precompiles execute, how B20 tokens are created and recognized, and how protocol versions preserve execution consensus."
+---
 
 *How B20 actually executes: how its precompiles differ from ordinary contracts, how a token gets created and recognized as one, and how the protocol evolves without breaking history. For what each primitive means and how to use it (assets, roles, policies), see [B20 concepts](/specifications/b20/concepts/token-types). For the "B20 in 10 minutes" tour, see [B20 Overview](/specifications/b20/specification-overview).*
 
@@ -12,7 +15,7 @@ Because the interpreter is not in the path, a precompile implements its own stat
 
 The node decides which path to take. On every `CALL`, `STATICCALL`, and related opcode, the EVM checks a precompile registry before it loads bytecode at the target address. If the address is registered, native code runs and bytecode is never loaded or interpreted. If it is not registered, the node runs regular EVM code. The client identifies a precompile by a reserved address mapped in that registry.
 
-```mermaid
+```mermaid Precompile Dispatch
 flowchart TD
     A[Call arrives at node] --> B{Target address in precompile registry?}
     B -->|yes| C[Run native precompile]
@@ -23,7 +26,7 @@ Classic Ethereum precompiles (`ecrecover`, `sha256`, `ripemd160`, `modexp`, `eca
 
 From the outside, the two paths look the same until the EVM reaches the target. The actor submits a transaction, the node validates and gossips it, the block builder executes it, and the EVM calls the contract address. A regular contract then runs bytecode. A precompile runs native client code. Both paths read and write EVM state.
 
-```mermaid
+```mermaid Contract and Precompile Execution lines wrap expandable highlight={4,14}
 flowchart TB
     classDef highlight fill:#fff3b0,stroke:#d4a017,color:#000
 
@@ -75,7 +78,7 @@ The precompile charges gas, then decodes the calldata and runs the function that
 
 Those functions have state to update. Precompiles share state with the EVM: they write straight into the account storage at their own address, the same slots a contract would use. There is no side database. A `transfer` updates that token's balances. A later `balanceOf` or `eth_getStorageAt` is an `SLOAD` of what that write committed.
 
-```mermaid
+```mermaid B20 Transfer Execution lines wrap expandable highlight={5-7}
 flowchart TD
     A["Call: transfer(Bob, 100)"] --> B
 
@@ -112,7 +115,7 @@ The Factory computes the token's address deterministically from `(variant, sende
 
 If the address is empty, the Factory plants a single `0xef` byte as the account's bytecode. B20 tokens are not EVM contracts, so they do not carry traditional bytecode. The node never interprets that stub: it routes by address, as described in [§1.2](#12-b20s-precompiles). `0xef` is the [EIP-3541](https://eips.ethereum.org/EIPS/eip-3541) reserved prefix. Ordinary `CREATE` and `CREATE2` cannot produce it. An address with the `0xB2` prefix and that stub can only have come from the Factory.
 
-```mermaid
+```mermaid B20 Token Creation lines wrap expandable highlight={5-9}
 flowchart TD
     A["createB20(variant, salt, params, initCalls)"] --> B["Compute address from (variant, sender, salt)"]
     B --> C{Address already occupied?}
@@ -141,7 +144,7 @@ Dynamic routing uses both checks. On every call, the node asks: does this addres
 
 If both checks pass, the node decodes the variant from address byte `[10]` and dispatches to the matching native logic. Asset (`0x00`) runs Asset logic. Stablecoin (`0x01`) runs Stablecoin logic.
 
-```mermaid
+```mermaid B20 Token Routing
 flowchart TD
     A[Call arrives at address] --> B{"Starts with 0xB2<br/>and bytecode is 0xef?"}
     B -->|no| C[Empty account or regular EVM]
@@ -173,7 +176,7 @@ That invariant is what makes genesis sync work. A node that replays every block 
 
 Each shipped version is therefore frozen: self-contained, with no shared mutable state or traits across versions.
 
-```mermaid
+```mermaid B20 Version Resolution lines wrap expandable highlight={7-9}
 flowchart LR
     subgraph beryl [Beryl blocks]
         B[Beryl logic]
