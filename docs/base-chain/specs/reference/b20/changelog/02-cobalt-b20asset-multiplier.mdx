@@ -145,3 +145,10 @@ read the ceiling from `MAX_UI_MULTIPLIER()` without risking the revert.
 No. The multiplier is purely cosmetic: it rescales only the UI/scaled view. `balanceOf`,
 `transfer`, `totalSupply`, and `Transfer` stay raw, and no multiplier change, scheduled or instant,
 affects them. Only the `*UI` / scaled reads move.
+
+**Q: Can I send tokens to the token's own address?**
+No. At Cobalt, `transfer`, `transferFrom`, `mint`, `mintWithMemo`, `batchMint`, and
+`seizeWithMemo` all reject `to == address(this)` with `InvalidReceiver(to)`. A B20 token is a
+precompile with no holder key, so a credit there is unrecoverable by the sender. `seizeWithMemo`
+from the token address is still allowed, so a balance already stuck there can be recovered to a
+treasury.

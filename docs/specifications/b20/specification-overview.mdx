@@ -104,7 +104,7 @@ All scopes default to `ALWAYS_ALLOW` at creation. `approve` and `permit` are not
 
 ## Mint
 
-`mint` and `mintWithMemo` are gated by `MINT_ROLE`, checked against `MINT_RECEIVER_POLICY`, and bounded by `supplyCap`.
+`mint` and `mintWithMemo` are gated by `MINT_ROLE`, checked against `MINT_RECEIVER_POLICY`, and bounded by `supplyCap`. Both revert with `InvalidReceiver` when `to` is `address(0)` or the token's own address.
 
 ## Burn
 
@@ -115,6 +115,12 @@ The legacy `burnBlocked` path is deprecated and retained for backwards compatibi
 ## Seize
 
 `seizeWithMemo(from, to, amount, memo)` transfers balance from `from` to `to` and emits `Transfer`, `Memo`, and `Seized`. It is gated by `SEIZE_ROLE`, skips allowance and transfer policies, requires `from` to be denied by `SEIZE_EXEMPT_POLICY`, and requires `to` to be authorized by `SEIZE_RECEIVER_POLICY`.
+
+`seizeWithMemo` reverts with `InvalidReceiver` when `to` is `address(0)`, `to` is the token's own address, or `from == to`. Seizing *from* the token's own address is allowed so that a balance already stuck there can be recovered to a treasury.
+
+## Transfer
+
+`transfer`, `transferFrom`, and their memo variants revert with `InvalidReceiver` when `to` is `address(0)` or the token's own address. A B20 precompile has no holder key and cannot call `transfer` on its own behalf, so a credit to `address(this)` would be permanently unrecoverable by the sender. Sends to *other* B20 tokens and holder self-sends (`from == to`) remain legal.
 
 ## Supply Cap
 
@@ -196,7 +202,7 @@ The multiplier is WAD-precision and scales UI balance reads while raw balances r
 
 #### Batch Mint
 
-`batchMint` mints to parallel recipient and amount arrays atomically and is gated by `MINT_ROLE`.
+`batchMint` mints to parallel recipient and amount arrays atomically and is gated by `MINT_ROLE`. It reverts with `InvalidReceiver` for any recipient that is `address(0)` or the token's own address.
 
 #### Extra Metadata
 
@@ -205,6 +211,15 @@ The multiplier is WAD-precision and scales UI balance reads while raw balances r
 ### Stablecoin
 
 Stablecoin tokens add `currency()`, set once at creation. The value must contain uppercase `A`-`Z` characters only. B20 validates the code format, not the issuer claim, reserves, legal status, or external registration.
+
+## Invalid Receiver
+
+The `InvalidReceiver(address receiver)` error fires whenever a credit destination is rejected. It covers two cases:
+
+- `to == address(0)` — the ERC-6093 invalid-receiver sentinel.
+- `to == address(this)` — the token's own address. A B20 precompile holds no private key and cannot call `transfer` on its own behalf, so any balance credited there is permanently locked with no holder-side way to recover it.
+
+The check applies to `transfer`, `transferFrom`, their memo variants, `mint`, `mintWithMemo`, `seizeWithMemo`, and `batchMint`. For `seizeWithMemo`, `from` may equal `address(this)` so that an already-stuck balance can be recovered to a treasury — only the destination (`to`) is blocked.
 
 ## Precompile Addresses
 

@@ -88,8 +88,10 @@ Requirements and guards:
 
 - **Role**: the caller must hold `SEIZE_ROLE`, or the call reverts `AccessControlUnauthorizedAccount`.
 - **Pause**: `SEIZE` must not be paused, or the call reverts `ContractPaused(SEIZE)`.
-- **Addresses**: `to != address(0)` and `from != to`, or the call reverts `InvalidReceiver`.
-  `from != address(0)`, or the call reverts `InvalidSender`.
+- **Addresses**: `to != address(0)`, `to != address(this)`, and `from != to`, or the call reverts
+  `InvalidReceiver`. `from != address(0)`, or the call reverts `InvalidSender`. Note that `from`
+  _may_ equal `address(this)`: seizing from the token's own address is permitted so that any balance
+  accidentally credited there can be recovered to a treasury.
 - **Holder gate**: `from` must be blocked under `SEIZE_EXEMPT_POLICY`, that is, not authorized by
   it, or the call reverts `AccountNotSeizable`. An unset slot reads as always-allow, so no account
   is seizable until an issuer configures `SEIZE_EXEMPT_POLICY`.
@@ -146,6 +148,13 @@ any destination.)
 **Q: Does seize consult the transfer policies or spend an allowance?**
 No. It's an admin operation: it bypasses `TRANSFER_SENDER/RECEIVER/EXECUTOR_POLICY` and allowances,
 and enforces only `SEIZE_EXEMPT_POLICY` (on `from`) and `SEIZE_RECEIVER_POLICY` (on `to`).
+
+**Q: Why does `seizeWithMemo` reject `to == address(this)` but allow `from == address(this)`?**
+Crediting a balance to the token's own address would lock it permanently — the token is a precompile
+with no holder key, so no one could move the funds out. Seizing _from_ `address(this)` is permitted
+precisely to recover any balance that ended up there (for example, via an earlier bug or external
+credit). Together these rules ensure stuck funds can be recovered while preventing new funds from
+becoming stuck.
 
 **Q: Is seize available on B20 Stablecoin as well as B20 Asset?**
 Yes. It's defined on the shared `IB20` surface, so both variants expose the identical

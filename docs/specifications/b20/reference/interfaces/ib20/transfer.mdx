@@ -1,6 +1,6 @@
 ---
 title: "IB20.transfer"
-description: "Generated B20 reference for transfer(address,uint256)."
+description: "Transfers a B20 token balance from the caller to a destination address."
 ---
 
 
@@ -34,11 +34,15 @@ Always `true` on success.
 ## Reverts
 
 - `ContractPaused(TRANSFER)` when `TRANSFER` is paused.
-- `InvalidReceiver` when `to == address(0)`.
+- `InvalidReceiver` when `to == address(0)` or `to == address(this)`.
 - `InvalidSender` when `msg.sender == address(0)`.
 - `PolicyForbids(TRANSFER_SENDER_POLICY, ...)` when `msg.sender` is not authorized.
 - `PolicyForbids(TRANSFER_RECEIVER_POLICY, ...)` when `to` is not authorized.
 - `InsufficientBalance` when `msg.sender`'s balance is below `amount`.
+
+<Warning>
+Sending to the token's own address (`to == address(this)`) now reverts with `InvalidReceiver`. A B20 token is a precompile with no holder key, so a balance credited there would be unrecoverable.
+</Warning>
 
 ## Access Control
 

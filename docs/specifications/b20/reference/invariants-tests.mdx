@@ -64,12 +64,18 @@ These invariants and conformance test cases are the normative behavioral guarant
 31. Multiplier updates affect all holders simultaneously.
 32. `batchMint` enforces `MINT_RECEIVER_POLICY` for each recipient individually.
 
+### Receiver Validity
+
+33. `transfer`, `transferFrom`, their memo variants, `mint`, `mintWithMemo`, and `batchMint` all revert with `InvalidReceiver` when `to` is `address(0)` or the token's own address.
+34. `seizeWithMemo` rejects `to == address(0)`, `to == address(this)`, and `from == to`, but allows `from == address(this)` so a balance already stuck at the token address can be recovered to a treasury.
+35. Sends to other B20 token addresses are legal; only the receiving token's own address is rejected.
+
 ### Factory
 
-33. B20 addresses are deterministic: same inputs always produce the same address.
-34. The variant byte at address position 10 always matches the deployed variant.
-35. Each `(deployer, variant, salt)` tuple produces exactly one address.
-36. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
+36. B20 addresses are deterministic: same inputs always produce the same address.
+37. The variant byte at address position 10 always matches the deployed variant.
+38. Each `(deployer, variant, salt)` tuple produces exactly one address.
+39. `initCalls` execute in array order. A revert in any initCall reverts the entire deployment.
 
 ## Test Cases
 
@@ -156,22 +162,35 @@ These invariants and conformance test cases are the normative behavioral guarant
 | 42 | Contract wallet signature (ERC-1271) | Reverts |
 | 43 | Permit while `TRANSFER` is paused | Succeeds |
 
+### Token Recipient Validity
+
+| # | Scenario | Expected |
+|---|----------|----------|
+| 44 | `transfer` with `to == address(0)` | Reverts with `InvalidReceiver` |
+| 45 | `transfer` with `to == address(this)` (the token itself) | Reverts with `InvalidReceiver` |
+| 46 | `transferFrom` with `to == address(this)` | Reverts with `InvalidReceiver` |
+| 47 | `mint` with `to == address(this)` | Reverts with `InvalidReceiver` |
+| 48 | `batchMint` where one recipient is `address(this)` | Reverts with `InvalidReceiver` |
+| 49 | `seizeWithMemo` with `to == address(this)` | Reverts with `InvalidReceiver` |
+| 50 | `seizeWithMemo` with `from == address(this)` | Succeeds — recovery path |
+| 51 | `transfer` with `to` set to a different B20 token's address | Succeeds |
+
 ### Factory
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 44 | `getB20Address` then deploy with same params | Addresses match |
-| 45 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
-| 46 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
-| 47 | Deploy when variant feature not activated | Reverts |
-| 48 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
+| 52 | `getB20Address` then deploy with same params | Addresses match |
+| 53 | Inspect byte 10 of deployed Asset address | Returns `0x00` |
+| 54 | Deploy same `(deployer, variant, salt)` twice | Second reverts |
+| 55 | Deploy when variant feature not activated | Reverts |
+| 56 | `initCalls` that pause `TRANSFER`, then transfer in next initCall | Transfer reverts |
 
 ### Variants
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 49 | Deploy Asset with `decimals = 5` | Reverts |
-| 50 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
-| 51 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
-| 52 | `batchMint` where one recipient is not on allowlist | Reverts |
-| 53 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |
+| 57 | Deploy Asset with `decimals = 5` | Reverts |
+| 58 | Update multiplier to `2e18`, check `balanceOf` for raw balance 100 | Returns 200 |
+| 59 | Reuse announcement ID | Reverts with `DuplicateAnnouncementId` |
+| 60 | `batchMint` where one recipient is not on allowlist | Reverts |
+| 61 | Deploy Stablecoin with `currency = "usd"` | Reverts — `A`–`Z` only |

@@ -1,0 +1,140 @@
+---
+title: "Reject the Token Itself as a Credit Recipient"
+description: "Denim rejects credits to a B20 token's own address, reverting InvalidReceiver(to) on transfer, mint, and seize paths to prevent unrecoverable token locks."
+---
+
+## Abstract
+
+Denim adds `address(this)` as a second trigger of the existing `InvalidReceiver(address receiver)` error. Any call to `transfer`, `transferFrom`, their memo variants, `mint`, `mintWithMemo`, `batchMint`, or `seizeWithMemo` that names the token's own address as the recipient reverts. A B20 token is a precompile with no holder key; a credit to that address is not recoverable by the sender. Holder self-sends (`from == to`) are unaffected, and `seizeWithMemo` from the token address remains allowed so issuers can recover balances already stuck there.
+
+## Motivation
+
+Users occasionally paste the token contract address instead of a recipient address. For standard ERC-20 tokens the tokens are stranded but potentially recoverable via governance. For B20 tokens — precompiles with no holder key — the sender cannot recover the funds at all. Only the issuer can, through `seizeWithMemo`. There is no valid use case for a B20 token to hold its own tokens, so the correct handling is an immediate revert rather than a silent lock.
+
+`InvalidReceiver(address receiver)` already fires for `address(0)` (ERC-6093). Denim extends it to cover `address(this)` using the same check, at the same position in the revert order, with no new selector, event, or function.
+
+## What Changed
+
+### Revert condition added to `InvalidReceiver`
+
+The shared receiver guard that previously rejected only `address(0)` now also rejects `address(this)`:
+
+```solidity title="Before (Cobalt)"
+if (to == address(0)) revert InvalidReceiver(to);
+```
+
+```solidity title="After (Denim)"
+if (to == address(0) || to == address(this)) revert InvalidReceiver(to);
+```
+
+No new error, selector, or event is introduced. The two conditions share one revert path and one error type.
+
+### Affected functions and revert order
+
+The check runs at the existing invalid-receiver position in each function's revert sequence:
+
+| Function | Revert order |
+|---|---|
+| `transfer` / `transferWithMemo` | pause → **invalid-receiver** → zero-sender → executor policy → sender policy → receiver policy → balance |
+| `transferFrom` / `transferFromWithMemo` | pause → **invalid-receiver** → zero-sender → allowance → executor policy → sender policy → receiver policy → balance |
+| `mint` / `mintWithMemo` | pause → role → **invalid-receiver** → mint-receiver policy → supply cap |
+| `batchMint` | pause → role → length / empty → per-element **invalid-receiver** → `_mint` body |
+| `seizeWithMemo` | pause → role → **invalid-receiver** → zero-sender → self-seize (`from == to`) → seizable → seize-receiver policy → balance |
+
+`from` may equal `address(this)` in `seizeWithMemo`. The check applies only to the `to` argument.
+
+### Code examples
+
+Transfer to the token address reverts:
+
+```solidity title="Revert on transfer to token address"
+vm.prank(alice);
+token.transfer({to: address(token), amount: uint256(amount)});
+// reverts InvalidReceiver(address(token))
+```
+
+Mint and seize to the token address revert the same way:
+
+```solidity title="Revert on mint or seize to token address"
+token.mint({to: address(token), amount: uint256(amount)});
+// reverts InvalidReceiver(address(token))
+
+token.seizeWithMemo({
+    from: address(alice),
+    to: address(token),
+    amount: uint256(amount),
+    memo: bytes32(memo)
+});
+// reverts InvalidReceiver(address(token))
+```
+
+A holder sending to themselves still succeeds:
+
+```solidity title="Self-send still succeeds"
+vm.prank(alice);
+token.transfer({to: address(alice), amount: uint256(amount)});
+// succeeds; balance and totalSupply unchanged
+```
+
+Recovery of a balance already sitting at the token address still succeeds:
+
+```solidity title="Seize from token address to treasury"
+token.seizeWithMemo({
+    from: address(token),
+    to: address(treasury),
+    amount: uint256(amount),
+    memo: bytes32(memo)
+});
+// succeeds
+```
+
+## Migration
+
+<Steps>
+
+<Step title="Treat the token address as an invalid recipient">
+Update wallets, custodians, and indexers to reject `address(token)` as a destination the same way you already reject `address(0)`. This applies before Denim activates.
+</Step>
+
+<Step title="Expect InvalidReceiver after Denim activation">
+Any transfer, mint, or seize to `address(token)` that succeeded before Denim will revert `InvalidReceiver(address(token))` after activation. Update integrations that send to the token address accordingly.
+</Step>
+
+<Step title="Recover stuck balances with seizeWithMemo">
+If tokens were credited to the token address before Denim activation, recover them with:
+
+```solidity title="Recovery call"
+token.seizeWithMemo(address(token), treasury, amount, memo);
+```
+
+The caller must hold `SEIZE_ROLE`. The token must be seizable under `SEIZE_EXEMPT_POLICY`.
+</Step>
+
+<Step title="Verify unaffected paths are unchanged">
+Holder-to-holder self-transfers, approvals, burns, and sends to other B20 tokens are not affected. Do not change handling for those cases.
+</Step>
+
+</Steps>
+
+## Alternatives Considered
+
+**Reject any B20-prefix address as recipient.** This would also block transfers to other B20 token addresses. Rejected because a prefix check cannot distinguish a B20 precompile from a user-controlled account in the same address space (for example, a multisig). Denim compares against `address(this)` only.
+
+**Call `isB20Initialized(to)` on each credit path.** This would reject only live tokens. Rejected because it adds a factory call on every credit path and does not address the paste-error use case precisely.
+
+**Introduce a new error such as `SelfSend(address)`.** A dedicated error would make traces clearer. Rejected because it adds ABI surface for a condition already covered by `InvalidReceiver` — "this destination is invalid."
+
+**Also reject `from == address(this)` in seizeWithMemo.** This would close the only recovery path for balances already sitting at the token address. Rejected.
+
+## Test Cases
+
+Key scenarios validated by the Denim test suite:
+
+- `transfer` to `address(token)` reverts `InvalidReceiver(address(token))`
+- `transferFrom` to `address(token)` reverts `InvalidReceiver(address(token))`
+- `mint` to `address(token)` reverts `InvalidReceiver(address(token))`
+- `batchMint` with any element targeting `address(token)` reverts `InvalidReceiver(address(token))`
+- `seizeWithMemo` with `to == address(token)` reverts `InvalidReceiver(address(token))`
+- `seizeWithMemo` with `from == address(token)` and `to == treasury` succeeds
+- Holder self-send (`from == to`) succeeds
+- Sends to other B20 token addresses succeed
