@@ -40,7 +40,7 @@ npx skills add base/base-skills
 |Get Started/Quickstart:get-started/base,get-started/connect-to-base,get-started/get-funds,get-started/make-a-transaction,base-chain/network-information/ecosystem-bridges
 |Get Started/Solutions:get-started/integrate-defi,get-started/issue-rwa,get-started/issue-stablecoins,get-started/accept-payments
 |Get Started/Coding Agents:get-started/resources-for-ai-agents,get-started/docs-mcp,get-started/docs-llms
-|Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/base-services-hub
+|Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/builder-stack
 |Get Started/References:get-started/base-chain,get-started/sdks-and-apis
 |Build on Base/Overview:build-on-base/overview,build-on-base/test-on-vibenet,build-on-base/assign-user-attributes
 |Build on Base/Integrate DeFi:build-on-base/integrate-defi/integrate-trading,build-on-base/integrate-defi/integrate-lending,build-on-base/integrate-defi/integrate-borrowing,build-on-base/integrate-defi/integrate-earn-product,build-on-base/integrate-defi/list-tokenized-stocks
