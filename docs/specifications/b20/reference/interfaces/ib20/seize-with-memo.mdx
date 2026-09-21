@@ -35,8 +35,8 @@ Seize skips allowance and the transfer policies (`TRANSFER_SENDER_POLICY`, `TRAN
 
 | Parameter | Type | Description |
 |---|---|---|
-| `from` | `address` | Account whose balance is being seized. Must be non-zero and distinct from `to`. |
-| `to` | `address` | Destination for the seized balance. Must be non-zero and distinct from `from`. |
+| `from` | `address` | Account whose balance is being seized. Must be non-zero. May equal `address(this)` so a balance already stuck at the token can be recovered. |
+| `to` | `address` | Destination for the seized balance. Must be non-zero, not this token's own address, and distinct from `from`. |
 | `amount` | `uint256` | Amount to seize. Must not exceed `from`'s balance. |
 | `memo` | `bytes32` | Memo payload. `bytes32(0)` is allowed. |
 
@@ -46,7 +46,7 @@ Seize skips allowance and the transfer policies (`TRANSFER_SENDER_POLICY`, `TRAN
 |---|---|
 | `ContractPaused(SEIZE)` | `SEIZE` is paused. Pausing `TRANSFER`, `MINT`, or `BURN` does not block seize. |
 | `AccessControlUnauthorizedAccount(caller, SEIZE_ROLE)` | Caller does not hold `SEIZE_ROLE`. |
-| `InvalidReceiver(to)` | `to` is `address(0)`, or `from == to`. |
+| `InvalidReceiver(to)` | `to` is `address(0)`, this token's own address, or `from == to`. |
 | `InvalidSender(from)` | `from` is `address(0)`. |
 | `AccountNotSeizable(from)` | `from` is authorized under `SEIZE_EXEMPT_POLICY` (scope unset, or holder not on the attached blocklist). |
 | `PolicyForbids(SEIZE_RECEIVER_POLICY, policyId)` | `to` is not authorized under `SEIZE_RECEIVER_POLICY`. |
@@ -90,4 +90,8 @@ token.seizeWithMemo(alice, treasury, amount, keccak256("court-order-123"));
 
 <Note>
 `AccountNotSeizable` selector: `0x91dbbc8d`. This error fires when the holder scope is unset or the holder is not on the attached blocklist, not when the holder is on a transfer blocklist. Transfer and seize scopes are independent.
+</Note>
+
+<Note>
+Seizing **from** the token's own address is allowed — pass `address(token)` as `from` to recover a balance that became stuck there. Seizing **to** the token's own address is not allowed and reverts with `InvalidReceiver`.
 </Note>

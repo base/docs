@@ -89,6 +89,10 @@ The token returns the new policy ID for both transfer policy scopes.
 An allowlist denies every account not in the policy. Seed intended holders before binding it, and retain the `PolicyCreated` ID. Membership batches are capped at 64 accounts per call; call `updateAllowlist` to add more after creation.
 </Warning>
 
+<Warning>
+`transfer`, `transferFrom`, and `mint` reject the token's own address as a recipient with `InvalidReceiver`. Do not pass `token.address` as the `to` argument — a balance credited there has no holder-side way to move it.
+</Warning>
+
 ## Update Membership
 
 After creation, only the policy admin can add or remove accounts. Call `updateAllowlist(policyId, true, accounts)` to add and `updateAllowlist(policyId, false, accounts)` to remove. The change is visible to every token that references the policy on the next call. No second `updatePolicy` is needed on the token.
