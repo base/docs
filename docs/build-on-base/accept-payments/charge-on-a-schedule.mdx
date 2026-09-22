@@ -1,12 +1,16 @@
 ---
 title: "Charge on a Schedule"
-keywords: ["USDC subscription Base", "spend permission recurring payment", "scheduled crypto charge", "smart account subscription"]
-description: "Charge a smart account on a recurring schedule within a buyer-approved period allowance."
+keywords: ["Commerce Payments recurring charge", "SpendPermissionPaymentCollector", "scheduled USDC payment", "smart wallet billing"]
+description: "Create one escrow-backed charge per billing period using a wallet spend permission."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Use a smart-account spend permission when the buyer approves repeated USDC charges. The permission bounds the spender, token, amount per period, start time, and end time; your backend decides when each scheduled charge runs.
+Use the deployed `SpendPermissionPaymentCollector` when a wallet approves repeated collection. Your scheduler still creates a fresh `PaymentInfo` and unique salt for every billing period because each protocol payment can be charged only once.
+
+<Info>
+This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
+</Info>
 
 ## Demo
 
@@ -16,62 +20,63 @@ Use a smart-account spend permission when the buyer approves repeated USDC charg
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
 
-## Charge an Active Permission
+## Charge One Billing Period
 
-First collect and store a permission with the [Spend Permissions guide](https://docs.cdp.coinbase.com/coinbase-wallet/improve-ux/spend-permissions). At each billing time, check its current status before preparing calls.
+The collector reconstructs a spend permission from `PaymentInfo`: the payer is the account, the collector is the spender, the token and allowance come from the payment, and `preApprovalExpiry` is the permission end. Encode the permission signature and optional MagicSpend withdrawal request as `collectorData`.
+
+Use a durable billing key such as `subscriptionId:periodStart` before submitting the protocol charge.
 
 {/* sample: scheduled-charge-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={8,13,17}
-export async function chargeSubscription(permission: SpendPermission, amount: string) {
-  if (permission.permission.spender.toLowerCase() !== account.address.toLowerCase()) {
-    throw new Error("Connected account is not the approved spender");
+```typescript TypeScript lines wrap expandable highlight={8-10,15,19-20,28}
+export async function chargeSubscriptionPeriod(args: {
+  paymentInfo: PaymentInfo;
+  collectorData: Hex;
+  billingKey: string;
+  amount: bigint;
+  store: BillingStore;
+}) {
+  if (!(await args.store.reserveOnce(args.billingKey))) {
+    throw new Error("Billing period was already submitted");
   }
-  const charge = parseUnits(amount, 6);
-  const status = await getPermissionStatus(permission, { rpcUrl: process.env.RPC_URL });
-  if (!status.isActive || status.isRevoked || status.isExpired) {
-    throw new Error("Spend permission is not active");
-  }
-  if (status.remainingSpend < charge) throw new Error("Period allowance is exhausted");
-
-  const calls = await prepareSpendCallData(permission, charge, account.address, {
-    rpcUrl: process.env.RPC_URL,
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "charge",
+    args: [
+      args.paymentInfo,
+      args.amount,
+      SPEND_PERMISSION_PAYMENT_COLLECTOR,
+      args.collectorData,
+      0n,
+      zeroAddress,
+    ],
   });
-  for (const call of calls) {
-    const hash = await walletClient.sendTransaction({
-      account,
-      to: call.to,
-      data: call.data,
-      value: call.value,
-    });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-    if (receipt.status !== "success") throw new Error("Scheduled charge reverted");
-  }
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Scheduled charge reverted");
+  await args.store.complete(args.billingKey, hash);
+  return receipt;
 }
 ```
 
+A successful charge emits `PaymentCharged` and creates a protocol `refundableAmount` for that billing period.
+
 <Check>
-Every call receipt succeeds, the period's `remainingSpend` decreases, and the recipient receives the scheduled amount.
+Store the billing key, `paymentInfoHash`, charge transaction, amount, and spend-permission usage in one durable workflow.
 </Check>
 
-## Handle Renewal Failures
-
-Treat these outcomes as normal billing states:
-
-- **Revoked or expired:** stop retries and ask the buyer for a new permission.
-- **Insufficient token balance:** notify the buyer and retry according to your billing policy.
-- **Period allowance exhausted:** wait for `nextPeriodStart` or collect a new permission.
-
 <Warning>
-A spend permission is not a subscription scheduler. Run billing from a durable job queue, use an idempotency key for each billing period, and reconcile the emitted transfer before marking an invoice paid.
+The [Commerce Payments Protocol](https://github.com/base/commerce-payments) does not run a scheduler. Protect the operator key, serialize retries, and do not reuse a prior period's `PaymentInfo` or salt.
 </Warning>
 
 ## See Also
 
 <CardGroup cols={2}>
-  <Card title="Spend Permissions SDK" icon="key" href="https://docs.cdp.coinbase.com/coinbase-wallet/improve-ux/spend-permissions">
-    Request, inspect, spend, and revoke permissions.
+  <Card title="Request a Payment" icon="credit-card" href="/build-on-base/accept-payments/request-a-payment">
+    Use the same charge lifecycle for a one-time checkout.
   </Card>
-  <Card title="Subscriptions API Reference" icon="calendar" href="https://docs.cdp.coinbase.com/coinbase-wallet/reference/base-pay/subscriptions-overview">
-    Review the subscription lifecycle and SDK surface.
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Reverse a charged billing period before refund expiry.
   </Card>
 </CardGroup>

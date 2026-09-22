@@ -1,57 +1,42 @@
-import { parseAbi, parseEventLogs, stringToHex, type Address, type Hash } from "viem";
 import { account, publicClient, walletClient } from "../shared/clients.js";
-
-const refundableTokenAbi = parseAbi([
-  "function transferWithMemo(address,uint256,bytes32) returns (bool)",
-  "event Transfer(address indexed from,address indexed to,uint256 amount)",
-]);
-
-export interface RefundLedger {
-  captureHash(orderId: string): Promise<Hash>;
-  reserveOnce(orderId: string, refundId: string, amount: bigint): Promise<boolean>;
-  complete(refundId: string, hash: Hash): Promise<void>;
-}
+import {
+  AUTH_CAPTURE_ESCROW,
+  OPERATOR_REFUND_COLLECTOR,
+  authCaptureEscrowAbi,
+  refundApprovalAbi,
+  type StoredProtocolPayment,
+} from "./protocol.js";
 
 // docs:start refund-payment-ts
-export async function refundPayment(args: {
-  token: Address;
-  captureHash: Hash;
-  orderId: string;
-  refundId: string;
-  amount: bigint;
-  ledger: RefundLedger;
-}) {
-  if ((await args.ledger.captureHash(args.orderId)) !== args.captureHash) {
-    throw new Error("Capture hash does not belong to this order");
-  }
-  const capture = await publicClient.waitForTransactionReceipt({ hash: args.captureHash, confirmations: 2 });
-  if (capture.status !== "success") throw new Error("Original payment reverted");
-  const transfers = parseEventLogs({
-    abi: refundableTokenAbi,
-    eventName: "Transfer",
-    logs: capture.logs,
-    strict: true,
+export async function refundPayment(
+  payment: StoredProtocolPayment,
+  refundAmount: bigint,
+) {
+  const [, , refundableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
   });
-  const payment = transfers.find(
-    (log) =>
-      log.address.toLowerCase() === args.token.toLowerCase() &&
-      log.args.to.toLowerCase() === account.address.toLowerCase(),
-  );
-  if (!payment) throw new Error("Original payment to this merchant was not found");
-  if (!(await args.ledger.reserveOnce(args.orderId, args.refundId, args.amount))) {
-    throw new Error("Refund is duplicated or exceeds the refundable balance");
-  }
-
-  const simulation = await publicClient.simulateContract({
+  if (refundAmount > refundableAmount) throw new Error("Refund exceeds captured amount");
+  const approval = await publicClient.simulateContract({
     account,
-    address: args.token,
-    abi: refundableTokenAbi,
-    functionName: "transferWithMemo",
-    args: [payment.args.from, args.amount, stringToHex(args.orderId, { size: 32 })],
+    address: payment.paymentInfo.token,
+    abi: refundApprovalAbi,
+    functionName: "approve",
+    args: [OPERATOR_REFUND_COLLECTOR, refundAmount],
   });
-  const hash = await walletClient.writeContract(simulation.request);
-  await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-  await args.ledger.complete(args.refundId, hash);
-  return hash;
+  const approvalHash = await walletClient.writeContract(approval.request);
+  await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 2 });
+
+  const refund = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "refund",
+    args: [payment.paymentInfo, refundAmount, OPERATOR_REFUND_COLLECTOR, "0x"],
+  });
+  const hash = await walletClient.writeContract(refund.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
 }
 // docs:end refund-payment-ts
