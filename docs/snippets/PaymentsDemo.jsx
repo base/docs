@@ -16,7 +16,7 @@ export const PaymentsDemo = ({ flow }) => {
     blueSoft: "var(--wf-blue-soft)", successSoft: "var(--wf-success-soft)", errorSoft: "var(--wf-error-soft)",
   };
   // Account markers use fixed brand hues that read on either theme.
-  const dot = { Merchant: C.blue, Alice: "#66c800", Agent: "#3c8aff" };
+  const dot = { Merchant: C.blue, Alice: "#66c800", Bob: "#8a63d2", Agent: "#3c8aff" };
 
   const NETWORK = "Base Vibenet";
 
@@ -33,6 +33,21 @@ export const PaymentsDemo = ({ flow }) => {
   // Scripted flows. Each step mutates a cloned sim and returns log lines.
   // ======================================================================
   const FLOWS = {
+    simple: {
+      label: "Transfer", title: "Send USDC directly to another wallet", readout: true,
+      href: "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      erc20: "A standard ERC-20 transfer moves USDC directly from the sender to the recipient.",
+      steps: [
+        { stage: "Prepare", action: "Enter payment",
+          text: "Alice enters the recipient address and the amount of USDC to send.",
+          summary: [["From", "Alice"], ["To", "Bob"], ["Amount", M("5.00 USDC")], ["Network", NETWORK]],
+          run: (s) => { s.balances.Alice = 5; return { entries: [nfo("recipient", "Bob"), nfo("amount", "5.00 USDC")] }; } },
+        { stage: "Send", action: "Send $5",
+          text: "Alice signs the transfer and submits it directly to the USDC contract.",
+          summary: [["Operation", "ERC-20 transfer"], ["From", "Alice"], ["To", "Bob"], ["Amount", M("5.00 USDC")]],
+          run: (s) => { s.balances.Alice = 0; s.balances.Bob = 5; return { entries: [ok("Transfer", "Alice → Bob · 5.00 USDC"), ok("receipt", "confirmed")], caption: "Bob controls the USDC as soon as the transfer confirms." }; } }
+      ],
+    },
     accept: {
       label: "Accept", title: "Charge an escrow-backed payment", readout: true,
       href: "https://github.com/base/commerce-payments/blob/main/docs/operations/Charge.md",
