@@ -157,9 +157,7 @@ function getChangedFiles() {
       .filter(Boolean);
 
     const allChanged = [...new Set([...uncommitted, ...committed])];
-    return allChanged.filter(
-      (file) => isLintablePage(file) && fs.existsSync(path.join(REPO_ROOT, file))
-    );
+    return allChanged.filter(isLintablePage);
   } catch {
     return [];
   }
