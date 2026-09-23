@@ -1,45 +1,36 @@
-import { createPublicClient, http, parseAbi, parseEventLogs, parseUnits, type Address, type Hash } from "viem";
-import { baseSepolia } from "viem/chains";
-
-const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
-const tokenEvents = parseAbi([
-  "event Transfer(address indexed from,address indexed to,uint256 amount)",
-  "event Memo(address indexed caller,bytes32 indexed memo)",
-]);
+import { parseEventLogs, type Hash } from "viem";
+import { publicClient } from "../shared/clients.js";
+import { AUTH_CAPTURE_ESCROW, authCaptureEscrowAbi } from "./protocol.js";
 
 export interface PaymentStore {
   claimOnce(id: string, orderId: string): Promise<boolean>;
 }
 
 // docs:start verify-token-payment-ts
-export async function verifyTokenPayment(args: {
+export async function verifyPayment(args: {
   hash: Hash;
-  token: Address;
-  payer: Address;
-  merchant: Address;
-  amount: string;
-  memo?: `0x${string}`;
+  paymentInfoHash: Hash;
   orderId: string;
   store: PaymentStore;
 }) {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: args.hash, confirmations: 2 });
-  if (receipt.status !== "success") throw new Error("Transaction reverted");
-  const expectedAmount = parseUnits(args.amount, 6);
-  const transfers = parseEventLogs({ abi: tokenEvents, eventName: "Transfer", logs: receipt.logs, strict: true });
-  const transfer = transfers.find(
-    (log) =>
-      log.address.toLowerCase() === args.token.toLowerCase() &&
-      log.args.from.toLowerCase() === args.payer.toLowerCase() &&
-      log.args.to.toLowerCase() === args.merchant.toLowerCase() &&
-      log.args.amount === expectedAmount,
+  if (receipt.status !== "success") throw new Error("Payment transaction reverted");
+  const events = parseEventLogs({
+    abi: authCaptureEscrowAbi,
+    logs: receipt.logs.filter(
+      (log) => log.address.toLowerCase() === AUTH_CAPTURE_ESCROW.toLowerCase(),
+    ),
+    strict: true,
+  });
+  const settlement = events.find(
+    (event) =>
+      (event.eventName === "PaymentCharged" || event.eventName === "PaymentCaptured") &&
+      event.args.paymentInfoHash === args.paymentInfoHash,
   );
-  if (!transfer) throw new Error("Expected payment transfer not found");
-  const memos = parseEventLogs({ abi: tokenEvents, eventName: "Memo", logs: receipt.logs, strict: true });
-  if (args.memo && !memos.some((log) =>
-    log.address.toLowerCase() === args.token.toLowerCase() &&
-    log.logIndex === transfer.logIndex + 1 &&
-    log.args.memo === args.memo
-  )) throw new Error("Expected adjacent memo not found");
-  if (!(await args.store.claimOnce(args.hash, args.orderId))) throw new Error("Payment already used");
+  if (!settlement) throw new Error("Expected protocol settlement was not found");
+  if (!(await args.store.claimOnce(args.paymentInfoHash, args.orderId))) {
+    throw new Error("Payment was already used");
+  }
+  return settlement;
 }
 // docs:end verify-token-payment-ts
