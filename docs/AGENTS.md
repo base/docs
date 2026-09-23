@@ -9,7 +9,7 @@ description: Look up Base documentation with a compact sidebar-aligned index bui
 > High-signal index of the public documentation tabs. Jump to each tab's primary page for concise intros, curated links, and fast navigation.
 
 - [Get Started](https://docs.base.org/get-started/base) — The blockchain for global finance.
-- [Build on Base](https://docs.base.org/build-on-base/overview) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, or accept payments.
+- [Build on Base](https://docs.base.org/build-on-base/overview) — Build financial products on Base by outcome: integrate DeFi, tokenize assets, issue stablecoins, accept payments, or run private transactions.
 - [Specifications](https://docs.base.org/specifications/overview) — Base protocol specifications — tokens, bridging, transactions, consensus, execution, and proofs.
 - [SDKs & APIs](https://docs.base.org/sdks/overview) — SDKs, APIs, and command-line tools for identity verification, local development, and direct Base chain access.
 - [Upgrades](https://docs.base.org/upgrades/overview) — Track Base network upgrades, activation dates, and the protocol changes included in each release.
@@ -38,18 +38,20 @@ npx skills add base/base-skills
 
 [Docs Navigation]
 |Get Started/Quickstart:get-started/base,get-started/connect-to-base,get-started/get-funds,get-started/make-a-transaction,base-chain/network-information/ecosystem-bridges
-|Get Started/Solutions:get-started/integrate-defi,get-started/issue-rwa,get-started/issue-stablecoins,get-started/accept-payments
+|Get Started/Solutions:get-started/integrate-defi,get-started/issue-rwa,get-started/issue-stablecoins,get-started/accept-payments,get-started/private-transactions
 |Get Started/Coding Agents:get-started/resources-for-ai-agents,get-started/docs-mcp,get-started/docs-llms
 |Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/base-services-hub
+|Get Started/Resources:get-started/builders,get-started/creators
 |Get Started/References:get-started/base-chain,get-started/sdks-and-apis
 |Build on Base/Overview:build-on-base/overview,build-on-base/test-on-vibenet,build-on-base/assign-user-attributes
 |Build on Base/Integrate DeFi:build-on-base/integrate-defi/integrate-trading,build-on-base/integrate-defi/integrate-lending,build-on-base/integrate-defi/integrate-borrowing,build-on-base/integrate-defi/integrate-earn-product,build-on-base/integrate-defi/list-tokenized-stocks
 |Build on Base/Tokenize Assets:build-on-base/issue-rwa/create-an-asset-token,build-on-base/issue-rwa/issue-units,build-on-base/issue-rwa/restrict-eligible-holders,build-on-base/issue-rwa/cancel-blocked-units,build-on-base/issue-rwa/announce-a-distribution,build-on-base/issue-rwa/apply-a-multiplier,build-on-base/issue-rwa/pause-transfers
 |Build on Base/Issue Stablecoins:build-on-base/issue-stablecoins/issue-your-stablecoin,build-on-base/issue-stablecoins/mint-supply,build-on-base/issue-stablecoins/burn-supply,build-on-base/issue-stablecoins/restrict-who-can-hold,build-on-base/issue-stablecoins/block-an-account,build-on-base/issue-stablecoins/recover-funds,build-on-base/issue-stablecoins/pause-activity,build-on-base/issue-stablecoins/reconcile-with-memos
-|Build on Base/Accept Payments/Process a Payment:build-on-base/accept-payments/make-a-simple-payment,build-on-base/accept-payments/request-a-payment,build-on-base/accept-payments/authorize-a-payment,build-on-base/accept-payments/capture-an-authorization,build-on-base/accept-payments/capture-a-partial-amount,build-on-base/accept-payments/void-an-authorization,build-on-base/accept-payments/charge-on-a-schedule
+|Build on Base/Accept Payments/Process a Payment:build-on-base/accept-payments/make-a-simple-payment,build-on-base/accept-payments/request-a-payment,build-on-base/accept-payments/authorize-a-payment,build-on-base/accept-payments/capture-an-authorization,build-on-base/accept-payments/charge-on-a-schedule
 |Build on Base/Accept Payments/Confirm and Reconcile:build-on-base/accept-payments/verify-a-payment,build-on-base/accept-payments/watch-for-payments,build-on-base/accept-payments/reconcile-payments
-|Build on Base/Accept Payments/Return and Pay Out:build-on-base/accept-payments/refund-a-payment,build-on-base/accept-payments/send-a-payout,build-on-base/accept-payments/split-a-payment
+|Build on Base/Accept Payments/Refund and Pay Out:build-on-base/accept-payments/refund-a-payment,build-on-base/accept-payments/void-an-authorization,build-on-base/accept-payments/send-a-payout,build-on-base/accept-payments/split-a-payment
 |Build on Base/Accept Payments/Accept Agentic Payments:build-on-base/accept-payments/charge-for-an-api,build-on-base/accept-payments/settle-usage-based-payments,build-on-base/accept-payments/batch-high-frequency-payments,build-on-base/accept-payments/call-a-paid-service
+|Build on Base/Private Transactions:build-on-base/ledgers/deposit,build-on-base/ledgers/transfer,build-on-base/ledgers/withdraw
 |Specifications/Specifications:specifications/overview,specifications/native-account-abstraction,specifications/flashblocks
 |Specifications/Specifications/Base Protocol:specifications/base-protocol/overview,specifications/base-protocol/batcher,specifications/base-protocol/design-goals
 |Specifications/Specifications/Base Protocol/Consensus:specifications/base-protocol/consensus/specification,specifications/base-protocol/consensus/derivation,specifications/base-protocol/consensus/p2p,specifications/base-protocol/consensus/rpc
