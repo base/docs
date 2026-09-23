@@ -1,0 +1,298 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Tokenized Stocks API",
+        "description": "Read Coinbase-issued tokenized stock listings, protocol contract addresses, and adjusted token supplies on Base. No API key is required.",
+        "version": "1.0.0"
+    },
+    "tags": [
+        {
+            "name": "Tokenized Stocks",
+            "description": "Public, read-only data for Coinbase-issued tokenized stocks on Base."
+        }
+    ],
+    "paths": {
+        "/": {
+            "get": {
+                "summary": "List tokenized stocks",
+                "operationId": "listTokenizedStocks",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1ListTokenizedEquityTokensResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "An unexpected error response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "description": "Returns the Coinbase-issued tokenized stocks currently available through the API.",
+                "x-mint": {
+                    "href": "/sdks/tokenized-stocks/api-reference/list-tokenized-stocks"
+                }
+            }
+        },
+        "/chains": {
+            "get": {
+                "summary": "List protocol contract addresses",
+                "operationId": "listChainContractAddresses",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1ListChainContractAddressesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "An unexpected error response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "description": "Returns the tokenized-stocks protocol contracts deployed on each supported chain.",
+                "x-mint": {
+                    "href": "/sdks/tokenized-stocks/api-reference/list-protocol-contract-addresses"
+                }
+            }
+        },
+        "/total-supply/{contract_address}": {
+            "get": {
+                "summary": "Get token total supply",
+                "operationId": "getTokenTotalSupply",
+                "responses": {
+                    "200": {
+                        "description": "The total supply of the token, adjusted for the token's decimals.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "number",
+                                    "format": "double"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "An unexpected error response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "contract_address",
+                        "description": "The address of the ERC-20 token contract on Base.",
+                        "in": "path",
+                        "required": true,
+                        "example": "0xb200000000000000000000C2e324d24d7eEcd1fb",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]{40}$"
+                        }
+                    }
+                ],
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "description": "Returns the ERC-20 token total supply adjusted for the token decimals.",
+                "x-mint": {
+                    "href": "/sdks/tokenized-stocks/api-reference/get-token-total-supply"
+                }
+            }
+        }
+    },
+    "externalDocs": {
+        "description": "Tokenized Stocks on Base",
+        "url": "https://docs.base.org/build-on-base/integrate-defi/list-tokenized-stocks"
+    },
+    "servers": [
+        {
+            "url": "https://api.coinbase.com/v1/tokenized-stocks"
+        }
+    ],
+    "components": {
+        "schemas": {
+            "protobufAny": {
+                "type": "object",
+                "properties": {
+                    "@type": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": {}
+            },
+            "rpcStatus": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "details": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/protobufAny"
+                        }
+                    }
+                }
+            },
+            "v1ChainContractAddresses": {
+                "type": "object",
+                "properties": {
+                    "chain_id": {
+                        "type": "string",
+                        "format": "uint64",
+                        "description": "The chain's numeric EVM chain ID."
+                    },
+                    "chain": {
+                        "type": "string",
+                        "description": "The chain's human-readable name."
+                    },
+                    "policy_registry_address": {
+                        "type": "string",
+                        "description": "The address of the PolicyRegistry contract or precompile."
+                    },
+                    "token_supply_manager_address": {
+                        "type": "string",
+                        "description": "The address of the TokenSupplyManager contract."
+                    },
+                    "token_factory_address": {
+                        "type": "string",
+                        "description": "The address of the TokenFactory contract."
+                    }
+                },
+                "description": "A supported chain and its tokenized-equities protocol contracts."
+            },
+            "v1GetTokenTotalSupplyResponse": {
+                "type": "object",
+                "properties": {
+                    "total_supply": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "The total supply of the token, adjusted for the token's decimals."
+                    }
+                },
+                "description": "Response message for TokenizedEquitiesPublicApiService.GetTokenTotalSupply."
+            },
+            "v1ListChainContractAddressesResponse": {
+                "type": "object",
+                "properties": {
+                    "chains": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1ChainContractAddresses"
+                        },
+                        "description": "The tokenized-equities protocol contract addresses for each supported chain."
+                    }
+                },
+                "description": "Response message for TokenizedEquitiesPublicApiService.ListChainContractAddresses."
+            },
+            "v1ListTokenizedEquityTokensResponse": {
+                "type": "object",
+                "properties": {
+                    "tokens": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1TokenizedEquityToken"
+                        },
+                        "description": "The list of tokenized equity tokens."
+                    }
+                },
+                "description": "Response message for TokenizedEquitiesPublicApiService.ListTokenizedEquityTokens."
+            },
+            "v1TokenizedEquityToken": {
+                "type": "object",
+                "properties": {
+                    "contract_address": {
+                        "type": "string",
+                        "description": "The address of the ERC-20 token contract on Base."
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "description": "The token's ticker symbol."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the underlying equity."
+                    },
+                    "decimals": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "The number of decimals used by the token."
+                    },
+                    "icon_url": {
+                        "type": "string",
+                        "description": "URL of an icon representing the underlying equity."
+                    },
+                    "total_supply": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "The total supply of the token, adjusted for the token's decimals."
+                    },
+                    "isin": {
+                        "type": "string",
+                        "description": "The ISIN of the underlying equity."
+                    },
+                    "multiplier": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "The token's rebase/exchange-rate multiplier, adjusted for its 18-decimal\nfixed-point scale (1.0 means no adjustment)."
+                    },
+                    "paused_features": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        },
+                        "description": "Feature flags currently paused on the token contract."
+                    },
+                    "nav_price": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "The token's NAV price, read from its Chainlink on-chain price feed on\nBase and adjusted for the feed's decimals."
+                    },
+                    "nav_price_updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "The time at which nav_price was last updated on-chain, per the\nChainlink feed's latestRoundData() updatedAt. Chainlink only pushes a\nnew round when the price moves past a deviation threshold, so this can\nlag wall-clock time by anywhere from minutes to many hours."
+                    }
+                },
+                "description": "A tokenized equity token available on Base."
+            }
+        }
+    }
+}
