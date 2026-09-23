@@ -69,10 +69,10 @@ contract B20Examples is Script {
     // docs:end stablecoin-block-solidity
 
     // docs:start stablecoin-recover-solidity
-    function recoverStablecoin(address token, address blocked, address replacement) public {
-        IB20(token).burnBlocked(blocked, 50e6);
-        IB20(token).mint(replacement, 50e6);
-        require(IB20(token).balanceOf(replacement) >= 50e6, "replacement not funded");
+    function recoverStablecoin(address token, uint64 blocklistId, address blocked, address treasury) public {
+        IB20(token).updatePolicy(B20Constants.SEIZE_EXEMPT_POLICY, blocklistId);
+        IB20(token).seizeWithMemo(blocked, treasury, 50e6, bytes32("legal-hold-2026-118"));
+        require(IB20(token).balanceOf(treasury) >= 50e6, "treasury not funded");
     }
     // docs:end stablecoin-recover-solidity
 
@@ -121,11 +121,24 @@ contract B20Examples is Script {
     }
     // docs:end stock-restrict-solidity
 
-    // docs:start stock-cancel-solidity
-    function cancelBlockedShares(address token, address holder) public {
-        IB20(token).burnBlocked(holder, 100e6);
+    // docs:start stock-seize-solidity
+    function seizeAndCancelUnits(address token, uint64 blocklistId, address holder) public {
+        IB20(token).updatePolicy(B20Constants.SEIZE_EXEMPT_POLICY, blocklistId);
+        IB20(token).seizeWithMemo(holder, address(this), 100e6, bytes32("cancel-2026-07"));
+        IB20(token).burnWithMemo(100e6, bytes32("cancel-2026-07"));
     }
-    // docs:end stock-cancel-solidity
+    // docs:end stock-seize-solidity
+
+    // docs:start stock-executor-solidity
+    function restrictTransferInitiators(address token, address admin, address transferAgent) public returns (uint64 id) {
+        address[] memory initiators = new address[](1);
+        initiators[0] = transferAgent;
+        id = StdPrecompiles.POLICY_REGISTRY.createPolicyWithAccounts(
+            admin, IPolicyRegistry.PolicyType.ALLOWLIST, initiators
+        );
+        IB20(token).updatePolicy(B20Constants.TRANSFER_EXECUTOR_POLICY, id);
+    }
+    // docs:end stock-executor-solidity
 
     // docs:start stock-dividend-solidity
     function announceDividend(address token, address[] memory recipients, uint256[] memory amounts) public {

@@ -1,0 +1,134 @@
+---
+title: "Seize and Cancel Units"
+description: "Move units from a holder who is no longer eligible into a safekeeping account with B20 seizeWithMemo, then cancel them with a memo'd burn."
+keywords: ["seize tokenized units", "B20 seizeWithMemo", "cancel units", "blocked holder", "SEIZE_EXEMPT_POLICY"]
+---
+
+import { AssetDemo } from "/snippets/AssetDemo.jsx"
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+When a holder is no longer eligible, a court orders a forfeiture, or a position must be unwound, move the units to a safekeeping account with `seizeWithMemo`, then decide what happens to them. This guide seizes to the issuer's treasury and cancels the units with `burnWithMemo`. The same first step also covers freeze-and-reissue: seize, then transfer from the treasury to a new address.
+
+<RwaDisclaimer />
+
+## Demo
+
+<AssetDemo flow="cancel" />
+
+<Tip>
+The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
+</Tip>
+
+<Note>
+New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+</Note>
+
+<Warning>
+`seizeWithMemo` is part of the Cobalt B20 surface. It is live on Base Vibenet today and reaches Base mainnet with the Cobalt hard fork. Until then, mainnet tokens only have the deprecated `burnBlocked` path. See the [seize changelog entry](/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize).
+</Warning>
+
+## Before You Start
+
+You need all of the following:
+
+- A B20 Asset you administer, with `DEFAULT_ADMIN_ROLE` so you can grant roles and attach policies.
+- An account that will call `seizeWithMemo` and `burnWithMemo`. Grant it `SEIZE_ROLE` and `BURN_ROLE`. The [Create an Asset Token](/build-on-base/issue-rwa/create-an-asset-token) walkthrough grants roles in the factory call; add these two if you did not.
+- A blocklist policy in the Policy Registry with the holder on it. If you gate eligibility with an allowlist, as in [Restrict Eligible Holders](/build-on-base/issue-rwa/restrict-eligible-holders), removing the holder from that allowlist freezes their transfers but does **not** make them seizable. Seize reads its own scope.
+- `SEIZE` and `BURN` not paused.
+
+How the seize scope works:
+
+| Scope | Account checked | Proceeds when | Default when unset |
+| --- | --- | --- | --- |
+| `SEIZE_EXEMPT_POLICY` | `from` | `isAuthorized` is **false** | Everyone is authorized, so nobody is seizable. |
+| `SEIZE_RECEIVER_POLICY` | `to` | `isAuthorized` is **true** | Any destination is allowed. |
+
+Because the holder check is inverted, attach a **blocklist** to `SEIZE_EXEMPT_POLICY`. Accounts on the list are unauthorized and therefore seizable; every other holder stays exempt. Never attach an allowlist or `ALWAYS_BLOCK` to this scope: an empty allowlist authorizes nobody, so every holder would be seizable.
+
+## Seize, Cancel, and Verify
+
+Grant the roles once per token:
+
+```solidity Grant SEIZE_ROLE and BURN_ROLE
+asset.grantRole(asset.SEIZE_ROLE(), operator);
+asset.grantRole(asset.BURN_ROLE(), operator);
+```
+
+Then attach the blocklist, seize to the caller's own account, and burn from there:
+
+<CodeGroup>
+{/* sample: stock-seize-ts */}
+```typescript TypeScript lines wrap expandable highlight={10,11,12}
+import { parseUnits, stringToHex, type Address } from "viem";
+import { account, publicClient } from "../../shared/clients.js";
+import { b20Abi, scope } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function seizeAndCancelUnits(token: Address, blocklistId: bigint, holder: Address) {
+  const amount = parseUnits("100", 6);
+  const memo = stringToHex("cancel-2026-07", { size: 32 });
+  await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [scope("SEIZE_EXEMPT_POLICY"), blocklistId] });
+  await sendContract({ address: token, abi: b20Abi, functionName: "seizeWithMemo", args: [holder, account.address, amount, memo] });
+  await sendContract({ address: token, abi: b20Abi, functionName: "burnWithMemo", args: [amount, memo] });
+  return publicClient.readContract({ address: token, abi: b20Abi, functionName: "totalSupply" });
+}
+```
+{/* sample: stock-seize-solidity */}
+```solidity Solidity lines wrap expandable highlight={2,3,4}
+function seizeAndCancelUnits(address token, uint64 blocklistId, address holder) public {
+    IB20(token).updatePolicy(B20Constants.SEIZE_EXEMPT_POLICY, blocklistId);
+    IB20(token).seizeWithMemo(holder, address(this), 100e6, bytes32("cancel-2026-07"));
+    IB20(token).burnWithMemo(100e6, bytes32("cancel-2026-07"));
+}
+```
+{/* sample: stock-seize-cli */}
+```bash CLI lines wrap expandable highlight={1,3,5}
+base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak SEIZE_EXEMPT_POLICY)" "$BLOCKLIST_ID" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast send "$TOKEN_ADDRESS" "seizeWithMemo(address,address,uint256,bytes32)" "$HOLDER" "$TREASURY" 100000000 \
+  "$(base-cast format-bytes32-string cancel-2026-07)" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast send "$TOKEN_ADDRESS" "burnWithMemo(uint256,bytes32)" 100000000 "$(base-cast format-bytes32-string cancel-2026-07)" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "totalSupply()(uint256)" --rpc-url "$RPC_URL"
+```
+</CodeGroup>
+
+The seize emits, in order, `Transfer(holder, treasury, amount)`, `Memo(caller, memo)`, and `Seized(caller, holder, treasury, amount)`. `totalSupply` is unchanged at this point. The burn then emits `Transfer(treasury, address(0), amount)` and `Memo`, and `totalSupply` falls. Using the same memo on both calls lets reconciliation tie the two steps to one case.
+
+`burnWithMemo` burns the caller's own balance, so the account that seized must also be the destination, or you transfer from the treasury to the burner first. Recipients of a later reissue must pass `TRANSFER_RECEIVER_POLICY` like any other transfer.
+
+To announce the cancellation to holders and indexers, wrap the `burnWithMemo` in `announce`; see [Announce a Corporate Action](/build-on-base/issue-rwa/announce-a-corporate-action).
+
+<Check>
+`Seized` appears on the first transaction and the holder balance falls by 100 EXM. After the burn, `totalSupply` also falls by 100 EXM.
+</Check>
+
+## Common Errors
+
+These errors follow the order `seizeWithMemo` checks them, then the burn.
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `ContractPaused(SEIZE)` | `SEIZE` is paused. | Call `unpause` with `PausableFeature.SEIZE`. |
+| `AccessControlUnauthorizedAccount(caller, SEIZE_ROLE)` | The caller does not hold `SEIZE_ROLE`. | Grant `SEIZE_ROLE`. |
+| `InvalidReceiver(to)` | `to` is `address(0)`, the token's own address, or equal to `from`. | Use a distinct, non-zero safekeeping address. |
+| `AccountNotSeizable(from)` | `from` is still authorized under `SEIZE_EXEMPT_POLICY`. The slot is unset, or the holder is not on the attached blocklist. | Attach a blocklist to `SEIZE_EXEMPT_POLICY` and add `from`. Removing a holder from a transfer allowlist is not enough. |
+| `PolicyForbids(SEIZE_RECEIVER_POLICY, policyId)` | `to` is not authorized under `SEIZE_RECEIVER_POLICY`. | Add `to` to the receiver allowlist, or set the scope back to `0`. |
+| `InsufficientBalance(from, balance, amount)` | `from` holds less than `amount`. | Seize `balanceOf(from)` or less. |
+| `AccessControlUnauthorizedAccount(caller, BURN_ROLE)` | The burner does not hold `BURN_ROLE`. | Grant `BURN_ROLE`. |
+| `ContractPaused(BURN)` | `BURN` is paused. | Call `unpause` with `PausableFeature.BURN`. |
+
+<Warning>
+`burnBlocked` is deprecated. It destroys units directly from a holder denied under `TRANSFER_SENDER_POLICY`, needs `BURN_BLOCKED_ROLE`, and emits no `Seized` event, so there is no onchain record that the units were taken rather than redeemed. Prefer seize, then burn.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Restrict Eligible Holders" icon="user-check" href="/build-on-base/issue-rwa/restrict-eligible-holders">
+    Gate who can hold with policies.
+  </Card>
+  <Card title="Announce a Corporate Action" icon="bullhorn" href="/build-on-base/issue-rwa/announce-a-corporate-action">
+    Disclose a treasury burn or other holder-impacting action.
+  </Card>
+</CardGroup>

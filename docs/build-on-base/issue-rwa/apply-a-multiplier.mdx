@@ -1,13 +1,13 @@
 ---
 title: "Apply a Multiplier"
-description: "Schedule a B20 Asset multiplier update so displayed share counts change at a future time without rewriting raw balances. A stock split is one example."
-keywords: ["asset token multiplier", "B20 multiplier", "scaled token balance", "stock split", "updateUIMultiplier"]
+description: "Schedule a B20 Asset multiplier update so displayed unit counts change at a future time without rewriting raw balances. A stock split is one example."
+keywords: ["asset token multiplier", "B20 multiplier", "scaled token balance", "stock split", "updateUIMultiplier", "ERC-8056"]
 ---
 
 import { AssetDemo } from "/snippets/AssetDemo.jsx"
 import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
 
-Schedule a 2-for-1 stock split by calling `updateUIMultiplier(2e18, effectiveAt)` on a B20 Asset. Raw `balanceOf`, `totalSupply`, and transfer amounts stay unchanged. Wallets and indexers read the post-split share count through `balanceOfUI` and related views once `effectiveAt` passes.
+A multiplier rescales what holders see without touching what they hold. At the agreed time, every displayed balance changes by the same factor while raw `balanceOf`, `totalSupply`, and transfer amounts stay the same, so DeFi that reads raw units keeps working. Exchanges, custodians, wallets, and accounting systems need that time in advance, so you schedule the update onchain ahead of it with `updateUIMultiplier` ([ERC-8056](https://eips.ethereum.org/EIPS/eip-8056)). This guide uses a 2-for-1 stock split as its worked example; a reverse split or a reinvested distribution follows the same path with a different value.
 
 <RwaDisclaimer />
 
@@ -24,12 +24,22 @@ The demo uses a local browser-generated account to submit real transactions on *
 </Tip>
 
 <Note>
-New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@be6d045`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
 
-## How the Multiplier Works
+## Before You Start
 
-Raw `balanceOf` is unchanged by a split. The multiplier changes only the derived UI view:
+You need all of the following:
+
+- A B20 Asset you administer, with `DEFAULT_ADMIN_ROLE` so you can grant `OPERATOR_ROLE`.
+- An account that will call the multiplier setters (the operator). `updateUIMultiplier`, `cancelUIMultiplierUpdate`, and the deprecated `updateMultiplier` all require `OPERATOR_ROLE`. The token created in [Create an Asset Token](/build-on-base/issue-rwa/create-an-asset-token) grants it to the deployer.
+- A future `effectiveAt` timestamp and a `newMultiplier` in `(0, MAX_UI_MULTIPLIER]`.
+
+This surface exists only on **B20 Asset**. Stablecoin has no multiplier. Pause does not gate the setters: `PausableFeature` freezes only `TRANSFER`, `MINT`, `BURN`, and `SEIZE`.
+
+### What a Multiplier Changes
+
+Raw `balanceOf` is unchanged by a multiplier. Only the derived UI views apply it:
 
 | Read | Formula |
 | --- | --- |
@@ -40,9 +50,24 @@ Raw `balanceOf` is unchanged by a split. The multiplier changes only the derived
 
 The multiplier is an 18-decimal WAD: `1e18` is `1.0`. A 2-for-1 split uses `2e18`. A 1-for-2 reverse split uses `5e17`. Integer division rounds down, so the rounding loss is confined to the scaled view and is at most one unit of the scaled amount. The raw-side difference on a round trip through `fromUIAmount` can be larger when the multiplier is below `1e18`. Prefer 18 decimals for stock tokens to keep that effect small.
 
-## Schedule and Verify the Split Multiplier
+### How a Schedule Lives
 
-Only an account holding `OPERATOR_ROLE` may call `updateUIMultiplier`, `cancelUIMultiplierUpdate`, or `updateMultiplier`. Any other caller reverts `AccessControlUnauthorizedAccount`. The token created in [Create an Asset Token](/build-on-base/issue-rwa/create-an-asset-token) grants `OPERATOR_ROLE` to the deployer.
+The asset allows **one** pending multiplier at a time.
+
+1. **Schedule.** `updateUIMultiplier(newMultiplier, effectiveAt)` stores the pending pair. `effectiveAt` must be strictly greater than `block.timestamp`.
+2. **Live pending.** While `effectiveAt() > block.timestamp`, `uiMultiplier()` still returns the current value, `newUIMultiplier()` returns the scheduled value, and `effectiveAt()` returns the flip time. A second schedule reverts `UIMultiplierUpdateExists`.
+3. **Maturation.** When `block.timestamp >= effectiveAt`, reads return the new multiplier. Maturation writes no storage and emits no event.
+4. **After maturity.** Until another update, `newUIMultiplier()` mirrors `uiMultiplier()` and `effectiveAt()` keeps the past timestamp. Detect a live pending update with `effectiveAt() > block.timestamp`, never with `effectiveAt() == 0`.
+
+## Schedule and Verify the Multiplier Update
+
+Grant `OPERATOR_ROLE` once per token if the operator does not already hold it:
+
+```solidity Grant OPERATOR_ROLE
+asset.grantRole(asset.OPERATOR_ROLE(), operator);
+```
+
+Then schedule the update. This example schedules a 2-for-1 split for tomorrow:
 
 <CodeGroup>
 {/* sample: stock-split-ts */}
@@ -78,7 +103,7 @@ base-cast call "$TOKEN_ADDRESS" "newUIMultiplier()(uint256)" --rpc-url "$RPC_URL
 ```
 </CodeGroup>
 
-On success, the asset emits `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)`. That event fires when the update is recorded, not when the multiplier becomes active.
+On success, the asset emits `UIMultiplierUpdated(oldMultiplier, newMultiplier, effectiveAtTimestamp)`. That event fires when the update is recorded, not when the multiplier becomes active. Read `MAX_UI_MULTIPLIER()` if you need the ceiling without triggering `InvalidMultiplier`.
 
 ### Read the Live Pending State
 
@@ -95,18 +120,20 @@ A second `updateUIMultiplier` while a pending update is live reverts `UIMultipli
 When `block.timestamp >= effectiveAt`, `uiMultiplier()` returns the new multiplier. Maturation emits no event. Do not wait for a second event at the flip.
 
 <Check>
-`uiMultiplier()` returns `2e18` at or after `effectiveAt`. Raw `balanceOf` stays unchanged. `balanceOfUI` doubles.
+`UIMultiplierUpdated` appears on the schedule transaction. While pending, `uiMultiplier()` equals the old value and `newUIMultiplier()` equals `2e18`. At or after `effectiveAt`, `uiMultiplier()` returns `2e18`, raw `balanceOf` is unchanged, and `balanceOfUI` doubles.
 </Check>
+
+To disclose the schedule to holders and indexers in the same transaction, wrap the call in `announce`; see [Announce a Corporate Action](/build-on-base/issue-rwa/announce-a-corporate-action).
 
 ## Cancel a Pending Update
 
-Call before `effectiveAt` to discard the pending split:
+Use this when a pending update should not take effect: wrong multiplier, wrong timestamp, or the action is delayed. Call before `effectiveAt`:
 
 ```solidity Cancel the pending update
 asset.cancelUIMultiplierUpdate();
 ```
 
-Emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`. Calling with no live pending update, including after maturity, reverts `UIMultiplierUpdateDoesNotExist`.
+Emits `UIMultiplierUpdateCancelled(cancelledMultiplier, cancelledEffectiveAt)`. `uiMultiplier()` stays at the old value. Calling with no live pending update, including after maturity, reverts `UIMultiplierUpdateDoesNotExist`.
 
 To cancel and reschedule atomically, wrap both calls in `announce`:
 
@@ -117,9 +144,13 @@ calls[1] = abi.encodeCall(IB20Asset.updateUIMultiplier, (secondMultiplier, secon
 asset.announce(calls, "2026-multiplier-02", "Rescheduled multiplier update", "https://example.com/announcements/2026-multiplier-02");
 ```
 
+<Note>
+Pausing `TRANSFER` around a multiplier update is possible but not recommended for routine updates. It stops every holder transfer for the window, which is heavier than most changes need, and requires `PAUSE_ROLE` and `UNPAUSE_ROLE` in addition to the operator. Prefer the schedule and let wallets and custodians coordinate off the pending state.
+</Note>
+
 ## Emergency Override
 
-Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and you cannot wait for `effectiveAt`. It applies the value immediately and clears any pending update. The interface guarantees that it emits both `MultiplierUpdated` and `UIMultiplierUpdated`. The base-std stock-split guide documents the sequence as:
+Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and you cannot wait for `effectiveAt`. It applies the value immediately and clears any pending update. Prefer cancel when waiting is acceptable, and cancel-then-reschedule when the fix is still a future timestamp.
 
 | Situation | Events (in order) |
 | --- | --- |
@@ -138,6 +169,8 @@ Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and yo
 
 ## Common Errors
 
+These errors follow the order `updateUIMultiplier` checks them. Cancel and announce errors follow.
+
 | Error | Cause | Fix |
 | --- | --- | --- |
 | `AccessControlUnauthorizedAccount(caller, OPERATOR_ROLE)` | Caller lacks `OPERATOR_ROLE`. | Grant `OPERATOR_ROLE` to the operator. |
@@ -152,8 +185,8 @@ Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and yo
 ## See Also
 
 <CardGroup cols={2}>
-  <Card title="Announce a Stock Dividend" icon="bullhorn" href="/build-on-base/issue-rwa/announce-a-distribution">
-    Record an onchain distribution announcement.
+  <Card title="Announce a Corporate Action" icon="bullhorn" href="/build-on-base/issue-rwa/announce-a-corporate-action">
+    Disclose the update to holders and indexers in the same transaction.
   </Card>
   <Card title="Pause Transfers" icon="circle-pause" href="/build-on-base/issue-rwa/pause-transfers">
     Halt transfers in an emergency.

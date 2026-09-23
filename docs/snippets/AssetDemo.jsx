@@ -25,7 +25,7 @@ export const AssetDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=3"),
+            fetchText("/static/vibenet-engine.txt?v=4"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
@@ -172,21 +172,25 @@ export const AssetDemo = ({ flow }) => {
       ],
     },
     cancel: {
-      label: "Cancel", title: "Cancel shares from a blocked holder", readout: true,
-      erc20: "B20 exposes a dedicated burn path for a holder denied by the sender policy.",
+      label: "Seize", title: "Seize and cancel units from an ineligible holder", readout: true,
+      erc20: "B20 exposes a dedicated seize path with a Seized event; plain ERC-20 has no admin recovery path.",
       steps: [
         { stage: "Fund", action: "Set position",
           text: "Bob holds 100 EXM and is currently eligible.",
-          summary: [["Operation", "Mint"], ["Holder", "Bob"], ["Share amount", M("100 EXM")]],
+          summary: [["Operation", "Mint"], ["Holder", "Bob"], ["Unit amount", M("100 EXM")]],
           run: (s) => { s.balances.Bob = 100; return { entries: [ok("Transfer", "0x0 → Bob · 100 EXM")] }; } },
         { stage: "Block", action: "Block Bob",
-          text: "Remove Bob from the holder allowlist before cancellation.",
-          summary: [["Operation", "Block holder"], ["Holder", "Bob"], ["Policy", "Allowlist"], ["Status", "Denied"]],
-          run: (s) => { s.blocked = "Bob"; return { entries: [ok("updateAllowlist", "remove Bob"), err("PolicyForbids", "TRANSFER_SENDER · Bob")], caption: "Bob is denied by the token's sender policy." }; } },
+          text: "Remove Bob from the holder allowlist and mark him seizable.",
+          summary: [["Operation", "Block holder"], ["Holder", "Bob"], ["Policies", "Allowlist, Blocklist"], ["Status", "Denied"]],
+          run: (s) => { s.blocked = "Bob"; return { entries: [ok("updateAllowlist", "remove Bob"), ok("PolicyCreated", "BLOCKLIST · Bob"), ok("PolicyUpdated", "SEIZE_EXEMPT → blocklist"), err("PolicyForbids", "TRANSFER_SENDER · Bob")], caption: "Bob is denied by the sender policy and no longer seize-exempt." }; } },
+        { stage: "Seize", action: "Seize 100",
+          text: "Move the units to the issuer's safekeeping account.",
+          summary: [["Operation", "Seize"], ["From", "Bob"], ["To", "Issuer"], ["Unit amount", M("100 EXM")], ["Memo", M("cancel-2026-07")]],
+          run: (s) => { s.balances.Bob = 0; s.balances.Issuer = (s.balances.Issuer || 0) + 100; return { entries: [ok("Transfer", "Bob → Issuer · 100 EXM"), ok("Memo", "cancel-2026-07"), ok("Seized", "Bob → Issuer · 100 EXM")], caption: "Total supply is unchanged; the units now sit with the issuer." }; } },
         { stage: "Cancel", action: "Cancel 100",
-          text: "Cancel the blocked shares; they do not move to the issuer.",
-          summary: [["Operation", "Burn blocked"], ["Holder", "Bob"], ["Share amount", M("100 EXM")]],
-          run: (s) => { s.balances.Bob = 0; return { entries: [ok("burnBlocked", "Bob · 100 EXM"), ok("Transfer", "Bob → 0x0 · 100 EXM")], caption: "The shares are burned, reducing total supply." }; } },
+          text: "Burn the seized units from the issuer's balance.",
+          summary: [["Operation", "Burn with memo"], ["From", "Issuer"], ["Unit amount", M("100 EXM")], ["Memo", M("cancel-2026-07")]],
+          run: (s) => { s.balances.Issuer = Math.max(0, (s.balances.Issuer || 0) - 100); return { entries: [ok("Transfer", "Issuer → 0x0 · 100 EXM"), ok("Memo", "cancel-2026-07")], caption: "The units are cancelled and total supply falls by 100." }; } },
       ],
     },
     dividend: {
@@ -447,6 +451,9 @@ export const AssetDemo = ({ flow }) => {
       },
       async (engine, ctx, state) => {
         const tx = await engine.updateAllowlist({ id: ctx.policyId, allowed: false, accounts: [ctx.addresses.Bob] });
+        const blocklist = await engine.createPolicy({ kind: "blocklist", accounts: [ctx.addresses.Bob] });
+        ctx.blocklistId = blocklist.id;
+        const attached = await engine.attachPolicy({ token: ctx.token, scope: "SEIZE_EXEMPT_POLICY", id: blocklist.id });
         const rejected = await engine.expectRevert({
           from: ctx.addresses.Bob,
           token: ctx.token,
@@ -458,20 +465,35 @@ export const AssetDemo = ({ flow }) => {
         return {
           entries: [
             txOk(engine, "AllowlistUpdated", "remove Bob", tx),
+            txOk(engine, "PolicyCreated", `#${blocklist.id} · BLOCKLIST`, blocklist),
+            txOk(engine, "PolicyUpdated", "SEIZE_EXEMPT → blocklist", attached),
             err(rejected.name, "TRANSFER_SENDER · Bob · Vibenet eth_call"),
           ],
-          caption: "Bob is now denied by the sender policy.",
+          caption: "Bob is denied by the live sender policy and is no longer seize-exempt.",
         };
       },
       async (engine, ctx, state) => {
-        const tx = await engine.burnBlocked({ token: ctx.token, from: ctx.addresses.Bob, amount: engine.units(100) });
+        const tx = await engine.seize({ token: ctx.token, from: ctx.addresses.Bob, to: ctx.addresses.Issuer, amount: engine.units(100), memo: "cancel-2026-07" });
         await setBalance(engine, ctx, state, "Bob");
+        await setBalance(engine, ctx, state, "Issuer");
         return {
           entries: [
-            txOk(engine, "burnBlocked", "Bob · 100 EXM", tx),
-            txOk(engine, "Transfer", "Bob → 0x0 · 100 EXM", tx),
+            txOk(engine, "Transfer", "Bob → Issuer · 100 EXM", tx),
+            txOk(engine, "Memo", "cancel-2026-07", tx),
+            txOk(engine, "Seized", "Bob → Issuer · 100 EXM", tx),
           ],
-          caption: "Bob's balance and the Asset token's total supply both fell by 100.",
+          caption: "The units moved to the issuer on Vibenet. Total supply is unchanged.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.burn({ token: ctx.token, amount: engine.units(100), memo: "cancel-2026-07" });
+        await setBalance(engine, ctx, state, "Issuer");
+        return {
+          entries: [
+            txOk(engine, "Transfer", "Issuer → 0x0 · 100 EXM", tx),
+            txOk(engine, "Memo", "cancel-2026-07", tx),
+          ],
+          caption: "The seized units are cancelled and the Asset token's total supply fell by 100.",
         };
       },
     ],
