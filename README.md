@@ -70,7 +70,17 @@ npx mint dev
 
 > Warning: Do not create new top-level sections. Place all new content within existing folders under `docs/`.
 
-The Base documentation is organized into established sections (for example: `get-started/`, `learn/`, `base-account/`, `base-app/`, `base-chain/`, `cookbook/`, `mini-apps/`, `onchainkit/`). Fit new content into the most relevant existing section.
+The site is organized by navigation tab. Fit new pages into the matching folder:
+
+- `docs/get-started/` — Get Started (quickstarts, solution overviews, funding)
+- `docs/build-on-base/` — Build on Base (use-case implementation guides)
+- `docs/base-chain/` and `docs/specifications/` — Specifications (protocol, network, node ops, reference)
+- `docs/sdks/` — SDKs & APIs (Base Account SDK, Base Chain API)
+- Upgrades — hardfork overviews, changelog entries, and migration guides (see `docs.json` for current paths)
+
+Do not add pages under removed trees such as `learn/`, `cookbook/`, `mini-apps/`, `onchainkit/`, `apps/`, or a top-level `base-account/` / `base-app/` folder. Those URLs redirect; new content belongs in the folders above. `docs/agents/` is leftover content, not a new top-level section — do not add pages there.
+
+For placement rules and governance, see [`docs/contribution-guidelines.md`](docs/contribution-guidelines.md) and [`docs/ia-guidelines.md`](docs/ia-guidelines.md).
 
 ### Navigation policy
 
@@ -78,21 +88,15 @@ The Base documentation is organized into established sections (for example: `get
 
 ### Section purpose and placement
 
-- **Quickstart**: End-to-end setup to first success. Keep concise and current.
-- **Concepts**: Explanations of components, architecture, and design philosophy.
-- **Guides**: Step-by-step, action-oriented tutorials for specific tasks.
-- **Examples**: Complete, runnable examples demonstrating real-world usage.
-- **Technical Reference**: API/method/component specs with parameters and return types.
-- **Contribute**: Information for contributors and process updates.
-
-#### Cookbook scope
-
-- The `cookbook/` section hosts use case-focused guides and patterns, not product-specific documentation.
-- Prefer cross-cutting solutions that illustrate how to build on Base across tools and scenarios.
+- **Get Started**: First-time entry ramps. Keep concise; link to deeper guides instead of duplicating them.
+- **Build on Base**: Step-by-step guides for a specific product or use case (for example Integrate DeFi, Issue Stablecoins, Accept Payments).
+- **Specifications**: How Base works — primitives, network configuration, and reference. Normative, not tutorial.
+- **SDKs & APIs**: SDK and API reference plus SDK quickstarts.
+- **Upgrades**: Hardfork changes and migration guides.
 
 > Warning: Avoid subsection proliferation:
-> - Put all guides at the same level within the Guides section.
-> - Organize Reference by component/feature, not per use case.
+> - Put task guides as siblings under the relevant Build on Base use case, not nested by tool.
+> - Organize Specifications by component or feature, not per use case.
 > - Use cross-links instead of adding new structural layers.
 
 ## Style and formatting
