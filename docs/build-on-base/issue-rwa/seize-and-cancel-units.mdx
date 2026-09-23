@@ -34,7 +34,7 @@ You need all of the following:
 - A B20 Asset you administer, with `DEFAULT_ADMIN_ROLE` so you can grant roles and attach policies.
 - An account that will call `seizeWithMemo` and `burnWithMemo`. Grant it `SEIZE_ROLE` and `BURN_ROLE`. The [Create an Asset Token](/build-on-base/issue-rwa/create-an-asset-token) walkthrough grants roles in the factory call; add these two if you did not.
 - A blocklist policy in the Policy Registry with the holder on it. If you gate eligibility with an allowlist, as in [Restrict Eligible Holders](/build-on-base/issue-rwa/restrict-eligible-holders), removing the holder from that allowlist freezes their transfers but does **not** make them seizable. Seize reads its own scope.
-- `SEIZE` and `BURN` not paused.
+- `SEIZE` and `BURN` not paused. Pausing `TRANSFER` or `MINT` leaves seize live.
 
 How the seize scope works:
 
@@ -112,14 +112,19 @@ These errors follow the order `seizeWithMemo` checks them, then the burn.
 | `ContractPaused(SEIZE)` | `SEIZE` is paused. | Call `unpause` with `PausableFeature.SEIZE`. |
 | `AccessControlUnauthorizedAccount(caller, SEIZE_ROLE)` | The caller does not hold `SEIZE_ROLE`. | Grant `SEIZE_ROLE`. |
 | `InvalidReceiver(to)` | `to` is `address(0)`, the token's own address, or equal to `from`. | Use a distinct, non-zero safekeeping address. |
+| `InvalidSender(from)` | `from` is `address(0)`. | Pass the holder's address. |
 | `AccountNotSeizable(from)` | `from` is still authorized under `SEIZE_EXEMPT_POLICY`. The slot is unset, or the holder is not on the attached blocklist. | Attach a blocklist to `SEIZE_EXEMPT_POLICY` and add `from`. Removing a holder from a transfer allowlist is not enough. |
 | `PolicyForbids(SEIZE_RECEIVER_POLICY, policyId)` | `to` is not authorized under `SEIZE_RECEIVER_POLICY`. | Add `to` to the receiver allowlist, or set the scope back to `0`. |
 | `InsufficientBalance(from, balance, amount)` | `from` holds less than `amount`. | Seize `balanceOf(from)` or less. |
 | `AccessControlUnauthorizedAccount(caller, BURN_ROLE)` | The burner does not hold `BURN_ROLE`. | Grant `BURN_ROLE`. |
 | `ContractPaused(BURN)` | `BURN` is paused. | Call `unpause` with `PausableFeature.BURN`. |
+| `PolicyNotFound(policyId)` | `updatePolicy` received an ID that is not a sentinel and does not exist in the registry. | Create the policy first, then attach the returned ID. |
+| `Unauthorized()` | A non-admin called `updateBlocklist` or `updateAllowlist`. | Call as the policy's `policyAdmin`. |
+
+A balance already sitting at the token's own address can still be recovered: `seizeWithMemo(address(token), treasury, amount, memo)` is allowed. Seizing *to* the token's address is not.
 
 <Warning>
-`burnBlocked` is deprecated. It destroys units directly from a holder denied under `TRANSFER_SENDER_POLICY`, needs `BURN_BLOCKED_ROLE`, and emits no `Seized` event, so there is no onchain record that the units were taken rather than redeemed. Prefer seize, then burn.
+`burnBlocked` is deprecated. It destroys units directly from a holder denied under `TRANSFER_SENDER_POLICY` and emits no `Seized` event, so there is no onchain record that the units were taken rather than redeemed. Prefer seize, then burn.
 </Warning>
 
 ## See Also

@@ -32,7 +32,7 @@ You need all of the following:
 - An account that will call `seizeWithMemo` (the seizer). Grant it `SEIZE_ROLE`.
 - The blocklist policy ID you created in [Block an Account](/build-on-base/issue-stablecoins/block-an-account), with the holder already on it.
 - A non-zero safekeeping destination that is not the holder and not the token's own address, typically your treasury.
-- `SEIZE` not paused. `pause([SEIZE])` blocks every seize until `unpause([SEIZE])`.
+- `SEIZE` not paused. `pause([SEIZE])` blocks every seize until `unpause([SEIZE])`. Pausing `TRANSFER`, `MINT`, or `BURN` leaves seize live.
 
 Three controls decide whether a seize can run, checked in this order:
 
@@ -110,10 +110,14 @@ These errors follow the order `seizeWithMemo` checks them.
 | `ContractPaused(SEIZE)` | `SEIZE` is paused. | Call `unpause` with `PausableFeature.SEIZE`. |
 | `AccessControlUnauthorizedAccount(caller, SEIZE_ROLE)` | The caller does not hold `SEIZE_ROLE`. | Grant `SEIZE_ROLE` to the seizer. |
 | `InvalidReceiver(to)` | `to` is `address(0)`, the token's own address, or equal to `from`. | Use a distinct, non-zero safekeeping address. |
+| `InvalidSender(from)` | `from` is `address(0)`. | Pass the holder's address. |
 | `AccountNotSeizable(from)` | `from` is still authorized under `SEIZE_EXEMPT_POLICY`. The slot is unset, or the holder is not on the attached blocklist. | Attach a blocklist to `SEIZE_EXEMPT_POLICY` and add `from` to it. |
 | `PolicyForbids(SEIZE_RECEIVER_POLICY, policyId)` | `to` is not authorized under `SEIZE_RECEIVER_POLICY`. | Add `to` to the receiver allowlist, or set the scope back to `0`. |
 | `InsufficientBalance(from, balance, amount)` | `from` holds less than `amount`. | Seize `balanceOf(from)` or less. |
 | `PolicyNotFound(policyId)` | `updatePolicy` received an ID that does not exist in the registry. | Create the policy first, then attach the returned ID. |
+| `Unauthorized()` | A non-admin called `updateBlocklist` or `updateAllowlist`. | Call as the policy's `policyAdmin`. |
+
+A balance already sitting at the token's own address can still be recovered: `seizeWithMemo(address(token), treasury, amount, memo)` is allowed. Seizing *to* the token's address is not.
 
 <Warning>
 Prefer this path over the deprecated `burnBlocked` workaround, which burns the blocked balance and mints a replacement. That path dips and restores `totalSupply`, emits no `Seized` event, and gives reconciliation two unrelated transactions instead of one traceable movement.

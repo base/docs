@@ -43,8 +43,8 @@ Raw `balanceOf` is unchanged by a multiplier. Only the derived UI views apply it
 
 | Read | Formula |
 | --- | --- |
-| `uiMultiplier()` | Effective multiplier at `block.timestamp` |
-| `balanceOfUI(account)` | `balanceOf(account) * uiMultiplier() / 1e18` |
+| `uiMultiplier()` / `multiplier()` | Effective multiplier at `block.timestamp` |
+| `balanceOfUI(account)` / `scaledBalanceOf(account)` | `balanceOf(account) * uiMultiplier() / 1e18` |
 | `totalSupplyUI()` | `totalSupply() * uiMultiplier() / 1e18` |
 | `toUIAmount(raw)` / `fromUIAmount(ui)` | Convert at the effective multiplier |
 
@@ -154,8 +154,8 @@ Use `updateMultiplier(newMultiplier)` only when a pending update is wrong and yo
 
 | Situation | Events (in order) |
 | --- | --- |
-| Live pending (`effectiveAt > block.timestamp`) | `UIMultiplierUpdateCancelled`, then `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, effectiveAtTimestamp)` |
-| Matured or no pending | `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, effectiveAtTimestamp)` |
+| Live pending (`effectiveAt > block.timestamp`) | `UIMultiplierUpdateCancelled`, then `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, block.timestamp)` |
+| Matured or no pending | `MultiplierUpdated(new)`, then `UIMultiplierUpdated(old, new, block.timestamp)` |
 
 `MultiplierUpdated` is deprecated. Process only `UIMultiplierUpdated` to avoid handling the same update twice.
 

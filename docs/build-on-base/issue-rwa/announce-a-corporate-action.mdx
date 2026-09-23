@@ -7,7 +7,7 @@ keywords: ["announce corporate action", "B20 announcement", "asset distribution"
 import { AssetDemo } from "/snippets/AssetDemo.jsx"
 import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
 
-Issuers of a B20 Asset need a paved way to disclose a change that affects holders, and indexers need a reliable way to tell which changes were announced. `announce` combines the state change and the disclosure in one transaction: it emits `Announcement` before the inner calls and `EndAnnouncement` after them. This guide uses a stock dividend as its worked example; the same bracket applies to any operator-driven change on any asset type, including multiplier updates, treasury burns, and notices with no onchain effect.
+Issuers of a B20 Asset need a paved way to disclose a change that affects holders, and indexers need a reliable way to tell which changes were announced. `announce` combines the state change and the disclosure in one transaction: it emits `Announcement` before the inner calls and `EndAnnouncement` after them. This guide uses a stock dividend as its worked example; the same bracket applies to any operator-driven change on a B20 Asset, including multiplier updates, treasury burns, and notices with no onchain effect.
 
 <RwaDisclaimer />
 
@@ -150,7 +150,7 @@ calls[0] = abi.encodeCall(IB20Asset.burnWithMemo, (amount, memo));
 IB20Asset(token).announce(calls, id, "Treasury burn", uri);
 ```
 
-On success the asset emits `Announcement`, `Transfer(operator, address(0), amount)`, `Memo`, then `EndAnnouncement`. `totalSupply` decreases. To take units from a holder and then destroy them, [seize](/build-on-base/issue-rwa/seize-and-cancel-units) first, then announce the burn from the treasury.
+On success the asset emits `Announcement`, `Transfer(operator, address(0), amount)`, `Memo`, then `EndAnnouncement`. `totalSupply` decreases. Do not use the deprecated `burnBlocked`. To take units from a holder and then destroy them, [seize](/build-on-base/issue-rwa/seize-and-cancel-units) first, then announce the burn from the treasury.
 
 ### Notice With No Onchain Effect
 
