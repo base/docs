@@ -659,7 +659,7 @@ export const StablecoinDemo = ({ flow }) => {
     const s = { balances: { ...sim.balances }, blocked: sim.blocked };
     const out = f.steps[stepIndex].run(s) || { entries: [] };
     setSim(s);
-    setResults((r) => [...r, out]);
+    setResults((r) => [...r, { ...out, at: Date.now() }]);
   };
   const runStep = async () => {
     if (done || busy || liveState === "probing") return;
@@ -683,7 +683,7 @@ export const StablecoinDemo = ({ flow }) => {
         }
       }
       setSim(state);
-      setResults((current) => [...current, out || { entries: [] }]);
+      setResults((current) => [...current, { entries: [], ...out, at: Date.now() }]);
     } catch (error) {
       // If the devnet or its gated features disappeared before the first write,
       // degrade to the unchanged scripted flow instead of surfacing a broken demo.
@@ -726,17 +726,16 @@ export const StablecoinDemo = ({ flow }) => {
     setResults((r) => r.slice(0, -1));
   };
 
-  // ---- event log (flatten results + pending, deterministic timestamps) ----
+  // ---- event log (flatten results + pending, wall-clock timestamps) ----
   const pad = (n) => String(n).padStart(2, "0");
-  const ts = (n) => { const t = (42 * 60 + 11) + n; return `10:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)}`; };
+  const ts = (at) => { if (!at) return "--:--:--"; const d = new Date(at); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
   const logRows = [];
-  let sec = 0;
   results.forEach((res) => {
     (res.entries || []).forEach((e) => {
-      logRows.push({ t: ts(sec++), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
+      logRows.push({ t: ts(res.at), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
     });
   });
-  f.steps.slice(stepIndex).forEach((_, offset) => { logRows.push({ t: ts(sec++), level: "PENDING", name: displayStep(stepIndex + offset).action, detail: "", kind: "pending" }); });
+  f.steps.slice(stepIndex).forEach((_, offset) => { logRows.push({ t: ts(null), level: "PENDING", name: displayStep(stepIndex + offset).action, detail: "", kind: "pending" }); });
 
   const holders = Object.keys(sim.balances);
 
@@ -982,7 +981,7 @@ export const StablecoinDemo = ({ flow }) => {
                 {f.title} — {liveState === "live" ? "the write steps ran on Base Vibenet." : "the scripted offline fallback completed."}
               </div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href="/base-chain/network-information/b20-token-standard" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href="/specifications/b20/specification-overview" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
