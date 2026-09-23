@@ -1,12 +1,16 @@
 ---
 title: "Refund a Payment"
-keywords: ["refund USDC payment", "B20 refund memo", "partial crypto refund", "refund payer address"]
-description: "Return tokens to the verified payer and keep partial or repeated refunds within the captured balance."
+keywords: ["Commerce Payments refund", "OperatorRefundCollector", "partial USDC refund", "PaymentRefunded"]
+description: "Return captured value to the original payer within the refund window."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Refund the address that actually paid, derived from the verified `Transfer` log. Track `captured - refunded` in your ledger because ERC-20 tokens do not maintain an order-level refundable balance.
+Refund all or part of a protocol charge or capture before `refundExpiry`. The refundable limit is maintained onchain, and refunds are always sent to `paymentInfo.payer`.
+
+<Info>
+This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
+</Info>
 
 ## Demo
 
@@ -16,72 +20,62 @@ Refund the address that actually paid, derived from the verified `Transfer` log.
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
 
-## Return a B20 Payment with Its Order Reference
+## Fund and Submit the Refund
+
+Captured funds have already left escrow. The deployed `OperatorRefundCollector` sources replacement liquidity from `paymentInfo.operator`, so approve it for the refund amount before calling `refund`.
 
 {/* sample: refund-payment-ts */}
-```typescript TypeScript backend lines wrap expandable highlight={8,16,24}
-export async function refundPayment(args: {
-  token: Address;
-  captureHash: Hash;
-  orderId: string;
-  refundId: string;
-  amount: bigint;
-  ledger: RefundLedger;
-}) {
-  if ((await args.ledger.captureHash(args.orderId)) !== args.captureHash) {
-    throw new Error("Capture hash does not belong to this order");
-  }
-  const capture = await publicClient.waitForTransactionReceipt({ hash: args.captureHash, confirmations: 2 });
-  if (capture.status !== "success") throw new Error("Original payment reverted");
-  const transfers = parseEventLogs({
-    abi: refundableTokenAbi,
-    eventName: "Transfer",
-    logs: capture.logs,
-    strict: true,
+```typescript TypeScript lines wrap expandable highlight={8-11,16-17,26-27}
+export async function refundPayment(
+  payment: StoredProtocolPayment,
+  refundAmount: bigint,
+) {
+  const [, , refundableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
   });
-  const payment = transfers.find(
-    (log) =>
-      log.address.toLowerCase() === args.token.toLowerCase() &&
-      log.args.to.toLowerCase() === account.address.toLowerCase(),
-  );
-  if (!payment) throw new Error("Original payment to this merchant was not found");
-  if (!(await args.ledger.reserveOnce(args.orderId, args.refundId, args.amount))) {
-    throw new Error("Refund is duplicated or exceeds the refundable balance");
-  }
-
-  const simulation = await publicClient.simulateContract({
+  if (refundAmount > refundableAmount) throw new Error("Refund exceeds captured amount");
+  const approval = await publicClient.simulateContract({
     account,
-    address: args.token,
-    abi: refundableTokenAbi,
-    functionName: "transferWithMemo",
-    args: [payment.args.from, args.amount, stringToHex(args.orderId, { size: 32 })],
+    address: payment.paymentInfo.token,
+    abi: refundApprovalAbi,
+    functionName: "approve",
+    args: [OPERATOR_REFUND_COLLECTOR, refundAmount],
   });
-  const hash = await walletClient.writeContract(simulation.request);
-  await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-  await args.ledger.complete(args.refundId, hash);
-  return hash;
+  const approvalHash = await walletClient.writeContract(approval.request);
+  await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 2 });
+
+  const refund = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "refund",
+    args: [payment.paymentInfo, refundAmount, OPERATOR_REFUND_COLLECTOR, "0x"],
+  });
+  const hash = await walletClient.writeContract(refund.request);
+  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
 }
 ```
 
-For plain USDC, call `transfer` instead and record the original order ID, capture hash, refund hash, and amount offchain. B20 can carry the original order ID in the refund transaction with `transferWithMemo`.
-
-`reserveOnce` must atomically create a pending refund and reduce the available refundable balance before broadcasting. If the worker loses the receipt, reconcile that pending record from chain data instead of releasing it and risking a duplicate transfer.
+Every charge or capture increases `refundableAmount` by its gross amount. Fees do not reduce that limit. Every refund decreases it by the amount returned.
 
 <Check>
-The refund transfer goes to the payer from the original receipt, and the durable refund ledger reduces the remaining refundable amount.
+Verify `PaymentRefunded(paymentInfoHash, amount, tokenCollector)`, the transfer to the stored payer, and the updated `refundableAmount` before completing the return.
 </Check>
 
 <Warning>
-Never refund a client-supplied address without comparing it to the canonical payment event. Also enforce a database transaction or uniqueness rule so concurrent refund requests cannot exceed the captured amount.
+Refund accounting is not refund liquidity. The operator or another independently authorized source must provide the tokens. Never reuse residual payer authorization to fund a refund.
 </Warning>
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-    Extract the canonical payer and captured amount.
+    Confirm the original protocol settlement and payment hash.
   </Card>
   <Card title="Reconcile Payments" icon="table" href="/build-on-base/accept-payments/reconcile-payments">
-    Match refunds back to captures and orders.
+    Match refunds to charges and captures.
   </Card>
 </CardGroup>

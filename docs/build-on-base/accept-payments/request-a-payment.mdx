@@ -1,14 +1,16 @@
 ---
 title: "Request a Payment"
-keywords: ["request USDC payment", "wallet USDC checkout", "B20 payment memo", "onchain checkout Base"]
-description: "Request an immediately settled USDC or memo-enabled B20 payment from a wallet on Base."
+keywords: ["Commerce Payments charge", "request USDC payment", "onchain checkout Base", "PaymentCharged"]
+description: "Request and settle an immediate escrow-backed charge on Base."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Request and settle a payment in one wallet interaction. A direct USDC transfer works with any EIP-1193 wallet, while B20 adds issuer-defined policy controls and an onchain order memo.
+Request an immediate payment with the `charge` operation. The payer approves the payment terms and token collection, then your operator collects, settles, and records the amount as refundable in one transaction.
 
-This is the auto-settle path: the wallet approval and token transfer happen in one flow. If you need to approve now and settle later, [authorize a payment](/build-on-base/accept-payments/authorize-a-payment) instead.
+<Info>
+This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
+</Info>
 
 ## Demo
 
@@ -18,110 +20,65 @@ This is the auto-settle path: the wallet approval and token transfer happen in o
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
 
-| Rail | Best for | Integration |
-|---|---|---|
-| Direct USDC | Wallet-agnostic ERC-20 checkout | viem |
-| B20 with memo | Issuer tokens and onchain reconciliation | viem or Solidity |
+<Note>
+These examples use the v1.1.0 `AuthCaptureEscrow` at `0xf96815976523E00e65Be8f34cA5e64b4f41EB19c`. The same CREATE2 address is deployed on Base and Base Sepolia.
+</Note>
 
-<Tabs>
-  <Tab title="Direct USDC">
-    ## Accept a Wallet-Native USDC Transfer
+## Charge and Verify the Payment
 
-    Base Sepolia USDC is `0x036CbD53842c5426634e7929541eC2318f3dCF7c`; Base mainnet USDC is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+The complete fixture creates a unique `PaymentInfo`, derives its payer-agnostic hash, and asks the payer to sign an ERC-3009 `ReceiveWithAuthorization` for the deployed collector. The operator then submits `charge`.
 
-    <Warning>
-    Testnet deployments can be reset. Confirm `eth_getCode` returns contract bytecode at the configured USDC address and that your faucet issued the same asset before asking a user to sign.
-    </Warning>
+| Collector | Best for |
+|---|---|
+| ERC-3009 | USDC and other tokens with native transfer authorizations |
+| Permit2 | Broader ERC-20 support after the payer approves Permit2 |
+| Pre-approval | Standard ERC-20 allowance plus a payment-specific pre-approval |
+| Spend permission | Wallet-based repeated billing workflows |
 
-    {/* sample: usdc-accept-ts */}
-    ```typescript TypeScript lines wrap expandable highlight={3,10}
-export async function sendUsdc(merchant: Address) {
-  const { account, publicClient, walletClient } = await browserClients();
+B20 and other ERC-20 tokens can use Permit2 or the pre-approval collector when their transfer policies allow the collector, operator token store, receiver, and fee receiver to participate.
+
+{/* sample: usdc-accept-ts */}
+```typescript TypeScript lines wrap expandable highlight={2,7,11-12}
+export async function requestPayment(receiver: Address, orderId: string) {
+  const payment = await prepareErc3009Payment(receiver, orderId, "5.00");
   const simulation = await publicClient.simulateContract({
     account,
-    address: USDC,
-    abi: erc20Abi,
-    functionName: "transfer",
-    args: [merchant, parseUnits("5", 6)],
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "charge",
+    args: [
+      payment.paymentInfo,
+      payment.paymentInfo.maxAmount,
+      ERC3009_PAYMENT_COLLECTOR,
+      payment.collectorData,
+      0n,
+      zeroAddress,
+    ],
   });
-  const hash = await walletClient.writeContract(simulation.request);
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (receipt.status !== "success") throw new Error("USDC transfer reverted");
-  return hash;
+  const hash = await operatorWallet.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment charge reverted");
+  return { hash, paymentInfoHash: payment.paymentInfoHash };
 }
-    ```
+```
 
-    <Check>
-    The receipt succeeds and the standard USDC `Transfer` event records the merchant and amount.
-    </Check>
-  </Tab>
-  <Tab title="B20 with Memo">
-    ## Accept B20 with a Memo
+The protocol sends `amount - feeAmount` to `paymentInfo.receiver`, sends the fee separately, and increases `refundableAmount` by the full charged amount.
 
-    A direct wallet can call `transferWithMemo`. A checkout contract can instead pull an approved amount with `transferFromWithMemo` and reject duplicate order IDs.
+<Check>
+Confirm `PaymentCharged`, match its `paymentInfoHash` to the order, and atomically claim the event before fulfillment.
+</Check>
 
-    <PaymentsDemo flow="b20" />
-
-    <Tip>
-    The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
-    </Tip>
-
-    <CodeGroup>
-      {/* sample: b20-accept-ts */}
-      ```typescript TypeScript lines wrap expandable highlight={4,8,11}
-export async function sendB20WithMemo(token: Address, merchant: Address) {
-  const { account, publicClient, walletClient } = await browserClients();
-  const memo = stringToHex("order-8842", { size: 32 });
-  const simulation = await publicClient.simulateContract({
-    account,
-    address: token,
-    abi: b20PaymentAbi,
-    functionName: "transferWithMemo",
-    args: [merchant, parseUnits("25", 6), memo],
-  });
-  const hash = await walletClient.writeContract(simulation.request);
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  const events = parseEventLogs({ abi: b20PaymentAbi, logs: receipt.logs, strict: true });
-  if (events[0]?.eventName !== "Transfer" || events[1]?.eventName !== "Memo") {
-    throw new Error("Expected adjacent Transfer and Memo events");
-  }
-  return hash;
-}
-      ```
-      {/* sample: b20-accept-solidity */}
-      ```solidity Solidity lines wrap expandable highlight={4}
-function pay(bytes32 orderId, uint256 amount) external {
-    if (paid[orderId]) revert OrderAlreadyPaid(orderId);
-    paid[orderId] = true;
-    bool transferred = token.transferFromWithMemo(msg.sender, merchant, amount, orderId);
-    require(transferred, "B20 transfer failed");
-}
-      ```
-    </CodeGroup>
-
-    <Warning>
-    If the Solidity checkout calls `transferFromWithMemo`, the payer must approve it and any `TRANSFER_EXECUTOR_POLICY` must authorize the checkout contract. The merchant must still verify the expected amount before fulfillment.
-    </Warning>
-  </Tab>
-</Tabs>
-
-See the [B20 token standard](/build-on-base/issue-rwa/create-an-asset-token) for the complete B20 interface and memo details.
-
-## Verify Before Fulfillment
-
-A successful wallet prompt is not a fulfillment signal. Verify the recipient, token, sender, amount, memo when present, and replay state on your backend.
-
-<Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-Validate settlement and claim each transaction hash exactly once.
-</Card>
+<Warning>
+A payer signature is not settlement. Only a successful `charge` receipt proves that collection and distribution completed. Keep `maxFeeBps` narrow and fix `feeReceiver` unless your operator needs to replace a denylisted recipient.
+</Warning>
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
-    Separate wallet approval from merchant-controlled capture.
+    Reserve funds in escrow and capture after fulfillment.
   </Card>
   <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
-    Confirm settlement server-side before you ship.
+    Confirm protocol events before you fulfill.
   </Card>
 </CardGroup>
