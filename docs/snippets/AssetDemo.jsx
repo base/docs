@@ -182,7 +182,7 @@ export const AssetDemo = ({ flow }) => {
         { stage: "Block", action: "Block Bob",
           text: "Remove Bob from the holder allowlist and mark him seizable.",
           summary: [["Operation", "Block holder"], ["Holder", "Bob"], ["Policies", "Allowlist, Blocklist"], ["Status", "Denied"]],
-          run: (s) => { s.blocked = "Bob"; return { entries: [ok("updateAllowlist", "remove Bob"), ok("PolicyCreated", "BLOCKLIST · Bob"), ok("PolicyUpdated", "SEIZE_EXEMPT → blocklist"), err("PolicyForbids", "TRANSFER_SENDER · Bob")], caption: "Bob is denied by the sender policy and no longer seize-exempt." }; } },
+          run: (s) => { s.blocked = "Bob"; return { entries: [ok("updateAllowlist", "remove Bob"), ok("PolicyCreated", "BLOCKLIST · Bob"), ok("PolicyUpdated", "SEIZE_EXEMPT → blocklist"), err("PolicyForbids", "Transfer check passed: Bob was blocked by the sender policy.")], caption: "Bob is denied by the sender policy and no longer seize-exempt." }; } },
         { stage: "Seize", action: "Seize 100",
           text: "Move the units to the issuer's safekeeping account.",
           summary: [["Operation", "Seize"], ["From", "Bob"], ["To", "Issuer"], ["Unit amount", M("100 EXM")], ["Memo", M("cancel-2026-07")]],
@@ -467,7 +467,7 @@ export const AssetDemo = ({ flow }) => {
             txOk(engine, "AllowlistUpdated", "remove Bob", tx),
             txOk(engine, "PolicyCreated", `#${blocklist.id} · BLOCKLIST`, blocklist),
             txOk(engine, "PolicyUpdated", "SEIZE_EXEMPT → blocklist", attached),
-            err(rejected.name, "TRANSFER_SENDER · Bob · Vibenet eth_call"),
+            err(rejected.name, "Transfer check passed: Bob was blocked by the sender policy."),
           ],
           caption: "Bob is denied by the live sender policy and is no longer seize-exempt.",
         };
