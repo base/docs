@@ -1,12 +1,12 @@
 ---
 title: "Capture an Authorization"
-keywords: ["Commerce Payments capture", "capture escrowed USDC", "PaymentCaptured", "deferred settlement Base"]
-description: "Capture authorized funds from escrow before the authorization expires."
+keywords: ["Commerce Payments capture", "capture escrowed USDC", "PaymentCaptured", "deferred settlement Base", "Commerce Payments partial capture", "split shipment payment", "variable USDC capture", "capturableAmount"]
+description: "Capture all or part of the escrowed amount, in one or multiple increments, before the authorization expires."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Capture an authorization when the order is ready to settle. The operator transfers all or part of the escrowed amount to the receiver and fee receiver without collecting from the payer again.
+Capture an authorization when the order is ready to settle. The operator transfers all or part of the escrowed amount to the receiver and fee receiver without collecting from the payer again. Capture less than the authorized amount when the final total changes after checkout, or capture multiple increments as an order ships — the remaining reservation is tracked onchain without a custom checkout contract.
 
 <Info>
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
@@ -14,46 +14,88 @@ This guide's payment flow is based on the [Commerce Payments Protocol](https://g
 
 ## Demo
 
-<PaymentsDemo flow="capture" />
+<Tabs>
+  <Tab title="Full Capture">
+    <PaymentsDemo flow="capture" />
+  </Tab>
+  <Tab title="Partial Capture">
+    <PaymentsDemo flow="partial" />
+  </Tab>
+</Tabs>
 
 <Tip>
-The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+The demos above are mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
 
 ## Check and Capture
 
-Read `paymentState(paymentInfoHash)` before capture. The amount must be nonzero, no greater than `capturableAmount`, and submitted strictly before `authorizationExpiry`.
+Read `paymentState(paymentInfoHash)` before every capture, full or partial. The amount must be nonzero, no greater than `capturableAmount`, and submitted strictly before `authorizationExpiry`.
 
 The operator supplies an absolute `feeAmount` in raw token units. The protocol validates it against the per-capture `minFeeBps` and `maxFeeBps` stored in `PaymentInfo`.
 
-{/* sample: usdc-capture-ts */}
-```typescript TypeScript lines wrap expandable highlight={8-11,16-17}
-export async function captureAuthorization(
-  payment: StoredProtocolPayment,
-  amount = payment.paymentInfo.maxAmount,
-) {
-  const [, capturableAmount] = await publicClient.readContract({
-    address: AUTH_CAPTURE_ESCROW,
-    abi: authCaptureEscrowAbi,
-    functionName: "paymentState",
-    args: [payment.paymentInfoHash],
-  });
-  if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
-  const simulation = await publicClient.simulateContract({
-    account,
-    address: AUTH_CAPTURE_ESCROW,
-    abi: authCaptureEscrowAbi,
-    functionName: "capture",
-    args: [payment.paymentInfo, amount, 0n, zeroAddress],
-  });
-  const hash = await walletClient.writeContract(simulation.request);
-  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-  if (receipt.status !== "success") throw new Error("Payment capture reverted");
-  return receipt;
-}
-```
+<Tabs>
+  <Tab title="Capture the Full Amount">
+    {/* sample: usdc-capture-ts */}
+    ```typescript TypeScript lines wrap expandable highlight={8-11,16-17}
+    export async function captureAuthorization(
+      payment: StoredProtocolPayment,
+      amount = payment.paymentInfo.maxAmount,
+    ) {
+      const [, capturableAmount] = await publicClient.readContract({
+        address: AUTH_CAPTURE_ESCROW,
+        abi: authCaptureEscrowAbi,
+        functionName: "paymentState",
+        args: [payment.paymentInfoHash],
+      });
+      if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
+      const simulation = await publicClient.simulateContract({
+        account,
+        address: AUTH_CAPTURE_ESCROW,
+        abi: authCaptureEscrowAbi,
+        functionName: "capture",
+        args: [payment.paymentInfo, amount, 0n, zeroAddress],
+      });
+      const hash = await walletClient.writeContract(simulation.request);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+      if (receipt.status !== "success") throw new Error("Payment capture reverted");
+      return receipt;
+    }
+    ```
 
-Capture decreases `capturableAmount` and increases `refundableAmount` by the same gross amount. The receiver gets the gross amount minus fees.
+    Capture decreases `capturableAmount` and increases `refundableAmount` by the same gross amount. The receiver gets the gross amount minus fees.
+  </Tab>
+  <Tab title="Capture in Increments">
+    Call the same `capture` function for every increment. The sum of successful captures cannot exceed `PaymentAuthorized.amount`, and each capture independently validates its fee bounds.
+
+    {/* sample: usdc-variable-payment-ts */}
+    ```typescript TypeScript lines wrap expandable highlight={5,12,17-18}
+    export async function capturePartialPayment(
+      payment: StoredProtocolPayment,
+      actualAmount: string,
+    ) {
+      const amount = parseUnits(actualAmount, 6);
+      const [, capturableAmount] = await publicClient.readContract({
+        address: AUTH_CAPTURE_ESCROW,
+        abi: authCaptureEscrowAbi,
+        functionName: "paymentState",
+        args: [payment.paymentInfoHash],
+      });
+      if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
+      const simulation = await publicClient.simulateContract({
+        account,
+        address: AUTH_CAPTURE_ESCROW,
+        abi: authCaptureEscrowAbi,
+        functionName: "capture",
+        args: [payment.paymentInfo, amount, 0n, zeroAddress],
+      });
+      const hash = await walletClient.writeContract(simulation.request);
+      return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+    }
+    ```
+
+    For a 100 USDC authorization, a 64 USDC capture leaves 36 USDC capturable and makes 64 USDC refundable. You can capture another increment or void the remainder.
+  </Tab>
+</Tabs>
 
 <Check>
 Verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` and the expected receiver transfers before marking the fulfillment increment settled.
@@ -63,11 +105,15 @@ Verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` and th
 At `authorizationExpiry`, capture is no longer available and the payer can reclaim the remaining balance. Use chain time rather than an application server clock when enforcing the deadline.
 </Warning>
 
+<Warning>
+Fee bounds are evaluated per capture and use integer division. With low-decimal tokens, fragmenting one settlement into many small captures can reduce the aggregate minimum fee. Enforce a minimum capture size offchain when that matters.
+</Warning>
+
 ## See Also
 
 <CardGroup cols={2}>
-  <Card title="Capture a Partial Amount" icon="receipt" href="/build-on-base/accept-payments/capture-a-partial-amount">
-    Settle split shipments or a reduced final total.
+  <Card title="Void an Authorization" icon="ban" href="/build-on-base/accept-payments/void-an-authorization">
+    Return the unneeded remainder to the payer.
   </Card>
   <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
     Return previously captured value to the payer.
