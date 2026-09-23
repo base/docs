@@ -90,7 +90,7 @@ const client = createPublicClient({ chain: base, transport: http() })
 
 - [Issue a Stablecoin](https://docs.base.org/get-started/issue-stablecoins): Run a fiat-backed stablecoin on Base with minting, compliance, and reconciliation built into the chain.
 
-- [Accept Payments](https://docs.base.org/get-started/accept-payments): Choose an onchain payment lifecycle for checkout, agentic payments, reconciliation, refunds, and payouts on Base.
+- [Accept Payments](https://docs.base.org/get-started/accept-payments): Choose an onchain payment lifecycle for commerce checkout, agentic payments, reconciliation, refunds, and payouts on Base.
 
 ### Coding Agents
 
@@ -172,31 +172,33 @@ const client = createPublicClient({ chain: base, transport: http() })
 
 ### Accept Payments
 
-#### Take a Payment
+#### Process a Payment
 
-- [Request a Payment](https://docs.base.org/build-on-base/accept-payments/request-a-payment): Request an immediately settled USDC or memo-enabled B20 payment from a wallet on Base.
+- [Make a Simple Payment](https://docs.base.org/build-on-base/accept-payments/make-a-simple-payment): Send USDC directly from one wallet to another on Base.
 
-- [Authorize a Payment](https://docs.base.org/build-on-base/accept-payments/authorize-a-payment): Ask a buyer to sign a USDC authorization that your merchant backend can capture later on Base.
+- [Request a Payment](https://docs.base.org/build-on-base/accept-payments/request-a-payment): Request and settle an immediate escrow-backed charge on Base.
 
-- [Capture an Authorization](https://docs.base.org/build-on-base/accept-payments/capture-an-authorization): Settle a stored USDC authorization from the merchant account with receiveWithAuthorization.
+- [Authorize a Payment](https://docs.base.org/build-on-base/accept-payments/authorize-a-payment): Move payer funds into escrow for later capture on Base.
 
-- [Capture a Partial Amount](https://docs.base.org/build-on-base/accept-payments/capture-a-partial-amount): Authorize a maximum USDC amount and capture the final total through a constrained one-use checkout contract.
+- [Capture an Authorization](https://docs.base.org/build-on-base/accept-payments/capture-an-authorization): Capture authorized funds from escrow before the authorization expires.
 
-- [Void an Authorization](https://docs.base.org/build-on-base/accept-payments/void-an-authorization): Expire an unused USDC authorization or cancel its nonce onchain with the buyer's signature.
+- [Capture a Partial Amount](https://docs.base.org/build-on-base/accept-payments/capture-a-partial-amount): Capture less than the escrowed authorization or settle it across multiple fulfillment increments.
 
-- [Charge on a Schedule](https://docs.base.org/build-on-base/accept-payments/charge-on-a-schedule): Charge a smart account on a recurring schedule within a buyer-approved period allowance.
+- [Void an Authorization](https://docs.base.org/build-on-base/accept-payments/void-an-authorization): Return the remaining escrowed authorization to the payer or let the payer reclaim it after expiry.
+
+- [Charge on a Schedule](https://docs.base.org/build-on-base/accept-payments/charge-on-a-schedule): Create one escrow-backed charge per billing period using a wallet spend permission.
 
 #### Confirm and Reconcile
 
-- [Verify a Payment](https://docs.base.org/build-on-base/accept-payments/verify-a-payment): Verify USDC or B20 settlement on your backend and claim each transaction exactly once before fulfillment.
+- [Verify a Payment](https://docs.base.org/build-on-base/accept-payments/verify-a-payment): Verify confirmed escrow events and claim each settlement exactly once before fulfillment.
 
-- [Watch for Payments](https://docs.base.org/build-on-base/accept-payments/watch-for-payments): Watch token Transfer logs, backfill missed blocks, and process confirmed payments idempotently.
+- [Watch for Payments](https://docs.base.org/build-on-base/accept-payments/watch-for-payments): Watch escrow events, backfill missed blocks, and process confirmed lifecycle changes idempotently.
 
-- [Reconcile Payments](https://docs.base.org/build-on-base/accept-payments/reconcile-payments): Build a merchant settlement report from token transfers and optional B20 memo events.
+- [Reconcile Payments](https://docs.base.org/build-on-base/accept-payments/reconcile-payments): Build a settlement report from escrow charges, captures, fees, voids, reclaims, and refunds.
 
 #### Return and Pay Out
 
-- [Refund a Payment](https://docs.base.org/build-on-base/accept-payments/refund-a-payment): Return tokens to the verified payer and keep partial or repeated refunds within the captured balance.
+- [Refund a Payment](https://docs.base.org/build-on-base/accept-payments/refund-a-payment): Return captured value to the original payer within the refund window.
 
 - [Send a Payout](https://docs.base.org/build-on-base/accept-payments/send-a-payout): Send a referenced batch of token payouts in one transaction without leaving funds in the payout contract.
 
@@ -278,25 +280,15 @@ const client = createPublicClient({ chain: base, transport: http() })
 
 - [B20 Specification](https://docs.base.org/specifications/b20/specification-overview): Normative Beryl specification for Base's B20 native token standard, precompile registries, policy scopes, factory, and variants.
 
-##### Interfaces
+##### Reference
 
-- [IActivationRegistry Reference](https://docs.base.org/specifications/b20/reference/interfaces/i-activation-registry/index): Generated B20 reference for IActivationRegistry functions, events, and errors.
+- [B20 Interfaces](https://docs.base.org/specifications/b20/reference/interfaces): Canonical B20 Solidity interfaces, source links, and copy-paste imports.
 
-- [IB20 Reference](https://docs.base.org/specifications/b20/reference/interfaces/ib20/index): Generated B20 reference for IB20 functions, events, and errors.
+- [B20 Constants](https://docs.base.org/specifications/b20/reference/constants): Precompile addresses, role identifiers, policy scopes, and validation bounds.
 
-- [IB20Asset Reference](https://docs.base.org/specifications/b20/reference/interfaces/ib20-asset/index): Generated B20 reference for IB20Asset functions, events, and errors.
+- [B20 Errors](https://docs.base.org/specifications/b20/reference/errors): Custom errors, selectors, and their trigger conditions.
 
-- [IB20Factory Reference](https://docs.base.org/specifications/b20/reference/interfaces/ib20-factory/index): Generated B20 reference for IB20Factory functions, events, and errors.
-
-- [IB20Stablecoin Reference](https://docs.base.org/specifications/b20/reference/interfaces/ib20-stablecoin/index): Generated B20 reference for IB20Stablecoin functions, events, and errors.
-
-- [IPolicyRegistry Reference](https://docs.base.org/specifications/b20/reference/interfaces/i-policy-registry/index): Generated B20 reference for IPolicyRegistry functions, events, and errors.
-
-- [Constants & Addresses](https://docs.base.org/specifications/b20/reference/constants-addresses): Copy B20 precompile addresses, roles, policy scopes, variant bytes, policy IDs, and supply-cap constants.
-
-- [Errors & Events Index](https://docs.base.org/specifications/b20/reference/errors-events): Reverse lookup B20 errors and events by selector or topic.
-
-- [B20 Invariants and Test Cases](https://docs.base.org/specifications/b20/reference/invariants-tests): Normative invariants the B20 precompiles guarantee, and the conformance test cases that exercise them.
+- [B20 Events](https://docs.base.org/specifications/b20/reference/events): Events emitted by the B20 interfaces and precompiles.
 
 - [Changelog](https://docs.base.org/specifications/b20/changelog): Per-hardfork, per-feature migration notes for the B20 token standard, newest first, including new methods, deprecations, and activation dates.
 
