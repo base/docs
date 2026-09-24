@@ -17,6 +17,13 @@ Writing rules, specification page structure, and changelog entry format for Base
 - Keep sentences concise while providing necessary context
 - Use parallel structure in lists, headings, and procedures
 
+### Brand Terminology
+
+- Always write as **"the Base app"** with lowercase "app" in mid-sentence usage
+- Write as **"The Base App"** with both words capitalized only at the start of sentences
+- Never use **"Base App"** as a standalone term without the article "the" or "The"
+- The word "App" is capitalized only when "The" is also capitalized (sentence-initial position)
+
 ### Content Organization
 
 - Lead with the most important information (inverted pyramid structure)
