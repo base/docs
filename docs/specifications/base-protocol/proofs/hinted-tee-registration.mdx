@@ -1,0 +1,77 @@
+---
+title: "Hinted TEE Registration"
+description: "Migration from external ZK proving to checked P-384 hints for registering new AWS Nitro Enclave signers."
+---
+
+Base is replacing the RISC Zero and Boundless flow used to register new TEE signers with direct
+AWS Nitro attestation verification using checked P-384 hints.
+
+The change makes registration faster and removes the dependency on an external ZK proving service.
+It does not change how enclaves produce TEE state proofs or how those proofs are verified.
+
+## Previous Flow
+
+The registrar previously sent each Nitro attestation to an external proving service. That service
+produced a RISC Zero proof showing that the attestation and its AWS certificate chain were valid.
+The registrar then submitted the proof to `TEEProverRegistry` on L1.
+
+This added an external availability dependency and could delay new signer registration while the ZK
+proof was generated.
+
+## New Flow
+
+The registrar now:
+
+1. Fetches a fresh AWS Nitro attestation for the new enclave signer.
+2. Generates P-384 modular inverse hints locally.
+3. Verifies and caches any missing AWS certificates through `CertManager`.
+4. Submits the attestation, its signature, and the final hint stream to `TEEProverRegistry`.
+5. Records the signer and its attested PCR0 after all onchain checks pass.
+
+`TEEProverRegistry` permits only its owner or manager to perform the final registration. Certificate
+cache writes are permissionless because `CertManager` verifies the certificate, its parent chain,
+and every supplied hint before storing it.
+
+## Checked Hints
+
+P-384 verification requires many modular inversions. Computing those inversions in the EVM is
+expensive, but checking a proposed inverse is comparatively cheap. The registrar computes the
+values offchain and supplies them as hints.
+
+Every hint is checked onchain before use. Incorrect, missing, or surplus hints revert, so the hint
+generator is required for liveness but is not trusted for correctness. A faulty or malicious hint
+cannot make an invalid certificate or attestation pass.
+
+## Certificate Caching
+
+The AWS Nitro root is pinned in `CertManager`. Non-root CA certificates and the leaf certificate are
+verified and cached in parent-first order. Later registrations can reuse cached certificates while
+they remain valid and unrevoked.
+
+For a typical Nitro certificate chain:
+
+| Cache state | Registration transactions |
+| --- | ---: |
+| Empty | 5 |
+| CA chain cached, new leaf | 2 |
+| CA chain and leaf cached | 1 |
+
+The registrar reads onchain cache state before each write, allowing it to resume after a partial
+registration or process restart without repeating completed certificate transactions.
+
+## Unchanged Behavior
+
+This migration does not change:
+
+- signer key generation inside the Nitro Enclave;
+- the attestation fields produced by AWS Nitro;
+- PCR0-based enclave image selection;
+- TEE proposal or dispute proof formats;
+- `TEEVerifier` or `AggregateVerifier` behavior; or
+- SP1 state-proof verification.
+
+The existing `TEEProverRegistry` proxy is upgraded without changing its storage layout. Existing
+owners, managers, proposers, registered signers, and signer image hashes are preserved.
+
+For the full registration lifecycle, validation rules, revocation handling, and operator
+requirements, see the [Registrar specification](/specifications/base-protocol/proofs/registrar).

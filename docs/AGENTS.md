@@ -57,7 +57,7 @@ npx skills add base/base-skills
 |Specifications/Specifications/Base Protocol/Consensus:specifications/base-protocol/consensus/specification,specifications/base-protocol/consensus/derivation,specifications/base-protocol/consensus/p2p,specifications/base-protocol/consensus/rpc
 |Specifications/Specifications/Base Protocol/Execution:specifications/base-protocol/execution/l2-execution-engine,specifications/base-protocol/execution/precompiles,specifications/base-protocol/execution/predeploys,specifications/base-protocol/execution/preinstalls
 |Specifications/Specifications/Base Protocol/Bridging:specifications/base-protocol/bridging/standard-bridges,specifications/base-protocol/bridging/deposits,specifications/base-protocol/bridging/withdrawals,specifications/base-protocol/bridging/cross-domain-messengers,specifications/base-protocol/bridging/base-solana-bridge
-|Specifications/Specifications/Base Protocol/Proofs:specifications/base-protocol/proofs/overview,specifications/base-protocol/proofs/challenger,specifications/base-protocol/proofs/proposer,specifications/base-protocol/proofs/registrar,specifications/base-protocol/proofs/tee-prover,specifications/base-protocol/proofs/zk-prover,specifications/base-protocol/proofs/proof-contracts
+|Specifications/Specifications/Base Protocol/Proofs:specifications/base-protocol/proofs/overview,specifications/base-protocol/proofs/challenger,specifications/base-protocol/proofs/proposer,specifications/base-protocol/proofs/hinted-tee-registration,specifications/base-protocol/proofs/registrar,specifications/base-protocol/proofs/tee-prover,specifications/base-protocol/proofs/zk-prover,specifications/base-protocol/proofs/proof-contracts
 |Specifications/Specifications/B20:specifications/b20/index,specifications/b20/specification-overview,specifications/b20/architecture,specifications/b20/changelog
 |Specifications/Specifications/B20/Concepts:specifications/b20/concepts/token-types,specifications/b20/concepts/policies,specifications/b20/concepts/roles-and-pause,specifications/b20/concepts/multipliers
 |Specifications/Specifications/B20/Reference:specifications/b20/reference/interfaces,specifications/b20/reference/constants,specifications/b20/reference/errors,specifications/b20/reference/events
@@ -75,7 +75,7 @@ npx skills add base/base-skills
 |SDKs & APIs/Base Chain API/Debug API:base-chain/api-reference/debug-api/debug_traceTransaction,base-chain/api-reference/debug-api/debug_traceBlockByHash,base-chain/api-reference/debug-api/debug_traceBlockByNumber
 |SDKs & APIs/Base Verify API:sdks/base-verify/overview,sdks/base-verify/verify-social-accounts,sdks/base-verify/verify-users-onchain
 |SDKs & APIs/Migrated Documentation:sdks/migrated-products
-|Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
+|Upgrades/Overview:upgrades/overview,upgrades/upcoming-features,base-chain/network-information/configuration-changelog
 |Upgrades/Denim:upgrades/denim/overview,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks
 |Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy,upgrades/cobalt/validity-transactions
 |Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
