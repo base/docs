@@ -2,7 +2,7 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Tokenized Stocks API",
-        "description": "Read Coinbase-issued tokenized stock listings, protocol contract addresses, and adjusted token supplies on Base. No API key is required.",
+        "description": "Read the Coinbase-issued tokenized-stock records currently exposed through the API, protocol contract addresses, and normalized token supplies on Base. No API key is required.",
         "version": "1.0.0"
     },
     "tags": [
@@ -41,7 +41,7 @@
                 "tags": [
                     "Tokenized Stocks"
                 ],
-                "description": "Returns the Coinbase-issued tokenized stocks currently available through the API."
+                "description": "Returns the Coinbase-issued tokenized-stock records currently exposed through the API. Presence in this list does not imply trading availability or eligibility."
             }
         },
         "/v1/tokenized-stocks/chains": {
@@ -82,7 +82,7 @@
                 "operationId": "getTokenTotalSupply",
                 "responses": {
                     "200": {
-                        "description": "The total supply of the token, adjusted for the token's decimals.",
+                        "description": "The token's total supply, normalized by the token's decimals. This is a token-unit amount, not the number of underlying shares; multiply by `multiplier` to convert to shares.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -119,7 +119,7 @@
                 "tags": [
                     "Tokenized Stocks"
                 ],
-                "description": "Returns the ERC-20 token total supply adjusted for the token decimals."
+                "description": "Returns the token's ERC-20 total supply, normalized by the token's decimals. This is a token-unit amount, not the number of underlying shares."
             }
         }
     },
@@ -194,7 +194,7 @@
                     "total_supply": {
                         "type": "number",
                         "format": "double",
-                        "description": "The total supply of the token, adjusted for the token's decimals."
+                        "description": "The token's total supply, normalized by the token's decimals. This is a token-unit amount, not the number of underlying shares; multiply by `multiplier` to convert to shares."
                     }
                 },
                 "description": "Response message for `TokenizedEquitiesPublicApiService.GetTokenTotalSupply`."
@@ -220,7 +220,7 @@
                         "items": {
                             "$ref": "#/components/schemas/v1TokenizedEquityToken"
                         },
-                        "description": "The list of tokenized equity tokens."
+                        "description": "The tokenized-stock records currently exposed through the API."
                     }
                 },
                 "description": "Response message for `TokenizedEquitiesPublicApiService.ListTokenizedEquityTokens`."
@@ -252,7 +252,7 @@
                     "total_supply": {
                         "type": "number",
                         "format": "double",
-                        "description": "The total supply of the token, adjusted for the token's decimals."
+                        "description": "The token's total supply, normalized by the token's decimals. This is a token-unit amount, not the number of underlying shares; multiply by `multiplier` to convert to shares."
                     },
                     "isin": {
                         "type": "string",
@@ -261,7 +261,7 @@
                     "multiplier": {
                         "type": "number",
                         "format": "double",
-                        "description": "The token's rebase/exchange-rate multiplier, adjusted for its 18-decimal\nfixed-point scale (1.0 means no adjustment)."
+                        "description": "The token's current scaling factor between token units and underlying shares, adjusted for its 18-decimal fixed-point scale (1.0 means no adjustment). It can change for corporate actions such as dividends or stock splits."
                     },
                     "paused_features": {
                         "type": "array",
@@ -274,12 +274,12 @@
                     "nav_price": {
                         "type": "number",
                         "format": "double",
-                        "description": "The token's NAV price, read from its Chainlink on-chain price feed on\nBase and adjusted for the feed's decimals."
+                        "description": "The most recently published Chainlink-based NAV/reference value for the token, read from its Chainlink price feed on Base and adjusted for the feed's decimals. This is a total-return reference value, not a live bid/ask or execution price. Check `nav_price_updated_at` and apply staleness bounds before relying on it."
                     },
                     "nav_price_updated_at": {
                         "type": "string",
                         "format": "date-time",
-                        "description": "The time at which nav_price was last updated on-chain, per the\nChainlink feed's latestRoundData() updatedAt. Chainlink only pushes a\nnew round when the price moves past a deviation threshold, so this can\nlag wall-clock time by anywhere from minutes to many hours."
+                        "description": "The time at which `nav_price` was last updated onchain, per the Chainlink feed's `latestRoundData()` `updatedAt`. Chainlink only publishes a new round when the price moves past a deviation threshold or the heartbeat elapses, and feeds stop updating outside market hours, so this can lag wall-clock time by minutes to many hours. Apply staleness bounds before relying on `nav_price`."
                     }
                 },
                 "description": "A tokenized equity token available on Base."

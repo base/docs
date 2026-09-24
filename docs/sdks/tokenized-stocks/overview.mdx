@@ -1,10 +1,14 @@
 ---
 title: "Tokenized Stocks API"
 sidebarTitle: "Overview"
-description: "Read Coinbase-issued tokenized stock listings, protocol contract addresses, and adjusted token supplies on Base."
+description: "Read Coinbase-issued tokenized-stock records, protocol contract addresses, and normalized token supplies on Base."
 ---
 
-Use the public Tokenized Stocks API to retrieve current data for [Coinbase-issued tokenized stocks on Base](/build-on-base/integrate-defi/list-tokenized-stocks). The API is read-only and does not require an API key.
+Use the public Tokenized Stocks API to retrieve reference data for [Coinbase-issued tokenized stocks on Base](/build-on-base/integrate-defi/list-tokenized-stocks). The API is read-only and does not require an API key.
+
+<Note>
+Coinbase tokenized stocks are available only to persons in eligible jurisdictions outside of the United States. This API provides read-only reference data only; it does not provide trading, execution, issuance, minting, redemption, or custody functionality. The availability of any token or related product may be subject to jurisdictional, eligibility, and compliance requirements. Integrators are responsible for applying applicable restrictions.
+</Note>
 
 ```text Base URL
 https://api.coinbase.com/v1/tokenized-stocks
@@ -16,9 +20,9 @@ https://api.coinbase.com/v1/tokenized-stocks
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | List the tokenized stocks currently available through the API. |
+| `GET` | `/` | List the tokenized-stock records currently exposed through the API. |
 | `GET` | `/chains` | List the tokenized-stocks protocol contracts on each supported chain. |
-| `GET` | `/total-supply/{contract_address}` | Get a token's total supply, adjusted for its decimals. |
+| `GET` | `/total-supply/{contract_address}` | Get a token's total supply, normalized by its decimals. |
 
 ## List Tokenized Stocks
 
@@ -26,6 +30,13 @@ https://api.coinbase.com/v1/tokenized-stocks
 curl https://api.coinbase.com/v1/tokenized-stocks
 ```
 
-The response includes each token's contract address, symbol, name, decimals, icon URL, total supply, ISIN, multiplier, paused features, and NAV price data.
+The response includes each token's contract address, symbol, name, decimals, icon URL, total supply, ISIN, multiplier, paused features, and NAV/reference value data. Presence in the response does not imply trading availability or eligibility.
+
+## Interpreting Response Fields
+
+- **`total_supply`** is the token supply normalized by the token's decimals. It is a token-unit amount, not the number of underlying shares.
+- **`multiplier`** is the current scaling factor between token units and underlying shares. It can change for corporate actions such as dividends or stock splits, so always apply the current value when converting token units to shares.
+- **`nav_price`** is the most recently published Chainlink-based NAV/reference value for the token. It is not a live bid/ask or execution price.
+- **`nav_price_updated_at`** is when `nav_price` was last updated onchain. Feeds update only on price deviation or heartbeat and hold their last value outside market hours, so check this timestamp and apply staleness bounds before relying on `nav_price`.
 
 For integration guidance, price-feed details, and current token contract addresses, see [List Tokenized Stocks](/build-on-base/integrate-defi/list-tokenized-stocks).

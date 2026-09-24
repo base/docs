@@ -8,7 +8,7 @@ Tokenized Stocks on Base are built on the Base-native token standard, [B20](/bui
 Product-specific details about Tokenized Stocks on Base can be found within [coinbase.com/tokenize](https://coinbase.com/tokenize).
 
 <Tip>
-The public [Tokenized Stocks API](/sdks/tokenized-stocks/overview) returns current listings, contract addresses, supplies, multipliers, and NAV prices in a single read-only request, with no API key required.
+The public [Tokenized Stocks API](/sdks/tokenized-stocks/overview) returns the tokenized-stock records currently exposed through the API, including contract addresses, normalized token supplies, multipliers, and Chainlink-based NAV/reference values, in a single read-only request with no API key required.
 </Tip>
 
 ## Token Information and Listings
@@ -116,7 +116,7 @@ The multiplier is sourced per token and is WAD-scaled (a fixed-point number with
 
 Chainlink is the onchain price option at launch. Each tokenized equity has a Chainlink feed that runs 24/5, holds the last close on weekends and holidays, and freezes during corporate actions. Feeds implement the standard Chainlink V3 aggregator interface and are read through the proxy, exactly like a crypto price feed; read the latest value with `latestRoundData()`.
 
-The [Tokenized Stocks API](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks) also returns each token's latest Chainlink value as `nav_price`, along with `nav_price_updated_at` and the current `multiplier`. Apply the same staleness checks to `nav_price_updated_at` that you would to `updatedAt`.
+The [Tokenized Stocks API](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks) also returns `nav_price`, the most recently published Chainlink-based NAV/reference value for each token, along with `nav_price_updated_at` and the current `multiplier`. `nav_price` is not a live bid/ask or execution price: read `nav_price_updated_at` and apply the same staleness bounds you would to `updatedAt` before relying on it.
 
 Unlike standard market-rate feeds, Coinbase feeds report **Total Return Values** rather than raw equity prices, so the price reflects the underlying's total return including corporate-action adjustments. Chainlink uses this same approach for other tokenized-equity issuers, including [Ondo and Robinhood](https://docs.chain.link/data-feeds/tokenized-equity-feeds/providers). The underlying price is sourced from Chainlink's equity price feeds (traditional market data), not from onchain or DEX trading of the token; the token's DEX price does not feed the oracle.
 
