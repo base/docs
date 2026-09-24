@@ -41,7 +41,7 @@ What belongs in each navigation tab and section — and what doesn't. Use this w
 
 **Audience**: Developers who have picked a use case and need step-by-step implementation guides to build on Base.
 
-**Governance**: Before adding a new solution or renaming a section, you need approval from Eric Brown and Mind Apivessa. Mind Apivessa will be responsible for getting approvals from BD and GTM.
+**Governance**: Before adding a new solution or renaming a section, you need approval from Eric Brown or Mind Apivessa. Mind Apivessa will be responsible for getting approvals from BD and GTM.
 
 ### Overview
 
