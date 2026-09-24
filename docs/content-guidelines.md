@@ -13,13 +13,6 @@ Writing rules, specification page structure, and changelog entry format for Base
 - Avoid jargon unless necessary and define terms when first used
 - Maintain consistent terminology throughout all documentation
 
-### Brand Terminology
-
-- Always write as **"the Base app"** with lowercase "app" in mid-sentence usage
-- Write as **"The Base App"** with both words capitalized only at the start of sentences
-- Never use **"Base App"** as a standalone term without the article "the" or "The"
-- The word "App" is capitalized only when "The" is also capitalized (sentence-initial position)
-
 ### Content Organization
 
 - Break complex procedures into numbered steps
