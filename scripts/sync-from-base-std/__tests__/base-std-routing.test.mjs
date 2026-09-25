@@ -349,8 +349,9 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
   // Guides feed the existing Build on Base task pages (ia-guidelines: Tokenize Assets / Issue Stablecoins).
   assert.ok((await pagesFor("docs/guides/scheduling-stock-splits.md")).includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
   assert.ok((await pagesFor("docs/guides/announcing-corporate-actions.md")).includes("docs/build-on-base/issue-rwa/announce-a-distribution.mdx"));
+  assert.ok((await pagesFor("docs/guides/restricting-transfer-initiators.md")).includes("docs/build-on-base/issue-rwa/restrict-transfer-initiators.mdx"));
   const seize = await pagesFor("docs/guides/seizeing-assets.md");
-  assert.ok(seize.includes("docs/build-on-base/issue-rwa/cancel-blocked-units.mdx"));
+  assert.ok(seize.includes("docs/build-on-base/issue-rwa/seize-and-cancel-units.mdx"));
   assert.ok(seize.includes("docs/build-on-base/issue-stablecoins/recover-funds.mdx"));
   assert.ok(seize.includes(`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`));
 

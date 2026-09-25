@@ -1,0 +1,125 @@
+---
+title: "Restrict Who Can Initiate Transfers"
+description: "Control which account may initiate a B20 transfer, separately from who may send or receive, by binding an allowlist to TRANSFER_EXECUTOR_POLICY. Routing every transfer through a transfer agent is one example."
+keywords: ["TRANSFER_EXECUTOR_POLICY", "transfer agent", "B20 executor policy", "restrict transfer initiator", "transferFrom allowlist"]
+---
+
+import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
+
+Some issuers need every transfer to be initiated by a designated account, even when the sender and the recipient are both eligible holders. `TRANSFER_EXECUTOR_POLICY` gates `msg.sender` on every transfer path (`transfer`, `transferFrom`, and their memo variants), separately from the sender and receiver scopes. One example is a transfer-agent model: holders approve the agent, the agent moves units with `transferFrom`, and a holder's own direct `transfer` is denied. The same control fits any setup where an operator contract, a settlement system, or a custodian must be the one pressing the button.
+
+<RwaDisclaimer />
+
+<Note>
+New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`. This surface exists on both B20 Asset and B20 Stablecoin.
+</Note>
+
+## Before You Start
+
+You need all of the following:
+
+- A B20 token you administer, with `DEFAULT_ADMIN_ROLE` so you can call `updatePolicy`.
+- A policy admin able to create and manage a policy in the Policy Registry. Token admin and policy admin are separate roles; the same account can hold both.
+- The address of each intended initiator, for example the transfer agent contract.
+- `TRANSFER` not paused.
+
+### Which Account Is Checked
+
+Transfer has three independent policy scopes, all enforced on the same shared path:
+
+| Scope | Account checked | Default when unset |
+| --- | --- | --- |
+| `TRANSFER_SENDER_POLICY` | `from` | Always allow |
+| `TRANSFER_RECEIVER_POLICY` | `to` | Always allow |
+| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | Always allow |
+
+The executor scope checks the initiator, not the holder. On `transfer`, the initiator is also `from`. On `transferFrom`, the initiator is the caller, which may be a different account. There is no carve-out for a holder acting on their own behalf: once you attach a restrictive executor policy, a holder must be on it to call `transfer`, or to call `transferFrom` with themselves as `from`.
+
+### Allowance Is a Separate Gate
+
+`transferFrom` still requires an ERC-20 allowance from `from`. The allowance says "this caller may spend up to this amount"; the executor policy says "this caller may initiate a transfer at all." A transfer agent needs both: an allowance from each holder it moves units for, and a place on the executor allowlist. Granting one does not grant the other.
+
+## Create and Bind the Initiator Allowlist
+
+Create an allowlist seeded with the initiator, then attach it to `TRANSFER_EXECUTOR_POLICY`:
+
+<CodeGroup>
+{/* sample: stock-executor-ts */}
+```typescript TypeScript lines wrap expandable highlight={8,10}
+import { parseEventLogs, type Address } from "viem";
+import { account } from "../../shared/clients.js";
+import { POLICY_REGISTRY, b20Abi, policyRegistryAbi, scope } from "../abi.js";
+import { sendContract } from "../write.js";
+
+export async function restrictTransferInitiators(token: Address, transferAgent: Address) {
+  const receipt = await sendContract({ address: POLICY_REGISTRY, abi: policyRegistryAbi, functionName: "createPolicyWithAccounts", args: [account.address, 1, [transferAgent]] });
+  const [created] = parseEventLogs({ abi: policyRegistryAbi, logs: receipt.logs, eventName: "PolicyCreated" });
+  await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [scope("TRANSFER_EXECUTOR_POLICY"), created.args.policyId] });
+  return created.args.policyId;
+}
+```
+{/* sample: stock-executor-solidity */}
+```solidity Solidity lines wrap expandable highlight={4,7}
+function restrictTransferInitiators(address token, address admin, address transferAgent) public returns (uint64 id) {
+    address[] memory initiators = new address[](1);
+    initiators[0] = transferAgent;
+    id = StdPrecompiles.POLICY_REGISTRY.createPolicyWithAccounts(
+        admin, IPolicyRegistry.PolicyType.ALLOWLIST, initiators
+    );
+    IB20(token).updatePolicy(B20Constants.TRANSFER_EXECUTOR_POLICY, id);
+}
+```
+{/* sample: stock-executor-cli */}
+```bash CLI lines wrap expandable highlight={2,6}
+CREATE_TX=$(base-cast send "$POLICY_REGISTRY" \
+  "createPolicyWithAccounts(address,uint8,address[])" "$ADMIN" 1 "[$TRANSFER_AGENT]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json | jq -r .transactionHash)
+POLICY_TOPIC=$(base-cast receipt "$CREATE_TX" --rpc-url "$RPC_URL" --json | jq -r '.logs[0].topics[1]')
+EXECUTOR_ID=$(base-cast to-dec "$POLICY_TOPIC")
+base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak TRANSFER_EXECUTOR_POLICY)" "$EXECUTOR_ID" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+```
+</CodeGroup>
+
+From the `updatePolicy` call forward, every `transfer` and `transferFrom` on this token checks `msg.sender` against the allowlist. Creating the policy alone changes nothing; only attaching it does. Batches are capped at 64 accounts, and only the policy admin can change membership with `updateAllowlist`.
+
+Each holder then approves the initiator for the amount it will move on their behalf:
+
+```solidity Holder approves the transfer agent
+token.approve(transferAgent, amount);
+```
+
+The initiator moves units with `transferFrom(holder, recipient, amount)`. The holder's own `transfer(recipient, amount)` reverts `PolicyForbids(TRANSFER_EXECUTOR_POLICY, executorId)` before balance is checked.
+
+<Check>
+`Transfer(from, to, amount)` appears on the initiator's `transferFrom`. A holder's direct `transfer` reverts with `PolicyForbids(TRANSFER_EXECUTOR_POLICY, executorId)`; that revert confirms the restriction is active, not that something is misconfigured. `isAuthorized(executorId, account)` on the Policy Registry returns `true` for the initiator and `false` for the holder.
+</Check>
+
+<Warning>
+Seed every intended initiator before binding the allowlist. Once attached, any account not on it, including the issuer, can no longer initiate transfers until it is added.
+</Warning>
+
+## Common Errors
+
+These errors follow the order the shared transfer path checks them.
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `PolicyForbids(TRANSFER_EXECUTOR_POLICY, policyId)` | The caller is not on the executor allowlist. Fires for `transfer`, `transferFrom`, and a holder's self-`transferFrom`. | Add the caller to the allowlist, or route the call through an authorized initiator. |
+| `InsufficientAllowance(spender, allowance, needed)` | `transferFrom` ran with an allowance below `needed`. Passing the executor check does not grant spending rights. | Have `from` call `approve(spender, amount)`. |
+| `PolicyForbids(TRANSFER_SENDER_POLICY, policyId)` | `from` is not authorized under the sender policy. Independent of the executor check. | Add `from` to the sender allowlist, or clear that scope to `0`. |
+| `PolicyForbids(TRANSFER_RECEIVER_POLICY, policyId)` | `to` is not authorized under the receiver policy. Independent of the executor check. | Add `to` to the receiver allowlist, or clear that scope to `0`. |
+| `InsufficientBalance(sender, balance, needed)` | `from` holds less than `needed`. | Transfer `balanceOf(from)` or less. |
+| `PolicyNotFound(policyId)` | `updatePolicy` received an ID that does not exist in the registry. | Create the policy first, then attach the returned ID. |
+| `Unauthorized()` | A non-admin called `updateAllowlist`. | Call as the policy's admin. |
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Restrict Eligible Holders" icon="user-check" href="/build-on-base/issue-rwa/restrict-eligible-holders">
+    Gate who may send and receive with the sender and receiver scopes.
+  </Card>
+  <Card title="Policies" icon="shield-check" href="/specifications/b20/concepts/policies">
+    How policy scopes, allowlists, and blocklists work.
+  </Card>
+</CardGroup>

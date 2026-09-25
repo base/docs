@@ -25,7 +25,7 @@ import {
 } from "./aa.txt";
 
 export const CHAIN_ID = 84538453;
-export const ENGINE_VERSION = 3;
+export const ENGINE_VERSION = 4;
 export const NETWORK_NAME = "Base Vibenet";
 export const API_URL = "https://api.vibes.base.org";
 export const ACCOUNT_RPC = `${API_URL}/api/vibenet/account/rpc`;
@@ -48,6 +48,7 @@ const ROLE_NAMES = [
   "MINT_ROLE",
   "BURN_ROLE",
   "BURN_BLOCKED_ROLE",
+  "SEIZE_ROLE",
   "PAUSE_ROLE",
   "UNPAUSE_ROLE",
   "METADATA_ROLE",
@@ -59,6 +60,8 @@ const POLICY_SCOPES = {
   TRANSFER_RECEIVER_POLICY: keccak256(toHex("TRANSFER_RECEIVER_POLICY")),
   TRANSFER_EXECUTOR_POLICY: keccak256(toHex("TRANSFER_EXECUTOR_POLICY")),
   MINT_RECEIVER_POLICY: keccak256(toHex("MINT_RECEIVER_POLICY")),
+  SEIZE_EXEMPT_POLICY: keccak256(toHex("SEIZE_EXEMPT_POLICY")),
+  SEIZE_RECEIVER_POLICY: keccak256(toHex("SEIZE_RECEIVER_POLICY")),
 };
 
 const ERROR_NAMES = {
@@ -68,6 +71,9 @@ const ERROR_NAMES = {
   "0xfd8c4245": "ContractPaused",
   "0xf9df5ac9": "ContractPaused",
   "0x64a5cb46": "AccountNotBlocked",
+  "0x91dbbc8d": "AccountNotSeizable",
+  "0x9cfea583": "InvalidReceiver",
+  "0x4c14f64c": "InvalidSender",
   "0xe2517d3f": "AccessControlUnauthorizedAccount",
   "0x30b1b565": "InsufficientBalance",
   "0x8e4a23d6": "Unauthorized",
@@ -154,6 +160,7 @@ const b20Abi = [
   { type: "function", name: "burn", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
   { type: "function", name: "burnWithMemo", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "bytes32" }], outputs: [] },
   { type: "function", name: "burnBlocked", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [] },
+  { type: "function", name: "seizeWithMemo", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }], outputs: [] },
   { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "transferWithMemo", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "pause", stateMutability: "nonpayable", inputs: [{ type: "uint8[]" }], outputs: [] },
@@ -734,6 +741,11 @@ export async function burnBlocked({ token, from, amount }) {
   return sendCalls({ calls: [{ to: token, data }], metadata: "Recover blocked stablecoin" });
 }
 
+export async function seize({ token, from, to, amount, memo = "" }) {
+  const data = encodeB20("seizeWithMemo", [from, to, BigInt(amount), memoToBytes32(memo)]);
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Seize balance to safekeeping" });
+}
+
 export async function setSupplyCap({ token, amount }) {
   const data = encodeB20("updateSupplyCap", [BigInt(amount)]);
   return sendCalls({ calls: [{ to: token, data }], metadata: "Update stablecoin supply cap" });
@@ -864,6 +876,7 @@ const api = {
   mint,
   burn,
   burnBlocked,
+  seize,
   setSupplyCap,
   transfer,
   setTransfersPaused,
