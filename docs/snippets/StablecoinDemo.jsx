@@ -981,7 +981,7 @@ export const StablecoinDemo = ({ flow }) => {
                 {f.title} — {liveState === "live" ? "the write steps ran on Base Vibenet." : "the scripted offline fallback completed."}
               </div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href="/specifications/b20/specification-overview" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href="/specifications/b20" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>

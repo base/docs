@@ -7,12 +7,17 @@ Tokenized Stocks on Base are built on the Base-native token standard, [B20](/bui
 
 Product-specific details about Tokenized Stocks on Base can be found within [coinbase.com/tokenize](https://coinbase.com/tokenize).
 
+<Tip>
+The public [Tokenized Stocks API](/sdks/tokenized-stocks/overview) returns the tokenized-stock records currently exposed through the API, including contract addresses, normalized token supplies, multipliers, and Chainlink-based NAV/reference values, in a single read-only request with no API key required.
+</Tip>
+
 ## Token Information and Listings
 
 Tokenized stocks launch similarly to any ERC-20 token: name, symbol, and icon come from the usual sources, along with a few notable B20 specifics. Standard ERC-20 methods and events are supported natively.
 
 - **Onchain:** [`name`](/specifications/b20/reference/interfaces/ib20/name), [`symbol`](/specifications/b20/reference/interfaces/ib20/symbol), [`decimals`](/specifications/b20/reference/interfaces/ib20/decimals), and [`contractURI`](/specifications/b20/reference/interfaces/ib20/contract-uri) ([ERC-7572](https://eips.ethereum.org/EIPS/eip-7572) metadata).
 - **Offchain:** logos are also available from the canonical token list and market-data aggregators.
+- **API:** the [List Tokenized Stocks](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks) endpoint returns each token's contract address, symbol, name, decimals, icon URL, and ISIN.
 
 B20 specifics:
 
@@ -111,6 +116,8 @@ The multiplier is sourced per token and is WAD-scaled (a fixed-point number with
 
 Chainlink is the onchain price option at launch. Each tokenized equity has a Chainlink feed that runs 24/5, holds the last close on weekends and holidays, and freezes during corporate actions. Feeds implement the standard Chainlink V3 aggregator interface and are read through the proxy, exactly like a crypto price feed; read the latest value with `latestRoundData()`.
 
+The [Tokenized Stocks API](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks) also returns `nav_price`, the most recently published Chainlink-based NAV/reference value for each token, along with `nav_price_updated_at` and the current `multiplier`. `nav_price` is not a live bid/ask or execution price: read `nav_price_updated_at` and apply the same staleness bounds you would to `updatedAt` before relying on it.
+
 Unlike standard market-rate feeds, Coinbase feeds report **Total Return Values** rather than raw equity prices, so the price reflects the underlying's total return including corporate-action adjustments. Chainlink uses this same approach for other tokenized-equity issuers, including [Ondo and Robinhood](https://docs.chain.link/data-feeds/tokenized-equity-feeds/providers). The underlying price is sourced from Chainlink's equity price feeds (traditional market data), not from onchain or DEX trading of the token; the token's DEX price does not feed the oracle.
 
 The feed reads the multiplier and a pause flag from Coinbase's onchain oracle registry, a single contract (separate from the tokens) that returns both values for a token in one call:
@@ -161,6 +168,8 @@ Since prices are total-return (multiplier-adjusted), reconstruct the series cons
 
 ## Contract Addresses
 
+To fetch these addresses programmatically, use the [List Tokenized Stocks](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks) endpoint for token contracts and the [List Protocol Contract Addresses](/sdks/tokenized-stocks/api-reference/list-protocol-contract-addresses) endpoint for protocol contracts.
+
 | Ticker | Contract address |
 |--------|------------------|
 | Onchain Registry | `0x3f3E8cf41cdd3b1D118c16471aB0113DfDDd5CaD` |
@@ -177,7 +186,8 @@ Since prices are total-return (multiplier-adjusted), reconstruct the series cons
 
 ## Additional Resources
 
-- [B20 Standard](/specifications/b20/specification-overview)
+- [Tokenized Stocks API](/sdks/tokenized-stocks/overview)
+- [B20 Standard](/specifications/b20)
 - [Base Standard Library](https://github.com/base/base-std/tree/main)
 
 ## Disclaimer
