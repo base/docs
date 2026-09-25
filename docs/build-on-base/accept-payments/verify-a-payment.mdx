@@ -1,12 +1,16 @@
 ---
 title: "Verify a Payment"
-keywords: ["verify USDC payment", "getPaymentStatus", "verify ERC-20 transfer", "prevent replay payment"]
-description: "Verify USDC or B20 settlement on your backend and claim each transaction exactly once before fulfillment."
+keywords: ["verify Commerce Payments", "verify PaymentCharged", "paymentInfoHash", "prevent payment replay"]
+description: "Verify confirmed escrow events and claim each settlement exactly once before fulfillment."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Never fulfill from client state. Validate confirmed transaction data and atomically claim its hash in persistent storage before you reserve inventory, issue credentials, or return a paid resource.
+Never fulfill from a wallet signature, submitted transaction hash, or client state. Decode confirmed `AuthCaptureEscrow` events, match their `paymentInfoHash` to the order, and claim each settlement exactly once in persistent storage.
+
+<Info>
+This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
+</Info>
 
 ## Demo
 
@@ -16,70 +20,59 @@ Never fulfill from client state. Validate confirmed transaction data and atomica
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
 
-## Verify a Raw Token Transfer
+## Verify a Protocol Settlement
+
+Use the v1.1.0 escrow address and ABI together. The `PaymentCharged` and `PaymentCaptured` events contain an absolute `uint256 feeAmount`; the v1.0 events used a different field type and event topic.
 
 {/* sample: verify-token-payment-ts */}
-```typescript Backend lines wrap expandable highlight={20}
-export async function verifyTokenPayment(args: {
+```typescript Backend lines wrap expandable highlight={12,18-19,22-23}
+export async function verifyPayment(args: {
   hash: Hash;
-  token: Address;
-  payer: Address;
-  merchant: Address;
-  amount: string;
-  memo?: `0x${string}`;
+  paymentInfoHash: Hash;
   orderId: string;
   store: PaymentStore;
 }) {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: args.hash, confirmations: 2 });
-  if (receipt.status !== "success") throw new Error("Transaction reverted");
-  const expectedAmount = parseUnits(args.amount, 6);
-  const transfers = parseEventLogs({ abi: tokenEvents, eventName: "Transfer", logs: receipt.logs, strict: true });
-  const transfer = transfers.find(
-    (log) =>
-      log.address.toLowerCase() === args.token.toLowerCase() &&
-      log.args.from.toLowerCase() === args.payer.toLowerCase() &&
-      log.args.to.toLowerCase() === args.merchant.toLowerCase() &&
-      log.args.amount === expectedAmount,
+  if (receipt.status !== "success") throw new Error("Payment transaction reverted");
+  const events = parseEventLogs({
+    abi: authCaptureEscrowAbi,
+    logs: receipt.logs.filter(
+      (log) => log.address.toLowerCase() === AUTH_CAPTURE_ESCROW.toLowerCase(),
+    ),
+    strict: true,
+  });
+  const settlement = events.find(
+    (event) =>
+      (event.eventName === "PaymentCharged" || event.eventName === "PaymentCaptured") &&
+      event.args.paymentInfoHash === args.paymentInfoHash,
   );
-  if (!transfer) throw new Error("Expected payment transfer not found");
-  const memos = parseEventLogs({ abi: tokenEvents, eventName: "Memo", logs: receipt.logs, strict: true });
-  if (args.memo && !memos.some((log) =>
-    log.address.toLowerCase() === args.token.toLowerCase() &&
-    log.logIndex === transfer.logIndex + 1 &&
-    log.args.memo === args.memo
-  )) throw new Error("Expected adjacent memo not found");
-  if (!(await args.store.claimOnce(args.hash, args.orderId))) throw new Error("Payment already used");
+  if (!settlement) throw new Error("Expected protocol settlement was not found");
+  if (!(await args.store.claimOnce(args.paymentInfoHash, args.orderId))) {
+    throw new Error("Payment was already used");
+  }
+  return settlement;
 }
 ```
 
-<Warning>
-`claimOnce` must use a database uniqueness constraint and participate in the same durable workflow as fulfillment. A process-local `Set` cannot prevent replay across restarts or multiple workers.
-</Warning>
+`PaymentAuthorized` and `PaymentCharged` include the full `PaymentInfo`. Later lifecycle events include only the hash, so join them to the immutable terms stored when you created the order.
 
 <Check>
-Only the first request with the expected chain, token, sender, recipient, amount, and optional memo reaches fulfillment.
+Only the first confirmed event with the expected chain, escrow address, payment hash, operation, amount, and fee reaches fulfillment.
 </Check>
 
-## Verify Every Settlement Shape
+<Warning>
+`claimOnce` must use a database uniqueness constraint and participate in the same durable workflow as fulfillment. A process-local `Set` cannot prevent replay across restarts or workers.
+</Warning>
 
-Direct `transfer`, EIP-3009 capture, and `transferFrom` after a permit all emit the same ERC-20 `Transfer` event. That makes the settlement check rail-agnostic, but the order binding differs:
-
-| Rail | Bind the order with |
-|---|---|
-| Direct USDC | Stored transaction hash and expected checkout fields |
-| EIP-3009 capture | Stored authorization nonce plus the capture hash |
-| Permit checkout | Checkout contract's order event plus the token transfer |
-| B20 | Adjacent `Memo` event containing the order reference |
-
-Choose a confirmation depth that matches the value and reversibility of fulfillment. See [transaction finality](/specifications/transactions/transaction-finality) for Base's confirmation stages.
+Choose a confirmation depth that matches the value and reversibility of fulfillment. See [transaction finality](/specifications/transactions/transaction-finality).
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Request a Payment" icon="credit-card" href="/build-on-base/accept-payments/request-a-payment">
-    Accept an immediately settled USDC or B20 checkout.
+    Create an immediate protocol charge.
   </Card>
   <Card title="Watch for Payments" icon="eye" href="/build-on-base/accept-payments/watch-for-payments">
-    Backfill and process confirmed token events.
+    Backfill and process confirmed escrow events.
   </Card>
 </CardGroup>
