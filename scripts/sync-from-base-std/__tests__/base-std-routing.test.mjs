@@ -110,22 +110,18 @@ test("route table maps each source file to its own interface subtree, never the 
     /specs\/upgrades\/beryl\/b20\/specification|specs\/upgrades\/beryl\/b20\/demos/,
   );
 
-  // An interface change routes to that interface's page + subtree (plus a few
-  // shared pages), not to every other interface's subtree.
+  // An interface change routes to the central Interfaces page (plus shared
+  // pages), not to a generated interface subtree.
   const assetWork = await routeCodeChange(
     routeTable,
     ["src/interfaces/IB20Asset.sol"],
     { repoRoot: REPO_ROOT },
   );
   const assetRouted = assetWork.map((item) => item.page);
-  const assetSubtree = allB20Pages.filter((p) =>
-    p.startsWith(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/`),
-  );
-  for (const page of assetSubtree) assert.ok(assetRouted.includes(page), `missing ${page}`);
-  assert.ok(assetRouted.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`));
+  assert.ok(assetRouted.includes(`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`));
   assert.ok(
-    !assetRouted.some((p) => p.includes("/interfaces/i-policy-registry")),
-    "IB20Asset change must not route into the i-policy-registry subtree",
+    !assetRouted.some((p) => p.includes("/reference/interfaces/")),
+    "IB20Asset changes must not route to generated interface pages",
   );
   assert.ok(assetRouted.length < allB20Pages.length / 2);
 
@@ -306,12 +302,10 @@ test("validateMdx: components already on the page or defined as snippets are all
 
 import { loadKnownRoutes } from "../index.mjs";
 
-test("loadKnownRoutes: index pages are reachable at their directory route", async () => {
+test("loadKnownRoutes: the central Interfaces page is reachable", async () => {
   const routes = await loadKnownRoutes();
-  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20/index"));
-  assert.ok(routes.has("/specifications/b20/reference/interfaces/ib20"), "directory route for index.mdx");
-  // and the validator accepts a link to it
-  const page = "---\ntitle: x\n---\n\nSee [IB20](/specifications/b20/reference/interfaces/ib20).\n";
+  assert.ok(routes.has("/specifications/b20/reference/interfaces"));
+  const page = "---\ntitle: x\n---\n\nSee [Interfaces](/specifications/b20/reference/interfaces).\n";
   assert.equal(validateMdx(page, "docs/a.mdx", routes, { current: page }), null);
 });
 
@@ -340,8 +334,7 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
   for (const expected of [
     "docs/specifications/base-protocol/execution/precompiles.mdx",
     `${B20_REFERENCE_ROOT}/specification-overview.mdx`,
-    `${B20_REFERENCE_ROOT}/reference/invariants-tests.mdx`,
-    `${B20_REFERENCE_ROOT}/reference/interfaces/ib20-factory/is-b20-initialized.mdx`,
+    `${B20_REFERENCE_ROOT}/reference/interfaces.mdx`,
   ]) {
     assert.ok(arch.includes(expected), `docs/architecture.md should route to ${expected}`);
   }
@@ -350,7 +343,7 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
   // Concepts feed the spec overview key-concept sections plus the owning reference pages.
   const multipliers = await pagesFor("docs/concepts/multipliers.md");
   assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/specification-overview.mdx`));
-  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/update-ui-multiplier.mdx`));
+  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`));
   assert.ok(multipliers.includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
 
   // Guides feed the existing Build on Base task pages (ia-guidelines: Tokenize Assets / Issue Stablecoins).
@@ -359,15 +352,16 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
   const seize = await pagesFor("docs/guides/seizeing-assets.md");
   assert.ok(seize.includes("docs/build-on-base/issue-rwa/cancel-blocked-units.mdx"));
   assert.ok(seize.includes("docs/build-on-base/issue-stablecoins/recover-funds.mdx"));
-  assert.ok(seize.includes(`${B20_REFERENCE_ROOT}/reference/interfaces/ib20/seize-with-memo.mdx`));
+  assert.ok(seize.includes(`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`));
 
   // Reference tables feed the supporting pages.
-  assert.deepEqual(await pagesFor("docs/reference/constants.md"), [`${B20_REFERENCE_ROOT}/reference/constants-addresses.mdx`]);
-  assert.deepEqual(await pagesFor("docs/reference/errors.md"), [`${B20_REFERENCE_ROOT}/reference/errors-events.mdx`]);
-  assert.deepEqual(await pagesFor("docs/reference/events.md"), [`${B20_REFERENCE_ROOT}/reference/errors-events.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/constants.md"), [`${B20_REFERENCE_ROOT}/reference/constants.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/errors.md"), [`${B20_REFERENCE_ROOT}/reference/errors.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/events.md"), [`${B20_REFERENCE_ROOT}/reference/events.mdx`]);
+  assert.deepEqual(await pagesFor("docs/reference/interfaces.md"), [`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`]);
 
   // Scaffolding is explicitly ignored, and the retired flat tree no longer routes anywhere.
-  for (const src of ["docs/guides/template.md", "docs/reference/interfaces.md", "docs/README.md", "README.md", "docs/B20/Asset.md", "docs/PolicyRegistry/README.md"]) {
+  for (const src of ["docs/guides/template.md", "docs/README.md", "README.md", "docs/B20/Asset.md", "docs/PolicyRegistry/README.md"]) {
     assert.deepEqual(await pagesFor(src), [], `${src} must not route`);
   }
 });
@@ -376,7 +370,7 @@ test("removed source files never route, even when a rule still matches them", as
   const routeTable = {
     code_changes: [
       { source_prefix: "docs/B20/Asset.md", kind: "product-doc", pages: [`${B20_REFERENCE_ROOT}/specification-overview.mdx`], transformer: "claude" },
-      { source_prefix: "src/interfaces/IB20Asset.sol", kind: "interface", pages: [`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`], transformer: "claude" },
+      { source_prefix: "src/interfaces/IB20Asset.sol", kind: "interface", pages: [`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`], transformer: "claude" },
     ],
   };
   const work = await routeCodeChange(
@@ -384,7 +378,7 @@ test("removed source files never route, even when a rule still matches them", as
     ["docs/B20/Asset.md", "src/interfaces/IB20Asset.sol"],
     { repoRoot: REPO_ROOT, removedPaths: ["docs/B20/Asset.md"] },
   );
-  assert.deepEqual(work.map((w) => w.page), [`${B20_REFERENCE_ROOT}/reference/interfaces/ib20-asset/index.mdx`]);
+  assert.deepEqual(work.map((w) => w.page), [`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`]);
   assert.deepEqual(work[0].sourceFiles, ["src/interfaces/IB20Asset.sol"]);
 });
 
@@ -393,7 +387,7 @@ test("classifyChangedPaths separates routed, ignored, unrouted, and removed for 
   const fixture = JSON.parse(await fs.readFile(path.join(REPO_ROOT, RESTRUCTURE_FIXTURE), "utf8"));
   const c = classifyChangedPaths(routeTable, fixture.changed_paths, { removedPaths: fixture.removed_paths });
   assert.deepEqual(c.removed, fixture.removed_paths);
-  assert.deepEqual(c.ignored.sort(), ["README.md", "docs/README.md", "docs/guides/template.md", "docs/reference/interfaces.md"]);
+  assert.deepEqual(c.ignored.sort(), ["README.md", "docs/README.md", "docs/guides/template.md"]);
   assert.deepEqual(c.unrouted, [], "every surviving file in the restructure has a rule");
   assert.equal(c.routed.length, fixture.changed_paths.length - c.removed.length - c.ignored.length);
   // A file outside every rule is reported, not dropped.

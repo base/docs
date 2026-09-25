@@ -1,0 +1,57 @@
+---
+title: "Make a Simple Payment"
+keywords: ["send USDC Base", "USDC transfer", "simple payment Base", "ERC-20 transfer"]
+description: "Send USDC directly from one wallet to another on Base."
+---
+
+import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
+
+Send USDC directly from one wallet to another with a standard ERC-20 transfer. The sender submits the transaction and pays the network fee; after confirmation, the recipient controls the USDC.
+
+## Demo
+
+<PaymentsDemo flow="simple" />
+
+<Tip>
+The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
+</Tip>
+
+## Send USDC
+
+Provide the recipient address and amount, simulate the call, then submit the transaction from the sender's wallet. This example uses USDC on Base Sepolia.
+
+{/* sample: simple-usdc-transfer-ts */}
+```typescript TypeScript lines wrap expandable highlight={6,10-11}
+export async function makeSimplePayment(recipient: Address, amount: string) {
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: USDC,
+    abi: usdcAbi,
+    functionName: "transfer",
+    args: [recipient, parseUnits(amount, 6)],
+  });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("USDC transfer reverted");
+  return hash;
+}
+```
+
+<Check>
+Confirm the receipt succeeded and its USDC `Transfer` event matches the expected sender, recipient, and amount before treating the payment as complete.
+</Check>
+
+<Warning>
+Verify the network and recipient address before signing. A direct USDC transfer has no escrow, authorization, or protocol-managed refund flow.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Request a Payment" icon="money-bill-transfer" href="/build-on-base/accept-payments/request-a-payment">
+    Add payment terms, settlement verification, and refund accounting.
+  </Card>
+  <Card title="Verify a Payment" icon="shield-check" href="/build-on-base/accept-payments/verify-a-payment">
+    Verify Commerce Payments Protocol settlements before fulfillment.
+  </Card>
+</CardGroup>
