@@ -8,31 +8,18 @@ Writing rules, specification page structure, and changelog entry format for Base
 
 ### Language and Style
 
-- Use clear, direct language appropriate for technical audiences
 - Write in second person ("you") for instructions and procedures
 - Use active voice over passive voice
-- Employ present tense for current states, future tense for outcomes
 - Avoid jargon unless necessary and define terms when first used
 - Maintain consistent terminology throughout all documentation
-- Keep sentences concise while providing necessary context
-- Use parallel structure in lists, headings, and procedures
 
 ### Content Organization
 
-- Lead with the most important information (inverted pyramid structure)
-- Use progressive disclosure: basic concepts before advanced ones
 - Break complex procedures into numbered steps
 - Only include prerequisites and context before instructions when necessary for instructions to be understood
 - Provide expected outcomes for each major step
 - Use descriptive, keyword-rich headings for navigation and SEO
-- Group related information logically with clear section breaks
-
-### User-Centered Approach
-
-- Focus on user goals and outcomes rather than system features
-- Anticipate common questions and address them proactively
 - Include troubleshooting for likely failure points
-- Write for scannability with clear headings, lists, and white space
 - Include verification steps to confirm success
 
 ### Required Page Structure
@@ -70,17 +57,6 @@ description: "Concise description explaining page purpose and value"
 - Include rate limiting information with specific limits
 - Provide authentication examples showing proper format
 - Explain all HTTP status codes and error handling
-- Cover complete request/response cycles
-
-### Accessibility
-
-- Include descriptive alt text for all images and diagrams
-- Use specific, actionable link text instead of "click here"
-- Ensure proper heading hierarchy starting with H2
-- Do not repeat the frontmatter page title as the first body heading. Mintlify already renders the title as the page H1; start with introductory content or a distinct H2 section.
-- Provide keyboard navigation considerations
-- Use sufficient color contrast in examples and visuals
-- Structure content for easy scanning with headers and lists
 
 ### Component Selection
 
@@ -161,9 +137,7 @@ Not every feature needs all four types. A single-page feature (e.g., network fee
 
 ### Grouping Rules
 
-A feature gets a nested group in the sidebar (like B20, Bridging, Proofs) when it has 3+ pages. Features with 1–2 pages sit as flat entries in the parent group.
-
-Content is organized by topic (B20, Bridging, Transactions, Consensus, Execution, Proofs, etc.), not by abstraction level. Each topic group flows from user-facing overview to deep protocol spec. A feature gets a nested group in the sidebar when it has 3+ pages; features with 1–2 pages sit as flat entries or single-page groups.
+Content is organized by topic (B20, Bridging, Transactions, Consensus, Execution, Proofs, etc.), not by abstraction level, with each topic group flowing from a user-facing overview to a deep protocol spec. A feature gets a nested group in the sidebar (like B20, Bridging, Proofs) when it has 3+ pages; features with 1–2 pages sit as flat entries or single-page groups in the parent group.
 
 ---
 
