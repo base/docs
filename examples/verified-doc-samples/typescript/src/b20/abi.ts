@@ -12,6 +12,7 @@ export const b20Abi = parseAbi([
   "function burn(uint256)",
   "function burnWithMemo(uint256,bytes32)",
   "function burnBlocked(address,uint256)",
+  "function seizeWithMemo(address,address,uint256,bytes32)",
   "function transferWithMemo(address,uint256,bytes32) returns (bool)",
   "function transferFromWithMemo(address,address,uint256,bytes32) returns (bool)",
   "function updateSupplyCap(uint256)",

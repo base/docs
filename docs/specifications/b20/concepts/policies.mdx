@@ -3,7 +3,7 @@ title: "Policies"
 description: "How B20 policies apply shared allowlists, blocklists, and composite checks to token operations."
 ---
 
-*How B20 reuses shared allowlists and blocklists for compliance checks. Roles and pause are a separate authorization layer; see [Roles and Pause](/specifications/b20/concepts/roles-and-pause). The Policy Registry precompile itself is in [Architecture](/specifications/b20/architecture).*
+*How B20 reuses shared allowlists and blocklists for compliance checks. Roles and pause are a separate authorization layer; see [Roles and Pause](/specifications/b20/concepts/roles-and-pause).*
 
 ## 1. Why policies exist
 
@@ -217,7 +217,7 @@ sequenceDiagram
 
 ### 3.2 Policy scopes
 
-Most scopes deny when `isAuthorized` is `false` and revert `PolicyForbids`. `SEIZE_HOLDER_POLICY` denies when `isAuthorized` is `true` and reverts `AccountNotSeizable`.
+Most scopes deny when `isAuthorized` is `false` and revert `PolicyForbids`. `SEIZE_EXEMPT_POLICY` denies when `isAuthorized` is `true` and reverts `AccountNotSeizable`: an authorized account is seize-exempt.
 
 | Scope                      | Runs on                                                                                         | Account checked                     | Denies when `isAuthorized` is | Error                |
 | -------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------- | -------------------- |
@@ -225,7 +225,7 @@ Most scopes deny when `isAuthorized` is `false` and revert `PolicyForbids`. `SEI
 | `TRANSFER_RECEIVER_POLICY` | `transfer`, `transferFrom`, and memo'd variants. Skipped on factory `initCalls` transfers.      | `to`                                | `false`                       | `PolicyForbids`      |
 | `TRANSFER_EXECUTOR_POLICY` | `transfer`, `transferFrom`, and memo'd variants. Skipped on factory `initCalls` transfers.      | `msg.sender`                        | `false`                       | `PolicyForbids`      |
 | `MINT_RECEIVER_POLICY`     | `mint`, `mintWithMemo`, and Asset `batchMint`. Always checked, including factory `initCalls` mints. | `to`                                | `false`                       | `PolicyForbids`      |
-| `SEIZE_HOLDER_POLICY`      | `seizeWithMemo`. Unset (`ALWAYS_ALLOW`) means no account is seizable.                            | `from`                              | `true`                        | `AccountNotSeizable` |
+| `SEIZE_EXEMPT_POLICY`      | `seizeWithMemo`. Unset (`ALWAYS_ALLOW`) means every account is seize-exempt, so none is seizable. | `from`                              | `true`                        | `AccountNotSeizable` |
 | `SEIZE_RECEIVER_POLICY`    | `seizeWithMemo`. Unset (`ALWAYS_ALLOW`) means seize may send to any destination.                 | `to`                                | `false`                       | `PolicyForbids`      |
 
 ## 4. Example
@@ -396,7 +396,7 @@ A later `updateAllowlist` that adds or removes Carol on `exclusionId` changes th
 | `PolicyForbids(policyScope, policyId)` | A deny-on-false scope rejected the account                                               |
 | `PolicyNotFound(policyId)`             | `updatePolicy` was given an ID that is not a sentinel and does not exist in the registry |
 | `UnsupportedPolicyType(policyScope)`   | `policyScope` is not a slot this token supports                                          |
-| `AccountNotSeizable(account)`          | `seizeWithMemo` `from` is still authorized under `SEIZE_HOLDER_POLICY`                   |
+| `AccountNotSeizable(account)`          | `seizeWithMemo` `from` is still authorized (seize-exempt) under `SEIZE_EXEMPT_POLICY`    |
 | `AccountNotBlocked(account)`           | Deprecated `burnBlocked` `from` is still authorized under `TRANSFER_SENDER_POLICY`       |
 
 
