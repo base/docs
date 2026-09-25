@@ -25,7 +25,7 @@ const REPO_ROOT = path.resolve(
 );
 const B20_REFERENCE_ROOT = "docs/specifications/b20";
 const B20_MANUAL_UPDATE_PAGES = [
-  "docs/specifications/b20/specification-overview.mdx",
+  "docs/specifications/b20/index.mdx",
   "docs/build-on-base/issue-rwa/create-an-asset-token.mdx",
   "docs/build-on-base/accept-payments/request-a-payment.mdx",
 ];
@@ -199,7 +199,7 @@ test("route rules carry a kind, and changelog index vs entry are routed differen
     ["src/interfaces/IB20.sol", "changelog/README.md"],
     { repoRoot: REPO_ROOT },
   );
-  const overview = mixed.find((w) => w.page === `${B20_REFERENCE_ROOT}/specification-overview.mdx`);
+  const overview = mixed.find((w) => w.page === `${B20_REFERENCE_ROOT}/index.mdx`);
   assert.deepEqual(overview.kinds, ["interface"]);
   assert.deepEqual(mixed.find((w) => w.page === summary).kinds, ["changelog-index"]);
 });
@@ -333,7 +333,7 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
   const arch = await pagesFor("docs/architecture.md");
   for (const expected of [
     "docs/specifications/base-protocol/execution/precompiles.mdx",
-    `${B20_REFERENCE_ROOT}/specification-overview.mdx`,
+    `${B20_REFERENCE_ROOT}/index.mdx`,
     `${B20_REFERENCE_ROOT}/reference/interfaces.mdx`,
   ]) {
     assert.ok(arch.includes(expected), `docs/architecture.md should route to ${expected}`);
@@ -342,15 +342,16 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
 
   // Concepts feed the spec overview key-concept sections plus the owning reference pages.
   const multipliers = await pagesFor("docs/concepts/multipliers.md");
-  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/specification-overview.mdx`));
+  assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/index.mdx`));
   assert.ok(multipliers.includes(`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`));
   assert.ok(multipliers.includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
 
   // Guides feed the existing Build on Base task pages (ia-guidelines: Tokenize Assets / Issue Stablecoins).
   assert.ok((await pagesFor("docs/guides/scheduling-stock-splits.md")).includes("docs/build-on-base/issue-rwa/apply-a-multiplier.mdx"));
   assert.ok((await pagesFor("docs/guides/announcing-corporate-actions.md")).includes("docs/build-on-base/issue-rwa/announce-a-distribution.mdx"));
+  assert.ok((await pagesFor("docs/guides/restricting-transfer-initiators.md")).includes("docs/build-on-base/issue-rwa/restrict-transfer-initiators.mdx"));
   const seize = await pagesFor("docs/guides/seizeing-assets.md");
-  assert.ok(seize.includes("docs/build-on-base/issue-rwa/cancel-blocked-units.mdx"));
+  assert.ok(seize.includes("docs/build-on-base/issue-rwa/seize-and-cancel-units.mdx"));
   assert.ok(seize.includes("docs/build-on-base/issue-stablecoins/recover-funds.mdx"));
   assert.ok(seize.includes(`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`));
 
@@ -369,7 +370,7 @@ test("upstream docs tree routes to the pages the IA guidelines assign", async ()
 test("removed source files never route, even when a rule still matches them", async () => {
   const routeTable = {
     code_changes: [
-      { source_prefix: "docs/B20/Asset.md", kind: "product-doc", pages: [`${B20_REFERENCE_ROOT}/specification-overview.mdx`], transformer: "claude" },
+      { source_prefix: "docs/B20/Asset.md", kind: "product-doc", pages: [`${B20_REFERENCE_ROOT}/index.mdx`], transformer: "claude" },
       { source_prefix: "src/interfaces/IB20Asset.sol", kind: "interface", pages: [`${B20_REFERENCE_ROOT}/reference/interfaces.mdx`], transformer: "claude" },
     ],
   };
@@ -399,7 +400,7 @@ test("classifyChangedPaths separates routed, ignored, unrouted, and removed for 
 
 test("filterPlacementProposals keeps only real sources and existing candidate pages", () => {
   const sources = ["docs/concepts/brand-new-topic.md"];
-  const candidates = [`${B20_REFERENCE_ROOT}/specification-overview.mdx`];
+  const candidates = [`${B20_REFERENCE_ROOT}/index.mdx`];
   const kept = filterPlacementProposals(
     [
       { source: "docs/concepts/brand-new-topic.md", page: candidates[0], guideline_rule: "Specifications → B20 | key concepts", rationale: "Concept page | fits the overview\n<b>x</b>" },
@@ -420,7 +421,7 @@ test("filterPlacementProposals keeps only real sources and existing candidate pa
 test("routingReportRows renders unrouted, proposal, and removed sections", () => {
   const rows = routingReportRows({
     classification: { unrouted: ["docs/concepts/new.md"], removed: ["docs/B20/Asset.md"], ignored: [] },
-    proposals: [{ source: "docs/concepts/new.md", page: "docs/specifications/b20/specification-overview.mdx", guideline_rule: "Key concepts", rationale: "Concept material" }],
+    proposals: [{ source: "docs/concepts/new.md", page: "docs/specifications/b20/index.mdx", guideline_rule: "Key concepts", rationale: "Concept material" }],
     source: "base/base-std",
     sha: "be6d0450890e20fc4a739aeaff5e839f234d12a6",
   });
@@ -428,7 +429,7 @@ test("routingReportRows renders unrouted, proposal, and removed sections", () =>
   assert.match(md, /## Unrouted source files/);
   assert.match(md, /https:\/\/github\.com\/base\/base-std\/blob\/be6d0450890e20fc4a739aeaff5e839f234d12a6\/docs\/concepts\/new\.md/);
   assert.match(md, /### Proposed placement \(from IA guidelines\)/);
-  assert.match(md, /\| .*docs\/concepts\/new\.md.* \| `docs\/specifications\/b20\/specification-overview\.mdx` \| Key concepts \| Concept material \|/);
+  assert.match(md, /\| .*docs\/concepts\/new\.md.* \| `docs\/specifications\/b20\/index\.mdx` \| Key concepts \| Concept material \|/);
   assert.match(md, /## Removed source files/);
   assert.match(md, /`docs\/B20\/Asset\.md`/);
   assert.deepEqual(routingReportRows({ classification: { unrouted: [], removed: [], ignored: ["README.md"] }, source: "x", sha: "y" }), []);
