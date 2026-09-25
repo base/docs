@@ -1,12 +1,12 @@
 ---
 title: "Recover Funds"
-keywords: ["recover stablecoin funds", "B20 burnBlocked", "reissue stablecoin", "reclaim tokens Base"]
-description: "Reclaim and reissue stablecoin from a blocked account on Base, for lost keys or a legal hold."
+keywords: ["recover stablecoin funds", "B20 seizeWithMemo", "seize stablecoin", "legal hold stablecoin", "reclaim tokens Base"]
+description: "Move a stablecoin balance out of a blocked account into a safekeeping account on Base, for lost keys or a legal hold, without changing total supply."
 ---
 
 import { StablecoinDemo } from "/snippets/StablecoinDemo.jsx"
 
-Occasionally you need to move a balance out of a blocked account: a holder who lost their keys, or a balance you must reissue. Reclaim it with `burnBlocked`, then mint the same amount to the correct address. It's gated by its own `BURN_BLOCKED_ROLE` and only works on an account that is already blocked.
+Occasionally you need to move a balance out of an account you have blocked: a holder who lost their keys, a court order, or a sanctions hold. `seizeWithMemo` moves the tokens from the holder to a safekeeping account in one admin call. It is not a burn and not a mint: `totalSupply` does not change, the memo carries your case reference onchain, and the token emits a dedicated `Seized` event that auditors and indexers can follow.
 
 ## Demo
 
@@ -17,62 +17,119 @@ The demo uses a local browser-generated account to submit real transactions on *
 </Tip>
 
 <Note>
-New to B20? See the [B20 Token Standard](/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@be6d045`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+New to B20? See the [B20 Token Standard](/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
 
-## Burn and Reissue the Blocked Balance
+<Warning>
+`seizeWithMemo` is part of the Cobalt B20 surface. It is live on Base Vibenet today and reaches Base mainnet with the Cobalt hard fork. Until then, mainnet tokens only have the deprecated `burnBlocked` path, which destroys the balance and requires a separate mint to reissue it. See the [seize changelog entry](/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize).
+</Warning>
+
+## Before You Start
+
+You need all of the following:
+
+- A B20 Stablecoin you administer, with `DEFAULT_ADMIN_ROLE` so you can grant roles and attach policies.
+- An account that will call `seizeWithMemo` (the seizer). Grant it `SEIZE_ROLE`.
+- The blocklist policy ID you created in [Block an Account](/build-on-base/issue-stablecoins/block-an-account), with the holder already on it.
+- A non-zero safekeeping destination that is not the holder and not the token's own address, typically your treasury.
+- `SEIZE` not paused. `pause([SEIZE])` blocks every seize until `unpause([SEIZE])`. Pausing `TRANSFER`, `MINT`, or `BURN` leaves seize live.
+
+Three controls decide whether a seize can run, checked in this order:
+
+| Control | What it checks | Default when unset |
+| --- | --- | --- |
+| `SEIZE_ROLE` | The caller may seize. | Nobody can seize. |
+| `SEIZE_EXEMPT_POLICY` | The holder (`from`) is **not** authorized under the attached policy. An authorized account is seize-exempt. | Every account is authorized, so nobody is seizable. |
+| `SEIZE_RECEIVER_POLICY` | The destination (`to`) is authorized under the attached policy. | Any destination is allowed. |
+
+`SEIZE_EXEMPT_POLICY` is inverted relative to the transfer scopes. Attach a **blocklist**: accounts on the list are unauthorized, so they become seizable, and everyone else stays exempt. Do not attach an allowlist or `ALWAYS_BLOCK`; an empty allowlist authorizes nobody, which would make every holder seizable.
+
+Seize does not read the transfer scopes. Blocking a holder under `TRANSFER_SENDER_POLICY` freezes their outgoing transfers but does not make them seizable until the same blocklist (or another) is attached to `SEIZE_EXEMPT_POLICY`.
+
+## Seize and Verify the Blocked Balance
+
+Grant `SEIZE_ROLE` to the seizer first. This is a one-time setup per token:
+
+```solidity Grant SEIZE_ROLE
+token.grantRole(token.SEIZE_ROLE(), seizer);
+```
+
+Then attach your blocklist to `SEIZE_EXEMPT_POLICY` and move the balance:
 
 <CodeGroup>
 {/* sample: stablecoin-recover-ts */}
-```typescript TypeScript lines wrap expandable highlight={8,9}
-import { parseUnits, type Address } from "viem";
+```typescript TypeScript lines wrap expandable highlight={10,11}
+import { parseUnits, stringToHex, type Address } from "viem";
 import { publicClient } from "../../shared/clients.js";
-import { b20Abi } from "../abi.js";
+import { b20Abi, scope } from "../abi.js";
 import { sendContract } from "../write.js";
 
-export async function recoverBlockedFunds(token: Address, blocked: Address, replacement: Address) {
+export async function recoverBlockedFunds(token: Address, blocklistId: bigint, blocked: Address, treasury: Address) {
   const amount = parseUnits("50", 6);
-  await sendContract({ address: token, abi: b20Abi, functionName: "burnBlocked", args: [blocked, amount] });
-  await sendContract({ address: token, abi: b20Abi, functionName: "mint", args: [replacement, amount] });
-  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [replacement] });
-  if (balance < amount) throw new Error("Replacement balance was not issued");
+  const memo = stringToHex("legal-hold-2026-118", { size: 32 });
+  await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [scope("SEIZE_EXEMPT_POLICY"), blocklistId] });
+  await sendContract({ address: token, abi: b20Abi, functionName: "seizeWithMemo", args: [blocked, treasury, amount, memo] });
+  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [treasury] });
+  if (balance < amount) throw new Error("Seized balance did not reach the treasury");
 }
 ```
 {/* sample: stablecoin-recover-solidity */}
-```solidity Solidity lines wrap expandable highlight={1}
-    function recoverStablecoin(address token, address blocked, address replacement) public {
-        IB20(token).burnBlocked(blocked, 50e6);
-        IB20(token).mint(replacement, 50e6);
-        require(IB20(token).balanceOf(replacement) >= 50e6, "replacement not funded");
-    }
+```solidity Solidity lines wrap expandable highlight={2,3}
+function recoverStablecoin(address token, uint64 blocklistId, address blocked, address treasury) public {
+    IB20(token).updatePolicy(B20Constants.SEIZE_EXEMPT_POLICY, blocklistId);
+    IB20(token).seizeWithMemo(blocked, treasury, 50e6, bytes32("legal-hold-2026-118"));
+    require(IB20(token).balanceOf(treasury) >= 50e6, "treasury not funded");
+}
 ```
 {/* sample: stablecoin-recover-cli */}
-```bash CLI lines wrap expandable highlight={1}
-base-cast send "$TOKEN_ADDRESS" "burnBlocked(address,uint256)" "$BLOCKED" 50000000 \
+```bash CLI lines wrap expandable highlight={1,3}
+base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak SEIZE_EXEMPT_POLICY)" "$BLOCKLIST_ID" \
   --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-base-cast send "$TOKEN_ADDRESS" "mint(address,uint256)" "$REPLACEMENT" 50000000 \
-  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$REPLACEMENT" --rpc-url "$RPC_URL"
+base-cast send "$TOKEN_ADDRESS" "seizeWithMemo(address,address,uint256,bytes32)" "$BLOCKED" "$TREASURY" 50000000 \
+  "$(base-cast format-bytes32-string legal-hold-2026-118)" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$TREASURY" --rpc-url "$RPC_URL"
 ```
 </CodeGroup>
 
-See the [B20 token standard](/specifications/b20) for the complete interface, roles, and policies.
+Attaching the policy emits `PolicyUpdated` and takes effect on the next `seizeWithMemo`. You can point more than one token at the same blocklist. The seize itself emits, in order, `Transfer(from, to, amount)`, `Memo(caller, memo)`, and `Seized(caller, from, to, amount)`.
+
+Once the balance sits in the treasury it is an ordinary balance. Reissue it to the holder's new address with a plain `transfer`, or hold it while the case is open.
+
+To lock destinations as well, create an allowlist containing the treasury and attach it to `SEIZE_RECEIVER_POLICY`. Skip this if any safekeeping address is acceptable; the unset scope already allows every `to`.
 
 <Check>
-The blocked balance falls and the replacement address receives the same amount, leaving circulating supply unchanged.
+`Seized(caller, from, to, amount)` appears on the transaction. The blocked balance falls, the treasury balance rises by the same amount, and `totalSupply` is unchanged.
 </Check>
 
+## Common Errors
+
+These errors follow the order `seizeWithMemo` checks them.
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `ContractPaused(SEIZE)` | `SEIZE` is paused. | Call `unpause` with `PausableFeature.SEIZE`. |
+| `AccessControlUnauthorizedAccount(caller, SEIZE_ROLE)` | The caller does not hold `SEIZE_ROLE`. | Grant `SEIZE_ROLE` to the seizer. |
+| `InvalidReceiver(to)` | `to` is `address(0)`, the token's own address, or equal to `from`. | Use a distinct, non-zero safekeeping address. |
+| `InvalidSender(from)` | `from` is `address(0)`. | Pass the holder's address. |
+| `AccountNotSeizable(from)` | `from` is still authorized under `SEIZE_EXEMPT_POLICY`. The slot is unset, or the holder is not on the attached blocklist. | Attach a blocklist to `SEIZE_EXEMPT_POLICY` and add `from` to it. |
+| `PolicyForbids(SEIZE_RECEIVER_POLICY, policyId)` | `to` is not authorized under `SEIZE_RECEIVER_POLICY`. | Add `to` to the receiver allowlist, or set the scope back to `0`. |
+| `InsufficientBalance(from, balance, amount)` | `from` holds less than `amount`. | Seize `balanceOf(from)` or less. |
+| `PolicyNotFound(policyId)` | `updatePolicy` received an ID that does not exist in the registry. | Create the policy first, then attach the returned ID. |
+| `Unauthorized()` | A non-admin called `updateBlocklist` or `updateAllowlist`. | Call as the policy's `policyAdmin`. |
+
+A balance already sitting at the token's own address can still be recovered: `seizeWithMemo(address(token), treasury, amount, memo)` is allowed. Seizing *to* the token's address is not.
+
 <Warning>
-`burnBlocked` requires `BURN_BLOCKED_ROLE` and only succeeds while the source is denied by `TRANSFER_SENDER_POLICY`.
+Prefer this path over the deprecated `burnBlocked` workaround, which burns the blocked balance and mints a replacement. That path dips and restores `totalSupply`, emits no `Seized` event, and gives reconciliation two unrelated transactions instead of one traceable movement.
 </Warning>
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Block an Account" icon="user-lock" href="/build-on-base/issue-stablecoins/block-an-account">
-    Deny a specific address.
+    Deny a specific address and make it seizable.
   </Card>
   <Card title="Reconcile with Memos" icon="receipt" href="/build-on-base/issue-stablecoins/reconcile-with-memos">
-    Match payments using onchain memos.
+    Match operations using onchain memos.
   </Card>
 </CardGroup>
