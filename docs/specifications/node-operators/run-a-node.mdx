@@ -114,7 +114,7 @@ The root `docker-compose.yml` exposes a few knobs so you can override defaults f
 | `NODE_TAG` | `latest` | Image tag pulled from `ghcr.io/base/node`. Set to a release tag (e.g. `v1.3.0`) to pin. |
 | `NETWORK_ENV` | `.env.mainnet` | Which network env file the `execution` and `node` services load. Set to `.env.sepolia` for testnet. |
 | `HOST_DATA_DIR` | `./reth-data` | Host path mounted into the execution container at `/data`. Change to point at an external volume. |
-| `PROFILE` | `maxperf` | Cargo build profile used when `--build` is passed. Matches the profile used for the published image. |
+| `PROFILE` | `release` | Cargo build profile used when `--build` is passed. The published `ghcr.io/base/node` image is built with `maxperf`; set `PROFILE=maxperf` to match it. |
 
 Running `docker compose up --build` compiles the current `base/base` tree using the `base` target of `etc/docker/Dockerfile.rust-services` (the same target that produces the published `ghcr.io/base/node` image), so a source build and a pinned image share the same binary layout.
 
@@ -198,20 +198,21 @@ Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods plus
 
 To serve methods like `eth_getProof`, `debug_executionWitness` and `debug_executePayload` efficiently, you'll need to set up the historical proofs execution extension (ExEx). This ExEx manages a separate database with data required to serve these methods. This database can add hundreds of GB of additional storage and requires a machine with higher I/O throughput. Most people do not need these RPCs to be available.
 
-In order to run the historical proofs ExEx, you simply need to set this environment variable:
+In order to run the historical proofs ExEx, set both of these environment variables (for example in your `.env.mainnet` or `.env.sepolia`). The entrypoint only enables the ExEx when the storage path is set too:
 
-```bash Terminal
+```bash .env.mainnet
 RETH_HISTORICAL_PROOFS=true
+RETH_HISTORICAL_PROOFS_STORAGE_PATH=/data/proofs
 ```
 
-When the node starts up for the first time, it will backfill existing state to the new proofs database in `<datadir>/proofs`. This process can take a while (24-48 hours for mainnet).
+`/data` is the execution container's data directory (mounted from `HOST_DATA_DIR`, `./reth-data` by default), so the example above keeps the proofs database next to the chain data. When the node starts up for the first time, it runs `base-reth-node proofs init` and backfills existing state into that database. This process can take a while (24-48 hours for mainnet).
 
 To skip the backfill, snapshots of the proofs database are available. See the [Snapshots](/specifications/node-operators/snapshots#proofs-snapshots) page for download instructions.
 
 <Note>
 The block at which the ExEx first starts will be the earliest block for which these RPCs are available. The flag `--rpc.eth-proof-window` is ignored when the proofs ExEx is enabled.
 
-By default, the ExEx saves 28 days of blocks, but you can customize this by setting `RETH_PROOFS_HISTORY_WINDOW=<num_blocks>`.
+By default, the ExEx keeps 1,296,000 blocks of proofs (30 days at 2-second blocks). The retention window is the `--proofs-history.window <num_blocks>` flag on `base-reth-node`; the compose entrypoint does not expose an environment variable for it.
 </Note>
 
 ### Improving Performance
