@@ -54,9 +54,11 @@ Pause, zero-actor, and allowance checks stay in the entrypoints. The executor ch
 
 | Function | Before Denim | Denim |
 | --- | --- | --- |
-| `transfer` / `transferWithMemo` | pause → zero-receiver → zero-sender → sender policy → receiver policy → balance | pause → zero-receiver → zero-sender → **executor policy** → sender policy → receiver policy → balance |
-| `transferFrom` / `transferFromWithMemo` | pause → zero-receiver → zero-sender → allowance → executor policy (skipped if `msg.sender == from`) → sender policy → receiver policy → balance | pause → zero-receiver → zero-sender → allowance → **executor policy** → sender policy → receiver policy → balance |
+| `transfer` / `transferWithMemo` | pause → zero-receiver → zero-sender → sender policy → receiver policy → balance | pause → invalid-receiver → zero-sender → **executor policy** → sender policy → receiver policy → balance |
+| `transferFrom` / `transferFromWithMemo` | pause → zero-receiver → zero-sender → allowance → executor policy (skipped if `msg.sender == from`) → sender policy → receiver policy → balance | pause → invalid-receiver → zero-sender → allowance → **executor policy** → sender policy → receiver policy → balance |
 
+At Denim, the invalid-receiver step also rejects the token's own address; see
+[Reject the Token Itself as a Credit Recipient](/base-chain/specs/reference/b20/changelog/03-denim-b20-token-receiver).
 When more than one check would fail, the caller sees the first revert in that order.
 
 ### Gas
@@ -82,18 +84,21 @@ token.transfer(bob, amount); // reverts PolicyForbids(TRANSFER_EXECUTOR_POLICY, 
 
 An executor allowlist restricts initiation to a transfer agent:
 
-```solidity Transfer Agent Allowlist lines expandable wrap highlight={4-5,7-8}
-uint64 executorAllowlist = policyRegistry.createPolicyWithAccounts(admin, ALLOWLIST, [transferAgent]);
+```solidity Transfer Agent Allowlist lines expandable wrap highlight={6-7,9-10}
+address[] memory agents = new address[](1);
+agents[0] = transferAgent;
+uint64 executorAllowlist =
+    policyRegistry.createPolicyWithAccounts(admin, IPolicyRegistry.PolicyType.ALLOWLIST, agents);
 token.updatePolicy(TRANSFER_EXECUTOR_POLICY, executorAllowlist);
 
 vm.prank(transferAgent);
 token.transferFrom(alice, bob, amount); // succeeds: transferAgent is allowlisted
 
 vm.prank(alice);
-token.transfer(bob, amount); // reverts PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...)
+token.transfer(bob, amount); // reverts PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...): alice is not allowlisted
 ```
 
-The factory bootstrap bypass still applies:
+The factory bootstrap bypass still applies. This sketch elides the `createB20` arguments:
 
 ```solidity Bootstrap Bypass
 initCalls = [
@@ -133,5 +138,5 @@ For a token with a restrictive `TRANSFER_EXECUTOR_POLICY`:
 3. **To keep allowing holder-initiated transfers:** add those holders, or a policy covering them, to
    the executor allowlist before Denim activates.
 
-For the current scope definition, see
-[`TRANSFER_EXECUTOR_POLICY`](/specifications/b20/reference/interfaces/ib20/transfer-executor-policy).
+The [`TRANSFER_EXECUTOR_POLICY`](/specifications/b20/reference/interfaces/ib20/transfer-executor-policy)
+reference page describes the scope as it behaves before Denim activates.

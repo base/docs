@@ -1,5 +1,5 @@
 ---
-title: "B20: Reject the Token Address as a Receiver"
+title: "B20: Reject the Token Itself as a Credit Recipient"
 description: "Denim reverts InvalidReceiver when a transfer, mint, or seize credits the B20 token's own address, so a mistyped recipient fails instead of locking funds."
 ---
 
@@ -8,8 +8,8 @@ description: "Denim reverts InvalidReceiver when a transfer, mint, or seize cred
 [Denim](/upgrades/denim/overview) adds `address(this)` as a second trigger of the existing
 `InvalidReceiver(address receiver)` error. `transfer`, `transferFrom`, their memo variants, `mint`,
 `mintWithMemo`, `batchMint`, and `seizeWithMemo` revert `InvalidReceiver(to)` when `to` is the
-token's own address. The change applies to the shared `IB20` surface, so it covers both B20 Asset
-and B20 Stablecoin.
+token's own address. The guard covers the `IB20` transfer, mint, and seize paths plus
+`IB20Asset.batchMint`, so it applies to both B20 Asset and B20 Stablecoin.
 
 A holder sending to themselves (`from == to`) still succeeds. An issuer can still recover tokens
 already credited to the token address: `seizeWithMemo` with `from == address(token)` succeeds.
@@ -127,6 +127,6 @@ sitting there.
    the token must be seizable under `SEIZE_EXEMPT_POLICY`.
 4. No change is needed for self-transfers, approvals, burns, or sends to other B20 tokens.
 
-For the current function behavior, see
-[`seizeWithMemo`](/specifications/b20/reference/interfaces/ib20/seize-with-memo) and
-[`transfer`](/specifications/b20/reference/interfaces/ib20/transfer).
+The [`seizeWithMemo`](/specifications/b20/reference/interfaces/ib20/seize-with-memo) and
+[`transfer`](/specifications/b20/reference/interfaces/ib20/transfer) reference pages describe
+behavior before Denim activates.

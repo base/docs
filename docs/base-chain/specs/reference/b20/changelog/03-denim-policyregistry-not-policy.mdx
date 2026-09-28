@@ -10,9 +10,9 @@ query time. When bit 63 (`INVERTED_POLICY_BIT`) is set, `isAuthorized` resolves 
 returns the negation of that policy's decision. The flag applies to every policy type: `ALLOWLIST`,
 `BLOCKLIST`, `UNION`, and `INTERSECT`.
 
-Members stay on the base policy, so an update to the base also updates its inverse. Invert creates
-no new record, no new create path, and no extra `SLOAD`. The change is non-breaking: existing IDs
-have bit 63 unset and behave exactly as before.
+Members stay on the base policy and are shared, not copied, so an update to the base also updates
+its inverse. Invert creates no new record and no new create path. The change is non-breaking:
+existing IDs have bit 63 unset and behave exactly as before.
 
 ## Motivation
 
@@ -101,11 +101,13 @@ A composite child may carry the invert bit. The registry checks existence and ty
 | Inverted `ALLOWLIST` or `BLOCKLIST` | Accepted; stored with the invert bit kept |
 | Inverted `UNION` or `INTERSECT` | Reverts `InvalidChildPolicy`, preserving the flat-tree invariant |
 | Base does not exist | Reverts `PolicyNotFound`, which still takes precedence across the whole child set |
+| Built-in sentinel (`ALWAYS_ALLOW_ID`, `ALWAYS_BLOCK_ID`), with or without the invert bit | Reverts `InvalidChildPolicy`, unchanged from Cobalt |
 
 ### State and Gas
 
 Denim adds no storage slots. Invert is query-time only: storage keys, type decode, and existence
-resolve against the stripped ID, and evaluation adds one boolean flip in memory.
+resolve against the stripped ID. An inverted query runs the fail-closed existence guard on the base,
+then the existing dispatch, then one boolean flip in memory. Non-inverted queries are unchanged.
 
 ## Examples
 
@@ -120,9 +122,14 @@ Allow transfers only for accounts on `kycId` and not on `sanctionedId`, with an 
 composite and an inverted child:
 
 ```solidity Composite With an Inverted Child
-uint64 notSanctioned = policyRegistry.invertedPolicyId(sanctionedId);
-policyRegistry.createCompositePolicy(admin, INTERSECT, [kycId, notSanctioned]);
+uint64[] memory children = new uint64[](2);
+children[0] = kycId;
+children[1] = policyRegistry.invertedPolicyId(sanctionedId); // not sanctioned
+policyRegistry.createCompositePolicy(admin, IPolicyRegistry.PolicyType.INTERSECT, children);
 ```
+
+Fail-closed: for any never-created base, `isAuthorized(base | INVERTED_POLICY_BIT, account)` returns
+`false`.
 
 Round-trip: `invertedPolicyId(invertedPolicyId(id)) == id`, and
 `policyExists(invertedPolicyId(id)) == policyExists(id)`.
