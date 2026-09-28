@@ -85,6 +85,8 @@ export const PaymentsDemo = ({ flow }) => {
       allowance: "0xdd62ed3e",
       balanceOf: "0x70a08231",
       mint: "0x40c10f19",
+      decimals: "0x313ce567",
+      symbol: "0x95d89b41",
     };
     const TOPICS = {
       PaymentCharged: "0x137b0e73e4453f43c2e1ad2552980a0e0c7e988764619974ca26d37a7159940c",
@@ -191,6 +193,8 @@ export const PaymentsDemo = ({ flow }) => {
       allowance: (owner, spender) => SELECTORS.allowance + addressWord(owner, "owner") + addressWord(spender, "spender"),
       balanceOf: (holder) => SELECTORS.balanceOf + addressWord(holder, "holder"),
       mint: (to, amount) => SELECTORS.mint + addressWord(to, "to") + uintWord(amount, 256, "amount"),
+      decimals: () => SELECTORS.decimals,
+      symbol: () => SELECTORS.symbol,
     };
 
     const words = (hex) => {
@@ -206,6 +210,17 @@ export const PaymentsDemo = ({ flow }) => {
       bool: (hex) => { const w = words(hex); if (w.length < 1 || w[0] > 1n) throw new Error("Return data is not a bool"); return w[0] === 1n; },
       address: (hex) => { const w = words(hex); if (w.length < 1 || w[0] >= 1n << 160n) throw new Error("Return data is not an address"); return wordAddress(w[0]); },
       bytes32: (hex) => { if (!/^0x[0-9a-fA-F]{64}$/.test(hex || "")) throw new Error("Return data is not bytes32"); return hex.toLowerCase(); },
+      // ABI-encoded string (offset, length, bytes). Decodes ASCII, which covers token symbols.
+      string: (hex) => {
+        const w = words(hex);
+        if (w.length < 2 || w[0] !== 32n) throw new Error("Return data is not a string");
+        const length = Number(w[1]);
+        if (w.length < 2 + Math.ceil(length / 32)) throw new Error("Return data is not a string");
+        const bytes = hex.slice(2 + 128, 2 + 128 + length * 2);
+        let out = "";
+        for (let i = 0; i < bytes.length; i += 2) out += String.fromCharCode(parseInt(bytes.slice(i, i + 2), 16));
+        return out;
+      },
       paymentState: (hex) => {
         const w = words(hex);
         if (w.length !== 3 || w[0] > 1n) throw new Error("paymentState returned an unexpected shape");
@@ -280,7 +295,8 @@ export const PaymentsDemo = ({ flow }) => {
   // @payments-protocol:end
   const P = PAYMENTS_PROTOCOL;
 
-  const VIBENET_RPC = "https://api.vibes.base.org/api/vibenet/account/rpc";
+  const VIBENET_API = "https://api.vibes.base.org/api/vibenet";
+  const VIBENET_RPC = `${VIBENET_API}/account/rpc`;
   const VIBENET_CHAIN_ID = 84538453n;
   const EXPLORER_URL = "https://chain.base.org/vibenet/explorer";
 
@@ -306,24 +322,61 @@ export const PaymentsDemo = ({ flow }) => {
   };
   const ethCall = (to, data, from) => rpcCall("eth_call", [from ? { from, to, data } : { to, data }, "latest"]);
   const hasCode = async (address) => { const code = await rpcCall("eth_getCode", [address, "latest"]); return Boolean(code && code !== "0x"); };
-  const genesisHashOf = async () => (await rpcCall("eth_getBlockByNumber", ["0x0", false]))?.hash || null;
+  const validGenesis = (hash) => typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash) && !/^0x0{64}$/i.test(hash);
+  const genesisHashOf = async () => {
+    const hash = (await rpcCall("eth_getBlockByNumber", ["0x0", false]))?.hash;
+    return validGenesis(hash) ? hash.toLowerCase() : null;
+  };
+  const fetchApi = async (path, timeoutMs = 10_000) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${VIBENET_API}${path}`, { cache: "no-store", signal: controller.signal });
+      if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  // The demos pay with Vibenet's existing USDV token ("Vibe USD", 6 decimals,
+  // permissionless mint), not USDC. Vibenet resets can redeploy it, so its
+  // address is read at runtime from /contracts and the faucet status, which must
+  // agree, then checked onchain for code, decimals, and symbol. Throws only when
+  // neither endpoint answers; any other mismatch is returned as `reason`.
+  const discoverUsdv = async () => {
+    const [deployment, faucet] = await Promise.all([
+      fetchApi("/contracts").catch(() => null),
+      fetchApi("/faucet/status").catch(() => null),
+    ]);
+    if (!deployment && !faucet) throw new Error("Vibenet contract lookup did not respond");
+    const valid = (value) => (typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value) ? value : null);
+    const listed = valid(deployment?.usdv);
+    const dripped = valid(faucet?.usdv_address);
+    const address = listed || dripped;
+    if (!address) return { address: null, reason: "Vibenet does not list a USDV contract" };
+    if (listed && dripped && !P.same(listed, dripped)) return { address: null, reason: "Vibenet contracts and faucet report different USDV addresses" };
+    if (faucet?.chain_id !== undefined && BigInt(faucet.chain_id) !== VIBENET_CHAIN_ID) return { address: null, reason: `Vibenet faucet reports chain ${faucet.chain_id}` };
+    if (!(await hasCode(address))) return { address: null, reason: `USDV ${address} has no code on Vibenet` };
+    const [decimals, symbol] = await Promise.all([ethCall(address, P.encode.decimals()), ethCall(address, P.encode.symbol())]);
+    if (P.decode.uint(decimals) !== 6n) return { address: null, reason: "USDV on Vibenet does not report 6 decimals" };
+    if (P.decode.string(symbol) !== "USDV") return { address: null, reason: "The listed Vibenet USDV contract reports a different symbol" };
+    return { address, reason: null };
+  };
 
   // Read-only capability probe. It never loads aa.txt and never writes: live
   // flows stay idle until the reader presses a step button.
   const probePayments = async () => {
-    const isActivated = async (feature) => BigInt(await ethCall("0x8453000000000000000000000000000000000001", `0xba87af80${feature.slice(2)}`)) === 1n;
-    const [chainId, genesis, stablecoin, policy, escrowCode, preCode, refundCode] = await Promise.all([
+    const [chainId, genesis, escrowCode, preCode, refundCode] = await Promise.all([
       rpcCall("eth_chainId", [], 5_000),
       genesisHashOf(),
-      isActivated("0xecfa0def2c10020caaf65e6155aa69c84b24892aaef76eeac52e0e2b3a0b8601"),
-      isActivated("0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f"),
       hasCode(P.ESCROW),
       hasCode(P.PRE_APPROVAL_COLLECTOR),
       hasCode(P.REFUND_COLLECTOR),
     ]);
     let reason = null;
+    let usdv = null;
     if (BigInt(chainId) !== VIBENET_CHAIN_ID) reason = `Unexpected chain ${BigInt(chainId)}`;
-    else if (!stablecoin || !policy) reason = "B20 stablecoins are not activated on Vibenet";
     else if (!escrowCode || !preCode || !refundCode) reason = "Commerce Payments v1.1 contracts are not deployed on Vibenet";
     else {
       const [preEscrow, refundEscrow, preType, refundType] = await Promise.all([
@@ -337,7 +390,12 @@ export const PaymentsDemo = ({ flow }) => {
         reason = "Vibenet collectors are not wired to AuthCaptureEscrow v1.1";
       }
     }
-    return { live: !reason, reason, genesisHash: genesis };
+    if (!reason) {
+      const token = await discoverUsdv();
+      reason = token.reason;
+      usdv = token.address;
+    }
+    return { live: !reason, reason, genesisHash: genesis, usdv };
   };
 
   // ----------------------------------------------------------------------
@@ -668,12 +726,13 @@ export const PaymentsDemo = ({ flow }) => {
   const pinned = flow && FLOWS[flow] ? flow : null;
 
   // ======================================================================
-  // Live Vibenet flows. Each pinned flow bootstraps its own demo B20 token and
-  // payment, so it never depends on state left behind by another page. Every
-  // success line is derived from a transaction receipt plus a follow-up read
-  // of escrow state; anything that cannot be verified throws instead.
+  // Live Vibenet flows. Each pinned flow mints its own USDV from Vibenet's
+  // existing permissionless USDV token and creates its own payment, so it never
+  // depends on state left behind by another page. Every success line is derived
+  // from a transaction receipt plus a follow-up read of token or escrow state;
+  // anything that cannot be verified throws instead.
   // ======================================================================
-  const TOKEN = "dUSD";
+  const TOKEN = "USDV";
   const PAYER = "Payer & operator";
   const short = (value) => (value ? `${value.slice(0, 6)}…${value.slice(-4)}` : "");
   const txHref = (hash) => `${EXPLORER_URL}/tx/${hash}`;
@@ -723,30 +782,152 @@ export const PaymentsDemo = ({ flow }) => {
       throw new Error(`${label} would revert on Vibenet (${name}). Nothing was sent for this step.`);
     }
   };
+  // Exclusive run lease. Every live run with the same chain, genesis, demo
+  // account, and USDV token shares one USDV balance and one allowance per
+  // collector, so a second run's approve would overwrite the first run's
+  // allowance between its steps. engine.sendCalls serializes single
+  // transactions only; this lease serializes whole multistep runs across every
+  // widget on the page and every tab of this origin. It is a Web Locks API
+  // exclusive lock, requested with ifAvailable so a busy lease is refused
+  // instead of queued. There is deliberately no localStorage fallback: without
+  // navigator.locks the live demo sends nothing.
+  const runLeaseKey = ({ genesisHash, account, token }) =>
+    ["base-docs-payments-demo", "v1", VIBENET_CHAIN_ID, genesisHash, account, token].map((part) => String(part).toLowerCase()).join(":");
+  const acquireRunLease = async (locks, key) => {
+    if (!locks || typeof locks.request !== "function") {
+      throw Object.assign(new Error("This browser does not support the Web Locks API, which the live demo needs so two runs never share one USDV balance and allowance. Nothing was sent. Open this page in a current browser to run it live"), { lease: true });
+    }
+    let unlock;
+    const hold = new Promise((resolve) => { unlock = resolve; });
+    let held = false;
+    const granted = await new Promise((resolve, reject) => {
+      locks.request(key, { mode: "exclusive", ifAvailable: true }, (lock) => {
+        if (!lock) { resolve(false); return null; }
+        held = true;
+        resolve(true);
+        return hold;
+      }).then(() => { held = false; }, (error) => { held = false; reject(error); });
+    });
+    if (!granted) {
+      throw Object.assign(new Error("Another live Payments demo is already running with this Vibenet account and USDV, on this page or in another tab. Finish or reset that run, then try again. Nothing was sent"), { lease: true });
+    }
+    return { key, held: () => held, release: () => { held = false; unlock(); } };
+  };
+  // Owns one widget's lease. Reset, completion, and abort release it at once.
+  // Unmount releases it at once when idle; while a step is in flight it stays
+  // held until that step settles, because a transaction already handed to the
+  // engine is not recalled and must not race another run. A submission whose
+  // outcome is unknown pins the lease: release, reset, and unmount are no-ops
+  // until the pinned reconciliation settles with a verified outcome.
+  const createLeaseSlot = () => {
+    let lease = null;
+    let inFlight = 0;
+    let closed = false;
+    let pinned = null;
+    const drop = () => { const current = lease; lease = null; if (current) current.release(); };
+    const release = () => { if (pinned) return false; drop(); return true; };
+    return {
+      hold: (next) => { lease = next; },
+      release,
+      begin: () => { inFlight += 1; },
+      end: () => { inFlight -= 1; if (closed && inFlight === 0) release(); },
+      mount: () => { closed = false; },
+      unmount: () => { closed = true; if (inFlight === 0) release(); },
+      pinned: () => pinned !== null,
+      pin: (reconciliation) => {
+        const token = {};
+        pinned = token;
+        return Promise.resolve(reconciliation).then((outcome) => {
+          if (pinned === token) { pinned = null; drop(); }
+          return outcome;
+        });
+      },
+    };
+  };
+
   // Checked immediately before every write is initiated. Once the demo unmounts
   // (for example, SPA navigation), the step stops before its next transaction.
-  // A transaction already handed to the engine is not recalled.
+  // A transaction already handed to the engine is not recalled. No write is
+  // initiated unless this run still holds its exclusive lease.
   const beforeWrite = (ctx) => {
     if (!ctx.isMounted()) throw Object.assign(new Error("The demo closed, so no further transactions were sent"), { abort: true, unmounted: true });
+    if (typeof ctx.leaseHeld !== "function" || ctx.leaseHeld() !== true) {
+      throw Object.assign(new Error("This run no longer holds its exclusive demo lease, so no further transactions were sent. Reset the demo to start a new payment"), { abort: true });
+    }
   };
+  const receiptSucceeded = (receipt) => {
+    const phases = receipt?.phaseStatuses || receipt?.eip8130?.phaseStatuses || [];
+    return receipt?.status === "0x1" && !phases.some((status) => status !== "0x1" && status !== "0x01");
+  };
+  const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+  // A receipt is an outcome only if it is a mined receipt for the expected
+  // transaction: a final status (0x1 or 0x0), the same transaction hash, and
+  // a real block hash and number. Anything else, including an empty object,
+  // proves nothing about the submission and leaves it pending.
+  const verifiedReceipt = (receipt, hash) => Boolean(
+    receipt && typeof receipt === "object"
+    && TX_HASH.test(hash || "")
+    && (receipt.status === "0x1" || receipt.status === "0x0")
+    && typeof receipt.transactionHash === "string" && receipt.transactionHash.toLowerCase() === hash.toLowerCase()
+    && TX_HASH.test(receipt.blockHash || "") && !/^0x0{64}$/.test(receipt.blockHash)
+    && typeof receipt.blockNumber === "string" && /^0x[0-9a-fA-F]{1,64}$/.test(receipt.blockNumber),
+  );
+  // Once engine.sendCalls starts, only two failures are final: the engine
+  // says it stopped before eth_sendRawTransaction (notSent), or a verified
+  // receipt for its hash came back. Anything else may have reached the node,
+  // including a malformed or mismatched receipt and errors from an
+  // older cached engine that does not classify them, so it is marked pending
+  // with the transaction hash when known. A missing receipt never proves the
+  // transaction was not sent.
   const send = async (engine, ctx, calls, metadata) => {
     beforeWrite(ctx);
     ctx.stepWrote = true;
-    const tx = await engine.sendCalls({ calls, metadata, gasFloor: 900_000n });
+    let tx;
+    try {
+      tx = await engine.sendCalls({ calls, metadata, gasFloor: 900_000n });
+    } catch (error) {
+      if (error?.notSent || verifiedReceipt(error?.receipt, error?.hash)) throw error;
+      throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
+        pending: true,
+        hash: TX_HASH.test(error?.hash || "") ? error.hash : null,
+      });
+    }
     const receipt = tx?.receipt;
-    const phases = receipt?.phaseStatuses || receipt?.eip8130?.phaseStatuses || [];
-    if (!tx?.hash || !receipt || receipt.status !== "0x1" || phases.some((status) => status !== "0x1" && status !== "0x01")) {
-      throw Object.assign(new Error(`Transaction ${tx?.hash || ""} did not succeed onchain`), { hash: tx?.hash });
+    if (!verifiedReceipt(receipt, tx?.hash)) {
+      throw Object.assign(new Error(receipt ? "Vibenet returned a receipt that does not verify this transaction" : "Vibenet returned no receipt for this transaction"), { pending: true, hash: TX_HASH.test(tx?.hash || "") ? tx.hash : null });
+    }
+    if (!receiptSucceeded(receipt)) {
+      throw Object.assign(new Error(`Transaction ${tx?.hash || ""} did not succeed onchain`), { hash: tx?.hash, receipt });
     }
     return tx;
   };
+  // Resolves only with a verified outcome for a pending submission: its
+  // receipt (success or revert), or a Vibenet reset (the genesis hash changed,
+  // so the chain the transaction targeted no longer exists). Read failures and
+  // missing or unverified receipts are not outcomes. Checks back off from 2 s to one per
+  // minute. Without a hash only a reset can end it, so the lease stays held
+  // until then or until the tab closes.
+  const reconcileSubmission = async ({ hash, genesisHash, readReceipt, readGenesis, wait }) => {
+    for (let attempt = 0; ; attempt += 1) {
+      await wait(Math.min(2_000 * 2 ** attempt, 60_000));
+      const genesis = await readGenesis().catch(() => null);
+      if (validGenesis(genesis) && validGenesis(genesisHash) && genesis.toLowerCase() !== genesisHash.toLowerCase()) return { outcome: "reset", hash };
+      if (!hash) continue;
+      const receipt = await readReceipt(hash).catch(() => null);
+      if (verifiedReceipt(receipt, hash)) return { outcome: receiptSucceeded(receipt) ? "success" : "reverted", hash, receipt };
+    }
+  };
 
-  // Before every step after the first: the chain, the escrow, and the browser
-  // account must be the ones this flow started with.
+  // Before every step after the first: the chain, the escrow, the USDV token,
+  // and the browser account must be the ones this flow started with.
   const guard = async (engine, ctx) => {
     const [genesis, escrowLive] = await Promise.all([genesisHashOf(), hasCode(P.ESCROW)]);
     if (genesis !== ctx.genesisHash || !escrowLive) {
-      throw abortError("Vibenet was reset after this flow started, so the token and payment from earlier steps no longer exist. Reset the demo to start a new payment.");
+      throw abortError("Vibenet was reset after this flow started, so the balances and payment from earlier steps no longer exist. Reset the demo to start a new payment.");
+    }
+    const usdv = await discoverUsdv();
+    if (!usdv.address || !P.same(usdv.address, ctx.token)) {
+      throw abortError(`The Vibenet USDV token changed after this flow started (${usdv.reason || `now ${short(usdv.address)}`}). Reset the demo to start a new payment.`);
     }
     const shared = await engine.getSharedAccount();
     if (!P.same(shared.account.address, ctx.account)) {
@@ -754,14 +935,17 @@ export const PaymentsDemo = ({ flow }) => {
     }
   };
 
+  // USDV is shared and long-lived, so the demo account and the operator token
+  // store can hold USDV from earlier runs. Escrow shows only this payment's
+  // capturable amount, read from the escrow.
   const refreshBalances = async (engine, ctx, s) => {
-    const [payer, merchant, store] = await Promise.all([
+    const [payer, merchant, state] = await Promise.all([
       tokenBalance(ctx.token, ctx.account),
       tokenBalance(ctx.token, ctx.receiver),
-      ctx.store ? tokenBalance(ctx.token, ctx.store) : Promise.resolve(null),
+      ctx.hash ? readPaymentState(ctx.hash) : Promise.resolve(null),
     ]);
     s.balances = { [PAYER]: engine.displayUnits(payer), Merchant: engine.displayUnits(merchant) };
-    if (store !== null) s.balances.Escrow = engine.displayUnits(store);
+    if (state !== null) s.balances.Escrow = engine.displayUnits(state.capturableAmount);
   };
   const applyState = (engine, ctx, s, state) => {
     s.hash = ctx.hash;
@@ -769,22 +953,20 @@ export const PaymentsDemo = ({ flow }) => {
     s.refundable = engine.displayUnits(state.refundableAmount);
   };
 
-  const mintDemoToken = async (engine, ctx, whole) => {
-    beforeWrite(ctx);
-    ctx.stepWrote = true;
-    const created = await engine.createStablecoin({
-      name: "Docs Payments Dollar",
-      symbol: TOKEN,
-      currency: "USD",
-      initialMint: engine.units(whole),
-      mintTo: ctx.account,
-    });
-    ctx.token = created.token;
-    await expectBalance(ctx, ctx.account, engine.units(whole), "Payer");
-    return [
-      ok("B20Created", `demo stablecoin ${TOKEN} · ${short(created.token)} · not USDC`, txHref(created.hash)),
-      ok("Transfer", `0x0 → payer · ${show(engine, engine.units(whole))}`, txHref(created.hash)),
-    ];
+  // USDV's mint(address,uint256) is permissionless on Vibenet, so the demo
+  // account mints to itself in an ordinary EIP-8130 transaction. Success needs
+  // the mint Transfer in the receipt and the matching balance increase.
+  const mintUsdv = async (engine, ctx, whole, label) => {
+    const amount = engine.units(whole);
+    const before = await tokenBalance(ctx.token, ctx.account);
+    const data = P.encode.mint(ctx.account, amount);
+    await preflight(ctx, ctx.token, data, "USDV mint");
+    const tx = await send(engine, ctx, [{ to: ctx.token, data }], `Mint ${whole} USDV`);
+    if (P.transferred(tx.receipt, ctx.token, P.ZERO_ADDRESS, ctx.account) !== amount) {
+      throw Object.assign(new Error("The USDV mint Transfer was not in the receipt"), { hash: tx.hash });
+    }
+    await expectBalance(ctx, ctx.account, before + amount, label);
+    return [ok("Transfer", `USDV ${short(ctx.token)} · 0x0 → ${label.toLowerCase()} · ${show(engine, amount)} · not USDC`, txHref(tx.hash))];
   };
 
   const newPayment = async (engine, ctx, whole, authorizationSeconds) => {
@@ -839,13 +1021,15 @@ export const PaymentsDemo = ({ flow }) => {
     const amount = ctx.info.maxAmount;
     const data = P.encode.authorize(ctx.info, amount, P.PRE_APPROVAL_COLLECTOR);
     await preflight(ctx, P.ESCROW, data, "authorize");
+    const storeBefore = await tokenBalance(ctx.token, ctx.store);
     const tx = await send(engine, ctx, [{ to: P.ESCROW, data }], "Authorize payment");
     const event = P.escrowEvent(tx.receipt, "PaymentAuthorized", ctx.hash, ctx.info);
     if (event.amount !== amount || !P.same(event.tokenCollector, P.PRE_APPROVAL_COLLECTOR)) {
       throw new Error("PaymentAuthorized did not match the requested amount and collector");
     }
     const state = await expectState(ctx, amount, 0n);
-    await expectBalance(ctx, ctx.store, amount, "Escrow token store");
+    if (P.transferred(tx.receipt, ctx.token, ctx.account, ctx.store) !== amount) throw new Error("The collector's USDV Transfer into the token store was not in the receipt");
+    await expectBalance(ctx, ctx.store, storeBefore + amount, "Escrow token store");
     applyState(engine, ctx, s, state);
     return [
       ok("PaymentAuthorized", `${show(engine, event.amount)} · ${short(ctx.hash)}`, txHref(tx.hash)),
@@ -921,19 +1105,22 @@ export const PaymentsDemo = ({ flow }) => {
     const payerBefore = await tokenBalance(ctx.token, ctx.account);
     const mintData = P.encode.mint(ctx.account, amount);
     const approveData = P.encode.approve(P.REFUND_COLLECTOR, amount);
-    await preflight(ctx, ctx.token, mintData, "mint");
+    await preflight(ctx, ctx.token, mintData, "USDV mint");
     await preflight(ctx, ctx.token, approveData, "approve");
     const tx = await send(engine, ctx, [
       { to: ctx.token, data: mintData },
       { to: ctx.token, data: approveData },
     ], "Fund refund liquidity");
+    if (P.transferred(tx.receipt, ctx.token, P.ZERO_ADDRESS, ctx.account) !== amount) {
+      throw Object.assign(new Error("The USDV mint Transfer was not in the receipt"), { hash: tx.hash });
+    }
     await Promise.all([
       expectBalance(ctx, ctx.account, payerBefore + amount, "Operator"),
       expectAllowance(ctx, P.REFUND_COLLECTOR, amount, "OperatorRefundCollector"),
     ]);
     ctx.refundAmount = amount;
     return [
-      ok("Transfer", `0x0 → operator · ${show(engine, amount)} fresh liquidity`, txHref(tx.hash)),
+      ok("Transfer", `USDV 0x0 → operator · ${show(engine, amount)} fresh liquidity`, txHref(tx.hash)),
       ok("Approval", `OperatorRefundCollector · ${show(engine, amount)}`, txHref(tx.hash)),
     ];
   };
@@ -963,11 +1150,11 @@ export const PaymentsDemo = ({ flow }) => {
     ];
   };
 
-  // Token, terms, pre-approval, and authorization for flows that start from an
+  // USDV, terms, pre-approval, and authorization for flows that start from an
   // escrowed payment. Separate transactions keep payer and operator roles distinct.
   const bootstrapAuthorization = async (engine, ctx, s, whole, authorizationSeconds) => {
     const entries = [
-      ...(await mintDemoToken(engine, ctx, whole)),
+      ...(await mintUsdv(engine, ctx, whole, "Payer")),
       ...(await newPayment(engine, ctx, whole, authorizationSeconds)),
       ...(await preApprove(engine, ctx)),
       ...(await authorize(engine, ctx, s)),
@@ -981,28 +1168,28 @@ export const PaymentsDemo = ({ flow }) => {
     ["Capturable", M(`${(s.capturable || 0).toFixed(2)} ${TOKEN}`)],
     ["Refundable", M(`${(s.refundable || 0).toFixed(2)} ${TOKEN}`)],
   ];
-  const DEMO_TOKEN = "Demo B20 stablecoin (not USDC)";
+  const DEMO_TOKEN = "Vibenet USDV (not USDC)";
   const ROLES = "Your demo account is payer and operator";
 
   const LIVE_FLOWS = {
     accept: {
       ...FLOWS.accept, metrics: liveMetrics,
       steps: [
-        { stage: "Fund", action: "Mint 5 dUSD",
-          text: "Create a demo B20 stablecoin on Vibenet and mint 5 dUSD to your demo account.",
-          summary: [["Token", DEMO_TOKEN], ["Roles", ROLES], ["Amount", M("5.00 dUSD")], ["Network", NETWORK]],
-          run: async (engine, ctx, s) => { const entries = await mintDemoToken(engine, ctx, 5); await refreshBalances(engine, ctx, s); return { entries }; } },
+        { stage: "Fund", action: "Mint 5 USDV",
+          text: "Mint 5 USDV to your demo account from Vibenet's existing USDV token, whose mint is open to any account.",
+          summary: [["Token", DEMO_TOKEN], ["Roles", ROLES], ["Amount", M("5.00 USDV")], ["Network", NETWORK]],
+          run: async (engine, ctx, s) => { const entries = await mintUsdv(engine, ctx, 5, "Payer"); await refreshBalances(engine, ctx, s); return { entries }; } },
         { stage: "Approve", action: "Approve $5",
-          text: "Fix PaymentInfo with ordered expiries, zero fee bounds, and a fresh salt, read its hash from the escrow, then approve exactly 5 dUSD to PreApprovalPaymentCollector and call preApprove as the payer.",
-          summary: [["Operation", "approve + preApprove"], ["Collector", "PreApprovalPaymentCollector"], ["Receiver", "New random merchant address"], ["Maximum", M("5.00 dUSD")], ["Fee bounds", M("0–0 bps")]],
+          text: "Fix PaymentInfo with ordered expiries, zero fee bounds, and a fresh salt, read its hash from the escrow, then approve exactly 5 USDV to PreApprovalPaymentCollector and call preApprove as the payer.",
+          summary: [["Operation", "approve + preApprove"], ["Collector", "PreApprovalPaymentCollector"], ["Receiver", "New random merchant address"], ["Maximum", M("5.00 USDV")], ["Fee bounds", M("0–0 bps")]],
           run: async (engine, ctx, s) => {
             const entries = [...(await newPayment(engine, ctx, 5)), ...(await preApprove(engine, ctx))];
             s.hash = ctx.hash;
             return { entries, caption: "Pre-approval lets the collector pull funds; it is not settlement yet." };
           } },
         { stage: "Charge", action: "Submit charge",
-          text: "The operator calls charge on AuthCaptureEscrow. The collector pulls 5 dUSD and the escrow pays the merchant in the same transaction.",
-          summary: [["Caller", "Operator"], ["Contract", "AuthCaptureEscrow v1.1"], ["To", "Merchant"], ["Amount", M("5.00 dUSD")], ["Fee", M("0.00 dUSD")]],
+          text: "The operator calls charge on AuthCaptureEscrow. The collector pulls 5 USDV and the escrow pays the merchant in the same transaction.",
+          summary: [["Caller", "Operator"], ["Contract", "AuthCaptureEscrow v1.1"], ["To", "Merchant"], ["Amount", M("5.00 USDV")], ["Fee", M("0.00 USDV")]],
           run: async (engine, ctx, s) => { const entries = await charge(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "PaymentCharged in the receipt, confirmed against paymentState, is the settlement signal." }; } },
       ],
     },
@@ -1010,21 +1197,21 @@ export const PaymentsDemo = ({ flow }) => {
       ...FLOWS.authorize, metrics: liveMetrics,
       steps: [
         { stage: "Terms", action: "Set terms",
-          text: "Mint 25 dUSD of a demo B20 stablecoin, then bind operator, payer, merchant, maximum, expiries, zero fees, and a fresh salt. The escrow returns the payment hash.",
-          summary: [["Token", DEMO_TOKEN], ["Maximum", M("25.00 dUSD")], ["Capture window", "7 days"], ["Roles", ROLES]],
+          text: "Mint 25 USDV to your demo account, then bind operator, payer, merchant, maximum, expiries, zero fees, and a fresh salt. The escrow returns the payment hash.",
+          summary: [["Token", DEMO_TOKEN], ["Maximum", M("25.00 USDV")], ["Capture window", "7 days"], ["Roles", ROLES]],
           run: async (engine, ctx, s) => {
-            const entries = [...(await mintDemoToken(engine, ctx, 25)), ...(await newPayment(engine, ctx, 25))];
+            const entries = [...(await mintUsdv(engine, ctx, 25, "Payer")), ...(await newPayment(engine, ctx, 25))];
             s.hash = ctx.hash;
             await refreshBalances(engine, ctx, s);
             return { entries };
           } },
         { stage: "Approve", action: "Pre-approve $25",
-          text: "As the payer, approve exactly 25 dUSD to PreApprovalPaymentCollector and call preApprove for this payment.",
-          summary: [["Collector", "PreApprovalPaymentCollector"], ["Signer", "Payer"], ["Maximum", M("25.00 dUSD")], ["Settlement", "Not yet"]],
+          text: "As the payer, approve exactly 25 USDV to PreApprovalPaymentCollector and call preApprove for this payment.",
+          summary: [["Collector", "PreApprovalPaymentCollector"], ["Signer", "Payer"], ["Maximum", M("25.00 USDV")], ["Settlement", "Not yet"]],
           run: async (engine, ctx) => ({ entries: await preApprove(engine, ctx), caption: "Pre-approval alone does not reserve funds." }) },
         { stage: "Escrow", action: "Authorize $25",
-          text: "The operator submits authorize and the collector moves 25 dUSD into the operator's token store.",
-          summary: [["Caller", "Operator"], ["Amount", M("25.00 dUSD")], ["State", "Capturable"], ["Network", NETWORK]],
+          text: "The operator submits authorize and the collector moves 25 USDV into the operator's token store.",
+          summary: [["Caller", "Operator"], ["Amount", M("25.00 USDV")], ["State", "Capturable"], ["Network", NETWORK]],
           run: async (engine, ctx, s) => { const entries = await authorize(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "The confirmed onchain authorization is the funds guarantee." }; } },
       ],
     },
@@ -1032,12 +1219,12 @@ export const PaymentsDemo = ({ flow }) => {
       ...FLOWS.capture, metrics: liveMetrics,
       steps: [
         { stage: "Authorize", action: "Authorize $25",
-          text: "Set up this demo's own payment: mint 25 dUSD, pre-approve it, and authorize it into escrow with a 3-day capture window.",
-          summary: [["Token", DEMO_TOKEN], ["Authorized", M("25.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          text: "Set up this demo's own payment: mint 25 USDV, pre-approve it, and authorize it into escrow with a 3-day capture window.",
+          summary: [["Token", DEMO_TOKEN], ["Authorized", M("25.00 USDV")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
           run: async (engine, ctx, s) => ({ entries: await bootstrapAuthorization(engine, ctx, s, 25, 3 * 86_400) }) },
         { stage: "Check", action: "Check state",
-          text: "Read paymentState from the escrow and confirm 25 dUSD is capturable before authorization expiry.",
-          summary: [["Payment hash", "From step 1"], ["Capturable", M("25.00 dUSD")], ["Expiry", "In 3 days"]],
+          text: "Read paymentState from the escrow and confirm 25 USDV is capturable before authorization expiry.",
+          summary: [["Payment hash", "From step 1"], ["Capturable", M("25.00 USDV")], ["Expiry", "In 3 days"]],
           run: async (engine, ctx, s) => {
             const [state, latest] = await Promise.all([readPaymentState(ctx.hash), rpcCall("eth_getBlockByNumber", ["latest", false])]);
             if (state.capturableAmount !== ctx.info.maxAmount) throw new Error("paymentState does not show the full authorization as capturable");
@@ -1048,7 +1235,7 @@ export const PaymentsDemo = ({ flow }) => {
           } },
         { stage: "Capture", action: "Capture $25",
           text: "The operator captures the full amount with a zero fee, within the payer-approved bounds.",
-          summary: [["Gross", M("25.00 dUSD")], ["Fee", M("0.00 dUSD")], ["Receiver", "Merchant"], ["State", "Refundable"]],
+          summary: [["Gross", M("25.00 USDV")], ["Fee", M("0.00 USDV")], ["Receiver", "Merchant"], ["State", "Refundable"]],
           run: async (engine, ctx, s) => { const entries = await capture(engine, ctx, s, engine.units(25)); await refreshBalances(engine, ctx, s); return { entries, caption: "Capture converted capturable value into refundable settled value onchain." }; } },
       ],
     },
@@ -1056,34 +1243,34 @@ export const PaymentsDemo = ({ flow }) => {
       ...FLOWS.partial, metrics: liveMetrics,
       steps: [
         { stage: "Authorize", action: "Authorize max",
-          text: "Set up this demo's own payment: mint 100 dUSD, pre-approve it, and authorize it into escrow.",
-          summary: [["Token", DEMO_TOKEN], ["Authorized", M("100.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          text: "Set up this demo's own payment: mint 100 USDV, pre-approve it, and authorize it into escrow.",
+          summary: [["Token", DEMO_TOKEN], ["Authorized", M("100.00 USDV")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
           run: async (engine, ctx, s) => ({ entries: await bootstrapAuthorization(engine, ctx, s, 100) }) },
         { stage: "Finalize", action: "Set total",
-          text: "The merchant computes a final fulfilled total of 64 dUSD. No new payer approval is needed.",
-          summary: [["Authorized", M("100.00 dUSD")], ["Final total", M("64.00 dUSD")], ["Remainder", M("36.00 dUSD")]],
+          text: "The merchant computes a final fulfilled total of 64 USDV. No new payer approval is needed.",
+          summary: [["Authorized", M("100.00 USDV")], ["Final total", M("64.00 USDV")], ["Remainder", M("36.00 USDV")]],
           run: async (engine, ctx, s) => {
             const state = await readPaymentState(ctx.hash);
-            if (state.capturableAmount < engine.units(64)) throw new Error("Less than 64 dUSD is capturable");
+            if (state.capturableAmount < engine.units(64)) throw new Error("Less than 64 USDV is capturable");
             applyState(engine, ctx, s, state);
             return { entries: [nfo("order total", `64.00 ${TOKEN} of ${show(engine, state.capturableAmount)} capturable`, addrHref(P.ESCROW))] };
           } },
         { stage: "Capture", action: "Capture $64",
-          text: "Capture 64 dUSD and leave 36 dUSD in escrow to capture later or void.",
-          summary: [["Captured", M("64.00 dUSD")], ["Capturable", M("36.00 dUSD")], ["Refundable", M("64.00 dUSD")]],
-          run: async (engine, ctx, s) => { const entries = await capture(engine, ctx, s, engine.units(64)); await refreshBalances(engine, ctx, s); return { entries, caption: "The escrow tracks the 36 dUSD remainder onchain." }; } },
+          text: "Capture 64 USDV and leave 36 USDV in escrow to capture later or void.",
+          summary: [["Captured", M("64.00 USDV")], ["Capturable", M("36.00 USDV")], ["Refundable", M("64.00 USDV")]],
+          run: async (engine, ctx, s) => { const entries = await capture(engine, ctx, s, engine.units(64)); await refreshBalances(engine, ctx, s); return { entries, caption: "The escrow tracks the 36 USDV remainder onchain." }; } },
       ],
     },
     void: {
       ...FLOWS.void, metrics: liveMetrics,
       steps: [
         { stage: "Authorize", action: "Authorize $25",
-          text: "Set up this demo's own payment: mint 25 dUSD, pre-approve it, and authorize it into escrow. Then treat the order as canceled.",
-          summary: [["Token", DEMO_TOKEN], ["Authorized", M("25.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          text: "Set up this demo's own payment: mint 25 USDV, pre-approve it, and authorize it into escrow. Then treat the order as canceled.",
+          summary: [["Token", DEMO_TOKEN], ["Authorized", M("25.00 USDV")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
           run: async (engine, ctx, s) => ({ entries: await bootstrapAuthorization(engine, ctx, s, 25) }) },
         { stage: "Void", action: "Return $25",
           text: "The operator calls void and the token store returns the full capturable amount to the payer.",
-          summary: [["Caller", "Operator"], ["Recipient", "Payer"], ["Returned", M("25.00 dUSD")], ["Capturable", M("0.00 dUSD")]],
+          summary: [["Caller", "Operator"], ["Recipient", "Payer"], ["Returned", M("25.00 USDV")], ["Capturable", M("0.00 USDV")]],
           run: async (engine, ctx, s) => { const entries = await voidPayment(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "If the operator is inactive, the payer can reclaim after expiry instead." }; } },
       ],
     },
@@ -1091,11 +1278,11 @@ export const PaymentsDemo = ({ flow }) => {
       ...FLOWS.refund, metrics: liveMetrics,
       steps: [
         { stage: "Charge", action: "Charge $5",
-          text: "Set up this demo's own settled payment: mint 5 dUSD, pre-approve it, and charge it to the merchant.",
-          summary: [["Token", DEMO_TOKEN], ["Charged", M("5.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          text: "Set up this demo's own settled payment: mint 5 USDV, pre-approve it, and charge it to the merchant.",
+          summary: [["Token", DEMO_TOKEN], ["Charged", M("5.00 USDV")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
           run: async (engine, ctx, s) => {
             const entries = [
-              ...(await mintDemoToken(engine, ctx, 5)),
+              ...(await mintUsdv(engine, ctx, 5, "Payer")),
               ...(await newPayment(engine, ctx, 5)),
               ...(await preApprove(engine, ctx)),
               ...(await charge(engine, ctx, s)),
@@ -1104,13 +1291,13 @@ export const PaymentsDemo = ({ flow }) => {
             return { entries };
           } },
         { stage: "Fund", action: "Approve $2",
-          text: "Refund accounting is not liquidity. Mint 2 dUSD of fresh liquidity to the operator and approve OperatorRefundCollector for exactly that amount.",
-          summary: [["Liquidity source", "Operator"], ["Collector", "OperatorRefundCollector"], ["Amount", M("2.00 dUSD")]],
+          text: "Refund accounting is not liquidity. Mint 2 USDV of fresh liquidity to the operator and approve OperatorRefundCollector for exactly that amount.",
+          summary: [["Liquidity source", "Operator (fresh USDV mint)"], ["Collector", "OperatorRefundCollector"], ["Amount", M("2.00 USDV")]],
           run: async (engine, ctx, s) => { const entries = await fundRefund(engine, ctx, 2); await refreshBalances(engine, ctx, s); return { entries }; } },
         { stage: "Refund", action: "Refund $2",
-          text: "The operator calls refund. The collector pulls 2 dUSD from the operator and the escrow returns it to the original payer.",
-          summary: [["Recipient", "Payer"], ["Amount", M("2.00 dUSD")], ["Remaining", M("3.00 dUSD")]],
-          run: async (engine, ctx, s) => { const entries = await refund(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "Payer and operator share one demo account here, so its balance is unchanged: 2 dUSD left as liquidity and came back as the refund." }; } },
+          text: "The operator calls refund. The collector pulls 2 USDV from the operator and the escrow returns it to the original payer.",
+          summary: [["Recipient", "Payer"], ["Amount", M("2.00 USDV")], ["Remaining", M("3.00 USDV")]],
+          run: async (engine, ctx, s) => { const entries = await refund(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "Payer and operator share one demo account here, so its balance is unchanged: 2 USDV left as liquidity and came back as the refund." }; } },
       ],
     },
   };
@@ -1125,12 +1312,16 @@ export const PaymentsDemo = ({ flow }) => {
   const [aborted, setAborted] = useState(false);
   const [notice, setNotice] = useState(null);
   const [accountAddress, setAccountAddress] = useState(null);
+  const [pendingTx, setPendingTx] = useState(null);
   const liveContext = useRef(null);
   const mounted = useRef(true);
+  const leaseSlot = useRef(null);
+  if (!leaseSlot.current) leaseSlot.current = createLeaseSlot();
 
   useEffect(() => {
     let cancelled = false;
     mounted.current = true;
+    leaseSlot.current.mount();
     probePayments()
       .then((info) => {
         if (cancelled) return;
@@ -1142,7 +1333,9 @@ export const PaymentsDemo = ({ flow }) => {
         setProbeInfo({ live: false, reason: "Vibenet did not respond" });
         setLiveState("offline");
       });
-    return () => { cancelled = true; mounted.current = false; };
+    // StrictMode runs this cleanup once before remounting; no lease is held yet
+    // because leases are only acquired by a click.
+    return () => { cancelled = true; mounted.current = false; leaseSlot.current.unmount(); };
   }, []);
 
   // mode: "live" | "probing" | "offline" (live flow, network unavailable) | "mock" (no live version)
@@ -1159,9 +1352,36 @@ export const PaymentsDemo = ({ flow }) => {
     setActionError(null);
     setAborted(false);
     liveContext.current = null;
+    leaseSlot.current.release();
   };
-  const select = (k) => { if (busy) return; setActive(k); clearRun(); };
-  const reset = () => { if (busy) return; clearRun(); };
+  // A pending submission pins the lease, so reset and flow switching wait for it.
+  const select = (k) => { if (busy || pendingTx) return; setActive(k); clearRun(); };
+  const reset = () => { if (busy || pendingTx) return; clearRun(); };
+  // Pins the lease for a submission whose outcome is unknown and reconciles it
+  // in the background. This keeps running after unmount; the lease is released
+  // only by a receipt or a verified Vibenet reset.
+  const holdPendingSubmission = (hash, genesisHash) => {
+    const reconciliation = leaseSlot.current.pin(reconcileSubmission({
+      hash,
+      genesisHash,
+      readReceipt: (txHash) => rpcCall("eth_getTransactionReceipt", [txHash]),
+      readGenesis: genesisHashOf,
+      wait: sleep,
+    }));
+    if (mounted.current) setPendingTx({ hash });
+    reconciliation.then(({ outcome }) => {
+      if (!mounted.current) return;
+      setPendingTx(null);
+      setActionError({
+        message: outcome === "success"
+          ? "The pending transaction was confirmed onchain after the demo stopped waiting. This step's results were not verified, so the flow stays stopped. Reset to start a new payment."
+          : outcome === "reverted"
+            ? "The pending transaction reverted onchain. The flow stays stopped. Reset to start a new payment."
+            : "Vibenet was reset, so the pending transaction and this flow's balances no longer exist. Reset to start a new payment.",
+        href: hash ? txHref(hash) : null,
+      });
+    });
+  };
   const runMockStep = () => {
     if (done) return;
     const s = { ...sim, balances: { ...sim.balances } };
@@ -1173,16 +1393,32 @@ export const PaymentsDemo = ({ flow }) => {
     setBusy(true);
     setActionError(null);
     let engine = null;
+    leaseSlot.current.begin();
     let ctx = liveContext.current;
     try {
       engine = await loadVibenetEngine();
       if (!ctx) {
-        // The engine probe also confirms a live EIP-8130 account implementation.
-        const caps = await engine.probeCapabilities("stablecoin");
+        // Fresh read-only checks: chain, Commerce Payments contracts, and the live
+        // USDV address. B20 activation is not required because USDV is an ordinary
+        // ERC-20 on Vibenet.
+        const caps = await probePayments();
         if (!caps.live) throw Object.assign(new Error(caps.reason || "Vibenet is unavailable"), { unavailable: true });
-        const [shared, genesis] = await Promise.all([engine.getSharedAccount(), genesisHashOf()]);
-        if (shared.genesisHash !== genesis) throw new Error("Vibenet changed while the demo account loaded.");
-        ctx = { genesisHash: genesis, account: shared.account.address, receiver: engine.randomAddress(), token: null, info: null, hash: null, store: null, isMounted: () => mounted.current };
+        // getSharedAccount confirms a live EIP-8130 account implementation.
+        const [shared, genesis] = await Promise.all([
+          engine.getSharedAccount().catch((error) => {
+            if (/no live EIP-8130 account implementation/.test(error?.message || "")) throw Object.assign(error, { unavailable: true });
+            throw error;
+          }),
+          genesisHashOf(),
+        ]);
+        if (shared.genesisHash !== genesis || caps.genesisHash !== genesis) throw new Error("Vibenet changed while the demo account loaded.");
+        const next = { genesisHash: genesis, account: shared.account.address, receiver: engine.randomAddress(), token: caps.usdv, info: null, hash: null, store: null, isMounted: () => mounted.current };
+        // The exclusive lease is taken before this run's first write and held
+        // across its steps until completion, reset, abort, or unmount.
+        const lease = await acquireRunLease(typeof navigator === "undefined" ? null : navigator.locks, runLeaseKey(next));
+        leaseSlot.current.hold(lease);
+        next.leaseHeld = lease.held;
+        ctx = next;
         liveContext.current = ctx;
         setAccountAddress(ctx.account);
       } else {
@@ -1193,13 +1429,23 @@ export const PaymentsDemo = ({ flow }) => {
       const out = await f.steps[stepIndex].run(engine, ctx, s);
       setSim(s);
       setResults((r) => [...r, { entries: [], ...out, at: Date.now() }]);
+      if (stepIndex + 1 >= f.steps.length) leaseSlot.current.release();
     } catch (error) {
+      // A submission that may have reached Vibenet pins the lease before any
+      // other handling, including unmount, so no other run can race it.
+      const pending = Boolean(error?.pending && ctx);
+      if (pending) holdPendingSubmission(error.hash || null, ctx.genesisHash);
       // Unmounted: no retry probe and no UI update; beforeWrite already kept
       // any further transaction from being sent.
       if (!mounted.current) return;
       const message = (error?.message || String(error)).replace(/\.$/, "");
       const wrote = Boolean(ctx?.stepWrote);
       const href = error?.hash ? txHref(error.hash) : wrote && ctx?.account ? addrHref(ctx.account) : null;
+      if (error?.lease) {
+        // No lease was granted, so this run has no context and sent nothing.
+        setActionError({ message: `${message}.`, href: null });
+        return;
+      }
       if (!wrote && !error?.abort && results.length === 0) {
         // Nothing has been sent by this flow. If Vibenet itself is gone, switch
         // to the labeled mock and say so; never after a transaction attempt.
@@ -1211,14 +1457,24 @@ export const PaymentsDemo = ({ flow }) => {
         }
         if (!latest.live) {
           liveContext.current = null;
+          leaseSlot.current.release();
           setProbeInfo(latest);
           setLiveState("offline");
           setNotice(`Vibenet became unavailable before any transaction was sent (${latest.reason}). This demo is now an offline mock; nothing runs onchain.`);
           return;
         }
       }
-      if (wrote || error?.abort) {
+      if (pending) {
         setAborted(true);
+        setActionError({
+          message: error.hash
+            ? `${message}. Transaction ${short(error.hash)} may still be pending on Vibenet. This demo keeps its exclusive lease and checks for a receipt, less often over time, until the transaction is final or Vibenet resets. Reset is unavailable until then.`
+            : `${message}. A transaction may have reached Vibenet, but its hash is unknown. This demo keeps its exclusive lease until Vibenet resets or you close this tab, so no other run can race it. Check the demo account on the explorer.`,
+          href,
+        });
+      } else if (wrote || error?.abort) {
+        setAborted(true);
+        leaseSlot.current.release();
         setActionError({
           message: wrote
             ? `${message}. A transaction was attempted in this step, so the live flow stopped without showing success. Check the demo account on the explorer, then reset to start a new payment.`
@@ -1230,6 +1486,9 @@ export const PaymentsDemo = ({ flow }) => {
       }
     } finally {
       if (mounted.current) setBusy(false);
+      // After an unmount, this releases the lease only once the in-flight step
+      // (including any transaction the engine was still settling) has finished.
+      leaseSlot.current.end();
     }
   };
   const runStep = () => {
@@ -1277,7 +1536,7 @@ export const PaymentsDemo = ({ flow }) => {
         ? { text: "Offline mock", color: C.warn, border: C.warn, title: probeInfo?.reason || "Vibenet is unavailable" }
         : { text: "Mock", color: C.sub, border: C.border, title: "Scripted illustration; no transactions are sent" };
   const footerMode = mode === "live"
-    ? "Real Vibenet transactions · demo B20 token, not USDC"
+    ? "Real Vibenet transactions · Vibenet USDV, not USDC"
     : mode === "probing"
       ? "Network check"
       : mode === "offline"
@@ -1408,7 +1667,7 @@ export const PaymentsDemo = ({ flow }) => {
           })}
         </div>
         <span className="wf-t-caption" title={badge.title} style={{ color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0, whiteSpace: "nowrap" }}>{badge.text}</span>
-        {(results.length > 0 || actionError || aborted) && !busy && (
+        {(results.length > 0 || actionError || aborted) && !busy && !pendingTx && (
           <button onClick={reset} title="Reset" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", color: C.sec, flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
           </button>
@@ -1524,7 +1783,8 @@ export const PaymentsDemo = ({ flow }) => {
                     {actionError.href && <> <a href={actionError.href} target="_blank" rel="noreferrer" style={{ color: C.error }}>Open in explorer ↗</a></>}
                   </div>
                 )}
-                {aborted && <button className="wf-btn2" onClick={reset}>Reset and start a new payment</button>}
+                {aborted && pendingTx && <div className="wf-t-footnote" role="status" style={{ color: C.sec }}>Waiting for a final outcome on Vibenet{pendingTx.hash ? ` for ${short(pendingTx.hash)}` : ""}. Reset is unavailable until then.</div>}
+                {aborted && !pendingTx && <button className="wf-btn2" onClick={reset}>Reset and start a new payment</button>}
                 {results.length > 0 && mode !== "live" && mode !== "probing" && <button className="wf-btn2" onClick={back}>Back</button>}
               </div>
             </div>
@@ -1566,7 +1826,7 @@ export const PaymentsDemo = ({ flow }) => {
 
       {/* Footer */}
       <div style={{ padding: "10px 16px", background: C.panel, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{(mode === "live" || mode === "probing") ? "Demo B20 dUSD, not USDC. The payer pre-approves a payment-specific allowance; the operator drives the escrow flow." : f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{(mode === "live" || mode === "probing") ? "Vibenet USDV, not USDC. The payer pre-approves a payment-specific allowance; the operator drives the escrow flow." : f.erc20}</span>
         <span className="wf-t-footnote" style={{ color: mode === "offline" ? C.warn : C.sub, whiteSpace: "nowrap" }}>{footerMode}</span>
       </div>
     </div>

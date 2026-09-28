@@ -1,20 +1,26 @@
 // Read-only end-to-end check of the live PaymentsDemo flows against Vibenet.
 //
 // Uses eth_simulateV1, so nothing is signed or broadcast. From one unfunded
-// address that plays payer and operator, it creates a demo B20 stablecoin the
-// same way the shared engine does, then runs pre-approve → authorize → partial
-// capture → void, and pre-approve → charge → fresh liquidity → refund, using
+// address that plays payer and operator, it mints Vibenet's existing USDV
+// (permissionless mint(address,uint256)) the same way the live demo does, then
+// runs pre-approve → authorize → partial capture → void, and pre-approve →
+// charge → fresh USDV liquidity → refund, using
 // the exact calldata encoders and receipt checks from PaymentsDemo.jsx.
 //
 //   node scripts/simulate-payments-vibenet.mjs
 import assert from "node:assert/strict";
 
-import { loadProtocol, loadViem } from "./lib/payments-protocol.mjs";
+import { loadProtocol } from "./lib/payments-protocol.mjs";
 
-const RPC = "https://api.vibes.base.org/api/vibenet/account/rpc";
-const B20_FACTORY = "0xB20f000000000000000000000000000000000000";
+const API = "https://api.vibes.base.org/api/vibenet";
+const RPC = `${API}/account/rpc`;
 const P = await loadProtocol();
-const { encodeFunctionData, encodeAbiParameters, keccak256, toHex } = await loadViem();
+
+async function api(path) {
+  const response = await fetch(`${API}${path}`, { signal: AbortSignal.timeout(20_000) });
+  assert.ok(response.ok, `${path} returned ${response.status}`);
+  return response.json();
+}
 
 async function rpc(method, params = []) {
   const response = await fetch(RPC, {
@@ -45,27 +51,16 @@ assert.equal(P.decode.uint(await call(P.PRE_APPROVAL_COLLECTOR, P.encode.collect
 assert.equal(P.decode.uint(await call(P.REFUND_COLLECTOR, P.encode.collectorType())), 1n);
 console.log("ok  v1.1 escrow and collectors are deployed and wired on Vibenet");
 
-// ---- Demo B20 stablecoin, created exactly like engine.createStablecoin ----
-const factoryAbi = [
-  { type: "function", name: "getB20Address", stateMutability: "view", inputs: [{ type: "uint8" }, { type: "address" }, { type: "bytes32" }], outputs: [{ type: "address" }] },
-  { type: "function", name: "createB20", stateMutability: "payable", inputs: [{ type: "uint8" }, { type: "bytes32" }, { type: "bytes" }, { type: "bytes[]" }], outputs: [{ type: "address" }] },
-];
-const b20Abi = [
-  { type: "function", name: "grantRole", stateMutability: "nonpayable", inputs: [{ type: "bytes32" }, { type: "address" }], outputs: [] },
-  { type: "function", name: "mintWithMemo", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }], outputs: [] },
-];
-const tokenSalt = keccak256(toHex(`Docs Payments Dollar:dUSD:${Date.now()}:${randomHex(8)}`));
-const params = encodeAbiParameters(
-  [{ type: "tuple", components: [{ type: "uint8" }, { type: "string" }, { type: "string" }, { type: "address" }, { type: "string" }] }],
-  [[1, "Docs Payments Dollar", "dUSD", actor, "USD"]],
-);
-const roles = ["MINT_ROLE", "BURN_ROLE", "BURN_BLOCKED_ROLE", "SEIZE_ROLE", "PAUSE_ROLE", "UNPAUSE_ROLE", "METADATA_ROLE"];
-const initCalls = [
-  ...roles.map((role) => encodeFunctionData({ abi: b20Abi, functionName: "grantRole", args: [keccak256(toHex(role)), actor] })),
-  encodeFunctionData({ abi: b20Abi, functionName: "mintWithMemo", args: [actor, units(105), `0x${"0".repeat(64)}`] }),
-];
-const token = P.decode.address(await call(B20_FACTORY, encodeFunctionData({ abi: factoryAbi, functionName: "getB20Address", args: [1, actor, tokenSalt] })));
-const createData = encodeFunctionData({ abi: factoryAbi, functionName: "createB20", args: [1, tokenSalt, params, initCalls] });
+// ---- Vibenet USDV, discovered at runtime exactly like the live demo ----
+const [deployment, faucet] = await Promise.all([api("/contracts"), api("/faucet/status")]);
+const token = deployment.usdv;
+assert.match(token ?? "", /^0x[0-9a-fA-F]{40}$/, "/contracts lists usdv");
+assert.ok(P.same(faucet.usdv_address, token), `faucet status USDV ${faucet.usdv_address} matches /contracts ${token}`);
+assert.equal(BigInt(faucet.chain_id), 84538453n, "faucet chain id");
+assert.notEqual(await rpc("eth_getCode", [token, "latest"]), "0x", "USDV has code");
+assert.equal(P.decode.uint(await call(token, P.encode.decimals())), 6n, "USDV decimals");
+assert.equal(P.decode.string(await call(token, P.encode.symbol())), "USDV", "USDV symbol");
+console.log(`ok  USDV ${token}: code, 6 decimals, symbol USDV, faucet status agrees`);
 
 // ---- Payments. getHash is read from the escrow, never computed locally. ----
 const latest = await rpc("eth_getBlockByNumber", ["latest", false]);
@@ -81,7 +76,7 @@ assert.notEqual(authHash, saleHash);
 const store = P.decode.address(await call(P.ESCROW, P.encode.getTokenStore(actor)));
 
 const steps = [
-  ["createB20", B20_FACTORY, createData],
+  ["mint USDV 105", token, P.encode.mint(actor, units(105))],
   ["approve collector 100", token, P.encode.approve(P.PRE_APPROVAL_COLLECTOR, units(100))],
   ["preApprove", P.PRE_APPROVAL_COLLECTOR, P.encode.preApprove(auth)],
   ["authorize 100", P.ESCROW, P.encode.authorize(auth, units(100), P.PRE_APPROVAL_COLLECTOR)],
@@ -116,10 +111,14 @@ for (const [name] of steps) {
   const succeeded = byName[name].status === "0x1";
   assert.equal(succeeded, !expectedFailure, `${name}: status ${byName[name].status} ${byName[name].error?.message ?? ""}`);
 }
-console.log(`ok  ${steps.length} simulated calls from ${actor} on token ${token}`);
+console.log(`ok  ${steps.length} simulated calls from ${actor} on USDV ${token}`);
+
+assert.equal(P.transferred(receipt("mint USDV 105"), token, P.ZERO_ADDRESS, actor), units(105), "permissionless mint emits Transfer from 0x0");
+assert.equal(P.transferred(receipt("mint refund liquidity 2"), token, P.ZERO_ADDRESS, actor), units(2), "refund liquidity mint emits Transfer from 0x0");
+console.log("ok  permissionless USDV mint from an arbitrary address: Transfer 0x0 → actor");
 
 assert.ok(P.findLog(receipt("preApprove"), P.PRE_APPROVAL_COLLECTOR, P.TOPICS.PaymentPreApproved, authHash));
-assert.ok(P.findLog(receipt("approve collector 100"), token, P.TOPICS.Approval, P.addressTopic(actor)), "B20 emits ERC-20 Approval");
+assert.ok(P.findLog(receipt("approve collector 100"), token, P.TOPICS.Approval, P.addressTopic(actor)), "USDV emits ERC-20 Approval");
 const authorized = P.escrowEvent(receipt("authorize 100"), "PaymentAuthorized", authHash, auth);
 assert.equal(authorized.amount, units(100));
 assert.equal(P.transferred(receipt("authorize 100"), token, actor, store), units(100), "collector pulled via transferFrom");

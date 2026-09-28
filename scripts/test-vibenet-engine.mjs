@@ -98,4 +98,25 @@ assert.match(
   "probeCapabilities reports account-implementation liveness so demos degrade instead of throwing",
 );
 
+assert.match(
+  engineSource,
+  /hash = await rpc\("eth_sendRawTransaction", \[serialized\]\);\n\s*\} catch \(error\) \{\n\s*throw Object\.assign\(error, \{ submitted: true \}\);/,
+  "a lost eth_sendRawTransaction response is reported as possibly submitted",
+);
+assert.match(
+  engineSource,
+  /waitForTransactionReceipt\(client, \{ hash, timeout: 60_000 \}\);\n\s*\} catch \(error\) \{\n\s*throw Object\.assign\(error, \{ submitted: true, hash \}\);/,
+  "a receipt wait failure keeps the submitted transaction hash",
+);
+
+{
+  // After a final receipt, a failed deployment check must keep the hash and receipt.
+  const tail = engineSource.slice(engineSource.indexOf("receipt = await waitForTransactionReceipt(client"));
+  const deploy = tail.slice(tail.indexOf("if (!deployed) {"), tail.indexOf("return { hash, receipt, faucetHash"));
+  assert.ok(tail.indexOf("if (!deployed) {") > tail.indexOf('receipt.status === "0x0"'), "deployment is checked only after the receipt is final");
+  assert.match(deploy, /try \{\n\s*await waitUntilDeployed\(account\.address\);\n\s*\} catch \(error\) \{/, "waitUntilDeployed failures are caught");
+  assert.match(deploy, /\{ cause: error, hash, receipt, deploymentUnverified: true \}/, "a deployment check failure preserves the known hash and receipt");
+  assert.doesNotMatch(deploy, /submitted: true/, "a confirmed transaction is not reported as merely submitted");
+}
+
 console.log("Vibenet engine and Mintlify loader checks passed.");
