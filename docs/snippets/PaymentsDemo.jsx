@@ -3,6 +3,343 @@ export const PaymentsDemo = ({ flow }) => {
   const sans = "'Base Sans','Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
   const mono = "'Base Mono','Roboto Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace";
 
+  // Mintlify intercepts import(url), and snippets cannot import other snippets or
+  // npm packages. The shared live engine therefore ships as .txt, is converted to
+  // a Blob module on the first live click, and publishes its API on window. This
+  // loader is identical to the one in StablecoinDemo.jsx and AssetDemo.jsx.
+  const loadVibenetEngine = () => {
+    if (window.__baseDocsVibenetEngineV3) return Promise.resolve(window.__baseDocsVibenetEngineV3);
+    if (window.__baseDocsVibenetEnginePromiseV3) return window.__baseDocsVibenetEnginePromiseV3;
+
+    window.__baseDocsVibenetEnginePromiseV3 = new Promise((resolve, reject) => {
+      const onReady = () => {
+        cleanup();
+        resolve(window.__baseDocsVibenetEngineV3);
+      };
+      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v3-ready", onReady);
+      window.addEventListener("base-docs-vibenet-engine:v3-ready", onReady, { once: true });
+
+      (async () => {
+        try {
+          const fetchText = async (path) => {
+            const response = await fetch(path, { cache: "force-cache" });
+            if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+            return response.text();
+          };
+          const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+          const [aaSource, engineSource] = await Promise.all([
+            fetchText("/static/aa.txt"),
+            fetchText("/static/vibenet-engine.txt?v=4"),
+          ]);
+          const aaUrl = moduleUrl(aaSource);
+          const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
+          if (rewritten === engineSource) throw new Error("Could not connect the Vibenet engine to the AA bundle");
+          const tag = document.createElement("script");
+          tag.type = "module";
+          tag.src = moduleUrl(rewritten);
+          tag.dataset.baseDocsVibenetEngine = "true";
+          tag.onerror = () => {
+            cleanup();
+            window.__baseDocsVibenetEnginePromiseV3 = null;
+            reject(new Error("Failed to evaluate the Vibenet engine"));
+          };
+          document.head.appendChild(tag);
+        } catch (error) {
+          cleanup();
+          window.__baseDocsVibenetEnginePromiseV3 = null;
+          reject(error);
+        }
+      })();
+    });
+    return window.__baseDocsVibenetEnginePromiseV3;
+  };
+
+  // @payments-protocol:begin
+  // Pure Commerce Payments Protocol v1.1 encoders and receipt checks. This block
+  // must stay free of JSX and browser globals: scripts/__tests__/payments-demo.test.mjs
+  // extracts it and checks every encoding against viem, and
+  // scripts/simulate-payments-vibenet.mjs replays the live flows with it.
+  const PAYMENTS_PROTOCOL = (() => {
+    const ESCROW = "0xf96815976523E00e65Be8f34cA5e64b4f41EB19c";
+    const PRE_APPROVAL_COLLECTOR = "0xF1F9C408C787B2bC6CAEB91e5BbEc434a5c8d2Ea";
+    const REFUND_COLLECTOR = "0x7a03443724d14798c4AB4622F1DAAcA761Fea486";
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+    const MAX_FEE_BPS = 10_000n;
+    // PaymentInfo = (address operator, address payer, address receiver, address token,
+    // uint120 maxAmount, uint48 preApprovalExpiry, uint48 authorizationExpiry,
+    // uint48 refundExpiry, uint16 minFeeBps, uint16 maxFeeBps, address feeReceiver, uint256 salt)
+    const SELECTORS = {
+      getHash: "0x063a70ff",
+      paymentState: "0x34b778ed",
+      getTokenStore: "0x9d3facde",
+      authorize: "0x41d66202",
+      charge: "0xc449d17c",
+      capture: "0x3efa46e1",
+      void: "0xfa1cad17",
+      refund: "0xd458db5a",
+      preApprove: "0xc6184c2f",
+      isPreApproved: "0xaa78d16a",
+      authCaptureEscrow: "0x40865734",
+      collectorType: "0xccdafa11",
+      approve: "0x095ea7b3",
+      allowance: "0xdd62ed3e",
+      balanceOf: "0x70a08231",
+      mint: "0x40c10f19",
+    };
+    const TOPICS = {
+      PaymentCharged: "0x137b0e73e4453f43c2e1ad2552980a0e0c7e988764619974ca26d37a7159940c",
+      PaymentAuthorized: "0x1c81fb2e3bab27f6bb09bee9a0dddf61600b7cbaf2c12683e4864e0cbdb9d284",
+      PaymentCaptured: "0xac1e0db1957daedbc6944bcb4c8dc947ff8101d710671ac2ec26309f7f38d58e",
+      PaymentVoided: "0xcadce8c3acb008e3e1c64ca7f60d22a3c87069183182b7dbb9e4d8cfb3a15842",
+      PaymentRefunded: "0x1bf415371b303ca6b8bbb4ce479b177cba5ad15dbe0c9a7750a588aa6bcd25b2",
+      PaymentPreApproved: "0x648e07873d502d2121c8e8dfb7efab466b43a83ef86ada8626ae88cf568becde",
+      Approval: "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+      Transfer: "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+    };
+    const ERRORS = {
+      "0xe1130dba": "InvalidSender",
+      "0x1f2a2005": "ZeroAmount",
+      "0x6c0442a2": "AmountOverflow",
+      "0x092af19e": "ExceedsMaxAmount",
+      "0xc46cf60f": "AfterPreApprovalExpiry",
+      "0x88ef0760": "InvalidExpiries",
+      "0xbf47e3f7": "FeeBpsOverflow",
+      "0x0950d5d0": "InvalidFeeBpsRange",
+      "0x7c2dcc22": "FeeAmountOutOfRange",
+      "0xb6802b7f": "ZeroFeeReceiver",
+      "0x4caf6a34": "InvalidFeeReceiver",
+      "0x5313287d": "InvalidCollectorForOperation",
+      "0x3c73c4a0": "TokenCollectionFailed",
+      "0xad7c145a": "PaymentAlreadyCollected",
+      "0x36f2d211": "AfterAuthorizationExpiry",
+      "0x604b0947": "InsufficientAuthorization",
+      "0x93bb7a12": "ZeroAuthorization",
+      "0xaa5674ad": "BeforeAuthorizationExpiry",
+      "0x94271bde": "AfterRefundExpiry",
+      "0x6295d604": "RefundExceedsCapture",
+      "0xa8334d15": "PaymentNotPreApproved",
+      "0x19af2135": "PaymentAlreadyPreApproved",
+      "0xbde034f9": "OnlyAuthCaptureEscrow",
+      "0x5274afe7": "SafeERC20FailedOperation",
+      "0x192b9e4e": "InsufficientAllowance",
+      "0xdb42144d": "InsufficientBalance",
+      "0xa43fec12": "PolicyForbids",
+      "0xfd8c4245": "ContractPaused",
+    };
+
+    const same = (a, b) => typeof a === "string" && typeof b === "string" && a.toLowerCase() === b.toLowerCase();
+    const uintWord = (value, bits, label) => {
+      const v = BigInt(value);
+      if (v < 0n || v >= 1n << BigInt(bits)) throw new Error(`${label} is outside the uint${bits} range`);
+      return v.toString(16).padStart(64, "0");
+    };
+    const addressWord = (value, label) => {
+      if (typeof value !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(value)) throw new Error(`${label} is not an address`);
+      return value.slice(2).toLowerCase().padStart(64, "0");
+    };
+    const bytes32Word = (value, label) => {
+      if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) throw new Error(`${label} is not bytes32`);
+      return value.slice(2).toLowerCase();
+    };
+    const addressTopic = (value) => `0x${addressWord(value, "topic address")}`;
+    // collectorData is always empty for these collectors: offset word, then a zero length.
+    const emptyBytesTail = (headWords) => uintWord(BigInt(headWords) * 32n, 256, "offset") + uintWord(0, 256, "length");
+
+    const paymentInfoWords = (p) => {
+      if (!p) throw new Error("PaymentInfo is missing");
+      if (!(BigInt(p.preApprovalExpiry) <= BigInt(p.authorizationExpiry) && BigInt(p.authorizationExpiry) <= BigInt(p.refundExpiry))) {
+        throw new Error("PaymentInfo expiries must be ordered preApproval <= authorization <= refund");
+      }
+      if (BigInt(p.maxFeeBps) > MAX_FEE_BPS || BigInt(p.minFeeBps) > BigInt(p.maxFeeBps)) throw new Error("PaymentInfo fee bounds are invalid");
+      return [
+        addressWord(p.operator, "operator"),
+        addressWord(p.payer, "payer"),
+        addressWord(p.receiver, "receiver"),
+        addressWord(p.token, "token"),
+        uintWord(p.maxAmount, 120, "maxAmount"),
+        uintWord(p.preApprovalExpiry, 48, "preApprovalExpiry"),
+        uintWord(p.authorizationExpiry, 48, "authorizationExpiry"),
+        uintWord(p.refundExpiry, 48, "refundExpiry"),
+        uintWord(p.minFeeBps, 16, "minFeeBps"),
+        uintWord(p.maxFeeBps, 16, "maxFeeBps"),
+        addressWord(p.feeReceiver, "feeReceiver"),
+        uintWord(p.salt, 256, "salt"),
+      ].join("");
+    };
+
+    const encode = {
+      getHash: (p) => SELECTORS.getHash + paymentInfoWords(p),
+      paymentState: (hash) => SELECTORS.paymentState + bytes32Word(hash, "paymentInfoHash"),
+      getTokenStore: (operator) => SELECTORS.getTokenStore + addressWord(operator, "operator"),
+      preApprove: (p) => SELECTORS.preApprove + paymentInfoWords(p),
+      isPreApproved: (hash) => SELECTORS.isPreApproved + bytes32Word(hash, "paymentInfoHash"),
+      // Head: 12 PaymentInfo words + amount + tokenCollector + bytes offset = 15 words.
+      authorize: (p, amount, collector) =>
+        SELECTORS.authorize + paymentInfoWords(p) + uintWord(amount, 256, "amount") + addressWord(collector, "tokenCollector") + emptyBytesTail(15),
+      // Head: 12 PaymentInfo words + amount + tokenCollector + bytes offset + feeAmount + feeReceiver = 17 words.
+      charge: (p, amount, collector, feeAmount, feeReceiver) =>
+        SELECTORS.charge + paymentInfoWords(p) + uintWord(amount, 256, "amount") + addressWord(collector, "tokenCollector") +
+        uintWord(17n * 32n, 256, "offset") + uintWord(feeAmount, 256, "feeAmount") + addressWord(feeReceiver, "feeReceiver") + uintWord(0, 256, "length"),
+      capture: (p, amount, feeAmount, feeReceiver) =>
+        SELECTORS.capture + paymentInfoWords(p) + uintWord(amount, 256, "amount") + uintWord(feeAmount, 256, "feeAmount") + addressWord(feeReceiver, "feeReceiver"),
+      void: (p) => SELECTORS.void + paymentInfoWords(p),
+      refund: (p, amount, collector) =>
+        SELECTORS.refund + paymentInfoWords(p) + uintWord(amount, 256, "amount") + addressWord(collector, "tokenCollector") + emptyBytesTail(15),
+      authCaptureEscrow: () => SELECTORS.authCaptureEscrow,
+      collectorType: () => SELECTORS.collectorType,
+      approve: (spender, amount) => SELECTORS.approve + addressWord(spender, "spender") + uintWord(amount, 256, "amount"),
+      allowance: (owner, spender) => SELECTORS.allowance + addressWord(owner, "owner") + addressWord(spender, "spender"),
+      balanceOf: (holder) => SELECTORS.balanceOf + addressWord(holder, "holder"),
+      mint: (to, amount) => SELECTORS.mint + addressWord(to, "to") + uintWord(amount, 256, "amount"),
+    };
+
+    const words = (hex) => {
+      const body = (hex || "0x").slice(2);
+      if (body.length % 64 !== 0) throw new Error("Return data is not word aligned");
+      const out = [];
+      for (let i = 0; i < body.length; i += 64) out.push(BigInt(`0x${body.slice(i, i + 64)}`));
+      return out;
+    };
+    const wordAddress = (value) => `0x${value.toString(16).padStart(40, "0")}`;
+    const decode = {
+      uint: (hex) => { const w = words(hex); if (w.length < 1) throw new Error("Empty return data"); return w[0]; },
+      bool: (hex) => { const w = words(hex); if (w.length < 1 || w[0] > 1n) throw new Error("Return data is not a bool"); return w[0] === 1n; },
+      address: (hex) => { const w = words(hex); if (w.length < 1 || w[0] >= 1n << 160n) throw new Error("Return data is not an address"); return wordAddress(w[0]); },
+      bytes32: (hex) => { if (!/^0x[0-9a-fA-F]{64}$/.test(hex || "")) throw new Error("Return data is not bytes32"); return hex.toLowerCase(); },
+      paymentState: (hex) => {
+        const w = words(hex);
+        if (w.length !== 3 || w[0] > 1n) throw new Error("paymentState returned an unexpected shape");
+        return { hasCollectedPayment: w[0] === 1n, capturableAmount: w[1], refundableAmount: w[2] };
+      },
+    };
+
+    const buildPaymentInfo = ({ operator, payer, receiver, token, maxAmount, now, preApprovalSeconds = 3_600, authorizationSeconds = 7 * 86_400, refundSeconds = 30 * 86_400, salt }) => {
+      const t = BigInt(now);
+      const info = {
+        operator, payer, receiver, token,
+        maxAmount: BigInt(maxAmount),
+        preApprovalExpiry: t + BigInt(preApprovalSeconds),
+        authorizationExpiry: t + BigInt(authorizationSeconds),
+        refundExpiry: t + BigInt(refundSeconds),
+        minFeeBps: 0n,
+        maxFeeBps: 0n,
+        feeReceiver: ZERO_ADDRESS,
+        salt: BigInt(salt),
+      };
+      paymentInfoWords(info);
+      return info;
+    };
+
+    // Returns the single log from `address` whose topic0 matches and, when
+    // given, whose first indexed topic equals `indexed`. Zero or several
+    // matches are a failed verification, never a success.
+    const findLog = (receipt, address, topic, indexed) => {
+      const matches = (receipt?.logs || []).filter((log) =>
+        same(log.address, address) && same(log.topics?.[0], topic) && (indexed === undefined || same(log.topics?.[1], indexed)));
+      return matches.length === 1 ? matches[0] : null;
+    };
+    // Sum of ERC-20 Transfer values from `from` to `to` emitted by `token`.
+    const transferred = (receipt, token, from, to) => (receipt?.logs || [])
+      .filter((log) => same(log.address, token) && same(log.topics?.[0], TOPICS.Transfer) && same(log.topics?.[1], addressTopic(from)) && same(log.topics?.[2], addressTopic(to)))
+      .reduce((sum, log) => sum + words(log.data)[0], 0n);
+    const EVENT_FIELDS = {
+      PaymentCharged: { paymentInfo: true, fields: ["amount", "tokenCollector", "feeAmount", "feeReceiver"] },
+      PaymentAuthorized: { paymentInfo: true, fields: ["amount", "tokenCollector"] },
+      PaymentCaptured: { paymentInfo: false, fields: ["amount", "feeAmount", "feeReceiver"] },
+      PaymentVoided: { paymentInfo: false, fields: ["amount"] },
+      PaymentRefunded: { paymentInfo: false, fields: ["amount", "tokenCollector"] },
+    };
+    const escrowEvent = (receipt, name, paymentInfoHash, info) => {
+      const spec = EVENT_FIELDS[name];
+      if (!spec) throw new Error(`Unknown escrow event ${name}`);
+      const log = findLog(receipt, ESCROW, TOPICS[name], paymentInfoHash);
+      if (!log) throw new Error(`${name} for this paymentInfoHash was not in the receipt`);
+      const body = (log.data || "0x").slice(2).toLowerCase();
+      const offset = spec.paymentInfo ? 12 : 0;
+      if (spec.paymentInfo && body.slice(0, 12 * 64) !== paymentInfoWords(info)) throw new Error(`${name} carried different PaymentInfo terms`);
+      const w = words(log.data);
+      if (w.length !== offset + spec.fields.length) throw new Error(`${name} data has an unexpected shape`);
+      const out = { logIndex: Number(BigInt(log.logIndex ?? 0)) };
+      spec.fields.forEach((field, i) => {
+        const value = w[offset + i];
+        out[field] = field === "tokenCollector" || field === "feeReceiver" ? wordAddress(value) : value;
+      });
+      return out;
+    };
+
+    const revertName = (data) => {
+      const selector = typeof data === "string" ? data.slice(0, 10).toLowerCase() : null;
+      return selector && ERRORS[selector] ? ERRORS[selector] : null;
+    };
+
+    return {
+      ESCROW, PRE_APPROVAL_COLLECTOR, REFUND_COLLECTOR, ZERO_ADDRESS, SELECTORS, TOPICS, ERRORS,
+      same, addressTopic, paymentInfoWords, encode, decode, buildPaymentInfo, findLog, transferred, escrowEvent, revertName,
+    };
+  })();
+  // @payments-protocol:end
+  const P = PAYMENTS_PROTOCOL;
+
+  const VIBENET_RPC = "https://api.vibes.base.org/api/vibenet/account/rpc";
+  const VIBENET_CHAIN_ID = 84538453n;
+  const EXPLORER_URL = "https://chain.base.org/vibenet/explorer";
+
+  // Read-only JSON-RPC used by the probe, state reads, and preflight eth_calls.
+  // Node-reported errors carry `rpc: true` so callers can tell a revert from an outage.
+  const rpcCall = async (method, params = [], timeoutMs = 10_000) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(VIBENET_RPC, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => null);
+      if (body?.error) throw Object.assign(new Error(body.error.message || `${method} failed`), { rpc: true, data: body.error.data });
+      if (!response.ok || !body) throw new Error(`Vibenet returned ${response.status}`);
+      return body.result;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  const ethCall = (to, data, from) => rpcCall("eth_call", [from ? { from, to, data } : { to, data }, "latest"]);
+  const hasCode = async (address) => { const code = await rpcCall("eth_getCode", [address, "latest"]); return Boolean(code && code !== "0x"); };
+  const genesisHashOf = async () => (await rpcCall("eth_getBlockByNumber", ["0x0", false]))?.hash || null;
+
+  // Read-only capability probe. It never loads aa.txt and never writes: live
+  // flows stay idle until the reader presses a step button.
+  const probePayments = async () => {
+    const isActivated = async (feature) => BigInt(await ethCall("0x8453000000000000000000000000000000000001", `0xba87af80${feature.slice(2)}`)) === 1n;
+    const [chainId, genesis, stablecoin, policy, escrowCode, preCode, refundCode] = await Promise.all([
+      rpcCall("eth_chainId", [], 5_000),
+      genesisHashOf(),
+      isActivated("0xecfa0def2c10020caaf65e6155aa69c84b24892aaef76eeac52e0e2b3a0b8601"),
+      isActivated("0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f"),
+      hasCode(P.ESCROW),
+      hasCode(P.PRE_APPROVAL_COLLECTOR),
+      hasCode(P.REFUND_COLLECTOR),
+    ]);
+    let reason = null;
+    if (BigInt(chainId) !== VIBENET_CHAIN_ID) reason = `Unexpected chain ${BigInt(chainId)}`;
+    else if (!stablecoin || !policy) reason = "B20 stablecoins are not activated on Vibenet";
+    else if (!escrowCode || !preCode || !refundCode) reason = "Commerce Payments v1.1 contracts are not deployed on Vibenet";
+    else {
+      const [preEscrow, refundEscrow, preType, refundType] = await Promise.all([
+        ethCall(P.PRE_APPROVAL_COLLECTOR, P.encode.authCaptureEscrow()),
+        ethCall(P.REFUND_COLLECTOR, P.encode.authCaptureEscrow()),
+        ethCall(P.PRE_APPROVAL_COLLECTOR, P.encode.collectorType()),
+        ethCall(P.REFUND_COLLECTOR, P.encode.collectorType()),
+      ]);
+      if (!P.same(P.decode.address(preEscrow), P.ESCROW) || !P.same(P.decode.address(refundEscrow), P.ESCROW)
+        || P.decode.uint(preType) !== 0n || P.decode.uint(refundType) !== 1n) {
+        reason = "Vibenet collectors are not wired to AuthCaptureEscrow v1.1";
+      }
+    }
+    return { live: !reason, reason, genesisHash: genesis };
+  };
+
   // ----------------------------------------------------------------------
   // Color roles map to CSS custom properties defined in the <style> block,
   // so a single dark-theme block flips the whole demo. Values resolve at
@@ -16,14 +353,14 @@ export const PaymentsDemo = ({ flow }) => {
     blueSoft: "var(--wf-blue-soft)", successSoft: "var(--wf-success-soft)", errorSoft: "var(--wf-error-soft)",
   };
   // Account markers use fixed brand hues that read on either theme.
-  const dot = { Merchant: C.blue, Alice: "#66c800", Bob: "#8a63d2", Agent: "#3c8aff" };
+  const dot = { Merchant: C.blue, Alice: "#66c800", Bob: "#8a63d2", Agent: "#3c8aff", "Payer & operator": "#66c800", Escrow: "#8a63d2" };
 
   const NETWORK = "Base Vibenet";
 
   // ---- result-line helpers ----
-  const ok = (name, detail) => ({ kind: "ok", name, detail: detail || "" });
-  const err = (name, detail) => ({ kind: "err", name, detail: detail || "" });
-  const nfo = (name, detail) => ({ kind: "info", name, detail: detail || "" });
+  const ok = (name, detail, href) => ({ kind: "ok", name, detail: detail || "", href });
+  const err = (name, detail, href) => ({ kind: "err", name, detail: detail || "", href });
+  const nfo = (name, detail, href) => ({ kind: "info", name, detail: detail || "", href });
   const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const M = (v) => ({ v, mono: true });
 
@@ -330,25 +667,578 @@ export const PaymentsDemo = ({ flow }) => {
   const invalidFlow = flow && !FLOWS[flow];
   const pinned = flow && FLOWS[flow] ? flow : null;
 
+  // ======================================================================
+  // Live Vibenet flows. Each pinned flow bootstraps its own demo B20 token and
+  // payment, so it never depends on state left behind by another page. Every
+  // success line is derived from a transaction receipt plus a follow-up read
+  // of escrow state; anything that cannot be verified throws instead.
+  // ======================================================================
+  const TOKEN = "dUSD";
+  const PAYER = "Payer & operator";
+  const short = (value) => (value ? `${value.slice(0, 6)}…${value.slice(-4)}` : "");
+  const txHref = (hash) => `${EXPLORER_URL}/tx/${hash}`;
+  const addrHref = (address) => `${EXPLORER_URL}/address/${address}`;
+  const show = (engine, raw) => `${engine.displayUnits(raw).toFixed(2)} ${TOKEN}`;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const abortError = (message) => Object.assign(new Error(message), { abort: true });
+  const randomSalt = () => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return BigInt(`0x${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`);
+  };
+  const revertData = (error) => {
+    const data = error?.data;
+    return typeof data === "string" ? data : typeof data?.data === "string" ? data.data : null;
+  };
+
+  // Reads right after a receipt can reach an RPC replica one block behind, so
+  // poll briefly for the expected value and fail loudly if it never appears.
+  const settle = async (read, check, label) => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const value = await read();
+      if (check(value)) return value;
+      await sleep(300);
+    }
+    throw new Error(`${label} did not reach the expected onchain value`);
+  };
+  const readPaymentState = async (hash) => P.decode.paymentState(await ethCall(P.ESCROW, P.encode.paymentState(hash)));
+  const tokenBalance = async (token, holder) => P.decode.uint(await ethCall(token, P.encode.balanceOf(holder)));
+  const tokenAllowance = async (token, owner, spender) => P.decode.uint(await ethCall(token, P.encode.allowance(owner, spender)));
+  const expectState = (ctx, capturable, refundable) => settle(
+    () => readPaymentState(ctx.hash),
+    (s) => s.hasCollectedPayment && s.capturableAmount === capturable && s.refundableAmount === refundable,
+    `paymentState(${short(ctx.hash)})`,
+  );
+  const expectBalance = (ctx, holder, amount, label) => settle(() => tokenBalance(ctx.token, holder), (v) => v === amount, `${label} balance`);
+  const expectAllowance = (ctx, spender, amount, label) => settle(() => tokenAllowance(ctx.token, ctx.account, spender), (v) => v === amount, `${label} allowance`);
+
+  // eth_call each write from the demo account first so a protocol revert is
+  // reported by name without spending a transaction.
+  const preflight = async (ctx, to, data, label) => {
+    try {
+      await ethCall(to, data, ctx.account);
+    } catch (error) {
+      if (!error?.rpc) throw error;
+      const name = P.revertName(revertData(error)) || error.message || "execution reverted";
+      throw new Error(`${label} would revert on Vibenet (${name}). Nothing was sent for this step.`);
+    }
+  };
+  // Checked immediately before every write is initiated. Once the demo unmounts
+  // (for example, SPA navigation), the step stops before its next transaction.
+  // A transaction already handed to the engine is not recalled.
+  const beforeWrite = (ctx) => {
+    if (!ctx.isMounted()) throw Object.assign(new Error("The demo closed, so no further transactions were sent"), { abort: true, unmounted: true });
+  };
+  const send = async (engine, ctx, calls, metadata) => {
+    beforeWrite(ctx);
+    ctx.stepWrote = true;
+    const tx = await engine.sendCalls({ calls, metadata, gasFloor: 900_000n });
+    const receipt = tx?.receipt;
+    const phases = receipt?.phaseStatuses || receipt?.eip8130?.phaseStatuses || [];
+    if (!tx?.hash || !receipt || receipt.status !== "0x1" || phases.some((status) => status !== "0x1" && status !== "0x01")) {
+      throw Object.assign(new Error(`Transaction ${tx?.hash || ""} did not succeed onchain`), { hash: tx?.hash });
+    }
+    return tx;
+  };
+
+  // Before every step after the first: the chain, the escrow, and the browser
+  // account must be the ones this flow started with.
+  const guard = async (engine, ctx) => {
+    const [genesis, escrowLive] = await Promise.all([genesisHashOf(), hasCode(P.ESCROW)]);
+    if (genesis !== ctx.genesisHash || !escrowLive) {
+      throw abortError("Vibenet was reset after this flow started, so the token and payment from earlier steps no longer exist. Reset the demo to start a new payment.");
+    }
+    const shared = await engine.getSharedAccount();
+    if (!P.same(shared.account.address, ctx.account)) {
+      throw abortError("The Vibenet demo account in this browser changed after this flow started. Reset the demo to start a new payment.");
+    }
+  };
+
+  const refreshBalances = async (engine, ctx, s) => {
+    const [payer, merchant, store] = await Promise.all([
+      tokenBalance(ctx.token, ctx.account),
+      tokenBalance(ctx.token, ctx.receiver),
+      ctx.store ? tokenBalance(ctx.token, ctx.store) : Promise.resolve(null),
+    ]);
+    s.balances = { [PAYER]: engine.displayUnits(payer), Merchant: engine.displayUnits(merchant) };
+    if (store !== null) s.balances.Escrow = engine.displayUnits(store);
+  };
+  const applyState = (engine, ctx, s, state) => {
+    s.hash = ctx.hash;
+    s.capturable = engine.displayUnits(state.capturableAmount);
+    s.refundable = engine.displayUnits(state.refundableAmount);
+  };
+
+  const mintDemoToken = async (engine, ctx, whole) => {
+    beforeWrite(ctx);
+    ctx.stepWrote = true;
+    const created = await engine.createStablecoin({
+      name: "Docs Payments Dollar",
+      symbol: TOKEN,
+      currency: "USD",
+      initialMint: engine.units(whole),
+      mintTo: ctx.account,
+    });
+    ctx.token = created.token;
+    await expectBalance(ctx, ctx.account, engine.units(whole), "Payer");
+    return [
+      ok("B20Created", `demo stablecoin ${TOKEN} · ${short(created.token)} · not USDC`, txHref(created.hash)),
+      ok("Transfer", `0x0 → payer · ${show(engine, engine.units(whole))}`, txHref(created.hash)),
+    ];
+  };
+
+  const newPayment = async (engine, ctx, whole, authorizationSeconds) => {
+    const latest = await rpcCall("eth_getBlockByNumber", ["latest", false]);
+    const info = P.buildPaymentInfo({
+      operator: ctx.account,
+      payer: ctx.account,
+      receiver: ctx.receiver,
+      token: ctx.token,
+      maxAmount: engine.units(whole),
+      now: BigInt(latest.timestamp),
+      authorizationSeconds,
+      salt: randomSalt(),
+    });
+    // The escrow computes paymentInfoHash (it binds chain id and its own address).
+    const hash = P.decode.bytes32(await ethCall(P.ESCROW, P.encode.getHash(info)));
+    const [state, store] = await Promise.all([readPaymentState(hash), ethCall(P.ESCROW, P.encode.getTokenStore(ctx.account))]);
+    if (state.hasCollectedPayment) throw new Error("This salt already has an onchain payment. Reset to generate a new one.");
+    ctx.info = info;
+    ctx.hash = hash;
+    ctx.store = P.decode.address(store);
+    return [
+      nfo("getHash", `paymentInfoHash ${short(hash)}`, addrHref(P.ESCROW)),
+      nfo("PaymentInfo", `max ${show(engine, info.maxAmount)} · fee 0–0 bps · fresh salt`),
+    ];
+  };
+
+  const preApprove = async (engine, ctx) => {
+    const amount = ctx.info.maxAmount;
+    const approveData = P.encode.approve(P.PRE_APPROVAL_COLLECTOR, amount);
+    const preApproveData = P.encode.preApprove(ctx.info);
+    await preflight(ctx, ctx.token, approveData, "approve");
+    await preflight(ctx, P.PRE_APPROVAL_COLLECTOR, preApproveData, "preApprove");
+    const tx = await send(engine, ctx, [
+      { to: ctx.token, data: approveData },
+      { to: P.PRE_APPROVAL_COLLECTOR, data: preApproveData },
+    ], "Pre-approve payment");
+    if (!P.findLog(tx.receipt, P.PRE_APPROVAL_COLLECTOR, P.TOPICS.PaymentPreApproved, ctx.hash)) {
+      throw new Error("PaymentPreApproved for this paymentInfoHash was not in the receipt");
+    }
+    await Promise.all([
+      expectAllowance(ctx, P.PRE_APPROVAL_COLLECTOR, amount, "PreApprovalPaymentCollector"),
+      settle(async () => P.decode.bool(await ethCall(P.PRE_APPROVAL_COLLECTOR, P.encode.isPreApproved(ctx.hash))), (v) => v, "isPreApproved"),
+    ]);
+    return [
+      ok("Approval", `PreApprovalPaymentCollector · ${show(engine, amount)}`, txHref(tx.hash)),
+      ok("PaymentPreApproved", short(ctx.hash), txHref(tx.hash)),
+    ];
+  };
+
+  const authorize = async (engine, ctx, s) => {
+    const amount = ctx.info.maxAmount;
+    const data = P.encode.authorize(ctx.info, amount, P.PRE_APPROVAL_COLLECTOR);
+    await preflight(ctx, P.ESCROW, data, "authorize");
+    const tx = await send(engine, ctx, [{ to: P.ESCROW, data }], "Authorize payment");
+    const event = P.escrowEvent(tx.receipt, "PaymentAuthorized", ctx.hash, ctx.info);
+    if (event.amount !== amount || !P.same(event.tokenCollector, P.PRE_APPROVAL_COLLECTOR)) {
+      throw new Error("PaymentAuthorized did not match the requested amount and collector");
+    }
+    const state = await expectState(ctx, amount, 0n);
+    await expectBalance(ctx, ctx.store, amount, "Escrow token store");
+    applyState(engine, ctx, s, state);
+    return [
+      ok("PaymentAuthorized", `${show(engine, event.amount)} · ${short(ctx.hash)}`, txHref(tx.hash)),
+      nfo("capturableAmount", show(engine, state.capturableAmount), addrHref(P.ESCROW)),
+    ];
+  };
+
+  const charge = async (engine, ctx, s) => {
+    const amount = ctx.info.maxAmount;
+    const data = P.encode.charge(ctx.info, amount, P.PRE_APPROVAL_COLLECTOR, 0n, P.ZERO_ADDRESS);
+    await preflight(ctx, P.ESCROW, data, "charge");
+    const tx = await send(engine, ctx, [{ to: P.ESCROW, data }], "Charge payment");
+    const event = P.escrowEvent(tx.receipt, "PaymentCharged", ctx.hash, ctx.info);
+    if (event.amount !== amount || event.feeAmount !== 0n || !P.same(event.tokenCollector, P.PRE_APPROVAL_COLLECTOR)) {
+      throw new Error("PaymentCharged did not match the requested amount, fee, and collector");
+    }
+    const state = await expectState(ctx, 0n, amount);
+    await expectBalance(ctx, ctx.receiver, amount, "Merchant");
+    applyState(engine, ctx, s, state);
+    return [
+      ok("PaymentCharged", `${show(engine, event.amount)} · fee 0.00 · ${short(ctx.hash)}`, txHref(tx.hash)),
+      nfo("refundableAmount", show(engine, state.refundableAmount), addrHref(P.ESCROW)),
+    ];
+  };
+
+  const capture = async (engine, ctx, s, amount) => {
+    const before = await readPaymentState(ctx.hash);
+    const merchantBefore = await tokenBalance(ctx.token, ctx.receiver);
+    const data = P.encode.capture(ctx.info, amount, 0n, P.ZERO_ADDRESS);
+    await preflight(ctx, P.ESCROW, data, "capture");
+    const tx = await send(engine, ctx, [{ to: P.ESCROW, data }], "Capture payment");
+    const event = P.escrowEvent(tx.receipt, "PaymentCaptured", ctx.hash);
+    if (event.amount !== amount || event.feeAmount !== 0n) throw new Error("PaymentCaptured did not match the requested amount and fee");
+    const state = await expectState(ctx, before.capturableAmount - amount, before.refundableAmount + amount);
+    await expectBalance(ctx, ctx.receiver, merchantBefore + amount, "Merchant");
+    applyState(engine, ctx, s, state);
+    return [
+      ok("PaymentCaptured", `${show(engine, event.amount)} · fee 0.00`, txHref(tx.hash)),
+      nfo("capturableAmount", show(engine, state.capturableAmount), addrHref(P.ESCROW)),
+      nfo("refundableAmount", show(engine, state.refundableAmount), addrHref(P.ESCROW)),
+    ];
+  };
+
+  const voidPayment = async (engine, ctx, s) => {
+    const before = await readPaymentState(ctx.hash);
+    const payerBefore = await tokenBalance(ctx.token, ctx.account);
+    const data = P.encode.void(ctx.info);
+    await preflight(ctx, P.ESCROW, data, "void");
+    const tx = await send(engine, ctx, [{ to: P.ESCROW, data }], "Void authorization");
+    const event = P.escrowEvent(tx.receipt, "PaymentVoided", ctx.hash);
+    if (event.amount !== before.capturableAmount) throw new Error("PaymentVoided did not return the full capturable amount");
+    const state = await expectState(ctx, 0n, before.refundableAmount);
+    await expectBalance(ctx, ctx.account, payerBefore + event.amount, "Payer");
+    applyState(engine, ctx, s, state);
+    // A later capture must now fail; confirm it with a read-only eth_call.
+    let check = nfo("capture after void", "could not be checked");
+    try {
+      await ethCall(P.ESCROW, P.encode.capture(ctx.info, 1n, 0n, P.ZERO_ADDRESS), ctx.account);
+      check = err("capture after void", "eth_call unexpectedly succeeded");
+    } catch (error) {
+      const name = error?.rpc ? P.revertName(revertData(error)) : null;
+      if (name) check = err(name, "capture after void · Vibenet eth_call");
+    }
+    return [
+      ok("PaymentVoided", `${show(engine, event.amount)} → payer`, txHref(tx.hash)),
+      nfo("capturableAmount", show(engine, state.capturableAmount), addrHref(P.ESCROW)),
+      check,
+    ];
+  };
+
+  const fundRefund = async (engine, ctx, whole) => {
+    const amount = engine.units(whole);
+    const payerBefore = await tokenBalance(ctx.token, ctx.account);
+    const mintData = P.encode.mint(ctx.account, amount);
+    const approveData = P.encode.approve(P.REFUND_COLLECTOR, amount);
+    await preflight(ctx, ctx.token, mintData, "mint");
+    await preflight(ctx, ctx.token, approveData, "approve");
+    const tx = await send(engine, ctx, [
+      { to: ctx.token, data: mintData },
+      { to: ctx.token, data: approveData },
+    ], "Fund refund liquidity");
+    await Promise.all([
+      expectBalance(ctx, ctx.account, payerBefore + amount, "Operator"),
+      expectAllowance(ctx, P.REFUND_COLLECTOR, amount, "OperatorRefundCollector"),
+    ]);
+    ctx.refundAmount = amount;
+    return [
+      ok("Transfer", `0x0 → operator · ${show(engine, amount)} fresh liquidity`, txHref(tx.hash)),
+      ok("Approval", `OperatorRefundCollector · ${show(engine, amount)}`, txHref(tx.hash)),
+    ];
+  };
+
+  const refund = async (engine, ctx, s) => {
+    const amount = ctx.refundAmount;
+    const before = await readPaymentState(ctx.hash);
+    const data = P.encode.refund(ctx.info, amount, P.REFUND_COLLECTOR);
+    await preflight(ctx, P.ESCROW, data, "refund");
+    const tx = await send(engine, ctx, [{ to: P.ESCROW, data }], "Refund payment");
+    const event = P.escrowEvent(tx.receipt, "PaymentRefunded", ctx.hash);
+    if (event.amount !== amount || !P.same(event.tokenCollector, P.REFUND_COLLECTOR)) {
+      throw new Error("PaymentRefunded did not match the requested amount and collector");
+    }
+    // Payer and operator are one demo account, so prove both legs from the logs:
+    // operator → token store (collector pull) and token store → payer (refund).
+    const pulled = P.transferred(tx.receipt, ctx.token, ctx.account, ctx.store);
+    const returned = P.transferred(tx.receipt, ctx.token, ctx.store, ctx.account);
+    if (pulled !== amount || returned !== amount) throw new Error("Refund Transfer logs did not match the refunded amount");
+    const state = await expectState(ctx, before.capturableAmount, before.refundableAmount - amount);
+    await expectAllowance(ctx, P.REFUND_COLLECTOR, 0n, "OperatorRefundCollector");
+    applyState(engine, ctx, s, state);
+    return [
+      ok("PaymentRefunded", `${show(engine, event.amount)} · OperatorRefundCollector`, txHref(tx.hash)),
+      ok("Transfer", `operator → escrow → payer · ${show(engine, amount)}`, txHref(tx.hash)),
+      nfo("refundableAmount", show(engine, state.refundableAmount), addrHref(P.ESCROW)),
+    ];
+  };
+
+  // Token, terms, pre-approval, and authorization for flows that start from an
+  // escrowed payment. Separate transactions keep payer and operator roles distinct.
+  const bootstrapAuthorization = async (engine, ctx, s, whole, authorizationSeconds) => {
+    const entries = [
+      ...(await mintDemoToken(engine, ctx, whole)),
+      ...(await newPayment(engine, ctx, whole, authorizationSeconds)),
+      ...(await preApprove(engine, ctx)),
+      ...(await authorize(engine, ctx, s)),
+    ];
+    await refreshBalances(engine, ctx, s);
+    return entries;
+  };
+
+  const liveMetrics = (s) => [
+    ["Payment hash", s.hash ? M(short(s.hash)) : "Not created"],
+    ["Capturable", M(`${(s.capturable || 0).toFixed(2)} ${TOKEN}`)],
+    ["Refundable", M(`${(s.refundable || 0).toFixed(2)} ${TOKEN}`)],
+  ];
+  const DEMO_TOKEN = "Demo B20 stablecoin (not USDC)";
+  const ROLES = "Your demo account is payer and operator";
+
+  const LIVE_FLOWS = {
+    accept: {
+      ...FLOWS.accept, metrics: liveMetrics,
+      steps: [
+        { stage: "Fund", action: "Mint 5 dUSD",
+          text: "Create a demo B20 stablecoin on Vibenet and mint 5 dUSD to your demo account.",
+          summary: [["Token", DEMO_TOKEN], ["Roles", ROLES], ["Amount", M("5.00 dUSD")], ["Network", NETWORK]],
+          run: async (engine, ctx, s) => { const entries = await mintDemoToken(engine, ctx, 5); await refreshBalances(engine, ctx, s); return { entries }; } },
+        { stage: "Approve", action: "Approve $5",
+          text: "Fix PaymentInfo with ordered expiries, zero fee bounds, and a fresh salt, read its hash from the escrow, then approve exactly 5 dUSD to PreApprovalPaymentCollector and call preApprove as the payer.",
+          summary: [["Operation", "approve + preApprove"], ["Collector", "PreApprovalPaymentCollector"], ["Receiver", "New random merchant address"], ["Maximum", M("5.00 dUSD")], ["Fee bounds", M("0–0 bps")]],
+          run: async (engine, ctx) => ({
+            entries: [...(await newPayment(engine, ctx, 5)), ...(await preApprove(engine, ctx))],
+            caption: "Pre-approval lets the collector pull funds; it is not settlement yet.",
+          }) },
+        { stage: "Charge", action: "Submit charge",
+          text: "The operator calls charge on AuthCaptureEscrow. The collector pulls 5 dUSD and the escrow pays the merchant in the same transaction.",
+          summary: [["Caller", "Operator"], ["Contract", "AuthCaptureEscrow v1.1"], ["To", "Merchant"], ["Amount", M("5.00 dUSD")], ["Fee", M("0.00 dUSD")]],
+          run: async (engine, ctx, s) => { const entries = await charge(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "PaymentCharged in the receipt, confirmed against paymentState, is the settlement signal." }; } },
+      ],
+    },
+    authorize: {
+      ...FLOWS.authorize, metrics: liveMetrics,
+      steps: [
+        { stage: "Terms", action: "Set terms",
+          text: "Mint 25 dUSD of a demo B20 stablecoin, then bind operator, payer, merchant, maximum, expiries, zero fees, and a fresh salt. The escrow returns the payment hash.",
+          summary: [["Token", DEMO_TOKEN], ["Maximum", M("25.00 dUSD")], ["Capture window", "7 days"], ["Roles", ROLES]],
+          run: async (engine, ctx, s) => {
+            const entries = [...(await mintDemoToken(engine, ctx, 25)), ...(await newPayment(engine, ctx, 25))];
+            s.hash = ctx.hash;
+            await refreshBalances(engine, ctx, s);
+            return { entries };
+          } },
+        { stage: "Approve", action: "Pre-approve $25",
+          text: "As the payer, approve exactly 25 dUSD to PreApprovalPaymentCollector and call preApprove for this payment.",
+          summary: [["Collector", "PreApprovalPaymentCollector"], ["Signer", "Payer"], ["Maximum", M("25.00 dUSD")], ["Settlement", "Not yet"]],
+          run: async (engine, ctx) => ({ entries: await preApprove(engine, ctx), caption: "Pre-approval alone does not reserve funds." }) },
+        { stage: "Escrow", action: "Authorize $25",
+          text: "The operator submits authorize and the collector moves 25 dUSD into the operator's token store.",
+          summary: [["Caller", "Operator"], ["Amount", M("25.00 dUSD")], ["State", "Capturable"], ["Network", NETWORK]],
+          run: async (engine, ctx, s) => { const entries = await authorize(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "The confirmed onchain authorization is the funds guarantee." }; } },
+      ],
+    },
+    capture: {
+      ...FLOWS.capture, metrics: liveMetrics,
+      steps: [
+        { stage: "Authorize", action: "Authorize $25",
+          text: "Set up this demo's own payment: mint 25 dUSD, pre-approve it, and authorize it into escrow with a 3-day capture window.",
+          summary: [["Token", DEMO_TOKEN], ["Authorized", M("25.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          run: async (engine, ctx, s) => ({ entries: await bootstrapAuthorization(engine, ctx, s, 25, 3 * 86_400) }) },
+        { stage: "Check", action: "Check state",
+          text: "Read paymentState from the escrow and confirm 25 dUSD is capturable before authorization expiry.",
+          summary: [["Payment hash", "From step 1"], ["Capturable", M("25.00 dUSD")], ["Expiry", "In 3 days"]],
+          run: async (engine, ctx, s) => {
+            const [state, latest] = await Promise.all([readPaymentState(ctx.hash), rpcCall("eth_getBlockByNumber", ["latest", false])]);
+            if (state.capturableAmount !== ctx.info.maxAmount) throw new Error("paymentState does not show the full authorization as capturable");
+            const secondsLeft = ctx.info.authorizationExpiry - BigInt(latest.timestamp);
+            if (secondsLeft <= 0n) throw new Error("The authorization has expired");
+            applyState(engine, ctx, s, state);
+            return { entries: [nfo("paymentState", `capturable ${show(engine, state.capturableAmount)}`, addrHref(P.ESCROW)), nfo("authorizationExpiry", `open · ${Math.floor(Number(secondsLeft) / 3_600)}h left`)] };
+          } },
+        { stage: "Capture", action: "Capture $25",
+          text: "The operator captures the full amount with a zero fee, within the payer-approved bounds.",
+          summary: [["Gross", M("25.00 dUSD")], ["Fee", M("0.00 dUSD")], ["Receiver", "Merchant"], ["State", "Refundable"]],
+          run: async (engine, ctx, s) => { const entries = await capture(engine, ctx, s, engine.units(25)); await refreshBalances(engine, ctx, s); return { entries, caption: "Capture converted capturable value into refundable settled value onchain." }; } },
+      ],
+    },
+    partial: {
+      ...FLOWS.partial, metrics: liveMetrics,
+      steps: [
+        { stage: "Authorize", action: "Authorize max",
+          text: "Set up this demo's own payment: mint 100 dUSD, pre-approve it, and authorize it into escrow.",
+          summary: [["Token", DEMO_TOKEN], ["Authorized", M("100.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          run: async (engine, ctx, s) => ({ entries: await bootstrapAuthorization(engine, ctx, s, 100) }) },
+        { stage: "Finalize", action: "Set total",
+          text: "The merchant computes a final fulfilled total of 64 dUSD. No new payer approval is needed.",
+          summary: [["Authorized", M("100.00 dUSD")], ["Final total", M("64.00 dUSD")], ["Remainder", M("36.00 dUSD")]],
+          run: async (engine, ctx, s) => {
+            const state = await readPaymentState(ctx.hash);
+            if (state.capturableAmount < engine.units(64)) throw new Error("Less than 64 dUSD is capturable");
+            applyState(engine, ctx, s, state);
+            return { entries: [nfo("order total", `64.00 ${TOKEN} of ${show(engine, state.capturableAmount)} capturable`, addrHref(P.ESCROW))] };
+          } },
+        { stage: "Capture", action: "Capture $64",
+          text: "Capture 64 dUSD and leave 36 dUSD in escrow to capture later or void.",
+          summary: [["Captured", M("64.00 dUSD")], ["Capturable", M("36.00 dUSD")], ["Refundable", M("64.00 dUSD")]],
+          run: async (engine, ctx, s) => { const entries = await capture(engine, ctx, s, engine.units(64)); await refreshBalances(engine, ctx, s); return { entries, caption: "The escrow tracks the 36 dUSD remainder onchain." }; } },
+      ],
+    },
+    void: {
+      ...FLOWS.void, metrics: liveMetrics,
+      steps: [
+        { stage: "Authorize", action: "Authorize $25",
+          text: "Set up this demo's own payment: mint 25 dUSD, pre-approve it, and authorize it into escrow. Then treat the order as canceled.",
+          summary: [["Token", DEMO_TOKEN], ["Authorized", M("25.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          run: async (engine, ctx, s) => ({ entries: await bootstrapAuthorization(engine, ctx, s, 25) }) },
+        { stage: "Void", action: "Return $25",
+          text: "The operator calls void and the token store returns the full capturable amount to the payer.",
+          summary: [["Caller", "Operator"], ["Recipient", "Payer"], ["Returned", M("25.00 dUSD")], ["Capturable", M("0.00 dUSD")]],
+          run: async (engine, ctx, s) => { const entries = await voidPayment(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "If the operator is inactive, the payer can reclaim after expiry instead." }; } },
+      ],
+    },
+    refund: {
+      ...FLOWS.refund, metrics: liveMetrics,
+      steps: [
+        { stage: "Charge", action: "Charge $5",
+          text: "Set up this demo's own settled payment: mint 5 dUSD, pre-approve it, and charge it to the merchant.",
+          summary: [["Token", DEMO_TOKEN], ["Charged", M("5.00 dUSD")], ["Transactions", "3 on Vibenet"], ["Roles", ROLES]],
+          run: async (engine, ctx, s) => {
+            const entries = [
+              ...(await mintDemoToken(engine, ctx, 5)),
+              ...(await newPayment(engine, ctx, 5)),
+              ...(await preApprove(engine, ctx)),
+              ...(await charge(engine, ctx, s)),
+            ];
+            await refreshBalances(engine, ctx, s);
+            return { entries };
+          } },
+        { stage: "Fund", action: "Approve $2",
+          text: "Refund accounting is not liquidity. Mint 2 dUSD of fresh liquidity to the operator and approve OperatorRefundCollector for exactly that amount.",
+          summary: [["Liquidity source", "Operator"], ["Collector", "OperatorRefundCollector"], ["Amount", M("2.00 dUSD")]],
+          run: async (engine, ctx, s) => { const entries = await fundRefund(engine, ctx, 2); await refreshBalances(engine, ctx, s); return { entries }; } },
+        { stage: "Refund", action: "Refund $2",
+          text: "The operator calls refund. The collector pulls 2 dUSD from the operator and the escrow returns it to the original payer.",
+          summary: [["Recipient", "Payer"], ["Amount", M("2.00 dUSD")], ["Remaining", M("3.00 dUSD")]],
+          run: async (engine, ctx, s) => { const entries = await refund(engine, ctx, s); await refreshBalances(engine, ctx, s); return { entries, caption: "Payer and operator share one demo account here, so its balance is unchanged: 2 dUSD left as liquidity and came back as the refund." }; } },
+      ],
+    },
+  };
+
   const [active, setActive] = useState(pinned || "accept");
   const [sim, setSim] = useState(freshSim);
   const [results, setResults] = useState([]);
+  const [liveState, setLiveState] = useState("probing");
+  const [probeInfo, setProbeInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [aborted, setAborted] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const [accountAddress, setAccountAddress] = useState(null);
+  const liveContext = useRef(null);
+  const mounted = useRef(true);
 
-  const f = FLOWS[active] || FLOWS.accept;
+  useEffect(() => {
+    let cancelled = false;
+    mounted.current = true;
+    probePayments()
+      .then((info) => {
+        if (cancelled) return;
+        setProbeInfo(info);
+        setLiveState(info.live ? "live" : "offline");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProbeInfo({ live: false, reason: "Vibenet did not respond" });
+        setLiveState("offline");
+      });
+    return () => { cancelled = true; mounted.current = false; };
+  }, []);
+
+  // mode: "live" | "probing" | "offline" (live flow, network unavailable) | "mock" (no live version)
+  const liveCapable = Boolean(LIVE_FLOWS[active]);
+  const mode = !liveCapable ? "mock" : liveState;
+  const f = mode === "live" || mode === "probing" ? LIVE_FLOWS[active] : (FLOWS[active] || FLOWS.accept);
   const stepIndex = results.length;
   const done = stepIndex >= f.steps.length;
   const cur = done ? f.steps[f.steps.length - 1] : f.steps[stepIndex];
 
-  const select = (k) => { setActive(k); setSim(freshSim()); setResults([]); };
-  const reset = () => { setSim(freshSim()); setResults([]); };
-  const runStep = () => {
+  const clearRun = () => {
+    setSim(freshSim());
+    setResults([]);
+    setActionError(null);
+    setAborted(false);
+    liveContext.current = null;
+  };
+  const select = (k) => { if (busy) return; setActive(k); clearRun(); };
+  const reset = () => { if (busy) return; clearRun(); };
+  const runMockStep = () => {
     if (done) return;
     const s = { ...sim, balances: { ...sim.balances } };
     const out = f.steps[stepIndex].run(s) || { entries: [] };
     setSim(s);
-    setResults((r) => [...r, out]);
+    setResults((r) => [...r, { entries: [], ...out, at: Date.now() }]);
+  };
+  const runLiveStep = async () => {
+    setBusy(true);
+    setActionError(null);
+    let engine = null;
+    let ctx = liveContext.current;
+    try {
+      engine = await loadVibenetEngine();
+      if (!ctx) {
+        // The engine probe also confirms a live EIP-8130 account implementation.
+        const caps = await engine.probeCapabilities("stablecoin");
+        if (!caps.live) throw Object.assign(new Error(caps.reason || "Vibenet is unavailable"), { unavailable: true });
+        const [shared, genesis] = await Promise.all([engine.getSharedAccount(), genesisHashOf()]);
+        if (shared.genesisHash !== genesis) throw new Error("Vibenet changed while the demo account loaded.");
+        ctx = { genesisHash: genesis, account: shared.account.address, receiver: engine.randomAddress(), token: null, info: null, hash: null, store: null, isMounted: () => mounted.current };
+        liveContext.current = ctx;
+        setAccountAddress(ctx.account);
+      } else {
+        await guard(engine, ctx);
+      }
+      ctx.stepWrote = false;
+      const s = { ...sim, balances: { ...sim.balances } };
+      const out = await f.steps[stepIndex].run(engine, ctx, s);
+      setSim(s);
+      setResults((r) => [...r, { entries: [], ...out, at: Date.now() }]);
+    } catch (error) {
+      // Unmounted: no retry probe and no UI update; beforeWrite already kept
+      // any further transaction from being sent.
+      if (!mounted.current) return;
+      const message = (error?.message || String(error)).replace(/\.$/, "");
+      const wrote = Boolean(ctx?.stepWrote);
+      const href = error?.hash ? txHref(error.hash) : wrote && ctx?.account ? addrHref(ctx.account) : null;
+      if (!wrote && !error?.abort && results.length === 0) {
+        // Nothing has been sent by this flow. If Vibenet itself is gone, switch
+        // to the labeled mock and say so; never after a transaction attempt.
+        let latest;
+        try {
+          latest = error?.unavailable ? { live: false, reason: message } : await probePayments();
+        } catch {
+          latest = { live: false, reason: "Vibenet did not respond" };
+        }
+        if (!latest.live) {
+          liveContext.current = null;
+          setProbeInfo(latest);
+          setLiveState("offline");
+          setNotice(`Vibenet became unavailable before any transaction was sent (${latest.reason}). This demo is now an offline mock; nothing runs onchain.`);
+          return;
+        }
+      }
+      if (wrote || error?.abort) {
+        setAborted(true);
+        setActionError({
+          message: wrote
+            ? `${message}. A transaction was attempted in this step, so the live flow stopped without showing success. Check the demo account on the explorer, then reset to start a new payment.`
+            : `${message}.`,
+          href,
+        });
+      } else {
+        setActionError({ message: /Nothing was sent/.test(message) ? `${message}. You can retry.` : `${message}. Nothing was sent for this step. You can retry.`, href });
+      }
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
+  const runStep = () => {
+    if (done || busy || aborted) return;
+    if (mode === "live") return runLiveStep();
+    if (mode === "probing") return;
+    runMockStep();
   };
   const back = () => {
+    if (mode === "live" || mode === "probing") return;
     const n = results.length - 1;
     if (n < 0) return;
     let s = freshSim();
@@ -357,17 +1247,16 @@ export const PaymentsDemo = ({ flow }) => {
     setResults((r) => r.slice(0, -1));
   };
 
-  // ---- event log (flatten results + pending, deterministic timestamps) ----
+  // ---- event log (flatten results + pending, wall-clock timestamps) ----
   const pad = (n) => String(n).padStart(2, "0");
-  const ts = (n) => { const t = (42 * 60 + 11) + n; return `10:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)}`; };
+  const ts = (at) => { if (!at) return "--:--:--"; const d = new Date(at); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
   const logRows = [];
-  let sec = 0;
   results.forEach((res) => {
     (res.entries || []).forEach((e) => {
-      logRows.push({ t: ts(sec++), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind });
+      logRows.push({ t: ts(res.at), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
     });
   });
-  f.steps.slice(stepIndex).forEach((st) => { logRows.push({ t: ts(sec++), level: "PENDING", name: st.action, detail: "", kind: "pending" }); });
+  f.steps.slice(stepIndex).forEach((st) => { logRows.push({ t: ts(null), level: "PENDING", name: st.action, detail: "", kind: "pending" }); });
 
   const holders = Object.keys(sim.balances);
 
@@ -379,6 +1268,25 @@ export const PaymentsDemo = ({ flow }) => {
   };
 
   const levelColor = { EVENT: C.blue, INFO: C.sec, ERROR: C.error, PENDING: C.sub };
+  const badge = mode === "live"
+    ? { text: accountAddress ? `Live · ${short(accountAddress)}` : "Live · Vibenet", color: C.success, border: C.success, title: accountAddress ? `Vibenet demo account ${accountAddress}` : NETWORK }
+    : mode === "probing"
+      ? { text: "Checking Vibenet", color: C.sub, border: C.border, title: NETWORK }
+      : mode === "offline"
+        ? { text: "Offline mock", color: C.warn, border: C.warn, title: probeInfo?.reason || "Vibenet is unavailable" }
+        : { text: "Mock", color: C.sub, border: C.border, title: "Scripted illustration; no transactions are sent" };
+  const footerMode = mode === "live"
+    ? "Real Vibenet transactions · demo B20 token, not USDC"
+    : mode === "probing"
+      ? "Network check"
+      : mode === "offline"
+        ? "Offline mock · no transactions"
+        : "Mock only · no transactions";
+  const doneText = mode === "live"
+    ? "every step ran on Base Vibenet and was checked against escrow events and state. Open a log line to see its transaction."
+    : mode === "offline"
+      ? "the offline mock completed; nothing ran onchain."
+      : "every step completed in the mock simulation above; nothing ran onchain.";
 
   if (invalidFlow) {
     return <div style={{ margin: "22px 0", padding: 16, border: `1px solid ${C.error}`, borderRadius: 8, color: C.error }}>Unknown payment demo flow: {flow}</div>;
@@ -498,8 +1406,8 @@ export const PaymentsDemo = ({ flow }) => {
             );
           })}
         </div>
-        <span className="wf-t-caption" style={{ color: C.sub, border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}>Demo</span>
-        {results.length > 0 && (
+        <span className="wf-t-caption" title={badge.title} style={{ color: badge.color, border: `1px solid ${badge.border}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0, whiteSpace: "nowrap" }}>{badge.text}</span>
+        {(results.length > 0 || actionError || aborted) && !busy && (
           <button onClick={reset} title="Reset" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", color: C.sec, flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
           </button>
@@ -538,7 +1446,7 @@ export const PaymentsDemo = ({ flow }) => {
           {/* USDC balances readout */}
           {f.readout && holders.length > 0 && (
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-              <div className="wf-t-caption" style={{ color: C.sub, marginBottom: 8 }}>USDC balances</div>
+              <div className="wf-t-caption" style={{ color: C.sub, marginBottom: 8 }}>{mode === "live" ? `${TOKEN} balances · onchain` : "USDC balances · mock"}</div>
               <div style={{ display: "grid", gap: 6 }}>
                 {holders.map((a) => (
                   <div key={a} className="wf-t-body" style={{ display: "flex", alignItems: "center", gap: 8, color: C.body }}>
@@ -578,12 +1486,13 @@ export const PaymentsDemo = ({ flow }) => {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke={C.success} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 Flow complete
               </div>
-              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — every step completed in the mock simulation above.</div>
+              <div className="wf-t-body" style={{ color: C.body, margin: "12px 0 16px" }}>{f.title} — {doneText}</div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
               <a className="wf-btn" href={f.href || "https://github.com/base/commerce-payments"} style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
+              {notice && <div className="wf-t-footnote" role="status" style={{ color: C.body, border: `1px solid ${C.warn}`, borderRadius: 6, padding: "8px 10px", marginBottom: 12 }}>{notice}</div>}
               <div className="wf-t-headline" style={{ color: C.ink }}>{cur.action}</div>
               <div className="wf-t-body" style={{ color: C.sec, marginTop: 5 }}>{cur.text}</div>
 
@@ -604,11 +1513,18 @@ export const PaymentsDemo = ({ flow }) => {
               </div>
 
               <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-                <button className="wf-btn" onClick={runStep}>
-                  {cur.action}
+                <button className="wf-btn" onClick={runStep} disabled={busy || aborted || mode === "probing"}>
+                  {mode === "probing" ? "Checking Vibenet…" : busy ? "Submitting on Vibenet…" : cur.action}
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 </button>
-                {results.length > 0 && <button className="wf-btn2" onClick={back}>Back</button>}
+                {actionError && (
+                  <div className="wf-t-footnote" role="alert" style={{ color: C.error, background: C.errorSoft, borderRadius: 6, padding: "8px 10px", wordBreak: "break-word" }}>
+                    {actionError.message}
+                    {actionError.href && <> <a href={actionError.href} target="_blank" rel="noreferrer" style={{ color: C.error }}>Open in explorer ↗</a></>}
+                  </div>
+                )}
+                {aborted && <button className="wf-btn2" onClick={reset}>Reset and start a new payment</button>}
+                {results.length > 0 && mode !== "live" && mode !== "probing" && <button className="wf-btn2" onClick={back}>Back</button>}
               </div>
             </div>
           )}
@@ -618,16 +1534,25 @@ export const PaymentsDemo = ({ flow }) => {
       {/* Event log */}
       <div style={{ borderTop: `1px solid ${C.border}`, background: C.white }}>
         <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <span className="wf-t-headline" style={{ fontSize: 13, color: C.ink }}>Activity log</span>
+          <span className="wf-t-headline" style={{ fontSize: 13, color: C.ink }}>{mode === "live" ? "Transaction event log" : "Activity log"}</span>
         </div>
         <div style={{ maxHeight: 168, overflowY: "auto", padding: "6px 0" }}>
           {logRows.map((r, i) => (
             <div key={i} className={r.kind === "pending" ? "" : "wf-anim"} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 16px", opacity: r.kind === "pending" ? 0.5 : 1 }}>
               <span style={{ fontFamily: mono, fontSize: 11, color: C.sub, flexShrink: 0 }}>{r.t}</span>
               <span style={{ fontFamily: mono, fontSize: 10.5, fontWeight: 600, color: levelColor[r.level], flexShrink: 0, width: 58 }}>[{r.level}]</span>
-              <span style={{ fontFamily: mono, fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
-              </span>
+              {r.href ? (
+                <a href={r.href} target="_blank" rel="noreferrer" style={{ fontFamily: mono, fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+                  <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
+                  </span>
+                  <span aria-hidden="true" style={{ color: C.sub, flexShrink: 0 }}>↗</span>
+                </a>
+              ) : (
+                <span style={{ fontFamily: mono, fontSize: 11.5, color: r.kind === "err" ? C.error : C.body, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {r.name}{r.detail ? <span style={{ color: C.sub }}> · {r.detail}</span> : null}
+                </span>
+              )}
               <span style={{ flexShrink: 0, width: 14, display: "inline-flex", justifyContent: "center" }}>
                 {r.kind === "err" ? <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke={C.error} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
                   : r.kind === "pending" ? <span style={{ width: 9, height: 9, borderRadius: "50%", border: `1.5px solid ${C.border}` }} />
@@ -640,7 +1565,8 @@ export const PaymentsDemo = ({ flow }) => {
 
       {/* Footer */}
       <div style={{ padding: "10px 16px", background: C.panel, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="wf-t-footnote" style={{ color: C.sub }}>{f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: mode === "offline" ? C.warn : C.sub, whiteSpace: "nowrap" }}>{footerMode}</span>
       </div>
     </div>
   );
