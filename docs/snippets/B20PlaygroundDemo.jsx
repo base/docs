@@ -149,10 +149,10 @@ export const B20FlowDemo = ({ flow }) => {
         s.nonces[owner] = current + 1;
         return entries.push(emit("Approval", `${owner} → ${spender} · ${amt} (permit, relayed by ${me})`, 0));
       }
-      case "updateMultiplier": {
+      case "updateUIMultiplier": {
         if (!roleHas("OPERATOR_ROLE", me)) return entries.push(revert("AccessControlUnauthorizedAccount", `${me} lacks OPERATOR_ROLE`));
         s.token = { ...s.token, multiplier: op.value };
-        return entries.push(emit("MultiplierUpdated", `${op.value}× (WAD)`, 0));
+        return entries.push(emit("UIMultiplierUpdated", `${op.value}× (WAD)`, 0));
       }
       case "announceBatchMint": {
         const { recipients, amt, id } = op;
@@ -358,9 +358,9 @@ export const B20FlowDemo = ({ flow }) => {
           stage: "Split",
           action: "Run the split",
           text: "The board declares a 2-for-1 split.",
-          summary: [["Operation", "updateMultiplier"], ["Role", "OPERATOR_ROLE"], ["Multiplier", M("2.0×")], ["Network", NETWORK]],
+          summary: [["Operation", "updateUIMultiplier"], ["Role", "OPERATOR_ROLE"], ["Multiplier", M("2.0×")], ["Network", NETWORK]],
           run: (s) => ({
-            entries: runOps(s, [{ as: "Issuer", type: "updateMultiplier", value: 2.0 }]),
+            entries: runOps(s, [{ as: "Issuer", type: "updateUIMultiplier", value: 2.0 }]),
             caption: "Every balance doubles in one call, without a migration or a new contract.",
           }),
         },
@@ -465,7 +465,7 @@ export const B20FlowDemo = ({ flow }) => {
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
           <div className="wf-t-caption" style={{ color: C.sub }}>{heading}</div>
           {scaled && sim.token.multiplier !== 1 && (
-            <span style={{ fontFamily: mono, fontSize: 10.5, color: C.sub }}>multiplier() = {sim.token.multiplier}×</span>
+            <span style={{ fontFamily: mono, fontSize: 10.5, color: C.sub }}>uiMultiplier() = {sim.token.multiplier}×</span>
           )}
         </div>
         <div style={{ display: "grid", gap: 6 }}>
