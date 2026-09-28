@@ -152,7 +152,7 @@ export const B20FlowDemo = ({ flow }) => {
       case "updateUIMultiplier": {
         if (!roleHas("OPERATOR_ROLE", me)) return entries.push(revert("AccessControlUnauthorizedAccount", `${me} lacks OPERATOR_ROLE`));
         s.token = { ...s.token, multiplier: op.value };
-        return entries.push(emit("UIMultiplierUpdated", `${op.value}× (WAD)`, 0));
+        return entries.push(emit("UIMultiplierUpdated", `${op.value}× (WAD) · takes effect at effectiveAt`, 0));
       }
       case "announceBatchMint": {
         const { recipients, amt, id } = op;
@@ -358,10 +358,10 @@ export const B20FlowDemo = ({ flow }) => {
           stage: "Split",
           action: "Run the split",
           text: "The board declares a 2-for-1 split.",
-          summary: [["Operation", "updateUIMultiplier"], ["Role", "OPERATOR_ROLE"], ["Multiplier", M("2.0×")], ["Network", NETWORK]],
+          summary: [["Operation", "updateUIMultiplier"], ["Role", "OPERATOR_ROLE"], ["Multiplier", M("2.0×")], ["Effective", "scheduled effectiveAt"], ["Network", NETWORK]],
           run: (s) => ({
             entries: runOps(s, [{ as: "Issuer", type: "updateUIMultiplier", value: 2.0 }]),
-            caption: "Every balance doubles in one call, without a migration or a new contract.",
+            caption: "One call schedules the split. At effectiveAt every displayed balance doubles, without a migration or a new contract.",
           }),
         },
         {

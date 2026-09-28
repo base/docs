@@ -556,8 +556,9 @@ export const AssetDemo = ({ flow }) => {
         };
       },
       async (engine, ctx, state) => {
-        // effectiveAt must be strictly in the future when the call lands.
-        const effectiveAt = (await engine.latestTimestamp()) + 5n;
+        // effectiveAt must be strictly in the future when the call lands. The margin covers a
+        // faucet top-up, the cross-tab send lock, or a slow RPC before inclusion.
+        const effectiveAt = (await engine.latestTimestamp()) + 15n;
         const tx = await engine.updateUIMultiplier({ token: ctx.token, multiplier: 2n * 10n ** 18n, effectiveAt });
         await engine.waitForTimestamp(effectiveAt);
         const [multiplier, displayed] = await Promise.all([
@@ -570,7 +571,7 @@ export const AssetDemo = ({ flow }) => {
             txOk(engine, "UIMultiplierUpdated", "1.0 → 2.0 WAD", tx),
             nfo("balanceOfUI(Alice)", `${engine.displayUnits(displayed)} EXM`, engine.explorerAddress(ctx.token)),
           ],
-          caption: "Displayed balances doubled while the raw balances stayed unchanged.",
+          caption: "Displayed balances doubled at effectiveAt while the raw balances stayed unchanged.",
         };
       },
     ],
