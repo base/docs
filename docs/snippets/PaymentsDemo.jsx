@@ -995,10 +995,11 @@ export const PaymentsDemo = ({ flow }) => {
         { stage: "Approve", action: "Approve $5",
           text: "Fix PaymentInfo with ordered expiries, zero fee bounds, and a fresh salt, read its hash from the escrow, then approve exactly 5 dUSD to PreApprovalPaymentCollector and call preApprove as the payer.",
           summary: [["Operation", "approve + preApprove"], ["Collector", "PreApprovalPaymentCollector"], ["Receiver", "New random merchant address"], ["Maximum", M("5.00 dUSD")], ["Fee bounds", M("0–0 bps")]],
-          run: async (engine, ctx) => ({
-            entries: [...(await newPayment(engine, ctx, 5)), ...(await preApprove(engine, ctx))],
-            caption: "Pre-approval lets the collector pull funds; it is not settlement yet.",
-          }) },
+          run: async (engine, ctx, s) => {
+            const entries = [...(await newPayment(engine, ctx, 5)), ...(await preApprove(engine, ctx))];
+            s.hash = ctx.hash;
+            return { entries, caption: "Pre-approval lets the collector pull funds; it is not settlement yet." };
+          } },
         { stage: "Charge", action: "Submit charge",
           text: "The operator calls charge on AuthCaptureEscrow. The collector pulls 5 dUSD and the escrow pays the merchant in the same transaction.",
           summary: [["Caller", "Operator"], ["Contract", "AuthCaptureEscrow v1.1"], ["To", "Merchant"], ["Amount", M("5.00 dUSD")], ["Fee", M("0.00 dUSD")]],
@@ -1565,7 +1566,7 @@ export const PaymentsDemo = ({ flow }) => {
 
       {/* Footer */}
       <div style={{ padding: "10px 16px", background: C.panel, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{f.erc20}</span>
+        <span className="wf-t-footnote" style={{ color: C.sub, flex: 1 }}>{(mode === "live" || mode === "probing") ? "Demo B20 dUSD, not USDC. The payer pre-approves a payment-specific allowance; the operator drives the escrow flow." : f.erc20}</span>
         <span className="wf-t-footnote" style={{ color: mode === "offline" ? C.warn : C.sub, whiteSpace: "nowrap" }}>{footerMode}</span>
       </div>
     </div>
