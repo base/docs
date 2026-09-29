@@ -5,7 +5,7 @@ description: How deposits and withdrawals work on Base, including the standard w
 
 Bridging moves assets or messages between Base and another chain. Deposits move assets into Base. Withdrawals move assets out of Base.
 
-Deposits and withdrawals have different timing because they rely on different parts of the rollup protocol. Deposits start on another chain and are executed on Base. Standard withdrawals start on Base, must be proven on Ethereum, and can be finalized only after the challenge period has passed.
+Deposits and withdrawals have different timing because they rely on different parts of the rollup protocol. Deposits start on another chain and are executed on Base. Standard withdrawals start on Base, must be proven on Ethereum, and can be finalized only after the finalization window has passed.
 
 ## Deposits to Base
 
@@ -23,25 +23,29 @@ The standard withdrawal flow has three stages:
 
 1. **Initiate on Base:** the withdrawal transaction is sent on Base. This records the withdrawal message in the `L2ToL1MessagePasser` contract.
 2. **Prove on Ethereum:** after the relevant Base state has been posted to Ethereum, anyone can submit a proof to the `OptimismPortal` contract showing that the withdrawal message exists on Base.
-3. **Finalize on Ethereum:** after the 7 day challenge period has passed, anyone can finalize the withdrawal on Ethereum. Finalization releases the assets or relays the message to the target contract.
+3. **Finalize on Ethereum:** after the finalization window has passed, anyone can finalize the withdrawal on Ethereum. Finalization releases the assets or relays the message to the target contract.
 
 The relayer that proves or finalizes a withdrawal does not need to be the same account that initiated it. This allows wallets, bridge UIs, or other services to help users complete withdrawals.
 
 <Note>
-Standard withdrawals to Ethereum must wait 7 days before they can be finalized. Regular Base transactions and deposits to Base do not have this 7 day wait.
+Standard withdrawals to Ethereum must wait for a finalization window before they can be finalized: 5 days for a single-proof dispute game, or 1 day when both TEE and ZK proofs back the proposal. Regular Base transactions and deposits to Base do not have this wait.
 </Note>
 
-## Why Standard Withdrawals Take 7 Days
+## Why Standard Withdrawals Take Days
 
-Base uses fault proofs to secure withdrawals. When a withdrawal is proven on Ethereum, the proof relies on an output root that commits to Base state. The 7 day challenge period gives network participants time to dispute an invalid output root before withdrawals that depend on it can be finalized.
+Base uses proofs to secure withdrawals. When a withdrawal is proven on Ethereum, the proof relies on an output root that commits to Base state. The finalization window gives network participants time to dispute an invalid output root before withdrawals that depend on it can be finalized.
 
-If no valid challenge prevents finalization, the withdrawal can be finalized after the challenge period. If the output root becomes invalid, the Base chain does not reorg, but withdrawals proven against that output root cannot be finalized and must be proven again against a valid output root.
+Since the [Beryl upgrade](/upgrades/beryl/reducing-canonical-withdrawal-delay), the finalization window is 5 days for a single-proof dispute game. When both a TEE proof and a ZK proof back the same proposal, the dual-proof fast path shortens the window to 1 day.
+
+Most of the total time from initiating a withdrawal on Base to receiving funds on Ethereum is the finalization window. Waiting for the relevant Base state to be proposed on Ethereum usually adds only about 20 to 60 minutes, plus the time to submit the prove and finalize transactions.
+
+If no valid challenge prevents finalization, the withdrawal can be finalized after the finalization window. If the output root becomes invalid, the Base chain does not reorg, but withdrawals proven against that output root cannot be finalized and must be proven again against a valid output root.
 
 See [Transaction Finality](/specifications/transactions/transaction-finality#finality-for-withdrawal-transactions) for how withdrawal finality differs from ordinary Base transaction finality.
 
 ## Faster Withdrawal Options
 
-Some bridge providers offer faster withdrawals than the standard bridge protocol. These services usually do not make the underlying standard withdrawal challenge period shorter. Instead, they use liquidity, relayers, market makers, or other mechanisms to give users funds on the destination chain before the standard withdrawal has fully finalized.
+Some third-party bridge providers offer faster withdrawals than the standard bridge protocol. These services do not make the underlying standard withdrawal finalization window shorter. Instead, they use liquidity, relayers, market makers, or other mechanisms to give users funds on the destination chain before the standard withdrawal has fully finalized.
 
 This can improve user experience, but it adds provider-specific assumptions and fees. Before using a faster bridge, review the provider's terms, supported assets, fees, liquidity, and security model.
 
