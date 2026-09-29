@@ -40,11 +40,11 @@ base-cast call "$POLICY_REGISTRY" "isAuthorized(uint64,address)(bool)" \
 # docs:end stablecoin-block-cli
 
 # docs:start stablecoin-recover-cli
-base-cast send "$TOKEN_ADDRESS" "burnBlocked(address,uint256)" "$BLOCKED" 50000000 \
+base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak SEIZE_EXEMPT_POLICY)" "$BLOCKLIST_ID" \
   --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-base-cast send "$TOKEN_ADDRESS" "mint(address,uint256)" "$REPLACEMENT" 50000000 \
-  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$REPLACEMENT" --rpc-url "$RPC_URL"
+base-cast send "$TOKEN_ADDRESS" "seizeWithMemo(address,address,uint256,bytes32)" "$BLOCKED" "$TREASURY" 50000000 \
+  "$(base-cast format-bytes32-string legal-hold-2026-118)" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$TREASURY" --rpc-url "$RPC_URL"
 # docs:end stablecoin-recover-cli
 
 # docs:start stablecoin-pause-cli
@@ -80,11 +80,25 @@ for SCOPE in MINT_RECEIVER_POLICY TRANSFER_SENDER_POLICY TRANSFER_RECEIVER_POLIC
 done
 # docs:end stock-restrict-cli
 
-# docs:start stock-cancel-cli
-base-cast send "$TOKEN_ADDRESS" "burnBlocked(address,uint256)" "$BLOCKED_HOLDER" 100000000 \
+# docs:start stock-seize-cli
+base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak SEIZE_EXEMPT_POLICY)" "$BLOCKLIST_ID" \
   --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
-base-cast call "$TOKEN_ADDRESS" "balanceOf(address)(uint256)" "$BLOCKED_HOLDER" --rpc-url "$RPC_URL"
-# docs:end stock-cancel-cli
+base-cast send "$TOKEN_ADDRESS" "seizeWithMemo(address,address,uint256,bytes32)" "$HOLDER" "$TREASURY" 100000000 \
+  "$(base-cast format-bytes32-string cancel-2026-07)" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast send "$TOKEN_ADDRESS" "burnWithMemo(uint256,bytes32)" 100000000 "$(base-cast format-bytes32-string cancel-2026-07)" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+base-cast call "$TOKEN_ADDRESS" "totalSupply()(uint256)" --rpc-url "$RPC_URL"
+# docs:end stock-seize-cli
+
+# docs:start stock-executor-cli
+CREATE_TX=$(base-cast send "$POLICY_REGISTRY" \
+  "createPolicyWithAccounts(address,uint8,address[])" "$ADMIN" 1 "[$TRANSFER_AGENT]" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json | jq -r .transactionHash)
+POLICY_TOPIC=$(base-cast receipt "$CREATE_TX" --rpc-url "$RPC_URL" --json | jq -r '.logs[0].topics[1]')
+EXECUTOR_ID=$(base-cast to-dec "$POLICY_TOPIC")
+base-cast send "$TOKEN_ADDRESS" "updatePolicy(bytes32,uint64)" "$(base-cast keccak TRANSFER_EXECUTOR_POLICY)" "$EXECUTOR_ID" \
+  --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY"
+# docs:end stock-executor-cli
 
 # docs:start stock-split-cli
 EFFECTIVE_AT=$(( $(date +%s) + 86400 ))
