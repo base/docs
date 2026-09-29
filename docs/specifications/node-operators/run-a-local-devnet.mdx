@@ -1,0 +1,102 @@
+---
+title: "Run a Local Devnet"
+description: "Start a disposable local Base devnet with L1, L2 sequencer, RPC node, and batcher from the base/base repo, then send a test transaction."
+---
+
+The local devnet runs a complete Base stack on your machine with Docker: an L1 (Reth + Lighthouse), a Base sequencer, an RPC node, and the batcher. Use it to test node, protocol, and hardfork behavior without a public network.
+
+<Note>
+To build against new Base features without running infrastructure, use the hosted [Vibenet](/build-on-base/test-on-vibenet) instead.
+</Note>
+
+<Warning>
+The devnet is disposable. `just devnet up` and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
+</Warning>
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [`just`](https://github.com/casey/just) `1.51.0` or newer
+- [Foundry](https://getfoundry.sh) (`cast`) to send transactions
+- A clone of [base/base](https://github.com/base/base)
+
+## Start the Devnet
+
+From the root of the base/base repo:
+
+```bash Terminal
+just devnet up-single
+```
+
+This stops any running devnet, clears its data, builds the images, and starts a single-sequencer stack. The first run compiles the Rust services and takes several minutes.
+
+| Command | Starts |
+| --- | --- |
+| `just devnet up-single` | One sequencer. The fastest option for most testing. |
+| `just devnet up` | A 3-node high-availability sequencer cluster with conductor. |
+
+Check that blocks are advancing:
+
+```bash Terminal
+just devnet status
+```
+
+## Send a Test Transaction
+
+The devnet prefunds the standard Foundry/Anvil test accounts, listed in `etc/docker/devnet-env`. Send ETH through the sequencer:
+
+```bash Terminal
+source etc/docker/devnet-env
+cast send "$ANVIL_ACCOUNT_2_ADDR" --value 0.001ether \
+  --private-key "$ANVIL_ACCOUNT_1_KEY" \
+  --rpc-url http://127.0.0.1:7545
+```
+
+A receipt with `status 1` confirms the sequencer included the transaction. To run the built-in L1 and L2 checks instead, use `just devnet checks`.
+
+<Warning>
+The test account keys are public. Never use them on Mainnet or Sepolia.
+</Warning>
+
+## Endpoints
+
+| Service | URL | Chain ID |
+| --- | --- | --- |
+| L2 sequencer (builder) RPC | `http://127.0.0.1:7545` | `84538453` |
+| L2 RPC node | `http://127.0.0.1:8545` | `84538453` |
+| L1 RPC | `http://127.0.0.1:4545` | `1337` |
+| Grafana | [localhost:3000](http://localhost:3000/d/devnet-overview) | |
+
+Ports are set in `etc/docker/devnet-env`.
+
+## Hardfork Activation
+
+The devnet schedules Cobalt at L2 block 22 and Denim at block 25, so a fresh devnet crosses both. At Denim, the sequencer switches to 200ms blocks.
+
+| Command | Also activates |
+| --- | --- |
+| `just devnet up-single everest` | Everest (EIP-8130 transactions) at block 100 |
+| `just devnet up-single zenith` | Everest and Zenith at block 100 |
+
+To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching variable for another hardfork) before `up`. Set it to an empty value to leave that hardfork unscheduled.
+
+## Common Commands
+
+| Command | Does |
+| --- | --- |
+| `just devnet accounts` | Lists funded test accounts with balances and nonces |
+| `just devnet logs [container]` | Streams logs, optionally for one container |
+| `just devnet ps` | Shows container status |
+| `just devnet flashblocks` | Streams Flashblocks from the builder |
+| `just devnet down` | Stops the devnet and deletes its data |
+
+Run `just devnet` with no arguments for the full list.
+
+## Learn More
+
+The base/base repo is the source of truth for the devnet:
+
+- [Devnet README](https://github.com/base/base/blob/main/etc/docker/README.md): stack topology, batcher setup, the Anvil + Nitro proving variant, and upgrade-signal testing
+- [`etc/docker/Justfile`](https://github.com/base/base/blob/main/etc/docker/Justfile): every devnet command
+- [Testing guide](https://github.com/base/base/blob/main/docs/guides/TESTING.md): system tests against the devnet (`just devnet tests`)
+- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover against a local devnet
