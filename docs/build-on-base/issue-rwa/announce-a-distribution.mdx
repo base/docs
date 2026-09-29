@@ -1,13 +1,13 @@
 ---
-title: "Announce a Distribution"
-description: "Wrap a holder-impacting action with an onchain disclosure using the B20 Asset announce function."
-keywords: ["announce distribution", "B20 announcement", "asset distribution", "batchMint distribution", "multiplier update", "treasury burn"]
+title: "Announce a Change to Holders"
+description: "Wrap a holder-impacting change on a B20 Asset with an onchain disclosure using announce: additional issuance, multiplier updates, treasury burns, or a notice with no onchain effect."
+keywords: ["announce distribution", "announce corporate action", "B20 announcement", "asset distribution", "batchMint distribution", "multiplier update", "treasury burn", "onchain disclosure"]
 ---
 
 import { AssetDemo } from "/snippets/AssetDemo.jsx"
 import RwaDisclaimer from "/snippets/RwaDisclaimer.mdx"
 
-Bracket a holder-impacting action with an onchain description and supporting URI. `announce` emits `Announcement` before the inner calls and `EndAnnouncement` after, giving indexers a reliable bracket for every announced change.
+Issuers of a B20 Asset need a paved way to disclose a change that affects holders, and indexers need a reliable way to tell which changes were announced. `announce` combines the state change and the disclosure in one transaction: it emits `Announcement` before the inner calls and `EndAnnouncement` after them. This guide uses a stock dividend as its worked example; the same bracket applies to any operator-driven change on a B20 Asset, including multiplier updates, treasury burns, and notices with no onchain effect.
 
 <RwaDisclaimer />
 
@@ -20,22 +20,42 @@ The demo uses a local browser-generated account to submit real transactions on *
 </Tip>
 
 <Note>
-New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@be6d045`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
+New to B20? See the [B20 Token Standard](/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
 </Note>
 
-## How Announcements Work
+## Before You Start
 
-`announce` takes `internalCalls`, a single-use `id`, a `description`, and a `uri`.
+You need all of the following:
 
-- **`internalCalls`**: ABI-encoded calldata blobs targeting this asset. Each blob must be at least 4 bytes. Pass an empty array for a notice with no onchain effect.
-- **`id`**: chosen by the caller and consumed on success. Reuse reverts `AnnouncementIdAlreadyUsed`. After success, `isAnnouncementIdUsed(id)` returns `true`.
-- **`description` and `uri`**: operator-supplied strings. The asset does not verify them.
+- A B20 Asset you administer, with `DEFAULT_ADMIN_ROLE` so you can grant roles.
+- An account that will call `announce` (the operator). Grant it `OPERATOR_ROLE`.
+- Any role the wrapped calls need, granted to the same operator. `batchMint` and `mintWithMemo` need `MINT_ROLE`; `burnWithMemo` needs `BURN_ROLE`; the multiplier setters already use `OPERATOR_ROLE`.
+- A never-used `id`, a holder-facing `description`, and optionally a `uri` to the full offchain record.
 
-The asset emits `Announcement(caller, id, description, uri)`, runs the inner calls atomically, then emits `EndAnnouncement(id)`. If any inner call fails, the whole transaction reverts. Nesting `announce` inside an inner call reverts `AnnouncementInProgress`.
+This surface exists only on **B20 Asset**. Stablecoin has no announcements.
 
-The caller must hold `OPERATOR_ROLE`. Any other caller reverts `AccessControlUnauthorizedAccount`. Inner calls keep their own role gates. If an inner call needs `MINT_ROLE` or `BURN_ROLE`, grant those to the operator as well.
+### How an Announcement Works
 
-## Announce and Distribute the Stock Dividend
+`announce(internalCalls, id, description, uri)` runs in this order:
+
+1. Emit `Announcement(caller, id, description, uri)`.
+2. Run every entry in `internalCalls` atomically. Each entry is ABI-encoded calldata against this asset (at least 4 bytes), not a `(target, calldata)` pair. Inner calls keep their own role gates and run with the operator as `msg.sender`.
+3. Emit `EndAnnouncement(id)`.
+
+If any inner call fails, the whole transaction reverts and `id` stays free. A successful `announce` consumes `id` for the asset's lifetime; `isAnnouncementIdUsed(id)` then returns `true`. `description` and `uri` are operator-supplied and not verified by the asset. Nesting `announce` inside an inner call reverts `AnnouncementInProgress`.
+
+For indexers: pair `Announcement` and `EndAnnouncement` by `id`, not only by adjacency. Every effect between the two logs belongs to the announced action. A state change that is not inside a bracket was invoked directly, not through `announce`.
+
+## Announce and Distribute Additional Units
+
+Grant the roles once per token:
+
+```solidity Grant OPERATOR_ROLE and MINT_ROLE
+asset.grantRole(asset.OPERATOR_ROLE(), operator);
+asset.grantRole(asset.MINT_ROLE(), operator);
+```
+
+Then encode the inner call and announce it. This example wraps `batchMint` to issue a stock dividend in additional units:
 
 <CodeGroup>
 {/* sample: stock-dividend-ts */}
@@ -64,37 +84,37 @@ export async function announceStockDividend(token: Address, holders: Address[]) 
 ```
 {/* sample: stock-dividend-solidity */}
 ```solidity Solidity lines wrap expandable highlight={3,4}
-    function announceDividend(address token, address[] memory recipients, uint256[] memory amounts) public {
-        bytes[] memory calls = new bytes[](1);
-        calls[0] = abi.encodeCall(IB20Asset.batchMint, (recipients, amounts));
-        IB20Asset(token).announce(
-            calls,
-            "2026-stock-dividend-01",
-            "Five-percent stock dividend",
-            "https://example.com/announcements/2026-01"
-        );
-        require(IB20Asset(token).isAnnouncementIdUsed("2026-stock-dividend-01"), "announcement missing");
-    }
+function announceDividend(address token, address[] memory recipients, uint256[] memory amounts) public {
+    bytes[] memory calls = new bytes[](1);
+    calls[0] = abi.encodeCall(IB20Asset.batchMint, (recipients, amounts));
+    IB20Asset(token).announce(
+        calls,
+        "2026-stock-dividend-01",
+        "Five-percent stock dividend",
+        "https://example.com/announcements/2026-01"
+    );
+    require(IB20Asset(token).isAnnouncementIdUsed("2026-stock-dividend-01"), "announcement missing");
+}
 ```
 </CodeGroup>
 
-The operator needs `OPERATOR_ROLE` and `MINT_ROLE`. Recipients must pass `MINT_RECEIVER_POLICY`. `MINT` must not be paused. On success the asset emits `Announcement`, then one `Transfer(address(0), recipient, amount)` per recipient, then `EndAnnouncement`.
+Recipients must pass `MINT_RECEIVER_POLICY`, `MINT` must not be paused, and `batchMint` is all-or-nothing. On success the asset emits `Announcement`, then one `Transfer(address(0), recipient, amount)` per recipient, then `EndAnnouncement`. With `mintWithMemo` instead of `batchMint`, the order is `Announcement`, `Transfer`, `Memo`, `EndAnnouncement`.
 
 <Check>
-On success, the unique announcement `id` is marked used and the batch mint executes between `Announcement` and `EndAnnouncement`.
+`Announcement` and `EndAnnouncement` carry the same `id`, the inner `Transfer` events sit between them, and `isAnnouncementIdUsed(id)` returns `true`.
 </Check>
 
 <Note>
-This example issues additional shares. It does not distribute a cash dividend. A reinvested dividend that only rescales displayed balances is a multiplier update, covered below and in [Apply a Multiplier](/build-on-base/issue-rwa/apply-a-multiplier).
+This example issues additional units. It does not distribute cash. A reinvested dividend that only rescales displayed balances is a multiplier update; see the next section and [Apply a Multiplier](/build-on-base/issue-rwa/apply-a-multiplier).
 </Note>
 
 ## Announce Other Changes
 
-The same bracket discloses any operator-driven change. Each scenario below lists the roles the operator needs and the events the asset emits.
+The same bracket discloses any operator-driven change. Each scenario lists the roles the operator needs and the events the asset emits.
 
 ### Multiplier Update
 
-Wrap `updateUIMultiplier(newMultiplier, effectiveAt)`. A 2-for-1 split uses `2e18`. A reverse split uses a value below `1e18`. The operator needs `OPERATOR_ROLE` only.
+Wrap `updateUIMultiplier(newMultiplier, effectiveAt)`. A 2-for-1 split uses `2e18`; a reverse split uses a value below `1e18`. The operator needs `OPERATOR_ROLE` only.
 
 ```solidity Announce a multiplier update lines wrap expandable highlight={3}
 function announceMultiplierUpdate(address token, uint256 newMultiplier, uint256 effectiveAt) public {
@@ -109,9 +129,9 @@ function announceMultiplierUpdate(address token, uint256 newMultiplier, uint256 
 }
 ```
 
-On success the asset emits `Announcement`, `UIMultiplierUpdated`, then `EndAnnouncement`. `UIMultiplierUpdated` means the schedule was recorded, not that the multiplier is already active. See [Apply a Multiplier](/build-on-base/issue-rwa/apply-a-multiplier) for the full schedule, cancel, and override flow.
+On success the asset emits `Announcement`, `UIMultiplierUpdated`, then `EndAnnouncement`. `UIMultiplierUpdated` means the schedule was recorded, not that the multiplier is already active. A direct `updateUIMultiplier` with no `announce` still works; indexers should flag it as undisclosed.
 
-To replace a live pending update, cancel and reschedule in one `announce`:
+To replace a live pending update, cancel and reschedule in one `announce` so both calls share the operator:
 
 ```solidity Cancel and reschedule in one announcement wrap
 bytes[] memory calls = new bytes[](2);
@@ -122,7 +142,7 @@ IB20Asset(token).announce(calls, id, description, uri);
 
 ### Treasury Burn
 
-Wrap `burnWithMemo(amount, memo)`. The call burns the operator's own balance. The operator needs `OPERATOR_ROLE` and `BURN_ROLE`. `BURN` must not be paused.
+Wrap `burnWithMemo(amount, memo)`. The call burns the operator's own balance and is not policy-gated. The operator needs `OPERATOR_ROLE` and `BURN_ROLE`. `BURN` must not be paused.
 
 ```solidity Announce a treasury burn wrap
 bytes[] memory calls = new bytes[](1);
@@ -130,7 +150,7 @@ calls[0] = abi.encodeCall(IB20Asset.burnWithMemo, (amount, memo));
 IB20Asset(token).announce(calls, id, "Treasury burn", uri);
 ```
 
-On success the asset emits `Announcement`, `Transfer(operator, address(0), amount)`, `Memo`, then `EndAnnouncement`. `totalSupply` decreases.
+On success the asset emits `Announcement`, `Transfer(operator, address(0), amount)`, `Memo`, then `EndAnnouncement`. `totalSupply` decreases. Do not use the deprecated `burnBlocked`. To take units from a holder and then destroy them, [seize](/build-on-base/issue-rwa/seize-and-cancel-units) first, then announce the burn from the treasury.
 
 ### Notice With No Onchain Effect
 
@@ -142,6 +162,8 @@ IB20Asset(token).announce(new bytes[](0), id, description, uri);
 
 ## Common Errors
 
+These errors follow the order `announce` checks them. Inner-call failures follow.
+
 | Error | Cause | Fix |
 | --- | --- | --- |
 | `AccessControlUnauthorizedAccount(caller, OPERATOR_ROLE)` | Caller does not hold `OPERATOR_ROLE`. | Grant `OPERATOR_ROLE` to the operator. |
@@ -150,12 +172,15 @@ IB20Asset(token).announce(new bytes[](0), id, description, uri);
 | `AnnouncementInProgress()` | An inner call targeted `announce`. | Do not nest `announce`. |
 | `InternalCallFailed(call)` | An inner call reverted. The reason is not bubbled. | Replay `call` directly to see the underlying error, then fix the cause. |
 
-Typical inner causes of `InternalCallFailed`: missing `MINT_ROLE` or `BURN_ROLE`, paused `MINT` or `BURN`, `UIMultiplierUpdateExists`, `PolicyForbids`, `SupplyCapExceeded`, `InsufficientBalance`. A Solidity `Panic` (for example overflow) propagates raw and is not wrapped as `InternalCallFailed`.
+Typical inner causes of `InternalCallFailed`: missing `MINT_ROLE` or `BURN_ROLE`, paused `MINT` or `BURN`, `UIMultiplierUpdateExists`, `PolicyForbids`, `SupplyCapExceeded`, `InsufficientBalance` (on burn, against the operator's own balance). A Solidity `Panic` such as overflow propagates raw and is not wrapped as `InternalCallFailed`.
 
 ## See Also
 
 <CardGroup cols={2}>
-  <Card title="Issue Shares" icon="coins" href="/build-on-base/issue-rwa/issue-units">
+  <Card title="Apply a Multiplier" icon="divide" href="/build-on-base/issue-rwa/apply-a-multiplier">
+    Schedule, cancel, or override a multiplier update.
+  </Card>
+  <Card title="Issue Units to Holders" icon="coins" href="/build-on-base/issue-rwa/issue-units">
     Mint asset units to holders.
   </Card>
 </CardGroup>
