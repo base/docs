@@ -5,7 +5,7 @@ description: How deposits and withdrawals work on Base, including the standard w
 
 Bridging moves assets or messages between Base and another chain. Deposits move assets into Base. Withdrawals move assets out of Base.
 
-Deposits and withdrawals have different timing because they rely on different parts of the rollup protocol. Deposits start on another chain and are executed on Base. Standard withdrawals start on Base, must be proven on Ethereum, and can be finalized only after the challenge period has passed.
+Deposits and withdrawals have different timing because they rely on different parts of the rollup protocol. Deposits start on another chain and are executed on Base. Standard withdrawals start on Base, must be proven on Ethereum, and can be finalized only after the finalization window has passed.
 
 ## Deposits to Base
 
@@ -37,9 +37,9 @@ Base uses proofs to secure withdrawals. When a withdrawal is proven on Ethereum,
 
 Since the [Beryl upgrade](/upgrades/beryl/reducing-canonical-withdrawal-delay), the finalization window is 5 days for a single-proof dispute game. When both a TEE proof and a ZK proof back the same proposal, the dual-proof fast path shortens the window to 1 day.
 
-The window is not the same as the total time a withdrawal takes. End-to-end elapsed time also includes waiting for the relevant Base state to be proposed on Ethereum and submitting the prove and finalize transactions.
+Most of the total time from initiating a withdrawal on Base to receiving funds on Ethereum is the finalization window. Waiting for the relevant Base state to be proposed on Ethereum usually adds only about 20 to 60 minutes, plus the time to submit the prove and finalize transactions.
 
-If no valid challenge prevents finalization, the withdrawal can be finalized after the challenge period. If the output root becomes invalid, the Base chain does not reorg, but withdrawals proven against that output root cannot be finalized and must be proven again against a valid output root.
+If no valid challenge prevents finalization, the withdrawal can be finalized after the finalization window. If the output root becomes invalid, the Base chain does not reorg, but withdrawals proven against that output root cannot be finalized and must be proven again against a valid output root.
 
 See [Transaction Finality](/specifications/transactions/transaction-finality#finality-for-withdrawal-transactions) for how withdrawal finality differs from ordinary Base transaction finality.
 
