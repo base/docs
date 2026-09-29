@@ -26,7 +26,7 @@ export const StablecoinDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=4"),
+            fetchText("/static/vibenet-engine.txt?v=5"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
