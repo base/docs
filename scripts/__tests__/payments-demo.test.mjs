@@ -75,8 +75,9 @@ const hash = `0x${"ab".repeat(32)}`;
 test("snippet stays Mintlify-compatible and reuses the shared engine loader", () => {
   assert.doesNotMatch(snippet, /^\s*import\s/m, "Mintlify snippets must not contain imports");
   assert.match(snippet, /fetchText\("\/static\/aa\.txt"\)/);
-  assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=4"\)/);
-  assert.match(snippet, /replace\('"\.\/aa\.txt"'/);
+  assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=6"\)/);
+  assert.match(snippet, /from\\s\*"\\\.\\\/aa\\\.txt"/);
+  assert.doesNotMatch(snippet, /createObjectURL/, "docs CSP blocks blob: scripts");
   assert.match(snippet, /window\.__baseDocsVibenetEngineV3/);
 });
 
