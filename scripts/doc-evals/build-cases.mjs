@@ -60,6 +60,15 @@ const DOCS_REPO = "base/docs";
 const MAX_DIFF_BYTES = 12_582_912; // 12 MiB unpacked diff (artifact path cap)
 const MAX_REMOVED_PATHS = 200;
 const MAX_REMOVED_PATH_BYTES = 512;
+// Mirrors the code-change branch of "Validate payload schema": that step
+// workflow_fail()s (not truncates) a dispatch whose changed_paths exceeds
+// either cap, on the *dispatcher*-supplied array. Reconstructing changed_paths
+// from the commit API (buildPayload()) is our best available substitute for
+// that field after the fact — enforcing the same caps here means a source
+// commit too big for the real workflow to have accepted surfaces as a build
+// error instead of silently freezing a payload the workflow never would have.
+const MAX_CHANGED_PATHS = 200;
+const MAX_CHANGED_PATH_BYTES = 512;
 
 // ------------------------------------------------------------- seed list
 // Hand-curated: bot PR -> source sha, split, and (when one exists) the
@@ -344,7 +353,19 @@ export function deriveRemovedPaths(files) {
 
 /** Every path the commit API lists for this commit, new-name side. */
 export function deriveChangedPaths(files) {
-  return [...new Set(files.map((f) => f.filename))].sort();
+  const paths = [...new Set(files.map((f) => f.filename))].sort();
+  const overlong = paths.filter((p) => p.length > MAX_CHANGED_PATH_BYTES);
+  if (overlong.length > 0) {
+    throw new Error(
+      `${overlong.length} changed path(s) exceed the ${MAX_CHANGED_PATH_BYTES}-byte cap the workflow enforces, e.g. "${overlong[0]}"`,
+    );
+  }
+  if (paths.length > MAX_CHANGED_PATHS) {
+    throw new Error(
+      `${paths.length} changed paths exceed the ${MAX_CHANGED_PATHS}-entry cap the workflow enforces for a code-change dispatch`,
+    );
+  }
+  return paths;
 }
 
 /**
@@ -442,10 +463,20 @@ export function classifyFinding(text) {
   return "other";
 }
 
+/**
+ * Reviews + inline review comments + general PR conversation comments,
+ * skipping bots. The conversation-comment endpoint (`issues/{pr}/comments`)
+ * is the only place a PR's closing comment lands — e.g. #1928's "Closing
+ * unmerged" comment cataloguing 13 "source file removed" banners, the
+ * motivating housekeeping example in PLAN.md's "Why" table. Without it that
+ * case's review_findings would be empty despite being the plan's own
+ * flagship failure case.
+ */
 async function fetchReviewFindings(botPr) {
-  const [reviews, comments] = await Promise.all([
+  const [reviews, comments, issueComments] = await Promise.all([
     ghApi(`/repos/${DOCS_REPO}/pulls/${botPr}/reviews`),
     ghApi(`/repos/${DOCS_REPO}/pulls/${botPr}/comments`),
+    ghApi(`/repos/${DOCS_REPO}/issues/${botPr}/comments`),
   ]);
   const findings = [];
   for (const r of reviews) {
@@ -455,6 +486,10 @@ async function fetchReviewFindings(botPr) {
   for (const c of comments) {
     if (isBot(c.user?.login) || !c.body) continue;
     findings.push({ page: c.path || null, type: classifyFinding(c.body), text: c.body, url: c.html_url });
+  }
+  for (const c of issueComments) {
+    if (isBot(c.user?.login) || !c.body) continue;
+    findings.push({ page: null, type: classifyFinding(c.body), text: c.body, url: c.html_url });
   }
   return findings;
 }

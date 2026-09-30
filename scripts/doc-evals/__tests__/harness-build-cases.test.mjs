@@ -31,6 +31,16 @@ test("deriveChangedPaths: dedupes and sorts filenames", async () => {
   ]);
 });
 
+test("deriveChangedPaths: throws when an entry exceeds the workflow's per-path byte cap", () => {
+  const longPath = "a/".repeat(300) + "too-long.md"; // > 512 bytes
+  assert.throws(() => deriveChangedPaths([{ filename: longPath }]), /exceed the 512-byte cap/);
+});
+
+test("deriveChangedPaths: throws when the entry count exceeds the workflow's code-change cap", () => {
+  const many = Array.from({ length: 201 }, (_, i) => ({ filename: `f/${i}.md` }));
+  assert.throws(() => deriveChangedPaths(many), /exceed the 200-entry cap/);
+});
+
 test("deriveRemovedPaths: modified-only commit has no removed paths", async () => {
   const commit = await loadFixture("commit-small.json");
   assert.deepEqual(deriveRemovedPaths(commit.files), []);
