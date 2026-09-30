@@ -205,6 +205,11 @@ export async function replayCase(caseDef, opts) {
       RUNNER_TEMP: runnerTemp,
       ...(sourceToken ? { SOURCE_REPO_TOKEN: sourceToken } : {}),
       ...(opts.model ? { CLAUDE_MODEL: opts.model } : {}),
+      // Mirror the workflow's optional repo variables so a replay runs with the
+      // same generation settings production would (both unset today, which
+      // means client.mjs defaults: claude-sonnet-4-6, 4096 output tokens).
+      ...(!opts.model && process.env.CLAUDE_MODEL ? { CLAUDE_MODEL: process.env.CLAUDE_MODEL } : {}),
+      ...(process.env.CLAUDE_MAX_TOKENS ? { CLAUDE_MAX_TOKENS: process.env.CLAUDE_MAX_TOKENS } : {}),
       // GITHUB_OUTPUT deliberately unset — index.mjs only appends to it when
       // present, so leaving it out is enough; touched/rejected are parsed
       // from the log instead (see log-parser.mjs).
