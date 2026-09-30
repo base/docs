@@ -106,7 +106,12 @@ const SEED = [
     sourceSha: "868d513427f1dc8c75a8c004c5652d0ca2349473",
     split: "test",
     reference: null,
-    scopeOut: [],
+    // Confirmed by the docs owner 2026-09-30: matching entry + summary table.
+    scopeIn: [
+      "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx",
+      "docs/specifications/b20/changelog.mdx",
+    ],
+    scopeOut: ["docs/build-on-base/"],
     heavy: false,
     notes: "Smallest raw diff of the seed set (2413B) — used for the live replay smoke test.",
   },
@@ -116,7 +121,14 @@ const SEED = [
     sourceSha: "db537f309b2acf0fb123dd2d26c344b18f504db0",
     split: "test",
     reference: null,
-    scopeOut: [],
+    // Confirmed by the docs owner 2026-09-30: matching entries + summary table.
+    scopeIn: [
+      "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx",
+      "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier.mdx",
+      "docs/base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy.mdx",
+      "docs/specifications/b20/changelog.mdx",
+    ],
+    scopeOut: ["docs/build-on-base/"],
     heavy: false,
     notes: "review: reviewer questioned whether an author's last name needed to be added to the changelog page.",
   },
@@ -126,7 +138,14 @@ const SEED = [
     sourceSha: "64bd9558d7a1be004a6d095467dd3bf5dfa36592",
     split: "train",
     reference: null,
-    scopeOut: [],
+    // Confirmed by the docs owner 2026-09-30: seize entry + the two IB20 pages
+    // it describes; nothing under Build on Base may change.
+    scopeIn: [
+      "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx",
+      "docs/specifications/b20/reference/interfaces/ib20/seize-holder-policy.mdx",
+      "docs/specifications/b20/reference/interfaces/ib20/seize-with-memo.mdx",
+    ],
+    scopeOut: ["docs/build-on-base/"],
     heavy: false,
     notes: "Second-smallest raw diff (5583B) — fallback live-replay candidate.",
   },
@@ -541,8 +560,14 @@ async function buildCase(seed) {
   const payload = await buildPayload(seed.sourceSha);
   const reviewFindings = await fetchReviewFindings(seed.botPr);
 
-  const scopeIn = seed.reference ? seed.reference.pages : await draftScopeIn(payload, docsBaseCommit);
-  const labelSource = seed.reference ? "reference" : "drafted";
+  // Precedence: a human-confirmed seed.scopeIn ("review") beats the reference
+  // PR's page list, which beats a route-table draft.
+  const scopeIn = seed.scopeIn
+    ? seed.scopeIn
+    : seed.reference
+      ? seed.reference.pages
+      : await draftScopeIn(payload, docsBaseCommit);
+  const labelSource = seed.scopeIn ? "review" : seed.reference ? "reference" : "drafted";
 
   return {
     id: seed.id,

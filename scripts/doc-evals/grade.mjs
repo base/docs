@@ -107,6 +107,7 @@ function renderSummaryMd(runId, runSummary, varianceReport) {
     `Train mean: ${runSummary.splitMeans.train?.toFixed(3) ?? "n/a"}`,
     `Test mean: ${runSummary.splitMeans.test?.toFixed(3) ?? "n/a"}`,
     `Grading cost: ${runSummary.totalCost.inputTokens} input / ${runSummary.totalCost.outputTokens} output tokens`,
+    `Grading errors (failed judge/pairwise calls, excluded from means): ${runSummary.gradingErrors ?? 0}`,
   );
   if (varianceReport) lines.push("", "## Judge variance (--variance)", "", varianceReport);
   return lines.join("\n") + "\n";

@@ -77,7 +77,11 @@ test("scope: label_source is one of the contract's three values, in/out are stri
 test("scope: a case with a reference uses label_source \"reference\" and scope.in matches reference.pages", async () => {
   const cases = await loadCases();
   for (const { file, def } of cases) {
-    if (def.reference) {
+    // "review" = a human confirmed scope.in by hand; it takes precedence over
+    // both the reference PR's page list and a route-table draft.
+    if (def.scope.label_source === "review") {
+      assert.ok(def.scope.in.length > 0, `${file}: confirmed scope.in must not be empty`);
+    } else if (def.reference) {
       assert.equal(def.scope.label_source, "reference", file);
       assert.deepEqual([...def.scope.in].sort(), [...def.reference.pages].sort(), file);
     } else {

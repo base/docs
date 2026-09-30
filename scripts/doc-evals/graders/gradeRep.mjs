@@ -99,11 +99,20 @@ export function summarize(caseDef, run, checks, cost, { judgeSkipped, pairwiseSk
   // but must not count toward the score. If nothing scoreable is left,
   // `code` is null and drops out of the overall blend like the other layers.
   const code = mean(checks.filter((c) => c.layer === "code" && c.pass !== null).map((c) => c.score));
-  const judge = judgeSkipped ? null : mean(checks.filter((c) => c.layer === "judge").map((c) => c.score));
+  // Judge/pairwise `pass: null` means the call failed or its reply didn't parse
+  // (a grading error, not a verdict on the page). Leave those out of the means
+  // and count them instead, so a gateway hiccup can't look like a bad prompt;
+  // the hillclimb refuses to decide on a round with gradingErrors > 0.
+  const judge = judgeSkipped
+    ? null
+    : mean(checks.filter((c) => c.layer === "judge" && c.pass !== null).map((c) => c.score));
   const pairwise =
     pairwiseSkipped || !caseDef?.reference
       ? null
-      : mean(checks.filter((c) => c.layer === "pairwise").map((c) => c.score));
+      : mean(checks.filter((c) => c.layer === "pairwise" && c.pass !== null).map((c) => c.score));
+  const gradingErrors = checks.filter(
+    (c) => (c.layer === "judge" || c.layer === "pairwise") && c.pass === null,
+  ).length;
 
   // "A case with a validator crash or zero touched pages when scope.in is
   // non-empty scores 0" — PLAN.md, "Overall score".
@@ -125,7 +134,7 @@ export function summarize(caseDef, run, checks, cost, { judgeSkipped, pairwiseSk
     overall = totalWeight === 0 ? 0 : terms.reduce((sum, [w, value]) => sum + w * value, 0) / totalWeight;
   }
 
-  return { code, judge, pairwise, overall, cost };
+  return { code, judge, pairwise, overall, cost, gradingErrors };
 }
 
 /**
@@ -173,6 +182,11 @@ export async function gradeRep(caseDef, repDir, opts = {}) {
   if (!opts.noPairwise && caseDef?.reference) {
     for (const [page, afterText] of run.after) {
       if (!isDocPage(page)) continue;
+      // Decision (2026-09-30): changelog entry pages should follow the upstream
+      // entry closely. The human-merged reference entries are condensed
+      // rewrites, so comparing against them would reward the wrong target.
+      // changelog.fidelity and the judge cover these pages instead.
+      if (roleForPage(page) === "changelog-entry") continue;
       const referenceText = await readReference(caseDef.reference.commit, page);
       if (referenceText == null) continue; // page didn't exist in the reference either
       const result = await pairwiseCompare({
@@ -237,5 +251,7 @@ export function buildRunSummary(entries) {
     { inputTokens: 0, outputTokens: 0 },
   );
 
-  return { casesTable, splitMeans, totalCost };
+  const gradingErrors = entries.reduce((n, e) => n + (e.grade.summary.gradingErrors || 0), 0);
+
+  return { casesTable, splitMeans, totalCost, gradingErrors };
 }

@@ -327,3 +327,24 @@ Branch `evals/hillclimb` from the integrated branch. Owns: `scripts/doc-evals/hi
 3. Parent runs a baseline replay + grade on the non-heavy cases.
 4. Human: confirm `drafted` scope labels; fill `calibration/labels.json`.
 5. Phase 2 hillclimb lane, parent review, first hillclimb run with a low budget.
+
+## Decisions (docs owner, 2026-09-30)
+
+These override anything above that conflicts.
+
+1. **Changelog entry pages follow the upstream entry closely.** Keep the upstream
+   content and structure (including its diagrams), adapted only to the docs page shape
+   and style rules. The human-merged Denim entries (#2025) are condensed rewrites, so
+   pairwise is skipped for `changelog-entry` pages; `changelog.fidelity` and the judge
+   cover them. Proposing the same rule for `docs/content-guidelines.md` is a follow-up
+   (governance-protected, needs a Governance Owner).
+2. **Confirmed scope (`label_source: "review"`)** for 64bd955, 868d513, db537f3 (see
+   `build-cases.mjs` seeds). All three forbid `docs/build-on-base/` entirely.
+   `scope.out` entries ending in `/` are directory rules.
+3. **Changelog-only source changes** may touch the matching entry pages plus the B20
+   changelog summary table.
+4. **Grading errors** (judge/pairwise `pass: null`) are excluded from means and counted
+   in `summary.gradingErrors`. The hillclimb must not keep or revert a patch in a round
+   with `gradingErrors > 0`; it re-grades once, then skips the round and logs it.
+5. Active eval set: 6 non-heavy, non-legacy cases. Train: 1505323, 253bb15, 64bd955.
+   Test: 868d513, 91427ab, db537f3. `be6d045` is heavy; 04d645a and 6bb10a4 are legacy.

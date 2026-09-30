@@ -27,7 +27,12 @@ export function checkScope(caseDef, run) {
 function computeScope(caseDef, run) {
   const touched = (run?.meta?.touched || []).filter(isDocPage);
   const wanted = new Set((caseDef?.scope?.in || []).filter(isDocPage));
-  const forbidden = new Set((caseDef?.scope?.out || []).filter(isDocPage));
+  // scope.out entries ending in "/" are directory rules (e.g. "docs/build-on-base/"
+  // = the run must not touch anything under Build on Base); others are exact pages.
+  const outEntries = caseDef?.scope?.out || [];
+  const forbidden = new Set(outEntries.filter((p) => !p.endsWith("/") && isDocPage(p)));
+  const forbiddenDirs = outEntries.filter((p) => p.endsWith("/"));
+  const isForbidden = (page) => forbidden.has(page) || forbiddenDirs.some((dir) => page.startsWith(dir));
 
   const checks = [];
   const hits = touched.filter((p) => wanted.has(p));
@@ -69,7 +74,7 @@ function computeScope(caseDef, run) {
   // single vacuous pass, so the mean of code-check scores isn't diluted by
   // cases that had nothing to forbid.
   for (const page of touched) {
-    if (forbidden.has(page)) {
+    if (isForbidden(page)) {
       checks.push(
         mkCheck(
           "scope.forbidden",
