@@ -95,3 +95,37 @@ test("buildRunSummary: aggregates per-case means and split means", () => {
   assert.equal(summary.totalCost.inputTokens, 40);
   assert.equal(summary.totalCost.outputTokens, 18);
 });
+
+test("gradeRep: drafted scope checks appear in checks[] but do not count toward summary.code", async () => {
+  const drafted = { ...FIXTURE_CASE, scope: { ...FIXTURE_CASE.scope, in: ["docs/nope.mdx"], out: [], label_source: "drafted" } };
+  const confirmed = { ...drafted, scope: { ...drafted.scope, label_source: "reference" } };
+  const gd = await gradeRep(drafted, REP_DIR, { noJudge: true, noPairwise: true, write: false });
+  const gc = await gradeRep(confirmed, REP_DIR, { noJudge: true, noPairwise: true, write: false });
+  const scopeChecks = gd.checks.filter((c) => c.id.startsWith("scope."));
+  assert.ok(scopeChecks.length >= 2);
+  assert.ok(scopeChecks.every((c) => c.pass === null && /unconfirmed drafted labels/.test(c.detail)));
+  // Same run, wrong scope.in: confirmed labels drag code down, drafted ones must not.
+  assert.ok(gc.summary.code < gd.summary.code);
+  const nonScope = gd.checks.filter((c) => c.layer === "code" && !c.id.startsWith("scope."));
+  const expected = nonScope.reduce((s, c) => s + c.score, 0) / nonScope.length;
+  assert.ok(Math.abs(gd.summary.code - expected) < 1e-9);
+});
+
+test("gradeRep: passes the case payload diff to the judge and pairwise", async () => {
+  const seen = { judge: null, pair: null };
+  const caseWithReference = { ...FIXTURE_CASE, reference: { commit: "deadbeef", pr: 1, pages: [] } };
+  await gradeRep(caseWithReference, REP_DIR, {
+    write: false,
+    readReference: async () => "ref",
+    judgePage: async (ctx) => {
+      seen.judge = ctx.sourceDiff;
+      return { checks: [], usage: { inputTokens: 0, outputTokens: 0 }, model: "m" };
+    },
+    pairwiseCompare: async (ctx) => {
+      seen.pair = ctx.sourceDiff;
+      return { checks: [], usage: { inputTokens: 0, outputTokens: 0 }, model: "m", result: "tie", order: "" };
+    },
+  });
+  assert.equal(seen.judge, FIXTURE_CASE.payload.diff);
+  assert.equal(seen.pair, FIXTURE_CASE.payload.diff);
+});

@@ -51,3 +51,23 @@ test("scope: generated index files are excluded from touched before comparison",
   const checks = checkScope(def, run);
   assert.equal(checks.find((c) => c.id === "scope.precision").score, 1);
 });
+
+test("scope: drafted labels are reported with pass:null and an 'unconfirmed' detail", () => {
+  const def = caseWith({ in: ["docs/a.mdx"], out: ["docs/c.mdx"], label_source: "drafted" });
+  const run = { meta: { touched: ["docs/c.mdx"] } };
+  const checks = checkScope(def, run);
+  assert.deepEqual(
+    checks.map((c) => c.id).sort(),
+    ["scope.forbidden", "scope.precision", "scope.recall"],
+  );
+  for (const c of checks) {
+    assert.equal(c.pass, null);
+    assert.match(c.detail, /unconfirmed drafted labels/);
+  }
+});
+
+test("scope: reference/review labels still score normally", () => {
+  const def = caseWith({ in: ["docs/a.mdx"], out: [], label_source: "reference" });
+  const checks = checkScope(def, { meta: { touched: ["docs/a.mdx"] } });
+  assert.ok(checks.every((c) => c.pass === true));
+});

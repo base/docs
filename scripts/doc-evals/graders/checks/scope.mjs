@@ -16,6 +16,15 @@ import { mkCheck, isDocPage } from "./shared.mjs";
  * @returns {Array} checks[]
  */
 export function checkScope(caseDef, run) {
+  const checks = computeScope(caseDef, run);
+  if (caseDef?.scope?.label_source !== "drafted") return checks;
+  // Drafted labels come from the current route table and inherit its scope
+  // creep (PLAN.md ground rules), so they can't grade the run yet. Keep the
+  // entries visible but unscored: `pass: null` is what `summarize` skips.
+  return checks.map((c) => ({ ...c, pass: null, detail: `unconfirmed drafted labels (${c.detail})` }));
+}
+
+function computeScope(caseDef, run) {
   const touched = (run?.meta?.touched || []).filter(isDocPage);
   const wanted = new Set((caseDef?.scope?.in || []).filter(isDocPage));
   const forbidden = new Set((caseDef?.scope?.out || []).filter(isDocPage));

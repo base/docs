@@ -95,7 +95,10 @@ function mean(scores) {
  * @returns {object} the `summary` contract shape
  */
 export function summarize(caseDef, run, checks, cost, { judgeSkipped, pairwiseSkipped }) {
-  const code = mean(checks.filter((c) => c.layer === "code").map((c) => c.score)) ?? 0;
+  // `pass: null` code checks (unconfirmed drafted scope labels) are reported
+  // but must not count toward the score. If nothing scoreable is left,
+  // `code` is null and drops out of the overall blend like the other layers.
+  const code = mean(checks.filter((c) => c.layer === "code" && c.pass !== null).map((c) => c.score));
   const judge = judgeSkipped ? null : mean(checks.filter((c) => c.layer === "judge").map((c) => c.score));
   const pairwise =
     pairwiseSkipped || !caseDef?.reference
