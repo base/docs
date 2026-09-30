@@ -178,3 +178,55 @@ node scripts/doc-evals/replay/run.mjs --cases 868d513-seize-integrator-guidance 
 
 Requires `LLM_GATEWAY_API_KEY` in the environment. See the top-level report
 for this lane's actual smoke output and token counts.
+
+## Hillclimb
+
+`hillclimb/run.mjs` proposes one root-cause change at a time to the sync's
+prompts and/or route table, replays and grades it on the train and test cases,
+and keeps it only when the scores say it helped. See `PLAN.md` "Phase 2".
+
+```sh
+node scripts/doc-evals/hillclimb/run.mjs --rounds 5 --reps 2 --max-usd 25
+node scripts/doc-evals/hillclimb/run.mjs --rounds 1 --reps 1 --max-usd 8 \
+  --cases-train 64bd955-inverted-seize-holder --cases-test 868d513-seize-integrator-guidance \
+  --baseline-run scripts/doc-evals/runs/<existing-replay-run>
+```
+
+Flags: `--rounds`, `--reps`, `--max-usd`, `--surface prompts|route-table|both`,
+`--no-judge`, `--baseline-run <dir>`, `--cases-train ids`, `--cases-test ids`,
+`--concurrency`. Default sets are the case files' train/test splits minus
+`heavy` and `legacy_layout`. `HILLCLIMB_MODEL` picks the proposer (default
+`claude-opus-4-6`); `HILLCLIMB_PRICES` overrides the price table in
+`hillclimb/budget.mjs`.
+
+- **Baseline.** `--baseline-run` reuses the rep dirs of an existing replay run
+  (graded or not; `grade.json` is written in place if missing). Reps or cases
+  missing from it are replayed. Without the flag the baseline is replayed and
+  graded. Existing `grade.json` files are used as-is.
+- **Noise** = max over splits of (mean over the split's cases of the sample
+  stdev of that case's `overall` across reps), measured on the baseline. With
+  `--reps 1` it is 0 and the report says so.
+- **Proposer** sees only train failures (check details, judge reasons, review
+  findings, capped diffs), the current files for `--surface`, the failure
+  taxonomy and the owner decisions. Test-case content never enters a prompt.
+  It returns `{rationale, root_cause, files:[{path, content}]}` (whole-file
+  replacement); only `llm/prompts.mjs` and `route-table.json` are accepted, the
+  route table must parse, and `prompts.mjs` must keep its exports.
+- **Verification.** The patch is applied to a scratch tree under the run dir
+  (never the real `scripts/sync-from-base-std/`), then the sync's own unit
+  tests run there. Tests already failing before any patch are tolerated; any
+  new failure rejects the patch.
+- **Decision.** Keep iff trainΔ > noise and testΔ > 0. Train up but test flat
+  or down is reverted as "possible overfit". A rep with grading errors is
+  re-graded once; if errors remain the round is skipped (neither keep nor
+  revert). Two consecutive non-keeps trigger one reflection call and stop.
+- **Judge in decisions** only when `calibration/labels.json` exists and clears
+  80% agreement; otherwise decisions use code + pairwise (the judge still runs
+  so the proposer sees its reasons, unless `--no-judge`).
+- **Budget.** Sync cost from each rep's `bench.jsonl`, judge/pairwise from the
+  grade summary tokens, proposer from its usage, priced by a conservative table
+  (`budget.mjs`). A round is not started if spend plus the projected round cost
+  (1.2 x (one full evaluation + proposer)) would exceed `--max-usd`.
+- **Output** in `runs/hillclimb-<ts>/`: `report.md`, `round-<n>.patch` per kept
+  round (`git diff --no-index`), `final-candidate/sync-from-base-std/`, plus
+  the scratch candidates and replays. No git commits are made.
