@@ -1,9 +1,7 @@
 ---
 title: "IB20.unpause"
-description: "Generated B20 reference for unpause(PausableFeature[])."
+description: "Resumes one or more paused token operation classes on a B20 token."
 ---
-
-
 
 ## Signature
 
@@ -13,34 +11,48 @@ function unpause(PausableFeature[] calldata features) external;
 
 | Field | Value |
 |---|---|
-| Selector | `0xb61b2ebc` |
-| Canonical signature | `unpause(PausableFeature[])` |
+| Selector | `0x8b93dd63` |
+| Canonical signature | `unpause(uint8[])` |
 
 ## Description
 
-Unpauses each of `features`. Features not listed are unaffected; duplicates are idempotent. Emits `Unpaused`.
+Resumes each feature listed in `features`. Features not listed remain in their current state. Duplicates in the array are a no-op. The call does not revert when a feature is already unpaused.
+
+Emits `Unpaused(updater, features)` with the exact array passed. That array is not the resulting paused set, read `isPaused(feature)` or `pausedFeatures()` for the current state.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
-| `features` | Features to unpause. |
+| `features` | One or more `PausableFeature` values to resume. Must be non-empty. |
 
 ## Reverts
 
-- `AccessControlUnauthorizedAccount` when the caller does not hold `UNPAUSE_ROLE`.
-- `EmptyFeatureSet` when `features.length == 0`.
+- `AccessControlUnauthorizedAccount(account, neededRole)`: caller does not hold `UNPAUSE_ROLE`.
+- `EmptyFeatureSet()`: `features` is an empty array.
 
 ## Access Control
 
-`UNPAUSE_ROLE` gates this call.
+`UNPAUSE_ROLE` gates this call. `UNPAUSE_ROLE` and `PAUSE_ROLE` are separate roles, so the account that pauses a feature does not have to be the account that resumes it.
 
 ## Policy Interaction
 
 No direct policy interaction.
 
+## Pausable Features
+
+| Value | Gates |
+|---|---|
+| `TRANSFER` | `transfer`, `transferFrom`, and memo'd variants |
+| `MINT` | `mint`, `mintWithMemo`, and Asset `batchMint` |
+| `BURN` | `burn`, `burnWithMemo`, and the deprecated `burnBlocked` |
+| `SEIZE` | `seizeWithMemo` |
+
 ## Example
 
 ```solidity Usage Example
+// Unpause BURN only; MINT remains paused if it was paused separately.
+PausableFeature[] memory features = new PausableFeature[](1);
+features[0] = PausableFeature.BURN;
 IB20(target).unpause(features);
 ```

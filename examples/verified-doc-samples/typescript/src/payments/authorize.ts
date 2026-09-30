@@ -1,35 +1,30 @@
-import { bytesToHex, parseUnits, type Address } from "viem";
-import { baseSepolia } from "viem/chains";
-import { browserClients } from "./from-humans.js";
-import { USDC, transferAuthorizationTypes, usdcAbi, type StoredAuthorization } from "./usdc.js";
+import { type Address } from "viem";
+import { account, publicClient, walletClient } from "../shared/clients.js";
+import { prepareErc3009Payment } from "./from-humans.js";
+import { AUTH_CAPTURE_ESCROW, ERC3009_PAYMENT_COLLECTOR, authCaptureEscrowAbi } from "./protocol.js";
 
 // docs:start usdc-authorize-ts
 export async function authorizePayment(
   merchant: Address,
   orderId: string,
   amount: string,
-): Promise<StoredAuthorization> {
-  const { account, publicClient, walletClient } = await browserClients();
-  const [name, version] = await Promise.all([
-    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
-    publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
-  ]);
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  const authorization = {
-    from: account,
-    to: merchant,
-    value: parseUnits(amount, 6),
-    validAfter: now - 60n,
-    validBefore: now + 15n * 60n,
-    nonce: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
-  } as const;
-  const signature = await walletClient.signTypedData({
+) {
+  const payment = await prepareErc3009Payment(merchant, orderId, amount);
+  const simulation = await publicClient.simulateContract({
     account,
-    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
-    types: transferAuthorizationTypes,
-    primaryType: "TransferWithAuthorization",
-    message: authorization,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "authorize",
+    args: [
+      payment.paymentInfo,
+      payment.paymentInfo.maxAmount,
+      ERC3009_PAYMENT_COLLECTOR,
+      payment.collectorData,
+    ],
   });
-  return { orderId, authorization, signature };
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment authorization reverted");
+  return { ...payment, authorizationHash: hash };
 }
 // docs:end usdc-authorize-ts

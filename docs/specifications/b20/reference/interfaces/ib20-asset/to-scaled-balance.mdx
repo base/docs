@@ -1,9 +1,11 @@
 ---
 title: "IB20Asset.toScaledBalance"
-description: "Generated B20 reference for toScaledBalance(uint256)."
+description: "Converts a raw token balance to its UI-scaled view using the current multiplier."
 ---
 
-
+<Warning>
+`toScaledBalance` is a deprecated alias of `toUIAmount`. Prefer `toUIAmount(raw)` for new integrations.
+</Warning>
 
 ## Signature
 
@@ -18,13 +20,31 @@ function toScaledBalance(uint256 rawBalance) external view returns (uint256);
 
 ## Description
 
-Converts a raw balance to its scaled view: `rawBalance * multiplier / WAD_PRECISION`.
-Param: rawBalance Raw token amount to scale.
-Return: Scaled balance at the current multiplier.
+Converts a raw balance to its UI (scaled) view: `rawBalance * uiMultiplier() / WAD_PRECISION`.
+
+This is a deprecated alias of `toUIAmount`. The two functions are equivalent. Use `toUIAmount` in new code.
+
+The result is the amount that wallets and indexers display as a share count after a stock split. Raw ERC-20 balances, `transfer` amounts, `totalSupply`, and allowances are unaffected by the multiplier and remain raw.
+
+Integer division rounds down. Rounding loss is confined to the scaled view and is at most one unit of the scaled amount; a round trip back through `fromUIAmount` may return slightly less than the original raw amount when `uiMultiplier() != WAD_PRECISION`.
+
+Multipliers are Asset-only. Stablecoin has no multiplier.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `rawBalance` | `uint256` | Raw token amount to convert. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `uint256` | UI balance at the effective multiplier: `rawBalance * uiMultiplier() / WAD_PRECISION`. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 
@@ -33,5 +53,9 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20Asset(target).toScaledBalance(arg0);
+// Deprecated alias; prefer toUIAmount
+uint256 ui = IB20Asset(target).toScaledBalance(rawBalance);
+
+// Preferred equivalent
+uint256 ui = IB20Asset(target).toUIAmount(rawBalance);
 ```

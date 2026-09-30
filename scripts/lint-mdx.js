@@ -5,7 +5,7 @@
  *
  * Deterministic checks for MDX files:
  * - Frontmatter validation
- * - Heading structure
+ * - Heading structure and page-title redundancy
  * - Code block language, filename/title and long-block conventions
  * - Mintlify component syntax
  * - Internal link validation
@@ -82,7 +82,7 @@ function isLintablePage(relPath) {
 /**
  * Every rule id, mapped to its severity. "error" fails the build; "warning" is advisory.
  *
- * The six rules the CI conformance check enforces come from the Language & Style
+ * The blocking rules the CI conformance check enforces come from the Language & Style
  * Conformance section of the CI gates spec. `wrap` and `highlight` stay advisory because
  * content-guidelines.md phrases them conditionally ("use `wrap` to prevent horizontal
  * scrolling"), so they are recommendations rather than always-violations.
@@ -95,6 +95,7 @@ const RULES = {
   // Headings -- hierarchy must start at H2, since the H1 comes from frontmatter title
   "heading/no-h1": "error",
   "heading/starts-at-h2": "error",
+  "heading/redundant-page-title": "error",
   "heading/skipped-level": "warning",
   "heading/none": "warning",
   // Title case
@@ -279,6 +280,96 @@ function checkHeadingStructure(content, filePath) {
   }
 
   return issues;
+}
+
+/**
+ * Introductory wording that does not make a first heading meaningfully different from the
+ * page title. For example, "What Is Transaction Finality?" still repeats a page titled
+ * "Transaction Finality".
+ */
+const HEADING_INTRO_PATTERNS = [
+  /^(?:an?\s+)?overview\s+(?:of\s+)?/,
+  /^(?:an?\s+)?introduction\s+to\s+/,
+  /^about\s+/,
+  /^understanding\s+(?:the\s+)?/,
+  /^what\s+(?:is|are)\s+/,
+];
+
+/** Plain lowercase words suitable for conservative title comparisons. */
+function normalizeHeadingText(value) {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[`*_~]/g, "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&(?:amp;|and;)?/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Remove generic lead-ins that only rephrase a title rather than narrow its subject. */
+function stripHeadingIntro(value) {
+  for (const pattern of HEADING_INTRO_PATTERNS) {
+    if (pattern.test(value)) return value.replace(pattern, "").trim();
+  }
+  return value;
+}
+
+/** Ignore the site-wide Base/Base Chain qualifier when the subject otherwise matches. */
+function stripBaseQualifier(value) {
+  return value.replace(/^base(?:\s+chain)?\s+/, "").trim();
+}
+
+/** Locate the first Markdown heading outside frontmatter and fenced examples. */
+function firstBodyHeading(content) {
+  const lines = content.split("\n");
+  let inFrontmatter = lines[0] === "---";
+  let inCodeBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (inFrontmatter) {
+      if (i > 0 && line === "---") inFrontmatter = false;
+      continue;
+    }
+
+    if (/^(`{3,}|~{3,})/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+
+    const match = line.match(/^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/);
+    if (match) return { line: i + 1, level: match[1].length, text: match[2].trim() };
+  }
+
+  return null;
+}
+
+/**
+ * Block a first body heading that restates the H1 Mintlify renders from frontmatter.
+ *
+ * This intentionally avoids broad fuzzy matching: a heading such as "L2 Contract Addresses"
+ * is a real subsection of a page titled "Contract Addresses". Normalizing presentation and a
+ * small set of generic lead-ins catches near-duplicates without conflating related subjects.
+ */
+function checkRedundantPageTitle(content, filePath) {
+  const title = extractFrontmatterTitle(content);
+  const heading = firstBodyHeading(content);
+  if (!title || !heading) return [];
+
+  const normalizedTitle = stripBaseQualifier(stripHeadingIntro(normalizeHeadingText(title)));
+  const normalizedHeading = stripBaseQualifier(stripHeadingIntro(normalizeHeadingText(heading.text)));
+  if (!normalizedTitle || normalizedTitle !== normalizedHeading) return [];
+
+  return [
+    issue(
+      heading.line,
+      "heading/redundant-page-title",
+      `First body heading "${heading.text}" repeats the page title "${title}"; remove it or make it a distinct section`
+    ),
+  ];
 }
 
 /**
@@ -836,6 +927,7 @@ function lintFile(filePath) {
     ...checkFrontmatter(content, filePath),
     ...checkTitleCase(content, filePath),
     ...checkHeadingStructure(content, filePath),
+    ...checkRedundantPageTitle(content, filePath),
     ...checkCodeBlocks(content, filePath),
     ...checkMintlifyComponents(content, filePath),
     ...checkAccessibility(content, filePath),
@@ -1037,6 +1129,7 @@ module.exports = {
   checkFrontmatter,
   checkTitleCase,
   checkHeadingStructure,
+  checkRedundantPageTitle,
   checkCodeBlocks,
   checkMintlifyComponents,
   checkAccessibility,
@@ -1044,6 +1137,8 @@ module.exports = {
   checkNavTitles,
   titleCaseViolations,
   collectCodeBlocks,
+  firstBodyHeading,
+  normalizeHeadingText,
   changedLinesByFile,
 };
 

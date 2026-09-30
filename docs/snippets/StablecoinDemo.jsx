@@ -5,16 +5,16 @@ export const StablecoinDemo = ({ flow }) => {
   // npm packages. The live engine therefore ships as .txt, is converted to a Blob
   // module on first interaction, and publishes its API on window.
   const loadVibenetEngine = () => {
-    if (window.__baseDocsVibenetEngineV2) return Promise.resolve(window.__baseDocsVibenetEngineV2);
-    if (window.__baseDocsVibenetEnginePromiseV2) return window.__baseDocsVibenetEnginePromiseV2;
+    if (window.__baseDocsVibenetEngineV3) return Promise.resolve(window.__baseDocsVibenetEngineV3);
+    if (window.__baseDocsVibenetEnginePromiseV3) return window.__baseDocsVibenetEnginePromiseV3;
 
-    window.__baseDocsVibenetEnginePromiseV2 = new Promise((resolve, reject) => {
+    window.__baseDocsVibenetEnginePromiseV3 = new Promise((resolve, reject) => {
       const onReady = () => {
         cleanup();
-        resolve(window.__baseDocsVibenetEngineV2);
+        resolve(window.__baseDocsVibenetEngineV3);
       };
-      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v2-ready", onReady);
-      window.addEventListener("base-docs-vibenet-engine:v2-ready", onReady, { once: true });
+      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v3-ready", onReady);
+      window.addEventListener("base-docs-vibenet-engine:v3-ready", onReady, { once: true });
 
       (async () => {
         try {
@@ -26,7 +26,7 @@ export const StablecoinDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=2"),
+            fetchText("/static/vibenet-engine.txt?v=5"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
@@ -37,18 +37,18 @@ export const StablecoinDemo = ({ flow }) => {
           tag.dataset.baseDocsVibenetEngine = "true";
           tag.onerror = () => {
             cleanup();
-            window.__baseDocsVibenetEnginePromiseV2 = null;
+            window.__baseDocsVibenetEnginePromiseV3 = null;
             reject(new Error("Failed to evaluate the Vibenet engine"));
           };
           document.head.appendChild(tag);
         } catch (error) {
           cleanup();
-          window.__baseDocsVibenetEnginePromiseV2 = null;
+          window.__baseDocsVibenetEnginePromiseV3 = null;
           reject(error);
         }
       })();
     });
-    return window.__baseDocsVibenetEnginePromiseV2;
+    return window.__baseDocsVibenetEnginePromiseV3;
   };
 
   // Lightweight capability probe. This deliberately does not load aa.txt: the
@@ -214,20 +214,20 @@ export const StablecoinDemo = ({ flow }) => {
     },
     recover: {
       label: "Recover", title: "Recover funds from a blocked account", readout: true,
-      erc20: "On plain ERC-20, there's no safe recovery path without custom code.",
+      erc20: "On plain ERC-20, there's no admin recovery path without custom code. B20 has seizeWithMemo with a Seized event.",
       steps: [
         { stage: "Setup", action: "Set up",
-          text: "Bob's address is blocked and holds 50 aUSD.",
-          summary: [["Operation", "Block + fund"], ["Account", "Bob"], ["Amount", M("50 aUSD")]],
-          run: (s) => { s.balances.Bob = 50; s.blocked = "Bob"; return { entries: [ok("Transfer", "0x0 → Bob · 50"), ok("updateBlocklist", "add Bob")] }; } },
-        { stage: "Reclaim", action: "Reclaim funds",
-          text: "A holder lost their keys. Reclaim the balance.",
-          summary: [["Operation", "Recover"], ["From", "Bob (blocked)"], ["Amount", M("50 aUSD")]],
-          run: (s) => { s.balances.Bob = 0; return { entries: [ok("Transfer", "Bob → 0x0 · 50 (recovered)")], caption: "Recovery only works on an account that's already blocked." }; } },
+          text: "Bob's address is blocked, marked seizable, and holds 50 aUSD.",
+          summary: [["Operation", "Block + fund"], ["Account", "Bob"], ["Policies", "TRANSFER_SENDER, SEIZE_EXEMPT"], ["Amount", M("50 aUSD")]],
+          run: (s) => { s.balances.Bob = 50; s.blocked = "Bob"; return { entries: [ok("Transfer", "0x0 → Bob · 50"), ok("PolicyUpdated", "TRANSFER_SENDER → blocklist"), ok("PolicyUpdated", "SEIZE_EXEMPT → blocklist")], caption: "The same blocklist freezes Bob's transfers and makes him seizable." }; } },
+        { stage: "Seize", action: "Seize funds",
+          text: "A holder lost their keys. Move the balance to the issuer's safekeeping account.",
+          summary: [["Operation", "Seize"], ["From", "Bob (blocked)"], ["To", "Issuer"], ["Amount", M("50 aUSD")], ["Memo", M("legal-hold-2026-118")]],
+          run: (s) => { s.balances.Bob = 0; s.balances.Issuer = (s.balances.Issuer || 0) + 50; return { entries: [ok("Transfer", "Bob → Issuer · 50"), ok("Memo", "legal-hold-2026-118"), ok("Seized", "Bob → Issuer · 50")], caption: "Total supply is unchanged. Seize only works on an account that is not seize-exempt." }; } },
         { stage: "Reissue", action: "Reissue",
           text: "Reissue to the holder's new address.",
-          summary: [["Operation", "Mint"], ["To", "Alice"], ["Amount", M("50 aUSD")]],
-          run: (s) => { s.balances.Alice = (s.balances.Alice || 0) + 50; return { entries: [ok("Transfer", "0x0 → Alice · 50")], caption: "Circulating supply is unchanged: reclaimed, then reissued." }; } },
+          summary: [["Operation", "Transfer"], ["From", "Issuer"], ["To", "Alice"], ["Amount", M("50 aUSD")]],
+          run: (s) => { s.balances.Issuer = Math.max(0, (s.balances.Issuer || 0) - 50); s.balances.Alice = (s.balances.Alice || 0) + 50; return { entries: [ok("Transfer", "Issuer → Alice · 50")], caption: "Circulating supply never changed: seized, then reissued with a plain transfer." }; } },
       ],
     },
     pause: {
@@ -543,7 +543,10 @@ export const StablecoinDemo = ({ flow }) => {
         const created = await createToken(engine, ctx, {
           initialMint: engine.units(50),
           mintTo: ctx.addresses.Bob,
-          policies: [{ scope: "TRANSFER_SENDER_POLICY", id: policy.id }],
+          policies: [
+            { scope: "TRANSFER_SENDER_POLICY", id: policy.id },
+            { scope: "SEIZE_EXEMPT_POLICY", id: policy.id },
+          ],
         });
         state.blocked = "Bob";
         await setBalance(engine, ctx, state, "Bob");
@@ -552,24 +555,28 @@ export const StablecoinDemo = ({ flow }) => {
             txOk(engine, "PolicyCreated", `#${policy.id} · BLOCKLIST`, policy),
             txOk(engine, "Transfer", "0x0 → Bob · 50", created),
             txOk(engine, "PolicyUpdated", "TRANSFER_SENDER → blocklist", created),
+            txOk(engine, "PolicyUpdated", "SEIZE_EXEMPT → blocklist", created),
           ],
         };
       },
       async (engine, ctx, state) => {
-        const tx = await engine.burnBlocked({ token: ctx.token, from: ctx.addresses.Bob, amount: engine.units(50) });
+        const tx = await engine.seize({ token: ctx.token, from: ctx.addresses.Bob, to: ctx.addresses.Issuer, amount: engine.units(50), memo: "legal-hold-2026-118" });
         await setBalance(engine, ctx, state, "Bob");
+        await setBalance(engine, ctx, state, "Issuer");
         return {
           entries: [
-            txOk(engine, "Transfer", "Bob → 0x0 · 50", tx),
-            txOk(engine, "BurnedBlocked", "Bob · 50", tx),
+            txOk(engine, "Transfer", "Bob → Issuer · 50", tx),
+            txOk(engine, "Memo", "legal-hold-2026-118", tx),
+            txOk(engine, "Seized", "Bob → Issuer · 50", tx),
           ],
-          caption: "Recovery uses the stablecoin flow documented above: burnBlocked, then reissue.",
+          caption: "The balance moved to the issuer on Vibenet. Total supply is unchanged.",
         };
       },
       async (engine, ctx, state) => {
-        const tx = await engine.mint({ token: ctx.token, to: ctx.addresses.Alice, amount: engine.units(50) });
+        const tx = await engine.transfer({ token: ctx.token, to: ctx.addresses.Alice, amount: engine.units(50) });
         await setBalance(engine, ctx, state, "Alice");
-        return { entries: [txOk(engine, "Transfer", "0x0 → Alice · 50", tx)], caption: "The replacement balance is live on Vibenet." };
+        delete state.balances.Issuer;
+        return { entries: [txOk(engine, "Transfer", "Issuer → Alice · 50", tx)], caption: "The recovered balance is live at Alice's new address. In this demo the issuer and Alice share one Vibenet account." };
       },
     ],
     pause: [
@@ -652,7 +659,7 @@ export const StablecoinDemo = ({ flow }) => {
     const s = { balances: { ...sim.balances }, blocked: sim.blocked };
     const out = f.steps[stepIndex].run(s) || { entries: [] };
     setSim(s);
-    setResults((r) => [...r, out]);
+    setResults((r) => [...r, { ...out, at: Date.now() }]);
   };
   const runStep = async () => {
     if (done || busy || liveState === "probing") return;
@@ -662,8 +669,9 @@ export const StablecoinDemo = ({ flow }) => {
     }
     setBusy(true);
     setActionError(null);
+    let engine = null;
     try {
-      const engine = await loadVibenetEngine();
+      engine = await loadVibenetEngine();
       const ctx = await ensureLiveContext(engine);
       const state = { balances: { ...sim.balances }, blocked: sim.blocked };
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
@@ -675,13 +683,18 @@ export const StablecoinDemo = ({ flow }) => {
         }
       }
       setSim(state);
-      setResults((current) => [...current, out || { entries: [] }]);
+      setResults((current) => [...current, { entries: [], ...out, at: Date.now() }]);
     } catch (error) {
       // If the devnet or its gated features disappeared before the first write,
       // degrade to the unchanged scripted flow instead of surfacing a broken demo.
       if (results.length === 0) {
         try {
-          const latest = await probeVibenet();
+          // Prefer the engine's probe once the bundle is loaded: unlike the
+          // lightweight probe above, it also confirms a live EIP-8130 account
+          // implementation, which is what a Vibenet reset takes away.
+          const latest = engine
+            ? await engine.probeCapabilities("stablecoin")
+            : await probeVibenet();
           if (!latest.live) {
             setProbeInfo(latest);
             setLiveState("offline");
@@ -713,17 +726,16 @@ export const StablecoinDemo = ({ flow }) => {
     setResults((r) => r.slice(0, -1));
   };
 
-  // ---- event log (flatten results + pending, deterministic timestamps) ----
+  // ---- event log (flatten results + pending, wall-clock timestamps) ----
   const pad = (n) => String(n).padStart(2, "0");
-  const ts = (n) => { const t = (42 * 60 + 11) + n; return `10:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)}`; };
+  const ts = (at) => { if (!at) return "--:--:--"; const d = new Date(at); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
   const logRows = [];
-  let sec = 0;
   results.forEach((res) => {
     (res.entries || []).forEach((e) => {
-      logRows.push({ t: ts(sec++), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
+      logRows.push({ t: ts(res.at), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
     });
   });
-  f.steps.slice(stepIndex).forEach((_, offset) => { logRows.push({ t: ts(sec++), level: "PENDING", name: displayStep(stepIndex + offset).action, detail: "", kind: "pending" }); });
+  f.steps.slice(stepIndex).forEach((_, offset) => { logRows.push({ t: ts(null), level: "PENDING", name: displayStep(stepIndex + offset).action, detail: "", kind: "pending" }); });
 
   const holders = Object.keys(sim.balances);
 
@@ -969,7 +981,7 @@ export const StablecoinDemo = ({ flow }) => {
                 {f.title} — {liveState === "live" ? "the write steps ran on Base Vibenet." : "the scripted offline fallback completed."}
               </div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href="/base-chain/network-information/b20-token-standard" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href="/specifications/b20" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>

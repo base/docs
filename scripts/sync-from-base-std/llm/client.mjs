@@ -9,8 +9,8 @@
  *
  * Owns three responsibilities:
  *
- *   1. `callClaude(prompt, page)` — wraps `client.messages.create` and
- *      records a bench row. Retries on 5xx / 429 / network errors are
+ *   1. `complete(prompt, page)` — one streamed Gateway call; records a
+ *      bench row. `callClaude` is the text-only convenience over it. Retries on 5xx / 429 / network errors are
  *      handled inside the SDK (`maxRetries`), so this file no longer
  *      carries its own retry loop.
  *
@@ -102,19 +102,32 @@ function getClient() {
  *        prompt where they're easier to tune per dispatch kind.
  * @returns {Promise<string>} the model's text output
  */
-export async function callClaude(prompt, page = "", opts = {}) {
+/**
+ * Send one prompt through the Gateway and return the text plus the facts a
+ * caller needs to judge it (stop reason, output tokens). Streams the
+ * response: the Gateway edge times out a silent buffered request at ~90 s,
+ * which a long page regeneration exceeds; a stream delivers its first token
+ * in seconds and keeps the connection alive for the whole generation.
+ *
+ * @param {string} prompt
+ * @param {string=} page   doc page path, recorded in the bench log
+ * @param {{system?: string, model?: string, maxTokens?: number}=} opts
+ * @returns {Promise<{text: string, stopReason: string|null, outputTokens: number|null}>}
+ */
+export async function complete(prompt, page = "", opts = {}) {
   const client = getClient();
   const model = opts.model || DEFAULT_MODEL;
   const maxTokens = opts.maxTokens || DEFAULT_MAX_TOKENS;
-  const system = opts.system;
 
   const tStart = Date.now();
-  const message = await client.messages.create({
-    model,
-    max_tokens: maxTokens,
-    ...(system ? { system } : {}),
-    messages: [{ role: "user", content: prompt }],
-  });
+  const message = await client.messages
+    .stream({
+      model,
+      max_tokens: maxTokens,
+      ...(opts.system ? { system: opts.system } : {}),
+      messages: [{ role: "user", content: prompt }],
+    })
+    .finalMessage();
 
   const text = (message.content || [])
     .filter((b) => b.type === "text")
@@ -136,5 +149,14 @@ export async function callClaude(prompt, page = "", opts = {}) {
     stop_reason: message.stop_reason ?? null,
   });
 
-  return text;
+  return {
+    text,
+    stopReason: message.stop_reason ?? null,
+    outputTokens: message.usage?.output_tokens ?? null,
+  };
+}
+
+/** Text-only convenience over complete(). */
+export async function callClaude(prompt, page = "", opts = {}) {
+  return (await complete(prompt, page, opts)).text;
 }

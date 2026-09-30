@@ -1,9 +1,7 @@
 ---
 title: "IB20.SEIZE_RECEIVER_POLICY"
-description: "Generated B20 reference for SEIZE_RECEIVER_POLICY()."
+description: "Returns the policy scope key consulted against the seize destination in seizeWithMemo."
 ---
-
-
 
 ## Signature
 
@@ -18,24 +16,38 @@ function SEIZE_RECEIVER_POLICY() external view returns (bytes32);
 
 ## Description
 
-Policy slot consulted against `to` by `seizeWithMemo`.
+Returns the `bytes32` scope key that `seizeWithMemo` uses when checking whether the destination address (`to`) may receive seized tokens.
 
-Mirrors `MINT_RECEIVER_POLICY`: always enforced on the seize destination. An unset slot reads as `0` (always-allow), so seize may send anywhere until an issuer configures the slot.
+The check is a normal allow check: the call proceeds only when `isAuthorized(policyId, to)` returns `true`. When the slot is unset (`0`), the always-allow sentinel applies and any destination is permitted.
 
 ## Returns
 
-Policy scope constant.
+`bytes32`, the policy scope constant for the seize receiver slot.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+View function. No role required.
 
 ## Policy Interaction
 
-No direct policy interaction.
+Attach a policy ID to this scope with `updatePolicy(token.SEIZE_RECEIVER_POLICY(), policyId)`. Use an `ALLOWLIST` to restrict which addresses may receive seized tokens. An unset scope (ID `0`) allows every destination.
+
+<Note>
+`SEIZE_RECEIVER_POLICY` is independent of `TRANSFER_RECEIVER_POLICY`. Adding an address to a transfer allowlist does not make it a valid seize destination. Configure each scope separately.
+</Note>
 
 ## Example
 
-```solidity Usage Example
-IB20(target).SEIZE_RECEIVER_POLICY();
+```solidity Restrict seize destinations to a treasury lines wrap expandable highlight={11}
+// Read the scope key
+bytes32 scope = IB20(token).SEIZE_RECEIVER_POLICY();
+
+// Create an allowlist and add the treasury
+uint64 destId = registry.createPolicy(policyAdmin, IPolicyRegistry.PolicyType.ALLOWLIST);
+address[] memory dests = new address[](1);
+dests[0] = treasury;
+registry.updateAllowlist(destId, true, dests);
+
+// Attach the allowlist to the receiver scope
+IB20(token).updatePolicy(scope, destId);
 ```

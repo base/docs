@@ -1,49 +1,29 @@
-import { parseSignature } from "viem";
+import { zeroAddress } from "viem";
 import { account, publicClient, walletClient } from "../shared/clients.js";
-import { USDC, usdcAbi, type StoredAuthorization } from "./usdc.js";
+import { AUTH_CAPTURE_ESCROW, authCaptureEscrowAbi, type StoredProtocolPayment } from "./protocol.js";
 
 // docs:start usdc-capture-ts
-export async function captureAuthorization(stored: StoredAuthorization) {
-  const { authorization, signature } = stored;
-  if (authorization.to.toLowerCase() !== account.address.toLowerCase()) {
-    throw new Error("The connected merchant is not the authorized recipient");
-  }
-  const [used, balance] = await Promise.all([
-    publicClient.readContract({
-      address: USDC,
-      abi: usdcAbi,
-      functionName: "authorizationState",
-      args: [authorization.from, authorization.nonce],
-    }),
-    publicClient.readContract({
-      address: USDC,
-      abi: usdcAbi,
-      functionName: "balanceOf",
-      args: [authorization.from],
-    }),
-  ]);
-  if (used) throw new Error("Authorization was already used or canceled");
-  if (balance < authorization.value) throw new Error("Payer balance is too low");
-
-  const { v, r, s } = parseSignature(signature);
+export async function captureAuthorization(
+  payment: StoredProtocolPayment,
+  amount = payment.paymentInfo.maxAmount,
+) {
+  const [, capturableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
+  });
+  if (amount > capturableAmount) throw new Error("Capture exceeds authorized amount");
   const simulation = await publicClient.simulateContract({
     account,
-    address: USDC,
-    abi: usdcAbi,
-    functionName: "receiveWithAuthorization",
-    args: [
-      authorization.from,
-      authorization.to,
-      authorization.value,
-      authorization.validAfter,
-      authorization.validBefore,
-      authorization.nonce,
-      Number(v),
-      r,
-      s,
-    ],
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "capture",
+    args: [payment.paymentInfo, amount, 0n, zeroAddress],
   });
   const hash = await walletClient.writeContract(simulation.request);
-  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment capture reverted");
+  return receipt;
 }
 // docs:end usdc-capture-ts

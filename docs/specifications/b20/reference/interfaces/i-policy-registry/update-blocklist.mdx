@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.updateBlocklist"
-description: "Generated B20 reference for updateBlocklist(uint64,bool,address[])."
+description: "Adds or removes accounts from a BLOCKLIST policy in a single batch call."
 ---
-
-
 
 ## Signature
 
@@ -18,25 +16,46 @@ function updateBlocklist(uint64 policyId, bool blocked, address[] calldata accou
 
 ## Description
 
-Sets `accounts` membership in a BLOCKLIST policy to `blocked` in one batch.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `IncompatiblePolicyType` when the policy is not BLOCKLIST.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Dev: Reverts with `BatchSizeTooLarge` when `accounts.length` exceeds the registry limit.
-Param: policyId Policy to update.
-Param: blocked  Membership state to apply to every account in the batch.
-Param: accounts Accounts to update.
+Sets each address in `accounts` to the membership state `blocked` within the identified BLOCKLIST policy. A BLOCKLIST authorizes any account that is **not** in the set, so adding an account (`blocked = true`) causes `isAuthorized` to return `false` for that account, and removing it (`blocked = false`) restores authorization.
+
+The change takes effect on the next `isAuthorized` query. Every token and composite policy that references `policyId` sees the updated result immediately, no second `updatePolicy` call is needed on any token.
+
+Batches are capped by the registry, currently at 64 accounts. A larger batch reverts `BatchSizeTooLarge(maxBatchSize)`, which carries the limit.
+
+Emits `BlocklistUpdated(policyId, updater, blocked, accounts)` on success.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | The BLOCKLIST policy to update. |
+| `blocked` | `bool` | Membership state to apply to every account in the batch. `true` adds accounts to the blocklist; `false` removes them. |
+| `accounts` | `address[]` | Accounts to update. Capped at 64 per call. |
+
+## Reverts
+
+| Error | Condition |
+|---|---|
+| `Unauthorized()` | Caller is not the current policy admin. |
+| `PolicyNotFound()` | `policyId` does not exist in the registry. |
+| `IncompatiblePolicyType()` | The policy is not a `BLOCKLIST`. |
+| `BatchSizeTooLarge(maxBatchSize)` | `accounts.length` exceeds 64. |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
-
-## Policy Interaction
-
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+Callable only by the current admin of `policyId`. Any other caller reverts `Unauthorized`.
 
 ## Example
 
-```solidity Usage Example
-IPolicyRegistry(target).updateBlocklist(arg0, arg1, arg2);
+```solidity Add accounts to a blocklist lines wrap expandable highlight={5,10}
+// Add two addresses to an existing BLOCKLIST policy.
+address[] memory blocked = new address[](2);
+blocked[0] = carol;
+blocked[1] = dave;
+IPolicyRegistry(registry).updateBlocklist(sanctionsId, true, blocked);
+
+// Remove carol from the blocklist.
+address[] memory unblocked = new address[](1);
+unblocked[0] = carol;
+IPolicyRegistry(registry).updateBlocklist(sanctionsId, false, unblocked);
 ```

@@ -1,15 +1,13 @@
-import { createPublicClient, parseAbiItem, webSocket, type Address, type Log } from "viem";
+import { createPublicClient, webSocket } from "viem";
 import { base } from "viem/chains";
 import { required } from "../shared/env.js";
+import { AUTH_CAPTURE_ESCROW, authCaptureEscrowAbi } from "./protocol.js";
 
-const transferEvent = parseAbiItem("event Transfer(address indexed from,address indexed to,uint256 amount)");
 const confirmations = 12n;
-
-type TransferLog = Log<bigint, number, false, typeof transferEvent>;
 
 export interface PaymentEventStore {
   lastScannedBlock(): Promise<bigint | undefined>;
-  replaceRange(fromBlock: bigint, toBlock: bigint, logs: TransferLog[]): Promise<void>;
+  replaceRange(fromBlock: bigint, toBlock: bigint, logs: readonly unknown[]): Promise<void>;
 }
 
 const client = createPublicClient({
@@ -19,8 +17,6 @@ const client = createPublicClient({
 
 // docs:start watch-payments-ts
 export async function watchPayments(
-  token: Address,
-  merchant: Address,
   startBlock: bigint,
   store: PaymentEventStore,
 ) {
@@ -32,25 +28,22 @@ export async function watchPayments(
     const fromBlock = cursor && cursor > startBlock + confirmations
       ? cursor - confirmations
       : startBlock;
-    const logs = await client.getLogs({
-      address: token,
-      event: transferEvent,
-      args: { to: merchant },
+    const logs = await client.getContractEvents({
+      address: AUTH_CAPTURE_ESCROW,
+      abi: authCaptureEscrowAbi,
       fromBlock,
       toBlock,
       strict: true,
     });
 
-    // In one database transaction, replace this overlap window and advance the cursor.
-    // Key each row by (blockHash, transactionHash, logIndex) so retries stay idempotent.
+    // Replace the overlap and advance the cursor in one database transaction.
     await store.replaceRange(fromBlock, toBlock, logs);
   }
 
   await backfillConfirmed();
-  return client.watchEvent({
-    address: token,
-    event: transferEvent,
-    args: { to: merchant },
+  return client.watchContractEvent({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
     onLogs: backfillConfirmed,
     onError: (error) => console.error("Payment watcher failed", error),
   });

@@ -1,9 +1,7 @@
 ---
 title: "IB20.renounceRole"
-description: "Generated B20 reference for renounceRole(bytes32,address)."
+description: "Lets the caller remove a role from themselves. Reverts if the confirmation argument does not match the caller or if the caller is the last default admin."
 ---
-
-
 
 ## Signature
 
@@ -18,23 +16,23 @@ function renounceRole(bytes32 role, address callerConfirmation) external;
 
 ## Description
 
-Caller renounces `role` for themselves. Emits `RoleRevoked`.
+Caller renounces `role` for themselves. Emits `RoleRevoked` when membership changes.
 
 ## Parameters
 
 | Parameter | Description |
 |---|---|
 | `role` | Role to renounce. |
-| `callerConfirmation` | MUST equal `msg.sender`. |
+| `callerConfirmation` | Must equal `msg.sender`. |
 
 ## Reverts
 
 - `AccessControlBadConfirmation` when `callerConfirmation != msg.sender`.
-- `LastAdminCannotRenounce` when `role == DEFAULT_ADMIN_ROLE` and the caller is the last default admin.
+- `LastAdminCannotRenounce` when `role == DEFAULT_ADMIN_ROLE` and the caller is the last remaining `DEFAULT_ADMIN_ROLE` holder. Use `renounceLastAdmin` to clear the final admin.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Any account may call this function for their own roles. No privileged role is required.
 
 ## Policy Interaction
 
@@ -43,5 +41,5 @@ No direct policy interaction.
 ## Example
 
 ```solidity Usage Example
-IB20(target).renounceRole(role, callerConfirmation);
+IB20(target).renounceRole(role, msg.sender);
 ```

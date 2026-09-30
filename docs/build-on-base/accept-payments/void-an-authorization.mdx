@@ -1,12 +1,16 @@
 ---
 title: "Void an Authorization"
-keywords: ["cancel EIP-3009 authorization", "void USDC payment", "cancelAuthorization", "authorization expiry"]
-description: "Expire an unused USDC authorization or cancel its nonce onchain with the buyer's signature."
+keywords: ["Commerce Payments void", "cancel escrow payment", "PaymentVoided", "payer reclaim"]
+description: "Return the remaining escrowed authorization to the payer or let the payer reclaim it after expiry."
 ---
 
 import { PaymentsDemo } from "/snippets/PaymentsDemo.jsx"
 
-Close an authorization that you will not capture. Because no funds were reserved, a merchant can stop using the signature offchain, but only the buyer can authorize an onchain nonce cancellation.
+Close an authorization that you will not capture. The operator can call `void` at any time to return all remaining capturable funds. If the operator becomes inactive, the payer can call `reclaim` at or after `authorizationExpiry`.
+
+<Info>
+This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
+</Info>
 
 ## Demo
 
@@ -16,64 +20,56 @@ Close an authorization that you will not capture. Because no funds were reserved
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
 
-| Path | Cost | Use when |
+| Path | Caller | Available when |
 |---|---|---|
-| Mark void and let `validBefore` pass | No transaction | The short validity window is acceptable |
-| Submit `cancelAuthorization` | One transaction | You need the nonce to become unusable immediately |
+| `void(paymentInfo)` | Operator | Any time a capturable balance remains |
+| `reclaim(paymentInfo)` | Payer | At or after `authorizationExpiry` |
 
-## Cancel the Nonce Onchain
+## Void the Remaining Authorization
+
+`void` returns the complete `capturableAmount`; there is no partial-void operation. Capture the final fulfilled amount first, then void the remainder.
 
 {/* sample: usdc-void-ts */}
-```typescript TypeScript lines wrap expandable highlight={2,13,24}
-export async function signCancellation(authorization: PaymentAuthorization) {
-  const { account: buyer, publicClient: browserClient, walletClient } = await browserClients();
-  if (buyer.toLowerCase() !== authorization.from.toLowerCase()) {
-    throw new Error("Only the authorizer can sign a cancellation");
-  }
-  const [name, version] = await Promise.all([
-    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "name" }),
-    browserClient.readContract({ address: USDC, abi: usdcAbi, functionName: "version" }),
-  ]);
-  return walletClient.signTypedData({
-    account: buyer,
-    domain: { name, version, chainId: baseSepolia.id, verifyingContract: USDC },
-    types: cancelAuthorizationTypes,
-    primaryType: "CancelAuthorization",
-    message: { authorizer: authorization.from, nonce: authorization.nonce },
+```typescript TypeScript lines wrap expandable highlight={5,8,13-14}
+export async function voidAuthorization(payment: StoredProtocolPayment) {
+  const [, capturableAmount] = await publicClient.readContract({
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "paymentState",
+    args: [payment.paymentInfoHash],
   });
-}
-
-export async function submitCancellation(authorizer: `0x${string}`, nonce: Hex, signature: Hex) {
-  const { v, r, s } = parseSignature(signature);
+  if (capturableAmount === 0n) throw new Error("Authorization has no remaining funds");
   const simulation = await publicClient.simulateContract({
     account,
-    address: USDC,
-    abi: usdcAbi,
-    functionName: "cancelAuthorization",
-    args: [authorizer, nonce, Number(v), r, s],
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "void",
+    args: [payment.paymentInfo],
   });
-  const hash = await merchantWallet.writeContract(simulation.request);
-  return publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Payment void reverted");
+  return receipt;
 }
 ```
 
-The buyer signs `CancelAuthorization`; the merchant or another relayer can submit that signature. The token marks the nonce used, so the original transfer authorization can no longer settle.
+Both `void` and `reclaim` set `capturableAmount` to zero while leaving any previously captured `refundableAmount` unchanged.
 
 <Check>
-After cancellation, `authorizationState(authorizer, nonce)` returns `true`, and a later capture with the original signature reverts.
+Verify `PaymentVoided` or `PaymentReclaimed`, and match its amount to the capturable balance immediately before the return.
 </Check>
 
 <Warning>
-`authorizationState` does not distinguish captured from canceled. Persist your own order state and transition it atomically before accepting a cancellation or capture request.
+After authorization expiry, the operator and payer can race to return the same remainder through `void` or `reclaim`. One succeeds and the other reverts with `ZeroAuthorization`; process either event idempotently as the terminal authorization return.
 </Warning>
 
 ## See Also
 
 <CardGroup cols={2}>
   <Card title="Authorize a Payment" icon="signature" href="/build-on-base/accept-payments/authorize-a-payment">
-    Create a short-lived exact authorization.
+    Configure the authorization and recovery windows.
   </Card>
-  <Card title="Capture an Authorization" icon="check" href="/build-on-base/accept-payments/capture-an-authorization">
-    Settle an authorization you intend to fulfill.
+  <Card title="Refund a Payment" icon="rotate-left" href="/build-on-base/accept-payments/refund-a-payment">
+    Return value that was already captured.
   </Card>
 </CardGroup>

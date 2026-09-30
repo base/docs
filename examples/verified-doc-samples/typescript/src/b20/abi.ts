@@ -12,6 +12,7 @@ export const b20Abi = parseAbi([
   "function burn(uint256)",
   "function burnWithMemo(uint256,bytes32)",
   "function burnBlocked(address,uint256)",
+  "function seizeWithMemo(address,address,uint256,bytes32)",
   "function transferWithMemo(address,uint256,bytes32) returns (bool)",
   "function transferFromWithMemo(address,address,uint256,bytes32) returns (bool)",
   "function updateSupplyCap(uint256)",
@@ -30,9 +31,12 @@ const assetExtraAbi = parseAbi([
   "function batchMint(address[],uint256[])",
   "function announce(bytes[],string,string,string)",
   "function isAnnouncementIdUsed(string) view returns (bool)",
-  "function updateMultiplier(uint256)",
-  "function multiplier() view returns (uint256)",
-  "function scaledBalanceOf(address) view returns (uint256)",
+  "function updateUIMultiplier(uint256,uint256)",
+  "function cancelUIMultiplierUpdate()",
+  "function uiMultiplier() view returns (uint256)",
+  "function newUIMultiplier() view returns (uint256)",
+  "function effectiveAt() view returns (uint256)",
+  "function balanceOfUI(address) view returns (uint256)",
 ]);
 
 export const assetAbi = [...b20Abi, ...assetExtraAbi] as const;

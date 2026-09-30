@@ -44,7 +44,9 @@ bash -n "$ROOT/examples/verified-doc-samples/cli/b20-operations.sh"
     exit 127
   fi
 
-  if [[ ! -d lib/base-std ]]; then "$forge_cmd" install base/base-std@v1.0.0 --no-git; fi
+  # Pinned to a base-std main commit rather than a Beryl tag: the multiplier
+  # scheduling and seize samples need the Cobalt interface surface.
+  if [[ ! -d lib/base-std ]]; then "$forge_cmd" install base/base-std@150532313c10a410fd81d74d5f1ca0df43865822 --no-git; fi
   if [[ ! -d lib/forge-std ]]; then "$forge_cmd" install foundry-rs/forge-std@v1.9.7 --no-git; fi
   "$forge_cmd" build
 )

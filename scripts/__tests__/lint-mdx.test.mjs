@@ -12,6 +12,7 @@ const {
   checkCodeBlocks,
   checkAccessibility,
   checkHeadingStructure,
+  checkRedundantPageTitle,
   checkTitleCase,
   checkNavTitles,
   isLintablePage,
@@ -36,6 +37,7 @@ test("the six spec-required rules are all errors", () => {
     "frontmatter/title",
     "frontmatter/description",
     "heading/starts-at-h2",
+    "heading/redundant-page-title",
     "a11y/link-text",
     "a11y/alt-text",
     "codeblock/filename-or-title",
@@ -236,6 +238,33 @@ test("skipped levels remain a warning, not a blocker", () => {
 
 test("headings inside code fences are ignored", () => {
   assert.deepEqual(rulesOf(checkHeadingStructure("## Real\n\n```md Example\n# Not a heading\n```\n")), []);
+});
+
+test("the first body heading must not repeat the frontmatter title", () => {
+  const exact = '---\ntitle: "Design Goals"\ndescription: x\n---\n\n## Design Goals\n';
+  assert.deepEqual(rulesOf(checkRedundantPageTitle(exact)), ["heading/redundant-page-title"]);
+});
+
+test("title comparisons ignore presentation and generic introductory wording", () => {
+  const punctuation = "---\ntitle: API & Events\ndescription: x\n---\n\n## `API` and Events!\n";
+  const introductory = "---\ntitle: Transaction Finality\ndescription: x\n---\n\n## What Is Transaction Finality?\n";
+  assert.deepEqual(rulesOf(checkRedundantPageTitle(punctuation)), ["heading/redundant-page-title"]);
+  assert.deepEqual(rulesOf(checkRedundantPageTitle(introductory)), ["heading/redundant-page-title"]);
+});
+
+test("the Base site qualifier does not make a repeated heading distinct", () => {
+  const src = "---\ntitle: Base Builder Codes\ndescription: x\n---\n\n## What Are Builder Codes\n";
+  assert.deepEqual(rulesOf(checkRedundantPageTitle(src)), ["heading/redundant-page-title"]);
+});
+
+test("a related but narrower first heading is not treated as a duplicate", () => {
+  const src = "---\ntitle: Contract Addresses\ndescription: x\n---\n\n## L2 Contract Addresses\n";
+  assert.deepEqual(checkRedundantPageTitle(src), []);
+});
+
+test("headings in frontmatter and code examples are skipped for redundancy", () => {
+  const src = "---\ntitle: Example\ndescription: '# Example'\n---\n\n```md Sample\n## Example\n```\n\n## Usage\n";
+  assert.deepEqual(checkRedundantPageTitle(src), []);
 });
 
 // ---------------------------------------------------------------------------

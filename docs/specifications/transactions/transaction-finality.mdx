@@ -3,14 +3,12 @@ title: Transaction Finality
 description: Detailed information about transaction finality on Base.
 ---
 
-## What Is Transaction Finality?
-
 Finality refers to the point at which a transaction sent to Base becomes irreversible. This provides guarantees that the transaction will not be rolled back or lost.
 
 Finality works differently for normal transactions that modify Base L2 state than it does for transactions that withdraw funds from Base L2 to Ethereum L1.
 
 <Note>
-**Only transactions that withdraw funds from Base to Ethereum must wait 7 days.** Regular transactions within Base, such as swaps or sends, _do not_ have to wait 7 days.
+**Only transactions that withdraw funds from Base to Ethereum must wait for a withdrawal finalization window** (5 days, or 1 day when both TEE and ZK proofs are present). Regular transactions within Base, such as swaps or sends, _do not_ have this wait.
 </Note>
 
 
@@ -58,16 +56,14 @@ The Ethereum L1 batch containing the transaction is older than 2 epochs, or 64 L
 ## Finality for Withdrawal Transactions
 This describes finality of transactions that move funds from Base to Ethereum
 
-**Only withdrawals to Ethereum must wait 7 days to finalize before the funds can be released to the address on Ethereum L1.** This allows Base's Fault Proof system to provide extremely high security guarantees for funds bridged to Base.
+**Only withdrawals to Ethereum must wait for a finalization window before the funds can be released to the address on Ethereum L1.** This allows Base's proof system to provide extremely high security guarantees for funds bridged to Base.
 
-<Accordion title="What Happens During the 7 Days?">
-When a transaction initiates a withdrawal from Base to Ethereum, the funds are removed from the account balance on Base. Later, a permissionless “proposer” must provide Ethereum with proof that Base contains this withdrawal.
+Since the [Beryl upgrade](/upgrades/beryl/reducing-canonical-withdrawal-delay), the finalization window is 5 days for a single-proof dispute game and 1 day on the dual-proof fast path, when both a TEE proof and a ZK proof back the same proposal. The window accounts for most of the end-to-end time; waiting for the relevant Base state to be proposed on Ethereum usually adds only about 20 to 60 minutes, plus the prove and finalize transactions. Third-party bridges that release funds faster use their own liquidity and do not change this window.
 
-However, Ethereum cannot natively confirm what happened on Base as they are separate blockchains. Thus, there is a 7 day window in which a permissionless “challenger” can dispute a proposal that it feels is malicious. If no challenge is made in the 7 days, the withdrawal can be proven against the finalized output root and released to the L1 recipient. But if a challenge is made, the proposer and challenger play what is called the Fault Dispute Game. This game requires increasing bonds to be made, with an eventual winner. If the proposer wins, the output root finalizes and can be used to prove withdrawals against (releasing them on L1). If the challenger wins, the output proposal becomes invalid.
+<Accordion title="What Happens During the Finalization Window?">
+After a withdrawal is initiated on Base, a proposer submits a checkpoint claim on Ethereum through an `AggregateVerifier` game with a TEE or ZK proof. An independent challenger can dispute an invalid claim with a ZK proof. The game's finalization window gives other participants time to verify the claim; when TEE and ZK proofs support the same proposal, the dual-proof path is shorter. See the [Azul proof system](/upgrades/azul/proofs) for the proof flow.
 
-This system requires only a one honest party to remain secure. Base will always run an honest proposer and challenger. 
-
-Note: if the dispute game is won by a challenger, the state of the L2 chain does not reorg. The output proposal is marked invalid and any withdrawals that were proven against it cannot finalize. Those withdrawals would need to be re-proven against a different, valid output root.
+A withdrawal proven against an invalid claim cannot finalize and must be re-proven against a valid one. Challenging a claim does not reorg the Base chain.
 </Accordion>
 
 ## FAQ
@@ -85,4 +81,3 @@ Transactions moving funds from Ethereum L1 to Base must be initiated on Ethereum
 No. The output proposal that was challenged is marked invalid, and any actions that used it's output root become invalid. Specifically, withdrawals from Base to L1 that proved against this output root must now prove against a different and valid one. 
   </Accordion>
 </AccordionGroup>
-

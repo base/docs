@@ -467,6 +467,7 @@ test("the CI gate protects the gate's own config and scripts", () => {
     ".github/workflows/ia-approval-gates.yml",
     ".github/workflows/docs-style-conformance.yml",
     ".github/CODEOWNERS",
+    "scripts/lint-mdx.js",
   ]) {
     assert.equal(
       activateByPaths(gate, [{ filename: p, status: "modified" }]).length,

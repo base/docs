@@ -1,9 +1,7 @@
 ---
 title: "IPolicyRegistry.stageUpdateAdmin"
-description: "Generated B20 reference for stageUpdateAdmin(uint64,address)."
+description: "Stages a proposed new admin for a policy in the Policy Registry; the active admin does not change until the pending admin calls finalizeUpdateAdmin."
 ---
-
-
 
 ## Signature
 
@@ -18,23 +16,38 @@ function stageUpdateAdmin(uint64 policyId, address newAdmin) external;
 
 ## Description
 
-Stages a proposed new admin for `policyId`. The active admin does not change
-until `pendingAdmin` calls `finalizeUpdateAdmin`.
-Dev: Reverts with `PolicyNotFound` when `policyId` does not exist.
-Dev: Reverts with `Unauthorized` when the caller is not the current admin.
-Param: policyId Policy whose admin is being staged.
-Param: newAdmin Proposed new admin, or `address(0)` to clear any pending nomination.
+Nominates `newAdmin` as the pending admin for `policyId`. The current admin does not change. `policyAdmin(policyId)` still returns the current admin. `pendingPolicyAdmin(policyId)` returns `newAdmin`.
+
+The pending admin must call `finalizeUpdateAdmin(policyId)` to take effect. Until then, the current admin retains full update rights on the policy.
+
+Passing `address(0)` as `newAdmin` clears any previously staged nomination without transferring administration.
+
+Emits `PolicyAdminStaged(policyId, currentAdmin, pendingAdmin)`.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy whose admin is being staged. |
+| `newAdmin` | `address` | Proposed new admin. Pass `address(0)` to clear a nomination that has not been finalized. |
+
+## Reverts
+
+| Error | Condition |
+|---|---|
+| `PolicyNotFound()` | `policyId` does not exist in the registry. |
+| `Unauthorized()` | Caller is not the current admin of `policyId`. |
 
 ## Access Control
 
-Callable by the policy admin for the target policy.
-
-## Policy Interaction
-
-This is part of the singleton PolicyRegistry surface used by B20 policy scopes.
+Callable only by the current policy admin for `policyId`. Any other caller reverts `Unauthorized`.
 
 ## Example
 
-```solidity Usage Example
-IPolicyRegistry(target).stageUpdateAdmin(arg0, arg1);
+```solidity Admin handoff
+// Step 1: current admin nominates a successor
+IPolicyRegistry(registry).stageUpdateAdmin(policyId, nextAdmin);
+
+// Step 2: nextAdmin finalizes (separate transaction, called by nextAdmin)
+IPolicyRegistry(registry).finalizeUpdateAdmin(policyId);
 ```

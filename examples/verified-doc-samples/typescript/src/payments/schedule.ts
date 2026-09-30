@@ -1,33 +1,46 @@
-import { getPermissionStatus, prepareSpendCallData } from "@base-org/account/spend-permission/node";
-import { parseUnits } from "viem";
+import { zeroAddress, type Hex } from "viem";
 import { account, publicClient, walletClient } from "../shared/clients.js";
+import {
+  AUTH_CAPTURE_ESCROW,
+  SPEND_PERMISSION_PAYMENT_COLLECTOR,
+  authCaptureEscrowAbi,
+  type PaymentInfo,
+} from "./protocol.js";
 
-type SpendPermission = Parameters<typeof prepareSpendCallData>[0];
+export interface BillingStore {
+  reserveOnce(key: string): Promise<boolean>;
+  complete(key: string, hash: Hex): Promise<void>;
+}
 
 // docs:start scheduled-charge-ts
-export async function chargeSubscription(permission: SpendPermission, amount: string) {
-  if (permission.permission.spender.toLowerCase() !== account.address.toLowerCase()) {
-    throw new Error("Connected account is not the approved spender");
+export async function chargeSubscriptionPeriod(args: {
+  paymentInfo: PaymentInfo;
+  collectorData: Hex;
+  billingKey: string;
+  amount: bigint;
+  store: BillingStore;
+}) {
+  if (!(await args.store.reserveOnce(args.billingKey))) {
+    throw new Error("Billing period was already submitted");
   }
-  const charge = parseUnits(amount, 6);
-  const status = await getPermissionStatus(permission, { rpcUrl: process.env.RPC_URL });
-  if (!status.isActive || status.isRevoked || status.isExpired) {
-    throw new Error("Spend permission is not active");
-  }
-  if (status.remainingSpend < charge) throw new Error("Period allowance is exhausted");
-
-  const calls = await prepareSpendCallData(permission, charge, account.address, {
-    rpcUrl: process.env.RPC_URL,
+  const simulation = await publicClient.simulateContract({
+    account,
+    address: AUTH_CAPTURE_ESCROW,
+    abi: authCaptureEscrowAbi,
+    functionName: "charge",
+    args: [
+      args.paymentInfo,
+      args.amount,
+      SPEND_PERMISSION_PAYMENT_COLLECTOR,
+      args.collectorData,
+      0n,
+      zeroAddress,
+    ],
   });
-  for (const call of calls) {
-    const hash = await walletClient.sendTransaction({
-      account,
-      to: call.to,
-      data: call.data,
-      value: call.value,
-    });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
-    if (receipt.status !== "success") throw new Error("Scheduled charge reverted");
-  }
+  const hash = await walletClient.writeContract(simulation.request);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 2 });
+  if (receipt.status !== "success") throw new Error("Scheduled charge reverted");
+  await args.store.complete(args.billingKey, hash);
+  return receipt;
 }
 // docs:end scheduled-charge-ts

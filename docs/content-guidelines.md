@@ -77,6 +77,7 @@ description: "Concise description explaining page purpose and value"
 - Include descriptive alt text for all images and diagrams
 - Use specific, actionable link text instead of "click here"
 - Ensure proper heading hierarchy starting with H2
+- Do not repeat the frontmatter page title as the first body heading. Mintlify already renders the title as the page H1; start with introductory content or a distinct H2 section.
 - Provide keyboard navigation considerations
 - Use sufficient color contrast in examples and visuals
 - Structure content for easy scanning with headers and lists

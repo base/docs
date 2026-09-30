@@ -25,11 +25,11 @@ assert.match(engineSource, /from "\.\/aa\.txt"/, "engine keeps the loader-rewrit
 assert.match(snippet, /replace\('\"\.\/aa\.txt\"'/, "snippet rewrites the AA specifier before Blob evaluation");
 assert.doesNotMatch(snippet, /^\s*import\s/m, "Mintlify snippet must not contain imports");
 assert.match(snippet, /fetchText\("\/static\/aa\.txt"\)/, "AA artifact is fetched lazily by the snippet loader");
-assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=2"\)/, "versioned shared engine is fetched by the snippet loader");
+assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=5"\)/, "versioned shared engine is fetched by the snippet loader");
 assert.match(assetSnippet, /replace\('\"\.\/aa\.txt\"'/, "Asset snippet rewrites the AA specifier before Blob evaluation");
 assert.doesNotMatch(assetSnippet, /^\s*import\s/m, "Asset Mintlify snippet must not contain imports");
 assert.match(assetSnippet, /fetchText\("\/static\/aa\.txt"\)/, "Asset snippet lazy-loads the AA artifact");
-assert.match(assetSnippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=2"\)/, "Asset snippet uses the versioned shared engine");
+assert.match(assetSnippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=5"\)/, "Asset snippet uses the versioned shared engine");
 
 const tempAa = "/tmp/base-docs-aa-test.mjs";
 const tempEngine = "/tmp/base-docs-vibenet-engine-test.mjs";
@@ -41,7 +41,7 @@ await writeFile(
 const engine = await import(`${pathToFileURL(tempEngine).href}?v=${Date.now()}`);
 
 assert.equal(engine.CHAIN_ID, 84538453);
-assert.equal(engine.ENGINE_VERSION, 2);
+assert.equal(engine.ENGINE_VERSION, 5);
 assert.equal(engine.ASSET_FEATURE, "0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c");
 assert.equal(engine.units(1), 1_000_000n);
 assert.equal(engine.displayUnits(25_500_000n), 25.5);
@@ -50,10 +50,15 @@ assert.equal(engine.bytes32ToMemo(engine.memoToBytes32("invoice-8842")), "invoic
 assert.equal(engine.decodeRevert({ data: "0x4b344b11" }).name, "SupplyCapExceeded");
 assert.equal(engine.decodeRevert({ data: "0xa43fec12" }).name, "PolicyForbids");
 assert.equal(engine.decodeRevert({ data: "0xfd8c4245" }).name, "ContractPaused");
+assert.equal(engine.decodeRevert({ data: "0x91dbbc8d" }).name, "AccountNotSeizable");
+assert.equal(typeof engine.seize, "function");
 assert.equal(typeof engine.createAsset, "function");
 assert.equal(typeof engine.configureAssetControls, "function");
 assert.equal(typeof engine.announceDistribution, "function");
-assert.equal(typeof engine.updateMultiplier, "function");
+assert.equal(typeof engine.updateUIMultiplier, "function");
+assert.equal(typeof engine.balanceOfUI, "function");
+assert.equal(typeof engine.waitForTimestamp, "function");
+assert.equal(engine.updateMultiplier, undefined, "demos use the Cobalt scheduled setter, not the deprecated instant one");
 assert.equal(typeof engine.assetDetails, "function");
 const memoTopic = engine.memoToBytes32("invoice-8842");
 const decodedMemo = engine.readMemoFromReceipt({
@@ -68,5 +73,32 @@ const decodedMemo = engine.readMemoFromReceipt({
 });
 assert.equal(decodedMemo.text, "invoice-8842");
 assert.equal(decodedMemo.logIndex, 2);
+
+// The account implementation fallback is load-bearing: Vibenet's
+// /api/vibenet/contracts has omitted its `eip8130` block since a reset, so the
+// vendored bundle's canonical devnet set is the only source of a DefaultAccount
+// address. Guard the shape here — if a re-pin drops or renames this export, the
+// demos silently lose their only fallback.
+const aaModule = await import(pathToFileURL(tempAa).href);
+assert.equal(
+  typeof aaModule.vibenetDevnetDeployment?.accounts?.default,
+  "string",
+  "vendored bundle must export vibenetDevnetDeployment.accounts.default",
+);
+assert.match(
+  aaModule.vibenetDevnetDeployment.accounts.default,
+  /^0x[0-9a-fA-F]{40}$/,
+  "fallback DefaultAccount must be an address",
+);
+assert.match(
+  engineSource,
+  /vibenetDevnetDeployment\?\.accounts\?\.default/,
+  "engine falls back to the bundled canonical deployment",
+);
+assert.match(
+  engineSource,
+  /account: Boolean\(implementation\)/,
+  "probeCapabilities reports account-implementation liveness so demos degrade instead of throwing",
+);
 
 console.log("Vibenet engine and Mintlify loader checks passed.");
