@@ -104,8 +104,12 @@ test("gradeRep: drafted scope checks appear in checks[] but do not count toward 
   const scopeChecks = gd.checks.filter((c) => c.id.startsWith("scope."));
   assert.ok(scopeChecks.length >= 2);
   assert.ok(scopeChecks.every((c) => c.pass === null && /unconfirmed drafted labels/.test(c.detail)));
-  // Same run, wrong scope.in: confirmed labels drag code down, drafted ones must not.
-  assert.ok(gc.summary.code < gd.summary.code);
+  // Same run, wrong scope.in: confirmed labels produce a scope term that drags
+  // overall down; drafted ones produce no scope term at all.
+  assert.equal(gd.summary.scope, null);
+  assert.ok(gc.summary.scope < 1);
+  assert.ok(gc.summary.overall < gd.summary.overall);
+  assert.ok(Math.abs(gc.summary.code - gd.summary.code) < 1e-9, "scope checks no longer feed the code term");
   const nonScope = gd.checks.filter((c) => c.layer === "code" && !c.id.startsWith("scope."));
   const expected = nonScope.reduce((s, c) => s + c.score, 0) / nonScope.length;
   assert.ok(Math.abs(gd.summary.code - expected) < 1e-9);

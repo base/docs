@@ -135,8 +135,11 @@ Everything lives under `scripts/doc-evals/` except the report workflow
 ```
 
 **Overall score** (keep this simple and documented in code):
-`overall = 0.5 * code + 0.3 * judge + 0.2 * pairwise`, dropping missing terms and
-renormalizing weights. A case with a validator crash or zero touched pages when
+`overall = 0.4 * scope + 0.25 * code + 0.2 * judge + 0.15 * pairwise`, dropping missing
+terms and renormalizing weights. `scope` = F1 of scope.precision and scope.recall (null
+for unconfirmed drafted labels); `code` = mean of the other code checks. (Changed in
+senior review 2026-09-30: with scope folded into `code`, a run touching 9 pages when 3
+were right still scored 0.98, leaving no headroom on the main reviewer complaint.) A case with a validator crash or zero touched pages when
 `scope.in` is non-empty scores 0.
 
 ## Lane A: replay harness

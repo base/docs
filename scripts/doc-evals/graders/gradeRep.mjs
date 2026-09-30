@@ -24,7 +24,21 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
  * `calibrate.mjs` and report tooling quote the same numbers rather than
  * hardcoding them a second time.
  */
-export const OVERALL_WEIGHTS = { code: 0.5, judge: 0.3, pairwise: 0.2 };
+// Scope is its own term (senior review, 2026-09-30). As one code check among
+// ~40 per-page checks, touching 9 pages when 3 were right still scored 0.98
+// overall, so the reviewers' main complaint barely moved the score and the
+// eval had no headroom. `scope` = F1 of scope.precision and scope.recall.
+export const OVERALL_WEIGHTS = { scope: 0.4, code: 0.25, judge: 0.2, pairwise: 0.15 };
+
+function scopeF1(checks) {
+  const precision = checks.find((c) => c.id === "scope.precision");
+  const recall = checks.find((c) => c.id === "scope.recall");
+  // Unconfirmed drafted labels (pass: null) or missing checks: no scope term.
+  if (!precision || !recall || precision.pass === null || recall.pass === null) return null;
+  const p = precision.score;
+  const r = recall.score;
+  return p + r === 0 ? 0 : (2 * p * r) / (p + r);
+}
 
 /** @returns {Map<string,string>} repo-relative path -> file content, recursively under `rootDir` */
 async function loadContentDir(rootDir) {
@@ -98,7 +112,10 @@ export function summarize(caseDef, run, checks, cost, { judgeSkipped, pairwiseSk
   // `pass: null` code checks (unconfirmed drafted scope labels) are reported
   // but must not count toward the score. If nothing scoreable is left,
   // `code` is null and drops out of the overall blend like the other layers.
-  const code = mean(checks.filter((c) => c.layer === "code" && c.pass !== null).map((c) => c.score));
+  const scope = scopeF1(checks);
+  const code = mean(
+    checks.filter((c) => c.layer === "code" && c.pass !== null && !c.id.startsWith("scope.")).map((c) => c.score),
+  );
   // Judge/pairwise `pass: null` means the call failed or its reply didn't parse
   // (a grading error, not a verdict on the page). Leave those out of the means
   // and count them instead, so a gateway hiccup can't look like a bad prompt;
@@ -126,6 +143,7 @@ export function summarize(caseDef, run, checks, cost, { judgeSkipped, pairwiseSk
     overall = 0;
   } else {
     const terms = [
+      [OVERALL_WEIGHTS.scope, scope],
       [OVERALL_WEIGHTS.code, code],
       [OVERALL_WEIGHTS.judge, judge],
       [OVERALL_WEIGHTS.pairwise, pairwise],
@@ -134,7 +152,7 @@ export function summarize(caseDef, run, checks, cost, { judgeSkipped, pairwiseSk
     overall = totalWeight === 0 ? 0 : terms.reduce((sum, [w, value]) => sum + w * value, 0) / totalWeight;
   }
 
-  return { code, judge, pairwise, overall, cost, gradingErrors };
+  return { scope, code, judge, pairwise, overall, cost, gradingErrors };
 }
 
 /**

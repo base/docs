@@ -48,6 +48,21 @@ test("summarize: failed judge/pairwise calls are excluded from means and counted
   assert.equal(s.overall, (0.5 * 1 + 0.3 * 1) / 0.8);
 });
 
+test("summarize: scope is its own term (F1 of precision/recall), so scope creep dominates", () => {
+  const caseDef = { scope: { in: ["docs/a.mdx", "docs/b.mdx", "docs/c.mdx"], label_source: "review" } };
+  const run = { meta: { touched: Array.from({ length: 9 }, (_, i) => `docs/p${i}.mdx`), exitCode: 0 } };
+  const checks = [
+    { id: "scope.precision", layer: "code", page: null, pass: false, score: 3 / 9 },
+    { id: "scope.recall", layer: "code", page: null, pass: true, score: 1 },
+    ...Array.from({ length: 36 }, (_, i) => ({ id: "lint", layer: "code", page: `docs/p${i % 9}.mdx`, pass: true, score: 1 })),
+  ];
+  const s = summarize(caseDef, run, checks, { inputTokens: 0, outputTokens: 0 }, { judgeSkipped: true, pairwiseSkipped: true });
+  assert.equal(s.code, 1);
+  assert.ok(Math.abs(s.scope - 0.5) < 1e-9, "F1(1/3, 1) = 0.5");
+  // 0.4*0.5 + 0.25*1 over 0.65 ≈ 0.69, not the 0.98 the old blend produced.
+  assert.ok(Math.abs(s.overall - (0.4 * 0.5 + 0.25) / 0.65) < 1e-9);
+});
+
 test("summarize: unconfirmed drafted scope checks (code, pass null) are not grading errors", () => {
   const caseDef = { scope: { in: [], label_source: "drafted" } };
   const run = { meta: { touched: [], exitCode: 0 } };
