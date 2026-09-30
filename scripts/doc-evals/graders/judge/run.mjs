@@ -30,17 +30,19 @@ function modelChain() {
 }
 
 /**
- * @param {string} prompt
+* @param {string} prompt
  * @param {string} page
+ * @param {{system?: string}=} opts  defaults to JUDGE_SYSTEM_PROMPT; pairwise.mjs
+ *        passes its own system prompt through this same fallback chain.
  * @returns {Promise<{text: string, outputTokens: number|null, inputTokens: number|null, model: string}>}
  */
-async function completeWithFallback(prompt, page) {
+export async function completeWithFallback(prompt, page, opts = {}) {
   const chain = modelChain();
   let lastErr;
   for (let i = 0; i < chain.length; i++) {
     const model = chain[i];
     try {
-      const result = await complete(prompt, page, { system: JUDGE_SYSTEM_PROMPT, model });
+      const result = await complete(prompt, page, { system: opts.system ?? JUDGE_SYSTEM_PROMPT, model });
       // `complete()` only returns {text, stopReason, outputTokens}; the
       // matching input-token count lives on the bench-log row it just
       // pushed (see llm/client.mjs's BENCH_LOG schema).
