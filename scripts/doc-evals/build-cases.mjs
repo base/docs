@@ -43,7 +43,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { routeCodeChange, classifyChangedPaths } from "../sync-from-base-std/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -87,17 +86,19 @@ const SEED = [
     reference: null,
     scopeOut: [],
     heavy: false,
-    notes: "",
+    legacyLayout: true,
+    notes: "Pre-IA-overhaul docs layout (B20 pages under docs/base-chain/specs/reference/b20/): the current route table targets docs/specifications/b20/, so a replay against this base resolves almost no pages. Excluded from replays by default (--include-legacy).",
   },
   {
     id: "6bb10a4-composite-policy-spec",
     botPr: 1854,
     sourceSha: "6bb10a44ef688f1f44041203e35c9956c0b3bca1",
-    split: "test",
+    split: "train",
     reference: null,
     scopeOut: [],
     heavy: false,
-    notes: "",
+    legacyLayout: true,
+    notes: "Pre-IA-overhaul docs layout (B20 pages under docs/base-chain/specs/reference/b20/): the current route table targets docs/specifications/b20/, so a replay against this base resolves almost no pages. Excluded from replays by default (--include-legacy).",
   },
   {
     id: "868d513-seize-integrator-guidance",
@@ -113,7 +114,7 @@ const SEED = [
     id: "db537f3-b20asset-multiplier-behavior",
     botPr: 1919,
     sourceSha: "db537f309b2acf0fb123dd2d26c344b18f504db0",
-    split: "train",
+    split: "test",
     reference: null,
     scopeOut: [],
     heavy: false,
@@ -495,12 +496,32 @@ async function fetchReviewFindings(botPr) {
 }
 
 // --------------------------------------------------------------- scope
-async function draftScopeIn(payload) {
+// Drafted labels come from the *current* route table, so they inherit its
+// blind spots (including pages reviewers called scope creep). They are a
+// starting point for a human to confirm, never ground truth; graders treat
+// label_source "drafted" as unconfirmed. Pages that did not exist at the
+// docs base commit are dropped: a replay can't touch them, so keeping them
+// would make recall unreachable.
+async function draftScopeIn(payload, docsBaseCommit) {
   const route = JSON.parse(
     await fs.readFile(path.join(REPO_ROOT, "scripts", "sync-from-base-std", "route-table.json"), "utf8"),
   );
+  // Imported lazily: index.mjs pulls in the LLM client (@anthropic-ai/sdk),
+  // which is installed under scripts/ but not at the repo root where CI runs
+  // `npm test`. The pure helpers in this file stay importable without it.
+  const { routeCodeChange } = await import("../sync-from-base-std/index.mjs");
   const work = await routeCodeChange(route, payload.changed_paths, { removedPaths: payload.removed_paths });
-  return [...new Set(work.map((w) => w.page))].sort();
+  const pages = [...new Set(work.map((w) => w.page))].sort();
+  return pages.filter((p) => existsAtCommit(docsBaseCommit, p));
+}
+
+function existsAtCommit(commit, relPath) {
+  try {
+    execFileSync("git", ["cat-file", "-e", `${commit}:${relPath}`], { cwd: REPO_ROOT, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // --------------------------------------------------------------- per-case
@@ -520,7 +541,7 @@ async function buildCase(seed) {
   const payload = await buildPayload(seed.sourceSha);
   const reviewFindings = await fetchReviewFindings(seed.botPr);
 
-  const scopeIn = seed.reference ? seed.reference.pages : await draftScopeIn(payload);
+  const scopeIn = seed.reference ? seed.reference.pages : await draftScopeIn(payload, docsBaseCommit);
   const labelSource = seed.reference ? "reference" : "drafted";
 
   return {
@@ -541,6 +562,7 @@ async function buildCase(seed) {
     review_findings: reviewFindings,
     split: seed.split,
     heavy: seed.heavy,
+    legacy_layout: seed.legacyLayout === true,
     notes: seed.notes,
   };
 }

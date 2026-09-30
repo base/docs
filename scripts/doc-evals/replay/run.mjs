@@ -8,7 +8,7 @@
  * CLI:
  *   node scripts/doc-evals/replay/run.mjs
  *     [--cases id,id | --split train|test|all]
- *     [--include-heavy] [--reps N] [--candidate <path-to-scripts/sync-from-base-std>]
+ *     [--include-heavy] [--include-legacy] [--reps N] [--candidate <path-to-scripts/sync-from-base-std>]
  *     [--run-id X] [--concurrency N]
  *
  * `replayCase(caseDef, opts)` is also exported for programmatic use (the
@@ -260,6 +260,7 @@ function parseArgs(argv) {
     cases: null,
     split: null,
     includeHeavy: false,
+    includeLegacy: false,
     reps: 1,
     candidate: null,
     runId: null,
@@ -270,6 +271,7 @@ function parseArgs(argv) {
     if (a === "--cases") args.cases = argv[++i].split(",").map((s) => s.trim());
     else if (a === "--split") args.split = argv[++i];
     else if (a === "--include-heavy") args.includeHeavy = true;
+    else if (a === "--include-legacy") args.includeLegacy = true;
     else if (a === "--reps") args.reps = Number(argv[++i]);
     else if (a === "--candidate") args.candidate = path.resolve(argv[++i]);
     else if (a === "--run-id") args.runId = argv[++i];
@@ -283,7 +285,7 @@ function defaultRunId() {
   return `run-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`;
 }
 
-async function loadCases({ cases, split, includeHeavy }) {
+async function loadCases({ cases, split, includeHeavy, includeLegacy }) {
   const files = (await fs.readdir(CASES_DIR)).filter((f) => f.endsWith(".json"));
   const all = await Promise.all(
     files.map(async (f) => JSON.parse(await fs.readFile(path.join(CASES_DIR, f), "utf8"))),
@@ -297,6 +299,9 @@ async function loadCases({ cases, split, includeHeavy }) {
     selected = all.filter((c) => c.split === split);
   }
   if (!includeHeavy) selected = selected.filter((c) => !c.heavy);
+  // Legacy-layout cases predate the docs IA overhaul; the current route table
+  // cannot resolve their pages, so replaying them measures nothing useful.
+  if (!includeLegacy) selected = selected.filter((c) => !c.legacy_layout);
   return selected;
 }
 
@@ -306,7 +311,7 @@ async function main() {
   const candidateDir = args.candidate || DEFAULT_CANDIDATE_DIR;
   const cases = await loadCases(args);
   if (cases.length === 0) {
-    console.log("[replay] no cases matched the given filters (heavy cases are excluded by default)");
+    console.log("[replay] no cases matched the given filters (heavy and legacy-layout cases are excluded by default)");
     return;
   }
 

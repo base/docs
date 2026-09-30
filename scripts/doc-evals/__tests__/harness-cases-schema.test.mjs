@@ -36,6 +36,7 @@ test("every case file: required top-level fields with the right shapes", async (
     assert.notEqual(def.docs_base_commit, def.source_sha, file);
     assert.ok(VALID_SPLITS.has(def.split), `${file}: split must be train|test, got ${def.split}`);
     assert.equal(typeof def.heavy, "boolean", file);
+    assert.equal(typeof def.legacy_layout, "boolean", `${file}: legacy_layout must be a boolean`);
     assert.equal(typeof def.notes, "string", file);
     assert.ok(def.payload && typeof def.payload === "object", file);
     assert.ok(Array.isArray(def.review_findings), file);
