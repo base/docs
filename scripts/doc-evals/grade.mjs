@@ -57,11 +57,12 @@ function parseArgs(argv) {
  *
  * @param {object} caseDef
  * @param {string} repDir
- * @returns {Promise<string>} a markdown fragment
+ * @returns {Promise<{md: string, usage: {inputTokens: number, outputTokens: number}}>} a markdown fragment plus the calls' token usage
  */
 async function runVarianceCheck(caseDef, repDir) {
   const run = await loadRun(repDir);
   const perClaim = new Map(CLAIMS.map((c) => [c.id, { agree: 0, total: 0 }]));
+  const usage = { inputTokens: 0, outputTokens: 0 };
 
   for (const [page, afterText] of run.after) {
     if (!isDocPage(page)) continue;
@@ -74,6 +75,10 @@ async function runVarianceCheck(caseDef, repDir) {
       reviewFindings: (caseDef?.review_findings || []).filter((f) => f?.page === page),
     };
     const [a, b] = await Promise.all([judgePage(ctx), judgePage(ctx)]);
+    for (const r of [a, b]) {
+      usage.inputTokens += r.usage.inputTokens || 0;
+      usage.outputTokens += r.usage.outputTokens || 0;
+    }
     for (const claim of CLAIMS) {
       const passA = a.checks.find((c) => c.id === `judge.${claim.id}`)?.pass;
       const passB = b.checks.find((c) => c.id === `judge.${claim.id}`)?.pass;
@@ -87,7 +92,8 @@ async function runVarianceCheck(caseDef, repDir) {
   for (const [id, { agree, total }] of perClaim) {
     lines.push(`| ${id} | ${total === 0 ? "n/a" : `${agree}/${total} (${((agree / total) * 100).toFixed(0)}%)`} |`);
   }
-  return lines.join("\n");
+  lines.push("", `Variance-check cost: ${usage.inputTokens} input / ${usage.outputTokens} output tokens`);
+  return { md: lines.join("\n"), usage };
 }
 
 function renderSummaryMd(runId, runSummary, varianceReport) {
@@ -130,7 +136,7 @@ async function main(argv = process.argv.slice(2)) {
       entries.push({ caseId, rep: grade.rep, split: caseDef.split ?? null, grade });
       console.log(`[grade] ${caseId}/${repName}: overall=${grade.summary.overall.toFixed(3)}`);
       if (args.variance && !args.noJudge) {
-        varianceSections.push(`### ${caseId}/${repName}\n\n${await runVarianceCheck(caseDef, repDir)}`);
+        varianceSections.push(`### ${caseId}/${repName}\n\n${(await runVarianceCheck(caseDef, repDir)).md}`);
       }
     }
   }

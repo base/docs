@@ -99,3 +99,33 @@ test("changelog.fidelity: no matching source file in the diff means the check is
   const checks = checkChangelogFidelity(caseDef, { after: new Map([[ENTRY_PAGE, "## Abstract\nx"]]) });
   assert.deepEqual(checks, []);
 });
+
+test("changelog.shape: an existing legacy entry that already lacked sections is not failed for them", () => {
+  const legacy = ["## Summary", "x", "## Mapping Table", "x"].join("\n\n");
+  const after = legacy + "\n\nedited line";
+  const [check] = checkChangelogShape({}, runAfter(ENTRY_PAGE, after, legacy));
+  assert.equal(check.pass, true);
+  assert.match(check.detail, /no new shape problems/);
+});
+
+test("changelog.shape: removing a required section from an existing entry still fails", () => {
+  const before = ["## Abstract", "x", "## Motivation", "x", "## What Changed", "x", "## Migration", "x"].join("\n\n");
+  const after = ["## Abstract", "x", "## Motivation", "x", "## What Changed", "x"].join("\n\n");
+  const [check] = checkChangelogShape({}, runAfter(ENTRY_PAGE, after, before));
+  assert.equal(check.pass, false);
+  assert.match(check.detail, /missing: Migration/);
+});
+
+test("changelog.fidelity: skipped when the source diff only edits an existing entry", () => {
+  const diff = [
+    "diff --git a/changelog/02_Cobalt_B20_seize.md b/changelog/02_Cobalt_B20_seize.md",
+    "index a32350a9..dc19c307 100644",
+    "--- a/changelog/02_Cobalt_B20_seize.md",
+    "+++ b/changelog/02_Cobalt_B20_seize.md",
+    "@@ -1,1 +1,1 @@",
+    "-old line",
+    "+new line about seize",
+  ].join("\n");
+  const checks = checkChangelogFidelity({ payload: { diff } }, runAfter(ENTRY_PAGE, "## Abstract\n\ncompletely different words here"));
+  assert.deepEqual(checks, []);
+});

@@ -23,7 +23,8 @@
  * every fact is technically correct, which is exactly the failure mode to
  * catch. When no such file is present in the diff (release payloads,
  * truncated diffs, or a case that predates this field), the check is
- * skipped rather than failed — "for changelog entry pages with an upstream
+ * skipped rather than failed (as is a diff that merely edits an existing
+ * entry, which holds only the changed lines) — "for changelog entry pages with an upstream
  * source entry in the payload" (PLAN.md) is a precondition, not a pass/fail.
  */
 import { splitDiffByFile } from "../../../sync-from-base-std/release-utils.mjs";
@@ -50,6 +51,24 @@ function headings(content) {
     .map((m) => m[1].trim());
 }
 
+/** @returns {{missing: string[], outOfOrder: boolean}} required-section problems in one page body */
+function shapeProblems(content) {
+  const heads = headings(content);
+  const missing = [];
+  let outOfOrder = false;
+  let lastIndex = -1;
+  for (const section of REQUIRED_SECTIONS) {
+    const idx = heads.findIndex((h) => section.pattern.test(h));
+    if (idx === -1) {
+      missing.push(section.id);
+      continue;
+    }
+    if (idx < lastIndex) outOfOrder = true;
+    lastIndex = Math.max(lastIndex, idx);
+  }
+  return { missing, outOfOrder };
+}
+
 /**
  * @param {object} caseDef  unused; kept for a consistent check signature
  * @param {{after: Map<string,string>, before: Map<string,string>}} run
@@ -62,23 +81,20 @@ export function checkChangelogShape(caseDef, run) {
     const role = roleForPage(page);
 
     if (role === "changelog-entry") {
-      const heads = headings(afterText);
-      const missing = [];
-      let outOfOrder = false;
-      let lastIndex = -1;
-      for (const section of REQUIRED_SECTIONS) {
-        const idx = heads.findIndex((h) => section.pattern.test(h));
-        if (idx === -1) {
-          missing.push(section.id);
-          continue;
-        }
-        if (idx < lastIndex) outOfOrder = true;
-        lastIndex = Math.max(lastIndex, idx);
-      }
+      const now = shapeProblems(afterText);
+      // Only problems the run introduced count: an existing legacy-format
+      // entry that already lacked sections isn't the bot's doing (it may
+      // edit such a page; whether it should is a scope question).
+      const beforeText = run.before?.get(page);
+      const prior = !beforeText ? { missing: [], outOfOrder: false } : shapeProblems(beforeText);
+      const missing = now.missing.filter((id) => !prior.missing.includes(id));
+      const outOfOrder = now.outOfOrder && !prior.outOfOrder;
       const pass = missing.length === 0 && !outOfOrder;
       const score = pass ? 1 : Math.max(0, 1 - 0.25 * (missing.length + (outOfOrder ? 1 : 0)));
       const detail = pass
-        ? "Abstract, Motivation, What changed, Migration present in order"
+        ? now.missing.length || now.outOfOrder
+          ? "no new shape problems (page already lacked required sections before the run)"
+          : "Abstract, Motivation, What changed, Migration present in order"
         : [missing.length ? `missing: ${missing.join(", ")}` : "", outOfOrder ? "sections out of order" : ""]
             .filter(Boolean)
             .join("; ");
@@ -117,6 +133,10 @@ function findSourceEntry(diffText) {
   const byFile = splitDiffByFile(diffText);
   for (const [file, section] of byFile) {
     if (!re.test(file)) continue;
+    // Only a NEWLY ADDED entry is a whole upstream entry to copy. A diff that
+    // edits an existing entry carries just the changed lines, so overlap with
+    // it would be near zero for any correct page: skip rather than fail.
+    if (!/^new file mode /m.test(section) && !/^--- \/dev\/null$/m.test(section)) return null;
     return section
       .split("\n")
       .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
