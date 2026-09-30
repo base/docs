@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { buildMergeRateReport, renderMergeRateMarkdown } from "../metrics/merge-rate.mjs";
+import { buildMergeRateReport, renderMergeRateMarkdown, run } from "../metrics/merge-rate.mjs";
 
 const fixturesDir = path.join(import.meta.dirname, "fixtures", "metrics");
 const botPrs = JSON.parse(await readFile(path.join(fixturesDir, "bot-prs.json"), "utf8"));
@@ -82,6 +82,80 @@ describe("buildMergeRateReport", () => {
     const mergedCandidates = [{ number: 2000, mergedAt: "2026-09-01T00:00:00Z", files: ["docs/build-on-base/x.mdx"] }];
     const report = buildMergeRateReport(botPrs, detailByNumber, mergedCandidates, { nowMs: NOW });
     assert.deepEqual(report.superseded, []);
+  });
+});
+
+/**
+ * Regression test for the additions/deletions bug: GitHub's list-PRs
+ * endpoint (used by listBotPullRequests) never returns additions/
+ * deletions, so run() must fetch totals per merged PR (fetchPRTotals,
+ * single-PR endpoint) rather than trusting pr.additions/pr.deletions off
+ * the list response — otherwise humanRewriteRatios silently comes back
+ * empty for every real run. Confirmed against the live API during this
+ * lane's review; see laneC-metrics.md.
+ */
+describe("run", () => {
+  test("fetches per-PR totals for merged bot PRs so the human rewrite ratio isn't silently empty", async () => {
+    const botPr = {
+      number: 1939,
+      state: "closed",
+      merged_at: "2026-09-10T06:00:14Z",
+      created_at: "2026-09-08T15:44:36Z",
+      updated_at: "2026-09-10T14:34:07Z",
+      head: { ref: "docs/sync-code-change-be6d045" },
+      // Deliberately no additions/deletions here — the real list endpoint
+      // doesn't send them either.
+    };
+    const commits = [
+      { sha: "7c7b4e7", author: { login: "github-actions[bot]" } },
+      { sha: "e405074", author: { login: "soheimam" } },
+    ];
+    const fetchImpl = async (url) => {
+      const respond = (json, headers = {}) => ({
+        status: 200,
+        ok: true,
+        text: async () => JSON.stringify(json),
+        headers: { get: (name) => headers[name.toLowerCase()] ?? null },
+      });
+      if (url.includes("/pulls?state=all")) return respond([botPr]);
+      if (url.match(/\/pulls\/1939\/commits/)) return respond(commits);
+      if (url.match(/\/commits\/e405074$/)) return respond({ stats: { additions: 464, deletions: 520 } });
+      if (url.match(/\/pulls\/1939\/files/)) return respond([{ filename: "docs/x.mdx" }]);
+      // Single-PR endpoint: only this one carries additions/deletions.
+      if (url.match(/\/pulls\/1939$/)) return respond({ additions: 1351, deletions: 655 });
+      if (url.includes("/pulls?state=closed")) return respond([]);
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+    const report = await run({ owner: "base", repo: "docs", token: "tok", fetchImpl });
+    const entry = report.humanRewriteRatios.find((r) => r.number === 1939);
+    assert.ok(entry, "expected a human rewrite ratio entry for the merged PR");
+    assert.ok(Math.abs(entry.ratio - 984 / 2006) < 1e-9);
+  });
+
+  test("does not fetch totals for non-merged PRs", async () => {
+    const botPr = {
+      number: 1968,
+      state: "open",
+      merged_at: null,
+      created_at: "2026-09-14T18:58:14Z",
+      updated_at: "2026-09-16T17:00:36Z",
+      head: { ref: "docs/sync-code-change-253bb15" },
+    };
+    let singlePrFetched = false;
+    const fetchImpl = async (url) => {
+      const respond = (json) => ({ status: 200, ok: true, text: async () => JSON.stringify(json), headers: { get: () => null } });
+      if (url.includes("/pulls?state=all")) return respond([botPr]);
+      if (url.match(/\/pulls\/1968\/commits/)) return respond([{ sha: "a1", author: { login: "github-actions[bot]" } }]);
+      if (url.match(/\/pulls\/1968\/files/)) return respond([]);
+      if (url.includes("/pulls?state=closed")) return respond([]);
+      if (url.match(/\/pulls\/1968$/)) {
+        singlePrFetched = true;
+        return respond({ additions: 1, deletions: 1 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+    await run({ owner: "base", repo: "docs", token: "tok", fetchImpl });
+    assert.equal(singlePrFetched, false);
   });
 });
 

@@ -25,6 +25,7 @@ import {
   fetchPRCommits,
   fetchCommitStats,
   fetchPRFiles,
+  fetchPRTotals,
 } from "./github.mjs";
 import { median, rate, hoursBetween, isStale, humanRewriteRatio, findSupersedingPRs } from "./stats.mjs";
 import { isBotLogin } from "./taxonomy.mjs";
@@ -180,6 +181,20 @@ export async function run({ owner = DEFAULT_OWNER, repo = DEFAULT_REPO, since, f
     detailByNumber.set(pr.number, await gatherPRDetail(owner, repo, pr, tok, { fetchImpl }));
   }
 
+  // The list endpoint (`listBotPullRequests`) never returns additions/
+  // deletions (see fetchPRTotals's doc comment) — buildMergeRateReport's
+  // human-rewrite-ratio math reads `pr.additions`/`pr.deletions` directly,
+  // so merged bot PRs need those fields fetched and merged in here before
+  // aggregation. Scoped to merged PRs only; the ratio is meaningless for
+  // anything else.
+  const prsWithTotals = await Promise.all(
+    prs.map(async (pr) => {
+      if (!pr.merged_at) return pr;
+      const totals = await fetchPRTotals(owner, repo, pr.number, tok, { fetchImpl });
+      return { ...pr, ...totals };
+    }),
+  );
+
   const earliestCreatedAt = prs.reduce((min, pr) => (min === null || pr.created_at < min ? pr.created_at : min), null);
   let mergedCandidates = [];
   if (earliestCreatedAt) {
@@ -193,7 +208,7 @@ export async function run({ owner = DEFAULT_OWNER, repo = DEFAULT_REPO, since, f
     );
   }
 
-  return buildMergeRateReport(prs, detailByNumber, mergedCandidates);
+  return buildMergeRateReport(prsWithTotals, detailByNumber, mergedCandidates);
 }
 
 function parseArgs(argv) {

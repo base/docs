@@ -197,6 +197,25 @@ export async function fetchPRFiles(owner, repo, prNumber, token, { fetchImpl = f
 }
 
 /**
+ * Additions/deletions for a whole PR. The list endpoint used by
+ * `listBotPullRequests` (`GET /pulls`) does not include these fields —
+ * only the single-PR endpoint does — so callers that need a PR's total
+ * changed-line count (e.g. the human rewrite ratio) must fetch it here
+ * per PR, not read `pr.additions`/`pr.deletions` off a list-endpoint item.
+ * @param {string} owner
+ * @param {string} repo
+ * @param {number} prNumber
+ * @param {string} token
+ * @param {{fetchImpl?: Function}} [opts]
+ * @returns {Promise<{additions: number, deletions: number}>}
+ */
+export async function fetchPRTotals(owner, repo, prNumber, token, { fetchImpl = fetch } = {}) {
+  const { status, ok, json } = await ghGet(`${API_ROOT}/repos/${owner}/${repo}/pulls/${prNumber}`, token, { fetchImpl });
+  if (!ok) throw new Error(`GitHub API GET pull ${prNumber} failed: HTTP ${status}`);
+  return { additions: json?.additions ?? 0, deletions: json?.deletions ?? 0 };
+}
+
+/**
  * Unified feed of a PR's human-facing discussion: review summaries,
  * inline review comments, and top-level issue comments. Each entry is
  * normalized to `{login, body, url, path}` (`path` is null for

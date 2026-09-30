@@ -9,6 +9,7 @@ import {
   fetchPRCommits,
   fetchCommitStats,
   fetchPRFiles,
+  fetchPRTotals,
   fetchPRDiscussion,
   resolveToken,
 } from "../metrics/github.mjs";
@@ -131,6 +132,12 @@ describe("fetchPRCommits / fetchCommitStats / fetchPRFiles", () => {
     const fetchImpl = fakeFetch([{ status: 200, json: [{ filename: "docs/a.mdx" }, { filename: "docs/b.mdx" }] }]);
     const files = await fetchPRFiles("base", "docs", 1939, "tok", { fetchImpl });
     assert.deepEqual(files, ["docs/a.mdx", "docs/b.mdx"]);
+  });
+
+  test("fetchPRTotals reads additions/deletions from the single-PR endpoint (the list endpoint omits them)", async () => {
+    const fetchImpl = fakeFetch([{ status: 200, json: { number: 1939, additions: 1351, deletions: 655 } }]);
+    const totals = await fetchPRTotals("base", "docs", 1939, "tok", { fetchImpl });
+    assert.deepEqual(totals, { additions: 1351, deletions: 655 });
   });
 });
 
