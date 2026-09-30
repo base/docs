@@ -76,20 +76,40 @@ export function humanRewriteRatio(commits, totalChangedLines) {
 }
 
 /**
+ * Files that change on nearly every merged PR touching `docs/**`, so a
+ * shared edit to one of these is not evidence that two PRs overlap in
+ * substance:
+ *   - `docs/AGENTS.md`, `docs/llms.txt`, `docs/llms-full.txt` — regenerated
+ *     by the post-commit hook on essentially every doc change. Same
+ *     stoplist concept PLAN.md's Lane B code checks use for
+ *     `scope.forbidden`.
+ *   - `docs/docs.json` — the shared nav config; adding or removing any
+ *     page anywhere edits it, so on its own it is noise for this check.
+ * Confirmed empirically: without this stoplist, live runs against
+ * base/docs flagged most open bot PRs as "superseded" by a dozen-plus
+ * unrelated merged PRs whose only real overlap was one of these files.
+ */
+const NOISY_OVERLAP_FILES = new Set(["docs/AGENTS.md", "docs/llms.txt", "docs/llms-full.txt", "docs/docs.json"]);
+
+/**
  * Flags open PRs whose changed files were later touched by a merged PR
  * (i.e. someone shipped a hand-written fix that overlaps this bot PR's
  * files, so the open one is probably obsolete).
  *
- * Pure set-overlap check: `mergedAfterOpen` must already be filtered to
- * PRs merged after `openPr.createdAt` — this function doesn't look at
- * dates itself so it stays trivially testable.
+ * Pure set-overlap check: `mergedCandidates` must already be filtered to
+ * PRs merged after `openPr`'s creation — this function doesn't look at
+ * dates itself so it stays trivially testable. Ignores
+ * `NOISY_OVERLAP_FILES` on both sides so a shared nav/index-regen diff
+ * diff never counts as an overlap by itself.
  * @param {{number: number, files: string[]}} openPr
  * @param {{number: number, files: string[]}[]} mergedCandidates
  * @returns {{number: number, files: string[]}[]} the merged PRs that overlap, if any
  */
 export function findSupersedingPRs(openPr, mergedCandidates) {
-  const openFiles = new Set(openPr.files);
+  const openFiles = new Set(openPr.files.filter((f) => !NOISY_OVERLAP_FILES.has(f)));
   return mergedCandidates.filter(
-    (merged) => merged.number !== openPr.number && merged.files.some((f) => openFiles.has(f)),
+    (merged) =>
+      merged.number !== openPr.number &&
+      merged.files.some((f) => !NOISY_OVERLAP_FILES.has(f) && openFiles.has(f)),
   );
 }

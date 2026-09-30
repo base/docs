@@ -94,4 +94,10 @@ describe("findSupersedingPRs", () => {
     const merged = [{ number: 2025, files: ["docs/z.mdx"] }];
     assert.deepEqual(findSupersedingPRs(open, merged), []);
   });
+
+  test("ignores generated index files so a shared llms.txt regen isn't a false-positive overlap", () => {
+    const open = { number: 1968, files: ["docs/llms.txt", "docs/AGENTS.md", "docs/llms-full.txt"] };
+    const merged = [{ number: 2025, files: ["docs/llms.txt", "docs/AGENTS.md"] }];
+    assert.deepEqual(findSupersedingPRs(open, merged), []);
+  });
 });
