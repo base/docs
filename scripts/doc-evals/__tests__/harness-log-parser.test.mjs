@@ -36,6 +36,15 @@ test("parseSyncLog: create — only the exact-match final write line counts, not
   assert.deepEqual(parseSyncLog(log).touched, ["docs/base-chain/specs/reference/b20/changelog/03-new.mdx"]);
 });
 
+test("parseSyncLog: a nav write for a newly created page's group is touched too", () => {
+  const log = [
+    '[create] docs/upgrades/denim/new-thing.mdx',
+    '[nav] added upgrades/denim/new-thing to "Denim" in docs/docs.json',
+  ].join("\n");
+  const { touched } = parseSyncLog(log);
+  assert.deepEqual(touched.sort(), ["docs/docs.json", "docs/upgrades/denim/new-thing.mdx"]);
+});
+
 test("parseSyncLog: reject captures page and reason", () => {
   const log = "[reject] docs/specifications/b20/reference/interfaces.mdx: invalid internal link to /nowhere";
   const { rejected, touched } = parseSyncLog(log);

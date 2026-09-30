@@ -22,9 +22,18 @@
  *   - `[reject] <page>: <reason>` processPage() validator/max_tokens reject.
  *   - `[noop] <page>`             processPage()/syncSummaryRows() no-op —
  *                                  content was already correct.
- *   - `[skip] <page>`             processPage() skip — either `item.skip`
+ *   - `[skip] <page>`           processPage() skip — either `item.skip`
  *                                  (decideCall() decided the page needs no
  *                                  model call) or "file not found".
+ *   - `[nav] added <route> to "<group>" in <path>`
+ *                                  addPageToNav()'s write when a newly
+ *                                  created page is added to its hardfork's
+ *                                  nav group — always `docs/docs.json` for
+ *                                  the default `DOCS_CONTENT_ROOT`. This is
+ *                                  a genuine second write inside one
+ *                                  `[create]`-logged item, so <path> counts
+ *                                  as touched on its own, independent of the
+ *                                  page path `[create]` already added.
  *
  * `[cleanup] <page>` is not a terminal state — it always precedes a
  * `[write]`/`[create]` line for the same page (stale sync-source comment
@@ -36,6 +45,7 @@ const CREATE_WRITE_RE = /^\[create\]\s+(\S+)$/;
 const REJECT_RE = /^\[reject\]\s+(\S+):\s*(.+)$/;
 const NOOP_RE = /^\[noop\]\s+(\S+)/;
 const SKIP_RE = /^\[skip\]\s+(\S+)/;
+const NAV_RE = /^\[nav\]\s+added\s+\S+\s+to\s+"[^"]*"\s+in\s+(\S+)$/;
 
 /**
  * @param {string} log combined stdout+stderr of one sync run
@@ -65,6 +75,8 @@ export function parseSyncLog(log) {
       addUnique(unchanged, m[1]);
     } else if ((m = SKIP_RE.exec(line))) {
       addUnique(unchanged, m[1]);
+    } else if ((m = NAV_RE.exec(line))) {
+      addUnique(touched, m[1]);
     }
   }
 
