@@ -8,6 +8,8 @@
  * judge into prompt builder vs parser vs runner" instruction.
  */
 
+import { capDiff } from "../diffCap.mjs";
+
 /**
  * The six claims from PLAN.md item 2, in the fixed order the response must
  * echo back. `id` doubles as the `checks[].id` suffix (`judge.J1`, ...).
@@ -57,6 +59,7 @@ export function buildJudgePrompt({ page, pageRole, sourceDiff, beforePage, after
     Array.isArray(reviewFindings) && reviewFindings.length > 0
       ? reviewFindings.map((f) => `- [${f.type}] ${f.text}`).join("\n")
       : "(none)";
+  const diffText = sourceDiff && sourceDiff.trim() ? capDiff(sourceDiff) : "(no diff provided)";
   const claimsList = CLAIMS.map((c) => `${c.id}. ${c.text}`).join("\n");
 
   return `Page: ${page}
@@ -68,7 +71,7 @@ Claims:
 ${claimsList}
 
 <source_diff>
-${sourceDiff && sourceDiff.trim() ? sourceDiff : "(no diff provided)"}
+${diffText}
 </source_diff>
 
 <page_before>
