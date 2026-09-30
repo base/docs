@@ -25,7 +25,7 @@ import {
 } from "./aa.txt";
 
 export const CHAIN_ID = 84538453;
-export const ENGINE_VERSION = 4;
+export const ENGINE_VERSION = 5;
 export const NETWORK_NAME = "Base Vibenet";
 export const API_URL = "https://api.vibes.base.org";
 export const ACCOUNT_RPC = `${API_URL}/api/vibenet/account/rpc`;
@@ -174,9 +174,11 @@ const assetAbi = [
   { type: "function", name: "isAnnouncementIdUsed", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "updateExtraMetadata", stateMutability: "nonpayable", inputs: [{ type: "string" }, { type: "string" }], outputs: [] },
   { type: "function", name: "extraMetadata", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "string" }] },
-  { type: "function", name: "updateMultiplier", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
-  { type: "function", name: "multiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "scaledBalanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "updateUIMultiplier", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [] },
+  { type: "function", name: "uiMultiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "newUIMultiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "effectiveAt", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "balanceOfUI", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ];
 
 const client = createPublicClient({
@@ -701,17 +703,36 @@ export async function isAnnouncementIdUsed(token, id) {
   return readFunction(token, assetAbi, "isAnnouncementIdUsed", [id]);
 }
 
-export async function updateMultiplier({ token, multiplier }) {
-  const data = encodeFunctionData({ abi: assetAbi, functionName: "updateMultiplier", args: [BigInt(multiplier)] });
-  return sendCalls({ calls: [{ to: token, data }], metadata: "Update asset multiplier" });
+export async function latestTimestamp() {
+  const block = await rpc("eth_getBlockByNumber", ["latest", false]);
+  return BigInt(block.timestamp);
+}
+
+// Resolves once the chain head reaches `timestamp`, so a scheduled
+// multiplier has matured before the demo reads it back.
+export async function waitForTimestamp(timestamp, { timeoutMs = 60_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while ((await latestTimestamp()) < BigInt(timestamp)) {
+    if (Date.now() > deadline) throw new Error("Timed out waiting for the scheduled multiplier to take effect");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+export async function updateUIMultiplier({ token, multiplier, effectiveAt }) {
+  const data = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "updateUIMultiplier",
+    args: [BigInt(multiplier), BigInt(effectiveAt)],
+  });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Schedule asset multiplier update" });
 }
 
 export async function assetMultiplier(token) {
-  return readFunction(token, assetAbi, "multiplier");
+  return readFunction(token, assetAbi, "uiMultiplier");
 }
 
-export async function scaledBalanceOf(token, address) {
-  return readFunction(token, assetAbi, "scaledBalanceOf", [address]);
+export async function balanceOfUI(token, address) {
+  return readFunction(token, assetAbi, "balanceOfUI", [address]);
 }
 
 export async function assetMetadata(token, key) {
@@ -724,7 +745,7 @@ export async function assetDetails(token) {
     readFunction(token, b20Abi, "decimals"),
     readFunction(token, b20Abi, "totalSupply"),
     readFunction(token, b20Abi, "supplyCap"),
-    readFunction(token, assetAbi, "multiplier"),
+    readFunction(token, assetAbi, "uiMultiplier"),
   ]);
   return { name, decimals: Number(decimals), totalSupply, supplyCap, multiplier };
 }
@@ -897,9 +918,11 @@ const api = {
   batchMint,
   announceDistribution,
   isAnnouncementIdUsed,
-  updateMultiplier,
+  latestTimestamp,
+  waitForTimestamp,
+  updateUIMultiplier,
   assetMultiplier,
-  scaledBalanceOf,
+  balanceOfUI,
   assetMetadata,
   assetDetails,
   createPolicy,

@@ -25,7 +25,7 @@ export const AssetDemo = ({ flow }) => {
           const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
           const [aaSource, engineSource] = await Promise.all([
             fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=4"),
+            fetchText("/static/vibenet-engine.txt?v=5"),
           ]);
           const aaUrl = moduleUrl(aaSource);
           const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
@@ -214,11 +214,11 @@ export const AssetDemo = ({ flow }) => {
         { stage: "Load", action: "Load balances",
           text: "Alice holds 100 raw shares and Bob holds 50.",
           summary: [["Operation", "Load balances"], ["Multiplier", M("1.0 WAD")], ["Holders", "Alice, Bob"]],
-          run: (s) => { s.balances.Alice = 100; s.balances.Bob = 50; return { entries: [nfo("multiplier()", "1.0 WAD")], caption: "Raw balances and displayed balances currently match." }; } },
+          run: (s) => { s.balances.Alice = 100; s.balances.Bob = 50; return { entries: [nfo("uiMultiplier()", "1.0 WAD")], caption: "Raw balances and displayed balances currently match." }; } },
         { stage: "Split", action: "Run split",
-          text: "Apply the board-approved 2-for-1 split.",
-          summary: [["Operation", "2-for-1 split"], ["Multiplier", M("1.0 → 2.0 WAD")], ["Symbol", TOKEN], ["Network", NETWORK]],
-          run: (s) => { s.multiplier = 2; return { entries: [ok("MultiplierUpdated", "1.0 → 2.0 WAD"), nfo("scaledBalanceOf(Alice)", "200 EXM")], caption: "Displayed balances double while raw balances remain unchanged." }; } },
+          text: "Schedule the board-approved 2-for-1 split with updateUIMultiplier and let it take effect.",
+          summary: [["Operation", "updateUIMultiplier"], ["Multiplier", M("1.0 → 2.0 WAD")], ["Symbol", TOKEN], ["Network", NETWORK]],
+          run: (s) => { s.multiplier = 2; return { entries: [ok("UIMultiplierUpdated", "1.0 → 2.0 WAD"), nfo("balanceOfUI(Alice)", "200 EXM")], caption: "Displayed balances double at effectiveAt while raw balances remain unchanged." }; } },
       ],
     },
     pause: {
@@ -550,24 +550,28 @@ export const AssetDemo = ({ flow }) => {
         return {
           entries: [
             txOk(engine, "B20Created", short(created.token), created),
-            nfo("multiplier()", `${state.multiplier}.0 WAD`, engine.explorerAddress(ctx.token)),
+            nfo("uiMultiplier()", `${state.multiplier}.0 WAD`, engine.explorerAddress(ctx.token)),
           ],
           caption: "Raw and displayed balances currently match.",
         };
       },
       async (engine, ctx, state) => {
-        const tx = await engine.updateMultiplier({ token: ctx.token, multiplier: 2n * 10n ** 18n });
+        // effectiveAt must be strictly in the future when the call lands. The margin covers a
+        // faucet top-up, the cross-tab send lock, or a slow RPC before inclusion.
+        const effectiveAt = (await engine.latestTimestamp()) + 15n;
+        const tx = await engine.updateUIMultiplier({ token: ctx.token, multiplier: 2n * 10n ** 18n, effectiveAt });
+        await engine.waitForTimestamp(effectiveAt);
         const [multiplier, displayed] = await Promise.all([
           engine.assetMultiplier(ctx.token),
-          engine.scaledBalanceOf(ctx.token, ctx.addresses.Alice),
+          engine.balanceOfUI(ctx.token, ctx.addresses.Alice),
         ]);
         state.multiplier = Number(multiplier / 10n ** 18n);
         return {
           entries: [
-            txOk(engine, "MultiplierUpdated", "1.0 → 2.0 WAD", tx),
-            nfo("scaledBalanceOf(Alice)", `${engine.displayUnits(displayed)} EXM`, engine.explorerAddress(ctx.token)),
+            txOk(engine, "UIMultiplierUpdated", "1.0 → 2.0 WAD", tx),
+            nfo("balanceOfUI(Alice)", `${engine.displayUnits(displayed)} EXM`, engine.explorerAddress(ctx.token)),
           ],
-          caption: "Displayed balances doubled while the raw balances stayed unchanged.",
+          caption: "Displayed balances doubled at effectiveAt while the raw balances stayed unchanged.",
         };
       },
     ],
@@ -646,7 +650,7 @@ export const AssetDemo = ({ flow }) => {
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
       if (ctx.token) {
         try {
-          setAccountTokenBalance(engine.displayUnits(await engine.scaledBalanceOf(ctx.token, ctx.account)));
+          setAccountTokenBalance(engine.displayUnits(await engine.balanceOfUI(ctx.token, ctx.account)));
         } catch {
           setAccountTokenBalance(null);
         }
