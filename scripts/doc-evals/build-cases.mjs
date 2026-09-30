@@ -69,6 +69,12 @@ const MAX_REMOVED_PATH_BYTES = 512;
 const MAX_CHANGED_PATHS = 200;
 const MAX_CHANGED_PATH_BYTES = 512;
 
+// Owner decision (2026-09-30): the sync bot never edits Build on Base guides;
+// they change by hand only. Applied to every case: added to scope.out and
+// removed from scope.in (be6d045's human answer edited guides, but that was a
+// human rewrite, not something the bot should reproduce).
+const GLOBAL_SCOPE_OUT = ["docs/build-on-base/"];
+
 // ------------------------------------------------------------- seed list
 // Hand-curated: bot PR -> source sha, split, and (when one exists) the
 // human-merged reference PR. `referencePages`/`scopeOut` are curated by hand
@@ -580,8 +586,8 @@ async function buildCase(seed) {
       ? { commit: seed.reference.commit, pr: seed.reference.pr, pages: seed.reference.pages }
       : null,
     scope: {
-      in: scopeIn,
-      out: seed.scopeOut,
+      in: scopeIn.filter((p) => !GLOBAL_SCOPE_OUT.some((dir) => p.startsWith(dir))),
+      out: [...new Set([...GLOBAL_SCOPE_OUT, ...seed.scopeOut])],
       label_source: labelSource,
     },
     review_findings: reviewFindings,

@@ -351,3 +351,12 @@ These override anything above that conflicts.
    with `gradingErrors > 0`; it re-grades once, then skips the round and logs it.
 5. Active eval set: 6 non-heavy, non-legacy cases. Train: 1505323, 253bb15, 64bd955.
    Test: 868d513, 91427ab, db537f3. `be6d045` is heavy; 04d645a and 6bb10a4 are legacy.
+6. **Build on Base is off-limits to the bot everywhere** (2026-09-30, second round):
+   `docs/build-on-base/` is in every case's `scope.out` and removed from `scope.in`.
+   The hillclimb may drop those pages from route-table rules.
+7. **Evals run with `CLAUDE_MAX_TOKENS=16000`.** At 4096 the sync truncates and rejects
+   long pages (868d513 always produced nothing). Proposed production change: set the
+   `CLAUDE_MAX_TOKENS` repo variable to 16000 (no code change). Baselines taken at 4096
+   are not comparable with 16k runs.
+8. **First improvement runs use `--no-judge`.** Judge scores count only after the
+   calibration labels clear 80%.

@@ -25,7 +25,7 @@ export const TAXONOMY_TEXT = `- scope: edits unrelated pages (guides, old change
 
 /** Owner decisions (PLAN.md, 2026-09-30) that constrain what a good patch does. */
 export const OWNER_DECISIONS_TEXT = `1. Changelog entry pages follow the upstream entry closely: keep its content and structure (including diagrams), adapted only to the docs page shape and style rules. Do not condense or paraphrase.
-2. docs/build-on-base/ must not be touched for B20 seize-style source changes; directory scope rules end in "/".
+2. The sync never edits anything under docs/build-on-base/ (Build on Base guides change by hand only). Removing docs/build-on-base/ pages from route-table.json rules is in scope. Directory scope rules end in "/".
 3. Changelog-only source changes may touch the matching entry pages plus the B20 changelog summary table, nothing else.
 4. Never add repository-housekeeping callouts, and never mention people's names beyond what the source requires.`;
 

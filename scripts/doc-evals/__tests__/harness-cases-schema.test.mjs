@@ -83,7 +83,11 @@ test("scope: a case with a reference uses label_source \"reference\" and scope.i
       assert.ok(def.scope.in.length > 0, `${file}: confirmed scope.in must not be empty`);
     } else if (def.reference) {
       assert.equal(def.scope.label_source, "reference", file);
-      assert.deepEqual([...def.scope.in].sort(), [...def.reference.pages].sort(), file);
+      // Build on Base is off-limits to the bot (owner decision), so reference
+      // pages under it are dropped from scope.in.
+      const expected = def.reference.pages.filter((p) => !p.startsWith("docs/build-on-base/"));
+      assert.deepEqual([...def.scope.in].sort(), expected.sort(), file);
+      assert.ok(def.scope.out.includes("docs/build-on-base/"), `${file}: Build on Base must be out of scope`);
     } else {
       assert.equal(def.scope.label_source, "drafted", file);
     }
