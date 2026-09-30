@@ -9,10 +9,10 @@ It discovers Base TEE prover instances, obtains an AWS Nitro attestation for eac
 generates P-384 verification hints locally, caches the attestation certificate chain on L1, and
 submits the final signer registration.
 
-This flow replaces the previous RISC Zero attestation proof and external Boundless proving path.
-There is no runtime backend selector or fallback to ZK verification. The TEE proof format,
-`TEEVerifier`, `AggregateVerifier`, `TEE_IMAGE_HASH`, and SP1 state-proof behavior are unchanged.
-Registration requires the hinted-compatible registrar and prover-host signer API.
+This flow replaced the previous RISC Zero attestation proof and external Boundless proving path in
+[Cobalt](/upgrades/cobalt/overview); see [Hinted Registration Migration](#hinted-registration-migration).
+There is no runtime backend selector or fallback to ZK verification. Registration requires the
+hinted-compatible registrar and prover-host signer API.
 
 ## Responsibilities
 
@@ -258,16 +258,26 @@ instances and the configured last-known-signer grace period has expired. Deregis
 registered flag and stored image hash. This flow assumes one registrar controls a given registry;
 independent registrars would otherwise classify each other's signers as orphans.
 
-## Upgrade Compatibility
+## Hinted Registration Migration
 
-The hinted migration, shipped with [Cobalt](/upgrades/cobalt/overview), upgraded the existing `TEEProverRegistry` proxy implementation. It preserves
-the proxy storage layout, owner, manager, game type, proposers, registered signers, and stored signer
+[Cobalt](/upgrades/cobalt/overview) replaced ZK-proved signer registration with the hinted flow
+described on this page.
+
+Before Cobalt, the registrar sent each Nitro attestation to an external proving service (Boundless
+or a self-hosted RISC Zero prover). That service produced a RISC Zero proof that the attestation
+and its AWS certificate chain were valid, and the registrar submitted the proof to
+`TEEProverRegistry`. This added an external availability dependency and could delay new signer
+registration while the proof was generated. The hinted flow verifies the attestation directly on
+L1, so registration is faster and no longer depends on an offchain proving service.
+
+The migration upgraded the existing `TEEProverRegistry` proxy implementation. It preserved the
+proxy storage layout, owner, manager, game type, proposers, registered signers, and stored signer
 image hashes. The active registrar and registry support only the new three-argument hinted API.
 
-The migration does not change:
+The migration did not change:
 
 - Nitro enclave signer generation or attestation production;
-- PCR0-based image selection in `TEEVerifier`;
+- PCR0-based image selection in `TEEVerifier` or the `TEE_IMAGE_HASH` it checks;
 - `AggregateVerifier` behavior;
 - TEE proposal and dispute proof formats; or
 - SP1 state-proof behavior.
