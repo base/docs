@@ -1,0 +1,39 @@
+{
+  "id": "64bd955-inverted-seize-holder",
+  "source_repo": "base/base-std",
+  "source_sha": "64bd9558d7a1be004a6d095467dd3bf5dfa36592",
+  "bot_pr": 1926,
+  "docs_base_commit": "8758fdce0910ced25aa251e74ad29c6430a5c711",
+  "payload": {
+    "kind": "code-change",
+    "source_repo": "base/base-std",
+    "sha": "64bd9558d7a1be004a6d095467dd3bf5dfa36592",
+    "pr_number": 207,
+    "pr_title": "docs(IB20): clarify inverted seize-holder semantics",
+    "pr_body": "## Summary\n- Clarify in `IB20` NatSpec that `SEIZE_HOLDER_POLICY` uses inverted semantics.\n- Document that `seizeWithMemo` reverts when `from` is authorized under `SEIZE_HOLDER_POLICY`.\n- Call out that an unset holder-policy slot reads as `ALWAYS_ALLOW`, so no account is seizable until the issuer explicitly configures the slot.\n\n## Test plan\n- [x] `forge build`\n\n\nMade with [Cursor](https://cursor.com)",
+    "changed_paths": [
+      "changelog/02_Cobalt_B20_seize.md",
+      "src/interfaces/IB20.sol"
+    ],
+    "removed_paths": [],
+    "diff": "diff --git a/changelog/02_Cobalt_B20_seize.md b/changelog/02_Cobalt_B20_seize.md\nindex a32350a9..dc19c307 100644\n--- a/changelog/02_Cobalt_B20_seize.md\n+++ b/changelog/02_Cobalt_B20_seize.md\n@@ -83,7 +83,7 @@ function burnBlocked(address from, uint256 amount) external;\n \n **Policy semantics:**\n \n-- `SEIZE_HOLDER_POLICY` gates who is seizable. The membership is inverted: an account is seizable when it is **not** authorized under this policy. This mirrors the blocklist semantics of `burnBlocked`'s `TRANSFER_SENDER_POLICY` so the \"blocked = seizable\" model carries over. An unset slot reads as `0` (always-allow), so no account is seizable until an issuer configures the slot. This is a safe default.\n+- `SEIZE_HOLDER_POLICY` gates who is seizable. The membership is inverted: an account is seizable when it is **not** authorized under this policy. This is distinct from the allowlist-style checks used by `transfer` and `transferFrom`, where `isAuthorized(...) == true` allows the operation. `SEIZE_HOLDER_POLICY` uses the inverse result so it can target accounts those checks deny. An unset slot reads as `0` (always-allow), so no account is seizable until an issuer configures the slot. This is a safe default.\n \n - `SEIZE_RECEIVER_POLICY` gates the seize destination. It mirrors `MINT_RECEIVER_POLICY`: always enforced on the seize destination. An unset slot defaults to always-allow, so an unconfigured token may seize to any destination (a treasury need not be allowlisted).\n \n@@ -133,6 +133,7 @@ Seize is a transfer, not a burn. The balance moves from `from` to `to` and `tota\n **Final shipped shape:** `seizeWithMemo` and `burnBlocked` use fully independent policy slots and pause vectors.\n \n - `seizeWithMemo` uses the new `SEIZE_HOLDER_POLICY` (for `from`) and `SEIZE_RECEIVER_POLICY` (for `to`), the new `SEIZE_ROLE`, and the new `PausableFeature.SEIZE`.\n+- `SEIZE_HOLDER_POLICY` is intentionally different from the allowlist-style checks used by `transfer` and `transferFrom`. In those flows, `isAuthorized(...) == true` permits the operation. In `seizeWithMemo`, the same check is interpreted inversely: the call reverts when `isAuthorized(...) == true`, so only accounts denied by the policy are seizable. This preserves the safe default, because an unset slot reads as `0` (always allow), which means no account is seizable until the issuer explicitly configures the policy. It also lets seize semantics align with the existing \"blocked account\" policy model already used by `transferFrom`-style restrictions.\n - `burnBlocked` retains `TRANSFER_SENDER_POLICY`, `BURN_BLOCKED_ROLE`, and the `BURN` pause vector unchanged.\n - Seize operations are rare, so the reserved lane in the transfer packed policy slot was not reused for seize. That lane is kept open for a possible future transfer-side optimization where another hot-path transfer policy could be packed into the existing transfer slot without adding a second `SLOAD`. Because seize is a cold-path/rare-path operation, it instead gets its own packed `seizePolicyIds` slot.\n \ndiff --git a/src/interfaces/IB20.sol b/src/interfaces/IB20.sol\nindex bc9302a8..d1d3c8d4 100644\n--- a/src/interfaces/IB20.sol\n+++ b/src/interfaces/IB20.sol\n@@ -105,8 +105,9 @@ interface IB20 {\n     /// @notice `policyScope` is not a slot this token (or its variant) supports.\n     error UnsupportedPolicyType(bytes32 policyScope);\n \n-    /// @notice `seizeWithMemo` was called against a `from` that is currently authorized under\n-    ///         `SEIZE_HOLDER_POLICY` (i.e. not a member of the seize-holder set).\n+    /// @notice `seizeWithMemo` was called against a `from` account that is not seizable under\n+    ///         `SEIZE_HOLDER_POLICY`.\n+    /// @dev A `from` is seizable only when `isAuthorized(policyId, from)` returns false.\n     error AccountNotSeizable(address account);\n \n     /// @notice The deprecated `burnBlocked` was called against a `from` that is currently authorized under\n@@ -262,8 +263,11 @@ interface IB20 {\n     function MINT_RECEIVER_POLICY() external view returns (bytes32);\n \n     /// @notice Policy slot consulted against `from` by `seizeWithMemo`.\n-    /// @dev A `from` is seizable only when it is NOT authorized by this policy. An unset slot reads as `0`\n-    ///      (always-allow), so no account is seizable until an issuer configures the slot.\n+    /// @dev A `from` is seizable only when `isAuthorized(policyId, from)` returns false.\n+    /// @dev This uses the inverse of the normal transfer-style gating: accounts are seizable when\n+    ///      `isAuthorized(...)` returns false, not true.\n+    /// @dev An unset slot reads as `0` (always-allow), so no account is seizable until an issuer\n+    ///      explicitly configures the slot.\n     /// @return Policy scope constant.\n     function SEIZE_HOLDER_POLICY() external view returns (bytes32);\n \n@@ -464,7 +468,7 @@ interface IB20 {\n     /// @dev Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `SEIZE_ROLE`.\n     /// @dev Reverts with `InvalidReceiver` when `to == address(0)` or `from == to`.\n     /// @dev Reverts with `InvalidSender` when `from == address(0)`.\n-    /// @dev Reverts with `AccountNotSeizable` when `from` is currently authorized under `SEIZE_HOLDER_POLICY`.\n+    /// @dev Reverts with `AccountNotSeizable` when `from` is authorized under `SEIZE_HOLDER_POLICY`.\n     /// @dev Reverts with `PolicyForbids(SEIZE_RECEIVER_POLICY, ...)` when `to` is not authorized under `SEIZE_RECEIVER_POLICY`.\n     /// @dev Reverts with `InsufficientBalance` when `from`'s balance is below `amount`.\n     ///\n",
+    "diff_truncated": false,
+    "diff_artifact_run_id": "",
+    "diff_artifact_name": ""
+  },
+  "reference": null,
+  "scope": {
+    "in": [
+      "docs/base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize.mdx",
+      "docs/build-on-base/accept-payments/request-a-payment.mdx",
+      "docs/build-on-base/issue-rwa/create-an-asset-token.mdx"
+    ],
+    "out": [],
+    "label_source": "drafted"
+  },
+  "review_findings": [],
+  "split": "train",
+  "heavy": false,
+  "legacy_layout": false,
+  "notes": "Second-smallest raw diff (5583B) — fallback live-replay candidate."
+}

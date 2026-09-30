@@ -59,6 +59,14 @@ Everything lives under `scripts/doc-evals/` except the report workflow
 - Live LLM calls use `LLM_GATEWAY_API_KEY` (already set locally). Keep live smoke runs
   small (1–2 small cases, 1 replicate). Log token usage.
 - Never print secrets. `gh auth token` may be passed to child processes via env, never logged.
+- Test files run in CI through the root `npm test`, where `scripts/node_modules` is NOT
+  installed. Anything a test imports must not statically import
+  `scripts/sync-from-base-std/index.mjs` or `llm/client.mjs` (they pull in
+  `@anthropic-ai/sdk`). Import those lazily (`await import(...)`) inside the function
+  that needs them. `safety.mjs` and `scripts/lint-mdx.js` are dependency-free and fine.
+- `scope.label_source: "drafted"` labels come from the current route table and inherit
+  its scope creep. Treat them as unconfirmed: scope checks report them but must not count
+  toward scores until a human confirms (label_source becomes "review").
 - Commit messages: conventional (`feat(evals): ...`). Do not add a Co-authored-by trailer.
 
 ## Shared contracts (all lanes code against these)
@@ -91,6 +99,7 @@ Everything lives under `scripts/doc-evals/` except the report workflow
   ],
   "split": "train|test",
   "heavy": false,                       // true = many pages / expensive; excluded by default
+  "legacy_layout": false,               // true = docs base predates the IA overhaul; current route table can't resolve it; excluded by default
   "notes": ""
 }
 ```
@@ -157,10 +166,10 @@ Branch `evals/harness`. Owns: `scripts/doc-evals/cases/**`, `scripts/doc-evals/r
 
    | Bot PR | Source sha | Split | Reference | Notes |
    |---|---|---|---|---|
-   | #1853 | 04d645a | train | – | |
-   | #1854 | 6bb10a4 | test | – | |
+   | #1853 | 04d645a | train | – | legacy layout, excluded by default |
+   | #1854 | 6bb10a4 | train | – | legacy layout, excluded by default |
    | #1916 | 868d513 | test | – | |
-   | #1919 | db537f3 | train | – | review: author last name |
+   | #1919 | db537f3 | test | – | review: author last name |
    | #1926 | 64bd955 | train | – | |
    | #1928 | be6d045 | train | #1939 merge `1a0460986a` | heavy; #1928 is the closed bad run, #1939 the human-fixed answer |
    | #1968 | 253bb15 | train | #2025 merge `9c827d61c4` | review: scope creep, paraphrase |
