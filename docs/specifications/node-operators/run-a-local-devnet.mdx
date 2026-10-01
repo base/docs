@@ -3,7 +3,7 @@ title: "Run a Local Devnet"
 description: "Start a disposable local Base devnet with L1, L2 sequencer, RPC node, and batcher from the base/base repo, then send a test transaction."
 ---
 
-The local devnet runs a complete Base stack on your machine with Docker: an L1 (Reth + Lighthouse), a Base sequencer, an RPC node, and the batcher. Use it to test node, protocol, and hardfork behavior without a public network.
+The local devnet runs a complete Base stack on your machine with Docker: an L1 (Reth + Lighthouse), a Base sequencer, two RPC nodes, and a batcher. It also runs a shadow batcher and shadow validator used to test the Rust batcher. Use it to test node, protocol, and hardfork behavior without a public network.
 
 <Note>
 To build against new Base features without running infrastructure, use the hosted [Vibenet](/build-on-base/test-on-vibenet) instead.
@@ -15,9 +15,10 @@ The devnet is disposable. `just devnet up` and `just devnet down` delete all cha
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/)
+- [Docker](https://docs.docker.com/get-docker/) with Compose v2 and Buildx. The first build compiles the Rust services, so allocate generous memory to Docker.
 - [`just`](https://github.com/casey/just) `1.51.0` or newer
 - [Foundry](https://getfoundry.sh) (`cast`) to send transactions
+- [`jq`](https://jqlang.org), used by `just devnet status` and `just devnet checks`
 - A clone of [base/base](https://github.com/base/base)
 
 ## Start the Devnet
@@ -64,6 +65,7 @@ The test account keys are public. Never use them on Mainnet or Sepolia.
 | --- | --- | --- |
 | L2 sequencer (builder) RPC | `http://127.0.0.1:7545` | `84538453` |
 | L2 RPC node | `http://127.0.0.1:8545` | `84538453` |
+| L2 RPC node (`base-rpc`) | `http://127.0.0.1:8645` | `84538453` |
 | L1 RPC | `http://127.0.0.1:4545` | `1337` |
 | Grafana | [localhost:3000](http://localhost:3000/d/devnet-overview) | |
 
@@ -78,6 +80,10 @@ The devnet schedules Cobalt at L2 block 22 and Denim at block 25, so a fresh dev
 | `just devnet up-single everest` | Everest (EIP-8130 transactions) at block 100 |
 | `just devnet up-single zenith` | Everest and Zenith at block 100 |
 
+<Warning>
+The devnet's canonical batcher (`op-batcher`) cannot decode EIP-8130 transactions (type `0x79`). After the first block that contains one, it stops advancing and the canonical safe head stalls. The shadow `base-batcher` keeps deriving past those blocks. See the [devnet README](https://github.com/base/base/blob/main/etc/docker/README.md) for details.
+</Warning>
+
 To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching variable for another hardfork) before `up`. Set it to an empty value to leave that hardfork unscheduled.
 
 ## Common Commands
@@ -87,7 +93,7 @@ To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching variable for a
 | `just devnet accounts` | Lists funded test accounts with balances and nonces |
 | `just devnet logs [container]` | Streams logs, optionally for one container |
 | `just devnet ps` | Shows container status |
-| `just devnet flashblocks` | Streams Flashblocks from the builder |
+| `just devnet flashblocks` | Streams Flashblocks from the builder. Requires Go on first use to install the client. |
 | `just devnet down` | Stops the devnet and deletes its data |
 
 Run `just devnet` with no arguments for the full list.
