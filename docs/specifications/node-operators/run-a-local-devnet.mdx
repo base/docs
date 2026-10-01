@@ -10,7 +10,7 @@ To build against new Base features without running infrastructure, use the hoste
 </Note>
 
 <Warning>
-The devnet is disposable. `just devnet up` and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
+The devnet is disposable. `just devnet up`, `just devnet up-single`, and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
 </Warning>
 
 ## Prerequisites
@@ -73,7 +73,7 @@ Ports are set in `etc/docker/devnet-env`.
 
 ## Hardfork Activation
 
-The devnet schedules Cobalt at L2 block 22 and Denim at block 25, so a fresh devnet crosses both. At Denim, the sequencer switches to 200ms blocks.
+The devnet schedules Azul at L2 block 20, Beryl at 21, Cobalt at 22, and Denim at 25, so a fresh devnet crosses each activation within its first few blocks. At Denim, the sequencer switches to 200ms blocks.
 
 | Command | Also activates |
 | --- | --- |
@@ -84,7 +84,7 @@ The devnet schedules Cobalt at L2 block 22 and Denim at block 25, so a fresh dev
 The devnet's canonical batcher (`op-batcher`) cannot decode EIP-8130 transactions (type `0x79`). After the first block that contains one, it stops advancing and the canonical safe head stalls. The shadow `base-batcher` keeps deriving past those blocks. See the [devnet README](https://github.com/base/base/blob/main/etc/docker/README.md) for details.
 </Warning>
 
-To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching variable for another hardfork) before `up`. Set it to an empty value to leave that hardfork unscheduled.
+To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARDFORK>_BLOCK` variable) before `up` or `up-single`. Set it to an empty value to leave that hardfork unscheduled.
 
 ## Common Commands
 
@@ -105,4 +105,4 @@ The base/base repo is the source of truth for the devnet:
 - [Devnet README](https://github.com/base/base/blob/main/etc/docker/README.md): stack topology, batcher setup, the Anvil + Nitro proving variant, and upgrade-signal testing
 - [`etc/docker/Justfile`](https://github.com/base/base/blob/main/etc/docker/Justfile): every devnet command
 - [Testing guide](https://github.com/base/base/blob/main/docs/guides/TESTING.md): system tests against the devnet (`just devnet tests`)
-- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover against a local devnet
+- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover stack, which the devnet does not include. ZK proving against a local devnet requires disabling Beryl and Cobalt.
