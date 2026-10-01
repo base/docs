@@ -40,7 +40,7 @@ npx skills add base/base-skills
 |Get Started/Quickstart:get-started/base,get-started/connect-to-base,get-started/get-funds,get-started/make-a-transaction,base-chain/network-information/ecosystem-bridges
 |Get Started/Solutions:get-started/integrate-defi,get-started/issue-rwa,get-started/issue-stablecoins,get-started/accept-payments,get-started/private-transactions
 |Get Started/Coding Agents:get-started/resources-for-ai-agents,get-started/docs-mcp,get-started/docs-llms
-|Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/base-services-hub
+|Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/builder-stack
 |Get Started/Resources:get-started/builders,get-started/creators
 |Get Started/References:get-started/base-chain,get-started/sdks-and-apis
 |Build on Base/Overview:build-on-base/overview,build-on-base/test-on-vibenet,build-on-base/assign-user-attributes
@@ -58,7 +58,7 @@ npx skills add base/base-skills
 |Specifications/Specifications/Base Protocol/Execution:specifications/base-protocol/execution/l2-execution-engine,specifications/base-protocol/execution/precompiles,specifications/base-protocol/execution/predeploys,specifications/base-protocol/execution/preinstalls
 |Specifications/Specifications/Base Protocol/Bridging:specifications/base-protocol/bridging/standard-bridges,specifications/base-protocol/bridging/deposits,specifications/base-protocol/bridging/withdrawals,specifications/base-protocol/bridging/cross-domain-messengers,specifications/base-protocol/bridging/base-solana-bridge
 |Specifications/Specifications/Base Protocol/Proofs:specifications/base-protocol/proofs/overview,specifications/base-protocol/proofs/challenger,specifications/base-protocol/proofs/proposer,specifications/base-protocol/proofs/registrar,specifications/base-protocol/proofs/tee-prover,specifications/base-protocol/proofs/zk-prover,specifications/base-protocol/proofs/proof-contracts
-|Specifications/Specifications/B20:specifications/b20/index,specifications/b20/changelog
+|Specifications/Specifications/B20:specifications/b20/index,specifications/b20/introduction,specifications/b20/changelog
 |Specifications/Specifications/B20/Concepts:specifications/b20/concepts/token-types,specifications/b20/concepts/policies,specifications/b20/concepts/roles-and-pause,specifications/b20/concepts/multipliers
 |Specifications/Specifications/B20/Reference:specifications/b20/reference/interfaces,specifications/b20/reference/constants,specifications/b20/reference/errors,specifications/b20/reference/events
 |Specifications/Specifications/Transactions:specifications/transactions/transaction-ordering,specifications/transactions/transaction-finality,specifications/transactions/network-fees,specifications/transactions/throughput-and-limits,specifications/transactions/troubleshooting-transactions
@@ -77,7 +77,7 @@ npx skills add base/base-skills
 |SDKs & APIs/Base Verify API:sdks/base-verify/overview,sdks/base-verify/verify-social-accounts,sdks/base-verify/verify-users-onchain
 |SDKs & APIs/Migrated Documentation:sdks/migrated-products
 |Upgrades/Overview:upgrades/overview,base-chain/network-information/configuration-changelog
-|Upgrades/Denim:upgrades/denim/overview,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks
+|Upgrades/Denim:upgrades/denim/overview,upgrades/denim/200ms-blocks,upgrades/denim/migrate-from-flashblocks,base-chain/specs/reference/b20/changelog/03-denim-b20-token-receiver,base-chain/specs/reference/b20/changelog/03-denim-b20-transfer-executor-enforcement,base-chain/specs/reference/b20/changelog/03-denim-policyregistry-not-policy
 |Upgrades/Cobalt:upgrades/cobalt/overview,upgrades/cobalt/dynamic-upgrades,base-chain/specs/reference/b20/changelog/02-cobalt-b20asset-multiplier,base-chain/specs/reference/b20/changelog/02-cobalt-b20-seize,base-chain/specs/reference/b20/changelog/02-cobalt-policyregistry-composite-policy,upgrades/cobalt/validity-transactions
 |Upgrades/Beryl:upgrades/beryl/overview,upgrades/beryl/reth-v2,upgrades/beryl/reducing-canonical-withdrawal-delay,upgrades/beryl/b20
 |Upgrades/Azul:upgrades/azul/overview,upgrades/azul/node-upgrade,upgrades/azul/exec-engine,upgrades/azul/proofs

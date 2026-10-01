@@ -1,5 +1,5 @@
 ---
-title: "B20: Beryl to Cobalt Migration"
+title: "B20: ERC-8056 Conformant Multiplier"
 description: "B20 Asset multiplier becomes ERC-8056 conformant at Cobalt, with a scheduled multiplier setter for corporate actions. Every Beryl selector stays dialable."
 ---
 
@@ -13,11 +13,11 @@ conformant and gains a scheduled multiplier setter for corporate actions. Nothin
 breaks: every Beryl selector, event topic, and error keeps its exact 4-byte selector or topic0 and
 stays dialable at Cobalt. The deprecations below are advisory, not enforced.
 
-To migrate, adopt the canonical ERC-8056 names (`uiMultiplier`, `toUIAmount`/`fromUIAmount`,
-`balanceOfUI`, `totalSupplyUI`), and move routine multiplier changes from the instant
-`updateMultiplier(uint256)` to the scheduled `updateUIMultiplier(uint256,uint256)`.
-
-Cobalt hasn't gone live yet. Until it activates, only the Beryl surface exists on-chain.
+To migrate, adopt the ERC-8056 names (`uiMultiplier`, `toUIAmount`/`fromUIAmount`, `balanceOfUI`,
+`totalSupplyUI`), and move routine multiplier changes from the instant `updateMultiplier(uint256)` to
+the scheduled `updateUIMultiplier(uint256,uint256)`. `multiplier()` and `scaledBalanceOf(address)`
+remain the canonical B20 names; `uiMultiplier()` and `balanceOfUI(address)` are their ERC-8056
+aliases.
 
 ## Mapping Table
 
@@ -26,12 +26,12 @@ The selectors and topic0s below are the real values from the frozen ABIs: `abi/v
 
 ### Functions
 
-| Beryl symbol (selector) | Cobalt canonical (selector) | Status | Why |
+| Beryl symbol (selector) | Cobalt ERC-8056 symbol (selector) | Status | Why |
 | --- | --- | --- | --- |
-| `multiplier()` `0x1b3ed722` | `uiMultiplier()` `0xa60bf13d` | deprecated-name-kept / new alias | ERC-8056 core naming. Both return the same effective multiplier. `multiplier()` stays. |
+| `multiplier()` `0x1b3ed722` | `uiMultiplier()` `0xa60bf13d` | unchanged (canonical name) / new alias | ERC-8056 core naming. Both return the same effective multiplier. |
 | `toScaledBalance(uint256)` `0x04f04c99` | `toUIAmount(uint256)` `0x3248d4ff` | deprecated-dialable / new | ERC-8056 Conversion extension. Byte-identical behavior. |
 | `toRawBalance(uint256)` `0x0ca06c44` | `fromUIAmount(uint256)` `0x65cd9b3c` | deprecated-dialable / new | ERC-8056 Conversion extension. Byte-identical behavior. |
-| `scaledBalanceOf(address)` `0x1da24f3e` | `balanceOfUI(address)` `0x437a9958` | deprecated-name-kept / new alias | ERC-8056 Balances extension. Alias, same value. |
+| `scaledBalanceOf(address)` `0x1da24f3e` | `balanceOfUI(address)` `0x437a9958` | unchanged (canonical name) / new alias | ERC-8056 Balances extension. Alias, same value. |
 | `updateMultiplier(uint256)` `0x5ffe6146` | `updateUIMultiplier(uint256,uint256)` `0x628e600f` | deprecated-dialable / new (not 1:1) | The canonical path is now the scheduled setter. The instant setter remains as an emergency failsafe. |
 | — | `newUIMultiplier()` `0xdc767007` | new | ERC-8056 pending-schedule read. |
 | — | `effectiveAt()` `0x97a4064f` | new | ERC-8056 pending-schedule read (flip timestamp). |

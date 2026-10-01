@@ -1,8 +1,9 @@
 // Shared native-account and B20 engine for Base docs demos.
 //
-// Mintlify snippets cannot import modules. A snippet fetches this file and aa.txt,
-// rewrites the relative AA specifier to aa.txt's Blob URL, evaluates this module
-// with a <script type="module"> tag, and reads the published API from window.
+// Mintlify snippets cannot import modules, and the docs CSP blocks blob: scripts.
+// A snippet fetches this file and aa.txt, turns aa.txt's export list into an
+// object, replaces the import below with a destructure of it, strips `export`,
+// evaluates the result with new Function, and reads the published API from window.
 
 import {
   canonicalAuthenticators,
@@ -25,7 +26,7 @@ import {
 } from "./aa.txt";
 
 export const CHAIN_ID = 84538453;
-export const ENGINE_VERSION = 4;
+export const ENGINE_VERSION = 6;
 export const NETWORK_NAME = "Base Vibenet";
 export const API_URL = "https://api.vibes.base.org";
 export const ACCOUNT_RPC = `${API_URL}/api/vibenet/account/rpc`;
@@ -174,9 +175,11 @@ const assetAbi = [
   { type: "function", name: "isAnnouncementIdUsed", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "updateExtraMetadata", stateMutability: "nonpayable", inputs: [{ type: "string" }, { type: "string" }], outputs: [] },
   { type: "function", name: "extraMetadata", stateMutability: "view", inputs: [{ type: "string" }], outputs: [{ type: "string" }] },
-  { type: "function", name: "updateMultiplier", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] },
-  { type: "function", name: "multiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
-  { type: "function", name: "scaledBalanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "updateUIMultiplier", stateMutability: "nonpayable", inputs: [{ type: "uint256" }, { type: "uint256" }], outputs: [] },
+  { type: "function", name: "uiMultiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "newUIMultiplier", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "effectiveAt", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "balanceOfUI", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ];
 
 const client = createPublicClient({
@@ -334,8 +337,8 @@ export async function contracts() {
 //
 // Resolution order: the live `eip8130` block from /api/vibenet/contracts, then
 // the canonical devnet set carried by aa.txt, which is refreshed every time the
-// vendored bundle is re-pinned. The API has omitted the `eip8130` block since a
-// reset, so the second source is load-bearing, not belt-and-braces. Each
+// vendored bundle is re-pinned. The API has omitted the `eip8130` block after
+// past resets, so the second source is load-bearing, not belt-and-braces. Each
 // candidate is checked for code on chain because an address that is merely
 // present in either source may already have been reset away.
 //
@@ -461,7 +464,19 @@ export async function isDeployed(address) {
 async function ensureFunded(address) {
   const balance = BigInt(await rpc("eth_getBalance", [address, "latest"]));
   if (balance >= MIN_GAS_BALANCE) return null;
-  const drip = await post("/api/vibenet/faucet/drip", { address });
+  let drip;
+  try {
+    drip = await post("/api/vibenet/faucet/drip", { address });
+  } catch (error) {
+    // The faucet enforces a 10s per-address and per-IP cooldown. Retry once
+    // after it so a reader does not have to click again.
+    await new Promise((resolve) => setTimeout(resolve, 11_000));
+    try {
+      drip = await post("/api/vibenet/faucet/drip", { address });
+    } catch (retryError) {
+      throw new Error(`Vibenet faucet did not fund ${address}: ${retryError?.message || retryError}`, { cause: error });
+    }
+  }
   await waitForTransactionReceipt(client, { hash: drip.tx_hash, timeout: 60_000 });
   return drip.tx_hash;
 }
@@ -489,19 +504,24 @@ async function waitUntilDeployed(address) {
     if (await isDeployed(address)) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
+  throw new Error(`account ${address} still has no code`);
 }
 
 export async function sendCalls({ calls, metadata = "", gasFloor = 0n }) {
   if (!calls?.length) throw new Error("No calls to send");
   return withAccountLock(async () => {
-    const { account, signer } = await getSharedAccount();
-    const faucetHash = await ensureFunded(account.address);
-    const deployed = await isDeployed(account.address);
-    const accountChanges = deployed ? [] : [account.createChange];
-    const nonceSequence = await highestNonce(account.address);
-    const phases = [calls.map((call) => ({ to: call.to, value: call.value ?? 0n, data: call.data ?? "0x" }))];
-    const floor = [structuralGas({ deployed, calls: calls.length }), BigInt(gasFloor)].reduce((a, b) => a > b ? a : b);
-    let gas = floor;
+    let account, signer, faucetHash, deployed, accountChanges, nonceSequence, phases, gas;
+    try {
+      ({ account, signer } = await getSharedAccount());
+      faucetHash = await ensureFunded(account.address);
+      deployed = await isDeployed(account.address);
+      accountChanges = deployed ? [] : [account.createChange];
+      nonceSequence = await highestNonce(account.address);
+      phases = [calls.map((call) => ({ to: call.to, value: call.value ?? 0n, data: call.data ?? "0x" }))];
+      gas = [structuralGas({ deployed, calls: calls.length }), BigInt(gasFloor)].reduce((a, b) => a > b ? a : b);
+    } catch (error) {
+      throw Object.assign(error, { notSent: true });
+    }
 
     if (deployed) {
       try {
@@ -521,26 +541,55 @@ export async function sendCalls({ calls, metadata = "", gasFloor = 0n }) {
       }
     }
 
-    const serialized = await account.signTransaction({
-      chainId: CHAIN_ID,
-      accountChanges,
-      calls: encodeWalletCalls({ account: account.address, calls: phases }),
-      metadata: metadata ? toHex(metadata) : undefined,
-      nonceKey: 0n,
-      nonceSequence,
-      maxFeePerGas: DEFAULT_MAX_FEE,
-      maxPriorityFeePerGas: DEFAULT_PRIORITY_FEE,
-      gas,
-    });
-    const hash = await rpc("eth_sendRawTransaction", [serialized]);
-    const receipt = await waitForTransactionReceipt(client, { hash, timeout: 60_000 });
+    // Everything above only reads, funds gas, or signs, so a failure there sent
+    // nothing and is marked notSent. Once the signed transaction is handed to
+    // eth_sendRawTransaction it may reach the node even if the response is lost,
+    // so any later failure without a receipt is marked submitted, with its hash
+    // when the node returned one. Callers must not treat those as unsent.
+    let serialized;
+    try {
+      serialized = await account.signTransaction({
+        chainId: CHAIN_ID,
+        accountChanges,
+        calls: encodeWalletCalls({ account: account.address, calls: phases }),
+        metadata: metadata ? toHex(metadata) : undefined,
+        nonceKey: 0n,
+        nonceSequence,
+        maxFeePerGas: DEFAULT_MAX_FEE,
+        maxPriorityFeePerGas: DEFAULT_PRIORITY_FEE,
+        gas,
+      });
+    } catch (error) {
+      throw Object.assign(error, { notSent: true });
+    }
+    let hash;
+    try {
+      hash = await rpc("eth_sendRawTransaction", [serialized]);
+    } catch (error) {
+      throw Object.assign(error, { submitted: true });
+    }
+    let receipt;
+    try {
+      receipt = await waitForTransactionReceipt(client, { hash, timeout: 60_000 });
+    } catch (error) {
+      throw Object.assign(error, { submitted: true, hash });
+    }
     if (receipt.status === "0x0") throw Object.assign(new Error(`Transaction reverted (${hash})`), { hash, receipt });
     const phasesStatus = receipt.eip8130?.phaseStatuses ?? receipt.phaseStatuses ?? [];
     const failedPhase = phasesStatus.findIndex((status) => status === "0x0");
     if (failedPhase !== -1) {
       throw Object.assign(new Error(`Phase ${failedPhase} reverted (${hash})`), { hash, receipt });
     }
-    if (!deployed) await waitUntilDeployed(account.address);
+    // The receipt above is already final. A read failure while confirming the
+    // account's deployment must not hide it, so the error keeps the hash and
+    // receipt. It still fails, because deployment was not verified.
+    if (!deployed) {
+      try {
+        await waitUntilDeployed(account.address);
+      } catch (error) {
+        throw Object.assign(new Error(`Transaction ${hash} confirmed, but the account deployment could not be verified: ${error?.message || error}`), { cause: error, hash, receipt, deploymentUnverified: true });
+      }
+    }
     return { hash, receipt, faucetHash, account: account.address, deployedByThisTx: !deployed };
   });
 }
@@ -668,17 +717,36 @@ export async function isAnnouncementIdUsed(token, id) {
   return readFunction(token, assetAbi, "isAnnouncementIdUsed", [id]);
 }
 
-export async function updateMultiplier({ token, multiplier }) {
-  const data = encodeFunctionData({ abi: assetAbi, functionName: "updateMultiplier", args: [BigInt(multiplier)] });
-  return sendCalls({ calls: [{ to: token, data }], metadata: "Update asset multiplier" });
+export async function latestTimestamp() {
+  const block = await rpc("eth_getBlockByNumber", ["latest", false]);
+  return BigInt(block.timestamp);
+}
+
+// Resolves once the chain head reaches `timestamp`, so a scheduled
+// multiplier has matured before the demo reads it back.
+export async function waitForTimestamp(timestamp, { timeoutMs = 60_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while ((await latestTimestamp()) < BigInt(timestamp)) {
+    if (Date.now() > deadline) throw new Error("Timed out waiting for the scheduled multiplier to take effect");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+export async function updateUIMultiplier({ token, multiplier, effectiveAt }) {
+  const data = encodeFunctionData({
+    abi: assetAbi,
+    functionName: "updateUIMultiplier",
+    args: [BigInt(multiplier), BigInt(effectiveAt)],
+  });
+  return sendCalls({ calls: [{ to: token, data }], metadata: "Schedule asset multiplier update" });
 }
 
 export async function assetMultiplier(token) {
-  return readFunction(token, assetAbi, "multiplier");
+  return readFunction(token, assetAbi, "uiMultiplier");
 }
 
-export async function scaledBalanceOf(token, address) {
-  return readFunction(token, assetAbi, "scaledBalanceOf", [address]);
+export async function balanceOfUI(token, address) {
+  return readFunction(token, assetAbi, "balanceOfUI", [address]);
 }
 
 export async function assetMetadata(token, key) {
@@ -691,7 +759,7 @@ export async function assetDetails(token) {
     readFunction(token, b20Abi, "decimals"),
     readFunction(token, b20Abi, "totalSupply"),
     readFunction(token, b20Abi, "supplyCap"),
-    readFunction(token, assetAbi, "multiplier"),
+    readFunction(token, assetAbi, "uiMultiplier"),
   ]);
   return { name, decimals: Number(decimals), totalSupply, supplyCap, multiplier };
 }
@@ -864,9 +932,11 @@ const api = {
   batchMint,
   announceDistribution,
   isAnnouncementIdUsed,
-  updateMultiplier,
+  latestTimestamp,
+  waitForTimestamp,
+  updateUIMultiplier,
   assetMultiplier,
-  scaledBalanceOf,
+  balanceOfUI,
   assetMetadata,
   assetDetails,
   createPolicy,

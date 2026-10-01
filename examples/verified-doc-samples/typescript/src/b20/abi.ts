@@ -31,14 +31,11 @@ const assetExtraAbi = parseAbi([
   "function batchMint(address[],uint256[])",
   "function announce(bytes[],string,string,string)",
   "function isAnnouncementIdUsed(string) view returns (bool)",
-  "function updateMultiplier(uint256)",
   "function updateUIMultiplier(uint256,uint256)",
   "function cancelUIMultiplierUpdate()",
-  "function multiplier() view returns (uint256)",
   "function uiMultiplier() view returns (uint256)",
   "function newUIMultiplier() view returns (uint256)",
   "function effectiveAt() view returns (uint256)",
-  "function scaledBalanceOf(address) view returns (uint256)",
   "function balanceOfUI(address) view returns (uint256)",
 ]);
 
