@@ -16,17 +16,9 @@ hinted-compatible registrar and prover-host signer API.
 
 ## Responsibilities
 
-A conforming registrar performs the following work:
-
-1. Discover TEE prover instances behind the configured AWS load balancer.
-2. Fetch each enclave's secp256k1 public key and a fresh Nitro attestation bound to that signer.
-3. Parse the COSE and X.509 data without changing the signed encodings.
-4. Validate the expected signer, nonce, PCR0, trust anchor, certificate order, and freshness locally.
-5. Generate the checked P-384 inverse hints required by the onchain verifier.
-6. Reuse valid cached certificates and cache missing certificates in parent-first order.
-7. Submit the final attestation to `TEEProverRegistry.registerSigner()`.
-8. Optionally monitor AWS certificate revocation lists and persist confirmed revocations on L1.
-9. Deregister signers whose backing prover instances are no longer active.
+The registrar discovers TEE prover instances, obtains and validates signer attestations, generates
+P-384 hints, caches certificates, and registers signers. It also deregisters orphaned signers and can
+monitor AWS certificate revocation lists.
 
 The registrar does not select the accepted enclave image. Registration records the attested PCR0,
 but [`TEEVerifier`](https://github.com/base/contracts/blob/main/src/L1/proofs/tee/TEEVerifier.sol)
@@ -228,9 +220,12 @@ task.
 ## Certificate Revocation
 
 `CertManager` maintains a durable revocation set and an immutable pinned AWS Nitro root. The owner
-can revoke or unrevoke the root as an emergency halt, set the non-root revoker, and unrevoke
-certificate identities. The revoker role can revoke non-root issuer/serial identities. Revocation
-is checked during cold verification, cache reuse, and the final cached-chain walk.
+can revoke the root to halt new registrations, unrevoke the root, set the non-root revoker, and
+unrevoke certificate identities. The revoker role can revoke non-root issuer/serial identities.
+Revocation is checked during cold verification, cache reuse, and the final cached-chain walk.
+
+Certificate revocation and expiration do not invalidate previously registered signers. Deregister
+affected signers separately.
 
 For every registration attempt, the registrar checks the pinned root and every planned certificate
 against `CertManager.isRevoked()`. A confirmed onchain revocation rejects the registration.
@@ -313,4 +308,3 @@ A conforming implementation must preserve these properties:
 - Recheck registration state before submission and after ambiguous transaction errors.
 - Do not deregister signers while discovery is unresolved or during the configured grace period.
 - Keep PCR0 acceptance at proof-submission time so image rotations can be staged safely.
-- Do not add an unhinted, ZK, or externally proved runtime fallback to the hinted registration path.
