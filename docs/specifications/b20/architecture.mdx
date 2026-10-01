@@ -1,0 +1,83 @@
+# B20 Integration Architecture
+
+*What a caller can observe and rely on. This document describes B20's externally observable architecture and the properties third-party integrators can build against. It does not describe the internal implementation of B20 in `base/base`.*
+
+*For the product tour, see [Overview](overview.md). For roles, policies, and token types, see [Concepts](concepts/). For the event list, see [Events](reference/events.md).*
+
+## 1. Mental Model
+
+A B20 is an account you call like a contract. You send ABI-encoded calldata to an address. The call returns data, reverts with a custom error, or emits events. Balances, transfers, and approvals follow ERC-20. Roles, pause, mint, burn, seize, and policies are part of the same interface.
+
+The protocol provides that execution. You do not deploy per-token logic, and the account does not carry a program you maintain. Every token of a variant exposes the same interface, so a wallet, an issuer, or an app integrates once.
+
+Two properties follow for a caller:
+
+- A successful call commits state at the target address. A revert restores that call's writes, the same way a contract revert does.
+- A later view returns the state those writes committed. `balanceOf`, `hasRole`, `isPaused`, and `isAuthorized` read that state directly.
+
+Asset and Stablecoin share this shape. They differ in the extra interface at the same address. See [Token Types](concepts/token-types.md).
+
+## 2. System Surface
+
+Four components matter to an integrator. Three are singletons at fixed addresses. Tokens are many addresses, each created by the Factory.
+
+| Component | Address | What you call it for |
+| --- | --- | --- |
+| Factory | `0xB20f000000000000000000000000000000000000` | `createB20`, `getB20Address`, `isB20`, `isB20Initialized` |
+| Policy Registry | `0x8453000000000000000000000000000000000002` | Shared allowlists, blocklists, and composite policies |
+| Activation Registry | `0x8453000000000000000000000000000000000001` | Whether a Factory or token feature is on |
+| B20 token | Derived by `createB20` | Balances, transfers, roles, pause, mint, burn, seize, and the policy IDs bound to that token |
+
+The Factory creates a token and then stops. After `createB20` returns, the Factory has no further access to that token.
+
+The Policy Registry holds the lists. A token stores a policy ID, not the members. Many tokens can store the same ID. An update to that policy changes `isAuthorized` for every token that stores it. Those tokens do not need another `updatePolicy`.
+
+The Activation Registry is a Base-operated switch. Issuers and apps read it. When a feature is inactive, writes that require it revert with `FeatureNotActivated`. Reads stay available. Turning a variant off stops new `createB20` calls for that variant. Tokens that already exist keep running.
+
+## 3. Identity and Code
+
+### 3.1 What appears at a token address
+
+`getB20Address(variant, sender, salt)` returns the address `createB20` will use. It never reverts. If that account is already occupied, `createB20` reverts `TokenAlreadyExists`.
+
+The address is self-describing:
+
+- Byte `[0]` is `0xB2`.
+- Bytes `[1:9]` are zero.
+- Byte `[10]` is the variant. Asset is `0x00`. Stablecoin is `0x01`.
+- The remaining bytes are derived from `keccak256(sender, salt)`.
+
+Byte `[10]` is the type, and it does not change after `createB20` returns. An Asset address exposes [`IB20`](../src/interfaces/IB20.sol) and [`IB20Asset`](../src/interfaces/IB20Asset.sol). A Stablecoin address exposes `IB20` and [`IB20Stablecoin`](../src/interfaces/IB20Stablecoin.sol). A selector that belongs to the other variant does not run on that address.
+
+`isB20(address)` reports the `0xB2` prefix only. It can return true for an address the Factory has not created, and it never reverts. `isB20Initialized(address)` is the liveness check. It flips once, when the creating `createB20` returns, and it never reverts. During `initCalls` in that same call, it is still false.
+
+Before creation, the predicted address has no code. A call to it returns no output. It is not a token yet.
+
+### 3.2 What `0xef` means
+
+On creation, the Factory sets the account code to a single byte, `0xef`. That is the entire code. It is a marker, not a program. B20 tokens are not EVM contracts, so there is no bytecode to verify or upgrade at that address.
+
+`0xef` is the [EIP-3541](https://eips.ethereum.org/EIPS/eip-3541) reserved prefix. Ordinary `CREATE` and `CREATE2` cannot deploy code that starts with it. An address with the `0xB2` prefix and this code came from the Factory.
+
+### 3.3 How tooling should read that code
+
+Use the code as an identity check. Call the token through its ABI.
+
+- `eth_getCode` on a created token returns `0xef`. The size is 1. Both variants use that same byte. Read the variant from address byte `[10]`, or from `B20Created.variant`.
+- Treat `isB20` as a prefix filter. Treat `isB20Initialized`, or the pair of prefix plus code `0xef`, as "this token exists."
+- Decode calls and logs with `IB20`, plus `IB20Asset` or `IB20Stablecoin`. The code byte is not the interface.
+- Index creation from `B20Created`. The Factory emits it once, after identity is sealed and before `initCalls`.
+
+## 4. Protocol Evolution
+
+Base changes B20 in protocol upgrades. On Base those upgrades are hardforks. For an integrator, a hardfork can introduce a new precompile, or it can change the logic that answers at an address you already call.
+
+What stays stable:
+
+- Singleton addresses do not move. The Factory, the Policy Registry, and the Activation Registry stay at the addresses in [§2](#2-system-surface).
+- A token address does not move, and byte `[10]` does not change.
+- A call in a past block keeps the result it had in that block. A node that replays history from genesis reaches the same state as a node that was live for those blocks. An upgrade does not rewrite blocks that already executed.
+- After the upgrade, new calls use the upgraded behavior at the same address. You do not point your integration at a new token address to pick up the upgrade.
+- A call the active protocol cannot serve reverts. There is no fallback to some other behavior.
+
+Integrate against the interface of the release you are on. A later hardfork can add selectors at these same addresses. Those selectors are absent until that hardfork.
