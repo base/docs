@@ -44,6 +44,20 @@ description: "B20 precompile addresses, role identifiers, policy scopes, and val
 | `SEIZE_EXEMPT_POLICY` | `keccak256("SEIZE_EXEMPT_POLICY")`<br />`0xedb5da348cfb67af08746d3afd1be81034b50d5c8576f31aff688f39dfd540ed` | Consulted for `from` on `seizeWithMemo`; an authorized `from` is seize-exempt, so `from` is seizable only when unauthorized under this policy. Named `SEIZE_HOLDER_POLICY` before Cobalt. |
 | `SEIZE_RECEIVER_POLICY` | `keccak256("SEIZE_RECEIVER_POLICY")`<br />`0xbf15b19caf5c77422c038bc25f26b8b815c3a14f6d04c6616076b81bcfe07b3d` | Consulted for `to` on `seizeWithMemo`. |
 
+## `isAuthorized` edge-case semantics
+
+`isAuthorized` never reverts. The table below summarizes how it handles IDs that are malformed, unknown, or inverted.
+
+| Case | Result |
+|---|---|
+| Malformed ID (top byte outside `PolicyType` after clearing the invert flag, bit 63) | `false` |
+| Well-formed but unknown ID — `ALLOWLIST` or `UNION` | `false` (empty set) |
+| Well-formed but unknown ID — `BLOCKLIST` or `INTERSECT` | `true` (empty set) |
+| Inverted ID whose base exists | Negation of the base result |
+| Inverted unknown or malformed base | `false` |
+
+Callers that store policy IDs must validate `policyExists(policyId)` at write time to avoid relying on empty-set or malformed-ID fallback behavior.
+
 ## Feature and validation bounds
 
 *Bitmasks and inclusive bounds used for pause features and B20Asset creation validation. See [`B20Constants`](https://github.com/base/base-std/blob/main/src/lib/B20Constants.sol).*

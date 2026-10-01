@@ -26,6 +26,8 @@ The Policy Registry is a singleton precompile that stores each member list once.
 
 Scopes gate specific functions. `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_POLICY` check the sender and recipient on every `transfer` and `transferFrom`. `MINT_RECEIVER_POLICY` checks the recipient on every `mint`. All three default to `ALWAYS_ALLOW` (`0`) until you bind a policy.
 
+`isAuthorized` never reverts. A **malformed** policy ID returns `false`. A well-formed but unknown ID is treated as an empty set: ALLOWLIST and UNION return `false`; BLOCKLIST and INTERSECT return `true`. An inverted ID negates the base result only when the base exists — an inverted unknown or malformed base returns `false`.
+
 An **allowlist** authorizes only accounts in the set. An empty allowlist authorizes nobody, so seed your intended holders before binding the policy.
 
 ## Create and Bind a Holder Allowlist

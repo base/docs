@@ -1,6 +1,6 @@
 ---
 title: "IPolicyRegistry.isAuthorized"
-description: "Generated B20 reference for isAuthorized(uint64,address)."
+description: "Returns whether an account is authorized under a given policy ID, with defined behavior for malformed, unknown, and inverted IDs."
 ---
 
 
@@ -18,17 +18,39 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 
 ## Description
 
-Returns whether `account` is authorized under `policyId`. Never reverts; unknown
-or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -&gt; false,
-BLOCKLIST -&gt; true).
-Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
-Param: policyId Policy to query.
-Param: account  Account to check.
-Return: Whether `account` is authorized.
+Returns whether `account` is authorized under `policyId`. Never reverts.
+
+**Malformed ID** — The invert flag (bit 63) is cleared before the type check. If the remaining top byte is outside the valid `PolicyType` range, the ID is malformed and the function returns `false`.
+
+**Unknown ID (well-formed, not registered)** — Treated as an empty member set:
+
+| Policy type | Result |
+|---|---|
+| `ALLOWLIST` | `false` |
+| `UNION` | `false` |
+| `BLOCKLIST` | `true` |
+| `INTERSECT` | `true` |
+
+**Invert** — `isAuthorized(invertedPolicyId(id), account)` returns the negated result of the base policy when that base exists. Applies to every policy type. An inverted unknown or malformed base returns `false`.
+
+<Note>
+Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
+</Note>
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. |
+| `account` | `address` | Account to check. |
+
+## Returns
+
+`bool` — `true` if `account` is authorized under `policyId`, `false` otherwise.
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only view function; no role restriction.
 
 ## Policy Interaction
 

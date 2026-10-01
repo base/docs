@@ -92,7 +92,7 @@ token.approve(transferAgent, amount);
 The initiator moves units with `transferFrom(holder, recipient, amount)`. The holder's own `transfer(recipient, amount)` reverts `PolicyForbids(TRANSFER_EXECUTOR_POLICY, executorId)` before balance is checked.
 
 <Check>
-`Transfer(from, to, amount)` appears on the initiator's `transferFrom`. A holder's direct `transfer` reverts with `PolicyForbids(TRANSFER_EXECUTOR_POLICY, executorId)`; that revert confirms the restriction is active, not that something is misconfigured. `isAuthorized(executorId, account)` on the Policy Registry returns `true` for the initiator and `false` for the holder.
+`Transfer(from, to, amount)` appears on the initiator's `transferFrom`. A holder's direct `transfer` reverts with `PolicyForbids(TRANSFER_EXECUTOR_POLICY, executorId)`; that revert confirms the restriction is active, not that something is misconfigured. `isAuthorized(executorId, account)` on the Policy Registry returns `true` for the initiator and `false` for the holder. For a well-formed but unrecognized policy ID, `isAuthorized` treats it as an empty set: an ALLOWLIST or UNION returns `false`, a BLOCKLIST or INTERSECT returns `true`. A malformed ID always returns `false`. An inverted unknown or malformed base also returns `false`.
 </Check>
 
 <Warning>
