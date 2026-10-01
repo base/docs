@@ -2,51 +2,56 @@ export const AssetDemo = ({ flow }) => {
   // No imports allowed in Mintlify snippets: useState/useEffect/useRef are injected globally.
 
   // Mintlify snippets cannot import npm packages or sibling modules. Load the
-  // shared .txt engine and vendored AA client as Blob ES modules on first use.
+  // shared .txt engine and vendored AA client on first use and link them in one
+  // function body (the docs CSP blocks blob: scripts).
   const loadVibenetEngine = () => {
     if (window.__baseDocsVibenetEngineV3) return Promise.resolve(window.__baseDocsVibenetEngineV3);
     if (window.__baseDocsVibenetEnginePromiseV3) return window.__baseDocsVibenetEnginePromiseV3;
 
-    window.__baseDocsVibenetEnginePromiseV3 = new Promise((resolve, reject) => {
-      const onReady = () => {
-        cleanup();
-        resolve(window.__baseDocsVibenetEngineV3);
-      };
-      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v3-ready", onReady);
-      window.addEventListener("base-docs-vibenet-engine:v3-ready", onReady, { once: true });
-
-      (async () => {
+    window.__baseDocsVibenetEnginePromiseV3 = (async () => {
+      try {
+        const fetchText = async (path) => {
+          const response = await fetch(path, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+          return response.text();
+        };
+        const [aaSource, engineSource] = await Promise.all([
+          fetchText("/static/aa.txt"),
+          fetchText("/static/vibenet-engine.txt?v=6"),
+        ]);
+        // docs.base.org's CSP blocks blob: scripts, so both modules are linked
+        // into one function body: the AA bundle's trailing export list becomes
+        // a returned object, and the engine's import from "./aa.txt" reads it.
+        const exportAt = aaSource.lastIndexOf("export{");
+        const exportEnd = aaSource.indexOf("}", exportAt);
+        if (exportAt === -1 || exportEnd === -1) throw new Error("Could not read the AA bundle exports");
+        const aaExports = aaSource
+          .slice(exportAt + 7, exportEnd)
+          .split(",")
+          .map((entry) => {
+            const [local, exported] = entry.trim().split(/\s+as\s+/);
+            return `${JSON.stringify(exported || local)}:${local}`;
+          })
+          .join(",");
+        const aaModule = `const __baseDocsAA=(()=>{${aaSource.slice(0, exportAt)}\nreturn{${aaExports}};})();`;
+        const importPattern = /import\s*\{([\s\S]*?)\}\s*from\s*"\.\/aa\.txt";/;
+        if (!importPattern.test(engineSource)) throw new Error("Could not connect the Vibenet engine to the AA bundle");
+        const engineBody = engineSource
+          .replace(importPattern, "const {$1} = __baseDocsAA;")
+          .replace(/^export default [^;]+;$/m, "")
+          .replace(/^export\s+(?=(async\s+)?(function|const|let|class)\b)/gm, "");
         try {
-          const fetchText = async (path) => {
-            const response = await fetch(path, { cache: "force-cache" });
-            if (!response.ok) throw new Error(`${path} returned ${response.status}`);
-            return response.text();
-          };
-          const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
-          const [aaSource, engineSource] = await Promise.all([
-            fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=5"),
-          ]);
-          const aaUrl = moduleUrl(aaSource);
-          const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
-          if (rewritten === engineSource) throw new Error("Could not connect the Vibenet engine to the AA bundle");
-          const tag = document.createElement("script");
-          tag.type = "module";
-          tag.src = moduleUrl(rewritten);
-          tag.dataset.baseDocsVibenetEngine = "true";
-          tag.onerror = () => {
-            cleanup();
-            window.__baseDocsVibenetEnginePromiseV3 = null;
-            reject(new Error("Failed to evaluate the Vibenet engine"));
-          };
-          document.head.appendChild(tag);
+          new Function(`"use strict";\n${aaModule}\n${engineBody}`)();
         } catch (error) {
-          cleanup();
-          window.__baseDocsVibenetEnginePromiseV3 = null;
-          reject(error);
+          throw new Error(`Failed to evaluate the Vibenet engine: ${error?.message || error}`);
         }
-      })();
-    });
+        if (!window.__baseDocsVibenetEngineV3) throw new Error("Failed to evaluate the Vibenet engine");
+        return window.__baseDocsVibenetEngineV3;
+      } catch (error) {
+        window.__baseDocsVibenetEnginePromiseV3 = null;
+        throw error;
+      }
+    })();
     return window.__baseDocsVibenetEnginePromiseV3;
   };
 
