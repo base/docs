@@ -131,11 +131,21 @@ range.
 
 ### enclave_signerAttestation
 
-Takes optional `user_data` and `nonce` byte arguments. Both are capped at 512 bytes by the NSM
-hardware and rejected at the host RPC layer before the vsock call. The host returns one raw
-`COSE_Sign1` document per configured enclave, in the same order as `enclave_signerPublicKey`. The
-registrar uses this endpoint to bind each enclave's signer to a fresh attestation before
-submitting it onchain.
+`enclave_signerAttestation(user_data, nonces)` takes two optional arguments:
+
+| Argument | Type | Meaning |
+| --- | --- | --- |
+| `user_data` | `Option<Vec<u8>>` | Shared byte array included in every enclave's attestation. |
+| `nonces` | `Option<Vec<Vec<u8>>>` | One nonce byte array per configured enclave, in `enclave_signerPublicKey` order. |
+
+If supplied, `nonces` must contain exactly as many entries as there are configured enclaves. If
+omitted, no nonce is sent to any enclave. The NSM limit is 512 bytes for `user_data` and 512 bytes
+for each nonce. The host rejects a wrong nonce count or oversized input with JSON-RPC error
+`-32602` before any vsock call.
+
+The host returns one raw `COSE_Sign1` document per configured enclave in that same order. The
+registrar supplies a [deterministic challenge per signer](/specifications/base-protocol/proofs/registrar#attestation-challenge)
+to bind each attestation to the expected registry and signer before submitting it onchain.
 
 ## Proof Pipeline
 
