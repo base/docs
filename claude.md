@@ -66,12 +66,17 @@ sidebar label is `sidebarTitle` if present, otherwise `title`.
 
 ## References
 
-| File | Purpose |
-|------|---------|
-| [content-guidelines.md](docs/content-guidelines.md) | Writing rules, spec page structure, changelog format |
-| [docs/ia-guidelines.md](docs/ia-guidelines.md) | What belongs in each tab and section |
-| [mintlify-reference.md](docs/mintlify-reference.md) | Component syntax |
-| [scripts/README.md](scripts/README.md) | Linter usage |
+| File | Purpose | Enforced by (Claude skill) |
+|------|---------|----------------------------|
+| [content-guidelines.md](docs/content-guidelines.md) | Writing rules, spec page structure, changelog format | `.claude/skills/doc-feedback.md`, `spec-pages.md`, `changelog-entries.md` |
+| [docs/ia-guidelines.md](docs/ia-guidelines.md) | What belongs in each tab and section | `.claude/skills/docs-ia.md` |
+| [mintlify-reference.md](docs/mintlify-reference.md) | Component syntax | `.claude/skills/mintlify-components.md` (authoring), `lint.md` (after the fact) |
+| [scripts/README.md](scripts/README.md) | Linter usage | `.claude/skills/lint.md` |
+
+Each reference file stays in its current location — `docs/content-guidelines.md` and
+`docs/ia-guidelines.md` are protected by the `IA Gate / Guideline Files` check (see CI Approval
+Gates below), so moving them out of `docs/` risks silently bypassing that gate. The Claude
+skills above are the enforcement layer on top of these files, not a replacement for them.
 
 ## Before Committing
 

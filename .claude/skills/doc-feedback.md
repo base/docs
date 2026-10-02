@@ -27,6 +27,14 @@ description: Reviews documentation for quality, consistency, and style guide adh
    [docs-ia](docs-ia.md) skill has a quick decision tree for placement. Only needed when the PR
    adds, moves, or renames pages, or edits `docs.json`.
 
+4a. **Review spec/changelog structure** — if the PR touches a Specifications-tab page, apply the
+   [writing-spec-pages](spec-pages.md) skill (page type, structure, normative tone). If it adds or
+   edits a changelog entry under Upgrades, apply the [writing-changelog-entries](changelog-entries.md)
+   skill (section structure, file naming). Skip for ordinary Build on Base / SDK content.
+
+4b. **Review component usage** — check MDX components against the [mintlify-components](mintlify-components.md)
+   skill (right component for the content type, required attributes) in addition to what the linter catches.
+
 5. **Check against CI** — Anticipate the checks that run on `docs/**` changes so the PR does not
    fail after opening. Scope the commands to what the PR actually touches:
    - `docs.json` or page frontmatter changed → `node scripts/validate-docs-structure.js`
