@@ -71,6 +71,20 @@ On `transfer`, the executor lookup is new. When `TRANSFER_EXECUTOR_POLICY` equal
 `_transfer` reuses the executor result and skips the sender `isAuthorized` call. A default
 `transfer` therefore still makes two `isAuthorized` calls.
 
+### `isAuthorized` — Malformed and Unknown ID Semantics
+
+The `IPolicyRegistry.isAuthorized` NatSpec was refined to distinguish two cases that previously
+shared a single description:
+
+- **Malformed ID**: the invert flag (bit 63) is cleared first; if the remaining top byte is outside
+  `PolicyType`, `isAuthorized` returns `false`.
+- **Well-formed but unknown ID**: treated as an empty set — `ALLOWLIST` and `UNION` return `false`;
+  `BLOCKLIST` and `INTERSECT` return `true`.
+- **Inverted unknown or malformed base**: always returns `false` (negation is not applied when the
+  base does not exist or is malformed).
+
+This is a documentation clarification only. No behavior changed.
+
 ## Examples
 
 A holder moving their own tokens is now gated by the executor policy:

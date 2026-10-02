@@ -43,7 +43,9 @@ How the seize scope works:
 | `SEIZE_EXEMPT_POLICY` | `from` | `isAuthorized` is **false** | Everyone is authorized, so nobody is seizable. |
 | `SEIZE_RECEIVER_POLICY` | `to` | `isAuthorized` is **true** | Any destination is allowed. |
 
-Because the holder check is inverted, attach a **blocklist** to `SEIZE_EXEMPT_POLICY`. Accounts on the list are unauthorized and therefore seizable; every other holder stays exempt. Never attach an allowlist or `ALWAYS_BLOCK` to this scope: an empty allowlist authorizes nobody, so every holder would be seizable.
+Because the holder check is inverted, attach a **blocklist** to `SEIZE_EXEMPT_POLICY`. Accounts on the list are unauthorized and therefore seizable; every other holder stays exempt. Never attach an allowlist or `ALWAYS_BLOCK` to this scope: an empty allowlist returns false for every account, so every holder would be seizable.
+
+`isAuthorized` never reverts. A malformed policy ID returns false. A well-formed but unknown ID is treated as an empty set: ALLOWLIST and UNION return false; BLOCKLIST and INTERSECT return true. An inverted unknown or malformed policy ID returns false regardless of type.
 
 ## Seize, Cancel, and Verify
 

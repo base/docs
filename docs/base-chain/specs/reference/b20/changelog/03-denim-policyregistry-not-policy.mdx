@@ -54,7 +54,7 @@ function invertedPolicyId(uint64 policyId) external view returns (uint64);
 | Symbol | Selector | Status | Behavior |
 | --- | --- | --- | --- |
 | `invertedPolicyId(uint64)` | `0x6b468933` | New view | Toggles bit 63 (`policyId ^ INVERTED_POLICY_BIT`). Never reverts, reads no state, and is involutive. |
-| `isAuthorized(uint64,address)` | Unchanged | Extended | An inverted ID resolves the base and returns the negated result. Fail-closed on an unknown or malformed base. |
+| `isAuthorized(uint64,address)` | Unchanged | Extended | Clears the invert flag before type-checking. A malformed base returns `false`. A well-formed but unknown base uses empty-set semantics (`ALLOWLIST`/`UNION` → `false`; `BLOCKLIST`/`INTERSECT` → `true`). An inverted base returns the negated result only when the base exists; an inverted unknown or malformed base returns `false`. |
 | `policyExists(uint64)` | Unchanged | Extended | Strips to base: `policyExists(invertedPolicyId(id)) == policyExists(id)`. |
 | `policyAdmin(uint64)` | Unchanged | Extended | Strips to base. |
 | `pendingPolicyAdmin(uint64)` | Unchanged | Extended | Strips to base. |
@@ -69,15 +69,27 @@ function invertedPolicyId(uint64 policyId) external view returns (uint64);
 
 #### Authorization
 
-`isAuthorized` gains a leading invert branch. All non-inverted paths are unchanged.
+`isAuthorized` never reverts. The invert flag is cleared before the type check, so malformed-ID
+detection operates on the stripped value. The evaluation order is:
 
-```text Authorization Evaluation lines expandable wrap highlight={2-6}
+1. **Malformed ID** — after clearing the invert flag, if the top byte is outside `PolicyType`, return `false`.
+2. **Inverted ID (base exists)** — return the negated result of the base policy.
+3. **Inverted unknown or malformed base** — return `false`.
+4. **Unknown well-formed ID** — empty-set semantics: `ALLOWLIST` and `UNION` return `false`; `BLOCKLIST` and `INTERSECT` return `true`.
+5. **Known ID** — existing `ALLOWLIST` / `BLOCKLIST` / `UNION` / `INTERSECT` dispatch, unchanged.
+
+```text Authorization Evaluation lines expandable wrap highlight={2-10}
 isAuthorized(policyId, account):
     if policyId has INVERTED_POLICY_BIT set:
         base = policyId without the bit
+        if base is malformed:
+            return false
         if not policyExists(base):      # fail-closed guard
             return false
         return not isAuthorized(base, account)
+
+    if policyId type byte is outside PolicyType:  # malformed
+        return false
 
     ... existing ALLOWLIST / BLOCKLIST / UNION / INTERSECT dispatch ...
 ```
@@ -129,6 +141,7 @@ policyRegistry.createCompositePolicy(admin, IPolicyRegistry.PolicyType.INTERSECT
 ```
 
 Fail-closed: for any never-created base, `isAuthorized(base | INVERTED_POLICY_BIT, account)` returns
+`false`. Malformed IDs (type byte outside `PolicyType` after clearing the invert flag) also return
 `false`.
 
 Round-trip: `invertedPolicyId(invertedPolicyId(id)) == id`, and
