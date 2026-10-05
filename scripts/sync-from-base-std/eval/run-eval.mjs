@@ -67,10 +67,11 @@ export function addedLinesByFile(diff) {
 
 /**
  * Score one run against a case's expectations.
- * @returns {{pass: boolean, violations: string[], restated: string[]}}
+ * @returns {{pass: boolean, violations: string[], warnings: string[], restated: string[]}}
  */
 export function scoreRun(expect, numstat, addedByFile = {}) {
   const violations = [];
+  const warnings = [];
   const touched = Object.keys(numstat);
   const may = expect.may_touch || {};
   const mustNot = new Set(expect.must_not_touch || []);
@@ -79,6 +80,15 @@ export function scoreRun(expect, numstat, addedByFile = {}) {
   for (const p of must) {
     if (!numstat[p]) violations.push(`missing required edit: ${p}`);
   }
+  // must_mention: { page: regex } — the page's added lines must state the
+  // new fact, so a cosmetic edit to a required page does not count.
+  for (const [p, pattern] of Object.entries(expect.must_mention || {})) {
+    if (!numstat[p]) continue; // already reported as missing above, if required
+    const text = (addedByFile[p] || []).join("\n");
+    if (!new RegExp(pattern, "i").test(text)) {
+      violations.push(`edit does not state the change: ${p} (no added line matches /${pattern}/i)`);
+    }
+  }
   for (const p of touched) {
     if (mustNot.has(p)) {
       violations.push(`edited a page it should leave alone: ${p} (+${numstat[p].added} -${numstat[p].removed})`);
@@ -86,8 +96,11 @@ export function scoreRun(expect, numstat, addedByFile = {}) {
       if (numstat[p].added > may[p]) {
         violations.push(`edit too large: ${p} adds ${numstat[p].added} lines (budget ${may[p]})`);
       }
-    } else if (!must.includes(p) && (expect.unlisted_pages || "fail") === "fail") {
-      violations.push(`edited an unlisted page: ${p} (+${numstat[p].added} -${numstat[p].removed})`);
+    } else if (!must.includes(p)) {
+      const mode = expect.unlisted_pages || "fail";
+      const msg = `edited an unlisted page: ${p} (+${numstat[p].added} -${numstat[p].removed})`;
+      if (mode === "fail") violations.push(msg);
+      else if (mode === "warn") warnings.push(msg);
     }
   }
 
@@ -103,7 +116,7 @@ export function scoreRun(expect, numstat, addedByFile = {}) {
     }
     for (const p of restated) violations.push(`restates the full rules outside their owner pages: ${p}`);
   }
-  return { pass: violations.length === 0, violations, restated };
+  return { pass: violations.length === 0, violations, warnings, restated };
 }
 
 // ------------------------------------------------------------------ running
@@ -226,6 +239,7 @@ function printSummary(results) {
     console.log(`\n${r.pass ? "PASS" : "FAIL"} ${r.case} run ${r.run} — ${Object.keys(r.numstat).length} page(s)`);
     if (files) console.log(files);
     for (const v of r.violations) console.log(`  ✗ ${v}`);
+    for (const w of r.warnings || []) console.log(`  ! ${w}`);
   }
   const passed = results.filter((r) => r.pass).length;
   console.log(`\n${passed}/${results.length} run(s) passed`);

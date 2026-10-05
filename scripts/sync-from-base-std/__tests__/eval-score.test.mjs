@@ -42,3 +42,22 @@ test("scoreRun flags missing, forbidden, oversized, unlisted, and restated edits
   assert.match(text, /unlisted page: docs\/other\.mdx/);
   assert.match(text, /restates the full rules outside their owner pages: docs\/guide\/seize\.mdx/);
 });
+
+test("scoreRun: must_mention fails a required edit that does not state the change", () => {
+  const expect = {
+    must_touch: ["a.mdx"],
+    must_mention: { "a.mdx": "address\\(this\\)" },
+  };
+  const numstat = { "a.mdx": { added: 1, removed: 1 } };
+  const cosmetic = scoreRun(expect, numstat, { "a.mdx": ["Reverts when `to` is zero."] });
+  assert.equal(cosmetic.pass, false);
+  assert.match(cosmetic.violations[0], /does not state the change/);
+  const real = scoreRun(expect, numstat, { "a.mdx": ["Reverts when `to == address(this)`."] });
+  assert.equal(real.pass, true);
+});
+
+test("scoreRun: unlisted_pages warn reports without failing", () => {
+  const r = scoreRun({ must_touch: [], unlisted_pages: "warn" }, { "x.mdx": { added: 2, removed: 0 } });
+  assert.equal(r.pass, true);
+  assert.equal(r.warnings.length, 1);
+});
