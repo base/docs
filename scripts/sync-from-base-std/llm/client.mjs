@@ -36,8 +36,17 @@ const GATEWAY_BASE_URL =
 /** Default model — Sonnet 5.5. Override with CLAUDE_MODEL env. */
 export const DEFAULT_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 
-/** Default max output tokens. Override with CLAUDE_MAX_TOKENS env. */
-export const DEFAULT_MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS || 4096);
+/**
+ * Default max output tokens. Override with CLAUDE_MAX_TOKENS env.
+ *
+ * Each page call returns the whole regenerated page, so this cap bounds the
+ * largest page the sync can edit. 4096 was too small for Sonnet 5.5: its
+ * tokenizer spends more tokens per char, and an 8,955-char page
+ * (seize-and-cancel-units.mdx) was truncated and rejected. 16384 fits pages
+ * of roughly 36k chars. Output is billed per generated token, not per cap,
+ * and the response is streamed, so a higher cap costs nothing on short pages.
+ */
+export const DEFAULT_MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS || 16384);
 
 /**
  * Haiku model name. Used by the pre-pass that extracts a structured change
