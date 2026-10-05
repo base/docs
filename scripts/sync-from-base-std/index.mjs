@@ -79,6 +79,9 @@ import {
   firstHeading,
   decideCall,
   changedLines,
+  isCommentOnlyChange,
+  newestChangelogFork,
+  symbolRouteGate,
 } from "./release-utils.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1542,6 +1545,7 @@ async function processPage(item, shared, useGroups) {
           source_entry: sourceEntry,
           source_entry_path: sourceEntry ? entrySource : undefined,
           create,
+          comment_only: !!shared.commentOnly,
         };
       }
       const prompt = buildClaudePrompt(kind, ctx);
@@ -1754,6 +1758,8 @@ async function main() {
 
   // Per-file diff sections so each page only sees the hunks that routed it.
   const diffByFile = splitDiffByFile(typeof payload.diff === "string" ? payload.diff : "");
+  // Set for code-change dispatches whose source diff only edits comments.
+  let commentOnly = false;
 
   let work = [];
   // What the route table did not handle (code-change only). Rendered into the
@@ -1817,6 +1823,11 @@ async function main() {
       if (content != null) pageContents.set(rel, content);
     }
 
+    const layout = changelogLayout(route);
+    commentOnly = isCommentOnlyChange(diffByFile);
+    if (commentOnly) {
+      console.log("[symbols] source diff changes only comments/NatSpec: a clarification, routed to reference pages only");
+    }
     const symbols = routingSymbols(manifest);
     if (symbols.length === 0) {
       console.log("[symbols] no routing symbols (no manifest); path routing only");
@@ -1824,6 +1835,18 @@ async function main() {
       console.log(`[symbols] ${symbols.length} routing symbol(s): ${symbols.slice(0, 30).join(", ")}${symbols.length > 30 ? ", …" : ""}`);
       const pages = [...pageContents].map(([p, content]) => ({ path: p, content }));
       const mentions = findSymbolMentions(pages, symbols);
+      // Gate pages found only by mention. Path-routed pages are explicit
+      // route-table decisions and are never dropped here.
+      const pathRouted = new Set(work.map((w) => w.page));
+      const newestFork = newestChangelogFork([...pageContents.keys()], layout.entryDir);
+      for (const page of [...mentions.keys()]) {
+        if (pathRouted.has(page)) continue;
+        const why = symbolRouteGate(page, { role: pageRoleFor(page, layout), commentOnly, newestFork });
+        if (why) {
+          mentions.delete(page);
+          console.log(`[symbols] not routing ${page} — ${why}`);
+        }
+      }
       const before = work.length;
       work = mergeSymbolRoutes(work, mentions, manifest);
       console.log(`[symbols] ${mentions.size} page(s) mention a routing symbol; ${work.length - before} added beyond path routing`);
@@ -1834,7 +1857,6 @@ async function main() {
 
     // One decision per page, made here and logged with the work list:
     // does this page need a model call at all?
-    const layout = changelogLayout(route);
     for (const w of work) {
       const content = pageContents.get(w.page);
       if (content == null) continue; // missing pages are handled (created or skipped) in processPage
@@ -1949,6 +1971,7 @@ async function main() {
     knownRoutes,
     route,
     diffByFile,
+    commentOnly,
     layout: changelogLayout(route),
     snippetComponents: await listSnippetComponents(),
   };

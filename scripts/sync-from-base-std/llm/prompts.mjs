@@ -216,6 +216,9 @@ ${lines.join("\n")}
  */
 export function codeChangePrompt(ctx) {
   const roleLine = ctx.pageRole ? `\n- This page's role: ${ctx.pageRole} (see rule #5 for what this role owns).` : "";
+  const changeTypeLine = ctx.comment_only
+    ? `\n- Change type: the source diff edits only comments/NatSpec. It clarifies existing behavior; no code changed. Edit only statements the clarification shows to be wrong or incomplete (see rule #6 step 2).`
+    : "";
   const createNote = ctx.create
     ? `\n- THIS PAGE DOES NOT EXIST YET. The <current_page> block holds only a frontmatter stub. Write the complete page from <source_entry> in the changelog-entry shape from the documentation guidelines. Fill in the frontmatter description (one sentence, value-first). Keep the title unless the source entry's heading is clearer.`
     : "";
@@ -233,7 +236,7 @@ ${ctx.diff || "(diff omitted — over size limit)"}
   return `You are editing one page of Base Docs, a Mintlify MDX documentation site.
 
 Context:
-- A change just landed on ${ctx.source_repo || "base/base-std"}@${ctx.sha}.${roleLine}${createNote}
+- A change just landed on ${ctx.source_repo || "base/base-std"}@${ctx.sha}.${roleLine}${changeTypeLine}${createNote}
 - Changed source files in Base Std (the ones that affect THIS page):
 ${(ctx.sourceFiles || []).map((s) => `  - ${s}`).join("\n")}
 ${changeManifestSection(ctx.manifest)}

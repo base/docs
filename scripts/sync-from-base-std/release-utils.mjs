@@ -638,3 +638,74 @@ export function changedLines(diff) {
     .filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"))
     .join("\n");
 }
+
+// ------------------------------------------------------- symbol-route gating
+
+/**
+ * True when every changed line in the dispatch's source files is a comment
+ * (Solidity `//`, `///`, or a block-comment line). Such a change clarifies
+ * documented behavior; it does not change it. Test files are ignored, the
+ * same as for routing. Any non-Solidity source file, or no changed lines at
+ * all, returns false so ordinary routing applies.
+ *
+ * @param {Map<string, string>} diffByFile  path → unified diff section
+ */
+export function isCommentOnlyChange(diffByFile) {
+  let sawChange = false;
+  for (const [file, section] of diffByFile || []) {
+    if (file.startsWith("test/")) continue;
+    if (!file.endsWith(".sol")) return false;
+    for (const line of changedLines(section).split("\n")) {
+      const body = line.slice(1).trim();
+      if (body === "") continue;
+      sawChange = true;
+      if (!/^(\/\/|\/\*|\*)/.test(body)) return false;
+    }
+  }
+  return sawChange;
+}
+
+const CHANGELOG_ENTRY_RE = /\/(\d+)-([a-z]+)-[^/]+\.mdx$/;
+
+/**
+ * The newest hardfork with changelog entries, from entry file names
+ * (`<entryDir>/<NN>-<fork>-<slug>.mdx`, highest NN wins). Returns "" when
+ * the layout has no entries, which disables fork gating.
+ */
+export function newestChangelogFork(pages, entryDir) {
+  if (!entryDir) return "";
+  const dir = entryDir.replace(/\/?$/, "/");
+  let best = { n: -1, fork: "" };
+  for (const p of pages || []) {
+    if (!String(p).startsWith(dir)) continue;
+    const m = CHANGELOG_ENTRY_RE.exec(p);
+    if (m && Number(m[1]) > best.n) best = { n: Number(m[1]), fork: m[2] };
+  }
+  return best.fork;
+}
+
+/**
+ * Decide whether a page found only by symbol mention should be routed.
+ * Returns null to route, or the reason to drop it. Path-routed pages never
+ * reach this gate: an explicit route-table rule always wins.
+ *
+ *   - comment-only source change → only the reference pages that document
+ *     the symbol (function-reference, interface-index) are routed
+ *   - a changelog entry for an earlier hardfork, or an `upgrades/<fork>/`
+ *     page for any hardfork other than the newest, is a historical record
+ *     and is not edited for a change landing now
+ */
+export function symbolRouteGate(page, { role, commentOnly = false, newestFork = "" }) {
+  if (commentOnly && role !== "function-reference" && role !== "interface-index") {
+    return "comment-only source change; symbol routing limited to reference pages";
+  }
+  if (newestFork) {
+    if (role === "changelog-entry") {
+      const m = CHANGELOG_ENTRY_RE.exec(page);
+      if (m && m[2] !== newestFork) return `changelog entry for an earlier hardfork (${m[2]}; newest is ${newestFork})`;
+    }
+    const up = /^docs\/upgrades\/([^/]+)\//.exec(page);
+    if (up && up[1] !== newestFork) return `historical upgrade page (${up[1]}; newest is ${newestFork})`;
+  }
+  return null;
+}
