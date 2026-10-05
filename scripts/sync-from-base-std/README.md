@@ -119,3 +119,23 @@ anything malformed are dropped silently.
 The review request is best-effort. It returns HTTP 422 when the author lacks
 read access to this repo, and the workflow logs a warning instead of failing.
 A review request grants no permission and cannot satisfy required approvals.
+
+## Signed commits
+
+`master` requires verified commit signatures, so the workflow does not run
+`git commit`/`git push`. After the path allowlist check and `git add`, the
+"Commit branch" step runs `scripts/lib/signed-commit.mjs`, which:
+
+1. Reads the staged change set from the index and re-checks every path
+   against the same allowlist. Only regular `100644` adds, modifications, and
+   deletions are accepted (no symlinks, executables, mode changes, or
+   submodules).
+2. Resets `refs/heads/<branch>` to the checked-out `HEAD`, creating the ref
+   if needed (the API equivalent of `git checkout -B` plus `push -f`).
+3. Creates the commit with GraphQL `createCommitOnBranch`, pinned to that
+   `HEAD` with `expectedHeadOid`. GitHub signs commits created this way and
+   attributes them to `github-actions[bot]`.
+
+It uses the job's existing `GITHUB_TOKEN` (`contents: write`) against
+`api.github.com`; there are no signing keys, extra secrets, or third-party
+actions. Unit tests live in `scripts/__tests__/signed-commit.test.mjs`.
