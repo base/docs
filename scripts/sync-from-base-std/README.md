@@ -101,31 +101,9 @@ Configuration knobs are optional positive numbers:
 - `CLAUDE_MAX_TOKENS` and `CLAUDE_MODEL`
 - The bounded release manifest/selection settings documented in `index.mjs`
 
-## Evals
-
-`eval/run-eval.mjs` replays recorded dispatches against a pinned docs commit
-in a throwaway worktree and scores which pages changed. Run it before and
-after any change to prompts, routing, or the route table:
-
-```bash
-LLM_GATEWAY_API_KEY=... node scripts/sync-from-base-std/eval/run-eval.mjs --runs 3
-# baseline: the same cases with the sync code from master
-LLM_GATEWAY_API_KEY=... node scripts/sync-from-base-std/eval/run-eval.mjs --runs 3 --code-ref master
-```
-
-Each case in `eval/cases/` names a payload fixture, a `docs_base_sha`, and
-expectations: `must_touch`, `must_mention` (a regex the added lines of a
-required page must match), `may_touch` (page → added-line budget),
-`must_not_touch`, `unlisted_pages` (`fail` or `warn`), and an optional
-`restatement` check. Output goes to `.sync-eval/` (gitignored).
-
-| Case | What it guards |
-| --- | --- |
-| `3820cf0-isauthorized-natspec` | Precision: a NatSpec-only clarification edits only the owning reference page and its index row. |
-| `1505323-token-self-recipient` | Recall: a real behavior change expressed as NatSpec plus mocks still reaches every function reference that documents it. |
-
-Model output varies, so compare several runs, and read the diffs: the
-scores check scope, not wording.
+Before changing prompts, routing, or the route table, run the evals with and
+without your change (`eval/run-eval.mjs --runs 3`, then `--code-ref master`)
+and compare. See the script header for options.
 
 ## Source PR attribution
 
