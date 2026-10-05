@@ -95,6 +95,8 @@ The initiator moves units with `transferFrom(holder, recipient, amount)`. The ho
 `Transfer(from, to, amount)` appears on the initiator's `transferFrom`. A holder's direct `transfer` reverts with `PolicyForbids(TRANSFER_EXECUTOR_POLICY, executorId)`; that revert confirms the restriction is active, not that something is misconfigured. `isAuthorized(executorId, account)` on the Policy Registry returns `true` for the initiator and `false` for the holder.
 </Check>
 
+`isAuthorized` never reverts, and a malformed policy ID returns `false`. When you store or pass an ID, confirm `policyExists(policyId)` first so a bad ID is not mistaken for a denied account.
+
 <Warning>
 Seed every intended initiator before binding the allowlist. Once attached, any account not on it, including the issuer, can no longer initiate transfers until it is added.
 </Warning>

@@ -60,7 +60,13 @@ The B20 contract provides ERC-8056 helper functions for common calculations, whe
 
 To comply with any regulatory requirements that apply to a particular asset, [policies](/specifications/b20/reference/interfaces/i-policy-registry) that manage allowlists and blocklists may be implemented. Policies determine whether a transfer is allowed or rejected.
 
-The B20 contract provides the [`isAuthorized(policyID, account)`](/specifications/b20/reference/interfaces/i-policy-registry/is-authorized) function, which you can use to determine whether a specific account is allowed to transfer funds.
+The B20 contract provides the [`isAuthorized(policyID, account)`](/specifications/b20/reference/interfaces/i-policy-registry/is-authorized) function, which you can use to determine whether a specific account is allowed to transfer funds. It never reverts, and its result depends on the policy ID:
+
+- **Malformed ID:** returns `false`.
+- **Well-formed but unknown ID:** treated as an empty set. `ALLOWLIST` and `UNION` policies return `false`; `BLOCKLIST` and `INTERSECT` policies return `true`.
+- **Inverted ID:** returns the negated result of the base policy when the base exists. An inverted unknown or malformed base returns `false`.
+
+Validate `policyExists(policyId)` before you store a policy ID, so an unknown or malformed ID is never interpreted as an authorization result.
 
 <Note>
 The standard [`approve()`](/specifications/b20/reference/interfaces/ib20/approve) function is not policy gated. Checking whether a quantity of funds is approved to be transferred does not guarantee that the funds aren't blocked by a policy.

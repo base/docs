@@ -143,6 +143,16 @@ Those lists live in the Policy Registry, a global singleton precompile, not on t
 
 A token admin binds a policy ID to a policy scope with `updatePolicy`. A scope sits in a similar place to a hook: it runs on a specific function. When that function runs, the token asks the registry `isAuthorized(policyId, account)` and reverts with `PolicyForbids` if the check fails. Which scope runs on which function is in [Policies](/specifications/b20/concepts/policies).
 
+`isAuthorized` never reverts, including for IDs that do not resolve to a stored policy:
+
+- A malformed policy ID returns `false`.
+- A well-formed but unknown ID behaves as an empty set. ALLOWLIST and UNION return `false`; BLOCKLIST and INTERSECT return `true`.
+- An inverted ID returns the negated result of its base when that base exists. An inverted unknown or malformed base returns `false`.
+
+<Warning>
+Because `isAuthorized` does not revert on unknown IDs, validate `policyExists(policyId)` when you store a policy ID. A mistyped ID does not fail loudly: it resolves as an empty set, and a malformed or inverted-unknown ID resolves to `false`.
+</Warning>
+
 A policy-gated transfer looks like this:
 
 ```mermaid Integrating Compliance Checks Diagram lines wrap expandable highlight={1}
@@ -171,4 +181,3 @@ sequenceDiagram
 3. On `transfer`, the token asks the registry whether the receiver is authorized.
 4. Authorized: the call continues. Denied: the call reverts with `PolicyForbids`.
 5. Unset scopes default to always-allow. `approve` is not policy-gated.
-

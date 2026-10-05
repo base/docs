@@ -87,7 +87,7 @@ An issuer may want the opposite of an existing policy without a second member se
 
 Call `invertedPolicyId(policyId)` to set or clear that bit. You can also set bit 63 yourself. Bind the inverted ID to a token scope, or pass it as a composite child ("A AND NOT X"). The flag applies to every type: `ALLOWLIST`, `BLOCKLIST`, `UNION`, and `INTERSECT`.
 
-`isAuthorized` on an inverted ID returns the opposite of the base. If the base does not exist, the result is `false`. That fail-closed guard prevents a mistyped inverted ID from becoming allow-everyone.
+`isAuthorized` on an inverted ID returns the opposite of the base when that base exists. If the base is unknown or malformed, the result is `false`. That fail-closed guard prevents a mistyped inverted ID from becoming allow-everyone.
 
 Read views strip bit 63 and load the base. `policyExists` and `policyAdmin` on an inverted ID match the base. An inverted ID has no record of its own.
 
@@ -101,6 +101,21 @@ flowchart TD
 ```
 
 A composite child ID may carry the invert bit. The registry checks existence and simple type against the base. An inverted simple child is valid. An inverted composite child reverts `InvalidChildPolicy`. Across the whole child set, `PolicyNotFound` still takes precedence over `InvalidChildPolicy`.
+
+#### Malformed and unknown IDs
+
+`isAuthorized` clears bit 63 before it checks the policy type. An ID is malformed when the remaining top byte is outside `PolicyType`. A malformed ID returns `false`.
+
+A well-formed ID that does not exist behaves as an empty set:
+
+
+| Type                      | `isAuthorized` on an unknown ID |
+| ------------------------- | ------------------------------- |
+| `ALLOWLIST` and `UNION`   | `false`                         |
+| `BLOCKLIST` and `INTERSECT` | `true`                        |
+
+
+Callers that store policy IDs must check `policyExists(policyId)` at write time rather than rely on these results.
 
 ### 2.4 Creating and updating
 
@@ -425,5 +440,3 @@ A later `updateAllowlist` that adds or removes Carol on `exclusionId` changes th
 | `ChildPoliciesOutsideOfRange()`     | A composite's child count is outside `[2, 4]`                                      |
 | `InvalidChildPolicy(childPolicyId)` | A composite child is not an existing simple policy                                 |
 | `NonPayable()`                      | ETH was attached to a registry call                                                |
-
-

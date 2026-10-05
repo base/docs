@@ -140,7 +140,7 @@ revert with `IncompatiblePolicyType` if their `policyType` is `UNION` or `INTERS
 
 #### Authorization Evaluation
 
-`isAuthorized` evaluates composites as follows:
+`isAuthorized` never reverts and evaluates composites as follows:
 
 ```text Authorization Evaluation lines expandable wrap highlight={1-12}
 isAuthorized(policyId, account):
@@ -170,10 +170,20 @@ deduplicates them. A child remains effective after its administrator renounces a
 renunciation freezes future membership updates but does not delete the policy or change its current
 authorization result.
 
-A well-formed but never-created `UNION` ID has no children and returns `false`; a well-formed but
-never-created `INTERSECT` ID has no children and returns `true`. Consumers that store policy IDs
-must call `policyExists(policyId)` before storing them. Otherwise, an invalid `INTERSECT` ID can
-behave like `ALWAYS_ALLOW`.
+#### Malformed, Unknown, and Inverted IDs
+
+`isAuthorized` distinguishes malformed IDs from well-formed unknown IDs:
+
+| Policy ID | Result |
+| --- | --- |
+| Malformed | `false`. The invert flag (bit 63) is cleared before the type check, so an ID is malformed when the remaining top byte is outside `PolicyType`. |
+| Well-formed but unknown `ALLOWLIST` or `UNION` | `false`, because the member or child set is empty. |
+| Well-formed but unknown `BLOCKLIST` or `INTERSECT` | `true`, because the member or child set is empty. |
+| Inverted ID whose base exists | The negated result of the base. |
+| Inverted ID whose base is unknown or malformed | `false`. |
+
+Consumers that store policy IDs must call `policyExists(policyId)` before storing them. Otherwise, an
+unknown `BLOCKLIST` or `INTERSECT` ID can behave like `ALWAYS_ALLOW`.
 
 #### State Changes
 
@@ -333,3 +343,7 @@ To replace a flattened policy:
 
 B20 treats the composite ID as the same opaque `uint64` policy ID it uses for simple policies, so no
 B20 contract change is required.
+
+If you store policy IDs, validate `policyExists(policyId)` at write time. `isAuthorized` returns
+`false` for a malformed ID and for an inverted ID whose base is unknown or malformed, rather than
+reverting.

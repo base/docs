@@ -82,7 +82,14 @@ Two built-in IDs require no creation:
 | `ALWAYS_ALLOW` | `0` | Authorizes every account unconditionally. Default scope value on new B20 tokens. |
 | `ALWAYS_BLOCK` | `(uint64(ALLOWLIST) << 56) \| 1` | Denies every account unconditionally. |
 
-`isAuthorized` never reverts on a non-existent policy ID - it collapses to empty-member-set semantics (non-existent `BLOCKLIST` authorizes everyone; non-existent `ALLOWLIST` denies everyone).
+`isAuthorized` never reverts. Its result depends on the ID:
+
+| Policy ID | `isAuthorized` result |
+|-----------|-----------------------|
+| Malformed (after clearing the invert flag, bit 63, the top byte is outside `PolicyType`) | `false` |
+| Well-formed but non-existent | Empty-member-set semantics: `ALLOWLIST` and `UNION` return `false`; `BLOCKLIST` and `INTERSECT` return `true` |
+| Inverted (`invertedPolicyId(id)`) with an existing base | The negated result of the base |
+| Inverted with a non-existent or malformed base | `false` |
 
 <Warning>
 Consumers that write a policy ID (e.g. `updatePolicy`) MUST validate `policyExists(policyId)` at write time to avoid silently binding to an unintended empty-set policy.
@@ -110,7 +117,7 @@ policyRegistry.updateBlocklist(policyId, false, accounts);  // unblock these acc
 
 | Method | Description |
 |--------|-------------|
-| `isAuthorized(policyId, account)` | Whether `account` is authorized under `policyId`. Never reverts. |
+| `isAuthorized(policyId, account)` | Whether `account` is authorized under `policyId`. Never reverts. Returns `false` for a malformed ID. |
 | `policyExists(policyId)` | Whether a policy with this ID has been created. |
 | `policyAdmin(policyId)` | Current admin address. |
 | `pendingPolicyAdmin(policyId)` | Pending admin during a two-step transfer. |

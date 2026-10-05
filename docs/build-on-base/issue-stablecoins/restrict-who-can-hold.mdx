@@ -28,6 +28,14 @@ Scopes gate specific functions. `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_
 
 An **allowlist** authorizes only accounts in the set. An empty allowlist authorizes nobody, so seed your intended holders before binding the policy.
 
+`isAuthorized` never reverts, so a bad policy ID fails silently rather than with an error:
+
+- A malformed policy ID returns `false`.
+- A well-formed but unknown policy ID behaves as an empty set. `ALLOWLIST` and `UNION` return `false`; `BLOCKLIST` and `INTERSECT` return `true`.
+- An inverted policy ID returns the negated result of its base when that base exists. An inverted unknown or malformed base returns `false`.
+
+Validate `policyExists(policyId)` before you store or bind a policy ID.
+
 ## Create and Bind a Holder Allowlist
 
 <CodeGroup>
