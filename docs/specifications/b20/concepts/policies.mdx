@@ -102,19 +102,6 @@ flowchart TD
 
 A composite child ID may carry the invert bit. The registry checks existence and simple type against the base. An inverted simple child is valid. An inverted composite child reverts `InvalidChildPolicy`. Across the whole child set, `PolicyNotFound` still takes precedence over `InvalidChildPolicy`.
 
-#### Malformed and unknown IDs
-
-`isAuthorized` clears bit 63 before it checks the policy type. An ID is malformed when the remaining top byte is outside `PolicyType`. A malformed ID returns `false`.
-
-A well-formed ID that does not exist behaves as an empty set:
-
-| Type | `isAuthorized` on an unknown ID |
-| --- | --- |
-| `ALLOWLIST` and `UNION` | `false` |
-| `BLOCKLIST` and `INTERSECT` | `true` |
-
-Callers that store policy IDs must check `policyExists(policyId)` at write time rather than rely on these results.
-
 ### 2.4 Creating and updating
 
 Anyone can create a policy. The create call names a single `admin`. That address is the only one that can later change membership, replace a composite's children, transfer administration, or renounce. The creator does not have to be the admin. `admin` cannot be `address(0)`.
