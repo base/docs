@@ -115,7 +115,7 @@ const SHARED_RULES = `Hard requirements for your output:
 
    STEP 2 — INTERSECT. For each item from step 1, identify the changes in the source that touch it.
      • If a \`<change_manifest>\` block is present below, it has already been extracted from the diff by a pre-pass. Every entry in it that names a surface from your step-1 inventory is an intersection — treat the manifest as the starting list. A manifest entry that matches only a mention is not an intersection.
-     • If the diff changes only comments or NatSpec and no code, it clarifies existing behavior rather than changing it. Treat a statement on the page as an intersection only if the clarification shows it is wrong or incomplete in a way that would mislead the reader.
+     • Only when the Context section says the change type is a comments/NatSpec-only clarification: treat a statement on the page as an intersection only if the clarification shows it is wrong or incomplete in a way that would mislead the reader. Do not infer this yourself from the diff — Base Std is interface-only, so a NatSpec edit in <source_diff> can record a real behavior change.
      • Always cross-check the manifest against \`<source_diff>\`: the manifest may miss something, especially newly-added fields buried in large diffs. If you find an additional intersection in the diff that isn't in the manifest, add it to your list and apply it in step 3.
      • If \`<change_manifest>\` is absent or empty, fall back to scanning \`<source_diff>\` directly for:
        – Solidity parameter or return-type changes

@@ -4,7 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  decideCall,
   isCommentOnlyChange,
+  natspecDocumentedSymbols,
   newestChangelogFork,
   splitDiffByFile,
   symbolRouteGate,
@@ -29,6 +31,17 @@ test("isCommentOnlyChange: a code line makes it a real change", () => {
     "+    function foo() external;",
   ].join("\n");
   assert.equal(isCommentOnlyChange(splitDiffByFile(diff)), false);
+});
+
+test("isCommentOnlyChange: base-std#232 (NatSpec + mocks + changelog) is a real change", () => {
+  const payload = fixture("code-change-1505323-token-self-recipient.json");
+  const byFile = splitDiffByFile(payload.diff);
+  assert.equal(isCommentOnlyChange(byFile), false);
+  // The interface edits alone are pure NatSpec; the mock change is what marks it.
+  const srcAndMocks = new Map([...byFile].filter(([f]) => f.startsWith("src/") || f.startsWith("test/lib/mocks/")));
+  assert.equal(isCommentOnlyChange(srcAndMocks), false);
+  const srcOnly = new Map([...byFile].filter(([f]) => f.startsWith("src/")));
+  assert.equal(isCommentOnlyChange(srcOnly), true);
 });
 
 test("isCommentOnlyChange: block comments count, tests are ignored, non-Solidity is not", () => {
@@ -85,4 +98,51 @@ test("symbolRouteGate: historical changelog entries and upgrade pages are not ro
   assert.equal(symbolRouteGate("docs/build-on-base/a.mdx", { ...opts, role: "guide" }), null);
   // No fork data → no fork gating.
   assert.equal(symbolRouteGate("docs/upgrades/beryl/b20.mdx", { role: "guide", newestFork: "" }), null);
+});
+
+test("natspecDocumentedSymbols: a @dev hunk that stops above the declaration still names it", async () => {
+  const payload = fixture("code-change-1505323-token-self-recipient.json");
+  const section = splitDiffByFile(payload.diff).get("src/interfaces/IB20.sol");
+  // Minimal post-image: the mint hunk's lines, then @param lines, then the declaration.
+  const post = [];
+  const at = (n, text) => { while (post.length < n - 1) post.push(""); post.push(text); };
+  at(414, "    ///");
+  at(415, "    /// @dev Reverts with `ContractPaused(MINT)` when `MINT` is paused.");
+  at(416, "    /// @dev Reverts with `AccessControlUnauthorizedAccount` when the caller does not hold `MINT_ROLE`.");
+  at(417, "    /// @dev Reverts with `InvalidReceiver` when `to == address(0)` or `to == address(this)`.");
+  at(418, "    /// @dev Reverts with `PolicyForbids(MINT_RECEIVER_POLICY, ...)` when `to` is not authorized.");
+  at(419, "    /// @dev Reverts with `SupplyCapExceeded` when `totalSupply + amount > supplyCap`.");
+  at(420, "    ///");
+  at(421, "    /// @param to     Recipient.");
+  at(422, "    /// @param amount Amount.");
+  at(423, "    function mint(address to, uint256 amount) external;");
+  const got = natspecDocumentedSymbols(section, post.join("\n"));
+  assert.ok(got.includes("mint"), `got ${got}`);
+});
+
+test("natspecDocumentedSymbols: errors, events, constants; code lines stop the walk", () => {
+  const section = [
+    "@@ -1,6 +1,6 @@",
+    "-    /// @notice old",
+    "+    /// @notice new",
+    "     error InvalidReceiver(address receiver);",
+    " ",
+    "-    /// old",
+    "+    /// new",
+    "     bytes32 public constant SEIZE_ROLE = keccak256(\"SEIZE_ROLE\");",
+  ].join("\n");
+  const post = [
+    "    /// @notice new",
+    "    error InvalidReceiver(address receiver);",
+    "",
+    "    /// new",
+    "    bytes32 public constant SEIZE_ROLE = keccak256(\"SEIZE_ROLE\");",
+  ].join("\n");
+  assert.deepEqual(natspecDocumentedSymbols(section, post).sort(), ["InvalidReceiver", "SEIZE_ROLE"]);
+});
+
+test("decideCall: function-reference is called when its member's NatSpec changed", () => {
+  const content = '---\ntitle: "IB20.mint"\n---\nbody';
+  assert.match(decideCall({ role: "function-reference", content, diffSlice: "", symbols: [] }), /own symbol mint/);
+  assert.equal(decideCall({ role: "function-reference", content, diffSlice: "", symbols: [], documented: ["mint"] }), null);
 });

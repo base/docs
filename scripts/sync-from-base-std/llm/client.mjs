@@ -112,6 +112,32 @@ function getClient() {
  * @returns {Promise<string>} the model's text output
  */
 /**
+ * True for an error event that arrives inside an already-open stream
+ * (`overloaded_error`, `api_error`, a dropped stream). The SDK's
+ * `maxRetries` only covers the initial HTTP response, so these would
+ * otherwise fail the whole sync on one transient hiccup.
+ */
+export function isTransientStreamError(err) {
+  const msg = String(err?.message || err || "");
+  return /overloaded_error|"type":"api_error"|stopped sending data|terminated|ECONNRESET|socket hang up/i.test(msg);
+}
+
+const STREAM_RETRIES = 2;
+
+async function withStreamRetry(fn, page, { retries = STREAM_RETRIES, baseDelayMs = 5000 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= retries || !isTransientStreamError(err)) throw err;
+      const delay = baseDelayMs * 2 ** attempt;
+      console.warn(`[llm] ${page || "call"}: transient stream error, retrying in ${delay / 1000}s (${attempt + 1}/${retries})`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
+/**
  * Send one prompt through the Gateway and return the text plus the facts a
  * caller needs to judge it (stop reason, output tokens). Streams the
  * response: the Gateway edge times out a silent buffered request at ~90 s,
@@ -129,14 +155,18 @@ export async function complete(prompt, page = "", opts = {}) {
   const maxTokens = opts.maxTokens || DEFAULT_MAX_TOKENS;
 
   const tStart = Date.now();
-  const message = await client.messages
-    .stream({
-      model,
-      max_tokens: maxTokens,
-      ...(opts.system ? { system: opts.system } : {}),
-      messages: [{ role: "user", content: prompt }],
-    })
-    .finalMessage();
+  const message = await withStreamRetry(
+    () =>
+      client.messages
+        .stream({
+          model,
+          max_tokens: maxTokens,
+          ...(opts.system ? { system: opts.system } : {}),
+          messages: [{ role: "user", content: prompt }],
+        })
+        .finalMessage(),
+    page,
+  );
 
   const text = (message.content || [])
     .filter((b) => b.type === "text")

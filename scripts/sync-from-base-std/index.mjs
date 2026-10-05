@@ -80,6 +80,10 @@ import {
   decideCall,
   changedLines,
   isCommentOnlyChange,
+  natspecDocumentedSymbols,
+  manifestChangesSignatures,
+  restoreCodeSamples,
+  normalizeForNoop,
   newestChangelogFork,
   symbolRouteGate,
 } from "./release-utils.mjs";
@@ -1562,7 +1566,18 @@ async function processPage(item, shared, useGroups) {
         console.error(`[reject] ${item.page}: ${reason}`);
         return { page: item.page, status: "rejected", reason };
       }
-      const out = stripAuthorAttribution(completion.text);
+      let out = stripAuthorAttribution(completion.text);
+
+      // Guides: code samples cannot need changing unless a signature did.
+      if (pageRole === "guide" && kind === "code-change" && !manifestChangesSignatures(shared.manifest)) {
+        const guard = restoreCodeSamples(current, out);
+        if (guard.restored > 0) {
+          console.warn(`[guard] ${item.page}: restored ${guard.restored} code sample(s) the model changed; no signature changed upstream`);
+          out = guard.content;
+        } else if (guard.mismatched) {
+          console.warn(`[guard] ${item.page}: model added or removed a code block; left for review`);
+        }
+      }
 
       const err = validateMdx(out, item.page, knownRoutes, {
         current,
@@ -1588,9 +1603,8 @@ async function processPage(item, shared, useGroups) {
     //      whitespace and any stale sync-source comment), AND
     //   2. No release version bump happened, AND
     //   3. The page on main HAS NO stale sync-source comment to clean up.
-    const trimTrailing = (s) => s.replace(/\s+$/, "");
     const currentClean = stripProv(current);
-    const semanticEqual = trimTrailing(next) === trimTrailing(currentClean);
+    const semanticEqual = normalizeForNoop(next) === normalizeForNoop(currentClean);
     const currentHasStaleProvenance = current !== currentClean;
     if (semanticEqual && bumpCount === 0 && !currentHasStaleProvenance) {
       console.log(
@@ -1855,6 +1869,18 @@ async function main() {
       if (!w.reasons) w.reasons = (w.sourceFiles || []).map((sf) => `path:${sf}`);
     }
 
+    // Members whose NatSpec the diff edits. The hunk often ends above the
+    // declaration, so read the post-change file to find it. Without a token
+    // this is empty and the old diff/manifest test applies unchanged.
+    const documented = [];
+    for (const [file, section] of diffByFile) {
+      if (!file.startsWith("src/") || !file.endsWith(".sol")) continue;
+      if (!changedLines(section).split("\n").some((l) => /^[+-]\s*(\/\/|\/\*|\*)/.test(l))) continue;
+      const full = await fetchSourceFile(sourceRepo(payload), sha, file);
+      if (full) documented.push(...natspecDocumentedSymbols(section, full));
+    }
+    if (documented.length) console.log(`[symbols] NatSpec edited for: ${[...new Set(documented)].join(", ")}`);
+
     // One decision per page, made here and logged with the work list:
     // does this page need a model call at all?
     for (const w of work) {
@@ -1865,7 +1891,7 @@ async function main() {
       const diffSlice = changedLines(
         (w.sourceFiles || []).filter((sf) => !sf.startsWith("test/")).map((sf) => diffByFile.get(sf) || "").join("\n"),
       );
-      w.skip = decideCall({ role: pageRoleFor(w.page, layout), content, diffSlice, manifest, symbols });
+      w.skip = decideCall({ role: pageRoleFor(w.page, layout), content, diffSlice, manifest, symbols, documented });
     }
     const modelBound = work.filter((w) => !w.skip);
     if (modelBound.length > CODE_CHANGE_MAX_PAGES) {

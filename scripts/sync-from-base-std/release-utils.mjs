@@ -585,8 +585,10 @@ const mentions = (text, sym) =>
  * Returns null to call, or the reason to skip. The rules by page role:
  *
  *   function-reference  the page's own symbol (from its title, e.g.
- *                       "IB20.seizeWithMemo") appears in the diff slice or
- *                       among the routing symbols
+ *                       "IB20.seizeWithMemo") appears in the diff slice,
+ *                       among the routing symbols, or among `documented`
+ *                       (members whose NatSpec the diff edits; see
+ *                       natspecDocumentedSymbols)
  *   interface-index     the manifest adds/removes/renames a member of this
  *                       interface, or a routing symbol appears on the page
  *   shared-reference,   a routing symbol appears in the page's code spans;
@@ -597,7 +599,7 @@ const mentions = (text, sym) =>
  * Any page larger than MAX_REGENERABLE_CHARS is skipped regardless of role,
  * except the summary page, which never goes to the model.
  */
-export function decideCall({ role, content = "", diffSlice = "", manifest = [], symbols = [] }) {
+export function decideCall({ role, content = "", diffSlice = "", manifest = [], symbols = [], documented = [] }) {
   if (role === "changelog-index") return null;
   if (content.length > MAX_REGENERABLE_CHARS) {
     return `page is ${content.length} chars; a full regeneration exceeds the ${MAX_REGENERABLE_CHARS}-char budget (edit mode pending)`;
@@ -611,7 +613,7 @@ export function decideCall({ role, content = "", diffSlice = "", manifest = [], 
   if (role === "function-reference") {
     const own = title.includes(".") ? title.split(".").pop() : title;
     if (!own) return null;
-    if (mentions(diffSlice, own) || symbols.includes(own) || symbols.includes(title)) return null;
+    if (mentions(diffSlice, own) || symbols.includes(own) || symbols.includes(title) || documented.includes(own)) return null;
     return `own symbol ${own} is not in the diff or the manifest`;
   }
   if (role === "interface-index") {
@@ -639,21 +641,122 @@ export function changedLines(diff) {
     .join("\n");
 }
 
+const COMMENT_LINE_RE = /^\s*(\/\/|\/\*|\*)/;
+const DECLARATION_RE =
+  /^\s*(?:function|error|event|modifier|struct|enum)\s+([A-Za-z_]\w*)|\bconstant\s+([A-Za-z_]\w*)/;
+
+/**
+ * Members whose NatSpec a Solidity diff edits. A NatSpec hunk often stops
+ * short of the declaration it documents (a `@dev Reverts ...` line sits
+ * several `@param` lines above `function mint(`), so neither the diff slice
+ * nor a model-written manifest reliably names the member. This walks the
+ * post-change source forward from each changed comment line to the next
+ * declaration.
+ *
+ * @param {string} section    one file's unified diff section
+ * @param {string} postImage  the whole file at the dispatched sha
+ * @returns {string[]}        member names, deduplicated
+ */
+export function natspecDocumentedSymbols(section, postImage) {
+  const src = String(postImage || "").split("\n");
+  const anchors = []; // 0-based post-image line indices of changed comment lines
+  let next = 0; // 0-based post-image index of the next line in the hunk
+  for (const line of String(section || "").split("\n")) {
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    if (h) { next = Number(h[1]) - 1; continue; }
+    if (line.startsWith("+++") || line.startsWith("---")) continue;
+    if (line.startsWith("+")) {
+      if (COMMENT_LINE_RE.test(line.slice(1))) anchors.push(next);
+      next++;
+    } else if (line.startsWith("-")) {
+      // A removed comment line documents whatever now follows it.
+      if (COMMENT_LINE_RE.test(line.slice(1))) anchors.push(next);
+    } else if (line.startsWith(" ")) {
+      next++;
+    }
+  }
+  const out = new Set();
+  for (const start of anchors) {
+    for (let i = start; i < src.length; i++) {
+      const text = src[i];
+      if (text.trim() === "" || COMMENT_LINE_RE.test(text)) continue;
+      const m = DECLARATION_RE.exec(text);
+      if (m) out.add(m[1] || m[2]);
+      break; // the first code line is the documented declaration, or nothing
+    }
+  }
+  return [...out];
+}
+
+/**
+ * A page for the noop test: trailing whitespace dropped and Markdown table
+ * rows with their cell padding collapsed. A regeneration that only realigns
+ * a table's columns changes nothing a reader sees (base-std#232 eval:
+ * roles-and-pause.mdx re-padded one row).
+ */
+export function normalizeForNoop(s) {
+  return String(s || "")
+    .split("\n")
+    .map((l) => (/^\s*\|/.test(l) ? l.replace(/[ \t]+/g, " ").trim() : l.replace(/[ \t]+$/, "")))
+    .join("\n")
+    .replace(/\s+$/, "");
+}
+
+// ------------------------------------------------------- code-sample guard
+
+const FENCE_RE = /^([ \t]*)(`{3,}|~{3,})([^\n]*)\n[\s\S]*?\n\1\2[ \t]*$/gm;
+
+/** True when the manifest changes a signature or an interface's member set. */
+export function manifestChangesSignatures(manifest) {
+  return (manifest || []).some((e) => INVENTORY_KINDS.has(e.kind));
+}
+
+/**
+ * Put a guide's code samples back exactly as they were. A full-page
+ * regeneration sometimes "fixes" a working sample (base-std#232 eval: a
+ * viem call's functionName became "simulateContract"). When the source
+ * change alters no signature, no sample can need to change, so every fenced
+ * block except diagrams (mermaid) is restored from the current page, in
+ * order. If the model added or removed blocks the pairing is ambiguous;
+ * the output is returned untouched and the caller decides.
+ *
+ * @returns {{content: string, restored: number, mismatched: boolean}}
+ */
+export function restoreCodeSamples(current, updated) {
+  const before = [...String(current).matchAll(FENCE_RE)];
+  const after = [...String(updated).matchAll(FENCE_RE)];
+  if (before.length !== after.length) return { content: updated, restored: 0, mismatched: true };
+  let restored = 0;
+  let i = 0;
+  const content = String(updated).replace(FENCE_RE, (block, _indent, _fence, info) => {
+    const original = before[i++][0];
+    if (/^\s*mermaid\b/.test(info) || block === original) return block;
+    restored++;
+    return original;
+  });
+  return { content, restored, mismatched: false };
+}
+
 // ------------------------------------------------------- symbol-route gating
 
 /**
  * True when every changed line in the dispatch's source files is a comment
  * (Solidity `//`, `///`, or a block-comment line). Such a change clarifies
- * documented behavior; it does not change it. Test files are ignored, the
- * same as for routing. Any non-Solidity source file, or no changed lines at
- * all, returns false so ordinary routing applies.
+ * documented behavior; it does not change it.
+ *
+ * Base Std is interface-only, so a real behavior change often appears in
+ * `src/` as NatSpec alone. What separates it from a clarification is that
+ * the reference implementation (`test/lib/mocks/`) or a changelog entry
+ * changes too. Mocks therefore count as code here; other test files are
+ * ignored. Any non-Solidity file (a changelog entry, a source doc), or no
+ * changed lines at all, returns false so ordinary routing applies.
  *
  * @param {Map<string, string>} diffByFile  path → unified diff section
  */
 export function isCommentOnlyChange(diffByFile) {
   let sawChange = false;
   for (const [file, section] of diffByFile || []) {
-    if (file.startsWith("test/")) continue;
+    if (file.startsWith("test/") && !file.startsWith("test/lib/mocks/")) continue;
     if (!file.endsWith(".sol")) return false;
     for (const line of changedLines(section).split("\n")) {
       const body = line.slice(1).trim();
