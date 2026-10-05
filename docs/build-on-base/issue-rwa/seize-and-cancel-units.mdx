@@ -45,7 +45,7 @@ How the seize scope works:
 
 Because the holder check is inverted, attach a **blocklist** to `SEIZE_EXEMPT_POLICY`. Accounts on the list are unauthorized and therefore seizable; every other holder stays exempt. Never attach an allowlist or `ALWAYS_BLOCK` to this scope: an empty allowlist authorizes nobody, so every holder would be seizable.
 
-`isAuthorized` never reverts, so a bad policy ID does not fail loudly. A malformed ID returns false, and a well-formed but unknown ID behaves as an empty set: `ALLOWLIST` and `UNION` return false, while `BLOCKLIST` and `INTERSECT` return true. An inverted ID negates the base result only when the base exists; an inverted unknown or malformed base returns false. On `SEIZE_EXEMPT_POLICY`, a false result makes the holder seizable, so attach only IDs that exist in the Policy Registry.
+`isAuthorized` never reverts: a malformed ID, or an inverted ID whose base doesn't exist, returns `false`. On `SEIZE_EXEMPT_POLICY`, `false` makes the holder seizable, so confirm `policyExists(policyId)` before you attach an ID. See [`isAuthorized`](/specifications/b20/reference/interfaces/i-policy-registry/is-authorized) for the full rules.
 
 ## Seize, Cancel, and Verify
 

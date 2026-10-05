@@ -20,11 +20,6 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 
 Returns whether `account` is authorized under `policyId`. Never reverts.
 
-Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
-Param: policyId Policy to query.
-Param: account  Account to check.
-Return: Whether `account` is authorized.
-
 ## Result by policy ID
 
 | Policy ID | Result |
@@ -35,15 +30,26 @@ Return: Whether `account` is authorized.
 | Inverted, base exists | The negated result of the base. Applies to every policy type. |
 | Inverted, base unknown or malformed | `false` |
 
-`isAuthorized(invertedPolicyId(id), account)` returns the negated result of the base only when that base exists.
-
 <Warning>
-A malformed policy ID returns `false` rather than reverting. An inverted unknown or malformed base also returns `false`, not the negation of the empty-set result. Validate `policyExists(policyId)` before you store a policy ID.
+Callers that store policy IDs MUST validate `policyExists(policyId)` at write time. An unknown `BLOCKLIST` or `INTERSECT` ID returns `true`, and an inverted unknown or malformed base returns `false` rather than the negation of the empty-set result.
 </Warning>
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. |
+| `account` | `address` | Account to check. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `bool` | Whether `account` is authorized under `policyId`. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 
