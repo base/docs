@@ -17,7 +17,7 @@ export const AssetDemo = ({ flow }) => {
         };
         const [aaSource, engineSource] = await Promise.all([
           fetchText("/static/aa.txt"),
-          fetchText("/static/vibenet-engine.txt?v=6"),
+          fetchText("/static/vibenet-engine.txt?v=7"),
         ]);
         // docs.base.org's CSP blocks blob: scripts, so both modules are linked
         // into one function body: the AA bundle's trailing export list becomes
@@ -274,7 +274,7 @@ export const AssetDemo = ({ flow }) => {
         setLiveState(info.live ? "live" : "offline");
         if (info.live && info.genesisHash) {
           try {
-            const stored = JSON.parse(localStorage.getItem("base.docs.vibenet.account.v1") || "null");
+            const stored = JSON.parse(localStorage.getItem("base.docs.vibenet.account.v2") || "null");
             if (stored?.genesisHash === info.genesisHash && stored.address) setAccountAddress(stored.address);
           } catch {
             // The engine will replace corrupt or stale state on first use.
@@ -665,9 +665,8 @@ export const AssetDemo = ({ flow }) => {
     } catch (error) {
       if (results.length === 0) {
         try {
-          // Prefer the engine's probe once the bundle is loaded: unlike the
-          // lightweight probe above, it also confirms a live EIP-8130 account
-          // implementation, which is what a Vibenet reset takes away.
+          // Prefer the engine's probe once the bundle is loaded: it re-reads
+          // the chain and B20 activations after the failed attempt.
           const latest = engine
             ? await engine.probeCapabilities("asset")
             : await probeVibenet();
