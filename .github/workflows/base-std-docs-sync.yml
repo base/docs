@@ -1097,7 +1097,14 @@ jobs:
 
       - name: Commit branch
         id: commit
+        # Commits through the GitHub API instead of `git commit && git push`.
+        # `master` requires verified signatures, and GitHub signs commits
+        # created by GraphQL createCommitOnBranch (attributed to
+        # github-actions[bot]). Same GITHUB_TOKEN and contents: write as the
+        # previous push; no signing keys, new secrets, or third-party actions.
+        # See scripts/lib/signed-commit.mjs.
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ steps.sync.outputs.branch }}
           TOUCHED_PATHS: ${{ steps.sync.outputs.touched_paths }}
           TOUCHED_COUNT: ${{ steps.sync.outputs.touched_count }}
@@ -1119,10 +1126,6 @@ jobs:
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git checkout -B "$BRANCH"
           # Structural guard. The route-table is the routing decision;
           # this is the last-mile check that fails closed if the script
           # (or a future LLM regression) ever emits a path outside the
@@ -1168,8 +1171,11 @@ jobs:
               commit_msg="docs: sync from base-std@${short_sha:-unknown}"
               ;;
           esac
-          git commit -m "$commit_msg"
-          git push -f origin "$BRANCH"
+          # Resets $BRANCH to HEAD (the API equivalent of `git checkout -B` +
+          # `push -f`) and commits the staged change set. The script re-checks
+          # every path against the allowlist above and accepts only regular
+          # 100644 files.
+          node scripts/lib/signed-commit.mjs --branch "$BRANCH" --message "$commit_msg"
           echo "no_changes=false" >> "$GITHUB_OUTPUT"
           # Annotation surfaces in the run summary — same primitive Mintlify
           # uses (core.notice). Keep it terse, the next step's notice covers

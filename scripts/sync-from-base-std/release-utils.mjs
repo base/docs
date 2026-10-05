@@ -555,12 +555,14 @@ export function firstHeading(markdown) {
 // ------------------------------------------------------------ call decision
 
 /**
- * Largest page (chars) a full regeneration can return inside the 4096-token
- * output budget. Measured: 4096 tokens came back as 10.7k–14k chars depending
- * on how table-heavy the page is. Above this, the completion is cut off and
- * refused, so the call is pointless; skip it before it starts.
+ * Largest page (chars) a full regeneration can return inside the default
+ * 16384-token output budget (DEFAULT_MAX_TOKENS in llm/client.mjs). Measured
+ * on Sonnet 5.5: an 8,955-char page overflowed 4096 tokens, so budget about
+ * 2.2 chars per token, roughly 36k chars at 16384. Keep a margin below that.
+ * Above this, the completion is cut off and refused, so the call is
+ * pointless; skip it before it starts.
  */
-export const MAX_REGENERABLE_CHARS = 10000;
+export const MAX_REGENERABLE_CHARS = 32000;
 
 /** Manifest kinds that change an interface's member inventory. */
 const INVENTORY_KINDS = new Set([
