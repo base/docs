@@ -23,7 +23,7 @@
  *   LLM_GATEWAY_API_KEY   required when any "claude" transformer fires
  *   DRY_RUN=1             optional — don't write files, just log
  *   CLAUDE_MODEL          optional — defaults to claude-sonnet-5-5
- *   CLAUDE_MAX_TOKENS     optional — defaults to 4096
+ *   CLAUDE_MAX_TOKENS     optional — defaults to 16384
  *   LLM_GATEWAY_BASE_URL  optional — overrides the LLM gateway origin
  *   GUIDELINE_ROUTING     optional — "propose" (default) surfaces a guideline-
  *                         derived placement for unrouted source files in the
