@@ -33,8 +33,8 @@ import GatewayMessagesClient from "@anthropic-ai/sdk";
 const GATEWAY_BASE_URL =
   process.env.LLM_GATEWAY_BASE_URL || "https://llm-gateway.coinbase-corp.com";
 
-/** Default model — Sonnet 4.6. Override with CLAUDE_MODEL env. */
-export const DEFAULT_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+/** Default model — Sonnet 5.5. Override with CLAUDE_MODEL env. */
+export const DEFAULT_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 
 /** Default max output tokens. Override with CLAUDE_MAX_TOKENS env. */
 export const DEFAULT_MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS || 4096);
