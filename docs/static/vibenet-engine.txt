@@ -6,27 +6,24 @@
 // evaluates the result with new Function, and reads the published API from window.
 
 import {
-  canonicalAuthenticators,
+  allPhasesSucceeded,
   createPublicClient,
   decodeAbiParameters,
   encodeAbiParameters,
   encodeFunctionData,
-  encodeWalletCalls,
   estimateGas,
   generatePrivateKey,
   getTransactionCount,
+  getTransactionReceipt,
   http,
-  key,
-  keccak256,
-  newSmartAccount,
+  k1Authenticator,
   privateKeyToAccount,
+  toEoaAccount,
   toHex,
-  vibenetDevnetDeployment,
-  waitForTransactionReceipt,
 } from "./aa.txt";
 
 export const CHAIN_ID = 84538453;
-export const ENGINE_VERSION = 6;
+export const ENGINE_VERSION = 7;
 export const NETWORK_NAME = "Base Vibenet";
 export const API_URL = "https://api.vibes.base.org";
 export const ACCOUNT_RPC = `${API_URL}/api/vibenet/account/rpc`;
@@ -37,7 +34,11 @@ export const POLICY_REGISTRY = "0x8453000000000000000000000000000000000002";
 export const ASSET_FEATURE = "0xcdcc772fe4cbdb1029f822861176d09e646db96723d4c1e82ddfdeb8163ef54c";
 export const STABLECOIN_FEATURE = "0xecfa0def2c10020caaf65e6155aa69c84b24892aaef76eeac52e0e2b3a0b8601";
 export const POLICY_FEATURE = "0xb582ebae03f16fee49a6763f78df482fb11ae73f103ed0d330bbe556aa90a43f";
-export const ACCOUNT_STORAGE_KEY = "base.docs.vibenet.account.v1";
+// v2: Keystore-free EIP-8130. The account is the secp256k1 EOA of the stored
+// key; v1 records (a CREATE2 smart account over an implementation and salt)
+// derive a different address and are discarded.
+export const ACCOUNT_STORAGE_KEY = "base.docs.vibenet.account.v2";
+const LEGACY_ACCOUNT_STORAGE_KEYS = ["base.docs.vibenet.account.v1"];
 export const TOKEN_DECIMALS = 6;
 
 const MIN_GAS_BALANCE = 5_000_000_000_000_000n; // 0.005 ETH
@@ -56,13 +57,31 @@ const ROLE_NAMES = [
 ];
 const ASSET_ROLE_NAMES = [...ROLE_NAMES, "OPERATOR_ROLE"];
 
+// keccak256 of each name. The vendored bundle no longer exports keccak256, so
+// these are precomputed; scripts/test-vibenet-engine.mjs re-derives them.
+const ROLE_IDS = {
+  MINT_ROLE: "0x154c00819833dac601ee5ddded6fda79d9d8b506b911b3dbd54cdb95fe6c3686",
+  BURN_ROLE: "0xe97b137254058bd94f28d2f3eb79e2d34074ffb488d042e3bc958e0a57d2fa22",
+  BURN_BLOCKED_ROLE: "0x7408fdc0d31c7bcb349eab611f5d1168acd4303574993f8cdc98b1cd18c41cae",
+  SEIZE_ROLE: "0x3469b8b0d89e9604f8510ed143f74a8336d22955d4f83e23bf53d9414e27f432",
+  PAUSE_ROLE: "0x139c2898040ef16910dc9f44dc697df79363da767d8bc92f2e310312b816e46d",
+  UNPAUSE_ROLE: "0x265b220c5a8891efdd9e1b1b7fa72f257bd5169f8d87e319cf3dad6ff52b94ae",
+  METADATA_ROLE: "0x6bd6b5318a46e5fff572d5e4258a20774aab40cc35ac7680654b9081fcc82f80",
+  OPERATOR_ROLE: "0x97667070c54ef182b0f5858b034beac1b6f3089aa2d3188bb1e8929f4fa9b929",
+};
+
 const POLICY_SCOPES = {
-  TRANSFER_SENDER_POLICY: keccak256(toHex("TRANSFER_SENDER_POLICY")),
-  TRANSFER_RECEIVER_POLICY: keccak256(toHex("TRANSFER_RECEIVER_POLICY")),
-  TRANSFER_EXECUTOR_POLICY: keccak256(toHex("TRANSFER_EXECUTOR_POLICY")),
-  MINT_RECEIVER_POLICY: keccak256(toHex("MINT_RECEIVER_POLICY")),
-  SEIZE_EXEMPT_POLICY: keccak256(toHex("SEIZE_EXEMPT_POLICY")),
-  SEIZE_RECEIVER_POLICY: keccak256(toHex("SEIZE_RECEIVER_POLICY")),
+  TRANSFER_SENDER_POLICY: "0xb81736c875ab819dd97f59f2a6542cfb731ad52b4ae15a6f24df2fb02b0327f5",
+  TRANSFER_RECEIVER_POLICY: "0x8a4b3fa2d8b921852bc0089c6ef0958aa6961897be36fd731330fe2cd23f8363",
+  TRANSFER_EXECUTOR_POLICY: "0x10be5173aff2a44e748bd9acd8b19fe34689581398a9db7ba2fb671e786ff7d8",
+  MINT_RECEIVER_POLICY: "0xa0d5ae037e66a09119acf080a1d807abb9b6d03b6b9130eb19f7c1e6bdb8ffc8",
+  SEIZE_EXEMPT_POLICY: "0xedb5da348cfb67af08746d3afd1be81034b50d5c8576f31aff688f39dfd540ed",
+  SEIZE_RECEIVER_POLICY: "0xbf15b19caf5c77422c038bc25f26b8b815c3a14f6d04c6616076b81bcfe07b3d",
+};
+
+const TOPICS = {
+  PolicyCreated: "0x718d87917f0c4cfd1263707ef0e77c656ed8d8bfaca06152bdb0b8094142ec27", // PolicyCreated(uint64,address,uint8)
+  Memo: "0x6989f5818dcfd11f8cd53b27c94cec33dae1589735f03e639cba54553a1825e8", // Memo(address,bytes32)
 };
 
 const ERROR_NAMES = {
@@ -295,7 +314,9 @@ export function bytes32ToMemo(value) {
 }
 
 function roleId(name) {
-  return keccak256(toHex(name));
+  const value = ROLE_IDS[name];
+  if (!value) throw new Error(`Unsupported role: ${name}`);
+  return value;
 }
 
 function scopeId(name) {
@@ -330,58 +351,29 @@ export async function contracts() {
   return response.json();
 }
 
-// Vibenet is ephemeral: a reset redeploys the enshrined EIP-8130 system
-// contracts, and several land at new addresses. The account address is a CREATE2
-// over the account implementation, so a stale implementation makes the client
-// derive a `from` the node cannot reproduce.
-//
-// Resolution order: the live `eip8130` block from /api/vibenet/contracts, then
-// the canonical devnet set carried by aa.txt, which is refreshed every time the
-// vendored bundle is re-pinned. The API has omitted the `eip8130` block after
-// past resets, so the second source is load-bearing, not belt-and-braces. Each
-// candidate is checked for code on chain because an address that is merely
-// present in either source may already have been reset away.
-//
-// Returns null when neither yields a live implementation, so callers can report
-// the demo as unavailable rather than throwing mid-transaction.
-async function resolveImplementation(deployment) {
-  const candidates = [
-    deployment?.eip8130?.DefaultAccount,
-    vibenetDevnetDeployment?.accounts?.default,
-  ].filter((value) => typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value));
-  for (const candidate of candidates) {
-    if (await isDeployed(candidate)) return candidate;
-  }
-  return null;
-}
-
+// Since the 2026-10-02 reset Vibenet runs Keystore-free EIP-8130: the sender
+// is a plain secp256k1 EOA authenticated by the K1 authenticator, so there is
+// no account implementation to resolve and nothing to deploy. A demo is live
+// when the chain is the expected one and the B20 features are activated.
 export async function probeCapabilities(domain = "stablecoin") {
-  const [chainId, blockNumber, asset, stablecoin, policy, deployment] = await Promise.all([
+  const [chainId, blockNumber, asset, stablecoin, policy] = await Promise.all([
     rpc("eth_chainId"),
     rpc("eth_blockNumber"),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [ASSET_FEATURE]),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [STABLECOIN_FEATURE]),
     readFunction(ACTIVATION_REGISTRY, activationAbi, "isActivated", [POLICY_FEATURE]),
-    // A failed lookup is not fatal: resolveImplementation still has the
-    // bundled canonical set to fall back to.
-    contracts().catch(() => null),
   ]);
-  // Probed here so `live` reflects whether a write can actually be signed. The
-  // activation registry alone reports B20 as available on a chain whose account
-  // implementation has moved, which is what previously let a demo advertise
-  // itself as live and then fail on the reader's first click.
-  const implementation = await resolveImplementation(deployment);
   const expectedChain = BigInt(chainId) === BigInt(CHAIN_ID);
   const domainActive = domain === "asset" ? asset : stablecoin;
   return {
-    live: expectedChain && domainActive && Boolean(policy) && Boolean(implementation),
+    live: expectedChain && domainActive && Boolean(policy),
     chainId: Number(BigInt(chainId)),
     blockNumber: Number(BigInt(blockNumber)),
     capabilities: {
       asset: Boolean(asset),
       stablecoin: Boolean(stablecoin),
       policy: Boolean(policy),
-      account: Boolean(implementation),
+      account: true,
     },
     reason: !expectedChain
       ? `Unexpected chain ${Number(BigInt(chainId))}`
@@ -389,9 +381,7 @@ export async function probeCapabilities(domain = "stablecoin") {
         ? `B20 ${domain} creation is not activated`
         : !policy
           ? "B20 policy writes are not activated"
-          : !implementation
-            ? "Vibenet has no live EIP-8130 account implementation"
-            : null,
+          : null,
   };
 }
 
@@ -399,6 +389,7 @@ function loadStoredAccount() {
   if (memoryStoredAccount) return memoryStoredAccount;
   if (typeof localStorage === "undefined") return null;
   try {
+    for (const legacy of LEGACY_ACCOUNT_STORAGE_KEYS) localStorage.removeItem(legacy);
     memoryStoredAccount = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY) || "null");
     return memoryStoredAccount;
   } catch {
@@ -417,48 +408,46 @@ function saveStoredAccount(value) {
   }
 }
 
+function isPrivateKey(value) {
+  return typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
+}
+
+// The demo account is the EOA of a browser-local key, kept per genesis so a
+// Vibenet reset starts a fresh, unfunded account rather than reusing one whose
+// history is gone.
 export async function getSharedAccount() {
-  const [deployment, genesis] = await Promise.all([contracts().catch(() => null), genesisHash()]);
-  // Backstop only. probeCapabilities() runs the same resolution before a demo
-  // renders as live, so a reader should never reach this throw.
-  const implementation = await resolveImplementation(deployment);
-  if (!implementation) throw new Error("Vibenet has no live EIP-8130 account implementation");
-
+  const genesis = await genesisHash();
   let stored = loadStoredAccount();
-  if (
-    !stored ||
-    stored.version !== 1 ||
-    stored.genesisHash !== genesis ||
-    stored.implementation?.toLowerCase() !== implementation.toLowerCase()
-  ) {
-    stored = {
-      version: 1,
-      genesisHash: genesis,
-      implementation,
-      privateKey: generatePrivateKey(),
-      salt: randomHex(32),
-    };
+  if (!stored || stored.version !== 2 || stored.genesisHash !== genesis || !isPrivateKey(stored.privateKey)) {
+    stored = { version: 2, genesisHash: genesis, privateKey: generatePrivateKey() };
   }
-
   const signer = privateKeyToAccount(stored.privateKey);
-  const account = newSmartAccount({ signer, implementation, salt: stored.salt });
-  if (stored.address && stored.address.toLowerCase() !== account.address.toLowerCase()) {
-    stored.privateKey = generatePrivateKey();
-    stored.salt = randomHex(32);
-    const nextSigner = privateKeyToAccount(stored.privateKey);
-    const nextAccount = newSmartAccount({ signer: nextSigner, implementation, salt: stored.salt });
-    stored.address = nextAccount.address;
-    saveStoredAccount(stored);
-    return { account: nextAccount, signer: nextSigner, genesisHash: genesis, implementation };
-  }
+  const account = toEoaAccount(signer);
   stored.address = account.address;
   saveStoredAccount(stored);
-  return { account, signer, genesisHash: genesis, implementation };
+  return { account, signer, genesisHash: genesis };
 }
 
 export async function isDeployed(address) {
   const code = await rpc("eth_getCode", [address, "latest"]);
   return Boolean(code && code !== "0x");
+}
+
+// HTTP polling stands in for the ui's WebSocket receipt watcher: the docs CSP
+// and the snippet loader keep this engine to plain fetches.
+async function waitForReceipt(hash, { timeoutMs = 60_000, intervalMs = 500 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      const receipt = await getTransactionReceipt(client, { hash });
+      if (receipt) return receipt;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(`Timed out waiting for the receipt of ${hash}${lastError ? `: ${lastError?.message || lastError}` : ""}`, { cause: lastError ?? undefined });
 }
 
 async function ensureFunded(address) {
@@ -477,7 +466,7 @@ async function ensureFunded(address) {
       throw new Error(`Vibenet faucet did not fund ${address}: ${retryError?.message || retryError}`, { cause: error });
     }
   }
-  await waitForTransactionReceipt(client, { hash: drip.tx_hash, timeout: 60_000 });
+  await waitForReceipt(drip.tx_hash);
   return drip.tx_hash;
 }
 
@@ -491,54 +480,44 @@ async function highestNonce(address) {
   return highest;
 }
 
-function structuralGas({ deployed, calls }) {
+// Mirrors the ui's estimateTxGas fallback: 45k base plus 22k per call,
+// doubled because it is only used when the node estimate is unavailable or
+// below it. Unused gas is refunded.
+function structuralGas({ calls }) {
   const base = 45_000n;
-  const deploy = deployed ? 0n : 160_000n;
   const perCall = 22_000n * BigInt(Math.max(calls, 1));
-  const batch = calls > 1 ? 9_000n : 0n;
-  return 2n * (base + deploy + perCall + batch);
-}
-
-async function waitUntilDeployed(address) {
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    if (await isDeployed(address)) return;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`account ${address} still has no code`);
+  return 2n * (base + perCall);
 }
 
 export async function sendCalls({ calls, metadata = "", gasFloor = 0n }) {
   if (!calls?.length) throw new Error("No calls to send");
   return withAccountLock(async () => {
-    let account, signer, faucetHash, deployed, accountChanges, nonceSequence, phases, gas;
+    let account, faucetHash, nonceSequence, phases, gas, metadataHex;
     try {
-      ({ account, signer } = await getSharedAccount());
+      ({ account } = await getSharedAccount());
       faucetHash = await ensureFunded(account.address);
-      deployed = await isDeployed(account.address);
-      accountChanges = deployed ? [] : [account.createChange];
       nonceSequence = await highestNonce(account.address);
+      // One phase holding every call, executed atomically by the EOA sender.
       phases = [calls.map((call) => ({ to: call.to, value: call.value ?? 0n, data: call.data ?? "0x" }))];
-      gas = [structuralGas({ deployed, calls: calls.length }), BigInt(gasFloor)].reduce((a, b) => a > b ? a : b);
+      metadataHex = metadata ? toHex(metadata) : undefined;
+      gas = [structuralGas({ calls: calls.length }), BigInt(gasFloor)].reduce((a, b) => a > b ? a : b);
     } catch (error) {
       throw Object.assign(error, { notSent: true });
     }
 
-    if (deployed) {
-      try {
-        const estimated = await estimateGas(client, {
-          sender: account.address,
-          senderActorId: key.k1(signer.address).actorId,
-          senderAuthAuthenticator: canonicalAuthenticators.k1,
-          accountChanges,
-          calls: phases,
-          nonceSequence: Number(nonceSequence),
-        });
-        const buffered = BigInt(estimated) * 13n / 10n;
-        if (buffered > gas) gas = buffered;
-      } catch {
-        // Expected for calls intentionally demonstrating an on-chain rejection.
-        // Normal write paths still use the conservative structural floor.
-      }
+    try {
+      const estimated = await estimateGas(client, {
+        sender: account.address,
+        senderAuthAuthenticator: k1Authenticator,
+        calls: phases,
+        nonceKey: 0n,
+        ...(metadataHex ? { dataSuffix: metadataHex } : {}),
+      });
+      const buffered = BigInt(estimated) * 13n / 10n;
+      if (buffered > gas) gas = buffered;
+    } catch {
+      // Expected for calls intentionally demonstrating an on-chain rejection.
+      // Normal write paths still use the conservative structural floor.
     }
 
     // Everything above only reads, funds gas, or signs, so a failure there sent
@@ -550,9 +529,9 @@ export async function sendCalls({ calls, metadata = "", gasFloor = 0n }) {
     try {
       serialized = await account.signTransaction({
         chainId: CHAIN_ID,
-        accountChanges,
-        calls: encodeWalletCalls({ account: account.address, calls: phases }),
-        metadata: metadata ? toHex(metadata) : undefined,
+        from: account.address,
+        calls: phases,
+        ...(metadataHex ? { metadata: metadataHex } : {}),
         nonceKey: 0n,
         nonceSequence,
         maxFeePerGas: DEFAULT_MAX_FEE,
@@ -570,27 +549,18 @@ export async function sendCalls({ calls, metadata = "", gasFloor = 0n }) {
     }
     let receipt;
     try {
-      receipt = await waitForTransactionReceipt(client, { hash, timeout: 60_000 });
+      receipt = await waitForReceipt(hash);
     } catch (error) {
       throw Object.assign(error, { submitted: true, hash });
     }
-    if (receipt.status === "0x0") throw Object.assign(new Error(`Transaction reverted (${hash})`), { hash, receipt });
-    const phasesStatus = receipt.eip8130?.phaseStatuses ?? receipt.phaseStatuses ?? [];
-    const failedPhase = phasesStatus.findIndex((status) => status === "0x0");
-    if (failedPhase !== -1) {
+    if (receipt.status === "0x0" || receipt.status === "reverted") {
+      throw Object.assign(new Error(`Transaction reverted (${hash})`), { hash, receipt });
+    }
+    if (!allPhasesSucceeded(receipt.eip8130 ?? {})) {
+      const failedPhase = (receipt.eip8130?.phaseStatuses ?? []).findIndex((status) => !/^0x0?1$/.test(status));
       throw Object.assign(new Error(`Phase ${failedPhase} reverted (${hash})`), { hash, receipt });
     }
-    // The receipt above is already final. A read failure while confirming the
-    // account's deployment must not hide it, so the error keeps the hash and
-    // receipt. It still fails, because deployment was not verified.
-    if (!deployed) {
-      try {
-        await waitUntilDeployed(account.address);
-      } catch (error) {
-        throw Object.assign(new Error(`Transaction ${hash} confirmed, but the account deployment could not be verified: ${error?.message || error}`), { cause: error, hash, receipt, deploymentUnverified: true });
-      }
-    }
-    return { hash, receipt, faucetHash, account: account.address, deployedByThisTx: !deployed };
+    return { hash, receipt, faucetHash, account: account.address };
   });
 }
 
@@ -612,7 +582,7 @@ export async function createStablecoin({
   policies = [],
 } = {}) {
   const { account } = await getSharedAccount();
-  const salt = keccak256(toHex(`${name}:${symbol}:${Date.now()}:${randomHex(8)}`));
+  const salt = randomHex(32);
   const params = encodeAbiParameters(
     [{ type: "tuple", components: [{ type: "uint8" }, { type: "string" }, { type: "string" }, { type: "address" }, { type: "string" }] }],
     [[1, name, symbol, account.address, currency]],
@@ -648,7 +618,7 @@ export async function createAsset({
   policies = [],
 } = {}) {
   const { account } = await getSharedAccount();
-  const salt = keccak256(toHex(`${name}:${symbol}:${Date.now()}:${randomHex(8)}`));
+  const salt = randomHex(32);
   const params = encodeAbiParameters(
     [{ type: "tuple", components: [{ type: "uint8" }, { type: "string" }, { type: "string" }, { type: "address" }, { type: "uint8" }] }],
     [[1, name, symbol, account.address, decimals]],
@@ -769,7 +739,7 @@ export async function createPolicy({ kind, accounts = [] }) {
   const policyType = kind === "allowlist" ? 1 : 0;
   const data = encodePolicy("createPolicyWithAccounts", [account.address, policyType, accounts]);
   const tx = await sendCalls({ calls: [{ to: POLICY_REGISTRY, data }], metadata: `Create ${kind} policy` });
-  const topic = keccak256(toHex("PolicyCreated(uint64,address,uint8)"));
+  const topic = TOPICS.PolicyCreated;
   const log = tx.receipt.logs.find((entry) => entry.address?.toLowerCase() === POLICY_REGISTRY.toLowerCase() && entry.topics?.[0]?.toLowerCase() === topic.toLowerCase());
   if (!log?.topics?.[1]) throw new Error("PolicyCreated was missing from the receipt");
   return { id: BigInt(log.topics[1]), ...tx };
@@ -890,7 +860,7 @@ export async function expectRevert({ from, token, functionName, args, expected }
 }
 
 export function readMemoFromReceipt(receipt) {
-  const memoTopic = keccak256(toHex("Memo(address,bytes32)"));
+  const memoTopic = TOPICS.Memo;
   const log = receipt.logs.find((entry) => entry.topics?.[0]?.toLowerCase() === memoTopic.toLowerCase());
   // Both Memo fields are indexed: topics[1] is caller and topics[2] is memo.
   const raw = log?.topics?.[2];
