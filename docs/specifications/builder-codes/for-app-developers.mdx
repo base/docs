@@ -6,16 +6,16 @@ description: "Integrate Builder Codes into your app using Wagmi or Viem to attri
 
 ## Automatic Attribution on Base
 
-Once your app is registered on [base.dev](http://base.dev/), the Base App will auto-append your Builder Code to transactions its users make in your app (e.g. via your app, or the Base App's browser). This powers your onchain analytics in [base.dev](http://base.dev/) and qualifies you for potential future rewards.
+Once your project is registered on [Base Dashboard](https://dashboard.base.org/), the Base App will auto-append your Builder Code to transactions its users make in your app (e.g. via your app, or the Base App's browser). This attributes that activity to your project and qualifies you for potential future rewards.
 
 ## Integrating Outside the Base App
 
 If users also access your app on the web or through other clients, you'll need to integrate the `dataSuffix` parameter to capture that activity.
 
-When you register on [base.dev](https://base.dev/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da`) that you'll use to generate your attribution suffix. The recommended approach is to configure `dataSuffix` at the client level, which appends your Builder Code to all transactions.
+When you register a project on [Base Dashboard](https://dashboard.base.org/), you will receive a **Builder Code**—a random string (e.g., `bc_b7k3p9da`) that you'll use to generate your attribution suffix. The recommended approach is to configure `dataSuffix` at the client level, which appends your Builder Code to all transactions.
 
 <Tip>
-  You can find your code anytime under **Settings** → **Builder Code**.
+  You can find your code anytime under **Settings** → **Project Settings** → **Builder Code**. Switch the format to **Encoded String** to copy the full ERC-8021 suffix, the same hex value `Attribution.toDataSuffix` returns.
 </Tip>
 
 ## Quick Setup with Wagmi
@@ -37,7 +37,7 @@ When you register on [base.dev](https://base.dev/), you will receive a **Builder
     import { base } from "wagmi/chains";
     import { Attribution } from "ox/erc8021";
 
-    // Get your Builder Code from base.dev > Settings > Builder Codes
+    // Get your Builder Code from Base Dashboard > Settings > Project Settings > Builder Code
     const DATA_SUFFIX = Attribution.toDataSuffix({
       codes: ["YOUR-BUILDER-CODE"],
     });
@@ -98,7 +98,7 @@ When you register on [base.dev](https://base.dev/), you will receive a **Builder
     import { base } from "viem/chains";
     import { Attribution } from "ox/erc8021";
 
-    // Get your Builder Code from base.dev > Settings > Builder Codes
+    // Get your Builder Code from Base Dashboard > Settings > Project Settings > Builder Code
     const DATA_SUFFIX = Attribution.toDataSuffix({
       codes: ["YOUR-BUILDER-CODE"],
     });
@@ -220,22 +220,157 @@ See the [Privy Builder Codes integration guide](https://docs.privy.io/recipes/ev
 
 To confirm your Builder Code is being appended correctly:
 
-**1. Check base.dev**
-
-- Visit [base.dev](https://base.dev)
-- Select **Onchain** from the transaction type dropdown
-- Under the Total Transactions section, attribution counts increment when transactions with your code are processed
-
-**2. Use a Block Explorer (Basescan, Etherscan, etc.)**
+**1. Use a Block Explorer (Basescan, Etherscan, etc.)**
 
 - Find your transaction hash
 - View the input data field
 - Verify the last 16 bytes are the `8021` repeating
 - Decode the suffix to confirm your Builder Code is present
 
-**3. Open Source Tools**
+**2. Open Source Tools**
 
 - Use the [Builder Code Validation](https://builder-code-checker.vercel.app/) tool
 - Select transaction type
 - Enter the transaction or UserOperation hash
 - Click the **Check Attribution** button
+
+## Track User Analytics
+
+Builder Codes tell you which onchain transactions came from your app. To measure active users, retention and conversion, join that onchain data with the signals your app already sees when someone opens it, connects a wallet and sends a transaction. This section shows where each signal comes from and how to read it. Where you store the data and which analytics stack you use is up to you.
+
+| Metric | Signal | Where to read it |
+|---|---|---|
+| Daily, weekly and monthly active users | Distinct wallet addresses that connected, or that sent a successful attributed transaction, in the period | `eth_requestAccounts` result; transaction sender and status |
+| D1, D7 and D30 retention | The date each address was first seen, and whether it came back in a later period | Block timestamp of the address's first successful attributed transaction |
+| Conversion funnel | Open, connect, submit, success, joined on wallet address and transaction hash | Page load, `eth_requestAccounts`, the hash or call bundle ID returned on submit, and the receipt |
+| Onchain activity attributed to your app | Transactions whose ERC-8021 suffix contains your Builder Code | `input` of the transaction, or `callData` of each UserOperation |
+
+<Steps>
+  <Step title="Identify Users by Wallet Address">
+    The connected wallet address is the key that joins in-app activity to onchain activity. Read it from the wallet's [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider, which every wallet library exposes, and normalize it to lowercase so the same address always matches.
+
+    ```typescript identify-wallet.ts lines wrap
+    // `provider` is the connected wallet's EIP-1193 provider
+    const [address] = await provider.request({ method: "eth_requestAccounts" });
+    const chainId = await provider.request({ method: "eth_chainId" }); // "0x2105" on Base, "0x14a34" on Base Sepolia
+
+    const userId = address.toLowerCase();
+
+    // The user switched accounts (new identity) or disconnected (empty array)
+    provider.on("accountsChanged", (accounts: string[]) => {});
+    // The user switched networks; activity on other chains will not carry your Base attribution
+    provider.on("chainChanged", (chainId: string) => {});
+    ```
+
+    For smart accounts, this is the smart contract account address. Onchain, it appears as the `sender` of each UserOperation, not as the `from` of the outer transaction (see step 3).
+  </Step>
+
+  <Step title="Capture In-App Signals at Each Journey Stage">
+    Each stage of the funnel has a signal your app can read directly. Store each one with the wallet address and a timestamp.
+
+    | Stage | Where the data comes from |
+    |---|---|
+    | Open | The page load. Acquisition source comes from URL query parameters (for example, `utm_source` or `ref`) and `document.referrer`. Read them on the first load, before client-side navigation drops them. |
+    | Connect | A resolved `eth_requestAccounts` call. A rejected request returns EIP-1193 error code `4001` (user rejected). |
+    | Submit | The value returned when the user signs. `eth_sendTransaction` returns the transaction hash. `wallet_sendCalls` ([EIP-5792](https://eips.ethereum.org/EIPS/eip-5792)) returns a call bundle ID that you resolve to transaction hashes with `wallet_getCallsStatus`. Error code `4001` means the user rejected the signature. |
+    | Success | The transaction receipt onchain (step 3). |
+
+    Record the transaction hash and the action it performs in your app (for example, mint, swap or deposit) at submit time. The hash is what links an in-app action to its onchain outcome.
+
+    ```typescript resolve-call-bundle.ts lines wrap
+    const { id } = await provider.request({
+      method: "wallet_sendCalls",
+      params: [{ version: "2.0.0", chainId: "0x2105", from: address, atomicRequired: true, calls, capabilities }],
+    });
+
+    // Poll until the bundle settles. 100 = pending, 200 = confirmed, 4xx/5xx/600 = failed or partial
+    const { status, receipts } = await provider.request({
+      method: "wallet_getCallsStatus",
+      params: [id],
+    });
+
+    const transactionHashes = receipts?.map((receipt) => receipt.transactionHash) ?? [];
+    ```
+  </Step>
+
+  <Step title="Read Transaction Outcomes Onchain">
+    Onchain data is the source of truth for whether a transaction happened, who sent it and whether it carried your Builder Code. Where each field lives depends on the account type:
+
+    | Field | EOA transaction | ERC-4337 UserOperation (smart account) |
+    |---|---|---|
+    | User | `from` of the transaction | `sender` of the UserOperation. The transaction `from` is the bundler. |
+    | Builder Code | Suffix at the end of the transaction `input` | Suffix at the end of the UserOperation `callData`, inside the EntryPoint `handleOps` call |
+    | Success | Receipt `status` | `success` field of the EntryPoint's `UserOperationEvent` log. The outer receipt can succeed while an individual UserOperation reverts. |
+    | Time | Block timestamp | Block timestamp |
+
+    The ERC-8021 suffix sits at the end of the calldata and reads backwards: the 16-byte marker `0x80218021802180218021802180218021`, then a 1-byte schema ID, then a 1-byte length, then the comma-separated codes as ASCII. For example, `bc_b7k3p9da` produces the suffix `0x62635f62376b33703964610b0080218021802180218021802180218021`. Match on the decoded codes rather than the raw bytes, because a wallet can add its own code next to yours.
+
+    The function below takes a transaction hash recorded in step 2 and returns one row per user action, for both account types. It uses Viem and `ox`, which are already used on this page; any RPC client works the same way.
+
+    ```typescript get-attributed-activity.ts lines expandable wrap
+    import { createPublicClient, decodeFunctionData, http, isAddressEqual, parseEventLogs, type Hash } from "viem";
+    import { base } from "viem/chains";
+    import { entryPoint06Abi, entryPoint06Address, entryPoint07Abi, entryPoint07Address } from "viem/account-abstraction";
+    import { Attribution } from "ox/erc8021";
+
+    const client = createPublicClient({ chain: base, transport: http() });
+
+    const BUILDER_CODE = "YOUR-BUILDER-CODE";
+
+    export async function getAttributedActivity(hash: Hash) {
+      const [tx, receipt] = await Promise.all([
+        client.getTransaction({ hash }),
+        client.getTransactionReceipt({ hash }),
+      ]);
+
+      const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+      const common = {
+        transactionHash: hash,
+        blockNumber: receipt.blockNumber,
+        timestamp: Number(block.timestamp),
+      };
+
+      // ERC-4337: the outer transaction is sent by a bundler to the EntryPoint.
+      // The user is each UserOperation's sender, and the suffix sits in its callData.
+      const entryPoint =
+        tx.to && isAddressEqual(tx.to, entryPoint07Address) ? { abi: entryPoint07Abi } :
+        tx.to && isAddressEqual(tx.to, entryPoint06Address) ? { abi: entryPoint06Abi } :
+        undefined;
+
+      if (entryPoint) {
+        const { args } = decodeFunctionData({ abi: entryPoint.abi, data: tx.input });
+        const ops = (args?.[0] ?? []) as readonly { sender: `0x${string}`; callData: `0x${string}` }[];
+        const events = parseEventLogs({ abi: entryPoint.abi, eventName: "UserOperationEvent", logs: receipt.logs });
+
+        return ops.map((op) => {
+          const event = events.find((e) => isAddressEqual(e.args.sender, op.sender));
+          return {
+            ...common,
+            sender: op.sender.toLowerCase(),
+            success: event?.args.success ?? false,
+            attributed: Attribution.fromData(op.callData)?.codes?.includes(BUILDER_CODE) ?? false,
+          };
+        });
+      }
+
+      // EOA transaction: the user is tx.from and the suffix is at the end of tx.input.
+      return [{
+        ...common,
+        sender: tx.from.toLowerCase(),
+        success: receipt.status === "success",
+        attributed: Attribution.fromData(tx.input)?.codes?.includes(BUILDER_CODE) ?? false,
+      }];
+    }
+    ```
+
+    To backfill history, or to catch transactions sent outside your app's UI, scan Base blocks (or your contracts' logs with `eth_getLogs`) for calldata that ends with the ERC-8021 marker, and decode each match the same way.
+  </Step>
+
+  <Step title="Compute the Metrics">
+    Join the in-app signals from step 2 with the onchain rows from step 3 on the lowercased wallet address, and on the transaction hash for the submit and success stages. Then:
+
+    1. **Active users:** count distinct addresses per UTC day, week or month. Report connected users and transacting users (at least one row with `success` and `attributed` both true) separately, since the gap between them is your activation rate.
+    2. **Retention:** assign each address to a cohort by the week of its first successful attributed transaction, then measure the share of each cohort that transacts again 1, 7 and 30 days later.
+    3. **Funnel:** count addresses that reach each stage (open → connect → submit → success), split by acquisition source. Drop-offs between submit and success split into rejected signatures (error code `4001`), reverted transactions (`success` is false) and transactions without your Builder Code (`attributed` is false), which usually means a client is not configured with `dataSuffix`.
+  </Step>
+</Steps>
