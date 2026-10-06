@@ -239,3 +239,60 @@ To confirm your Builder Code is being appended correctly:
 - Select transaction type
 - Enter the transaction or UserOperation hash
 - Click the **Check Attribution** button
+
+## Track User Analytics
+
+To understand who your users are and how they behave, such as active users, retention and conversion funnels, add product analytics to your app. Because your app is a standard web app with a wallet, any analytics tool works.
+
+The fastest way is to give your coding agent (Cursor, Claude Code, Codex, or similar) the prompt below.
+
+| Metric | Source |
+|---|---|
+| Daily, weekly and monthly active users | Page views and wallet connects |
+| D1, D7 and D30 retention | Returning wallets |
+| Funnels (open, connect, first action) | Custom events |
+| Onchain transactions attributed to your app | Your Builder Code |
+
+<Steps>
+  <Step title="Paste This Prompt into Your Coding Agent">
+    Run the prompt from the root of your app's repository. It uses PostHog's free tier, but you can swap in Plausible, Mixpanel or Amplitude and the prompt works the same way.
+
+    ```text Analytics prompt for your coding agent wrap
+    Add product analytics to this web app using PostHog (free tier).
+
+    1. Install posthog-js and initialize it once, client-side only, at app startup.
+       Read the project key and host from public env vars using this framework's
+       convention (e.g. NEXT_PUBLIC_POSTHOG_KEY in Next.js, VITE_POSTHOG_KEY in Vite).
+       Add them to .env.example and never commit real values. Skip init if the key
+       is missing.
+    2. Turn on autocapture and set capture_pageview: "history_change" so client-side
+       route changes count as page views.
+    3. When a wallet connects (wagmi useAccount), call
+       posthog.identify(address.toLowerCase()). When it disconnects, call
+       posthog.reset().
+    4. Capture these events:
+       - app_opened { referrer, utm_source, utm_medium, utm_campaign }
+       - wallet_connected { connector, chain_id }
+       - tx_submitted { action, tx_hash }
+       - tx_confirmed { action, tx_hash } after the receipt confirms with status success
+       - tx_failed { action, error_message } when rejected, errored or reverted
+       Name "action" after what this app does (e.g. mint, swap, deposit).
+    5. Wallet address is the only user identifier. Never capture emails, names,
+       government IDs or payment details.
+    6. Summarize every file you changed and how to verify events in PostHog's live
+       events view.
+    ```
+
+    <Note>
+      The prompt assumes your app uses Wagmi to connect wallets. If you use a different library, tell your agent which hook or event fires when a wallet connects.
+    </Note>
+  </Step>
+
+  <Step title="Build Three Dashboards">
+    In your analytics tool, set up:
+
+    1. **Growth:** daily, weekly and monthly active users, plus new vs. returning wallets.
+    2. **Retention:** D1, D7 and D30 cohorts by the week a wallet was first seen.
+    3. **Funnel:** `app_opened` → `wallet_connected` → `tx_confirmed`, split by `utm_source`.
+  </Step>
+</Steps>
