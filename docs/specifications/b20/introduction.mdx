@@ -143,6 +143,8 @@ Those lists live in the Policy Registry, a global singleton precompile, not on t
 
 A token admin binds a policy ID to a policy scope with `updatePolicy`. A scope sits in a similar place to a hook: it runs on a specific function. When that function runs, the token asks the registry `isAuthorized(policyId, account)` and reverts with `PolicyForbids` if the check fails. Which scope runs on which function is in [Policies](/specifications/b20/concepts/policies).
 
+`isAuthorized` never reverts, even for a policy ID that doesn't exist: a malformed ID returns `false`, and an unknown ID behaves as an empty set. Validate `policyExists(policyId)` when you store a policy ID. See [`isAuthorized`](/specifications/b20/reference/interfaces/i-policy-registry/is-authorized) for every case.
+
 A policy-gated transfer looks like this:
 
 ```mermaid Integrating Compliance Checks Diagram lines wrap expandable highlight={1}
