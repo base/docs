@@ -101,6 +101,10 @@ Configuration knobs are optional positive numbers:
 - `CLAUDE_MAX_TOKENS` and `CLAUDE_MODEL`
 - The bounded release manifest/selection settings documented in `index.mjs`
 
+Before changing prompts, routing, or the route table, run the evals with and
+without your change (`eval/run-eval.mjs --runs 3`, then `--code-ref master`)
+and compare. See the script header for options.
+
 ## Source PR attribution
 
 For `code-change` dispatches the workflow @mentions the source PR author in
