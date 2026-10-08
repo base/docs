@@ -67,3 +67,78 @@ State can change during block building. A condition can become true or false bef
 Do not use transaction placement as a source of randomness. Do not assume a zero-valued slot makes a CREATE2 address, proxy, or uninitialized contract safe to call.
 
 Validity criteria are not recorded onchain. Do not include secrets in calldata or predicate values.
+
+## Read B20 and Policy Registry State
+
+[B20](/specifications/b20) tokens and the Policy Registry run as precompiles, but they keep their state in ordinary account storage. Each B20 token stores its state at the token address. The Policy Registry stores its state at `0x8453000000000000000000000000000000000002`. A `storage` predicate reads these slots the same way it reads any contract's storage.
+
+The `balance` predicate reads an account's native ETH balance. To gate on a B20 token balance, use a `storage` predicate on the token's balance slot.
+
+### Slot Derivation
+
+B20 storage uses [ERC-7201](https://eips.ethereum.org/EIPS/eip-7201) namespaces. A top-level field lives at `root + offset`. A mapping value lives at `keccak256(abi.encode(key, baseSlot))`, where `baseSlot` is `root + offset`. For a nested mapping, hash the outer key first, then hash the inner key against the result. Packed fields follow Solidity packing: offset `0` is the lowest-order byte of the word.
+
+| Namespace | Root slot | Used by |
+|---|---|---|
+| `base.b20` | `0xc78b71fee795ddd74aff64ea9b2474194c938c3196430e10bb5f01ed48434000` | Every B20 token |
+| `base.b20.asset` | `0xfdc6d4552d1286ade4d9facdbf0fb50d2ec9b89a90e104f26fd277585e374b00` | Asset variant fields |
+| `base.b20.stablecoin` | `0x35827975a06ca0e9367ea3129b19441d45d0ca58e30b7693f09e73d0943d6200` | Stablecoin variant fields |
+| `base.policy_registry` | `0x00503aeb06982fa1fe3151dc68f90b3946c55c449dfd447e49dcaece71ba4a00` | Policy Registry |
+
+### B20 Token Fields
+
+Offsets from the `base.b20` root, read at the token address:
+
+| Offset | Field | Encoding |
+|---|---|---|
+| `3` | `totalSupply` | `uint256` |
+| `4` | `balances[account]` | `mapping(address => uint256)` |
+| `5` | `allowances[owner][spender]` | `mapping(address => mapping(address => uint256))` |
+| `6` | `roles[role][account]` | `mapping(bytes32 => mapping(address => bool))` |
+| `9` | Transfer policy IDs | Packed `uint64` values: sender at bytes 0–7, receiver at bytes 8–15, executor at bytes 16–23 |
+| `10` | Mint receiver policy ID | `uint64` at bytes 0–7 |
+| `11` | Paused features | Bitmask by `PausableFeature` ordinal: `TRANSFER` bit 0, `MINT` bit 1, `BURN` bit 2, `SEIZE` bit 3 |
+| `12` | Supply cap | `uint256` |
+| `14` | Seize policy IDs | Packed `uint64` values: seize-exempt at bytes 0–7, seize-receiver at bytes 8–15 |
+
+### Policy Registry Fields
+
+Offsets from the `base.policy_registry` root, read at the Policy Registry address. Policy IDs are `uint64` keys.
+
+| Offset | Field | Encoding |
+|---|---|---|
+| `0` | `policies[policyId]` | Packed word: admin address in bits 0–159, exists flag in bit 255 |
+| `1` | `members[policyId][account]` | `mapping(uint64 => mapping(address => bool))` |
+| `2` | `pendingAdmins[policyId]` | `address` |
+| `4` | `children[policyId]` | Dynamic `uint64[]` of composite child policy IDs |
+
+A `members` flag records list membership, not the `isAuthorized` result. On an allowlist, `true` means the account is authorized. On a blocklist, `true` means the account is blocked. Composite (`UNION` and `INTERSECT`) policies have no member set of their own, and a predicate cannot evaluate them. To watch a composite policy, read the member slots of its child policies. An [inverted policy ID](/specifications/b20/concepts/policies#23-inverting-a-policy) has no record of its own; clear bit 63, read the base policy's slots, and invert the condition you check.
+
+### Example: Wait for an Allowlist Addition
+
+Compute the `members[policyId][account]` slot with `cast index`, then wait for it to become `1`:
+
+```bash Compute a member slot lines wrap highlight={4}
+# members base slot = base.policy_registry root + 1
+MEMBERS=0x00503aeb06982fa1fe3151dc68f90b3946c55c449dfd447e49dcaece71ba4a01
+PER_POLICY=$(cast index uint64 <POLICY_ID> $MEMBERS)
+cast index address <ACCOUNT> $PER_POLICY
+```
+
+```json Allowlist predicate lines wrap expandable highlight={5,7}
+{
+  "type": "storage",
+  "params": {
+    "address": "0x8453000000000000000000000000000000000002",
+    "slot": "<MEMBER_SLOT>",
+    "op": "=",
+    "value": "0x1"
+  }
+}
+```
+
+To wait until a token's transfers are unpaused, read offset `11` (`0xc78b71fee795ddd74aff64ea9b2474194c938c3196430e10bb5f01ed4843400b`) at the token address with `mask` `0x1` and `value` `0x0`. When you mask a packed field, shift the expected `value` into the same byte position as the mask.
+
+<Warning>
+The storage layout is part of the precompile implementation. Network upgrades append fields without reordering existing ones (for example, Cobalt added offset `14` to `base.b20`), but check the [B20 changelog](/specifications/b20/changelog) and the [base-std changelog](https://github.com/base/base-std/tree/main/changelog), which records each storage layout change, before you rely on a slot. The [base-std storage layout tests](https://github.com/base/base-std/tree/main/test/unit/storage) are the reference that the node implementation must match.
+</Warning>

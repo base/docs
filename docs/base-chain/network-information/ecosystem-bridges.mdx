@@ -18,6 +18,31 @@ Move assets to and from Base using the routes below. Pick the one that matches w
 If you hold funds in a Coinbase account, you can withdraw many assets straight onto the Base network — select **Base** as the network when withdrawing, no bridge required. This is often the fastest path for USDC and ETH.
 </Note>
 
+## USDC on Base
+
+USDC on Base is issued natively by Circle. Use the native USDC contract for new integrations. Circle publishes the canonical address for every network on its [USDC contract addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses) page.
+
+| Token | Network | Address | Issuer |
+|---|---|---|---|
+| USDC | Base Mainnet | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | Circle (native) |
+| USDC | Base Sepolia | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | Circle (native) |
+| USDbC (USD Base Coin) | Base Mainnet | `0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA` | Bridged from Ethereum |
+
+USDbC is the earlier bridged form of USDC. It is a Standard Bridge token: Ethereum USDC (`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`) is locked on L1 and USDbC is minted on Base by the `L2StandardBridge` predeploy (`0x4200000000000000000000000000000000000010`). Circle does not issue USDbC, and it is a separate token from native USDC. To move from USDbC to native USDC, swap it onchain, or withdraw it to Ethereum through the Standard Bridge. The [Superchain token list](https://github.com/ethereum-optimism/ethereum-optimism.github.io/blob/master/data/BridgedUSDC/data.json) records the USDbC mapping.
+
+To move native USDC between Base and other networks, use Circle's [Cross-Chain Transfer Protocol (CCTP)](https://developers.circle.com/cctp). CCTP burns USDC on the source chain and mints native USDC on the destination chain, so no bridged representation is created. Base is CCTP domain `6`. For the list of supported chains, see [CCTP supported blockchains](https://developers.circle.com/cctp/cctp-supported-blockchains).
+
+### Other Stablecoins
+
+Circle also issues EURC, a euro stablecoin, natively on Base:
+
+| Token | Network | Address | Issuer |
+|---|---|---|---|
+| EURC | Base Mainnet | `0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42` | Circle (native) |
+| EURC | Base Sepolia | `0x808456652fdb597867f38412077A9182bf77359F` | Circle (native) |
+
+Confirm addresses on the issuer's own page ([EURC contract addresses](https://developers.circle.com/stablecoins/eurc-contract-addresses)) before you integrate. Stablecoins created with the [B20 Stablecoin variant](/get-started/issue-stablecoins) carry a self-declared `currency()` code; B20 checks the format of that code, not the issuer or its reserves.
+
 ## From Ethereum
 
 Bridge ETH and supported ERC-20s between Ethereum mainnet (L1) and Base. Both providers support mainnet and Sepolia testnet.
