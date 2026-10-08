@@ -1,0 +1,61 @@
+---
+title:
+sidebarTitle: "Deploy to Vercel" Deploy to Vercel – checklist (OnchainKit)
+description: A concise deployment checklist to ship OnchainKit apps to Vercel without gotchas.
+---
+
+import Callout from 'components/Callout.mdx'
+
+## Why this page
+
+Most “works locally, fails on Vercel” issues come down to missing env vars or build settings. Use this checklist to deploy an OnchainKit app via the official **Onchain App Template** or your own Next.js app. <Callout>Template (Vercel) + repo links are at the end.</Callout>
+
+---
+
+## Required environment variables
+
+Set these in **Vercel → Project → Settings → Environment Variables**:
+
+- `NEXT_PUBLIC_BASE_RPC_URL` — a Base RPC (e.g. `https://mainnet.base.org` or provider endpoint)
+- `NEXT_PUBLIC_URL` — the public URL of your site (e.g. `https://myapp.vercel.app`) used by frames/mini-apps
+- `NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME` — any string (used for analytics/identification)
+- If your app uses contract addresses:
+  - `NEXT_PUBLIC_TIP_SPLITTER_ADDRESS`
+  - `NEXT_PUBLIC_MERKLE_CLAIM_ADDRESS`
+
+<Callout type="warning">Never put private keys in your frontend env. Keep deploy keys on your machine only.</Callout>
+
+---
+
+## Build & runtime
+
+- **Framework:** Next.js (App Router OK)
+- **Node:** 20.x
+- **Package manager:** `pnpm` or `npm` (template uses pnpm)
+- **Vercel Build Command:** auto (default)  
+- **Output:** Next.js default
+
+---
+
+## Wallet connectivity sanity
+
+- Ensure you initialize wagmi/OnchainKit with the **Base** chain + your RPC.
+- Include a **Connect Wallet** button; don’t assume a pre-connected provider.
+
+---
+
+## Common pitfalls
+
+- **404s for frames/mini-apps:** `NEXT_PUBLIC_URL` missing or incorrect.
+- **RPC rate limits:** use a provider RPC for production traffic.
+- **Wrong chain ID:** explicitly include Base (8453) in your client config.
+- **Works locally, fails on Vercel:** missing env var names or wrong casing.
+
+---
+
+## References
+- [Onchain App Template — Vercel one-click](https://vercel.com/templates/next.js/coinbase-onchain)
+- [Onchain App Template — GitHub](https://github.com/coinbase/onchain-app-template)
+- [Configure environment (MiniKit)](https://docs.base.org/mini-apps/quickstart/existing-apps/configure-environment)
+- [Deploy Mini Apps to Vercel](https://docs.base.org/mini-apps/quickstart/new-apps/deploy)
+- [OnchainKit repo](https://github.com/coinbase/onchainkit)
