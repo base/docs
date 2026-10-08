@@ -66,7 +66,7 @@ npx skills add base/base-skills
 |Specifications/Specifications/Validity Transactions:specifications/build-transaction/validity-transactions,specifications/build-transaction/build-a-validity-transaction,specifications/build-transaction/base_sendRawTransactionValidity,specifications/build-transaction/fees-ordering-and-lifecycle,specifications/build-transaction/predicates-and-safety,specifications/build-transaction/troubleshooting
 |Specifications/Reference:specifications/reference/base-contracts,specifications/reference/smart-contracts,specifications/reference/configuration,specifications/reference/glossary
 |Specifications/Node Operators:specifications/node-operators/run-a-node,specifications/node-operators/performance-tuning,specifications/node-operators/snapshots,specifications/node-operators/troubleshooting
-|Specifications/Security:specifications/security/security-council-for-base,specifications/security/avoid-malicious-flags,specifications/security/report-a-vulnerability
+|Specifications/Security:specifications/security/security-council-for-base,specifications/security/avoid-malicious-flags,specifications/security/report-a-vulnerability,specifications/security/security-and-reliability
 |SDKs & APIs/Overview:sdks/overview
 |SDKs & APIs/CLIs:sdks/base-anvil
 |SDKs & APIs/Base Chain API:base-chain/api-reference/rpc-overview

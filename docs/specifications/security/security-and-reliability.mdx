@@ -1,0 +1,69 @@
+---
+title: "Security and Reliability"
+description: "Where to find Base network status and incident history, third-party audits, bug bounties, censorship-resistance guarantees, and the open-source sequencer components."
+---
+
+This page collects the public sources you need to evaluate Base security and reliability: network status and incident history, third-party audits, bug bounty programs, censorship-resistance guarantees, and the open-source code that orders and sequences transactions.
+
+## Network Status and Incident History
+
+[status.base.org](https://status.base.org) reports the live status of Base Mainnet and Base Sepolia components, including block production, batch submission, Flashblocks, the transaction pool, deposits, withdrawals, and the public RPC API.
+
+- **Incident history:** [status.base.org/history](https://status.base.org/history) lists past incidents with their timelines and resolutions.
+- **Notifications:** subscribe on [status.base.org](https://status.base.org) to receive incident updates.
+- **Postmortems:** Base publishes detailed postmortems for major incidents on the [Base Engineering Blog](https://blog.base.dev/), for example the [June 25th block production outage postmortem](https://blog.base.dev/postmortem-june-25th-block-production-outage).
+
+## Audits
+
+Third-party audit reports for the Base Stack are published in the open-source repositories they cover. Each report lists its scope, the reviewed commit, the findings, and how each finding was resolved.
+
+| Date | Reviewer | Scope | Report |
+|------|----------|-------|--------|
+| March 17, 2026 | Cantina | AggregateVerifier multiproof contracts | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+| March 19, 2026 | Cantina | TEE multiproof contracts | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+| April 10, 2026 | Cantina | TEE multiproof contracts (second review) | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+| April 10, 2026 | Cantina | AggregateVerifier multiproof contracts (second review) | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+| April 21 – May 4, 2026 | Immunefi audit competition | Azul hardfork | [Immunefi reports](https://reports.immunefi.com/base) |
+| June 4, 2026 | Cantina | Proof contracts update | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+| August 14, 2026 | Cantina | Beryl B20 precompiles | [base/base](https://github.com/base/base/tree/main/audits) |
+| August 14, 2026 | Cantina | Beryl precompile macros and storage | [base/base](https://github.com/base/base/tree/main/audits) |
+| September 2, 2026 | Cantina | Cobalt contracts (v8.3.0, excluding dynamic upgrades) | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+| September 10, 2026 | Cantina | Cobalt B20 precompiles | [base/base](https://github.com/base/base/tree/main/audits) |
+| September 19, 2026 | Cantina | Dynamic upgrades node implementation | [base/base](https://github.com/base/base/tree/main/audits) |
+| September 19, 2026 | Cantina | Dynamic upgrades contracts | [base/contracts](https://github.com/base/contracts/tree/main/audits) |
+
+Audits of the OP Stack components that Base used through OP Stack Upgrade 18, including the bridge and `OptimismPortal` contracts, are in [Optimism's security reviews](https://github.com/ethereum-optimism/optimism/tree/develop/docs/security-reviews).
+
+## Bug Bounties and Audit Competitions
+
+Base runs bug bounty programs on HackerOne (offchain components and infrastructure) and Cantina (deployed smart contracts), and ran a public Immunefi audit competition for the Azul upgrade. See [Report a Vulnerability](/specifications/security/report-a-vulnerability) for award limits, scope, and how to submit a report.
+
+## Censorship Resistance and Sequencer Liveness
+
+Base currently operates a single active sequencer. The sequencer runs as a high-availability cluster in which leadership transfers to a follower if the current leader stops producing blocks. See the [Flashblocks architecture](/specifications/flashblocks#architecture) for the components involved.
+
+If the sequencer censors your transactions or stops producing blocks, you can still get a transaction onto Base by sending it as a [deposit](/specifications/base-protocol/bridging/deposits) through the `OptimismPortal` contract on Ethereum:
+
+- **Deposits must be included.** Each L1 block defines the deposits that must be included in the first L2 block of its [sequencing epoch](/specifications/reference/glossary#sequencing-epoch). A block that omits them is invalid under the [derivation rules](/specifications/base-protocol/consensus/derivation).
+- **Maximum delay.** If the sequencer does not post batches to Ethereum, nodes wait one [sequencing window](/specifications/reference/glossary#sequencing-window) and then derive the missing L2 blocks themselves, including the pending deposits. On Base the sequencing window is 3,600 L1 blocks, about 12 hours at a 12-second L1 block time (see [Configuration](/specifications/reference/configuration#consensus-parameters)).
+
+Halts and degraded transaction inclusion are reported on [status.base.org](https://status.base.org). If the sequencer has to stop publishing Flashblocks, preconfirmations are disabled and confirmations fall back to standard 2-second blocks (see [Flashblocks](/specifications/flashblocks#block-building)).
+
+## Open-Source Sequencer Components
+
+The software that orders and sequences Base transactions is open source:
+
+| Component | Role | Source |
+|-----------|------|--------|
+| base-consensus | Consensus layer client, run by the sequencer and by node operators | [base/base](https://github.com/base/base/tree/main/crates/consensus) |
+| base-reth-node | Execution layer client, including the transaction pool | [base/base](https://github.com/base/base/tree/main/crates/execution) |
+| base-builder | Block builder that orders transactions into Flashblocks | [base/base](https://github.com/base/base/tree/main/crates/builder) |
+| websocket-proxy | Fan-out for the Flashblocks stream | [base/base](https://github.com/base/base/tree/main/bin/websocket-proxy) |
+| rollup-boost | Engine API proxy between the consensus and execution layers, maintained by Flashbots | [flashbots/rollup-boost](https://github.com/flashbots/rollup-boost) |
+| op-conductor | High-availability controller that elects the sequencer leader | [ethereum-optimism/optimism](https://github.com/ethereum-optimism/optimism/tree/develop/op-conductor) |
+
+The ordering rules these components implement are described in [Transaction Ordering](/specifications/transactions/transaction-ordering). Every block the sequencer produces is posted to Ethereum, so anyone can run a node from the same code and re-derive and verify the chain independently.
+
+## Planned Upgrades
+
+Planned network upgrades and their target activation months are listed on the [Upgrades](/upgrades/overview) page.
