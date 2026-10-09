@@ -22,7 +22,7 @@ If you're just getting started and need an RPC URL, you can use our free endpoin
 - **Mainnet**: `https://mainnet.base.org`
 - **Testnet (Sepolia)**: `https://sepolia.base.org`
 
-**Note:** Our RPCs are rate-limited, they are not suitable for production apps.
+**Note:** Our RPCs are rate-limited, they are not suitable for production apps. The public Mainnet endpoint does not serve the `debug`, `trace`, or `txpool` namespaces.
 
 If you're looking to harden your app and avoid rate-limiting for your users, choose an RPC provider from the [Builder Stack](/get-started/builder-stack).
 </Warning>
@@ -197,6 +197,8 @@ Your Flashblocks-aware node supports all standard Ethereum JSON-RPC methods plus
 ## Enable Historical Proofs RPCs
 
 To serve methods like `eth_getProof`, `debug_executionWitness` and `debug_executePayload` efficiently, you'll need to set up the historical proofs execution extension (ExEx). This ExEx manages a separate database with data required to serve these methods. This database can add hundreds of GB of additional storage and requires a machine with higher I/O throughput. Most people do not need these RPCs to be available.
+
+Without the proofs ExEx, `eth_getProof` only serves blocks within `--rpc.eth-proof-window` blocks of the chain tip. Reth's default window is `0`, so only the latest block can be proven, and the maximum is `1209600` blocks (28 days at 2-second blocks). The `.env.mainnet` and `.env.sepolia` files in [base/base](https://github.com/base/base) do not set this flag. To serve historical proofs, use the proofs ExEx described below.
 
 In order to run the historical proofs ExEx, you simply need to set this environment variable:
 
