@@ -21,5 +21,6 @@ Arguments: (none) = changed files, `all` = everything, or specify a path.
 
 ## References
 
-- [mintlify-reference.md](../../mintlify-reference.md) — component syntax
+- [mintlify-components](mintlify-components.md) — component selection while authoring (this skill only catches syntax mistakes after the fact)
+- [mintlify-reference.md](../../docs/mintlify-reference.md) — component syntax
 - [content-guidelines.md](../../docs/content-guidelines.md) — writing guidelines
