@@ -236,12 +236,21 @@ Structural changes to the information architecture — adding tabs, renaming sec
 
 ---
 
+## Opening a Pull Request
+
+- **Base branch**: `master` is the default branch of [base/docs](https://github.com/base/docs). Branch from `master` (in your fork) and open your pull request against `master`.
+- **Page format**: Create new pages as `.mdx` files under `docs/`. The `Docs Style / Conformance` check lints only the `.mdx` files under `docs/` that your pull request changes, and orphan detection in `scripts/validate-docs-structure.js` only scans `.mdx` files, so a page saved as `.md` skips both checks.
+- **Snippets and excluded files**: Files in `docs/snippets/` and files listed in `docs/.mintignore` are not published pages, so page-level lint rules do not apply to them.
+
+---
+
 ## Before Submitting
 
 1. **Run the linter** and fix all errors
    ```bash
    node scripts/lint-mdx.js
    ```
+   With no arguments, the linter checks the `.mdx` files your branch changes relative to `master`.
 2. **Add redirects** for any removed or moved pages
 3. **Verify links** work — broken links block deployment
 4. **Preview locally** with `mintlify dev` to check rendering
