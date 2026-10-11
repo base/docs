@@ -58,7 +58,7 @@ npx skills add base/base-skills
 |Specifications/Specifications/Base Protocol/Execution:specifications/base-protocol/execution/l2-execution-engine,specifications/base-protocol/execution/precompiles,specifications/base-protocol/execution/predeploys,specifications/base-protocol/execution/preinstalls
 |Specifications/Specifications/Base Protocol/Bridging:specifications/base-protocol/bridging/standard-bridges,specifications/base-protocol/bridging/deposits,specifications/base-protocol/bridging/withdrawals,specifications/base-protocol/bridging/cross-domain-messengers,specifications/base-protocol/bridging/base-solana-bridge
 |Specifications/Specifications/Base Protocol/Proofs:specifications/base-protocol/proofs/overview,specifications/base-protocol/proofs/challenger,specifications/base-protocol/proofs/proposer,specifications/base-protocol/proofs/registrar,specifications/base-protocol/proofs/tee-prover,specifications/base-protocol/proofs/zk-prover,specifications/base-protocol/proofs/proof-contracts
-|Specifications/Specifications/B20:specifications/b20/index,specifications/b20/changelog
+|Specifications/Specifications/B20:specifications/b20/index,specifications/b20/introduction,specifications/b20/changelog
 |Specifications/Specifications/B20/Concepts:specifications/b20/concepts/token-types,specifications/b20/concepts/policies,specifications/b20/concepts/roles-and-pause,specifications/b20/concepts/multipliers
 |Specifications/Specifications/B20/Reference:specifications/b20/reference/interfaces,specifications/b20/reference/constants,specifications/b20/reference/errors,specifications/b20/reference/events
 |Specifications/Specifications/Transactions:specifications/transactions/transaction-ordering,specifications/transactions/transaction-finality,specifications/transactions/network-fees,specifications/transactions/throughput-and-limits,specifications/transactions/troubleshooting-transactions
@@ -66,7 +66,7 @@ npx skills add base/base-skills
 |Specifications/Specifications/Validity Transactions:specifications/build-transaction/validity-transactions,specifications/build-transaction/build-a-validity-transaction,specifications/build-transaction/base_sendRawTransactionValidity,specifications/build-transaction/fees-ordering-and-lifecycle,specifications/build-transaction/predicates-and-safety,specifications/build-transaction/troubleshooting
 |Specifications/Reference:specifications/reference/base-contracts,specifications/reference/smart-contracts,specifications/reference/configuration,specifications/reference/glossary
 |Specifications/Node Operators:specifications/node-operators/run-a-node,specifications/node-operators/performance-tuning,specifications/node-operators/snapshots,specifications/node-operators/troubleshooting
-|Specifications/Security:specifications/security/security-council-for-base,specifications/security/avoid-malicious-flags,specifications/security/report-a-vulnerability
+|Specifications/Security:specifications/security/security-council-for-base,specifications/security/reliability-and-liveness,specifications/security/avoid-malicious-flags,specifications/security/report-a-vulnerability
 |SDKs & APIs/Overview:sdks/overview
 |SDKs & APIs/CLIs:sdks/base-anvil
 |SDKs & APIs/Base Chain API:base-chain/api-reference/rpc-overview

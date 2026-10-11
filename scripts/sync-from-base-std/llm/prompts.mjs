@@ -104,16 +104,18 @@ const SHARED_RULES = `Hard requirements for your output:
    • FUNCTION REFERENCE pages under \`.../reference/interfaces/<Interface>/<symbol>.mdx\` own the Solidity signature, selector, parameters, returns, revert conditions, and behavior for exactly one callable surface. Update only claims grounded in the current page or verified Base Std inputs.
    • INTERFACE INDEX pages such as \`.../reference/interfaces/ib20/index.mdx\` own the function/event/error inventory and links to function pages. Keep selector and topic tables consistent with the verified source diff.
    • SPECIFICATION / SHARED REFERENCE pages own cross-interface concepts such as roles, policies, addresses, common errors, and events. Do not duplicate those full explanations on every function page.
-   • GUIDES / PLAYGROUND / DEMO pages explain user workflows. Update them only when the source change alters a command, call sequence, supported behavior, or developer-facing recommendation. Do not copy full ABI tables into guides.
+   • GUIDES / CONCEPT / PLAYGROUND / DEMO pages (role \`guide\`) explain workflows and ideas, not API contracts. Naming a symbol does not make a guide document it. Edit a guide only when the change makes something on the page wrong or misleading for a reader following it: a command, call sequence, expected outcome, revert, or recommended setting. Otherwise return it unchanged. When an edit is needed, fix the affected sentence. If the reader needs a new detail to make a decision on this page, add at most one sentence and link to the owning reference page. Do not copy full ABI tables into guides.
+   • ONE OWNER PER FACT. A symbol's full behavior — edge cases, result tables, revert lists, parameter semantics — lives only on the page that owns it: its function reference page, or the shared-reference page that defines the concept. Every other page links there instead of restating it. Never add a result table, an edge-case list, or a multi-sentence summary of another page's symbol.
    • CHANGELOG ENTRY pages (one per feature per hardfork) own the migration record for exactly one change: Abstract, Motivation, What changed (Solidity code blocks, new errors/events, before/after diffs — not prose), Migration, and optionally Alternatives considered and Test cases, as defined in the content guidelines. They pull facts and code from the source entry but follow the docs page shape, never the source's section layout. They link to the reference pages for the full current state instead of restating it.
    • CHANGELOG SUMMARY pages own one table row per feature per hardfork (product, change, affected interfaces, link to the entry page) and nothing else. Never add sections, callouts, or code to a summary page.
    • The sync updates existing files only, with one exception: a changelog entry page the prompt explicitly marks as new. Never invent or link to any other page that is not present in the candidate route set.
 6. STRUCTURED REFLECTION. Before producing the output, run this 4-step enumeration internally (silently):
 
-   STEP 1 — INVENTORY. Read \`<current_page>\` and list every API surface it documents. Method names, type names, field names with their current types, parameter signatures, response-shape entries, error codes, default values. Be explicit.
+   STEP 1 — INVENTORY. Read \`<current_page>\` and list every API surface it DOCUMENTS: signatures, parameters and return values, behavior and revert conditions, errors, events, and defaults that the page states as facts. A symbol that is only mentioned — used in an example call, linked to, or named in a sentence without describing its behavior — is a mention, not a documented surface. Keep mentions out of the inventory.
 
    STEP 2 — INTERSECT. For each item from step 1, identify the changes in the source that touch it.
-     • If a \`<change_manifest>\` block is present below, it has already been extracted from the diff by a pre-pass. Every entry in it that names something from your step-1 inventory IS an intersection — treat the manifest as the authoritative starting list. Do not skip a manifest entry that matches an inventory item.
+     • If a \`<change_manifest>\` block is present below, it has already been extracted from the diff by a pre-pass. Every entry in it that names a surface from your step-1 inventory is an intersection — treat the manifest as the starting list. A manifest entry that matches only a mention is not an intersection.
+     • Only when the Context section says the change type is a comments/NatSpec-only clarification: treat a statement on the page as an intersection only if the clarification shows it is wrong or incomplete in a way that would mislead the reader. Do not infer this yourself from the diff — Base Std is interface-only, so a NatSpec edit in <source_diff> can record a real behavior change.
      • Always cross-check the manifest against \`<source_diff>\`: the manifest may miss something, especially newly-added fields buried in large diffs. If you find an additional intersection in the diff that isn't in the manifest, add it to your list and apply it in step 3.
      • If \`<change_manifest>\` is absent or empty, fall back to scanning \`<source_diff>\` directly for:
        – Solidity parameter or return-type changes
@@ -129,13 +131,13 @@ const SHARED_RULES = `Hard requirements for your output:
      • parameter or return type changed → update the signature and relevant table row
      • function signature changed → update the signature, selector, parameters, returns, and examples consistently
      • error/event/role/policy changed → update only the index or shared-reference page that owns it
-     • behavior or revert condition changed → update the owning function page and any explicitly routed guide
+     • behavior or revert condition changed → update the owning function page; update a guide or concept page only under the rule-5 test
      • default value changed → update the default column or the prose that states the default
    You must make EVERY edit step 2 surfaced. A single missed intersection is a defect, regardless of how minor.
 
-   STEP 4 — POLISH (apply the documentation guidelines). After step-3 edits, look at the page with a writer's eye. The <documentation_guidelines> block below contains the canonical content and information-architecture rules. Apply them. Ask yourself "what am I trying to say?" for each paragraph that touched a step-3 edit, and rewrite if the answer reveals a clearer way to say it. Add transition phrasing where it helps; remove transition phrasing where it makes the page stilted. If a step-3 edit changed a contract consumers depend on, add a brief <Warning> — except on changelog pages, where the change is recorded in the entry's Migration section instead, never as a callout. If a new field needs an example to be understood, add one. If a conceptual or quickstart page hand-waves around something step 3 just changed in a reference page, tighten the conceptual page's prose to match — link to the reference page for the specifics. Clarity beats tone; useful information in a clear and direct way is the most important part. Editorial work that earns its place is welcome; filler that doesn't help the reader isn't.
+   STEP 4 — POLISH (apply the documentation guidelines). The <documentation_guidelines> block below contains the canonical content and information-architecture rules. Apply them only to the paragraphs you changed in step 3: make each one say what it means clearly and directly. Do not reword, reorder, or restructure any other part of the page. Add a brief <Warning> only when a step-3 edit records a behavior change that breaks or surprises consumers (a new revert, a changed result, a changed signature) — never for a clarification of existing behavior, never on a page that only links to the owning reference, and never on changelog pages, where the change belongs in the entry's Migration section. If a new field needs an example to be understood, add one. Filler that doesn't help the reader isn't welcome.
 
-   Return the page UNCHANGED only when step 2 found ZERO intersections — i.e., the page genuinely documents APIs that the diff does not touch. If step 2 found ANY intersection, you MUST output the modified page with the step-3 edits applied. Returning the page byte-equal to current after step 2 surfaced intersections is the failure mode this rule exists to prevent.
+   Return the page UNCHANGED when step 2 found no intersection with a surface the page documents. On function-reference, interface-index, and changelog-entry pages that document a changed symbol, returning the page byte-equal to current is the failure mode this rule exists to prevent: apply every step-3 edit. On guide and shared-reference pages that only mention the symbol, returning the page unchanged is the correct result.
 7. Keep prose terse. Do not add filler.
 8. Internal links MUST use a full route that already exists under \`docs/\`. Correct: \`/specifications/b20/reference/interfaces\`. Never invent a route for a newly added Solidity symbol; this workflow edits existing pages only.
 9. CRITICAL — source-grounded claims. Every concrete identifier you write — interface and function names, selectors, parameter and return types, errors, events, roles, policies, addresses, versions, and file paths — MUST appear verbatim in the verified source diff, release notes, listed source files, or current page. Omit information that is not grounded rather than guessing.
@@ -187,7 +189,7 @@ function changeManifestSection(manifest) {
   });
   return `
 
-A pre-pass over the diff extracted the following API-level changes that originate in files this page documents. Treat this as the authoritative intersection list for STEP 2 of rule #6: every entry below that names something in your step-1 inventory IS a required edit. The manifest may be incomplete; cross-check against \`<source_diff>\` and add anything you find that the manifest missed.
+A pre-pass over the diff extracted the following API-level changes that originate in files this page documents. Use it as the starting intersection list for STEP 2 of rule #6: an entry that names a surface this page documents (not just mentions) is a required edit. The manifest may be incomplete; cross-check against \`<source_diff>\` and add anything you find that the manifest missed.
 
 <untrusted_change_manifest>
 ${lines.join("\n")}
@@ -214,6 +216,9 @@ ${lines.join("\n")}
  */
 export function codeChangePrompt(ctx) {
   const roleLine = ctx.pageRole ? `\n- This page's role: ${ctx.pageRole} (see rule #5 for what this role owns).` : "";
+  const changeTypeLine = ctx.comment_only
+    ? `\n- Change type: the source diff edits only comments/NatSpec. It clarifies existing behavior; no code changed. Edit only statements the clarification shows to be wrong or incomplete (see rule #6 step 2).`
+    : "";
   const createNote = ctx.create
     ? `\n- THIS PAGE DOES NOT EXIST YET. The <current_page> block holds only a frontmatter stub. Write the complete page from <source_entry> in the changelog-entry shape from the documentation guidelines. Fill in the frontmatter description (one sentence, value-first). Keep the title unless the source entry's heading is clearer.`
     : "";
@@ -231,7 +236,7 @@ ${ctx.diff || "(diff omitted — over size limit)"}
   return `You are editing one page of Base Docs, a Mintlify MDX documentation site.
 
 Context:
-- A change just landed on ${ctx.source_repo || "base/base-std"}@${ctx.sha}.${roleLine}${createNote}
+- A change just landed on ${ctx.source_repo || "base/base-std"}@${ctx.sha}.${roleLine}${changeTypeLine}${createNote}
 - Changed source files in Base Std (the ones that affect THIS page):
 ${(ctx.sourceFiles || []).map((s) => `  - ${s}`).join("\n")}
 ${changeManifestSection(ctx.manifest)}
