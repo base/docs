@@ -49,9 +49,9 @@ An earlier transaction can change the balance, nonce, or storage value that a pe
 }
 ```
 
-A `nonce` predicate compares the account's protocol nonce with `value`. An account that does not exist has a nonce of `0`. The example waits until the account has used nonce `4`, so it can make a transaction depend on another account's earlier transaction.
+A `nonce` predicate compares the account's protocol nonce with `value`. It does not read [EIP-8130](/specifications/native-account-abstraction) channel nonces. If the account does not exist or was deleted, Base reads its nonce as `0`. The example requires a nonce of at least `5`. Use it to wait for an account's nonce to advance. It does not identify which earlier transaction advanced the nonce, or whether that transaction succeeded.
 
-If the nonce moves past a `<`, `<=`, or `=` bound, Base does not drop the transaction right away. It stays pending until its `block_number` bound passes.
+A nonce mismatch does not expire the transaction, even after the nonce passes a `<`, `<=`, or `=` bound. Base checks the predicate again when the watched nonce changes. The required `block_number` upper bound limits the transaction's lifetime, and a `flashblock_index` upper bound can end it earlier within the last allowed block.
 
 ## Storage Example
 
