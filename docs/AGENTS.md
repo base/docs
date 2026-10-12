@@ -43,7 +43,7 @@ npx skills add base/base-skills
 |Get Started/Get Funding:get-started/base-batches,get-started/base-ecosystem-fund,get-started/builder-stack
 |Get Started/Resources:get-started/builders,get-started/creators
 |Get Started/References:get-started/base-chain,get-started/sdks-and-apis
-|Build on Base/Overview:build-on-base/overview,build-on-base/test-on-vibenet,build-on-base/assign-user-attributes
+|Build on Base/Overview:build-on-base/overview,build-on-base/test-on-vibenet,build-on-base/run-a-local-devnet,build-on-base/assign-user-attributes
 |Build on Base/Integrate DeFi:build-on-base/integrate-defi/integrate-trading,build-on-base/integrate-defi/integrate-lending,build-on-base/integrate-defi/integrate-borrowing,build-on-base/integrate-defi/integrate-earn-product,build-on-base/integrate-defi/list-tokenized-stocks
 |Build on Base/Tokenize Assets:build-on-base/issue-rwa/create-an-asset-token,build-on-base/issue-rwa/issue-units,build-on-base/issue-rwa/restrict-eligible-holders,build-on-base/issue-rwa/restrict-transfer-initiators,build-on-base/issue-rwa/seize-and-cancel-units,build-on-base/issue-rwa/announce-a-distribution,build-on-base/issue-rwa/apply-a-multiplier,build-on-base/issue-rwa/pause-transfers
 |Build on Base/Issue Stablecoins:build-on-base/issue-stablecoins/issue-your-stablecoin,build-on-base/issue-stablecoins/mint-supply,build-on-base/issue-stablecoins/burn-supply,build-on-base/issue-stablecoins/restrict-who-can-hold,build-on-base/issue-stablecoins/block-an-account,build-on-base/issue-stablecoins/recover-funds,build-on-base/issue-stablecoins/pause-activity,build-on-base/issue-stablecoins/reconcile-with-memos
@@ -65,7 +65,7 @@ npx skills add base/base-skills
 |Specifications/Specifications/Builder Codes:specifications/builder-codes/overview,specifications/builder-codes/for-app-developers,specifications/builder-codes/for-wallet-developers,specifications/builder-codes/for-agent-developers
 |Specifications/Specifications/Validity Transactions:specifications/build-transaction/validity-transactions,specifications/build-transaction/build-a-validity-transaction,specifications/build-transaction/base_sendRawTransactionValidity,specifications/build-transaction/fees-ordering-and-lifecycle,specifications/build-transaction/predicates-and-safety,specifications/build-transaction/troubleshooting
 |Specifications/Reference:specifications/reference/base-contracts,specifications/reference/smart-contracts,specifications/reference/configuration,specifications/reference/glossary
-|Specifications/Node Operators:specifications/node-operators/run-a-node,specifications/node-operators/run-a-local-devnet,specifications/node-operators/performance-tuning,specifications/node-operators/snapshots,specifications/node-operators/troubleshooting
+|Specifications/Node Operators:specifications/node-operators/run-a-node,specifications/node-operators/performance-tuning,specifications/node-operators/snapshots,specifications/node-operators/troubleshooting
 |Specifications/Security:specifications/security/security-council-for-base,specifications/security/reliability-and-liveness,specifications/security/avoid-malicious-flags,specifications/security/report-a-vulnerability
 |SDKs & APIs/Overview:sdks/overview
 |SDKs & APIs/CLIs:sdks/base-anvil
