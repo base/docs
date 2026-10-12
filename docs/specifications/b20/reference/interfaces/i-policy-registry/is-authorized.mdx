@@ -1,6 +1,6 @@
 ---
 title: "IPolicyRegistry.isAuthorized"
-description: "Generated B20 reference for isAuthorized(uint64,address)."
+description: "Returns whether an account is authorized under a policy ID, including results for malformed, unknown, and inverted IDs."
 ---
 
 
@@ -18,17 +18,38 @@ function isAuthorized(uint64 policyId, address account) external view returns (b
 
 ## Description
 
-Returns whether `account` is authorized under `policyId`. Never reverts; unknown
-or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -&gt; false,
-BLOCKLIST -&gt; true).
-Dev: Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.
-Param: policyId Policy to query.
-Param: account  Account to check.
-Return: Whether `account` is authorized.
+Returns whether `account` is authorized under `policyId`. Never reverts.
+
+## Result by policy ID
+
+| Policy ID | Result |
+|---|---|
+| Malformed | `false`. The invert flag (bit 63) is cleared before the type check, so an ID is malformed when the remaining top byte is outside `PolicyType`. |
+| Well-formed but unknown, ALLOWLIST or UNION | `false`. An unknown ID is treated as an empty set. |
+| Well-formed but unknown, BLOCKLIST or INTERSECT | `true`. An unknown ID is treated as an empty set. |
+| Inverted, base exists | The negated result of the base. Applies to every policy type. |
+| Inverted, base unknown or malformed | `false` |
+
+<Warning>
+Callers that store policy IDs MUST validate `policyExists(policyId)` at write time. An unknown `BLOCKLIST` or `INTERSECT` ID returns `true`, and an inverted unknown or malformed base returns `false` rather than the negation of the empty-set result.
+</Warning>
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `policyId` | `uint64` | Policy to query. |
+| `account` | `address` | Account to check. |
+
+## Returns
+
+| Type | Description |
+|---|---|
+| `bool` | Whether `account` is authorized under `policyId`. |
 
 ## Access Control
 
-Read-only or ERC-20-standard access rules unless the NatSpec states otherwise.
+Read-only. No role required.
 
 ## Policy Interaction
 

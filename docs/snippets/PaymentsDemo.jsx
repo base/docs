@@ -20,7 +20,7 @@ export const PaymentsDemo = ({ flow }) => {
         };
         const [aaSource, engineSource] = await Promise.all([
           fetchText("/static/aa.txt"),
-          fetchText("/static/vibenet-engine.txt?v=6"),
+          fetchText("/static/vibenet-engine.txt?v=7"),
         ]);
         // docs.base.org's CSP blocks blob: scripts, so both modules are linked
         // into one function body: the AA bundle's trailing export list becomes
@@ -1407,14 +1407,8 @@ export const PaymentsDemo = ({ flow }) => {
         // ERC-20 on Vibenet.
         const caps = await probePayments();
         if (!caps.live) throw Object.assign(new Error(caps.reason || "Vibenet is unavailable"), { unavailable: true });
-        // getSharedAccount confirms a live EIP-8130 account implementation.
-        const [shared, genesis] = await Promise.all([
-          engine.getSharedAccount().catch((error) => {
-            if (/no live EIP-8130 account implementation/.test(error?.message || "")) throw Object.assign(error, { unavailable: true });
-            throw error;
-          }),
-          genesisHashOf(),
-        ]);
+        // The demo account is the browser-local secp256k1 EOA for this genesis.
+        const [shared, genesis] = await Promise.all([engine.getSharedAccount(), genesisHashOf()]);
         if (shared.genesisHash !== genesis || caps.genesisHash !== genesis) throw new Error("Vibenet changed while the demo account loaded.");
         const next = { genesisHash: genesis, account: shared.account.address, receiver: engine.randomAddress(), token: caps.usdv, info: null, hash: null, store: null, isMounted: () => mounted.current };
         // The exclusive lease is taken before this run's first write and held

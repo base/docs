@@ -6,13 +6,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+import { keccak256 } from "../lib/keccak256.mjs";
 import { extractProtocolBlock, loadProtocol, loadViem, readSnippet } from "../lib/payments-protocol.mjs";
 
 const root = new URL("../../", import.meta.url);
 const snippet = await readSnippet();
 const P = await loadProtocol();
 const viem = await loadViem();
-const { encodeFunctionData, encodeAbiParameters, keccak256, toHex } = viem;
+const { encodeFunctionData, encodeAbiParameters, toHex } = viem;
 
 const PAYMENT_INFO = {
   type: "tuple",
@@ -75,7 +76,7 @@ const hash = `0x${"ab".repeat(32)}`;
 test("snippet stays Mintlify-compatible and reuses the shared engine loader", () => {
   assert.doesNotMatch(snippet, /^\s*import\s/m, "Mintlify snippets must not contain imports");
   assert.match(snippet, /fetchText\("\/static\/aa\.txt"\)/);
-  assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=6"\)/);
+  assert.match(snippet, /fetchText\("\/static\/vibenet-engine\.txt\?v=7"\)/);
   assert.match(snippet, /from\\s\*"\\\.\\\/aa\\\.txt"/);
   assert.doesNotMatch(snippet, /createObjectURL/, "docs CSP blocks blob: scripts");
   assert.match(snippet, /window\.__baseDocsVibenetEngineV3/);
