@@ -310,7 +310,10 @@ export async function routeCodeChange(routeTable, changedPaths, options = {}) {
   // deletion implies shows up in the diffs of the files that still exist.
   // Routing it used to hand the model an all-minus diff and an invitation to
   // write "the source file has been removed" banners on live pages.
-  const removed = new Set(options.removedPaths || []);
+  // A file renamed with no content change (trusted `unchanged_renames`) is a
+  // pure move: its docs pages already describe it, and its diff is a rename
+  // header with no hunks. Skip it the same way.
+  const removed = new Set([...(options.removedPaths || []), ...(options.unchangedRenames || [])]);
   const work = new Map(); // page → {transformer, sourceFiles[], kinds[]}
   for (const filePath of changedPaths || []) {
     if (removed.has(filePath)) continue;
@@ -348,16 +351,23 @@ export async function routeCodeChange(routeTable, changedPaths, options = {}) {
  *   unrouted  — no rule matched; surfaced in the PR/issue body so a human
  *               can add a rule instead of the file being dropped silently
  *   removed   — deleted in the source commit (trusted `removed_paths`)
+ *   moved     — renamed with no content change (trusted `unchanged_renames`);
+ *               never routed, listed so a reviewer sees why nothing changed
  * Pure function over the route table; no filesystem access.
  *
- * @returns {{routed: string[], ignored: string[], unrouted: string[], removed: string[]}}
+ * @returns {{routed: string[], ignored: string[], unrouted: string[], removed: string[], moved: string[]}}
  */
-export function classifyChangedPaths(routeTable, changedPaths, { removedPaths = [] } = {}) {
+export function classifyChangedPaths(routeTable, changedPaths, { removedPaths = [], unchangedRenames = [] } = {}) {
   const removedSet = new Set(removedPaths);
-  const out = { routed: [], ignored: [], unrouted: [], removed: [] };
+  const movedSet = new Set(unchangedRenames);
+  const out = { routed: [], ignored: [], unrouted: [], removed: [], moved: [] };
   for (const filePath of uniq(changedPaths || [])) {
     if (removedSet.has(filePath)) {
       out.removed.push(filePath);
+      continue;
+    }
+    if (movedSet.has(filePath)) {
+      out.moved.push(filePath);
       continue;
     }
     const rules = (routeTable.code_changes || []).filter((r) => ruleMatches(r, filePath));
@@ -764,6 +774,17 @@ export function routingReportRows({ classification, proposals = [], source, sha 
     );
     rows.push("");
     for (const f of removed) rows.push(`- \`${f}\``);
+  }
+  const moved = classification?.moved || [];
+  if (moved.length > 0) {
+    rows.push("");
+    rows.push("## Moved source files");
+    rows.push("");
+    rows.push(
+      "Renamed in the source commit with no content change, so no docs page was edited for them. Each still routes by its new path the next time its content changes.",
+    );
+    rows.push("");
+    for (const f of moved) rows.push(`- ${link(f)}`);
   }
   if (rows.length > 0) rows.push("");
   return rows;
@@ -1788,9 +1809,12 @@ async function main() {
     const removedPaths = Array.isArray(payload.removed_paths)
       ? payload.removed_paths.filter((x) => typeof x === "string" && x.length <= 512).slice(0, 200)
       : [];
-    console.log(`[sync] changed_paths: ${changed.length}${removedPaths.length ? ` (removed upstream: ${removedPaths.length})` : ""}`);
-    work = await routeCodeChange(route, changed, { removedPaths });
-    classification = classifyChangedPaths(route, changed, { removedPaths });
+    const unchangedRenames = Array.isArray(payload.unchanged_renames)
+      ? payload.unchanged_renames.filter((x) => typeof x === "string" && x.length <= 512).slice(0, 200)
+      : [];
+    console.log(`[sync] changed_paths: ${changed.length}${removedPaths.length ? ` (removed upstream: ${removedPaths.length})` : ""}${unchangedRenames.length ? ` (moved unchanged: ${unchangedRenames.length})` : ""}`);
+    work = await routeCodeChange(route, changed, { removedPaths, unchangedRenames });
+    classification = classifyChangedPaths(route, changed, { removedPaths, unchangedRenames });
     for (const [label, list] of Object.entries(classification)) {
       if (label === "routed" || list.length === 0) continue;
       console.log(`[routing] ${label} (${list.length}): ${list.slice(0, 20).join(", ")}${list.length > 20 ? ", …" : ""}`);
