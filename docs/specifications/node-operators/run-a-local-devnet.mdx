@@ -69,7 +69,7 @@ The test account keys are public. Never use them on Mainnet or Sepolia.
 | L1 RPC | `http://127.0.0.1:4545` | `1337` |
 | Grafana | [localhost:3000](http://localhost:3000/d/devnet-overview) | |
 
-Ports are set in `etc/docker/devnet-env`.
+Ports are set in `etc/docker/devnet-env`. In `just devnet up` mode, `7545` is one of three conductor-managed sequencers, and any of them can be the leader.
 
 ## Hardfork Activation
 
@@ -81,7 +81,7 @@ The devnet schedules Azul at L2 block 20, Beryl at 21, Cobalt at 22, and Denim a
 | `just devnet up-single zenith` | Everest and Zenith at block 100 |
 
 <Warning>
-The devnet's canonical batcher (`op-batcher`) cannot decode EIP-8130 transactions (type `0x79`). After the first block that contains one, it stops advancing and the canonical safe head stalls. The shadow `base-batcher` keeps deriving past those blocks. See the [devnet README](https://github.com/base/base/blob/main/etc/docker/README.md) for details.
+The devnet's canonical batcher (`op-batcher`) cannot decode EIP-8130 transactions (type `0x79`). After the first block that contains one, it stops advancing and the canonical safe head stalls. The shadow `base-batcher` supports these transactions, so the shadow validator keeps deriving past those blocks. See the [devnet README](https://github.com/base/base/blob/main/etc/docker/README.md) for details.
 </Warning>
 
 To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARDFORK>_BLOCK` variable) before `up` or `up-single`. Set it to an empty value to leave that hardfork unscheduled.
@@ -91,7 +91,7 @@ To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARD
 | Command | Does |
 | --- | --- |
 | `just devnet accounts` | Lists funded test accounts with balances and nonces |
-| `just devnet logs [container]` | Streams logs, optionally for one container |
+| `just devnet logs [containers]` | Streams logs, optionally for specific containers |
 | `just devnet ps` | Shows container status |
 | `just devnet flashblocks` | Streams Flashblocks from the builder. Requires Go on first use to install the client. |
 | `just devnet down` | Stops the devnet and deletes its data |
