@@ -69,11 +69,11 @@ The test account keys are public. Never use them on Mainnet or Sepolia.
 | L1 RPC | `http://127.0.0.1:4545` | `1337` |
 | Grafana | [localhost:3000](http://localhost:3000/d/devnet-overview) | |
 
-Ports are set in `etc/docker/devnet-env`. In `just devnet up` mode, `7545` is one of three conductor-managed sequencers, and any of them can be the leader.
+Ports are set in `etc/docker/devnet-env`. In `just devnet up` mode, `7545` is one of three conductor-managed sequencers. After a leader change, transactions sent to `7545` can stay pending; send through the RPC node at `8545`, which forwards to the current leader.
 
 ## Hardfork Activation
 
-The devnet schedules Azul at L2 block 20, Beryl at 21, Cobalt at 22, and Denim at 25, so a fresh devnet crosses each activation within its first few blocks. At Denim, the sequencer switches to 200ms blocks.
+The devnet schedules Azul at L2 block 20, Beryl at 21, Cobalt at 22, and Denim at 25, so a fresh devnet crosses each activation within its first few blocks. Before Denim, the devnet produces a block every 2 seconds. At Denim, the sequencer switches to 200ms blocks.
 
 | Command | Also activates |
 | --- | --- |
@@ -93,7 +93,7 @@ To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARD
 | `just devnet accounts` | Lists funded test accounts with balances and nonces |
 | `just devnet logs [containers]` | Streams logs, optionally for specific containers |
 | `just devnet ps` | Shows container status |
-| `just devnet flashblocks` | Streams Flashblocks from the builder. Requires Go on first use to install the client. |
+| `just devnet flashblocks` | Streams Flashblocks from the builder until Denim activates (block 25 by default). The stream is empty after Denim. Requires Go; the first run installs the client and may exit without output, so run it again. |
 | `just devnet down` | Stops the devnet and deletes its data |
 
 Run `just devnet` with no arguments for the full list.
