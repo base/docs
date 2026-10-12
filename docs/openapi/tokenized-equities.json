@@ -16,6 +16,27 @@
             "get": {
                 "summary": "List tokenized stocks",
                 "operationId": "listTokenizedStocks",
+                "parameters": [
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "required": false,
+                        "description": "The maximum number of records to return in one page. If omitted, the API uses its default page size.",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "page_token",
+                        "in": "query",
+                        "required": false,
+                        "description": "The `next_page_token` value from a previous response. Pass it to fetch the next page of records.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "A successful response.",
@@ -41,7 +62,7 @@
                 "tags": [
                     "Tokenized Stocks"
                 ],
-                "description": "Returns the Coinbase-issued tokenized-stock records currently exposed through the API. Presence in this list does not imply trading availability or eligibility."
+                "description": "Returns the Coinbase-issued tokenized-stock records currently exposed through the API. Results are paginated: when the response includes `next_page_token`, pass it as `page_token` to fetch the next page, and repeat until `next_page_token` is omitted. Presence in this list does not imply trading availability or eligibility."
             }
         },
         "/v1/tokenized-stocks/chains": {
@@ -219,7 +240,11 @@
                         "items": {
                             "$ref": "#/components/schemas/v1TokenizedEquityToken"
                         },
-                        "description": "The tokenized-stock records currently exposed through the API."
+                        "description": "The tokenized-stock records in this page."
+                    },
+                    "next_page_token": {
+                        "type": "string",
+                        "description": "A token for fetching the next page. Pass it as `page_token` in the next request. Omitted on the last page."
                     }
                 },
                 "description": "Response message for `TokenizedEquitiesPublicApiService.ListTokenizedEquityTokens`."
