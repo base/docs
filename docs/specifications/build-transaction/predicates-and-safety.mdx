@@ -10,6 +10,7 @@ Predicates are inclusion conditions. They do not guarantee inclusion or successf
 | Type | Parameters |
 | --- | --- |
 | `balance` | `address`, `op`, `value` |
+| `nonce` | `address`, `op`, `value` |
 | `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
 | `block_number` | `op`, `value` |
 | `flashblock_index` | `op`, `value` |
@@ -20,7 +21,7 @@ The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate value
 
 Base evaluates predicates against the state immediately before the transaction would execute. If any predicate is false, the transaction remains pending.
 
-An earlier transaction can change the balance or storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
+An earlier transaction can change the balance, nonce, or storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
 
 ## Balance Example
 
@@ -34,6 +35,23 @@ An earlier transaction can change the balance or storage value that a pending tr
   }
 }
 ```
+
+## Nonce Example
+
+```json Nonce predicate lines wrap expandable
+{
+  "type": "nonce",
+  "params": {
+    "address": "0x2222222222222222222222222222222222222222",
+    "op": ">=",
+    "value": "0x5"
+  }
+}
+```
+
+A `nonce` predicate compares the account's protocol nonce with `value`. An account that does not exist has a nonce of `0`. The example waits until the account has used nonce `4`, so it can make a transaction depend on another account's earlier transaction.
+
+If the nonce moves past a `<`, `<=`, or `=` bound, Base does not drop the transaction right away. It stays pending until its `block_number` bound passes.
 
 ## Storage Example
 

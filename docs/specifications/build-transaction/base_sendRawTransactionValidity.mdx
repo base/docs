@@ -14,6 +14,8 @@ This method is available on Base Mainnet and Base Sepolia through the sequencer 
 
 Pass two parameters. The first is a signed, serialized transaction. The second contains a non-empty `validity` array.
 
+The `validity` array must include a `block_number` predicate with an upper bound (`<`, `<=`, or `=`) within 60 seconds of submission. See [Expiry](/specifications/build-transaction/fees-ordering-and-lifecycle#expiry).
+
 <RequestExample>
 ```json Request lines wrap expandable
 {
@@ -33,6 +35,13 @@ Pass two parameters. The first is a signed, serialized transaction. The second c
             "op": "=",
             "value": "0x2a"
           }
+        },
+        {
+          "type": "block_number",
+          "params": {
+            "op": "<=",
+            "value": "0x11a6a1"
+          }
         }
       ]
     }
@@ -46,6 +55,7 @@ Pass two parameters. The first is a signed, serialized transaction. The second c
 | Type | Parameters |
 | --- | --- |
 | `balance` | `address`, `op`, `value` |
+| `nonce` | `address`, `op`, `value` |
 | `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
 | `block_number` | `op`, `value` |
 | `flashblock_index` | `op`, `value` |
