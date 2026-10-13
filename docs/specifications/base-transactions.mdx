@@ -16,7 +16,7 @@ Base Transactions are a new [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718) 
 Validation costs a fixed amount of work. Nodes verify one secp256k1 signature per role, then check the nonce, balance, and validity window. They never simulate wallet code, so there are no bundlers, relays, or separate mempools.
 
 <Warning>
-Base Transactions activate with the [Everest network upgrade](/upgrades/overview). Activation dates are TBD. EIP-8430 is a draft, so field names, constants, and gas costs on this page may change before activation.
+Base Transactions activate with the [Everest network upgrade](/upgrades/overview). Activation dates are TBD.
 </Warning>
 
 ## Transaction Format
@@ -178,7 +178,7 @@ intrinsic_gas = AA_BASE_COST + tx_payload_cost + nonce_key_cost + value_transfer
 effective_gas_limit = gas_limit + payer_gas_reserve
 ```
 
-| Component | Draft value |
+| Component | Value |
 |---|---|
 | `AA_BASE_COST` | 15,000 |
 | `tx_payload_cost` | 16 gas per non-zero byte and 4 per zero byte over the serialized transaction, excluding `payer_auth` |
@@ -189,8 +189,6 @@ effective_gas_limit = gas_limit + payer_gas_reserve
 | `payer_auth_cost` | 0 for self-pay, otherwise 5,100 plus payload cost over `payer_auth` |
 
 `gas_limit` covers sender-side intrinsic gas and call execution. Payer authentication is charged to the payer on top of `gas_limit`, capped by `MAX_AUTHENTICATION_GAS` (suggested 100,000). A calldata floor, as in [EIP-7623](https://eips.ethereum.org/EIPS/eip-7623), applies to the whole transaction, including `payer_auth`.
-
-The EIP lets L2s adopt their own gas schedule while keeping this structure and the calldata floor. Base's final values activate with Everest.
 
 Fees follow EIP-1559 over `effective_gas_limit`. Before execution, the payer is precharged `effective_gas_limit * effective_gas_price`. After execution, the payer pays for the gas used and is refunded the rest. Payer authentication gas isn't refundable.
 
@@ -214,7 +212,7 @@ The receipt payload matches EIP-1559 receipts: `rlp([status, cumulative_gas_used
 ## Go Deeper
 
 <CardGroup cols={2}>
-  <Card title="EIP-8430 Draft" href="https://github.com/ethereum/EIPs/pull/12385" icon="file-lines">
+  <Card title="EIP-8430 Specification" href="https://github.com/ethereum/EIPs/pull/12385" icon="file-lines">
     The full AA Transaction Type specification, including rationale and security considerations.
   </Card>
   <Card title="Discussion" href="https://ethereum-magicians.org/t/eip-8430-aa-transaction-type-split-out-from-8130/29810" icon="comments">
