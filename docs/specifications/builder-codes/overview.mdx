@@ -4,13 +4,17 @@ sidebarTitle: "Overview"
 description: "Attribute onchain activity to your app, wallet or agent with Builder Codes."
 ---
 
-Base Builder Codes are an ERC-721 NFT collection where unique codes (e.g. "abc123") are minted to help identify builders onchain.
+Base Builder Codes are unique identifiers (e.g. `bc_b7k3p9da`) that attribute onchain activity to your app, wallet or agent. You append your code to transactions with an [ERC-8021](https://eip.tools/eip/8021) data suffix, and Base reads it from transaction calldata to credit that activity to you.
 
-Each code has associated metadata. Onchain metadata primarily includes a "payout address" where each code declares where potential rewards should be sent to. Offchain metadata includes more details about the app including its name and site.
+Each code has offchain metadata, such as your app's name and site, which you manage in Base Dashboard.
 
 <Tip>
   Get your Builder Code by registering a project on [Base Dashboard](https://dashboard.base.org/). You can find your code under **Settings** → **Project Settings** → **Builder Code**.
 </Tip>
+
+<Warning>
+  Use Builder Codes for attribution and analytics only. Don't build payouts, revenue splits or other app logic on the onchain Builder Codes registry. Base has paused minting codes onchain, so a code issued by Base Dashboard may not be registered onchain, and Base doesn't set a payout address for any code. See [Is My Builder Code Registered Onchain?](#is-my-builder-code-registered-onchain)
+</Warning>
 
 ## Integration Guides
 
@@ -33,6 +37,16 @@ Each code has associated metadata. Onchain metadata primarily includes a "payout
 - **Visibility:** Apps with Builder Codes can show up in discovery surfaces like App Leaderboards, Base App store, and ecosystem spotlights.
 
 ## FAQ
+
+### Is My Builder Code Registered Onchain?
+
+**Not necessarily.** Base Dashboard issues your code as soon as you register a project, but Base has temporarily paused minting codes to the onchain registry while it upgrades its systems. Attribution doesn't depend on the registry: Base still tracks all onchain activity that carries your code, so no data is lost.
+
+If your code isn't minted, the registry's `isRegistered` returns `false` for it and `payoutAddress` reverts. Don't treat either result as a sign that your code is invalid or that attribution failed.
+
+### Can I Use the Payout Address to Route Revenue?
+
+**No.** Base doesn't set a payout address for any Builder Code, and the field isn't used today. If a protocol or service reads the payout address to route fees or revenue splits to you, it won't find one for your code, even if the code is minted. Track your attributed activity with Builder Codes, and handle payments to your app through a separate mechanism.
 
 ### Do I Need to Modify My Smart Contracts?
 
