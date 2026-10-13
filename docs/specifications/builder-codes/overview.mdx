@@ -4,7 +4,7 @@ sidebarTitle: "Overview"
 description: "Attribute onchain activity to your app, wallet or agent with Builder Codes."
 ---
 
-Base Builder Codes are unique identifiers (e.g. `bc_b7k3p9da`) that attribute onchain activity to your app, wallet or agent. You append your code to transactions with an [ERC-8021](https://eip.tools/eip/8021) data suffix, and Base reads it from transaction calldata to attribute that activity to you.
+Base Builder Codes are unique identifiers (e.g. `bc_b7k3p9da`) that attribute onchain activity to your app, wallet or agent. You append your code to transactions with an [ERC-8021](https://eip.tools/eip/8021) data suffix, and the code is read from transaction calldata to attribute that activity to you.
 
 Each code has offchain metadata, such as your app's name and site, which you manage in Base Dashboard.
 
@@ -13,7 +13,7 @@ Each code has offchain metadata, such as your app's name and site, which you man
 </Tip>
 
 <Warning>
-  Use Builder Codes for attribution and analytics only. Don't build payouts, revenue splits or other app logic on the onchain Builder Codes registry. Base has temporarily paused minting codes onchain, so your code may not be registered onchain. Attribution doesn't depend on the registry, and Base still tracks all activity that carries your code. Separately, Base doesn't set a payout address for any code, minted or not. See [Is My Builder Code Registered Onchain?](#is-my-builder-code-registered-onchain)
+  Use Builder Codes for attribution and analytics only. Don't build payouts, revenue splits or other app logic on the onchain Builder Codes registry. Minting codes onchain is currently paused, so your code may not be registered onchain. Attribution doesn't depend on the registry, and all activity that carries your code is still tracked. Payout addresses aren't set for any code, minted or not.
 </Warning>
 
 ## Integration Guides
@@ -40,13 +40,13 @@ Each code has offchain metadata, such as your app's name and site, which you man
 
 ### Is My Builder Code Registered Onchain?
 
-**Not necessarily.** You get your code as soon as you register a project in Base Dashboard or through the agent registration API, but Base has temporarily paused minting codes to the onchain registry while it upgrades its systems. Attribution doesn't depend on the registry: Base still tracks all onchain activity that carries your code, so no data is lost.
+**Not necessarily.** Your code is issued as soon as you register a project in Base Dashboard or through the agent registration API, but minting codes to the onchain registry is currently paused. Attribution doesn't depend on the registry: all onchain activity that carries your code is still tracked, so no data is lost.
 
 To check, call `isRegistered` with your code on the Builder Codes registry contract on Base Mainnet (`0x000000BC7E6457e610fe52Dcc0ca5b3ce59C8E80`), for example from the contract's **Read Contract** tab on Basescan. If your code isn't minted, `isRegistered` returns `false` and `payoutAddress` reverts with `Unregistered`. Don't treat either result as a sign that your code is invalid or that attribution failed.
 
 ### Can I Use the Payout Address to Route Revenue?
 
-**No.** Base doesn't set a payout address for any Builder Code, minted or not, and the field is unused. Don't read it to route fees or revenue splits: for a code that isn't minted, `payoutAddress` reverts instead of returning an address, so a split that depends on it fails or silently falls back to another recipient. Track your attributed activity with Builder Codes, and handle payments to your app through a separate mechanism.
+**No.** Payout addresses aren't set for any Builder Code, minted or not, and the field is unused. Don't read it to route fees or revenue splits: for a code that isn't minted, `payoutAddress` reverts instead of returning an address, so a split that depends on it fails or silently falls back to another recipient. Track your attributed activity with Builder Codes, and handle payments to your app through a separate mechanism.
 
 ### Do I Need to Modify My Smart Contracts?
 
