@@ -45,7 +45,9 @@ All three transfer-side scopes now run inside the shared `_transfer` helper that
 | `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` paths, only when `msg.sender != from` | Every transfer path |
 
 All three scopes are still bypassed during the factory bootstrap window (`_isPrivileged()`), so a
-token's `initCalls` can move newly minted supply without pre-authorizing the factory.
+token's `initCalls` can move newly minted supply without pre-authorizing the factory. Allowance
+accounting on `transferFrom` and `transferFromWithMemo` is unconditional, including during the
+bootstrap window, and is unchanged.
 
 ### Revert Order
 
@@ -69,7 +71,9 @@ On `transferFrom`, this removes the second (warm) read the entrypoint used to ma
 On `transfer`, the executor lookup is new. When `TRANSFER_EXECUTOR_POLICY` equals
 `TRANSFER_SENDER_POLICY` and `from == msg.sender` (including both slots unset, `ALWAYS_ALLOW_ID`),
 `_transfer` reuses the executor result and skips the sender `isAuthorized` call. A default
-`transfer` therefore still makes two `isAuthorized` calls.
+`transfer` therefore still makes two `isAuthorized` calls. Distinct policy IDs, or a `transferFrom`
+where `msg.sender != from`, still make both the executor and sender calls. Receiver checks are
+unchanged.
 
 ## Examples
 
