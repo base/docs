@@ -16,6 +16,23 @@ Issue a fiat-backed stablecoin on Base with [B20](/specifications/b20), Base's n
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
 
+## Network Status
+
+B20 shipped in the [Beryl upgrade](/upgrades/beryl/overview). The B20 Stablecoin and Asset variants are active on Base Mainnet. Before you deploy on any network, confirm the variant is active with [`isActivated`](/specifications/b20/reference/interfaces/i-activation-registry/is-activated) on the Activation Registry.
+
+[`createB20`](/specifications/b20/reference/interfaces/ib20-factory/create-b20) requires no role or allowlist. Any account can create a stablecoin once the variant is active, and the Factory keeps no access to the token after creation.
+
+## Integrate Stablecoins From Other Issuers
+
+Wallets, apps, and payment providers that hold or move stablecoins issued by others work with the same interface for every issuer:
+
+- **One integration.** Every B20 stablecoin exposes the same ERC-20 surface and `IB20Stablecoin` interface, so code written for one issuer's token works for any other.
+- **Per-token rules.** Each token enforces its own issuer's [policies](/specifications/b20/concepts/policies) on the sender, receiver, and transfer executor. A transfer of one issuer's token succeeds only if the accounts pass that token's policies. Call `isAuthorized` on the Policy Registry to check an account before you send.
+- **Shared compliance lists.** Policies live in the Policy Registry, not on the token, so one policy can back many tokens. Issuers that agree on a list can attach the same policy ID.
+- **Conversion and redemption.** B20 has no protocol-level conversion between stablecoins from different issuers. Each token is a separate asset: convert through an onchain swap or a venue that supports both tokens. Fiat redemption happens offchain with each issuer, which then [burns the redeemed supply](/build-on-base/issue-stablecoins/burn-supply).
+
+KYC and sanctions screening happen offchain. An issuer or its compliance operator applies the result onchain by adding accounts to an allowlist or blocklist policy. See [Restrict Who Can Hold It](/build-on-base/issue-stablecoins/restrict-who-can-hold) and [Block an Account](/build-on-base/issue-stablecoins/block-an-account).
+
 ## Guides
 
 <CardGroup cols={2}>
