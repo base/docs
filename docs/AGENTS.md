@@ -52,7 +52,7 @@ npx skills add base/base-skills
 |Build on Base/Accept Payments/Refund and Pay Out:build-on-base/accept-payments/refund-a-payment,build-on-base/accept-payments/void-an-authorization,build-on-base/accept-payments/send-a-payout,build-on-base/accept-payments/split-a-payment
 |Build on Base/Accept Payments/Accept Agentic Payments:build-on-base/accept-payments/charge-for-an-api,build-on-base/accept-payments/settle-usage-based-payments,build-on-base/accept-payments/batch-high-frequency-payments,build-on-base/accept-payments/call-a-paid-service
 |Build on Base/Private Transactions:build-on-base/ledgers/deposit,build-on-base/ledgers/transfer,build-on-base/ledgers/withdraw
-|Specifications/Specifications:specifications/overview,specifications/native-account-abstraction,specifications/flashblocks
+|Specifications/Specifications:specifications/overview,specifications/base-transactions,specifications/flashblocks
 |Specifications/Specifications/Base Protocol:specifications/base-protocol/overview,specifications/base-protocol/batcher,specifications/base-protocol/design-goals
 |Specifications/Specifications/Base Protocol/Consensus:specifications/base-protocol/consensus/specification,specifications/base-protocol/consensus/derivation,specifications/base-protocol/consensus/p2p,specifications/base-protocol/consensus/rpc
 |Specifications/Specifications/Base Protocol/Execution:specifications/base-protocol/execution/l2-execution-engine,specifications/base-protocol/execution/precompiles,specifications/base-protocol/execution/predeploys,specifications/base-protocol/execution/preinstalls
