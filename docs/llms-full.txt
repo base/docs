@@ -1226,16 +1226,29 @@ Most app teams use base-anvil for daily development, an Anvil fork or the snapsh
 
 ## Compare Environments
 
-| | base-anvil | Anvil fork of Base | Vibenet | Snapshot devnet | Docker devnet | Base Sepolia |
-| --- | --- | --- | --- | --- | --- | --- |
-| Runs | Locally | Locally | Hosted by Base | Locally | Locally | Hosted, public |
-| Starting state | Empty, with Base precompiles | Base Mainnet, fetched on demand from an RPC | Shared Vibenet state | Base Mainnet or Sepolia at the snapshot block | Empty, fresh genesis | Shared testnet state |
-| Execution | Foundry's EVM with Base precompiles | Foundry's EVM with Base precompiles | Base node | Base node, built from your checkout | Base node, built from your checkout | Base node |
-| Newest Base features | Pinned base-anvil release | Pinned base-anvil release | First | Your base/base checkout | Your base/base checkout | After Vibenet, before Mainnet |
-| Accounts | Prefunded test keys | Impersonate any account | Faucet | Mint ETH and act as any account | Prefunded test keys | Faucets |
-| Resets | When you restart it | When you restart it | Without notice | When you restore a clean copy | Every `up` | Never |
-| Setup | Seconds | Seconds | None | About an hour and 1.5 TB of disk | Several minutes and Docker | None |
-| Cannot test | Mainnet state, the real node | The real node, L1, 200ms block metadata | Mainnet state, stable long-lived state | L1, bridges, safe and finalized heads | Mainnet state | Mainnet state, unreleased features |
+### What Each Environment Runs
+
+| Environment | Runs on | Starts from |
+| --- | --- | --- |
+| base-anvil | Local Foundry EVM | Empty chain |
+| Anvil fork | Local Foundry EVM | Base Mainnet via RPC |
+| Vibenet | Hosted Base node | Shared state |
+| Snapshot devnet | Local Base node | Mainnet snapshot |
+| Docker devnet | Local Base stack | Fresh genesis |
+| Base Sepolia | Public Base node | Shared state |
+
+### What Each Environment Costs and Cannot Test
+
+| Environment | Setup | Cannot test |
+| --- | --- | --- |
+| base-anvil | Seconds | Mainnet state |
+| Anvil fork | Seconds | Base node, L1 |
+| Vibenet | None | Mainnet state |
+| Snapshot devnet | ~1 hour, 1.5 TB | L1, bridges |
+| Docker devnet | Minutes | Mainnet state |
+| Base Sepolia | None | Mainnet state |
+
+New Base features reach Vibenet first, then Base Sepolia, then Base Mainnet. base-anvil and an Anvil fork follow the installed base-anvil release; both devnets follow your base/base checkout.
 
 ## Environments
 
