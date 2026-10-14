@@ -231,11 +231,15 @@ Add trading, direct lending, collateralized borrowing, or a vault-based earn pro
 
 Connect your app to third-party DeFi protocols on Base. Let users trade tokens, manage direct lending positions, borrow against collateral, or deposit once into a vault-based earn product while signing every transaction from their own wallet.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Guides
 
@@ -268,11 +272,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 ## Guides
 
@@ -311,11 +319,15 @@ Run a fiat-backed stablecoin on Base with minting, compliance, and reconciliatio
 
 Issue a fiat-backed stablecoin on Base with [B20](https://docs.base.org/specifications/b20), Base's native token standard. Minting, redemption, compliance controls, and reconciliation ship with the chain, so there's no custom contract to build or audit, and it's fully ERC-20 compatible.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 ## Guides
 
@@ -354,11 +366,15 @@ Choose an onchain payment lifecycle for commerce checkout, agentic payments, rec
 
 Accept payments on Base with the lifecycle your product needs. Use the [Commerce Payments Protocol](https://github.com/base/commerce-payments) to charge immediately or reserve funds in escrow before fulfillment, then capture, void, reclaim, or refund under payer-approved terms. The same solution area also covers scheduled collection, reconciliation, payouts, splits, and x402 APIs.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Payment Lifecycle
 
@@ -447,11 +463,15 @@ Base Ledgers is in early access. [Request access](https://www.coinbase.com/devel
 
 Run your own private payments product on Base with **Base Ledgers**. Balances, transfers, and counterparties stay off public block explorers, while funds settle on Base through a single `Portal` contract. Compliance is enforced at the ledger level with your own KYC controls, funds are self-custodied in a contract you control, and every deposit and withdrawal is an onchain call you can bundle atomically with other Base actions.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Guides
 
@@ -1298,29 +1318,50 @@ This public WebSocket is Vibenet only. Base does not provide a free public WebSo
 
 Source: https://docs.base.org/build-on-base/run-a-local-devnet
 
-Start a disposable local Base devnet with L1, L2 sequencer, RPC nodes, and batcher from the base/base repo, then send a test transaction.
+Run Base locally from the base/base repo: a fresh Docker devnet with L1, sequencer, and batcher, or a snapshot devnet that continues Base Mainnet state and lets you act as any account.
 
-The local devnet runs a complete Base stack on your machine with Docker: an L1 (Reth + Lighthouse), a Base sequencer, two RPC nodes, and a batcher. It also runs a shadow batcher and shadow validator used to test the Rust batcher. Use it to test contracts, apps, and node or hardfork behavior without a public network.
+You can run Base on your machine in two ways, both from the [base/base](https://github.com/base/base) repo. The Docker devnet starts a complete, fresh Base stack. The snapshot devnet continues real Base Mainnet state locally, so you can test against deployed contracts and act as any account.
 
 <Note>
 To build against new Base features without running infrastructure, use the hosted [Vibenet](https://docs.base.org/build-on-base/test-on-vibenet) instead.
 </Note>
 
-<Warning>
-The devnet is disposable. `just devnet up`, `just devnet up-single`, and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
-</Warning>
+## Choose a Devnet
+
+| | Docker devnet | Snapshot devnet |
+| --- | --- | --- |
+| Starts from | A fresh genesis | Base Mainnet (or Sepolia) state at the snapshot head |
+| Runs | L1 (Reth + Lighthouse), a sequencer, RPC nodes, and batchers | One `base dev` process: an execution node and a sequencer, no L1 |
+| Use it for | Sequencing, derivation, batching, hardfork activation, HA failover | Real deployed contracts, tokens, and balances; acting as any account; 200ms blocks |
+| Cannot test | Mainnet contracts and state | L1 derivation, bridges, safe and finalized heads, proofs |
+| Accounts | Prefunded public test keys | Mint ETH to any address and act as any account |
+| Needs | Docker | At least 1.5 TB of free disk and a native Rust build; no Docker |
+| First start | Several minutes to build images | About an hour to download, then a one-time index rebuild |
+
+Use the Docker devnet to test node behavior or anything that depends on L1. Use the snapshot devnet to test your app against the contracts and liquidity it will meet on Base Mainnet.
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) with Compose v2 and Buildx. The first build compiles the Rust services, so allocate generous memory to Docker.
+Both devnets need:
+
+- A clone of [base/base](https://github.com/base/base). Run every command from its root.
 - [`just`](https://github.com/casey/just) `1.51.0` or newer
 - [Foundry](https://getfoundry.sh) (`cast`) to send transactions
-- [`jq`](https://jqlang.org), used by `just devnet status` and `just devnet checks`
-- A clone of [base/base](https://github.com/base/base)
+- [`jq`](https://jqlang.org)
 
-## Start the Devnet
+Each section below lists what its devnet needs in addition.
 
-From the root of the base/base repo:
+## Docker Devnet
+
+The Docker devnet runs a complete Base stack: an L1 (Reth + Lighthouse), a Base sequencer, two RPC nodes, and a batcher. It also runs a shadow batcher and shadow validator used to test the Rust batcher.
+
+It also needs [Docker](https://docs.docker.com/get-docker/) with Compose v2 and Buildx. The first build compiles the Rust services, so allocate generous memory to Docker.
+
+<Warning>
+The Docker devnet is disposable. `just devnet up`, `just devnet up-single`, and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
+</Warning>
+
+### Start the Devnet
 
 ```bash Terminal
 just devnet up-single
@@ -1339,7 +1380,7 @@ Check that blocks are advancing:
 just devnet status
 ```
 
-## Send a Test Transaction
+### Send a Test Transaction
 
 The devnet prefunds the standard Foundry/Anvil test accounts, listed in `etc/docker/devnet-env`. Send ETH through the sequencer:
 
@@ -1356,7 +1397,7 @@ A receipt with `status 1` confirms the sequencer included the transaction. To ru
 The test account keys are public. Never use them on Mainnet or Sepolia.
 </Warning>
 
-## Endpoints
+### Endpoints
 
 | Service | URL | Chain ID |
 | --- | --- | --- |
@@ -1368,7 +1409,7 @@ The test account keys are public. Never use them on Mainnet or Sepolia.
 
 Ports are set in `etc/docker/devnet-env`. In `just devnet up` mode, `7545` is one of three conductor-managed sequencers. After a leader change, transactions sent to `7545` can stay pending; send through the RPC node at `8545`, which forwards to the current leader.
 
-## Hardfork Activation
+### Hardfork Activation
 
 The devnet schedules Azul at L2 block 20, Beryl at 21, Cobalt at 22, and Denim at 25, so a fresh devnet crosses each activation within its first few blocks. Before Denim, the devnet produces a block every 2 seconds. At Denim, the sequencer switches to 200ms blocks.
 
@@ -1383,7 +1424,7 @@ The devnet's canonical batcher (`op-batcher`) cannot decode EIP-8130 transaction
 
 To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARDFORK>_BLOCK` variable) before `up` or `up-single`. Set it to an empty value to leave that hardfork unscheduled.
 
-## Common Commands
+### Common Commands
 
 | Command | Does |
 | --- | --- |
@@ -1395,14 +1436,187 @@ To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARD
 
 Run `just devnet` with no arguments for the full list.
 
+## Snapshot Devnet
+
+The snapshot devnet downloads a Base node snapshot and continues it as a private local chain. One `base dev` process runs an execution node and a sequencer that produces 200ms blocks on top of the snapshot head. Deployed contracts, balances, and storage are exactly what they were on Base Mainnet at that block. There is no L1: the chain does not derive from L1, bridge, or advance safe and finalized heads.
+
+It also needs:
+
+- The Rust toolchain from the repo's `rust-toolchain.toml` (install [rustup](https://rustup.rs)), Go, a C/C++ compiler, libclang, OpenSSL development headers, `pkg-config`, CMake, and `protoc`. The `just` recipes build `base` from your checkout; Docker is not required.
+- At least 1.5 TB of free disk for a Base Mainnet snapshot, which uses about 1.4 TB once unpacked, preferably on a fast NVMe drive. The workflow has been tested on Linux.
+
+<Warning>
+Use a dedicated datadir that only the devnet uses. Development blocks and minted balances permanently diverge from Base Mainnet, so never point it at a running node's datadir or your only copy of a snapshot. To start over, restore a clean copy or download again.
+</Warning>
+
+### Download a Snapshot
+
+```bash Terminal
+just devnet snapshot download --dir "$HOME/data/my-devnet"
+```
+
+This downloads the current state plus 1,339,200 blocks of history (about 830 GiB for Base Mainnet) and writes a node configuration into the directory. It does not start a node. To see the exact archives and sizes before downloading anything, add `--print-plan-json`.
+
+If the download is interrupted, rerun the same command to resume; verified archives are reused. Add `--manifest-url <url>` to pin a specific snapshot. Never rerun a download into a directory that has already produced development blocks.
+
+To use Base Sepolia, keep `BASE_CHAIN` unset for the download and pass `--chain`:
+
+```bash Terminal
+env -u BASE_CHAIN just devnet snapshot download --chain sepolia --dir "$HOME/data/sepolia-devnet"
+```
+
+### Run the Devnet
+
+```bash Terminal
+just devnet snapshot run --dir "$HOME/data/my-devnet"
+```
+
+For Sepolia, prefix the command with `BASE_CHAIN=sepolia`. The command builds `base`, prints the RPC endpoints and the snapshot head, and runs in the foreground.
+
+<Note>
+On the first run, the node rebuilds the transaction and history indexes the snapshot does not include. RPC answers within seconds, but no blocks are produced until the rebuild finishes, which took about 22 minutes for a Base Mainnet snapshot in testing. Later runs start sequencing within seconds.
+</Note>
+
+| Endpoint | URL |
+| --- | --- |
+| HTTP RPC | `http://127.0.0.1:8545` |
+| WebSocket RPC | `ws://127.0.0.1:8546` |
+| Chain ID | `8453` (Base Mainnet snapshot) or `84532` (Base Sepolia snapshot) |
+
+Both endpoints serve the standard `eth_*`, `debug_*`, and `trace_*` methods, so Foundry, viem, and Hardhat work by pointing them at the HTTP URL. Change the ports with `--http.port` and `--ws.port`. The endpoints listen only on loopback and are unauthenticated; keep them private, because anyone who can reach them can act as any account.
+
+Check that blocks are advancing:
+
+```bash Terminal
+cast block-number --rpc-url http://127.0.0.1:8545
+```
+
+Stop the devnet with Ctrl+C. Rerun the same command to resume from where it stopped. Downtime does not produce catch-up blocks.
+
+### Impersonate Accounts
+
+The snapshot devnet adds one RPC method, `dev_impersonateTransaction`, that runs a transaction as any account without its private key. Use it to fund accounts, move tokens from existing holders, and call owner-only or admin-only functions.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `from` | Yes | Account to act as |
+| `gas` | Yes | Gas limit, as a hex quantity |
+| `to` | No | Contract or account to call. Omit to deploy a contract. |
+| `input` | No | Calldata, or init code when deploying. Defaults to empty. |
+| `value` | No | Wei to send, as a hex quantity. Defaults to zero. |
+| `mint` | No | Wei credited to `from` before the call, as a hex quantity. Defaults to zero. |
+
+The method returns a transaction hash. The request runs as a deposit transaction: it skips signature, nonce, and fee checks, and pays no fees. Signature checks inside contracts, such as `ecrecover`, EIP-1271, or `permit`, still apply. To test fees and transaction admission, send signed transactions instead.
+
+<Note>
+The snapshot devnet keeps the snapshot's chain ID, `8453` for Base Mainnet. Act as real accounts with `dev_impersonateTransaction`, and sign only with throwaway keys like the one below.
+</Note>
+
+#### Fund a New Account
+
+Generate a throwaway key and mint it 1 ETH:
+
+```bash Terminal wrap
+RPC=http://127.0.0.1:8545
+DEV_KEY=$(cast wallet new --json | jq -er '(if type == "array" then . else .data end)[0].private_key')
+ACCOUNT=$(cast wallet address --private-key "$DEV_KEY")
+HASH=$(cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$ACCOUNT\",\"to\":\"$ACCOUNT\",\"gas\":\"0x5208\",\"mint\":\"0xde0b6b3a7640000\"}" | jq -r .)
+```
+
+After the next block, check the receipt and balance:
+
+```bash Terminal wrap
+cast receipt --rpc-url "$RPC" "$HASH" status   # true
+cast balance --rpc-url "$RPC" "$ACCOUNT" --ether   # 1.000000000000000000
+```
+
+The receipt of an impersonated request has type `0x7e`, an `effectiveGasPrice` of zero, and `from` set to the impersonated account. Each request increments that account's nonce. The account can now send normal signed transactions:
+
+```bash Terminal
+cast send --rpc-url "$RPC" --private-key "$DEV_KEY" \
+  0x000000000000000000000000000000000000dEaD --value 1wei
+```
+
+#### Act as a Token Holder
+
+Pick any account that holds WETH on Base Mainnet, such as one you find on a block explorer, and check its balance:
+
+```bash Terminal wrap
+WETH=0x4200000000000000000000000000000000000006
+HOLDER=<address that holds WETH>
+cast call --rpc-url "$RPC" "$WETH" 'balanceOf(address)(uint256)' "$HOLDER"
+```
+
+Transfer 0.001 WETH from the holder to your account, then check your balance after the next block:
+
+```bash Terminal wrap
+INPUT=$(cast calldata 'transfer(address,uint256)' "$ACCOUNT" 1000000000000000)
+cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$HOLDER\",\"to\":\"$WETH\",\"input\":\"$INPUT\",\"gas\":\"0x186a0\"}"
+cast call --rpc-url "$RPC" "$WETH" 'balanceOf(address)(uint256)' "$ACCOUNT"
+```
+
+#### Call an Owner-Only Function
+
+Set `from` to the account the contract authorizes. For a contract with an `owner()` function:
+
+```bash Terminal wrap
+OWNER=$(cast call --rpc-url "$RPC" "$CONTRACT" 'owner()(address)')
+INPUT=$(cast calldata 'setValue(uint256)' 42)
+cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$OWNER\",\"to\":\"$CONTRACT\",\"input\":\"$INPUT\",\"gas\":\"0x30d40\"}"
+```
+
+Replace `setValue(uint256)` with the function you want to call. The same request from any other account is included with `status 0`.
+
+#### Deploy a Contract as an Account
+
+Omit `to` and pass the init code as `input`. This example deploys a contract that returns `42`:
+
+```bash Terminal wrap
+NONCE=$(cast nonce --rpc-url "$RPC" "$ACCOUNT")
+cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$ACCOUNT\",\"input\":\"0x600a600c600039600a6000f3602a60005260206000f3\",\"gas\":\"0x30d40\"}"
+ADDRESS=$(cast compute-address "$ACCOUNT" --nonce "$NONCE" | awk '{print $NF}')
+```
+
+After the next block, call it:
+
+```bash Terminal
+cast call --rpc-url "$RPC" "$ADDRESS" 0x | cast to-dec   # 42
+```
+
+<Warning>
+The receipt's `contractAddress` is wrong for contracts deployed with `dev_impersonateTransaction`: it reports the address for nonce zero. The contract is deployed at the address computed from the sender's nonce before the request, as shown above. Read the nonce first and use `cast compute-address`.
+</Warning>
+
+#### Confirm Inclusion
+
+A returned hash means the request is queued, not mined. It is included in the next block with enough gas, usually within about 200ms. Poll `cast receipt` until it returns.
+
+- **Do not resubmit while waiting.** Every request is a new transaction, so a repeated request runs again.
+- **Reverts are still included.** A call that reverts or runs out of gas is included with `status 0`. Any minted ETH is kept.
+- **Pending requests are held in memory.** Requests not yet included are lost if the process stops.
+
+| Error code | Meaning |
+| --- | --- |
+| `-32602` | Invalid request: missing `from` or `gas`, gas below the intrinsic cost, gas above the block gas limit minus 2,000,000, calldata over 131,072 bytes, or init code over 49,152 bytes |
+| `-32000` | Retry later: the chain has not started sequencing (for example, during the first-run index rebuild), or 256 requests are already pending |
+
+### Block Timing
+
+The snapshot devnet produces a block every 200ms. Block header timestamps have whole-second resolution, so about five consecutive blocks share a timestamp. Contracts that count blocks see time pass 10 times faster than on a 2-second chain; contracts that compare `block.timestamp` see normal time. Heavy disk or CPU load can delay blocks.
+
 ## Learn More
 
-The base/base repo is the source of truth for the devnet:
+The base/base repo is the source of truth for both devnets:
 
-- [Devnet README](https://github.com/base/base/blob/main/etc/docker/README.md): stack topology, batcher setup, the Anvil + Nitro proving variant, and upgrade-signal testing
-- [`etc/docker/Justfile`](https://github.com/base/base/blob/main/etc/docker/Justfile): every devnet command
-- [Testing guide](https://github.com/base/base/blob/main/docs/guides/TESTING.md): system tests against the devnet (`just devnet tests`)
-- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover stack, which the devnet does not include. ZK proving against a local devnet requires disabling Beryl and Cobalt.
+- [`base dev` reference](https://github.com/base/base/blob/main/bin/base/README.md#base-dev): snapshot devnet download retention, restarts, timing, and `dev_impersonateTransaction` limits
+- [Devnet README](https://github.com/base/base/blob/main/etc/docker/README.md): Docker devnet topology, batcher setup, the Anvil + Nitro proving variant, and upgrade-signal testing
+- [`etc/docker/Justfile`](https://github.com/base/base/blob/main/etc/docker/Justfile): every Docker devnet command
+- [Testing guide](https://github.com/base/base/blob/main/docs/guides/TESTING.md): system tests against the Docker devnet (`just devnet tests`)
+- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover stack, which the Docker devnet does not include. ZK proving against a local devnet requires disabling Beryl and Cobalt.
 
 # Assign User Attributes
 
@@ -1459,11 +1673,15 @@ Let users swap tokens on Base with executable routes from the 0x Swap API.
 
 Add token swaps to your app with the 0x Swap API. 0x searches liquidity across decentralized exchanges and market makers, then returns a transaction that the user's wallet can simulate, sign, and submit on Base.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Route a Swap with 0x
 
@@ -1593,11 +1811,15 @@ Let users supply USDC directly to Morpho or Aave lending markets on Base.
 
 Let users supply USDC to a third-party money market and manage the resulting protocol position from your app. Your app prepares and simulates each call; the user signs from their own wallet.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Supply USDC
 
@@ -1708,11 +1930,15 @@ Let users borrow USDC against WETH collateral with Morpho or Aave on Base.
 
 Open a collateralized loan through a third-party protocol on Base. A safe integration shows collateral value, debt, liquidation parameters, and health before and after every user-signed action.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Supply Collateral and Borrow
 
@@ -1845,11 +2071,15 @@ Give users a one-deposit USDC earn experience with Morpho vaults on Base.
 
 Embed a vault-based earn product through third-party protocols on Base. The user deposits once and receives vault shares; the vault abstracts its underlying market allocations while your app shows current redeemable value and risk.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Deposit Into a USDC Vault
 
@@ -2115,11 +2345,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -2212,11 +2446,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -2294,11 +2532,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -2511,11 +2753,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -2652,11 +2898,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -2842,11 +3092,15 @@ Tokenized securities examples shown for illustration. Base is a general-purpose 
 The routine path is `updateUIMultiplier`. The deprecated `updateMultiplier` applies a value immediately and clears any pending update. Use it only as an emergency override.
 </Warning>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3032,11 +3286,15 @@ Real-world asset (RWA) tokenization is one of many use cases for the [B20 Asset 
 Tokenized securities examples shown for illustration. Base is a general-purpose blockchain; issuance and compliance are the responsibility of the issuer under applicable law.
 </Note>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/build-on-base/issue-rwa/create-an-asset-token) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3101,11 +3359,15 @@ Create a fiat-backed stablecoin on Base with one B20 factory call.
 
 Create a fiat-backed token with one call to the [B20 Factory](https://docs.base.org/specifications/b20/reference/interfaces/ib20-factory/create-b20), using the `STABLECOIN` variant. Decimals are fixed at `6`, and the token carries an immutable, self-declared currency code such as `USD`. The type is sealed into the token address at creation and cannot change.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3217,11 +3479,15 @@ Issue new stablecoin supply on Base as reserves grow, gated by a minter role and
 
 When fiat lands in reserves, mint matching supply. Minting is gated by `MINT_ROLE`, and an optional supply cap keeps circulation from exceeding your reserves.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3289,11 +3555,15 @@ Retire stablecoin supply on Base when a holder redeems for fiat, keeping circula
 
 When a holder redeems for fiat, they return the tokens and you burn them, keeping circulating supply matched to reserves. Burning is gated by `BURN_ROLE` and burns from the caller's own balance.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3362,11 +3632,15 @@ Limit transfers of your stablecoin to accounts your KYC program has approved, us
 
 Keep your stablecoin within a known set of holders with an **allowlist**: transfers only settle between accounts your KYC program has approved. You manage the list in the [Policy Registry](https://docs.base.org/specifications/b20/concepts/policies#21-the-registry-and-the-token) and bind it to the token's transfer scopes.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3466,11 +3740,15 @@ Stop a specific address from moving your stablecoin when a compliance hold requi
 
 Sometimes you need to stop one address from moving your stablecoin: a compliance hold or a support request. A **blocklist** denies only the addresses you list and leaves every other holder untouched. Bind it to the sender scope so a blocked account can't send.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3559,11 +3837,15 @@ Move a stablecoin balance out of a blocked account into a safekeeping account on
 
 Occasionally you need to move a balance out of an account you have blocked: a holder who lost their keys, a court order, or a sanctions hold. `seizeWithMemo` moves the tokens from the holder to a safekeeping account in one admin call. It is not a burn and not a mint: `totalSupply` does not change, the memo carries your case reference onchain, and the token emits a dedicated `Seized` event that auditors and indexers can follow.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3693,11 +3975,15 @@ If something goes wrong, halt activity fast. B20 pausing is **granular**: stop t
 
 The four pausable features are `TRANSFER`, `MINT`, `BURN`, and `SEIZE` (enum values `0` to `3`). Each is independent: pausing `MINT` and `BURN` leaves `TRANSFER` active. A caller who holds `MINT_ROLE` still cannot mint while `MINT` is paused.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3776,11 +4062,15 @@ Tie onchain activity back to your books. A **memo** attaches a `bytes32` referen
 
 If you operate the merchant side and need a settlement report across captures, refunds, and payouts, see [Reconcile payments](https://docs.base.org/build-on-base/accept-payments/reconcile-payments).
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
+
+</Visibility>
 
 <Note>
 New to B20? See the [B20 Token Standard](https://docs.base.org/specifications/b20) for the concepts and a full launch walkthrough. These samples target `base-std@1505323`, `viem@2.55.11`, and Base Foundry `v1.1.1`.
@@ -3845,11 +4135,15 @@ Send USDC directly from one wallet to another on Base.
 
 Send USDC directly from one wallet to another with a standard ERC-20 transfer. The sender submits the transaction and pays the network fee; after confirmation, the recipient controls the USDC.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Send USDC
 
@@ -3902,11 +4196,15 @@ Request an immediate payment with the `charge` operation. The payer approves the
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above sends real transactions on Base Vibenet, an ephemeral devnet, each time you press a step. It mints Vibenet's existing USDV test token, not USDC, to your demo account, which acts as both payer and operator. If Vibenet is unavailable, the demo runs as a labeled offline mock and sends nothing.
 </Tip>
+
+</Visibility>
 
 <Note>
 These examples use the v1.1.0 `AuthCaptureEscrow` at `0xf96815976523E00e65Be8f34cA5e64b4f41EB19c`. The same CREATE2 address is deployed on Base and Base Sepolia.
@@ -3982,11 +4280,15 @@ Authorize a payment when fulfillment happens after checkout. A successful protoc
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above sends real transactions on Base Vibenet, an ephemeral devnet, each time you press a step. It mints Vibenet's existing USDV test token, not USDC, to your demo account, uses `PreApprovalPaymentCollector` instead of an ERC-3009 signature, and your browser's Vibenet demo account acts as both payer and operator. If Vibenet is unavailable, the demo runs as a labeled offline mock and sends nothing.
 </Tip>
+
+</Visibility>
 
 <Warning>
 The collector signature is only permission to collect. Treat funds as reserved only after `authorize` succeeds and emits `PaymentAuthorized`.
@@ -4061,11 +4363,15 @@ Capture an authorization when the order is ready to settle. The operator transfe
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demos on this page send real transactions on Base Vibenet, an ephemeral devnet, each time you press a step. Each one mints its own balance of Vibenet's existing USDV test token, not USDC, and authorizes its own payment first; your browser's Vibenet demo account acts as both payer and operator. If Vibenet is unavailable, the demos run as labeled offline mocks and send nothing.
 </Tip>
+
+</Visibility>
 
 ## Check and Capture
 
@@ -4106,6 +4412,10 @@ Verify `PaymentCaptured(paymentInfoHash, amount, feeAmount, feeReceiver)` and th
 </Check>
 
 ## Capture a Partial Amount
+
+<Visibility for="humans">
+
+</Visibility>
 
 Pass a smaller `amount` to the same `capture` call for every increment. The sum of successful captures cannot exceed `PaymentAuthorized.amount`, and each capture independently validates its fee bounds. The remaining reservation is tracked onchain without a custom checkout contract.
 
@@ -4148,11 +4458,15 @@ Use the deployed `SpendPermissionPaymentCollector` when a wallet approves repeat
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Charge One Billing Period
 
@@ -4226,11 +4540,15 @@ Never fulfill from a wallet signature, submitted transaction hash, or client sta
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Verify a Protocol Settlement
 
@@ -4300,11 +4618,15 @@ Turn `AuthCaptureEscrow` logs into a durable payment feed. A WebSocket subscript
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Subscribe and Backfill
 
@@ -4380,11 +4702,15 @@ Turn confirmed protocol logs into ledger rows keyed by `paymentInfoHash`. The in
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Build a Settlement Report
 
@@ -4473,11 +4799,15 @@ Refund all or part of a protocol charge or capture before `refundExpiry`. The re
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above sends real transactions on Base Vibenet, an ephemeral devnet, each time you press a step. It mints Vibenet's existing USDV test token, not USDC, charges its own payment, and mints fresh USDV as the operator's refund liquidity before refunding; your browser's Vibenet demo account acts as both payer and operator. If Vibenet is unavailable, the demo runs as a labeled offline mock and sends nothing.
 </Tip>
+
+</Visibility>
 
 ## Fund and Submit the Refund
 
@@ -4550,11 +4880,15 @@ Close an authorization that you will not capture. The operator can call `void` a
 This guide's payment flow is based on the [Commerce Payments Protocol](https://github.com/base/commerce-payments).
 </Info>
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above sends real transactions on Base Vibenet, an ephemeral devnet, each time you press a step. It mints Vibenet's existing USDV test token, not USDC, and authorizes its own payment before voiding it; your browser's Vibenet demo account acts as both payer and operator. If Vibenet is unavailable, the demo runs as a labeled offline mock and sends nothing.
 </Tip>
+
+</Visibility>
 
 | Path | Caller | Available when |
 |---|---|---|
@@ -4617,11 +4951,15 @@ Send a referenced batch of token payouts in one transaction without leaving fund
 
 Send one referenced batch to employees, creators, suppliers, or sellers. The contract pulls each amount directly from the sender to its recipient, so it does not retain a pooled token balance between transactions.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Deploy the Payout Contract
 
@@ -4691,11 +5029,15 @@ Split one token amount across marketplace recipients with exact basis-point acco
 
 Pay a seller, platform, and referrer in one transaction. Express every share in basis points, require the shares to total 10,000, and assign integer-division remainder to one designated recipient.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Calculate and Send Exact Shares
 
@@ -4784,11 +5126,15 @@ Protect a fixed-price API route with the x402 exact scheme on Base.
 
 Charge a known amount before returning an API response. In the Base USDC flow used here, x402 carries an EIP-3009 authorization through the HTTP `402 Payment Required` handshake, then a facilitator verifies and settles it.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 These examples target Base Sepolia (`eip155:84532`) and the public test facilitator. Confirm the facilitator's supported network, asset, and settlement contracts before a live test.
 
@@ -4865,11 +5211,15 @@ Authorize a maximum x402 payment and settle the actual API usage after the handl
 
 Use x402 `upto` when you know the maximum price before work but calculate the final charge afterward. It is the agentic counterpart to a capped variable checkout.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Advertise the Maximum and Set the Actual Charge
 
@@ -4939,11 +5289,15 @@ Verify cumulative x402 vouchers per request and settle high-frequency API usage 
 
 Use `batch-settlement` when an agent makes many small requests and per-request settlement would dominate cost. Each request advances a cumulative voucher; your channel manager later claims, settles, or refunds the latest state.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Price a High-Frequency Route
 
@@ -5015,11 +5369,15 @@ Call an x402 service from an agent while enforcing network, token, per-request, 
 
 Wrap your agent's HTTP client so it can interpret a 402 response, choose a supported scheme, sign, and retry. Apply local policy before any signature is created.
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## Enforce Spend Policy Before Signing
 
@@ -5074,11 +5432,15 @@ Move funds from Base into a private ledger through the Portal contract, with the
 
 A deposit moves funds from Base into the ledger through the `Portal` contract. The asset, amount, and sender settle publicly on Base, but the recipient is encrypted, so many deposits to one account can't be linked. See [Private Transactions](https://docs.base.org/get-started/private-transactions).
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## What's Exposed Onchain
 
@@ -5110,11 +5472,15 @@ Move balances between accounts inside a ledger while keeping the sender, recipie
 
 Once funds are in a ledger, accounts can transfer, swap, and earn yield while balances and activity stay off public block explorers. Only deposits and withdrawals touch Base. Everything in between is private. See [Private Transactions](https://docs.base.org/get-started/private-transactions).
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## What's Exposed Onchain
 
@@ -5146,11 +5512,15 @@ Move funds from a ledger back to Base through the Portal contract, keeping the a
 
 Funds leave a ledger through the `Portal` contract on Base. You choose how the Portal validates a withdrawal (from a signature check to full state-transition proofs), and the account behind it stays private, so deposits and withdrawals stay unlinkable. See [Private Transactions](https://docs.base.org/get-started/private-transactions).
 
+<Visibility for="humans">
+
 ## Demo
 
 <Tip>
 The demo above is mock only. If you want to see onchain demos on Vibenet, head to [Base chain demos](https://chain.base.org/demos).
 </Tip>
+
+</Visibility>
 
 ## What's Exposed Onchain
 
