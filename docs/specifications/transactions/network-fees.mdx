@@ -90,4 +90,13 @@ The **GasPriceOracle** predeployment at `0x4200000000000000000000000000000000000
 
 Use `getL1FeeUpperBound` when you need a quick estimate before the transaction is fully constructed. Use `getL1Fee` with the complete serialized transaction for an exact value before signing.
 
+## Troubleshooting CDP Paymaster Rejections
+
+If you sponsor gas with CDP Paymaster and a userOperation is rejected, read the exact error code and message before you change your configuration. Policy rules such as allowed contracts, allowed methods, and spend limits can apply differently to each userOperation, so an earlier sponsored operation from the same sender does not mean a later one will qualify.
+
+- **`-32002` with `request denied - no sponsorship and address can not pay with accepted token`**: Your gas policy did not sponsor the userOperation, and the sender cannot pay gas with an accepted ERC-20 token. The error `data` lists the `acceptedTokens`. If the sender should pay in a token, check that it has approved the Paymaster for enough of that token, as described in [ERC-20 gas payments](https://docs.cdp.coinbase.com/paymaster/guides/erc20-gas-payments). If the operation should be sponsored, find out why your policy did not sponsor it.
+- **Policy rejection messages**: Messages such as `target address not in allowed contracts` or `method not in allowed methods` mean the contract or the function you called is not allowlisted in your Paymaster configuration in CDP Portal. Other messages report spend limits, per-address limits, or missing attestations.
+
+To see the details of a specific request, open the **Logs** tab for Paymaster in CDP Portal. For the full list of codes and messages, see the CDP Paymaster [error reference](https://docs.cdp.coinbase.com/paymaster/reference-troubleshooting/errors) and [troubleshooting guide](https://docs.cdp.coinbase.com/paymaster/reference-troubleshooting/troubleshooting).
+
 [Jovian upgrade]: /upgrades/jovian/overview
