@@ -61,6 +61,7 @@ Review Progress:
 - [ ] Content scannable (headings, lists, white space)
 - [ ] Active voice, second person
 - [ ] Troubleshooting included where appropriate
+- [ ] Interactive demos wrapped in `<Visibility for="humans">` (see Interactive Demos in content-guidelines.md)
 - [ ] Correct tab/section placement, naming conventions followed
 - [ ] No redundant sidebar labels
 - [ ] docs-structure validation passes (if docs.json / frontmatter changed)
