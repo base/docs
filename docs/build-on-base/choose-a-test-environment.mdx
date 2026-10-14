@@ -1,0 +1,130 @@
+---
+title: "Choose a Test Environment"
+description: "Pick the right place to test a Base app or node: base-anvil, an Anvil fork of Base, Vibenet, the snapshot devnet, the Docker devnet, or Base Sepolia, matched to what you need to test."
+keywords: ["Base test environment", "Base testnet vs devnet", "Base Sepolia vs Vibenet", "fork Base mainnet locally", "base-anvil fork", "local Base devnet"]
+---
+
+Base has six places to test, from an in-process EVM that starts in milliseconds to a public testnet shared with every other team. Each one answers a different question. Pick the one that matches what you are testing, then move to the next when you need what it adds.
+
+## Pick by What You Are Testing
+
+| You need to | Use |
+| --- | --- |
+| Run unit, fuzz, and integration tests in seconds, locally or in CI | [base-anvil](#base-anvil) |
+| Test against real Base Mainnet contracts and balances without downloading anything | [Anvil fork of Base](#anvil-fork-of-base) |
+| Build against Base features that have not reached Sepolia yet | [Vibenet](#vibenet) |
+| Test against Base Mainnet state on the real Base node, with 200ms blocks, acting as any account | [Snapshot devnet](#snapshot-devnet) |
+| Test sequencing, derivation, batching, hardfork activation, or sequencer failover (node and infrastructure teams; optional for apps) | [Docker devnet](#docker-devnet) |
+| Rehearse a launch on a public, persistent network with wallets, bridges, oracles, and indexers | [Base Sepolia](#base-sepolia) |
+
+Most app teams use base-anvil for daily development, an Anvil fork or the snapshot devnet for integration tests against Base Mainnet state, and Base Sepolia for the final rehearsal before Base Mainnet. Add Vibenet only when you need a feature that is not on Sepolia yet.
+
+## Compare Environments
+
+| | base-anvil | Anvil fork of Base | Vibenet | Snapshot devnet | Docker devnet | Base Sepolia |
+| --- | --- | --- | --- | --- | --- | --- |
+| Runs | Locally | Locally | Hosted by Base | Locally | Locally | Hosted, public |
+| Starting state | Empty, with Base precompiles | Base Mainnet, fetched on demand from an RPC | Shared Vibenet state | Base Mainnet or Sepolia at the snapshot block | Empty, fresh genesis | Shared testnet state |
+| Execution | Foundry's EVM with Base precompiles | Foundry's EVM with Base precompiles | Base node | Base node, built from your checkout | Base node, built from your checkout | Base node |
+| Newest Base features | Pinned base-anvil release | Pinned base-anvil release | First | Your base/base checkout | Your base/base checkout | After Vibenet, before Mainnet |
+| Accounts | Prefunded test keys | Impersonate any account | Faucet | Mint ETH and act as any account | Prefunded test keys | Faucets |
+| Resets | When you restart it | When you restart it | Without notice | When you restore a clean copy | Every `up` | Never |
+| Setup | Seconds | Seconds | None | About an hour and 1.5 TB of disk | Several minutes and Docker | None |
+| Cannot test | Mainnet state, the real node | The real node, L1, 200ms block metadata | Mainnet state, stable long-lived state | L1, bridges, safe and finalized heads | Mainnet state | Mainnet state, unreleased features |
+
+## Environments
+
+### base-anvil
+
+[base-anvil](/sdks/base-anvil) is Base's build of Foundry. `base-forge test` runs your tests in-process with Base's native precompiles (B20, the PolicyRegistry, and the ActivationRegistry), and `base-anvil` runs a local node on chain ID `31337`. Stock Foundry cannot call these precompiles and fails with `call to non-contract address`.
+
+- **Use it for:** contract logic, fuzz and invariant tests, and CI. It is the fastest feedback loop on this page.
+- **Move on when:** you need deployed Base Mainnet contracts, or you need behavior from the Base node itself.
+- **Caveat:** each base-anvil release reproduces one Base release. Install the release that matches the network you target with `base-foundryup --install <version>`.
+
+### Anvil Fork of Base
+
+Fork Base Mainnet into a local base-anvil node. State loads from the RPC as your transactions touch it, so the fork starts in seconds with no download:
+
+```bash Terminal
+base-anvil --fork-url https://mainnet.base.org
+```
+
+Use `anvil_impersonateAccount` and `anvil_setBalance` to act as any account and fund it.
+
+- **Use it for:** integration tests against deployed protocols, tokens, and balances, when you want them fast and disposable.
+- **Move on when:** you need the real Base node, 200ms blocks, or many requests. The public endpoint is rate limited; for heavy use, fork from a provider endpoint.
+- **Caveat:** blocks are mined by Foundry, not the Base node. Locally mined blocks do not carry Base's 200ms timestamp metadata, and precompile behavior follows the installed base-anvil release.
+
+{/* TODO(verify): confirm with the base-anvil owners that B20 and other precompile state reads correctly in fork mode once Mainnet runs a newer release than the installed base-anvil build. */}
+
+### Vibenet
+
+[Vibenet](/build-on-base/test-on-vibenet) is Base's hosted preview network. New chain-level features go live on Vibenet before they reach Base Sepolia or Base Mainnet.
+
+- **Use it for:** building against features that are not on Sepolia yet, on a real Base network you do not have to run.
+- **Move on when:** you need stable state, Mainnet contracts, or a feature has shipped to Sepolia.
+- **Caveat:** Vibenet can be reset without notice. Do not keep anything there you cannot redeploy.
+
+### Snapshot Devnet
+
+The [snapshot devnet](/build-on-base/run-a-local-devnet#snapshot-devnet) continues a Base Mainnet or Sepolia snapshot as a private local chain. One `base dev` process runs the Base node and a sequencer that produces 200ms blocks on top of the snapshot head. `dev_impersonateTransaction` mints ETH and runs transactions as any account.
+
+- **Use it for:** testing against Base Mainnet contracts, tokens, and liquidity on the same node code that runs Base, including owner-only and admin-only calls.
+- **Move on when:** you need L1 behavior, bridges, or a public network.
+- **Caveat:** the first start needs at least 1.5 TB of free disk, about an hour to download, and a one-time index rebuild. There is no L1, so nothing derives, bridges, or finalizes.
+
+### Docker Devnet
+
+The [Docker devnet](/build-on-base/run-a-local-devnet#docker-devnet) runs a complete Base stack from a fresh genesis: an L1, a sequencer, RPC nodes, and batchers, with an optional 3-node high-availability sequencer cluster.
+
+<Note>
+The Docker devnet is optional. It is the environment for node and infrastructure work; app teams can skip it and test with base-anvil, the snapshot devnet, and Base Sepolia.
+</Note>
+
+- **Use it for:** sequencing, derivation, batching, hardfork activation, and sequencer failover.
+- **Skip it when:** you are building an app. Nothing in your contracts or frontend depends on running your own L1 and batcher.
+- **Caveat:** it is disposable; every `up` deletes its data.
+
+### Base Sepolia
+
+[Base Sepolia](/base-chain/quickstart/connecting-to-base) (chain ID `84532`) is Base's public testnet. It is persistent and shared, and most wallets, bridges, oracles, indexers, and infrastructure providers support it.
+
+- **Use it for:** the last rehearsal before Base Mainnet: end-to-end flows with real wallets and third-party services, and a public deployment that partners and users can try.
+- **Move on when:** you are ready for Base Mainnet.
+- **Caveat:** Sepolia does not have Base Mainnet state, and it gets each upgrade after Vibenet. Check the [network upgrades schedule](/upgrades/overview) for activation dates, and get testnet ETH from a [network faucet](/base-chain/network-information/network-faucets).
+
+## Common Decisions
+
+### base-anvil or Vibenet
+
+Use base-anvil for anything your contracts can test on their own, including Base precompiles. Use Vibenet when you need a feature that only exists on the live Base node and is not on Sepolia yet, or a shared network that others can reach.
+
+### Anvil Fork or Snapshot Devnet
+
+Both start from Base Mainnet state. Use an Anvil fork when you want results in seconds and only touch a few contracts. Use the snapshot devnet when you need the Base node's behavior, 200ms blocks, sustained traffic without RPC rate limits, or a chain that keeps its state across restarts.
+
+### Vibenet or a Devnet
+
+Vibenet is hosted and shared, gets new features first, and can reset at any time. The snapshot devnet is private, runs on Base Mainnet state, and only resets when you restore it. The Docker devnet is an optional node and infrastructure environment, not an app environment. Use Vibenet for new features and the snapshot devnet for Mainnet realism.
+
+### Where Base Sepolia Fits
+
+Base Sepolia is the last stop before Base Mainnet. It is the only option here that is public, persistent, and supported by third-party infrastructure, so test there before launch even if every local test passes.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="base-anvil CLI" icon="hammer" href="/sdks/base-anvil">
+    Install base-forge and base-anvil and test against Base precompiles.
+  </Card>
+  <Card title="Test on Vibenet" icon="flask" href="/build-on-base/test-on-vibenet">
+    Connect to Vibenet and get testnet ETH.
+  </Card>
+  <Card title="Run a Local Devnet" icon="server" href="/build-on-base/run-a-local-devnet">
+    Start the snapshot devnet or the Docker devnet.
+  </Card>
+  <Card title="Connect to Base" icon="plug" href="/base-chain/quickstart/connecting-to-base">
+    Network details for Base Sepolia and Base Mainnet.
+  </Card>
+</CardGroup>
