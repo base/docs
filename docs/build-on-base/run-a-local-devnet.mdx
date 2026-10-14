@@ -1,29 +1,50 @@
 ---
 title: "Run a Local Devnet"
-description: "Start a disposable local Base devnet with L1, L2 sequencer, RPC nodes, and batcher from the base/base repo, then send a test transaction."
+description: "Run Base locally from the base/base repo: a fresh Docker devnet with L1, sequencer, and batcher, or a snapshot devnet that continues Base Mainnet state and lets you act as any account."
 ---
 
-The local devnet runs a complete Base stack on your machine with Docker: an L1 (Reth + Lighthouse), a Base sequencer, two RPC nodes, and a batcher. It also runs a shadow batcher and shadow validator used to test the Rust batcher. Use it to test contracts, apps, and node or hardfork behavior without a public network.
+You can run Base on your machine in two ways, both from the [base/base](https://github.com/base/base) repo. The Docker devnet starts a complete, fresh Base stack. The snapshot devnet continues real Base Mainnet state locally, so you can test against deployed contracts and act as any account.
 
 <Note>
 To build against new Base features without running infrastructure, use the hosted [Vibenet](/build-on-base/test-on-vibenet) instead.
 </Note>
 
-<Warning>
-The devnet is disposable. `just devnet up`, `just devnet up-single`, and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
-</Warning>
+## Choose a Devnet
+
+| | Docker devnet | Snapshot devnet |
+| --- | --- | --- |
+| Starts from | A fresh genesis | Base Mainnet (or Sepolia) state at the snapshot head |
+| Runs | L1 (Reth + Lighthouse), a sequencer, RPC nodes, and batchers | One `base dev` process: an execution node and a sequencer, no L1 |
+| Use it for | Sequencing, derivation, batching, hardfork activation, HA failover | Real deployed contracts, tokens, and balances; acting as any account; 200ms blocks |
+| Cannot test | Mainnet contracts and state | L1 derivation, bridges, safe and finalized heads, proofs |
+| Accounts | Prefunded public test keys | Mint ETH to any address and act as any account |
+| Needs | Docker | At least 1.5 TB of free disk and a native Rust build; no Docker |
+| First start | Several minutes to build images | About an hour to download, then a one-time index rebuild |
+
+Use the Docker devnet to test node behavior or anything that depends on L1. Use the snapshot devnet to test your app against the contracts and liquidity it will meet on Base Mainnet.
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) with Compose v2 and Buildx. The first build compiles the Rust services, so allocate generous memory to Docker.
+Both devnets need:
+
+- A clone of [base/base](https://github.com/base/base). Run every command from its root.
 - [`just`](https://github.com/casey/just) `1.51.0` or newer
 - [Foundry](https://getfoundry.sh) (`cast`) to send transactions
-- [`jq`](https://jqlang.org), used by `just devnet status` and `just devnet checks`
-- A clone of [base/base](https://github.com/base/base)
+- [`jq`](https://jqlang.org)
 
-## Start the Devnet
+Each section below lists what its devnet needs in addition.
 
-From the root of the base/base repo:
+## Docker Devnet
+
+The Docker devnet runs a complete Base stack: an L1 (Reth + Lighthouse), a Base sequencer, two RPC nodes, and a batcher. It also runs a shadow batcher and shadow validator used to test the Rust batcher.
+
+It also needs [Docker](https://docs.docker.com/get-docker/) with Compose v2 and Buildx. The first build compiles the Rust services, so allocate generous memory to Docker.
+
+<Warning>
+The Docker devnet is disposable. `just devnet up`, `just devnet up-single`, and `just devnet down` delete all chain data in `.devnet/`. It publishes ports on all interfaces, so run it on an isolated development machine.
+</Warning>
+
+### Start the Devnet
 
 ```bash Terminal
 just devnet up-single
@@ -42,7 +63,7 @@ Check that blocks are advancing:
 just devnet status
 ```
 
-## Send a Test Transaction
+### Send a Test Transaction
 
 The devnet prefunds the standard Foundry/Anvil test accounts, listed in `etc/docker/devnet-env`. Send ETH through the sequencer:
 
@@ -59,7 +80,7 @@ A receipt with `status 1` confirms the sequencer included the transaction. To ru
 The test account keys are public. Never use them on Mainnet or Sepolia.
 </Warning>
 
-## Endpoints
+### Endpoints
 
 | Service | URL | Chain ID |
 | --- | --- | --- |
@@ -71,7 +92,7 @@ The test account keys are public. Never use them on Mainnet or Sepolia.
 
 Ports are set in `etc/docker/devnet-env`. In `just devnet up` mode, `7545` is one of three conductor-managed sequencers. After a leader change, transactions sent to `7545` can stay pending; send through the RPC node at `8545`, which forwards to the current leader.
 
-## Hardfork Activation
+### Hardfork Activation
 
 The devnet schedules Azul at L2 block 20, Beryl at 21, Cobalt at 22, and Denim at 25, so a fresh devnet crosses each activation within its first few blocks. Before Denim, the devnet produces a block every 2 seconds. At Denim, the sequencer switches to 200ms blocks.
 
@@ -86,7 +107,7 @@ The devnet's canonical batcher (`op-batcher`) cannot decode EIP-8130 transaction
 
 To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARDFORK>_BLOCK` variable) before `up` or `up-single`. Set it to an empty value to leave that hardfork unscheduled.
 
-## Common Commands
+### Common Commands
 
 | Command | Does |
 | --- | --- |
@@ -98,11 +119,184 @@ To move an activation, set `L2_BASE_DENIM_BLOCK` (or the matching `L2_BASE_<HARD
 
 Run `just devnet` with no arguments for the full list.
 
+## Snapshot Devnet
+
+The snapshot devnet downloads a Base node snapshot and continues it as a private local chain. One `base dev` process runs an execution node and a sequencer that produces 200ms blocks on top of the snapshot head. Deployed contracts, balances, and storage are exactly what they were on Base Mainnet at that block. There is no L1: the chain does not derive from L1, bridge, or advance safe and finalized heads.
+
+It also needs:
+
+- The Rust toolchain from the repo's `rust-toolchain.toml` (install [rustup](https://rustup.rs)), Go, a C/C++ compiler, libclang, OpenSSL development headers, `pkg-config`, CMake, and `protoc`. The `just` recipes build `base` from your checkout; Docker is not required.
+- At least 1.5 TB of free disk for a Base Mainnet snapshot, which uses about 1.4 TB once unpacked, preferably on a fast NVMe drive. The workflow has been tested on Linux.
+
+<Warning>
+Use a dedicated datadir that only the devnet uses. Development blocks and minted balances permanently diverge from Base Mainnet, so never point it at a running node's datadir or your only copy of a snapshot. To start over, restore a clean copy or download again.
+</Warning>
+
+### Download a Snapshot
+
+```bash Terminal
+just devnet snapshot download --dir "$HOME/data/my-devnet"
+```
+
+This downloads the current state plus 1,339,200 blocks of history (about 830 GiB for Base Mainnet) and writes a node configuration into the directory. It does not start a node. To see the exact archives and sizes before downloading anything, add `--print-plan-json`.
+
+If the download is interrupted, rerun the same command to resume; verified archives are reused. Add `--manifest-url <url>` to pin a specific snapshot. Never rerun a download into a directory that has already produced development blocks.
+
+To use Base Sepolia, keep `BASE_CHAIN` unset for the download and pass `--chain`:
+
+```bash Terminal
+env -u BASE_CHAIN just devnet snapshot download --chain sepolia --dir "$HOME/data/sepolia-devnet"
+```
+
+### Run the Devnet
+
+```bash Terminal
+just devnet snapshot run --dir "$HOME/data/my-devnet"
+```
+
+For Sepolia, prefix the command with `BASE_CHAIN=sepolia`. The command builds `base`, prints the RPC endpoints and the snapshot head, and runs in the foreground.
+
+<Note>
+On the first run, the node rebuilds the transaction and history indexes the snapshot does not include. RPC answers within seconds, but no blocks are produced until the rebuild finishes, which took about 22 minutes for a Base Mainnet snapshot in testing. Later runs start sequencing within seconds.
+</Note>
+
+| Endpoint | URL |
+| --- | --- |
+| HTTP RPC | `http://127.0.0.1:8545` |
+| WebSocket RPC | `ws://127.0.0.1:8546` |
+| Chain ID | `8453` (Base Mainnet snapshot) or `84532` (Base Sepolia snapshot) |
+
+Both endpoints serve the standard `eth_*`, `debug_*`, and `trace_*` methods, so Foundry, viem, and Hardhat work by pointing them at the HTTP URL. Change the ports with `--http.port` and `--ws.port`. The endpoints listen only on loopback and are unauthenticated; keep them private, because anyone who can reach them can act as any account.
+
+Check that blocks are advancing:
+
+```bash Terminal
+cast block-number --rpc-url http://127.0.0.1:8545
+```
+
+Stop the devnet with Ctrl+C. Rerun the same command to resume from where it stopped. Downtime does not produce catch-up blocks.
+
+### Impersonate Accounts
+
+The snapshot devnet adds one RPC method, `dev_impersonateTransaction`, that runs a transaction as any account without its private key. Use it to fund accounts, move tokens from existing holders, and call owner-only or admin-only functions.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `from` | Yes | Account to act as |
+| `gas` | Yes | Gas limit, as a hex quantity |
+| `to` | No | Contract or account to call. Omit to deploy a contract. |
+| `input` | No | Calldata, or init code when deploying. Defaults to empty. |
+| `value` | No | Wei to send, as a hex quantity. Defaults to zero. |
+| `mint` | No | Wei credited to `from` before the call, as a hex quantity. Defaults to zero. |
+
+The method returns a transaction hash. The request runs as a deposit transaction: it skips signature, nonce, and fee checks, and pays no fees. Signature checks inside contracts, such as `ecrecover`, EIP-1271, or `permit`, still apply. To test fees and transaction admission, send signed transactions instead.
+
+<Note>
+The snapshot devnet keeps the snapshot's chain ID, `8453` for Base Mainnet. Act as real accounts with `dev_impersonateTransaction`, and sign only with throwaway keys like the one below.
+</Note>
+
+#### Fund a New Account
+
+Generate a throwaway key and mint it 1 ETH:
+
+```bash Terminal wrap
+RPC=http://127.0.0.1:8545
+DEV_KEY=$(cast wallet new --json | jq -er '(if type == "array" then . else .data end)[0].private_key')
+ACCOUNT=$(cast wallet address --private-key "$DEV_KEY")
+HASH=$(cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$ACCOUNT\",\"to\":\"$ACCOUNT\",\"gas\":\"0x5208\",\"mint\":\"0xde0b6b3a7640000\"}" | jq -r .)
+```
+
+After the next block, check the receipt and balance:
+
+```bash Terminal wrap
+cast receipt --rpc-url "$RPC" "$HASH" status   # true
+cast balance --rpc-url "$RPC" "$ACCOUNT" --ether   # 1.000000000000000000
+```
+
+The receipt of an impersonated request has type `0x7e`, an `effectiveGasPrice` of zero, and `from` set to the impersonated account. Each request increments that account's nonce. The account can now send normal signed transactions:
+
+```bash Terminal
+cast send --rpc-url "$RPC" --private-key "$DEV_KEY" \
+  0x000000000000000000000000000000000000dEaD --value 1wei
+```
+
+#### Act as a Token Holder
+
+Pick any account that holds WETH on Base Mainnet, such as one you find on a block explorer, and check its balance:
+
+```bash Terminal wrap
+WETH=0x4200000000000000000000000000000000000006
+HOLDER=<address that holds WETH>
+cast call --rpc-url "$RPC" "$WETH" 'balanceOf(address)(uint256)' "$HOLDER"
+```
+
+Transfer 0.001 WETH from the holder to your account, then check your balance after the next block:
+
+```bash Terminal wrap
+INPUT=$(cast calldata 'transfer(address,uint256)' "$ACCOUNT" 1000000000000000)
+cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$HOLDER\",\"to\":\"$WETH\",\"input\":\"$INPUT\",\"gas\":\"0x186a0\"}"
+cast call --rpc-url "$RPC" "$WETH" 'balanceOf(address)(uint256)' "$ACCOUNT"
+```
+
+#### Call an Owner-Only Function
+
+Set `from` to the account the contract authorizes. For a contract with an `owner()` function:
+
+```bash Terminal wrap
+OWNER=$(cast call --rpc-url "$RPC" "$CONTRACT" 'owner()(address)')
+INPUT=$(cast calldata 'setValue(uint256)' 42)
+cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$OWNER\",\"to\":\"$CONTRACT\",\"input\":\"$INPUT\",\"gas\":\"0x30d40\"}"
+```
+
+Replace `setValue(uint256)` with the function you want to call. The same request from any other account is included with `status 0`.
+
+#### Deploy a Contract as an Account
+
+Omit `to` and pass the init code as `input`. This example deploys a contract that returns `42`:
+
+```bash Terminal wrap
+NONCE=$(cast nonce --rpc-url "$RPC" "$ACCOUNT")
+cast rpc --rpc-url "$RPC" dev_impersonateTransaction \
+  "{\"from\":\"$ACCOUNT\",\"input\":\"0x600a600c600039600a6000f3602a60005260206000f3\",\"gas\":\"0x30d40\"}"
+ADDRESS=$(cast compute-address "$ACCOUNT" --nonce "$NONCE" | awk '{print $NF}')
+```
+
+After the next block, call it:
+
+```bash Terminal
+cast call --rpc-url "$RPC" "$ADDRESS" 0x | cast to-dec   # 42
+```
+
+<Warning>
+The receipt's `contractAddress` is wrong for contracts deployed with `dev_impersonateTransaction`: it reports the address for nonce zero. The contract is deployed at the address computed from the sender's nonce before the request, as shown above. Read the nonce first and use `cast compute-address`.
+</Warning>
+
+#### Confirm Inclusion
+
+A returned hash means the request is queued, not mined. It is included in the next block with enough gas, usually within about 200ms. Poll `cast receipt` until it returns.
+
+- **Do not resubmit while waiting.** Every request is a new transaction, so a repeated request runs again.
+- **Reverts are still included.** A call that reverts or runs out of gas is included with `status 0`. Any minted ETH is kept.
+- **Pending requests are held in memory.** Requests not yet included are lost if the process stops.
+
+| Error code | Meaning |
+| --- | --- |
+| `-32602` | Invalid request: missing `from` or `gas`, gas below the intrinsic cost, gas above the block gas limit minus 2,000,000, calldata over 131,072 bytes, or init code over 49,152 bytes |
+| `-32000` | Retry later: the chain has not started sequencing (for example, during the first-run index rebuild), or 256 requests are already pending |
+
+### Block Timing
+
+The snapshot devnet produces a block every 200ms. Block header timestamps have whole-second resolution, so about five consecutive blocks share a timestamp. Contracts that count blocks see time pass 10 times faster than on a 2-second chain; contracts that compare `block.timestamp` see normal time. Heavy disk or CPU load can delay blocks.
+
 ## Learn More
 
-The base/base repo is the source of truth for the devnet:
+The base/base repo is the source of truth for both devnets:
 
-- [Devnet README](https://github.com/base/base/blob/main/etc/docker/README.md): stack topology, batcher setup, the Anvil + Nitro proving variant, and upgrade-signal testing
-- [`etc/docker/Justfile`](https://github.com/base/base/blob/main/etc/docker/Justfile): every devnet command
-- [Testing guide](https://github.com/base/base/blob/main/docs/guides/TESTING.md): system tests against the devnet (`just devnet tests`)
-- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover stack, which the devnet does not include. ZK proving against a local devnet requires disabling Beryl and Cobalt.
+- [`base dev` reference](https://github.com/base/base/blob/main/bin/base/README.md#base-dev): snapshot devnet download retention, restarts, timing, and `dev_impersonateTransaction` limits
+- [Devnet README](https://github.com/base/base/blob/main/etc/docker/README.md): Docker devnet topology, batcher setup, the Anvil + Nitro proving variant, and upgrade-signal testing
+- [`etc/docker/Justfile`](https://github.com/base/base/blob/main/etc/docker/Justfile): every Docker devnet command
+- [Testing guide](https://github.com/base/base/blob/main/docs/guides/TESTING.md): system tests against the Docker devnet (`just devnet tests`)
+- [Standalone proving guide](https://github.com/base/base/blob/main/docs/guides/STANDALONE_PROVING.md): run the prover stack, which the Docker devnet does not include. ZK proving against a local devnet requires disabling Beryl and Cobalt.
