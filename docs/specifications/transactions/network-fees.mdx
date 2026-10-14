@@ -90,4 +90,11 @@ The **GasPriceOracle** predeployment at `0x4200000000000000000000000000000000000
 
 Use `getL1FeeUpperBound` when you need a quick estimate before the transaction is fully constructed. Use `getL1Fee` with the complete serialized transaction for an exact value before signing.
 
+## Paying Gas in Tokens
+
+Base charges network fees in ETH. [B20](/upgrades/beryl/b20) tokens don't change this: B20 is a superset of ERC-20 and doesn't add a protocol-level fee token. To let your users pay gas in a token today, use a paymaster that accepts the token and pays the gas in ETH on their behalf.
+
+- **CDP Paymaster**: With [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) smart accounts, [CDP Paymaster](https://docs.cdp.coinbase.com/paymaster/introduction/welcome) can collect an ERC-20 token from the user and pay the gas in ETH. It accepts only the tokens listed in its [ERC-20 gas payments guide](https://docs.cdp.coinbase.com/paymaster/guides/erc20-gas-payments), which currently lists USDC on Base. Don't assume that it accepts any other ERC-20 or B20 token.
+- **Base Transactions (planned)**: [Base Transactions](/specifications/base-transactions#token-gas-payments) (EIP-8430) let a sender reimburse a sponsor in any token within the same transaction, while the sponsor pays the gas in ETH. Base Transactions activate with the [Everest network upgrade](/upgrades/everest/overview), and their Base Sepolia and Base Mainnet activation dates are TBD. Until Everest activates, this path isn't available.
+
 [Jovian upgrade]: /upgrades/jovian/overview
