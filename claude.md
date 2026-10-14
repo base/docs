@@ -46,6 +46,8 @@ description: "Value description"
 
 **Images**: Wrap in `<Frame>`, include `alt` attribute.
 
+**Interactive demos**: Wrap the `## Demo` heading, the demo component, and any callout that only describes the demo in `<Visibility for="humans">`. Mintlify inlines the full source of every imported JSX component into the page's Markdown (`.md` and `llms-full.txt`), so an unwrapped demo adds tens of kilobytes of code that agents can't use. Keep content agents need, such as version notes and warnings, outside the block.
+
 ## Navigation
 
 Edit `docs.json` to add/remove pages. Add redirects when removing pages.
