@@ -16,6 +16,16 @@ Issue a fiat-backed stablecoin on Base with [B20](/specifications/b20), Base's n
 The demo uses a local browser-generated account to submit real transactions on **Base Vibenet**. If Vibenet or its B20 features are unavailable, it automatically switches to an illustrative offline version.
 </Tip>
 
+## Integrate Stablecoins From Other Issuers
+
+If your wallet, app, or payment flow holds or moves B20 stablecoins from more than one issuer, each token is a separate asset with its own issuer's rules:
+
+- **Shared interface.** Every B20 stablecoin exposes the same ERC-20 surface and adds [`currency()`](/specifications/b20/reference/interfaces/ib20-stablecoin/currency), which returns the currency code the token tracks. You call the same functions on each token, but a shared interface does not make two tokens interchangeable.
+- **Per-token policies.** Each token checks its own [policies](/specifications/b20/concepts/policies) on the sender, receiver, and transfer executor. A transfer succeeds only if the accounts pass that token's policies, so an account that can hold one issuer's token may be unable to hold another's. Call [`isAuthorized`](/specifications/b20/reference/interfaces/i-policy-registry/is-authorized) on the Policy Registry to check an account against a token's policy before you send.
+- **Shared lists.** Policies live in the Policy Registry, not on the token, so several tokens can reference the same policy ID. An update to that policy applies to every token that references it.
+- **No built-in conversion.** B20 does not define a function that converts one issuer's stablecoin into another's.
+- **Redemption with the issuer.** A holder redeems a token for fiat with that token's issuer: the holder returns the tokens, and the issuer [burns the redeemed supply](/build-on-base/issue-stablecoins/burn-supply). B20 does not define redemption of one issuer's token by another issuer.
+
 ## Guides
 
 <CardGroup cols={2}>
