@@ -45,9 +45,9 @@ const CONFIG = {
   projectTitle: 'Base Documentation',
   fullProjectTitle: 'Base Documentation — Full Context',
 
-  summary: "Build on Base — Coinbase's Ethereum L2. Smart Wallet, OnchainKit, MiniKit, Base Chain RPCs, and AI Agents. This index points AI assistants at the canonical page for each topic; follow the links for full context.",
+  summary: 'Base is the blockchain for global finance: an Ethereum L2 built by Coinbase, with stablecoins, payments, tokenized assets, and compliance controls as native chain primitives. This index points AI assistants at the canonical page for each topic across Get Started, Build on Base, Specifications, SDKs & APIs, and Upgrades; follow the links for full context.',
 
-  fullSummary: "Full context for AI agents working with Base. Cross-cutting concept guides (networks, auth, errors, rate limits) sit above an index of every page in the public documentation navigation. Follow page URLs for source content.",
+  fullSummary: 'Full context for AI agents building on Base, the blockchain for global finance: an Ethereum L2 built by Coinbase. Cross-cutting concept guides (networks, errors, rate limits, SDK setup) sit above an index of every page in the public documentation navigation. Follow page URLs for source content.',
 
   extrasStartMarker: '<!-- LLMS_EXTRAS_START -->',
   extrasEndMarker: '<!-- LLMS_EXTRAS_END -->',
