@@ -49,13 +49,18 @@ The proposer reads the game implementation address from:
 DisputeGameFactory.gameImpls(gameType)
 ```
 
-The implementation address must be non-zero. The proposer then reads:
+The implementation address must be non-zero. The proposer then reads the bond and the proposal
+intervals for the game it is about to create:
 
 ```text Startup Reads
-AggregateVerifier.BLOCK_INTERVAL()
-AggregateVerifier.INTERMEDIATE_BLOCK_INTERVAL()
 DisputeGameFactory.initBonds(gameType)
+AggregateVerifier.intervalsForStartingBlock(parentL2BlockNumber)
 ```
+
+`intervalsForStartingBlock` returns the `(BLOCK_INTERVAL, INTERMEDIATE_BLOCK_INTERVAL)` pair that
+applies to a game starting at `parentL2BlockNumber`. See
+[Proposal Interval Selection](#proposal-interval-selection). On this page, `BLOCK_INTERVAL` and
+`INTERMEDIATE_BLOCK_INTERVAL` mean that per-game pair.
 
 `BLOCK_INTERVAL` must be at least `2`, `INTERMEDIATE_BLOCK_INTERVAL` must be non-zero, and
 `BLOCK_INTERVAL % INTERMEDIATE_BLOCK_INTERVAL` must be `0`. The number of intermediate roots in a
@@ -67,6 +72,36 @@ BLOCK_INTERVAL / INTERMEDIATE_BLOCK_INTERVAL
 
 The proposer defaults to finalized L2 state. If explicitly configured to allow non-finalized
 proposals, it may use the rollup node's safe L2 state instead.
+
+## Proposal Interval Selection
+
+The proposal interval is not a fixed process-wide constant. `AggregateVerifier` version `0.3.0`
+and later stores two interval pairs and picks one from each game's starting block:
+
+```text Interval Pairs
+SLOW_BLOCK_INTERVAL, SLOW_INTERMEDIATE_BLOCK_INTERVAL
+FAST_BLOCK_INTERVAL, FAST_INTERMEDIATE_BLOCK_INTERVAL
+```
+
+The slow pair applies to games that start before the L2 block-time speedup activation in the
+`ProtocolVersions` schedule. The fast pair applies to games that start at or after it. While the
+speedup is not scheduled, every game uses the slow pair. Both pairs must yield the same number of
+intermediate roots, so the `extraData` layout does not change at the activation.
+
+The proposer resolves the pair for every game it creates, reconstructs, or looks up. It reads the
+active implementation from `DisputeGameFactory.gameImpls(gameType)` and calls
+`intervalsForStartingBlock` each time instead of caching the result at startup. A cached value would
+stop matching games once the implementation is upgraded or the activation block is reached.
+`AggregateVerifier` versions before `0.3.0` instead expose a single fixed pair through
+`BLOCK_INTERVAL()` and `INTERMEDIATE_BLOCK_INTERVAL()`. The proposer reads `version()` to choose
+which interface to call.
+
+To find the interval that applies to new games on a network, read
+`DisputeGameFactory.gameImpls(gameType)` on L1. Then call
+`intervalsForStartingBlock(startingBlock)` on that implementation, or `BLOCK_INTERVAL()` if it
+reports a version earlier than `0.3.0`. The time from an L2 block to its L1 checkpoint also depends
+on the L2 block time, on how far the chosen safe or finalized head lags the target block, and on
+proof generation and L1 inclusion. This specification does not set a target proposal cadence.
 
 ## Parent Recovery
 
