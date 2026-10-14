@@ -151,7 +151,7 @@ If your goal is to increase discoverability of your product, please request incl
 
 ## Submission process
 
-1. Create a PR to `https://github.com/base/docs` with your changes.
+1. Create a PR to `https://github.com/base/docs` against the `master` branch. Create new pages as `.mdx` files; the `Docs Style / Conformance` check only lints `.mdx` pages under `docs/`. See [contribution-guidelines.md](docs/contribution-guidelines.md#opening-a-pull-request).
 2. Include a clear description of the change and impacted pages.
 3. Request review from the docs team.
 4. Address feedback and iterate.
