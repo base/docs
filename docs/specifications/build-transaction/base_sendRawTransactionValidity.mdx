@@ -53,6 +53,14 @@ Pass two parameters. The first is a signed, serialized transaction. The second c
 The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate values use `0x`-prefixed hexadecimal strings. The `mask` defaults to all ones.
 A `flashblock_index` value must be between `1` and `10`, inclusive (`0x1` through `0xa` in hexadecimal).
 
+## Limits
+
+In [base/base v1.4.2](https://github.com/base/base/blob/v1.4.2/crates/execution/txpool/src/validity.rs), the node accepts up to 64 predicates per transaction by default. Treat this as an implementation default, not a stable API guarantee. The method rejects a request with more predicates than the limit.
+
+Each transaction also needs a `block_number` expiry. Read [Fees, Ordering, and Lifecycle](/specifications/build-transaction/fees-ordering-and-lifecycle) for expiry rules.
+
+These docs do not yet specify a separate storage-read cost or limit for `storage` predicates. They also do not specify whether validity transactions propagate to other nodes. Do not depend on either behavior.
+
 ## Returns
 
 <ResponseField name="result" type="string">
