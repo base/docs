@@ -78,9 +78,9 @@ function loadMintIgnore(mintignorePath) {
 
   for (const line of fs.readFileSync(mintignorePath, 'utf8').split('\n')) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    if (trimmed.endsWith('/*')) {
-      ignored.dirs.add(trimmed.slice(1, -2));
+        if (trimmed.endsWith('/*')) {
+      const dirPattern = trimmed.slice(0, -2);
+      ignored.dirs.add(dirPattern.startsWith('/') ? dirPattern.slice(1) : dirPattern);
     } else if (trimmed.startsWith('/')) {
       ignored.files.add(trimmed.slice(1));
     } else {
