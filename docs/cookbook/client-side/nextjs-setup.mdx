@@ -1,0 +1,173 @@
+
+**The Problem: The Server-Client Mismatch**
+Next.js 14 uses the App Router, where components are React Server Components (RSC) by default. These components render standard HTML on the server and send it to the browser.
+
+However, blockchain wallets (Metamask, Coinbase Wallet) live strictly in the browser (Client Side). They inject `window.ethereum` or rely on `localStorage`.
+
+When your app loads:
+
+1. **Server:** Renders the page. It has no access to the user's wallet, so it renders a "Disconnected" state (or empty div).
+2. **Client:** The browser loads the HTML. The Wagmi library initializes, reads `localStorage`, sees the user is connected, and immediately updates the DOM to show the "Connected" state.
+3. **React:** Sees the Server HTML ("Disconnected") does not match the Client DOM ("Connected"). It throws `Error: Hydration failed because the initial UI does not match what was rendered on the server.`
+
+**The Production-Grade Fix**
+You cannot use Context Providers (`WagmiProvider`) directly in a Server Component layout (`layout.tsx`) because Context is a client-only feature.
+
+To solve this, we must:
+
+1. **Encapsulate State:** Create a dedicated "Client Component" wrapper (`providers.tsx`) to hold the Wagmi and TanStack Query logic.
+2. **Defer Rendering:** Use a `useIsMounted` hook for any UI element that depends on wallet data. This forces the component to wait until the client has fully taken over before attempting to render wallet details, ensuring the server HTML and initial client HTML are identical.
+
+---
+
+
+
+**1. Install Dependencies**
+
+```bash
+npm install wagmi viem @tanstack/react-query @rainbow-me/rainbowkit
+
+```
+
+**2. Create the Configuration**
+Create a new file `config/wagmi.ts`. This sets up the Base chain and the connection logic.
+
+```typescript
+import { http, createConfig } from 'wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+
+// 1. Get projectId from https://cloud.walletconnect.com
+const projectId = 'YOUR_PROJECT_ID';
+
+export const config = getDefaultConfig({
+  appName: 'Base App',
+  projectId: projectId,
+  chains: [base, baseSepolia],
+  transports: {
+    [base.id]: http(),
+    [baseSepolia.id]: http(),
+  },
+  ssr: true, // If your dApp uses server side rendering (SSR)
+});
+
+```
+
+**3. Create the Providers Wrapper**
+This is the critical step. We mark this file `use client` so it can use React Context.
+File: `app/providers.tsx`
+
+```tsx
+'use client';
+
+import * as React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import { config } from '../config/wagmi';
+
+const queryClient = new QueryClient();
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider theme={darkTheme()}>
+          {children}
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+
+```
+
+**4. Implement `useIsMounted` Hook**
+This hook solves the specific hydration error for wallet buttons.
+File: `hooks/useIsMounted.ts`
+
+```typescript
+import { useState, useEffect } from 'react';
+
+export function useIsMounted() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return mounted;
+}
+
+```
+
+**5. Apply to Root Layout**
+Import your client wrapper into the server layout.
+File: `app/layout.tsx`
+
+```tsx
+import './globals.css';
+import '@rainbow-me/rainbowkit/styles.css';
+import { Providers } from './providers';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+
+```
+
+**6. Usage Example (Safe Rendering)**
+Here is how to use the hook to safely render a wallet address without breaking hydration.
+File: `components/WalletLabel.tsx`
+
+```tsx
+'use client';
+
+import { useAccount } from 'wagmi';
+import { useIsMounted } from '../hooks/useIsMounted';
+
+export default function WalletLabel() {
+  const { address } = useAccount();
+  const isMounted = useIsMounted();
+
+  // 1. Prevent Hydration Mismatch
+  // If not mounted, return null or a skeleton loader.
+  // This ensures the server HTML matches the initial client HTML.
+  if (!isMounted) return null;
+
+  return (
+    <div>
+      {address ? `Connected: ${address}` : 'Please Connect Wallet'}
+    </div>
+  );
+}
+
+```
+
+**7. Add Documentation Metadata**
+Add this to the top of your markdown file so the documentation site indexes it correctly.
+
+```yaml
+---
+title: Next.js 14 Boilerplate
+description: A production-ready guide for setting up Base with Next.js App Router, Wagmi v2, and preventing hydration errors.
+authors: [your-github-username]
+tags: [nextjs, frontend, wagmi, rainbowkit]
+---
+
+```
+[Next.js 14 App Router & Wagmi Setup](https://www.youtube.com/watch?v=n96m8fr5aeU)
+
+This video provides a foundational walkthrough of the Next.js 14 App Router structure, which is essential for understanding where to place the provider wrappers discussed in the guide.
+
+---
