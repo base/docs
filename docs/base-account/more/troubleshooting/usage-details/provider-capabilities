@@ -1,0 +1,93 @@
+---
+title: Provider Capabilities Troubleshooting
+description: Guide to identifying common issues and verifying wallet provider support for Base Account features.
+---
+
+Many Base Account features depend on wallet provider capabilities such as `wallet_sendCalls` and `wallet_getCapabilities`. If your integration is not behaving as expected, use this guide to identify common issues and verify provider support.
+
+## Check Supported Capabilities
+
+Before calling advanced wallet methods, verify that the provider exposes the required capabilities.
+
+```ts
+const capabilities = await provider.request({
+  method: "wallet_getCapabilities",
+})
+console.log(capabilities)
+```
+
+If the method fails, the connected wallet may not support the capability.  
+
+## Error: Method Not Found
+
+Example:
+
+`Method wallet_sendCalls not found`
+
+### Possible Causes
+
+- The connected wallet does not support batch transactions.  
+
+- The wallet provider is outdated.  
+
+- A non-compatible provider is being used.  
+
+### Resolution
+
+1. Verify wallet compatibility.  
+
+2. Check the provider documentation.  
+
+3. Add capability detection before sending calls.  
+
+Example:
+
+```ts
+const capabilities = await provider.request({
+  method: "wallet_getCapabilities",
+})
+if (!capabilities?.wallet_sendCalls) {
+  throw new Error("wallet_sendCalls is not supported by this wallet")
+}
+```
+
+## Error: Empty Capability Response
+
+### Possible Causes
+
+- Provider initialization has not completed.
+
+- Wallet connection was interrupted.
+
+- The wallet does not expose capability metadata.
+
+### Resolution
+
+Reconnect the wallet and retry capability detection.
+
+```ts
+await provider.request({ method: "wallet_requestPermissions", })
+```
+
+## Verify Provider Initialization
+
+Ensure that the provider exists before making requests.
+
+```ts
+if (window.ethereum) {
+}
+throw new Error("Provider not available")
+```
+
+## Recommended Integration Pattern
+
+Always verify capabilities before calling optional functionality.
+
+```ts
+async function supportsBatchTransactions (provider: any) {
+  const capabilities = await provider.request({
+    method: "wallet_getCapabilities",
+  })
+  return Boolean(capabilities?.wallet_sendCalls)
+}
+```
