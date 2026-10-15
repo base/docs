@@ -136,7 +136,7 @@ The Base documentation is organized into established sections (for example: `get
 
 > Warning: We generally do not accept guides that primarily document a third-party product. Exceptions require a clear Base-focused use case and a tight integration with Base products. Simply deploying on Base or connecting to Base Account/Base App is not sufficient.
 
-If your goal is to increase discoverability of your product, please request inclusion on the Base Ecosystem page instead. See the instructions for [updating the Base Ecosystem page](https://github.com/base/web?tab=readme-ov-file#updating-the-base-ecosystem-page).
+If your goal is to increase discoverability of your product, please request inclusion on the Base Ecosystem page instead. See the instructions for  [updating the Base Ecosystem page](https://github.com/base/web#updating-the-base-ecosystem-page).
 
 ## Review checklist (before submitting a PR)
 
