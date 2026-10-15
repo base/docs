@@ -485,8 +485,8 @@ test("the CI gate protects the gate's own config and scripts", () => {
 test("the shipped config matches the spec's thresholds", () => {
   const { gates, governanceOwners } = loadConfig();
   assert.deepEqual(governanceOwners, ["ericbrown99", "mindapivessa"]);
-  assert.equal(gates["get-started"].count, 3);
-  assert.equal(gates["get-started"].requires, "writers");
+  assert.equal(gates["get-started"].count, 1);
+  assert.equal(gates["get-started"].requires, "governanceOwners");
   assert.equal(gates["build-on-base-solutions"].count, 1);
   assert.equal(gates["build-on-base-solutions"].requires, "governanceOwners");
   assert.equal(gates["guideline-files"].count, 1);

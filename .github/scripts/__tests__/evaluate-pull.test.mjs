@@ -80,38 +80,38 @@ test("a pure content edit publishes neutral for every gate", async () => {
   }
 });
 
-test("a new Get Started page fails until three Writers approve", async () => {
+test("a new Get Started page requires one Governance Owner", async () => {
   const files = [{ filename: "docs/get-started/new.mdx", status: "added" }];
 
-  const twoWriters = stubGitHub({
+  const writerOnly = stubGitHub({
     files,
-    reviews: [approval("alice", 2), approval("bob", 3)],
-    writers: new Set(["alice", "bob"]),
+    reviews: [approval("alice", 2)],
+    writers: new Set(["alice"]),
   });
-  await evaluatePull(twoWriters, config, 42, {});
-  const failing = twoWriters.published.get(nameOf("get-started"));
+  await evaluatePull(writerOnly, config, 42, {});
+  const failing = writerOnly.published.get(nameOf("get-started"));
   assert.equal(failing.conclusion, "failure");
   assert.match(failing.output.title, /Needs 1 more approval$/);
   assert.match(failing.output.summary, /adds page file docs\/get-started\/new\.mdx/);
-  assert.match(failing.output.summary, /2\/3 Writer approvals/);
+  assert.match(failing.output.summary, /0\/1 Governance Owner approval/);
 
-  const threeWriters = stubGitHub({
+  const ownerApproved = stubGitHub({
     files,
-    reviews: [approval("alice", 2), approval("bob", 3), approval("carol", 4)],
-    writers: new Set(["alice", "bob", "carol"]),
+    reviews: [approval("mindapivessa", 8)],
+    writers: new Set(["mindapivessa"]),
   });
-  await evaluatePull(threeWriters, config, 42, {});
-  assert.equal(threeWriters.published.get(nameOf("get-started")).conclusion, "success");
+  await evaluatePull(ownerApproved, config, 42, {});
+  assert.equal(ownerApproved.published.get(nameOf("get-started")).conclusion, "success");
 
   // The other gates were not touched, so they stay neutral either way.
-  assert.equal(threeWriters.published.get(nameOf("guideline-files")).conclusion, "neutral");
+  assert.equal(ownerApproved.published.get(nameOf("guideline-files")).conclusion, "neutral");
 });
 
-test("the author's own approval never counts toward the threshold", async () => {
+test("the author's own Governance Owner approval never counts", async () => {
   const gh = stubGitHub({
     files: [{ filename: "docs/get-started/new.mdx", status: "added" }],
-    reviews: [approval("author", 1), approval("alice", 2), approval("bob", 3)],
-    writers: new Set(["author", "alice", "bob"]),
+    reviews: [approval("ericbrown99", 1)],
+    writers: new Set(["ericbrown99"]),
     authorId: 1,
   });
   await evaluatePull(gh, config, 42, {});
