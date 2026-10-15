@@ -1,0 +1,136 @@
+---
+title: Building a Reward-Earning Onchain Agent with Base MCP + Builder Codes
+description: Create an autonomous agent that performs DeFi actions on Base and automatically attributes transactions with ERC-8021 Builder Codes for analytics, visibility, and rewards.
+---
+
+<BaseCallout type="info">
+Every write action requires explicit approval in your Base Account. Always test on Base Sepolia first.
+</BaseCallout>
+
+## Overview
+
+Build an autonomous agent that:
+- Monitors opportunities (e.g., USDC yield or swaps)
+- Executes transactions via **Base MCP**
+- Automatically appends your **Builder Code** (ERC-8021) to every transaction
+
+This lets your agent drive real onchain activity while earning attribution on [base.dev](https://base.dev) — including potential rewards, leaderboard placement, and better analytics.
+
+**Why this matters**  
+Builder Codes provide onchain proof of impact. Any app or agent can now be recognized for the transactions it generates. [](grok_render_citation_card_json={"cardIds":["ba465d"]})
+
+## Prerequisites
+
+- A registered **Builder Code** from [base.dev → Settings → Builder Codes](https://base.dev)
+- Base MCP connected to your AI assistant (`mcp.base.org`)
+- Base Account with test funds (Sepolia) or mainnet funds
+- Familiarity with Base MCP skills (`send_calls`, swaps, etc.)
+
+## Step-by-Step Implementation
+
+### 1. Get Your Builder Code Suffix
+
+Register your app at [base.dev](https://base.dev) and retrieve your code (e.g. `bc_b7k3p9da`).
+
+Use the `ox` library (or equivalent) to generate the ERC-8021 data suffix:
+
+```ts
+// filename: utils/builderCode.ts
+import { Attribution } from "ox/erc8021";
+
+export const BUILDER_CODE_SUFFIX = Attribution.toDataSuffix({
+  codes: ["YOUR_BUILDER_CODE_HERE"], // e.g. "bc_b7k3p9da"
+});
+```
+
+### 2. Core Agent Pattern (via Base MCP)
+
+Give this prompt / pattern to your MCP-connected assistant:
+
+`You are an autonomous yield agent on Base.`
+
+Rules:
+- Always append my Builder Code using dataSuffix capability.
+- Use send_calls for all transactions.
+- Get approval for every write.
+- Prefer safe, audited protocols (Uniswap, Moonwell, Morpho, Aerodrome, etc.).
+
+Current task: [Your instruction here]
+
+### 3. Complete Runnable Example (Custom Plugin or Direct Calls)
+
+For advanced control, create a custom plugin or directly instruct the agent with this pattern:
+
+```ts
+// Example MCP tool call pattern (what the agent should produce)
+{
+  "name": "send_calls",
+  "arguments": {
+    "calls": [
+      {
+        "to": "0x...",           // e.g. USDC contract or router
+        "data": "0x...",         // calldata for swap / deposit
+        "value": "0"
+      }
+    ],
+    "capabilities": {
+      "dataSuffix": {
+        "value": "0xYOUR_ENCODED_BUILDER_CODE_SUFFIX_HERE",
+        "optional": true
+      }
+    }
+  }
+}
+```
+
+**Full example prompt for a yield farmer agent:**
+
+```
+Monitor Moonwell or Morpho for the best USDC yield on Base.
+
+If APY > 5%, deposit up to 1000 USDC.
+
+Always include my Builder Code in the dataSuffix.
+
+Show me the transaction details and expected rewards attribution before sending.
+```
+
+## Verification Steps
+
+After the agent executes a transaction:
+
+1. Copy the transaction hash from Base Account or the assistant.
+
+2. Check attribution on base.dev (Onchain → filter by your code).
+
+3. Verify on Basescan: look for the `80218021...` suffix at the end of the input data.
+
+4. Use community tools like the Builder Code Validator for confirmation.
+
+## Best Practices
+
+- **Test first** — Use Base Sepolia + test Builder Code.
+
+- **Batch actions** — Group multiple operations in one `send_calls` for better UX and lower approval fatigue.
+
+- **Error handling** — Instruct the agent to simulate calls when possible and handle approvals gracefully.
+
+- **Multiple codes** — You can append several codes (e.g., frontend + agent + protocol).
+
+- **Monitoring** — Track attributed volume in your Base Dashboard.
+
+## Related Resources
+
+- [Base MCP Quickstart](/agents/quickstart)
+
+- [Base MCP Guides & Skills](/agents)
+
+- [Builder Codes Overview](/apps/builder-codes/builder-codes)
+
+- [Integration Examples (Wagmi / Viem)](/apps/builder-codes)
+
+- [Native Plugins](/agents/plugins) (Uniswap, Moonwell, Morpho, etc.)
+
+## Next Steps
+
+Deploy your agent as a persistent service (Claude Desktop, custom MCP host, or onchain agent framework), monitor its performance on base.dev, and iterate based on real attribution data.
