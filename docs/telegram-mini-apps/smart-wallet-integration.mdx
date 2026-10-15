@@ -1,0 +1,272 @@
+# Build a Telegram Mini App with Smart Wallets on Base
+
+**Author:** @jadonamite
+**Topic:** Consumer Apps & Social
+**Level:** Intermediate
+**Prerequisites:** Node.js v18+, Telegram Account, Vercel Account (for HTTPS)
+
+Telegram Mini Apps (TMAs) are web applications that run inside Telegram. By combining them with **Base** and **Coinbase Smart Wallets**, you can onboard users without them ever needing to install a separate wallet app or save a seed phrase. They just click "Start," use their FaceID (Passkey), and they are onchain.
+
+In this tutorial, we will build a bot that opens a Mini App where users can sign a transaction on Base Sepolia.
+
+---
+
+## 1. Architecture
+
+* **Bot Platform:** Telegram (BotFather).
+* **Frontend:** Next.js 14 (App Router).
+* **SDKs:** `@telegram-apps/sdk-react` (for Telegram integration) + **OnchainKit** (for Wallet connection).
+* **Wallet:** Coinbase Smart Wallet (Passkey-based).
+
+---
+
+## 2. Prerequisites
+
+1. **Telegram Bot Token:**
+* Open Telegram and search for **@BotFather**.
+* Send `/newbot`.
+* Name it (e.g., `BaseSmartWalletBot`).
+* Copy the **HTTP API Token**.
+
+
+2. **Coinbase Developer Platform (CDP) API Key:**
+* Get it from [portal.cdp.coinbase.com](https://portal.cdp.coinbase.com/).
+
+
+
+---
+
+## 3. The Bot Backend
+
+We need a simple script to serve the "Open App" button.
+
+### Step 1: Initialize Bot Project
+
+```bash
+mkdir base-tma-bot
+cd base-tma-bot
+npm init -y
+npm install telegraf dotenv
+
+```
+
+### Step 2: Create the Bot (`bot.js`)
+
+```javascript
+require('dotenv').config();
+const { Telegraf, Markup } = require('telegraf');
+
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// The URL where your Next.js app will be hosted (we will fill this later)
+const WEB_APP_URL = process.env.WEB_APP_URL || 'https://your-vercel-app.vercel.app';
+
+bot.command('start', (ctx) => {
+  ctx.reply(
+    'Welcome to the Base Smart Wallet App! 🔵',
+    Markup.keyboard([
+      Markup.button.webApp('🚀 Open Onchain App', WEB_APP_URL),
+    ]).resize()
+  );
+});
+
+bot.launch();
+
+console.log('Bot is running...');
+
+```
+
+---
+
+## 4. The Frontend (Mini App)
+
+This is where the magic happens. We will use Next.js with OnchainKit.
+
+### Step 1: Create Next.js App
+
+```bash
+npx create-next-app@latest base-tma-app
+# Select: TypeScript, Tailwind, ESLint, App Router
+cd base-tma-app
+
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install @coinbase/onchainkit wagmi viem @tanstack/react-query @telegram-apps/sdk-react
+
+```
+
+### Step 3: Configure Wagmi (`src/config.ts`)
+
+Enable the **Coinbase Smart Wallet**.
+
+```typescript
+import { http, createConfig } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
+import { coinbaseWallet } from 'wagmi/connectors';
+
+export const config = createConfig({
+  chains: [baseSepolia],
+  connectors: [
+    coinbaseWallet({
+      appName: 'Base Telegram App',
+      preference: 'smartWalletOnly', // Force Smart Wallet (Passkeys)
+    }),
+  ],
+  transports: {
+    [baseSepolia.id]: http(),
+  },
+});
+
+```
+
+### Step 4: The Providers (`src/app/providers.tsx`)
+
+We need to wrap the app with `OnchainKitProvider` and `WagmiProvider`.
+
+```typescript
+'use client';
+
+import { OnchainKitProvider } from '@coinbase/onchainkit';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
+import { config } from '../config';
+import { useState, useEffect } from 'react';
+import { SDKProvider } from '@telegram-apps/sdk-react';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient());
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return (
+    <SDKProvider acceptCustomStyles debug>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <OnchainKitProvider
+            apiKey={process.env.NEXT_PUBLIC_CDP_API_KEY}
+            chain={baseSepolia}
+          >
+            {children}
+          </OnchainKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </SDKProvider>
+  );
+}
+
+```
+
+### Step 5: The UI (`src/app/page.tsx`)
+
+We will render the OnchainKit `<Wallet>` component. Because this runs inside Telegram, the Smart Wallet popup will handle the authentication seamlessly.
+
+```typescript
+'use client';
+
+import { 
+  ConnectWallet, 
+  Wallet, 
+  WalletDropdown, 
+  WalletDropdownDisconnect 
+} from '@coinbase/onchainkit/wallet';
+import { Address, Avatar, Name, Identity, EthBalance } from '@coinbase/onchainkit/identity';
+
+export default function Home() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-slate-950 text-white">
+      <h1 className="text-3xl font-bold mb-8 text-blue-500">Base x Telegram</h1>
+      
+      <div className="w-full max-w-md p-6 bg-slate-900 rounded-xl border border-slate-800">
+        <p className="text-center text-slate-400 mb-6">
+          Connect your Smart Wallet to transact directly inside Telegram.
+        </p>
+
+        {/* OnchainKit Component */}
+        <Wallet>
+          <ConnectWallet className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg">
+            <Avatar className="h-6 w-6" />
+            <Name />
+          </ConnectWallet>
+          
+          <WalletDropdown>
+            <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+              <Avatar />
+              <Name />
+              <Address />
+              <EthBalance />
+            </Identity>
+            <WalletDropdownDisconnect />
+          </WalletDropdown>
+        </Wallet>
+      </div>
+
+      <div className="mt-8 text-xs text-slate-600">
+        Built with OnchainKit & Base
+      </div>
+    </div>
+  );
+}
+
+```
+
+---
+
+## 5. Deployment & Integration
+
+Telegram require **HTTPS**. Localhost won't work without tunneling (like ngrok), so deploying to Vercel is easiest.
+
+1. **Deploy Frontend:** Push `base-tma-app` to GitHub and deploy on **Vercel**.
+* *Note: Add `NEXT_PUBLIC_CDP_API_KEY` to Vercel Environment Variables.*
+* Copy your deployment URL (e.g., `https://base-tma-app.vercel.app`).
+
+
+2. **Configure Bot:**
+* In your `base-tma-bot` folder, create `.env`:
+```env
+BOT_TOKEN=123456:ABC-DEF...
+WEB_APP_URL=https://base-tma-app.vercel.app
+
+```
+
+
+* Run the bot: `node bot.js`
+
+
+3. **Test:**
+* Open your bot in Telegram.
+* Send `/start`.
+* Click the **"🚀 Open Onchain App"** button.
+* The app opens. Click **"Connect Wallet"**.
+* **Create a Passkey** (FaceID/TouchID). You are now connected!
+
+
+
+---
+
+## 6. Common Pitfalls
+
+1. **"Web App setup failed":**
+* **Context:** Telegram shows a blank screen.
+* **Fix:** Ensure you are using `https`. Also, check the Vercel logs to ensure the build succeeded.
+
+
+2. **Smart Wallet Popup Blocked:**
+* **Context:** Some strict browser settings inside Telegram might block popups.
+* **Fix:** OnchainKit handles this well, but ensure `preference: 'smartWalletOnly'` is set to avoid triggering legacy connector logic that might fail in webviews.
+
+
+3. **Hydration Errors:**
+* **Context:** "Text content does not match..."
+* **Fix:** Ensure your `Providers` component waits for `mounted` state (useEffect) before rendering the SDK provider, as Telegram injects the `window.Telegram` object asynchronously.
+
+
+
