@@ -1,0 +1,267 @@
+mdx---
+title: "Build a Mini App with Token Rewards"
+description: "Learn how to build a Farcaster Mini App on Base that rewards users with ERC-20 tokens for on-chain interactions."
+---
+
+## Overview
+
+This guide walks you through building a complete Farcaster Mini App on Base mainnet that rewards users with ERC-20 tokens for on-chain interactions. By the end, you will have a fully deployed Mini App with smart contract-based token rewards.
+
+## Prerequisites
+
+- Basic knowledge of JavaScript
+- [MetaMask](https://metamask.io) or Coinbase Wallet with ETH on Base mainnet (~$1-2 for gas)
+- A [Vercel](https://vercel.com) account
+- A [Farcaster](https://farcaster.xyz) account
+
+## Step 1: Deploy Your Smart Contract
+
+Use [Remix IDE](https://remix.ethereum.org) to deploy a combined ERC-20 token and reward contract on Base mainnet (Chain ID: 8453).
+
+Create a new file `RewardApp.sol` and paste the following:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract RewardApp {
+    string public name = "My Reward Token";
+    string public symbol = "MRT";
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+    address public owner;
+    uint256 public constant REWARD_AMOUNT = 100 * 10**18;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => uint256) public lastInteraction;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    constructor() {
+        owner = msg.sender;
+        totalSupply = 100_000_000_000 * 10**18;
+        balanceOf[msg.sender] = totalSupply;
+        emit Transfer(address(0), msg.sender, totalSupply);
+    }
+
+    function interact() external {
+        require(
+            block.timestamp >= lastInteraction[msg.sender] + 1 days,
+            "Already interacted today"
+        );
+        lastInteraction[msg.sender] = block.timestamp;
+
+        if (balanceOf[address(this)] >= REWARD_AMOUNT) {
+            balanceOf[address(this)] -= REWARD_AMOUNT;
+            balanceOf[msg.sender] += REWARD_AMOUNT;
+            emit Transfer(address(this), msg.sender, REWARD_AMOUNT);
+        }
+    }
+
+    function fundContract(uint256 amount) external {
+        require(msg.sender == owner, "Not owner");
+        balanceOf[owner] -= amount;
+        balanceOf[address(this)] += amount;
+        emit Transfer(owner, address(this), amount);
+    }
+
+    function canInteract(address user) external view returns (bool) {
+        return block.timestamp >= lastInteraction[user] + 1 days;
+    }
+}
+```
+
+After deploying:
+1. Copy your contract address
+2. Call `fundContract(1000000000000000000000000)` to fund the reward pool with 1 million tokens
+
+## Step 2: Create Your Project
+
+Create the following file structure:
+my-mini-app/
+├── index.html
+├── style.css
+├── app.js
+├── package.json
+└── .well-known/
+└── farcaster.json
+
+**package.json:**
+
+```json
+{
+  "name": "my-mini-app",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx serve . -p 3000"
+  }
+}
+```
+
+**index.html:**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="fc:frame" content="vNext">
+  <meta name="base:app_id" content="YOUR_BASE_APP_ID">
+  <title>My Mini App</title>
+</head>
+<body>
+  <button id="connect-btn">Connect Wallet</button>
+  <button id="interact-btn" disabled>Interact (+100 MRT)</button>
+  <p id="balance">Balance: —</p>
+  <p id="status"></p>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
+```
+
+**app.js:**
+
+```javascript
+import { BrowserProvider, Contract, formatUnits } from 'https://esm.sh/ethers@6.13.4';
+
+const CONTRACT_ADDRESS = 'YOUR_CONTRACT_ADDRESS';
+const ABI = [
+  'function interact() external',
+  'function canInteract(address user) external view returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+];
+
+let provider, signer, account, contract;
+
+const connectBtn = document.getElementById('connect-btn');
+const interactBtn = document.getElementById('interact-btn');
+const balanceEl = document.getElementById('balance');
+const statusEl = document.getElementById('status');
+
+async function connectWallet() {
+  connectBtn.textContent = 'Connecting...';
+
+  let ethProvider = null;
+
+  // Try Farcaster embedded wallet first
+  try {
+    const { sdk } = await import('https://esm.sh/@farcaster/miniapp-sdk@0.2.3');
+    sdk.actions.ready().catch(() => {});
+    const fp = await Promise.race([
+      sdk.wallet.getEthereumProvider(),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 3000))
+    ]);
+    if (fp && typeof fp.request === 'function') ethProvider = fp;
+  } catch {}
+
+  // Fallback to MetaMask
+  if (!ethProvider) {
+    if (!window.ethereum) throw new Error('No wallet found. Install MetaMask.');
+    ethProvider = window.ethereum;
+  }
+
+  const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
+  provider = new BrowserProvider(ethProvider);
+  signer = await provider.getSigner(accounts[0]);
+  account = accounts[0];
+  contract = new Contract(CONTRACT_ADDRESS, ABI, signer);
+
+  connectBtn.textContent = 'Connected';
+  connectBtn.disabled = true;
+  interactBtn.disabled = false;
+
+  await refreshBalance();
+}
+
+async function refreshBalance() {
+  const raw = await contract.balanceOf(account);
+  balanceEl.textContent = `Balance: ${Number(formatUnits(raw, 18)).toLocaleString()} MRT`;
+}
+
+async function interact() {
+  interactBtn.disabled = true;
+  statusEl.textContent = 'Confirm in wallet...';
+  try {
+    const tx = await contract.interact();
+    statusEl.textContent = 'Waiting for confirmation...';
+    await tx.wait();
+    statusEl.textContent = 'Success! +100 MRT earned';
+    await refreshBalance();
+  } catch (err) {
+    statusEl.textContent = err.reason || err.message || 'Transaction failed';
+    interactBtn.disabled = false;
+  }
+}
+
+connectBtn.addEventListener('click', connectWallet);
+interactBtn.addEventListener('click', interact);
+```
+
+## Step 3: Configure Farcaster Manifest
+
+Create `.well-known/farcaster.json`:
+
+```json
+{
+  "accountAssociation": {
+    "header": "YOUR_HEADER",
+    "payload": "YOUR_PAYLOAD",
+    "signature": "YOUR_SIGNATURE"
+  },
+  "frame": {
+    "version": "1",
+    "name": "My Mini App",
+    "subtitle": "Interact and earn tokens",
+    "description": "A Base Mini App that rewards users with tokens",
+    "iconUrl": "https://YOUR_DOMAIN/icon.png",
+    "homeUrl": "https://YOUR_DOMAIN",
+    "imageUrl": "https://YOUR_DOMAIN/preview.png",
+    "splashImageUrl": "https://YOUR_DOMAIN/icon.png",
+    "splashBackgroundColor": "#000000",
+    "primaryCategory": "social",
+    "tagline": "Earn tokens on Base"
+  }
+}
+```
+
+To generate your `accountAssociation` values:
+1. Go to [https://farcaster.xyz/~/developers](https://farcaster.xyz/~/developers)
+2. Enter your domain
+3. Click **Generate account association** and scan the QR code with Warpcast
+4. Copy the values into your `farcaster.json`
+
+## Step 4: Deploy to Vercel
+
+1. Push your project to GitHub
+2. Import the repository on [Vercel](https://vercel.com) and deploy
+3. Copy your deployment URL
+
+## Step 5: Register on Base App
+
+1. Go to [https://base.dev/apps](https://base.dev/apps)
+2. Enter your Vercel URL
+3. Copy the provided `base:app_id`
+4. Update the `base:app_id` meta tag in `index.html`
+5. Redeploy and register
+
+## Complete Example
+
+For a full working implementation of this pattern, see the [BaseBookvsMovie Mini App](https://github.com/consumeobeydie/BaseBookvsMovie):
+
+- Users vote on 20 book vs film adaptations
+- Each vote earns 100 CSM tokens on Base mainnet
+- 1 vote per title per 24 hours enforced on-chain
+- **Live:** https://base-bookvs-movie.vercel.app
+- **Contract:** `0x407EacD1aAF2F46cC4079BFC4bef0c197A1FD6A8`
+
+## Summary
+
+You have learned how to:
+
+- Deploy a combined ERC-20 token and reward logic smart contract on Base
+- Build a Farcaster Mini App frontend with wallet support for Base App and MetaMask
+- Configure a Farcaster manifest and register on Base App
+- Deploy to Vercel with automatic CI/CD
+
+Users pay only the Base network gas fee — typically under $0.01 — to interact and receive token rewards instantly on-chain.
