@@ -1,0 +1,122 @@
+---
+title: Debugging and Testing AI Agents on Base MCP
+description: Test, debug, and monitor your Base MCP agents reliably using testnet, simulation, logging, and attribution tools.
+---
+
+## Overview
+
+Base MCP gives your AI agent powerful onchain capabilities. Use these testing and debugging practices to catch issues early, simulate safely, and verify production behavior.
+
+## Prerequisites
+
+- Base MCP connected (see [Quickstart](/agents/quickstart))
+- Testnet funds in your Base Account (Sepolia)
+- Builder Code registered for attribution testing
+
+## Local Testing Setup
+
+<Steps>
+  <Step>Use Base Sepolia testnet for all initial development.</Step>
+  <Step>Configure your MCP client with testnet policies and low spend limits.</Step>
+  <Step>Enable verbose logging in your agent framework or MCP client.</Step>
+</Steps>
+
+### Example: TypeScript Test Harness
+
+```ts
+// filename: test-agent.ts
+import { createMCPClient } from '@base/mcp-sdk';
+
+async function testAgentAction() {
+  const client = await createMCPClient({
+    serverUrl: 'https://mcp.base.org', // or testnet endpoint if available
+    builderCode: '0xYourTestBuilderCode',
+    policies: {
+      maxSpendPerTransaction: '1', // Very low on testnet
+      requireApproval: false, // For automated tests (use cautiously)
+    },
+    simulationMode: true, // If supported by SDK
+  });
+
+  try {
+    // Simulate first
+    const simulation = await client.simulate({
+      skill: 'swap',
+      params: {
+        fromToken: 'USDC',
+        toToken: 'ETH',
+        amount: '10',
+      }
+    });
+    console.log('Simulation result:', simulation);
+
+    // Then execute (on testnet)
+    const result = await client.execute({
+      skill: 'swap',
+      params: { /* ... */ }
+    });
+
+    console.log('Transaction hash:', result.txHash);
+    console.log('Builder Code attributed:', result.attributionSuccess);
+  } catch (error: any) {
+    console.error('Error type:', error.code || error.message);
+    // Common error handling examples here
+  }
+}
+
+testAgentAction();
+```
+
+**Verification Steps:**
+
+- Check simulation output for expected gas/reverts.
+
+- Confirm transaction on Basescan Sepolia with your Builder Code suffix.
+
+- Review agent logs for prompt → plan → execution trace.
+
+## Common Issues & Solutions
+
+- **Approval / Permission Errors**: Verify Base Account connection and spend guardrails.
+
+- **Skill Failures** (e.g., OpenSea): Check latest plugin params and use `web_request` fallback if needed.
+
+- **as Estimation Issues**: Add buffer or use `simulate` before `send_calls`.
+
+- **Attribution Missing**: Ensure Builder Code is passed on every call.
+
+- **Rate Limits / Timeouts**: Implement exponential backoff and circuit breakers.
+
+<Warning>
+Never disable approvals or use large limits on mainnet during testing.
+</Warning>
+
+<Tip>
+Combine MCP simulation with local agent frameworks (LangGraph, CrewAI, etc.) for end-to-end testing loops.
+</Tip>
+
+## Monitoring in Production
+
+- Use Base Dashboard for transaction history and attribution leaderboards.
+
+- Implement offchain logging (with privacy considerations).
+
+- Set up alerts for high-value actions or failures.
+
+- Track x402 payment successes/failures separately.
+
+<Note>
+Start every new skill integration with testnet + simulation before mainnet prompts.
+</Note>
+
+## Related Resources
+
+- [Base MCP Quickstart](/agents/quickstart)
+
+- [Available Skills](/agents/skills)
+
+- [Custom Plugins](/agents/plugins/custom-plugins)
+
+- [Builder Codes for Agent Developers](/apps/builder-codes/agent-developers)
+
+- [x402 Payments Guide](/agents/guides/x402-payments)
