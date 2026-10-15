@@ -29,37 +29,39 @@ Base Docs are community-managed. We welcome and encourage contributions from eve
 
 ## Local development
 
-Prerequisite: Node.js v19+.
+Prerequisite: Node.js 18.17+ (LTS recommended). Also tested with Node 20 and 22.
 
 1. Clone the repository.
-2. Install the Mint CLI to preview documentation changes locally:
+2. Install the Mintlify CLI to preview documentation changes locally:
 
 ```bash
-npm i -g mint
+npm i -g mintlify
 ```
 
-3. Preview locally (run from the `docs/` directory where `docs.json` lives):
+3. Preview locally (run from the `docs/` directory where your Mintlify config (`docs.json` or `mint.json`) lives):
 
 ```bash
 cd docs
-mint dev
+npx mintlify dev
 ```
 
-Alternatively, without a global install:
+Alternatively, without a global install (recommended to avoid global dependencies):
 
 ```bash
-npx mint dev
+npx mintlify dev
 ```
 
 ### Troubleshooting
 
-- Ensure Node.js v19+ is installed and that you run `mint dev` from the directory containing `docs.json` (usually `docs/`).
-- Local preview differs from production: run `mint update` to update the CLI.
+- Ensure Node.js 18.17+ is installed and that you run `npx mintlify dev` from the directory containing your Mintlify config (`docs.json` or `mint.json`) (usually `docs/`).
+- If local preview differs from production, run the latest CLI:
+  - `npx mintlify@latest dev` (no global install), or
+  - `npm i -g mintlify@latest` (to update a global install)
 
 ## How to contribute
 
 1. **Fork and branch**: Fork `base/docs` and create a descriptive branch for your change.
-2. **Edit content in `docs/`**: Follow the structure and style guidelines below. Preview locally with the Mint CLI.
+2. **Edit content in `docs/`**: Follow the structure and style guidelines below. Preview locally with the Mintlify CLI.
 3. **Open a pull request**: Provide a clear summary and links to related pages. The docs team and community will review.
 
 > Tip: Prefer small, focused PRs. Link related guides and references directly in your content.
