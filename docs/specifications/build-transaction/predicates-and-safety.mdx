@@ -10,6 +10,7 @@ Predicates are inclusion conditions. They do not guarantee inclusion or successf
 | Type | Parameters |
 | --- | --- |
 | `balance` | `address`, `op`, `value` |
+| `nonce` | `address`, `op`, `value` |
 | `storage` | `address`, `slot`, `op`, `value`, optional `mask` |
 | `block_number` | `op`, `value` |
 | `flashblock_index` | `op`, `value` |
@@ -20,7 +21,7 @@ The supported operators are `<`, `<=`, `=`, `!=`, `>`, and `>=`. Predicate value
 
 Base evaluates predicates against the state immediately before the transaction would execute. If any predicate is false, the transaction remains pending.
 
-An earlier transaction can change the balance or storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
+An earlier transaction can change the balance, nonce, or storage value that a pending transaction watches. The pending transaction can then become eligible in the same Flashblock.
 
 ## Balance Example
 
@@ -34,6 +35,23 @@ An earlier transaction can change the balance or storage value that a pending tr
   }
 }
 ```
+
+## Nonce Example
+
+```json Nonce predicate lines wrap expandable
+{
+  "type": "nonce",
+  "params": {
+    "address": "0x2222222222222222222222222222222222222222",
+    "op": ">=",
+    "value": "0x5"
+  }
+}
+```
+
+A `nonce` predicate compares the account's protocol nonce with `value`. It does not read [EIP-8130](/specifications/native-account-abstraction) channel nonces. If the account does not exist or was deleted, Base reads its nonce as `0`. The example requires a nonce of at least `5`. Use it to wait for an account's nonce to advance. It does not identify which earlier transaction advanced the nonce, or whether that transaction succeeded.
+
+A nonce mismatch does not expire the transaction, even after the nonce passes a `<`, `<=`, or `=` bound. Base checks the predicate again when the watched nonce changes. The required `block_number` upper bound limits the transaction's lifetime, and a `flashblock_index` upper bound can end it earlier within the last allowed block.
 
 ## Storage Example
 
