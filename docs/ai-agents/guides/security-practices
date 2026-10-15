@@ -1,0 +1,89 @@
+---
+title: Security Practices for Base MCP
+description: Protect your Base Account when giving AI agents access via MCP. Key rules, approval strategies, and plugin considerations.
+---
+
+# Security Practices for Base MCP
+
+Base MCP connects your [Base Account](/base-account) to AI assistants, enabling powerful onchain actions with explicit user approvals for every write. Follow these practices to minimize risk while building autonomous agents. [](grok_render_citation_card_json={"cardIds":["041841"]})
+
+## Core Principles
+
+- **Approve only what you understand**: Every transaction requires your explicit approval in the Base App/Base Account.
+- **Least privilege**: Grant minimal scopes/amounts needed for the task.
+- **Review before approving**: Always inspect calldata, values, and destinations.
+- **Monitor activity**: Use [view history](/ai-agents/guides/view-history) regularly.
+
+## Approval Strategies
+
+Use <Tabs> for alternatives:
+
+<Tabs>
+<Tab title="One-off Tasks">
+
+For single actions (e.g., a swap):
+
+- Approve exact amounts and destinations.
+- Avoid "unlimited" approvals.
+
+</Tab>
+<Tab title="Recurring / Agentic">
+
+For ongoing agents:
+
+- Set reasonable spending caps via allowances.
+- Use time-bound sessions where possible.
+- Implement agent-side safeguards (e.g., multi-factor confirmation prompts).
+
+</Tab>
+</Tabs>
+
+## Plugin Security
+
+- **Trusted plugins first**: Stick to official ones (Uniswap, Morpho, Moonwell, etc.) listed in the [plugins section](/ai-agents/plugins).
+- **Custom plugins**: When building your own (producing unsigned calldata for `send_calls`):
+  - Validate all inputs server-side if possible.
+  - Sanitize prompts to reduce injection risks.
+  - Include clear human-readable descriptions in the calldata/metadata.
+
+Example snippet for a safe custom plugin call (in your plugin code):
+
+```typescript
+// Example: Safe calldata generation with limits
+const safeCall = {
+  to: "0x...", // Target contract
+  value: "0", 
+  data: "0x...", // Encoded function data
+  // Include descriptive metadata for user approval
+};
+```
+
+## Prompt and Agent Design Tips
+
+- Be explicit in user prompts: "Check balance first, then propose swap of max 10 USDC with user confirmation."
+
+- Add agent guardrails: Rate limiting, value thresholds, allow/deny lists for addresses.
+
+- Test on Sepolia testnet before mainnet.
+
+- Never hardcode or expose private keys—rely on MCP's approval flow.
+
+## Common Pitfalls & Mitigations
+
+- **Over-approvals**: Revoke unnecessary ERC20 allowances via Base Account tools or explorers.
+
+- **Malicious plugins**: Only install from verified sources; review source if open.
+
+- **Phishing / Social engineering**: Verify MCP connection is to mcp.base.org.
+
+## Further Reading
+
+- [Quickstart](/ai-agents/quickstart)
+
+- [Batch Calls Guide](/ai-agents/guides/batch-calls)
+
+- [x402 Payments](/ai-agents/guides/x402-payments)
+
+- Base Account security docs
+
+> **Note**: Security is a shared responsibility. Report suspicious activity via official Base channels.
