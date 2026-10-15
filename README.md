@@ -164,3 +164,7 @@ The core team will review opened PRs. The SLA is 2 weeks, generally on a first-c
 ## Storybook for UI components
 
 See `storybook/README.md` for details on local Storybook and component docs.
+
+
+<!-- First open source contribution by @TurgayAcar49 -->
+<!-- Date: May 11, 2026 -->
