@@ -71,6 +71,17 @@ INTERMEDIATE_BLOCK_INTERVAL
 `BLOCK_INTERVAL` and `INTERMEDIATE_BLOCK_INTERVAL` must be non-zero, and `BLOCK_INTERVAL` must be
 divisible by `INTERMEDIATE_BLOCK_INTERVAL`.
 
+In `AggregateVerifier` version `0.3.0` and later, these two values are selected per game rather
+than fixed. The contract stores a slow pair (`SLOW_BLOCK_INTERVAL`,
+`SLOW_INTERMEDIATE_BLOCK_INTERVAL`) and a fast pair (`FAST_BLOCK_INTERVAL`,
+`FAST_INTERMEDIATE_BLOCK_INTERVAL`). `intervalsForStartingBlock(startingBlock)` returns the slow
+pair for games that start before the L2 block-time speedup activation in the `ProtocolVersions`
+schedule, and the fast pair for games that start at or after it. If the speedup is not scheduled,
+every game uses the slow pair. Both pairs must yield the same number of intermediate roots.
+Earlier versions expose one fixed pair through `BLOCK_INTERVAL()` and
+`INTERMEDIATE_BLOCK_INTERVAL()`. In this specification, `BLOCK_INTERVAL` and
+`INTERMEDIATE_BLOCK_INTERVAL` mean the pair that applies to the game.
+
 The number of intermediate roots in every game is:
 
 ```text Intermediate Root Count
