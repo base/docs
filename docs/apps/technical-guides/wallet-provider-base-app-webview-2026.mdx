@@ -1,0 +1,120 @@
+---
+title: "Wallet Provider in Base App WebView (2026)"
+description: "How to detect Base App in-app browser and fall back to injected EIP-1193 provider after the April 2026 update."
+---
+
+# Wallet Provider Migration: Base App WebView (2026)
+
+Base App's April 2026 update changed how mini-apps are launched: they now open
+in a standard WebView instead of a Farcaster mini-app host. This is a breaking
+change for any mini-app that uses `@farcaster/miniapp-sdk` for wallet access —
+`sdk.wallet.getEthereumProvider()` hangs indefinitely with no error or timeout.
+
+<Warning>
+  `sdk.isInMiniApp()` returns `false` in Base App WebView (post-April 2026).
+  Do not use `sdk.wallet.getEthereumProvider()` in this context — it will hang
+  indefinitely with no error.
+</Warning>
+
+## Detection Pattern
+
+Use `sdk.isInMiniApp()` to branch between the Farcaster embed context and the
+Base App WebView (or standard browser):
+
+```js
+import { sdk } from '@farcaster/miniapp-sdk';
+
+async function getProvider() {
+  const isRealMiniApp = await sdk.isInMiniApp();
+
+  if (isRealMiniApp) {
+    // True Farcaster embed (e.g. Warpcast) — use SDK wallet
+    return await sdk.wallet.getEthereumProvider();
+  }
+
+  // Base App WebView (post-April 2026) or standard browser —
+  // fall back to injected EIP-1193 provider
+  const injected =
+    window.ethereum?.providers?.find(p => p.isCoinbaseWallet) ??
+    window.coinbaseWalletExtension ??
+    window.ethereum;
+
+  if (!injected) {
+    throw new Error('No wallet provider found. Please open in Coinbase Wallet or Warpcast.');
+  }
+
+  return injected;
+}
+```
+
+## Why This Happens
+
+Base App (post-April 2026) opens mini-apps in a standard Android/iOS WebView.
+The Farcaster mini-app host is not present in this context, so:
+
+| Call | Result in Base App WebView |
+|---|---|
+| `sdk.isInMiniApp()` | `false` |
+| `sdk.actions.ready()` | Hangs — no host to respond |
+| `sdk.wallet.getEthereumProvider()` | Hangs indefinitely |
+| `window.ethereum` (injected) | ✅ Works correctly |
+
+The injected `window.ethereum` / `window.coinbaseWalletExtension` provider
+**is** available and works correctly for signing transactions.
+
+## Full Example with wagmi
+
+If you are using wagmi, configure the `injected()` connector alongside the
+Farcaster connector so it activates automatically in Base App WebView:
+
+```js
+import { createConfig, http } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { injected, coinbaseWallet } from 'wagmi/connectors';
+import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector';
+
+export const config = createConfig({
+  chains: [base],
+  connectors: [
+    farcasterMiniApp(),   // Used when sdk.isInMiniApp() === true
+    coinbaseWallet({ appName: 'My App' }),
+    injected(),           // Fallback for Base App WebView
+  ],
+  transports: {
+    [base.id]: http(),
+  },
+});
+```
+
+Then auto-connect based on context:
+
+```js
+import { sdk } from '@farcaster/miniapp-sdk';
+import { useConnect } from 'wagmi';
+
+export function useAutoConnect() {
+  const { connect, connectors } = useConnect();
+
+  useEffect(() => {
+    async function autoConnect() {
+      const isRealMiniApp = await sdk.isInMiniApp();
+
+      if (isRealMiniApp) {
+        const fc = connectors.find(c => c.id === 'farcasterMiniApp');
+        if (fc) connect({ connector: fc });
+      } else {
+        // Base App WebView or browser — use injected
+        const inj = connectors.find(c => c.id === 'injected');
+        if (inj) connect({ connector: inj });
+      }
+    }
+    autoConnect();
+  }, [connect, connectors]);
+}
+```
+
+## Related
+
+- [GitHub Issue #1420 — Docs request for this guide](https://github.com/base/docs/issues/1420)
+- [`@farcaster/miniapp-sdk` — isInMiniApp() reference](https://miniapps.farcaster.xyz/docs/sdk/actions/is-in-mini-app)
+- [Farcaster Mini App spec](https://miniapps.farcaster.xyz/)
