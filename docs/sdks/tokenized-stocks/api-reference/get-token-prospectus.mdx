@@ -1,0 +1,17 @@
+---
+title: "Get Token Prospectus"
+description: "Redirect to a tokenized stock's approved prospectus PDF."
+openapi: "openapi/tokenized-equities.json GET /v1/tokenized-stocks/prospectus/{ticker}"
+---
+
+## Example
+
+Use the token ticker, including its token suffix. Tickers are case-insensitive; the `.pdf` suffix is optional. Dotted share-class tickers such as `BRK.Bc` are supported.
+
+```bash cURL
+curl -L https://api.coinbase.com/v1/tokenized-stocks/prospectus/TSLAc.pdf --output TSLAc.pdf
+```
+
+The endpoint returns HTTP `302` with the approved prospectus PDF URL in the `Location` header. The `-L` flag follows the redirect to download the PDF. This endpoint does not return JSON.
+
+A malformed ticker returns HTTP `400`. A ticker with no available prospectus returns HTTP `404`. These errors have plain-text bodies. Use [List Cached Prospectuses](/sdks/tokenized-stocks/api-reference/list-cached-prospectuses) to discover available tickers.
