@@ -1,0 +1,26 @@
+---
+title: "Get Corporate Action"
+description: "Return a tokenized stock's announced or applied corporate action."
+openapi: "openapi/tokenized-equities.json GET /v1/tokenized-stocks/corporate-actions/{id}"
+---
+
+## Find the Action ID
+
+Use the UUID at the end of the `uri` emitted in the token contract's onchain `Announcement` event. Do not use the event's `id` argument: it can be numeric or include a suffix such as `:pre` or `-1`. Announcements without an addressable URI cannot be looked up through this endpoint.
+
+## Example
+
+This example retrieves a GOOGLc cash dividend.
+
+```bash cURL
+curl https://api.coinbase.com/v1/tokenized-stocks/corporate-actions/e82812a6-0b24-41c4-8ed1-322d1b466d33
+```
+
+The response is the corporate action object itself, without a `corporate_action` wrapper. It includes the token, description, status, first announcement time, and onchain announcement history in chronological order.
+
+- `CORPORATE_ACTION_STATUS_ANNOUNCED`: the action is announced but has not changed the token's multiplier.
+- `CORPORATE_ACTION_STATUS_APPLIED`: the multiplier update has been applied. Only then are `applied_at`, `multiplier_before`, and `multiplier_after` populated.
+
+Multiplier values are already normalized from their 18-decimal fixed-point scale. Announcement `block_number` values are decimal strings in JSON.
+
+A malformed UUID returns HTTP `400`; an unknown action or an action on a test/non-live token returns HTTP `404`. Temporarily unavailable or stale action data returns HTTP `503`. These errors use the JSON error format described in the [API overview](/sdks/tokenized-stocks/overview#errors).

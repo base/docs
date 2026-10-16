@@ -21,17 +21,19 @@
                         "name": "page_size",
                         "in": "query",
                         "required": false,
-                        "description": "The maximum number of records to return in one page. If omitted, the API uses its default page size.",
+                        "description": "The maximum number of records to return in one page. Defaults to 100 when omitted or zero. Values above 500 are capped at 500; negative values return HTTP 400.",
                         "schema": {
                             "type": "integer",
-                            "format": "int32"
+                            "format": "int32",
+                            "minimum": 0,
+                            "default": 100
                         }
                     },
                     {
                         "name": "page_token",
                         "in": "query",
                         "required": false,
-                        "description": "The `next_page_token` value from a previous response. Pass it to fetch the next page of records.",
+                        "description": "The `next_page_token` value from a previous response. Pass it to fetch the next page of records. Keep other request parameters unchanged between pages. A malformed cursor returns HTTP 400.",
                         "schema": {
                             "type": "string"
                         }
@@ -54,6 +56,34 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/rpcStatus"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid page_size or page_token. Negative page sizes and malformed values are rejected.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 3,
+                                    "message": "page_size must not be negative"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Data is temporarily unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 14,
+                                    "message": "data is temporarily unavailable"
                                 }
                             }
                         }
@@ -122,6 +152,34 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "The contract address is not a 20-byte hexadecimal address.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 3,
+                                    "message": "field 'contract_address' must be a 20-byte hex address"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The address is not a supported tokenized equity token.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 5,
+                                    "message": "contract_address \"0x0000000000000000000000000000000000000001\" is not a supported tokenized equity token"
+                                }
+                            }
+                        }
                     }
                 },
                 "parameters": [
@@ -140,6 +198,283 @@
                     "Tokenized Stocks"
                 ],
                 "description": "Returns the token's ERC-20 total supply, normalized by the token's decimals. This is a token-unit amount, not the number of underlying shares."
+            }
+        },
+        "/v1/tokenized-stocks/metadata/{ticker}": {
+            "get": {
+                "summary": "Get token metadata",
+                "operationId": "getTokenMetadata",
+                "description": "Returns a contractURI-compatible metadata document for a listed token. Image and prospectus URLs point to stable redirect endpoints on this API. A prospectus URL in metadata does not guarantee that a PDF is currently cached.",
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "parameters": [
+                    {
+                        "name": "ticker",
+                        "in": "path",
+                        "required": true,
+                        "description": "The token ticker symbol, including its token suffix. Lookup is case-insensitive.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "TSLAc"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Token metadata.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1GetTokenMetadataResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The ticker is not a listed tokenized stock.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 5,
+                                    "message": "ticker \"UNKNOWNC\" is not a listed tokenized equity token"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Data is temporarily unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 14,
+                                    "message": "data is temporarily unavailable"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tokenized-stocks/images/{symbol}": {
+            "get": {
+                "summary": "Get token icon",
+                "operationId": "getTokenIcon",
+                "description": "Redirects to the token icon. Symbols are case-insensitive and may end in .png. Use curl -L to download the image.",
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "parameters": [
+                    {
+                        "name": "symbol",
+                        "in": "path",
+                        "required": true,
+                        "description": "The token ticker symbol, optionally followed by .png.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "TSLAc.png"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to the current asset URL. Follow the Location header; the response is not a JSON document.",
+                        "headers": {
+                            "Location": {
+                                "description": "The HTTPS URL of the asset.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uri"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The symbol or ticker is not found.",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                },
+                                "example": "404 page not found\n"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Token data is temporarily unavailable.",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tokenized-stocks/prospectus/{ticker}": {
+            "get": {
+                "summary": "Get token prospectus",
+                "operationId": "getTokenProspectus",
+                "description": "Redirects to the approved prospectus PDF when it is available in the prospectus cache. Tickers are case-insensitive and may end in .pdf. Dotted share-class symbols such as BRK.Bc are supported. Use curl -L to download the PDF.",
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "parameters": [
+                    {
+                        "name": "ticker",
+                        "in": "path",
+                        "required": true,
+                        "description": "The token ticker symbol, optionally followed by .pdf.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "TSLAc.pdf"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to the current asset URL. Follow the Location header; the response is not a JSON document.",
+                        "headers": {
+                            "Location": {
+                                "description": "The HTTPS URL of the asset.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uri"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The ticker is malformed.",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                },
+                                "example": "invalid ticker\n"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The symbol or ticker is not found.",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                },
+                                "example": "404 page not found\n"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tokenized-stocks/prospectuses": {
+            "get": {
+                "summary": "List cached prospectuses",
+                "operationId": "listCachedProspectusTickers",
+                "description": "Lists cached prospectus tickers and their underlying ISINs when known. Does not return upstream PDF URLs. The cache refreshes in the background; an empty cache can produce a response without a prospectuses field.",
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Cached prospectuses.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1ListCachedProspectusTickersResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tokenized-stocks/corporate-actions/{id}": {
+            "get": {
+                "summary": "Get corporate action",
+                "operationId": "getCorporateAction",
+                "description": "Returns a corporate action for a live tokenized stock. Use the UUID at the end of the URI emitted in an onchain Announcement event, not the event id (which can carry a suffix). Applied-only fields are omitted until the multiplier update is applied.",
+                "tags": [
+                    "Tokenized Stocks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The corporate action UUID from the onchain announcement URI.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "e82812a6-0b24-41c4-8ed1-322d1b466d33"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The corporate action object, not a corporate_action wrapper.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1CorporateAction"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The id is not a corporate action UUID.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 3,
+                                    "message": "field 'id' must be a corporate action UUID"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The action is unknown or does not belong to a live token.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 5,
+                                    "message": "corporate action \"00000000-0000-4000-8000-000000000001\" was not found"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Data is temporarily unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/rpcStatus"
+                                },
+                                "example": {
+                                    "code": 14,
+                                    "message": "data is temporarily unavailable"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     },
@@ -304,10 +639,170 @@
                         "type": "string",
                         "format": "date-time",
                         "description": "The time at which `nav_price` was last updated onchain, per the Chainlink feed's `latestRoundData()` `updatedAt`. Chainlink only publishes a new round when the price moves past a deviation threshold or the heartbeat elapses, and feeds stop updating outside market hours, so this can lag wall-clock time by minutes to many hours. Apply staleness bounds before relying on `nav_price`."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "A human-readable description of the tokenized stock, based on its name and symbol."
+                    },
+                    "first_mint_date": {
+                        "type": "string",
+                        "description": "The UTC block timestamp of the first positive ERC-20 mint (Transfer from the zero address), not the contract deployment time. Omitted if never minted or not yet resolved. Later mints or burns do not change this date.",
+                        "format": "date-time"
                     }
                 },
-                "description": "A tokenized equity token available on Base."
+                "description": "A tokenized equity token available on Base. JSON responses omit default-valued scalar fields, empty arrays, and unset timestamps. For example, zero total_supply and an empty paused_features array can be absent. An absent NAV timestamp does not establish a fresh price; first_mint_date can also be unavailable while its background lookup is pending."
+            },
+            "v1GetTokenMetadataResponse": {
+                "type": "object",
+                "description": "A contractURI-compatible metadata document for a listed tokenized stock.",
+                "properties": {
+                    "contract_address": {
+                        "type": "string",
+                        "description": "The ERC-20 token contract address on Base."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the underlying equity."
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "description": "The token ticker symbol."
+                    },
+                    "image": {
+                        "type": "string",
+                        "description": "Stable API URL that redirects to the current token icon.",
+                        "format": "uri"
+                    },
+                    "prospectus_url": {
+                        "type": "string",
+                        "description": "Stable API URL that redirects to the approved prospectus when available. Use GET /v1/tokenized-stocks/prospectuses to discover cached prospectuses.",
+                        "format": "uri"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "The same human-readable tokenized-stock description returned in the token list."
+                    }
+                }
+            },
+            "v1CachedProspectus": {
+                "type": "object",
+                "description": "A ticker whose approved prospectus is cached.",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "The uppercase token ticker, including its token suffix, such as TSLAC."
+                    },
+                    "isin": {
+                        "type": "string",
+                        "description": "The underlying equity ISIN. Omitted when not yet known from cached metadata."
+                    }
+                }
+            },
+            "v1ListCachedProspectusTickersResponse": {
+                "type": "object",
+                "description": "The currently cached prospectuses, sorted alphabetically by ticker. This list does not contain upstream PDF URLs. The prospectuses field can be omitted when the cache is empty.",
+                "properties": {
+                    "prospectuses": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1CachedProspectus"
+                        }
+                    }
+                }
+            },
+            "v1CorporateActionAnnouncement": {
+                "type": "object",
+                "description": "One onchain announcement belonging to a corporate action.",
+                "properties": {
+                    "announcement_id": {
+                        "type": "string",
+                        "description": "The onchain Announcement event id. It may differ from the corporate action UUID, for example by a :pre or -1 suffix."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "The announcement description."
+                    },
+                    "tx_hash": {
+                        "type": "string",
+                        "description": "The transaction hash of the announcement."
+                    },
+                    "block_number": {
+                        "type": "string",
+                        "description": "The block number, serialized as a decimal string.",
+                        "format": "uint64"
+                    },
+                    "block_time": {
+                        "type": "string",
+                        "description": "The UTC block timestamp of the announcement.",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "v1CorporateAction": {
+                "type": "object",
+                "description": "A corporate action announced on a live tokenized equity token. Applied-only fields are omitted until the multiplier update is applied.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The UUID in the final segment of the onchain announcement URI.",
+                        "format": "uuid"
+                    },
+                    "uri": {
+                        "type": "string",
+                        "description": "The canonical public URI of this corporate action.",
+                        "format": "uri"
+                    },
+                    "contract_address": {
+                        "type": "string",
+                        "description": "The token contract address on Base."
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "description": "The token ticker symbol."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "The action description, such as Cash Dividend or Stock Split."
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Whether the action is announced or applied.",
+                        "enum": [
+                            "CORPORATE_ACTION_STATUS_UNSPECIFIED",
+                            "CORPORATE_ACTION_STATUS_ANNOUNCED",
+                            "CORPORATE_ACTION_STATUS_APPLIED"
+                        ]
+                    },
+                    "announced_at": {
+                        "type": "string",
+                        "description": "The time of the first onchain announcement.",
+                        "format": "date-time"
+                    },
+                    "applied_at": {
+                        "type": "string",
+                        "description": "The time of the multiplier-changing announcement. Omitted until applied.",
+                        "format": "date-time"
+                    },
+                    "multiplier_before": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "The multiplier before application, normalized from its 18-decimal fixed-point value. Omitted until applied."
+                    },
+                    "multiplier_after": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "The multiplier after application, normalized from its 18-decimal fixed-point value. Omitted until applied."
+                    },
+                    "announcements": {
+                        "type": "array",
+                        "description": "Onchain announcements, oldest first.",
+                        "items": {
+                            "$ref": "#/components/schemas/v1CorporateActionAnnouncement"
+                        }
+                    }
+                }
             }
         }
-    }
+    },
+    "security": []
 }

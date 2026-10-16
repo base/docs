@@ -6,8 +6,12 @@ openapi: "openapi/tokenized-equities.json GET /v1/tokenized-stocks/total-supply/
 
 ## Example
 
-Replace `CONTRACT_ADDRESS` with a token address from the [Base assets page](https://www.base.org/assets) or the [List Tokenized Stocks](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks) endpoint.
+This example uses AMDc. For other tokens, use an address returned by [List Tokenized Stocks](/sdks/tokenized-stocks/api-reference/list-tokenized-stocks).
 
 ```bash cURL
-curl https://api.coinbase.com/v1/tokenized-stocks/total-supply/CONTRACT_ADDRESS
+curl https://api.coinbase.com/v1/tokenized-stocks/total-supply/0xB2000000000000000000000d8Ce462E99ee7A47B
 ```
+
+The response is a JSON number, not an object with a `total_supply` property. It is normalized by the token's decimals, so do not divide it again.
+
+A malformed contract address returns HTTP `400` with service code `3`. A correctly formatted address that is not a supported tokenized equity token returns HTTP `404` with service code `5`.
