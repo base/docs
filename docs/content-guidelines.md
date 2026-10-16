@@ -92,6 +92,30 @@ description: "Concise description explaining page purpose and value"
 - Use **ParamField** for API parameters, **ResponseField** for API responses
 - Use **Expandable** for nested object properties or hierarchical information
 
+### Interactive Demos
+
+Mintlify inlines the full source of every imported JSX component into a page's Markdown export (`.md` URLs and `Accept: text/markdown`). An unwrapped demo adds tens of kilobytes of code that agents read but can't use.
+
+- Wrap every interactive demo component (for example, `PaymentsDemo` or `StablecoinDemo`) in `<Visibility for="humans">`
+- Put the `## Demo` heading and any callout that only describes the demo (such as a mock or Vibenet disclaimer) inside the same block
+- Keep content agents need, such as version notes, contract addresses, warnings, and Steps, outside the block
+- Wrap each use of the component, including a second inline demo later on the page; the source is only dropped when every use is inside a humans-only block
+- Leave a blank line after `<Visibility for="humans">` and before `</Visibility>` so the Markdown inside renders
+
+```mdx Title Interactive demo pattern
+<Visibility for="humans">
+
+## Demo
+
+<PaymentsDemo flow="authorize" />
+
+<Tip>
+The demo above is mock only.
+</Tip>
+
+</Visibility>
+```
+
 ---
 
 ## Specification Pages
