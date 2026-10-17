@@ -1,0 +1,35 @@
+# Docs PR review, stage 1 of 2: unprivileged trigger.
+#
+# This workflow exists only so that stage 2 (docs-pr-review.yml) can run on
+# `workflow_run`, which GitHub always executes from the DEFAULT BRANCH. Stage 2
+# is the only part that touches BaseRunnerGroup or any secret.
+#
+# Rules for this file -- read before editing:
+#   * It runs on `pull_request`, so GitHub executes the PR's copy of this file,
+#     including PRs from forks. Treat everything here as attacker-controlled.
+#   * It runs on GitHub-hosted `ubuntu-latest`, never on BaseRunnerGroup. The
+#     LLM Gateway does not accept traffic from GitHub-hosted runners, and this
+#     job has no secrets and no token permissions.
+#   * It does nothing except exist. Stage 2 reads the PR number and head SHA
+#     from the `workflow_run` event payload (set by GitHub, not by this job)
+#     and re-checks the PR through the API before doing anything.
+#   * The workflow `name:` below is how stage 2 finds this workflow. Changing it
+#     on a PR branch only stops stage 2 from running for that PR.
+
+name: Docs PR review trigger
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  trigger:
+    name: Docs PR Review / Trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Record event
+        run: echo "Stage 2 (docs-pr-review.yml) reviews this PR from the default branch if it qualifies."

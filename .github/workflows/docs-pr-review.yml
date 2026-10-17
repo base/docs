@@ -1,0 +1,206 @@
+# Docs PR review, stage 2 of 2: advisory AI review of documentation pull requests.
+#
+# Reviews writing quality and fit (is the change on a live page, next to the
+# right neighbors, consistent with them) and posts ONE summary comment plus
+# optional inline suggestions, and sets one `risk: <level>` label. It never
+# pushes, approves, requests changes, or merges, and touches no other label.
+# It is advisory: do not add it to branch protection.
+#
+# TRUST MODEL -- read before editing. Full write-up: SECURITY.md in
+# cb-pages/devrel-ai-cc/automations/base-docs-pr-reviewer.
+#
+#   * Trigger is `workflow_run` on stage 1 (docs-pr-review-trigger.yml), NOT
+#     `pull_request` or `pull_request_target`. GitHub always runs `workflow_run`
+#     from the DEFAULT BRANCH, so a pull request (including a fork PR) cannot
+#     change this file, remove its guards, or add steps to it. Stage 1 runs the
+#     PR's own YAML, but only on GitHub-hosted ubuntu-latest with no secrets
+#     and no token permissions.
+#   * Runner: BaseRunnerGroup, the Base org's provisioned github.com runner whose
+#     static IPs are allowlisted on the LLM Gateway by
+#     https://coinbase.ghe.com/infra/entry-gateway/pull/6123. Runner scope was
+#     approved in SPA-26751. Only this stage uses it; no pull_request
+#     workflow here does.
+#   * Only PRs from branches in this repository are reviewed. Fork PRs are
+#     rejected by the job `if:` (from the GitHub-set workflow_run payload) and
+#     again by the API check below.
+#   * The PR is re-read from the GitHub API before anything else runs: it must
+#     be open, not a draft, from this repository, at the same head SHA, and
+#     without the `skip-ai-review` label. Nothing from stage 1 is trusted.
+#   * The author must be an active member of an allowed team (TEAMS below),
+#     checked server-side against the GitHub API.
+#   * The checkout is the DEFAULT BRANCH, not the PR. The reviewer script,
+#     its dependencies, docs.json, llms-full.txt and the guidelines all come
+#     from reviewed code. PR files are fetched through the API as data and
+#     are never executed or installed.
+#   * Never interpolate ${{ github.event.* }} inside `run:`. Pass values
+#     through `env:`.
+#   * Token scopes: GITHUB_TOKEN gets contents:read + pull-requests:write only.
+#     DOCS_PR_REVIEW_MEMBERS_TOKEN is used for one API call (team membership)
+#     and needs org "Members: read" only.
+#   * Egress is blocked except for the hosts listed in harden-runner below.
+
+name: Docs PR review
+
+on:
+  workflow_run:
+    workflows: ["Docs PR review trigger"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  # A newer push supersedes an in-flight review of an older head.
+  group: docs-pr-review-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Docs PR Review / Advisory
+    # Every value here is set by GitHub, not by the PR. head_repository is the
+    # repository the PR branch lives in; pull_requests is empty for fork PRs.
+    if: >-
+      github.event.repository.fork == false &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0].number != '' &&
+      vars.DISABLE_DOCS_PR_REVIEW != 'true'
+    runs-on:
+      group: BaseRunnerGroup
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: block
+          # objects/release-assets.githubusercontent.com are only used if Node 22
+          # is not already in the runner's tool cache.
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            registry.npmjs.org:443
+            llm-gateway.coinbase-corp.com:443
+
+      - name: Re-check the pull request
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]{0,6}$ ]] || [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Unexpected PR number or head SHA; skipping."
+            exit 0
+          fi
+          pr=$(curl -sSf \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}")
+          verdict=$(jq -r --arg repo "$REPO" --arg sha "$HEAD_SHA" '
+            if .state != "open" then "PR is not open"
+            elif .draft then "PR is a draft"
+            elif .head.repo.full_name != $repo then "PR is from a fork"
+            elif .head.sha != $sha then "PR head moved; a newer run will review it"
+            elif any(.labels[]?; .name == "skip-ai-review") then "PR has the skip-ai-review label"
+            else "ok" end' <<<"$pr")
+          if [[ "$verdict" != "ok" ]]; then
+            echo "$verdict; skipping."
+            exit 0
+          fi
+          author=$(jq -r '.user.login // ""' <<<"$pr")
+          {
+            echo "ok=true"
+            echo "number=${PR_NUMBER}"
+            echo "head_sha=${HEAD_SHA}"
+            echo "author=${author}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check author is in an allowed team
+        id: authz
+        if: steps.pr.outputs.ok == 'true'
+        env:
+          ORG: base
+          TEAMS: "base-devrel base-eng"
+          AUTHOR: ${{ steps.pr.outputs.author }}
+          MEMBERS_TOKEN: ${{ secrets.DOCS_PR_REVIEW_MEMBERS_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "allowed=false" >> "$GITHUB_OUTPUT"
+          if [[ -z "${MEMBERS_TOKEN:-}" ]]; then
+            echo "::warning title=Docs review skipped::DOCS_PR_REVIEW_MEMBERS_TOKEN is not configured"
+            exit 0
+          fi
+          # GitHub logins: 1-39 chars of [A-Za-z0-9-], not starting with '-'.
+          # Anything else (including [bot] identities) is not reviewed.
+          if [[ ! "$AUTHOR" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$ ]]; then
+            echo "Author '${AUTHOR}' is not a user login; skipping."
+            exit 0
+          fi
+          for team in $TEAMS; do
+            state=$(curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${MEMBERS_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/orgs/${ORG}/teams/${team}/memberships/${AUTHOR}" \
+              | jq -r '.state // ""') || state=""
+            if [[ "$state" == "active" ]]; then
+              echo "allowed=true" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Author authorized::${AUTHOR} is an active member of ${ORG}/${team}"
+              exit 0
+            fi
+          done
+          echo "Author ${AUTHOR} is not in any of: ${TEAMS}. Skipping review."
+
+      - name: Checkout default branch (trusted code only)
+        if: steps.authz.outputs.allowed == 'true'
+        # Deliberately the default branch, never the PR head. See trust model above.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Node
+        if: steps.authz.outputs.allowed == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Install script dependencies
+        if: steps.authz.outputs.allowed == 'true'
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
+      - name: Review pull request
+        if: steps.authz.outputs.allowed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_GATEWAY_API_KEY: ${{ secrets.LLM_GATEWAY_API_KEY }}
+          # Model by risk level: low -> DOCS_PR_REVIEW_MODEL_LOW (default gpt-6-luna),
+          # everything else -> DOCS_PR_REVIEW_MODEL (default claude-sonnet-5-5).
+          CLAUDE_MODEL: ${{ vars.DOCS_PR_REVIEW_MODEL }}
+          DOCS_PR_REVIEW_MODEL_LOW: ${{ vars.DOCS_PR_REVIEW_MODEL_LOW }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: node scripts/docs-pr-review/index.mjs
+
+      - name: Write usage to the run summary
+        # Token usage goes to the job summary instead of an artifact, so the
+        # runner needs no artifact-storage hosts in its egress allowlist.
+        if: always() && steps.authz.outputs.allowed == 'true' && hashFiles('.docs-review-bench/*.jsonl') != ''
+        run: |
+          {
+            echo "### Docs review usage"
+            echo '```'
+            cat .docs-review-bench/*.jsonl
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
