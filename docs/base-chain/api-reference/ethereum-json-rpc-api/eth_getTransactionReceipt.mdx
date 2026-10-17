@@ -1,13 +1,15 @@
 ---
 title: 'eth_getTransactionReceipt'
 sidebarTitle: 'eth_getTransactionReceipt'
-description: 'Returns the receipt for a mined transaction. Receipts are only available after a transaction is included in a block.'
+description: 'Returns the receipt for a transaction. On Flashblocks endpoints, it also returns a pre-confirmed receipt once the transaction is in a Flashblock, before its block is sealed.'
 ---
 
-Returns the receipt for a transaction by its hash. Returns `null` for transactions that are pending or have not been mined.
+Returns the receipt for a transaction by its hash. Returns `null` for transactions that are not yet in a block or a Flashblock.
+
+**Flashblocks:** `https://mainnet.base.org` and `https://sepolia.base.org` return a pre-confirmed receipt as soon as the transaction is in a Flashblock, about 200ms after inclusion and before its block is sealed. A pre-confirmed receipt has a zero `blockHash`, and its `blockNumber` is the block still being built: `eth_getBlockByNumber` returns that block by number only once it is sealed (the `"pending"` tag returns it before). Fields such as `l1Fee` can differ from the sealed receipt, so read the receipt again after the block is sealed when you need final values.
 
 <Note>
-Receipts are only available for mined transactions. To monitor a transaction before it is sealed, use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to confirm it is in the mempool, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) to detect its pre-confirmation in a Flashblock.
+To follow a transaction before it reaches a Flashblock, use [`base_transactionStatus`](/base-chain/api-reference/flashblocks-api/base_transactionStatus) to confirm it is in the mempool, or subscribe to [`newFlashblockTransactions`](/base-chain/api-reference/flashblocks-api/newFlashblockTransactions) to detect its pre-confirmation in a Flashblock.
 </Note>
 
 ## Parameters
@@ -19,12 +21,12 @@ Receipts are only available for mined transactions. To monitor a transaction bef
 ## Returns
 
 <ResponseField name="result" type="object | null">
-  The transaction receipt object, or `null` if the transaction has not been mined.
+  The transaction receipt object, or `null` if the transaction is not yet in a block or a Flashblock.
 
   <Expandable title="Receipt Fields">
     <ResponseField name="transactionHash" type="string">32-byte transaction hash.</ResponseField>
     <ResponseField name="transactionIndex" type="string">Index of the transaction in the block (hex).</ResponseField>
-    <ResponseField name="blockHash" type="string">32-byte hash of the block containing this transaction.</ResponseField>
+    <ResponseField name="blockHash" type="string">32-byte hash of the block containing this transaction. Zero in a pre-confirmed receipt, before the block is sealed.</ResponseField>
     <ResponseField name="blockNumber" type="string">Block number (hex).</ResponseField>
     <ResponseField name="from" type="string">20-byte sender address.</ResponseField>
     <ResponseField name="to" type="string">20-byte recipient address. `null` for contract deployments.</ResponseField>
