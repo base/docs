@@ -1,0 +1,13 @@
+{
+  "changed_paths": [
+    "src/interfaces/IPolicyRegistry.sol"
+  ],
+  "diff": "diff --git a/src/interfaces/IPolicyRegistry.sol b/src/interfaces/IPolicyRegistry.sol\nindex 454fd84..3495b8b 100644\n--- a/src/interfaces/IPolicyRegistry.sol\n+++ b/src/interfaces/IPolicyRegistry.sol\n@@ -224,13 +224,16 @@ interface IPolicyRegistry {\n                          AUTHORIZATION QUERIES\n     //////////////////////////////////////////////////////////////*/\n \n-    /// @notice Returns whether `account` is authorized under `policyId`. Never reverts; unknown\n-    ///         or malformed IDs collapse to empty-member-set semantics (ALLOWLIST -> false,\n-    ///         BLOCKLIST -> true).\n+    /// @notice Returns whether `account` is authorized under `policyId`. Never reverts.\n     ///\n+    /// @dev A malformed ID returns false. The invert flag (bit 63) is cleared before the type\n+    ///      check, so an ID is malformed when the remaining top byte is outside `PolicyType`.\n+    /// @dev A well-formed but unknown ID is an empty set: ALLOWLIST and UNION return false;\n+    ///      BLOCKLIST and INTERSECT return true.\n     /// @dev Callers that store policy IDs MUST validate `policyExists(policyId)` at write time.\n     /// @dev Invert: `isAuthorized(invertedPolicyId(id), account)` returns the negated\n-    ///      result of the base. Applies to every policy type.\n+    ///      result of the base when that base exists. Applies to every policy type. An\n+    ///      inverted unknown or malformed base returns false.\n     ///\n     /// @param policyId Policy to query.\n     /// @param account  Account to check.\n",
+  "diff_truncated": false,
+  "kind": "code-change",
+  "pr_body": "## Summary\n- Document that `isAuthorized` returns false for a malformed policy ID, after clearing the invert flag.\n- Separate that from empty-set semantics for a well-formed unknown ID, and state that an inverted ID is negated only when the base exists.\n\n## Test plan\n- [ ] Confirm the NatSpec matches `MockPolicyRegistry._isAuthorized` for malformed, unknown, and inverted IDs.\n- [ ] `forge test -vv --match-test test_isAuthorized_success_invertUnknown`\n\n\nMade with [Cursor](https://cursor.com)",
+  "pr_number": "234",
+  "pr_title": "docs(policy): document malformed isAuthorized results",
+  "sha": "3820cf0d260a2d7b0fdd8f580ab4942fc7856fbb",
+  "source_repo": "base/base-std"
+}

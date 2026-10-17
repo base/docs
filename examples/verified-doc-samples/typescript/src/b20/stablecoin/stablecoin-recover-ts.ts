@@ -1,14 +1,15 @@
 // docs:start stablecoin-recover-ts
-import { parseUnits, type Address } from "viem";
+import { parseUnits, stringToHex, type Address } from "viem";
 import { publicClient } from "../../shared/clients.js";
-import { b20Abi } from "../abi.js";
+import { b20Abi, scope } from "../abi.js";
 import { sendContract } from "../write.js";
 
-export async function recoverBlockedFunds(token: Address, blocked: Address, replacement: Address) {
+export async function recoverBlockedFunds(token: Address, blocklistId: bigint, blocked: Address, treasury: Address) {
   const amount = parseUnits("50", 6);
-  await sendContract({ address: token, abi: b20Abi, functionName: "burnBlocked", args: [blocked, amount] });
-  await sendContract({ address: token, abi: b20Abi, functionName: "mint", args: [replacement, amount] });
-  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [replacement] });
-  if (balance < amount) throw new Error("Replacement balance was not issued");
+  const memo = stringToHex("legal-hold-2026-118", { size: 32 });
+  await sendContract({ address: token, abi: b20Abi, functionName: "updatePolicy", args: [scope("SEIZE_EXEMPT_POLICY"), blocklistId] });
+  await sendContract({ address: token, abi: b20Abi, functionName: "seizeWithMemo", args: [blocked, treasury, amount, memo] });
+  const balance = await publicClient.readContract({ address: token, abi: b20Abi, functionName: "balanceOf", args: [treasury] });
+  if (balance < amount) throw new Error("Seized balance did not reach the treasury");
 }
 // docs:end stablecoin-recover-ts

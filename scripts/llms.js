@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Generates docs/llms.txt and docs/llms-full.txt — the LLM-facing site indexes
+ * Generates docs/llms.txt and docs/llms-full.txt — the LLM-facing site files
  * defined by https://llmstxt.org.
  *
  * llms.txt        Navigation-aligned index. H1 = project name, blockquote
@@ -9,15 +9,17 @@
  *                 groups, and a single `## Optional` for skippable extras
  *                 (MCP server, skills, full-context pointer).
  *
- * llms-full.txt   Spec-aligned but with two regions:
- *                   - LLMS_EXTRAS markers wrap hand-written cross-cutting
- *                     guides (auth, networks, errors, etc.). The script reads
- *                     and re-emits this region verbatim.
- *                   - LLMS_AUTOGEN markers wrap the navigation page index.
- *                     Always regenerated from docs/docs.json.
- *                 First-run migration: if no markers are found in the existing
- *                 file, everything after the first blockquote is captured as
- *                 extras so hand-written content survives.
+ * llms-full.txt   The full Markdown content of every page in the public
+ *                 navigation, in navigation order, so an agent can load the
+ *                 whole site in one request. Each page uses Mintlify's
+ *                 llms-full.txt layout: `# Title`, `Source: <url>`, the
+ *                 description, then the page body. Bodies are cleaned outside
+ *                 code fences: frontmatter, ESM imports/exports, and MDX
+ *                 comments are removed; imported .mdx snippets are inlined;
+ *                 interactive .jsx demo components are dropped; root-relative
+ *                 links are made absolute. Mintlify components (Card, Note,
+ *                 Steps, ...) are kept, matching Mintlify's Markdown export.
+ *                 Pages with `hidden: true` or `noindex: true` are skipped.
  *
  * Usage: node scripts/llms.js
  */
@@ -45,14 +47,9 @@ const CONFIG = {
   projectTitle: 'Base Documentation',
   fullProjectTitle: 'Base Documentation — Full Context',
 
-  summary: "Build on Base — Coinbase's Ethereum L2. Smart Wallet, OnchainKit, MiniKit, Base Chain RPCs, and AI Agents. This index points AI assistants at the canonical page for each topic; follow the links for full context.",
+  summary: 'Base is the blockchain for global finance: an Ethereum L2 built by Coinbase, with stablecoins, payments, tokenized assets, and compliance controls as native chain primitives. This index points AI assistants at the canonical page for each topic across Get Started, Build on Base, Specifications, SDKs & APIs, and Upgrades; follow the links for full context.',
 
-  fullSummary: "Full context for AI agents working with Base. Cross-cutting concept guides (networks, auth, errors, rate limits) sit above an index of every page in the public documentation navigation. Follow page URLs for source content.",
-
-  extrasStartMarker: '<!-- LLMS_EXTRAS_START -->',
-  extrasEndMarker: '<!-- LLMS_EXTRAS_END -->',
-  autogenStartMarker: '<!-- LLMS_AUTOGEN_START -->',
-  autogenEndMarker: '<!-- LLMS_AUTOGEN_END -->',
+  fullSummary: 'Full context for AI agents building on Base, the blockchain for global finance: an Ethereum L2 built by Coinbase. This file contains the full Markdown content of every page in the public documentation navigation, in navigation order. For a lightweight index of the same pages, use https://docs.base.org/llms.txt.',
 };
 
 // ---------- Navigation discovery ----------
@@ -112,17 +109,13 @@ function renderNavigationTab(tab) {
   return [`## ${tab.title}`, ...children].join('\n\n');
 }
 
-function renderOptionalSection(includeFullPointer) {
-  const bullets = [
+function renderOptionalSection() {
+  return [
+    `## Optional`,
     `- [Base MCP server](${CONFIG.mcpUrl}): Direct AI access to Base documentation`,
     `- [Base skills](${CONFIG.skillsRepoUrl}): Installable agent skills (\`${CONFIG.skillsInstallCmd}\`)`,
-  ];
-  if (includeFullPointer) {
-    bullets.push(`- [Full context (llms-full.txt)](${CONFIG.docsUrl}/llms-full.txt): Same index plus cross-cutting concept guides`);
-  } else {
-    bullets.push(`- [Index (llms.txt)](${CONFIG.docsUrl}/llms.txt): Navigation index without the full-context extras`);
-  }
-  return [`## Optional`, ...bullets].join('\n');
+    `- [Full context (llms-full.txt)](${CONFIG.docsUrl}/llms-full.txt): Full Markdown content of every page`,
+  ].join('\n');
 }
 
 function renderLlmsTxt(tabs) {
@@ -132,64 +125,146 @@ function renderLlmsTxt(tabs) {
     `# ${CONFIG.projectTitle}`,
     `> ${CONFIG.summary}`,
     ...sectionBlocks,
-    renderOptionalSection(true),
+    renderOptionalSection(),
   ].join('\n\n') + '\n';
 }
 
-function renderAutogenBody(tabs) {
-  const sectionBlocks = tabs.map(renderNavigationTab);
-  return [...sectionBlocks, renderOptionalSection(false)].join('\n\n');
-}
+// ---------- llms-full.txt: page content ----------
 
-// ---------- llms-full.txt: extras preservation ----------
+const FENCE_RE = /^\s*(`{3,}|~{3,})/;
 
 /**
- * Returns the verbatim bytes between EXTRAS markers in the existing file.
- * If markers are missing, falls back to "everything after the first blockquote
- * and before the AUTOGEN region" so hand-written content survives the first run.
- * Returns '' if there's nothing to preserve.
+ * Splits markdown into alternating prose / fenced-code segments so cleanup
+ * never touches code samples. Returns [{ code: boolean, text: string }].
  */
-function extractExtras(existing) {
-  if (!existing) return '';
+function splitFences(markdown) {
+  const segments = [];
+  let current = [];
+  let fence = null;
 
-  const startIdx = existing.indexOf(CONFIG.extrasStartMarker);
-  const endIdx = existing.indexOf(CONFIG.extrasEndMarker);
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const inner = existing.slice(startIdx + CONFIG.extrasStartMarker.length, endIdx);
-    return inner.trim();
+  const flush = (code) => {
+    if (current.length) segments.push({ code, text: current.join('\n') });
+    current = [];
+  };
+
+  for (const line of markdown.split('\n')) {
+    const m = line.match(FENCE_RE);
+    if (!fence && m) {
+      flush(false);
+      fence = m[1];
+      current.push(line);
+    } else if (fence && m && m[1][0] === fence[0] && m[1].length >= fence.length && line.trim() === m[1]) {
+      current.push(line);
+      flush(true);
+      fence = null;
+    } else {
+      current.push(line);
+    }
   }
-
-  // Migration path: take everything after the first blockquote up to the
-  // AUTOGEN start marker (or EOF).
-  const blockquoteMatch = existing.match(/^>[^\n]*(\n>[^\n]*)*\n+/m);
-  if (!blockquoteMatch) return existing.trim();
-  const afterBlockquote = existing.slice(blockquoteMatch.index + blockquoteMatch[0].length);
-  const autogenIdx = afterBlockquote.indexOf(CONFIG.autogenStartMarker);
-  const sliced = autogenIdx === -1 ? afterBlockquote : afterBlockquote.slice(0, autogenIdx);
-  return sliced.trim();
+  flush(Boolean(fence));
+  return segments;
 }
 
-function renderLlmsFullTxt(existing, tabs) {
-  const extras = extractExtras(existing);
-  const autogenBody = renderAutogenBody(tabs);
+/** Applies fn to prose segments only; code fences pass through unchanged. */
+function mapProse(markdown, fn) {
+  return splitFences(markdown)
+    .map((seg) => (seg.code ? seg.text : fn(seg.text)))
+    .join('\n');
+}
 
-  const extrasBlock = [
-    CONFIG.extrasStartMarker,
-    extras || '<!-- Add hand-written cross-cutting guides here. This region is preserved on regeneration. -->',
-    CONFIG.extrasEndMarker,
-  ].join('\n\n');
+const IMPORT_RE = /^import\s+(?:(\w+)|\{([^}]*)\})\s+from\s+['"]([^'"]+)['"];?[ \t]*$/gm;
 
-  const autogenBlock = [
-    CONFIG.autogenStartMarker,
-    autogenBody,
-    CONFIG.autogenEndMarker,
-  ].join('\n\n');
+/** Collects ESM imports from prose: { name -> source path }. */
+function collectImports(markdown) {
+  const imports = {};
+  mapProse(markdown, (text) => {
+    for (const m of text.matchAll(IMPORT_RE)) {
+      const names = m[1] ? [m[1]] : m[2].split(',').map((n) => n.trim().split(/\s+as\s+/).pop()).filter(Boolean);
+      for (const name of names) imports[name] = m[3];
+    }
+    return text;
+  });
+  return imports;
+}
+
+/** Removes a self-closing `<Name ... />` tag (props may span lines), replacing it via fn. */
+function replaceSelfClosing(text, name, fn) {
+  const re = new RegExp(`<${name}(?:\\s(?:[^>]|=>)*?)?\\s*\\/>`, 'g');
+  return text.replace(re, fn);
+}
+
+function absolutizeLinks(text, docsUrl) {
+  return text
+    .replace(/\]\(\/(?!\/)/g, `](${docsUrl}/`)
+    .replace(/\b(href|src)=(["'])\/(?!\/)/g, `$1=$2${docsUrl}/`);
+}
+
+/**
+ * Cleans one MDX body for llms-full.txt. `loadSnippet(path)` returns the raw
+ * contents of an imported .mdx snippet (path as written in the import).
+ */
+function cleanMdxBody(body, { docsUrl, loadSnippet, seen = new Set() }) {
+  const imports = collectImports(body);
+
+  let out = mapProse(body, (text) => {
+    let t = text
+      .replace(IMPORT_RE, '')
+      .replace(/^export\s+const\s+[\s\S]*?^(?:\};?|\);?)[ \t]*$/gm, '')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+    for (const [name, source] of Object.entries(imports)) {
+      if (source.endsWith('.mdx') || source.endsWith('.md')) {
+        t = replaceSelfClosing(t, name, () => {
+          if (seen.has(source)) throw new Error(`Snippet import cycle: ${source}`);
+          const { body: snippetBody } = parseFrontmatter(loadSnippet(source));
+          const nested = new Set(seen).add(source);
+          return cleanMdxBody(snippetBody, { docsUrl, loadSnippet, seen: nested });
+        });
+      } else if (/\.(jsx|tsx|js|ts)$/.test(source)) {
+        t = replaceSelfClosing(t, name, () => '');
+      }
+    }
+    return absolutizeLinks(t, docsUrl);
+  });
+
+  return out.replace(/\n[ \t]*\n(?:[ \t]*\n)+/g, '\n\n').trim();
+}
+
+function loadSnippetFromDocs(source) {
+  const file = path.join(CONFIG.docsDir, source.replace(/^\//, ''));
+  if (!fs.existsSync(file)) throw new Error(`Imported snippet is missing: ${source}`);
+  return fs.readFileSync(file, 'utf8');
+}
+
+function renderPageFull(page) {
+  const file = resolvePageFile(CONFIG.docsDir, page);
+  if (!file) throw new Error(`Navigation references a missing page: ${page}`);
+  const { frontmatter, body } = parseFrontmatter(fs.readFileSync(file, 'utf8'));
+  if (frontmatter.hidden === true || frontmatter.noindex === true) return '';
+
+  const record = pageRecord(page);
+  const content = cleanMdxBody(body, {
+    docsUrl: CONFIG.docsUrl,
+    loadSnippet: loadSnippetFromDocs,
+  });
+
+  return [
+    `# ${record.title}`,
+    `Source: ${record.url}`,
+    record.description,
+    content,
+  ].filter(Boolean).join('\n\n');
+}
+
+function renderLlmsFullTxt(tabs) {
+  const pages = [...new Set(collectNavigationPages(tabs.flatMap((tab) => tab.nodes)))];
+  const sections = pages.map(renderPageFull).filter(Boolean);
 
   return [
     `# ${CONFIG.fullProjectTitle}`,
     `> ${CONFIG.fullSummary}`,
-    extrasBlock,
-    autogenBlock,
+    `Also available: the [Base MCP server](${CONFIG.mcpUrl}) for direct AI access to these docs, and [Base skills](${CONFIG.skillsRepoUrl}) (\`${CONFIG.skillsInstallCmd}\`).`,
+    ...sections,
   ].join('\n\n') + '\n';
 }
 
@@ -202,10 +277,7 @@ function generate() {
   const llms = renderLlmsTxt(tabs);
   fs.writeFileSync(CONFIG.llmsFile, llms);
 
-  const existingFull = fs.existsSync(CONFIG.llmsFullFile)
-    ? fs.readFileSync(CONFIG.llmsFullFile, 'utf8')
-    : '';
-  const llmsFull = renderLlmsFullTxt(existingFull, tabs);
+  const llmsFull = renderLlmsFullTxt(tabs);
   fs.writeFileSync(CONFIG.llmsFullFile, llmsFull);
 
   const sizeKb = (n) => (Buffer.byteLength(n, 'utf8') / 1024).toFixed(2);
@@ -217,4 +289,6 @@ function generate() {
   console.log(`Review changes with: git diff ${CONFIG.llmsFile} ${CONFIG.llmsFullFile}`);
 }
 
-generate();
+module.exports = { splitFences, cleanMdxBody, absolutizeLinks };
+
+if (require.main === module) generate();

@@ -1,0 +1,142 @@
+---
+title: "B20: Transfer Executor Policy Enforcement"
+description: "Denim enforces TRANSFER_EXECUTOR_POLICY on msg.sender for every transfer path, closing the transfer and self-transferFrom bypasses."
+---
+
+## Abstract
+
+[Denim](/upgrades/denim/overview) applies `TRANSFER_EXECUTOR_POLICY` to every transfer path. The
+executor gate now checks `msg.sender` on `transfer`, `transferFrom`, `transferWithMemo`, and
+`transferFromWithMemo`, including when `msg.sender == from`. Before Denim, the check ran only on
+the `transferFrom` paths, and only when `msg.sender != from`.
+
+This change is breaking for a token that already set a restrictive `TRANSFER_EXECUTOR_POLICY`:
+holders who moved their own tokens with `transfer` or self-`transferFrom` must now be authorized as
+initiators. A token that never set the policy keeps the unset always-allow default and is
+unaffected. The change adds no new selectors, events, errors, or storage.
+
+## Motivation
+
+An issuer of a restricted security token may require every transfer to go through a registered
+transfer agent. Holders approve the agent, and only the agent calls `transferFrom`.
+`TRANSFER_EXECUTOR_POLICY` is the initiator allowlist for that pattern, but before Denim it had two
+gaps:
+
+1. **`transfer` never consulted the executor policy.** A holder could always move their own tokens
+   through `transfer`, regardless of the allowlist.
+2. **`transferFrom` skipped the check when `msg.sender == from`.** A holder could call
+   `transferFrom(self, to, amount)` to reach the same unchecked path.
+
+Both gaps let a non-allowlisted holder move tokens by picking a different entrypoint. Denim brings
+`TRANSFER_EXECUTOR_POLICY` to parity with `TRANSFER_SENDER_POLICY` and `TRANSFER_RECEIVER_POLICY`,
+which already run on every transfer path.
+
+## What Changed
+
+### Transfer-Side Scopes
+
+All three transfer-side scopes now run inside the shared `_transfer` helper that backs `transfer`,
+`transferFrom`, and their memo variants:
+
+| Scope | Account checked | Before Denim | Denim |
+| --- | --- | --- | --- |
+| `TRANSFER_SENDER_POLICY` | `from` | Every transfer path | Every transfer path |
+| `TRANSFER_RECEIVER_POLICY` | `to` | Every transfer path | Every transfer path |
+| `TRANSFER_EXECUTOR_POLICY` | `msg.sender` | `transferFrom` paths, only when `msg.sender != from` | Every transfer path |
+
+All three scopes are still bypassed during the factory bootstrap window (`_isPrivileged()`), so a
+token's `initCalls` can move newly minted supply without pre-authorizing the factory.
+
+### Revert Order
+
+Pause, zero-actor, and allowance checks stay in the entrypoints. The executor check moves into
+`_transfer`, where it runs first, before the sender and receiver checks:
+
+| Function | Before Denim | Denim |
+| --- | --- | --- |
+| `transfer` / `transferWithMemo` | pause → zero-receiver → zero-sender → sender policy → receiver policy → balance | pause → invalid-receiver → zero-sender → **executor policy** → sender policy → receiver policy → balance |
+| `transferFrom` / `transferFromWithMemo` | pause → zero-receiver → zero-sender → allowance → executor policy (skipped if `msg.sender == from`) → sender policy → receiver policy → balance | pause → invalid-receiver → zero-sender → allowance → **executor policy** → sender policy → receiver policy → balance |
+
+At Denim, the invalid-receiver step also rejects the token's own address; see
+[Reject the Token Itself as a Credit Recipient](/base-chain/specs/reference/b20/changelog/03-denim-b20-token-receiver).
+When more than one check would fail, the caller sees the first revert in that order.
+
+### Gas
+
+`_transfer` reads all three transfer-side policy IDs from the existing packed slot in one `SLOAD`.
+On `transferFrom`, this removes the second (warm) read the entrypoint used to make.
+
+On `transfer`, the executor lookup is new. When `TRANSFER_EXECUTOR_POLICY` equals
+`TRANSFER_SENDER_POLICY` and `from == msg.sender` (including both slots unset, `ALWAYS_ALLOW_ID`),
+`_transfer` reuses the executor result and skips the sender `isAuthorized` call. A default
+`transfer` therefore still makes two `isAuthorized` calls.
+
+## Examples
+
+A holder moving their own tokens is now gated by the executor policy:
+
+```solidity Holder Transfer Blocked by Executor Policy
+token.updatePolicy(TRANSFER_EXECUTOR_POLICY, ALWAYS_BLOCK_ID);
+
+vm.prank(alice);
+token.transfer(bob, amount); // reverts PolicyForbids(TRANSFER_EXECUTOR_POLICY, ALWAYS_BLOCK_ID)
+```
+
+An executor allowlist restricts initiation to a transfer agent:
+
+```solidity Transfer Agent Allowlist lines expandable wrap highlight={6-7,9-10}
+address[] memory agents = new address[](1);
+agents[0] = transferAgent;
+uint64 executorAllowlist =
+    policyRegistry.createPolicyWithAccounts(admin, IPolicyRegistry.PolicyType.ALLOWLIST, agents);
+token.updatePolicy(TRANSFER_EXECUTOR_POLICY, executorAllowlist);
+
+vm.prank(transferAgent);
+token.transferFrom(alice, bob, amount); // succeeds: transferAgent is allowlisted
+
+vm.prank(alice);
+token.transfer(bob, amount); // reverts PolicyForbids(TRANSFER_EXECUTOR_POLICY, ...): alice is not allowlisted
+```
+
+The factory bootstrap bypass still applies. This sketch elides the `createB20` arguments:
+
+```solidity Bootstrap Bypass
+initCalls = [
+    abi.encodeCall(IB20.mint, (address(factory), amount)),
+    abi.encodeCall(IB20.updatePolicy, (TRANSFER_EXECUTOR_POLICY, ALWAYS_BLOCK_ID)),
+    abi.encodeCall(IB20.transfer, (to, amount))
+];
+factory.createB20(..., initCalls); // succeeds: bootstrap window bypasses the executor check
+```
+
+## Design Decisions and Alternatives Considered
+
+Denim centralizes the executor check in `_transfer`, on `msg.sender`, with no `msg.sender == from`
+carve-out. It is the smallest change that closes both gaps, adds no interface surface, and matches
+how the sender and receiver scopes are already enforced.
+
+### Fold Pause, Zero-Actor, and Allowance Into `_transfer`
+
+Allowance is specific to `transferFrom`. Folding it in would need a consume-allowance flag, and
+moving the zero-actor checks after allowance would change revert order.
+
+### Add a Separate Check to `transfer`
+
+Adding a matching check to `transfer` while keeping the `transferFrom` carve-out leaves the
+self-`transferFrom` bypass open and duplicates the check across two entrypoints.
+
+## Migration
+
+No action is needed for a token that never set `TRANSFER_EXECUTOR_POLICY`. The unset slot stays
+always-allow, and the bootstrap bypass is unchanged.
+
+For a token with a restrictive `TRANSFER_EXECUTOR_POLICY`:
+
+1. **Holders using `transfer`:** they must be authorized under `TRANSFER_EXECUTOR_POLICY`, directly
+   or through a policy they belong to, to keep moving their own tokens.
+2. **Holders using self-`transferFrom`:** the same authorization now applies to that path.
+3. **To keep allowing holder-initiated transfers:** add those holders, or a policy covering them, to
+   the executor allowlist before Denim activates.
+
+The [`TRANSFER_EXECUTOR_POLICY`](/specifications/b20/reference/interfaces/ib20/transfer-executor-policy)
+reference page describes the scope as it behaves before Denim activates.
