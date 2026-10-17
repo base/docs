@@ -2,51 +2,56 @@ export const AssetDemo = ({ flow }) => {
   // No imports allowed in Mintlify snippets: useState/useEffect/useRef are injected globally.
 
   // Mintlify snippets cannot import npm packages or sibling modules. Load the
-  // shared .txt engine and vendored AA client as Blob ES modules on first use.
+  // shared .txt engine and vendored AA client on first use and link them in one
+  // function body (the docs CSP blocks blob: scripts).
   const loadVibenetEngine = () => {
     if (window.__baseDocsVibenetEngineV3) return Promise.resolve(window.__baseDocsVibenetEngineV3);
     if (window.__baseDocsVibenetEnginePromiseV3) return window.__baseDocsVibenetEnginePromiseV3;
 
-    window.__baseDocsVibenetEnginePromiseV3 = new Promise((resolve, reject) => {
-      const onReady = () => {
-        cleanup();
-        resolve(window.__baseDocsVibenetEngineV3);
-      };
-      const cleanup = () => window.removeEventListener("base-docs-vibenet-engine:v3-ready", onReady);
-      window.addEventListener("base-docs-vibenet-engine:v3-ready", onReady, { once: true });
-
-      (async () => {
+    window.__baseDocsVibenetEnginePromiseV3 = (async () => {
+      try {
+        const fetchText = async (path) => {
+          const response = await fetch(path, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+          return response.text();
+        };
+        const [aaSource, engineSource] = await Promise.all([
+          fetchText("/static/aa.txt"),
+          fetchText("/static/vibenet-engine.txt?v=7"),
+        ]);
+        // docs.base.org's CSP blocks blob: scripts, so both modules are linked
+        // into one function body: the AA bundle's trailing export list becomes
+        // a returned object, and the engine's import from "./aa.txt" reads it.
+        const exportAt = aaSource.lastIndexOf("export{");
+        const exportEnd = aaSource.indexOf("}", exportAt);
+        if (exportAt === -1 || exportEnd === -1) throw new Error("Could not read the AA bundle exports");
+        const aaExports = aaSource
+          .slice(exportAt + 7, exportEnd)
+          .split(",")
+          .map((entry) => {
+            const [local, exported] = entry.trim().split(/\s+as\s+/);
+            return `${JSON.stringify(exported || local)}:${local}`;
+          })
+          .join(",");
+        const aaModule = `const __baseDocsAA=(()=>{${aaSource.slice(0, exportAt)}\nreturn{${aaExports}};})();`;
+        const importPattern = /import\s*\{([\s\S]*?)\}\s*from\s*"\.\/aa\.txt";/;
+        if (!importPattern.test(engineSource)) throw new Error("Could not connect the Vibenet engine to the AA bundle");
+        const engineBody = engineSource
+          .replace(importPattern, "const {$1} = __baseDocsAA;")
+          .replace(/^export default [^;]+;$/m, "")
+          .replace(/^export\s+(?=(async\s+)?(function|const|let|class)\b)/gm, "");
         try {
-          const fetchText = async (path) => {
-            const response = await fetch(path, { cache: "force-cache" });
-            if (!response.ok) throw new Error(`${path} returned ${response.status}`);
-            return response.text();
-          };
-          const moduleUrl = (source) => URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
-          const [aaSource, engineSource] = await Promise.all([
-            fetchText("/static/aa.txt"),
-            fetchText("/static/vibenet-engine.txt?v=3"),
-          ]);
-          const aaUrl = moduleUrl(aaSource);
-          const rewritten = engineSource.replace('"./aa.txt"', JSON.stringify(aaUrl));
-          if (rewritten === engineSource) throw new Error("Could not connect the Vibenet engine to the AA bundle");
-          const tag = document.createElement("script");
-          tag.type = "module";
-          tag.src = moduleUrl(rewritten);
-          tag.dataset.baseDocsVibenetEngine = "true";
-          tag.onerror = () => {
-            cleanup();
-            window.__baseDocsVibenetEnginePromiseV3 = null;
-            reject(new Error("Failed to evaluate the Vibenet engine"));
-          };
-          document.head.appendChild(tag);
+          new Function(`"use strict";\n${aaModule}\n${engineBody}`)();
         } catch (error) {
-          cleanup();
-          window.__baseDocsVibenetEnginePromiseV3 = null;
-          reject(error);
+          throw new Error(`Failed to evaluate the Vibenet engine: ${error?.message || error}`);
         }
-      })();
-    });
+        if (!window.__baseDocsVibenetEngineV3) throw new Error("Failed to evaluate the Vibenet engine");
+        return window.__baseDocsVibenetEngineV3;
+      } catch (error) {
+        window.__baseDocsVibenetEnginePromiseV3 = null;
+        throw error;
+      }
+    })();
     return window.__baseDocsVibenetEnginePromiseV3;
   };
 
@@ -172,21 +177,25 @@ export const AssetDemo = ({ flow }) => {
       ],
     },
     cancel: {
-      label: "Cancel", title: "Cancel shares from a blocked holder", readout: true,
-      erc20: "B20 exposes a dedicated burn path for a holder denied by the sender policy.",
+      label: "Seize", title: "Seize and cancel units from an ineligible holder", readout: true,
+      erc20: "B20 exposes a dedicated seize path with a Seized event; plain ERC-20 has no admin recovery path.",
       steps: [
         { stage: "Fund", action: "Set position",
           text: "Bob holds 100 EXM and is currently eligible.",
-          summary: [["Operation", "Mint"], ["Holder", "Bob"], ["Share amount", M("100 EXM")]],
+          summary: [["Operation", "Mint"], ["Holder", "Bob"], ["Unit amount", M("100 EXM")]],
           run: (s) => { s.balances.Bob = 100; return { entries: [ok("Transfer", "0x0 → Bob · 100 EXM")] }; } },
         { stage: "Block", action: "Block Bob",
-          text: "Remove Bob from the holder allowlist before cancellation.",
-          summary: [["Operation", "Block holder"], ["Holder", "Bob"], ["Policy", "Allowlist"], ["Status", "Denied"]],
-          run: (s) => { s.blocked = "Bob"; return { entries: [ok("updateAllowlist", "remove Bob"), err("PolicyForbids", "TRANSFER_SENDER · Bob")], caption: "Bob is denied by the token's sender policy." }; } },
+          text: "Remove Bob from the holder allowlist and mark him seizable.",
+          summary: [["Operation", "Block holder"], ["Holder", "Bob"], ["Policies", "Allowlist, Blocklist"], ["Status", "Denied"]],
+          run: (s) => { s.blocked = "Bob"; return { entries: [ok("updateAllowlist", "remove Bob"), ok("PolicyCreated", "BLOCKLIST · Bob"), ok("PolicyUpdated", "SEIZE_EXEMPT → blocklist"), err("PolicyForbids", "Transfer check passed: Bob was blocked by the sender policy.")], caption: "Bob is denied by the sender policy and no longer seize-exempt." }; } },
+        { stage: "Seize", action: "Seize 100",
+          text: "Move the units to the issuer's safekeeping account.",
+          summary: [["Operation", "Seize"], ["From", "Bob"], ["To", "Issuer"], ["Unit amount", M("100 EXM")], ["Memo", M("cancel-2026-07")]],
+          run: (s) => { s.balances.Bob = 0; s.balances.Issuer = (s.balances.Issuer || 0) + 100; return { entries: [ok("Transfer", "Bob → Issuer · 100 EXM"), ok("Memo", "cancel-2026-07"), ok("Seized", "Bob → Issuer · 100 EXM")], caption: "Total supply is unchanged; the units now sit with the issuer." }; } },
         { stage: "Cancel", action: "Cancel 100",
-          text: "Cancel the blocked shares; they do not move to the issuer.",
-          summary: [["Operation", "Burn blocked"], ["Holder", "Bob"], ["Share amount", M("100 EXM")]],
-          run: (s) => { s.balances.Bob = 0; return { entries: [ok("burnBlocked", "Bob · 100 EXM"), ok("Transfer", "Bob → 0x0 · 100 EXM")], caption: "The shares are burned, reducing total supply." }; } },
+          text: "Burn the seized units from the issuer's balance.",
+          summary: [["Operation", "Burn with memo"], ["From", "Issuer"], ["Unit amount", M("100 EXM")], ["Memo", M("cancel-2026-07")]],
+          run: (s) => { s.balances.Issuer = Math.max(0, (s.balances.Issuer || 0) - 100); return { entries: [ok("Transfer", "Issuer → 0x0 · 100 EXM"), ok("Memo", "cancel-2026-07")], caption: "The units are cancelled and total supply falls by 100." }; } },
       ],
     },
     dividend: {
@@ -210,11 +219,11 @@ export const AssetDemo = ({ flow }) => {
         { stage: "Load", action: "Load balances",
           text: "Alice holds 100 raw shares and Bob holds 50.",
           summary: [["Operation", "Load balances"], ["Multiplier", M("1.0 WAD")], ["Holders", "Alice, Bob"]],
-          run: (s) => { s.balances.Alice = 100; s.balances.Bob = 50; return { entries: [nfo("multiplier()", "1.0 WAD")], caption: "Raw balances and displayed balances currently match." }; } },
+          run: (s) => { s.balances.Alice = 100; s.balances.Bob = 50; return { entries: [nfo("uiMultiplier()", "1.0 WAD")], caption: "Raw balances and displayed balances currently match." }; } },
         { stage: "Split", action: "Run split",
-          text: "Apply the board-approved 2-for-1 split.",
-          summary: [["Operation", "2-for-1 split"], ["Multiplier", M("1.0 → 2.0 WAD")], ["Symbol", TOKEN], ["Network", NETWORK]],
-          run: (s) => { s.multiplier = 2; return { entries: [ok("MultiplierUpdated", "1.0 → 2.0 WAD"), nfo("scaledBalanceOf(Alice)", "200 EXM")], caption: "Displayed balances double while raw balances remain unchanged." }; } },
+          text: "Schedule the board-approved 2-for-1 split with updateUIMultiplier and let it take effect.",
+          summary: [["Operation", "updateUIMultiplier"], ["Multiplier", M("1.0 → 2.0 WAD")], ["Symbol", TOKEN], ["Network", NETWORK]],
+          run: (s) => { s.multiplier = 2; return { entries: [ok("UIMultiplierUpdated", "1.0 → 2.0 WAD"), nfo("balanceOfUI(Alice)", "200 EXM")], caption: "Displayed balances double at effectiveAt while raw balances remain unchanged." }; } },
       ],
     },
     pause: {
@@ -265,7 +274,7 @@ export const AssetDemo = ({ flow }) => {
         setLiveState(info.live ? "live" : "offline");
         if (info.live && info.genesisHash) {
           try {
-            const stored = JSON.parse(localStorage.getItem("base.docs.vibenet.account.v1") || "null");
+            const stored = JSON.parse(localStorage.getItem("base.docs.vibenet.account.v2") || "null");
             if (stored?.genesisHash === info.genesisHash && stored.address) setAccountAddress(stored.address);
           } catch {
             // The engine will replace corrupt or stale state on first use.
@@ -447,6 +456,9 @@ export const AssetDemo = ({ flow }) => {
       },
       async (engine, ctx, state) => {
         const tx = await engine.updateAllowlist({ id: ctx.policyId, allowed: false, accounts: [ctx.addresses.Bob] });
+        const blocklist = await engine.createPolicy({ kind: "blocklist", accounts: [ctx.addresses.Bob] });
+        ctx.blocklistId = blocklist.id;
+        const attached = await engine.attachPolicy({ token: ctx.token, scope: "SEIZE_EXEMPT_POLICY", id: blocklist.id });
         const rejected = await engine.expectRevert({
           from: ctx.addresses.Bob,
           token: ctx.token,
@@ -458,20 +470,35 @@ export const AssetDemo = ({ flow }) => {
         return {
           entries: [
             txOk(engine, "AllowlistUpdated", "remove Bob", tx),
-            err(rejected.name, "TRANSFER_SENDER · Bob · Vibenet eth_call"),
+            txOk(engine, "PolicyCreated", `#${blocklist.id} · BLOCKLIST`, blocklist),
+            txOk(engine, "PolicyUpdated", "SEIZE_EXEMPT → blocklist", attached),
+            err(rejected.name, "Transfer check passed: Bob was blocked by the sender policy."),
           ],
-          caption: "Bob is now denied by the sender policy.",
+          caption: "Bob is denied by the live sender policy and is no longer seize-exempt.",
         };
       },
       async (engine, ctx, state) => {
-        const tx = await engine.burnBlocked({ token: ctx.token, from: ctx.addresses.Bob, amount: engine.units(100) });
+        const tx = await engine.seize({ token: ctx.token, from: ctx.addresses.Bob, to: ctx.addresses.Issuer, amount: engine.units(100), memo: "cancel-2026-07" });
         await setBalance(engine, ctx, state, "Bob");
+        await setBalance(engine, ctx, state, "Issuer");
         return {
           entries: [
-            txOk(engine, "burnBlocked", "Bob · 100 EXM", tx),
-            txOk(engine, "Transfer", "Bob → 0x0 · 100 EXM", tx),
+            txOk(engine, "Transfer", "Bob → Issuer · 100 EXM", tx),
+            txOk(engine, "Memo", "cancel-2026-07", tx),
+            txOk(engine, "Seized", "Bob → Issuer · 100 EXM", tx),
           ],
-          caption: "Bob's balance and the Asset token's total supply both fell by 100.",
+          caption: "The units moved to the issuer on Vibenet. Total supply is unchanged.",
+        };
+      },
+      async (engine, ctx, state) => {
+        const tx = await engine.burn({ token: ctx.token, amount: engine.units(100), memo: "cancel-2026-07" });
+        await setBalance(engine, ctx, state, "Issuer");
+        return {
+          entries: [
+            txOk(engine, "Transfer", "Issuer → 0x0 · 100 EXM", tx),
+            txOk(engine, "Memo", "cancel-2026-07", tx),
+          ],
+          caption: "The seized units are cancelled and the Asset token's total supply fell by 100.",
         };
       },
     ],
@@ -528,24 +555,28 @@ export const AssetDemo = ({ flow }) => {
         return {
           entries: [
             txOk(engine, "B20Created", short(created.token), created),
-            nfo("multiplier()", `${state.multiplier}.0 WAD`, engine.explorerAddress(ctx.token)),
+            nfo("uiMultiplier()", `${state.multiplier}.0 WAD`, engine.explorerAddress(ctx.token)),
           ],
           caption: "Raw and displayed balances currently match.",
         };
       },
       async (engine, ctx, state) => {
-        const tx = await engine.updateMultiplier({ token: ctx.token, multiplier: 2n * 10n ** 18n });
+        // effectiveAt must be strictly in the future when the call lands. The margin covers a
+        // faucet top-up, the cross-tab send lock, or a slow RPC before inclusion.
+        const effectiveAt = (await engine.latestTimestamp()) + 15n;
+        const tx = await engine.updateUIMultiplier({ token: ctx.token, multiplier: 2n * 10n ** 18n, effectiveAt });
+        await engine.waitForTimestamp(effectiveAt);
         const [multiplier, displayed] = await Promise.all([
           engine.assetMultiplier(ctx.token),
-          engine.scaledBalanceOf(ctx.token, ctx.addresses.Alice),
+          engine.balanceOfUI(ctx.token, ctx.addresses.Alice),
         ]);
         state.multiplier = Number(multiplier / 10n ** 18n);
         return {
           entries: [
-            txOk(engine, "MultiplierUpdated", "1.0 → 2.0 WAD", tx),
-            nfo("scaledBalanceOf(Alice)", `${engine.displayUnits(displayed)} EXM`, engine.explorerAddress(ctx.token)),
+            txOk(engine, "UIMultiplierUpdated", "1.0 → 2.0 WAD", tx),
+            nfo("balanceOfUI(Alice)", `${engine.displayUnits(displayed)} EXM`, engine.explorerAddress(ctx.token)),
           ],
-          caption: "Displayed balances doubled while the raw balances stayed unchanged.",
+          caption: "Displayed balances doubled at effectiveAt while the raw balances stayed unchanged.",
         };
       },
     ],
@@ -606,7 +637,7 @@ export const AssetDemo = ({ flow }) => {
     const s = { balances: { ...sim.balances }, blocked: sim.blocked, multiplier: sim.multiplier, paused: sim.paused };
     const out = f.steps[stepIndex].run(s) || { entries: [] };
     setSim(s);
-    setResults((r) => [...r, out]);
+    setResults((r) => [...r, { ...out, at: Date.now() }]);
   };
   const runStep = async () => {
     if (done || busy || liveState === "probing") return;
@@ -624,19 +655,18 @@ export const AssetDemo = ({ flow }) => {
       const out = await LIVE_RUNNERS[active][stepIndex](engine, ctx, state);
       if (ctx.token) {
         try {
-          setAccountTokenBalance(engine.displayUnits(await engine.scaledBalanceOf(ctx.token, ctx.account)));
+          setAccountTokenBalance(engine.displayUnits(await engine.balanceOfUI(ctx.token, ctx.account)));
         } catch {
           setAccountTokenBalance(null);
         }
       }
       setSim(state);
-      setResults((current) => [...current, out || { entries: [] }]);
+      setResults((current) => [...current, { entries: [], ...out, at: Date.now() }]);
     } catch (error) {
       if (results.length === 0) {
         try {
-          // Prefer the engine's probe once the bundle is loaded: unlike the
-          // lightweight probe above, it also confirms a live EIP-8130 account
-          // implementation, which is what a Vibenet reset takes away.
+          // Prefer the engine's probe once the bundle is loaded: it re-reads
+          // the chain and B20 activations after the failed attempt.
           const latest = engine
             ? await engine.probeCapabilities("asset")
             : await probeVibenet();
@@ -671,17 +701,16 @@ export const AssetDemo = ({ flow }) => {
     setResults((r) => r.slice(0, -1));
   };
 
-  // ---- event log (flatten results + pending, deterministic timestamps) ----
+  // ---- event log (flatten results + pending, wall-clock timestamps) ----
   const pad = (n) => String(n).padStart(2, "0");
-  const ts = (n) => { const t = (42 * 60 + 11) + n; return `10:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)}`; };
+  const ts = (at) => { if (!at) return "--:--:--"; const d = new Date(at); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
   const logRows = [];
-  let sec = 0;
   results.forEach((res) => {
     (res.entries || []).forEach((e) => {
-      logRows.push({ t: ts(sec++), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
+      logRows.push({ t: ts(res.at), level: e.kind === "err" ? "ERROR" : e.kind === "info" ? "INFO" : "EVENT", name: e.name, detail: e.detail, kind: e.kind, href: e.href });
     });
   });
-  f.steps.slice(stepIndex).forEach((st) => { logRows.push({ t: ts(sec++), level: "PENDING", name: st.action, detail: "", kind: "pending" }); });
+  f.steps.slice(stepIndex).forEach((st) => { logRows.push({ t: ts(null), level: "PENDING", name: st.action, detail: "", kind: "pending" }); });
 
   const holders = Object.keys(sim.balances);
 
@@ -926,7 +955,7 @@ export const AssetDemo = ({ flow }) => {
                 {f.title} — {liveState === "live" ? "the write steps ran on Base Vibenet." : "the scripted offline fallback completed."}
               </div>
               <button className="wf-btn2" onClick={reset}>Run again</button>
-              <a className="wf-btn" href="/base-chain/network-information/b20-token-standard" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
+              <a className="wf-btn" href="/specifications/b20" style={{ textDecoration: "none", color: C.onBlue, marginTop: 8, display: "flex", boxSizing: "border-box" }}>See technical details →</a>
             </div>
           ) : (
             <div className="wf-anim" key={stepIndex}>
