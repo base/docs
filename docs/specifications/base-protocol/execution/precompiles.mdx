@@ -10,9 +10,9 @@ predefined addresses. They are similar to predeploys but are implemented as nati
 bytecode. Precompiles are used for computationally expensive operations, that would be cost prohibitive to implement
 in Solidity. Where possible predeploys are preferred, as precompiles must be implemented in every execution client.
 
-Base contains the [standard Ethereum precompiles](https://www.evm.codes/precompiled) as well as a small
-number of additional precompiles. The following table lists each of the additional precompiles. The system version
-indicates when the precompile was introduced.
+Base contains the [standard Ethereum precompiles](https://www.evm.codes/precompiled) as well as Base-specific precompiles. The table below
+lists P256VERIFY, including its introduction version and current gas cost. B20's singleton precompiles are documented
+separately in the B20 section.
 
 | Name       | Address                                    | Introduced | Gas Cost |
 |------------| ------------------------------------------ |------------|----------|
@@ -40,3 +40,21 @@ The [Azul hardfork](/upgrades/azul/exec-engine) introduced changes to two standa
 - **[EIP-7883](https://eips.ethereum.org/EIPS/eip-7883)** — minimum gas cost raised from 200 to 500; the general cost formula is tripled.
 
 These changes apply from the Azul activation timestamp and match Ethereum L1 behavior.
+
+## B20
+
+B20 is Base's native token standard for programmable assets. Its shared token logic runs as precompiles in the Base node
+rather than as per-token Solidity code. B20 assets expose an ERC-20-compatible interface with additional roles, policies,
+and supply controls.
+
+Each B20 asset has its own address, created through the Factory; the addresses below are shared system entry points,
+not token addresses.
+
+| Precompile | Address | Purpose |
+|---|---|---|
+| Factory (`B20_FACTORY_ADDRESS`) | `0xB20f000000000000000000000000000000000000` | Creates and looks up B20 tokens. |
+| Policy Registry (`POLICY_REGISTRY_ADDRESS`) | `0x8453000000000000000000000000000000000002` | Stores policies and answers authorization checks for B20 policy scopes. |
+| Activation Registry (`ACTIVATION_REGISTRY_ADDRESS`) | `0x8453000000000000000000000000000000000001` | Controls which B20 variants or features are active on a given chain. |
+
+For an overview of B20's design and capabilities, see the [B20 introduction](/specifications/b20/introduction). See
+[B20 constants](/specifications/b20/reference/constants#precompile-addresses) for the canonical address list.

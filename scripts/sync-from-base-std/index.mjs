@@ -22,8 +22,8 @@
  * Env:
  *   LLM_GATEWAY_API_KEY   required when any "claude" transformer fires
  *   DRY_RUN=1             optional — don't write files, just log
- *   CLAUDE_MODEL          optional — defaults to claude-sonnet-4-6
- *   CLAUDE_MAX_TOKENS     optional — defaults to 4096
+ *   CLAUDE_MODEL          optional — defaults to claude-sonnet-5-5
+ *   CLAUDE_MAX_TOKENS     optional — defaults to 16384
  *   LLM_GATEWAY_BASE_URL  optional — overrides the LLM gateway origin
  *   GUIDELINE_ROUTING     optional — "propose" (default) surfaces a guideline-
  *                         derived placement for unrouted source files in the
@@ -79,6 +79,13 @@ import {
   firstHeading,
   decideCall,
   changedLines,
+  isCommentOnlyChange,
+  natspecDocumentedSymbols,
+  manifestChangesSignatures,
+  restoreCodeSamples,
+  normalizeForNoop,
+  newestChangelogFork,
+  symbolRouteGate,
 } from "./release-utils.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -303,7 +310,10 @@ export async function routeCodeChange(routeTable, changedPaths, options = {}) {
   // deletion implies shows up in the diffs of the files that still exist.
   // Routing it used to hand the model an all-minus diff and an invitation to
   // write "the source file has been removed" banners on live pages.
-  const removed = new Set(options.removedPaths || []);
+  // A file renamed with no content change (trusted `unchanged_renames`) is a
+  // pure move: its docs pages already describe it, and its diff is a rename
+  // header with no hunks. Skip it the same way.
+  const removed = new Set([...(options.removedPaths || []), ...(options.unchangedRenames || [])]);
   const work = new Map(); // page → {transformer, sourceFiles[], kinds[]}
   for (const filePath of changedPaths || []) {
     if (removed.has(filePath)) continue;
@@ -341,16 +351,23 @@ export async function routeCodeChange(routeTable, changedPaths, options = {}) {
  *   unrouted  — no rule matched; surfaced in the PR/issue body so a human
  *               can add a rule instead of the file being dropped silently
  *   removed   — deleted in the source commit (trusted `removed_paths`)
+ *   moved     — renamed with no content change (trusted `unchanged_renames`);
+ *               never routed, listed so a reviewer sees why nothing changed
  * Pure function over the route table; no filesystem access.
  *
- * @returns {{routed: string[], ignored: string[], unrouted: string[], removed: string[]}}
+ * @returns {{routed: string[], ignored: string[], unrouted: string[], removed: string[], moved: string[]}}
  */
-export function classifyChangedPaths(routeTable, changedPaths, { removedPaths = [] } = {}) {
+export function classifyChangedPaths(routeTable, changedPaths, { removedPaths = [], unchangedRenames = [] } = {}) {
   const removedSet = new Set(removedPaths);
-  const out = { routed: [], ignored: [], unrouted: [], removed: [] };
+  const movedSet = new Set(unchangedRenames);
+  const out = { routed: [], ignored: [], unrouted: [], removed: [], moved: [] };
   for (const filePath of uniq(changedPaths || [])) {
     if (removedSet.has(filePath)) {
       out.removed.push(filePath);
+      continue;
+    }
+    if (movedSet.has(filePath)) {
+      out.moved.push(filePath);
       continue;
     }
     const rules = (routeTable.code_changes || []).filter((r) => ruleMatches(r, filePath));
@@ -757,6 +774,17 @@ export function routingReportRows({ classification, proposals = [], source, sha 
     );
     rows.push("");
     for (const f of removed) rows.push(`- \`${f}\``);
+  }
+  const moved = classification?.moved || [];
+  if (moved.length > 0) {
+    rows.push("");
+    rows.push("## Moved source files");
+    rows.push("");
+    rows.push(
+      "Renamed in the source commit with no content change, so no docs page was edited for them. Each still routes by its new path the next time its content changes.",
+    );
+    rows.push("");
+    for (const f of moved) rows.push(`- ${link(f)}`);
   }
   if (rows.length > 0) rows.push("");
   return rows;
@@ -1542,6 +1570,7 @@ async function processPage(item, shared, useGroups) {
           source_entry: sourceEntry,
           source_entry_path: sourceEntry ? entrySource : undefined,
           create,
+          comment_only: !!shared.commentOnly,
         };
       }
       const prompt = buildClaudePrompt(kind, ctx);
@@ -1558,7 +1587,18 @@ async function processPage(item, shared, useGroups) {
         console.error(`[reject] ${item.page}: ${reason}`);
         return { page: item.page, status: "rejected", reason };
       }
-      const out = stripAuthorAttribution(completion.text);
+      let out = stripAuthorAttribution(completion.text);
+
+      // Guides: code samples cannot need changing unless a signature did.
+      if (pageRole === "guide" && kind === "code-change" && !manifestChangesSignatures(shared.manifest)) {
+        const guard = restoreCodeSamples(current, out);
+        if (guard.restored > 0) {
+          console.warn(`[guard] ${item.page}: restored ${guard.restored} code sample(s) the model changed; no signature changed upstream`);
+          out = guard.content;
+        } else if (guard.mismatched) {
+          console.warn(`[guard] ${item.page}: model added or removed a code block; left for review`);
+        }
+      }
 
       const err = validateMdx(out, item.page, knownRoutes, {
         current,
@@ -1584,9 +1624,8 @@ async function processPage(item, shared, useGroups) {
     //      whitespace and any stale sync-source comment), AND
     //   2. No release version bump happened, AND
     //   3. The page on main HAS NO stale sync-source comment to clean up.
-    const trimTrailing = (s) => s.replace(/\s+$/, "");
     const currentClean = stripProv(current);
-    const semanticEqual = trimTrailing(next) === trimTrailing(currentClean);
+    const semanticEqual = normalizeForNoop(next) === normalizeForNoop(currentClean);
     const currentHasStaleProvenance = current !== currentClean;
     if (semanticEqual && bumpCount === 0 && !currentHasStaleProvenance) {
       console.log(
@@ -1754,6 +1793,8 @@ async function main() {
 
   // Per-file diff sections so each page only sees the hunks that routed it.
   const diffByFile = splitDiffByFile(typeof payload.diff === "string" ? payload.diff : "");
+  // Set for code-change dispatches whose source diff only edits comments.
+  let commentOnly = false;
 
   let work = [];
   // What the route table did not handle (code-change only). Rendered into the
@@ -1768,9 +1809,12 @@ async function main() {
     const removedPaths = Array.isArray(payload.removed_paths)
       ? payload.removed_paths.filter((x) => typeof x === "string" && x.length <= 512).slice(0, 200)
       : [];
-    console.log(`[sync] changed_paths: ${changed.length}${removedPaths.length ? ` (removed upstream: ${removedPaths.length})` : ""}`);
-    work = await routeCodeChange(route, changed, { removedPaths });
-    classification = classifyChangedPaths(route, changed, { removedPaths });
+    const unchangedRenames = Array.isArray(payload.unchanged_renames)
+      ? payload.unchanged_renames.filter((x) => typeof x === "string" && x.length <= 512).slice(0, 200)
+      : [];
+    console.log(`[sync] changed_paths: ${changed.length}${removedPaths.length ? ` (removed upstream: ${removedPaths.length})` : ""}${unchangedRenames.length ? ` (moved unchanged: ${unchangedRenames.length})` : ""}`);
+    work = await routeCodeChange(route, changed, { removedPaths, unchangedRenames });
+    classification = classifyChangedPaths(route, changed, { removedPaths, unchangedRenames });
     for (const [label, list] of Object.entries(classification)) {
       if (label === "routed" || list.length === 0) continue;
       console.log(`[routing] ${label} (${list.length}): ${list.slice(0, 20).join(", ")}${list.length > 20 ? ", …" : ""}`);
@@ -1817,6 +1861,11 @@ async function main() {
       if (content != null) pageContents.set(rel, content);
     }
 
+    const layout = changelogLayout(route);
+    commentOnly = isCommentOnlyChange(diffByFile);
+    if (commentOnly) {
+      console.log("[symbols] source diff changes only comments/NatSpec: a clarification, routed to reference pages only");
+    }
     const symbols = routingSymbols(manifest);
     if (symbols.length === 0) {
       console.log("[symbols] no routing symbols (no manifest); path routing only");
@@ -1824,6 +1873,18 @@ async function main() {
       console.log(`[symbols] ${symbols.length} routing symbol(s): ${symbols.slice(0, 30).join(", ")}${symbols.length > 30 ? ", …" : ""}`);
       const pages = [...pageContents].map(([p, content]) => ({ path: p, content }));
       const mentions = findSymbolMentions(pages, symbols);
+      // Gate pages found only by mention. Path-routed pages are explicit
+      // route-table decisions and are never dropped here.
+      const pathRouted = new Set(work.map((w) => w.page));
+      const newestFork = newestChangelogFork([...pageContents.keys()], layout.entryDir);
+      for (const page of [...mentions.keys()]) {
+        if (pathRouted.has(page)) continue;
+        const why = symbolRouteGate(page, { role: pageRoleFor(page, layout), commentOnly, newestFork });
+        if (why) {
+          mentions.delete(page);
+          console.log(`[symbols] not routing ${page} — ${why}`);
+        }
+      }
       const before = work.length;
       work = mergeSymbolRoutes(work, mentions, manifest);
       console.log(`[symbols] ${mentions.size} page(s) mention a routing symbol; ${work.length - before} added beyond path routing`);
@@ -1832,9 +1893,20 @@ async function main() {
       if (!w.reasons) w.reasons = (w.sourceFiles || []).map((sf) => `path:${sf}`);
     }
 
+    // Members whose NatSpec the diff edits. The hunk often ends above the
+    // declaration, so read the post-change file to find it. Without a token
+    // this is empty and the old diff/manifest test applies unchanged.
+    const documented = [];
+    for (const [file, section] of diffByFile) {
+      if (!file.startsWith("src/") || !file.endsWith(".sol")) continue;
+      if (!changedLines(section).split("\n").some((l) => /^[+-]\s*(\/\/|\/\*|\*)/.test(l))) continue;
+      const full = await fetchSourceFile(sourceRepo(payload), sha, file);
+      if (full) documented.push(...natspecDocumentedSymbols(section, full));
+    }
+    if (documented.length) console.log(`[symbols] NatSpec edited for: ${[...new Set(documented)].join(", ")}`);
+
     // One decision per page, made here and logged with the work list:
     // does this page need a model call at all?
-    const layout = changelogLayout(route);
     for (const w of work) {
       const content = pageContents.get(w.page);
       if (content == null) continue; // missing pages are handled (created or skipped) in processPage
@@ -1843,7 +1915,7 @@ async function main() {
       const diffSlice = changedLines(
         (w.sourceFiles || []).filter((sf) => !sf.startsWith("test/")).map((sf) => diffByFile.get(sf) || "").join("\n"),
       );
-      w.skip = decideCall({ role: pageRoleFor(w.page, layout), content, diffSlice, manifest, symbols });
+      w.skip = decideCall({ role: pageRoleFor(w.page, layout), content, diffSlice, manifest, symbols, documented });
     }
     const modelBound = work.filter((w) => !w.skip);
     if (modelBound.length > CODE_CHANGE_MAX_PAGES) {
@@ -1949,6 +2021,7 @@ async function main() {
     knownRoutes,
     route,
     diffByFile,
+    commentOnly,
     layout: changelogLayout(route),
     snippetComponents: await listSnippetComponents(),
   };

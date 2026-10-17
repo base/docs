@@ -787,10 +787,16 @@ jobs:
         # from client_payload — and let the script skip them for routing.
         # A rename counts its previous name as removed.
         #
-        # Best-effort: an API failure leaves removed_paths empty and logs a
+        # A rename with zero content changes (status `renamed`, `changes == 0`)
+        # also lists its new name under `unchanged_renames`: a pure move
+        # carries nothing to sync, so the script skips it for routing. Without
+        # this, a folder move such as base-std#240 (docs/ -> docs/b20/) would
+        # hand the model a header-only diff for every B20 page.
+        #
+        # Best-effort: an API failure leaves both lists empty and logs a
         # warning rather than failing a sync whose content is otherwise fine.
         # Runs for every non-release dispatch so the payload's own
-        # removed_paths, if any, is always overwritten.
+        # removed_paths / unchanged_renames, if any, are always overwritten.
         if: env.PAYLOAD_KIND != 'release'
         env:
           SOURCE_REPO: ${{ env.PAYLOAD_SOURCE_REPO }}
@@ -803,9 +809,9 @@ jobs:
           set -euo pipefail
 
           if [[ -z "${SHA:-}" ]]; then
-            jq '.removed_paths = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+            jq '.removed_paths = [] | .unchanged_renames = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
             mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
-            echo "No sha in payload; removed_paths cleared."
+            echo "No sha in payload; removed_paths and unchanged_renames cleared."
             exit 0
           fi
 
@@ -817,12 +823,12 @@ jobs:
             "https://api.github.com/repos/${SOURCE_REPO}/commits/${SHA}") || code="000"
           if [[ "$code" != "200" ]]; then
             echo "::warning title=Removed paths unavailable::reading commit ${SHA:0:7} on ${SOURCE_REPO} failed (HTTP ${code}); deletions will route like edits this run"
-            jq '.removed_paths = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+            jq '.removed_paths = [] | .unchanged_renames = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
             mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
             exit 0
           fi
           jq -e '(.files // []) | all(.[]; (.filename | type == "string"))' "$commit" >/dev/null \
-            || { echo "::warning title=Removed paths unavailable::commit ${SHA:0:7} returned malformed file metadata"; jq '.removed_paths = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"; mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"; exit 0; }
+            || { echo "::warning title=Removed paths unavailable::commit ${SHA:0:7} returned malformed file metadata"; jq '.removed_paths = [] | .unchanged_renames = []' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"; mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"; exit 0; }
           jq --argjson cap "$MAX_REMOVED_PATHS" --argjson bytes "$MAX_REMOVED_PATH_BYTES" '
             [ .files[]?
               | select(.status == "removed" or .status == "renamed")
@@ -830,10 +836,18 @@ jobs:
               | select(type == "string" and length > 0 and length <= $bytes)
             ] | unique | .[0:$cap]
           ' "$commit" > "$RUNNER_TEMP/trusted-removed-paths.json"
+          jq --argjson cap "$MAX_REMOVED_PATHS" --argjson bytes "$MAX_REMOVED_PATH_BYTES" '
+            [ .files[]?
+              | select(.status == "renamed" and ((.changes // 1) == 0))
+              | .filename
+              | select(type == "string" and length > 0 and length <= $bytes)
+            ] | unique | .[0:$cap]
+          ' "$commit" > "$RUNNER_TEMP/trusted-unchanged-renames.json"
           jq --slurpfile removed "$RUNNER_TEMP/trusted-removed-paths.json" \
-            '.removed_paths = $removed[0]' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
+             --slurpfile moved "$RUNNER_TEMP/trusted-unchanged-renames.json" \
+            '.removed_paths = $removed[0] | .unchanged_renames = $moved[0]' "$PAYLOAD_PATH" > "$PAYLOAD_PATH.tmp"
           mv "$PAYLOAD_PATH.tmp" "$PAYLOAD_PATH"
-          echo "::notice title=Trusted removed paths derived::sha=${SHA:0:7} removed_paths=$(jq length "$RUNNER_TEMP/trusted-removed-paths.json")"
+          echo "::notice title=Trusted removed paths derived::sha=${SHA:0:7} removed_paths=$(jq length "$RUNNER_TEMP/trusted-removed-paths.json") unchanged_renames=$(jq length "$RUNNER_TEMP/trusted-unchanged-renames.json")"
 
       - name: Derive trusted release routing inputs
         # client_payload.changed_paths is attacker-controlled JSON. For a
@@ -1097,7 +1111,14 @@ jobs:
 
       - name: Commit branch
         id: commit
+        # Commits through the GitHub API instead of `git commit && git push`.
+        # `master` requires verified signatures, and GitHub signs commits
+        # created by GraphQL createCommitOnBranch (attributed to
+        # github-actions[bot]). Same GITHUB_TOKEN and contents: write as the
+        # previous push; no signing keys, new secrets, or third-party actions.
+        # See scripts/lib/signed-commit.mjs.
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ steps.sync.outputs.branch }}
           TOUCHED_PATHS: ${{ steps.sync.outputs.touched_paths }}
           TOUCHED_COUNT: ${{ steps.sync.outputs.touched_count }}
@@ -1119,10 +1140,6 @@ jobs:
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git checkout -B "$BRANCH"
           # Structural guard. The route-table is the routing decision;
           # this is the last-mile check that fails closed if the script
           # (or a future LLM regression) ever emits a path outside the
@@ -1168,8 +1185,11 @@ jobs:
               commit_msg="docs: sync from base-std@${short_sha:-unknown}"
               ;;
           esac
-          git commit -m "$commit_msg"
-          git push -f origin "$BRANCH"
+          # Resets $BRANCH to HEAD (the API equivalent of `git checkout -B` +
+          # `push -f`) and commits the staged change set. The script re-checks
+          # every path against the allowlist above and accepts only regular
+          # 100644 files.
+          node scripts/lib/signed-commit.mjs --branch "$BRANCH" --message "$commit_msg"
           echo "no_changes=false" >> "$GITHUB_OUTPUT"
           # Annotation surfaces in the run summary — same primitive Mintlify
           # uses (core.notice). Keep it terse, the next step's notice covers
