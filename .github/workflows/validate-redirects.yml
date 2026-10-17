@@ -1,0 +1,34 @@
+name: Validate redirects
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "scripts/validate-redirects.js"
+      - "scripts/validate-redirects.test.js"
+      - ".github/workflows/validate-redirects.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Test redirect validator
+        run: node --test scripts/validate-redirects.test.js
+
+      - name: Reject newly broken redirects
+        env:
+          DOCS_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/validate-redirects.js --base-ref "$DOCS_BASE_REF"
