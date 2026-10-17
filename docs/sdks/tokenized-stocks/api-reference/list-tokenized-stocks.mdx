@@ -9,3 +9,15 @@ openapi: "openapi/tokenized-equities.json GET /v1/tokenized-stocks"
 ```bash cURL
 curl https://api.coinbase.com/v1/tokenized-stocks
 ```
+
+## Pagination
+
+The default page size is `100` when `page_size` is omitted or `0`. Values above `500` are capped at `500`. Negative page sizes and malformed page sizes or cursors return HTTP `400`.
+
+Pass the response's `next_page_token` as `page_token` to retrieve the next page, keeping other parameters unchanged. Continue until `next_page_token` is omitted. Tokens are ordered by contract address.
+
+## Response Fields
+
+The token schema includes `description` and `first_mint_date`. The first-mint date is the UTC block timestamp of the token's first positive mint, not its deployment time. It can be absent if never minted or not yet resolved.
+
+Default-valued scalar fields, empty arrays, and unset timestamps can be omitted. For example, a zero supply may be absent from the list. Check the [response field guidance](/sdks/tokenized-stocks/overview#interpreting-response-fields) before interpreting missing supply or NAV data.

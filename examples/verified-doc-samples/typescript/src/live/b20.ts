@@ -14,7 +14,8 @@ import { payWithMemo } from "../b20/stablecoin/stablecoin-memo-ts.js";
 import { createStockToken } from "../b20/stock/stock-create-ts.js";
 import { issueShares } from "../b20/stock/stock-issue-ts.js";
 import { restrictStockHolders } from "../b20/stock/stock-restrict-ts.js";
-import { cancelBlockedShares } from "../b20/stock/stock-cancel-ts.js";
+import { seizeAndCancelUnits } from "../b20/stock/stock-seize-ts.js";
+import { restrictTransferInitiators } from "../b20/stock/stock-executor-ts.js";
 import { announceStockDividend } from "../b20/stock/stock-dividend-ts.js";
 import { scheduleTwoForOneSplit } from "../b20/stock/stock-split-ts.js";
 import { setStockTransfersPaused } from "../b20/stock/stock-pause-ts.js";
@@ -38,8 +39,8 @@ async function createBlocklist(token: Address) {
   return created.args.policyId;
 }
 
-async function grantStablecoinRoles(token: Address) {
-  for (const name of ["BURN_ROLE", "BURN_BLOCKED_ROLE", "PAUSE_ROLE", "UNPAUSE_ROLE"]) {
+async function grantRoles(token: Address, names: string[]) {
+  for (const name of names) {
     await sendContract({
       address: token,
       abi: b20Abi,
@@ -51,24 +52,26 @@ async function grantStablecoinRoles(token: Address) {
 
 async function main() {
   const stablecoin = (process.env.STABLECOIN_ADDRESS as Address | undefined) ?? await createStablecoin();
-  await grantStablecoinRoles(stablecoin);
+  await grantRoles(stablecoin, ["BURN_ROLE", "SEIZE_ROLE", "PAUSE_ROLE", "UNPAUSE_ROLE"]);
   await mintAndVerify(stablecoin, account.address);
   await mintAndVerify(stablecoin, holder);
   await burnAndVerify(stablecoin);
   await createHolderAllowlist(stablecoin, [account.address, holder]);
   const stableBlocklist = await createBlocklist(stablecoin);
   await setBlocked(stableBlocklist, holder, true);
-  await recoverBlockedFunds(stablecoin, holder, account.address);
+  await recoverBlockedFunds(stablecoin, stableBlocklist, holder, account.address);
   await setTransfersPaused(stablecoin, true);
   await setTransfersPaused(stablecoin, false);
   const memo = await payWithMemo(stablecoin, holder);
 
   const stock = (process.env.STOCK_ADDRESS as Address | undefined) ?? await createStockToken();
+  await grantRoles(stock, ["BURN_ROLE", "SEIZE_ROLE"]);
   await issueShares(stock, [account.address, holder]);
   await restrictStockHolders(stock, [account.address, holder]);
   const stockBlocklist = await createBlocklist(stock);
   await setBlocked(stockBlocklist, holder, true);
-  await cancelBlockedShares(stock, holder);
+  await seizeAndCancelUnits(stock, stockBlocklist, holder);
+  await restrictTransferInitiators(stock, account.address);
   await announceStockDividend(stock, [account.address, holder]);
   await scheduleTwoForOneSplit(stock);
   await setStockTransfersPaused(stock, true);
