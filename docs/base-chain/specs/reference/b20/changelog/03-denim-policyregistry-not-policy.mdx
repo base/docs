@@ -54,7 +54,7 @@ function invertedPolicyId(uint64 policyId) external view returns (uint64);
 | Symbol | Selector | Status | Behavior |
 | --- | --- | --- | --- |
 | `invertedPolicyId(uint64)` | `0x6b468933` | New view | Toggles bit 63 (`policyId ^ INVERTED_POLICY_BIT`). Never reverts, reads no state, and is involutive. |
-| `isAuthorized(uint64,address)` | Unchanged | Extended | An inverted ID resolves the base and returns the negated result. Fail-closed on an unknown or malformed base. |
+| `isAuthorized(uint64,address)` | Unchanged | Extended | An inverted ID resolves the base and returns the negated result when the base exists. An inverted unknown or malformed base returns `false`. |
 | `policyExists(uint64)` | Unchanged | Extended | Strips to base: `policyExists(invertedPolicyId(id)) == policyExists(id)`. |
 | `policyAdmin(uint64)` | Unchanged | Extended | Strips to base. |
 | `pendingPolicyAdmin(uint64)` | Unchanged | Extended | Strips to base. |
@@ -69,7 +69,8 @@ function invertedPolicyId(uint64 policyId) external view returns (uint64);
 
 #### Authorization
 
-`isAuthorized` gains a leading invert branch. All non-inverted paths are unchanged.
+`isAuthorized` gains a leading invert branch. All non-inverted paths are unchanged. `isAuthorized`
+never reverts.
 
 ```text Authorization Evaluation lines expandable wrap highlight={2-6}
 isAuthorized(policyId, account):
@@ -83,7 +84,16 @@ isAuthorized(policyId, account):
 ```
 
 Inverting a composite negates the composite's combined result. An inverted ID over a never-created
-base returns `false`; it never becomes allow-everyone.
+or malformed base returns `false`; it never becomes allow-everyone.
+
+The following table shows how `isAuthorized` resolves each kind of ID.
+
+| ID | Result |
+| --- | --- |
+| Malformed | `false`. The invert flag (bit 63) is cleared before the type check, so an ID is malformed when the remaining top byte is outside `PolicyType`. |
+| Well-formed but unknown | Treated as an empty set: `ALLOWLIST` and `UNION` return `false`; `BLOCKLIST` and `INTERSECT` return `true`. |
+| Inverted, base exists | The negated result of the base. |
+| Inverted, base unknown or malformed | `false`. |
 
 #### Getters Strip to Base
 
@@ -162,6 +172,8 @@ composites are unaffected. To adopt:
    it treats the ID as an opaque `uint64`.
 3. Consumers that store policy IDs must still validate `policyExists(policyId)` at write time. This
    works for inverted IDs because existence resolves to the base.
+4. Do not rely on an inverted ID to allow an unknown or malformed base. `isAuthorized` returns
+   `false` for it, and returns `false` for any malformed ID.
 
 For the current interface, see the
 [IPolicyRegistry reference](/specifications/b20/reference/interfaces/i-policy-registry/index).

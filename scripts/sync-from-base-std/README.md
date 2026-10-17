@@ -28,6 +28,7 @@ bucket, logged as `[routing]` and reported in the PR body (or an issue):
 | ignored | matched only a `kind: "ignored"` rule | nothing; deliberately unsynced (upstream README, authoring templates) |
 | unrouted | matched no rule | listed under **Unrouted source files** with a guideline-derived placement proposal |
 | removed | deleted in the source commit (`removed_paths`) | never routed; listed under **Removed source files** |
+| moved | renamed with no content change (`unchanged_renames`) | never routed; listed under **Moved source files** |
 
 `removed_paths` is derived by the workflow from the commit API for the verified
 sha, never from the dispatcher's payload. A deleted documentation file carries
@@ -37,6 +38,28 @@ deletion used to hand the model an all-minus diff and produced "the source file
 has been removed" banners on reference pages (base/docs#1928); the validator now
 rejects callouts that describe repository housekeeping (`validateCallouts` in
 `safety.mjs`).
+
+`unchanged_renames` comes from the same commit API call: the new name of every
+file GitHub reports as `renamed` with zero changes. A pure move carries nothing
+to sync, so a folder move like base-std#240 does not send every B20 page to the
+model with a header-only diff. A rename that also edits content still routes by
+its new path.
+
+### Feature folders in base-std
+
+base-std is the Base Standard Library: one `docs/<feature>/` folder per Base
+standard (base-std#240). Only B20 is mapped today:
+
+| base-std source | Base Docs target |
+|---|---|
+| `docs/b20/**` | the B20 specification under `docs/specifications/b20/` and the Build on Base task pages each rule names |
+| `changelog/NN_<Hardfork>_<Product>_<feature>.md` where Product is `B20*`, `PolicyRegistry`, or `ActivationRegistry` | its own entry page under `docs/base-chain/specs/reference/b20/changelog/`, plus a row on the B20 changelog summary |
+| any other `docs/<feature>/` folder or changelog product (e.g. BaseTime) | unrouted: listed in the PR or issue body until a rule maps it |
+
+To onboard a new feature, add `product-doc` rules for its `docs/<feature>/`
+files pointing at the Base Docs pages that own it, and widen the changelog
+entry `source_pattern` (or add a second `changelog-entry` rule with its own
+`page_template`).
 
 ### Placement proposals from the IA guidelines
 
@@ -89,9 +112,12 @@ LLM_GATEWAY_API_KEY=... \
   --payload scripts/sync-from-base-std/fixtures/code-change-ib20.json
 ```
 
-`fixtures/code-change-docs-restructure.json` is the real file list from
-base-std@be6d045 with its `removed_paths`; run it the same way to exercise the
-docs-tree routes and the placement pass (set `RUNNER_TEMP` to see the routing
+`fixtures/code-change-docs-b20-move.json` is the real file list from
+base-std#240 (docs moved under `docs/b20/`) with its `removed_paths` and
+`unchanged_renames`; the routing tests use it. `fixtures/code-change-docs-restructure.json`
+is the older base-std@be6d045 file list (pre-#240 paths, so its docs files are
+now unrouted); run either the same way to exercise the docs-tree routes and the
+placement pass (set `RUNNER_TEMP` to see the routing
 report written as `sync-review.md`).
 
 Configuration knobs are optional positive numbers:
@@ -100,6 +126,10 @@ Configuration knobs are optional positive numbers:
 - `RELEASE_PAGE_CONCURRENCY` (default `4`)
 - `CLAUDE_MAX_TOKENS` and `CLAUDE_MODEL`
 - The bounded release manifest/selection settings documented in `index.mjs`
+
+Before changing prompts, routing, or the route table, run the evals with and
+without your change (`eval/run-eval.mjs --runs 3`, then `--code-ref master`)
+and compare. See the script header for options.
 
 ## Source PR attribution
 
@@ -119,3 +149,23 @@ anything malformed are dropped silently.
 The review request is best-effort. It returns HTTP 422 when the author lacks
 read access to this repo, and the workflow logs a warning instead of failing.
 A review request grants no permission and cannot satisfy required approvals.
+
+## Signed commits
+
+`master` requires verified commit signatures, so the workflow does not run
+`git commit`/`git push`. After the path allowlist check and `git add`, the
+"Commit branch" step runs `scripts/lib/signed-commit.mjs`, which:
+
+1. Reads the staged change set from the index and re-checks every path
+   against the same allowlist. Only regular `100644` adds, modifications, and
+   deletions are accepted (no symlinks, executables, mode changes, or
+   submodules).
+2. Resets `refs/heads/<branch>` to the checked-out `HEAD`, creating the ref
+   if needed (the API equivalent of `git checkout -B` plus `push -f`).
+3. Creates the commit with GraphQL `createCommitOnBranch`, pinned to that
+   `HEAD` with `expectedHeadOid`. GitHub signs commits created this way and
+   attributes them to `github-actions[bot]`.
+
+It uses the job's existing `GITHUB_TOKEN` (`contents: write`) against
+`api.github.com`; there are no signing keys, extra secrets, or third-party
+actions. Unit tests live in `scripts/__tests__/signed-commit.test.mjs`.
